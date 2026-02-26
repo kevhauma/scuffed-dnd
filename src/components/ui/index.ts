@@ -52,4 +52,6 @@ export { Dialog } from './Dialog/Dialog';
 export type { DialogProps } from './Dialog/Dialog';
 export { FormulaEditor } from './FormulaEditor/FormulaEditor';
 export type { FormulaEditorProps } from './FormulaEditor/FormulaEditor';
+export { ValidationReport } from './ValidationReport/ValidationReport';
+export type { ValidationReportProps, ValidationIssue, ValidationSeverity } from './ValidationReport/ValidationReport';
 
