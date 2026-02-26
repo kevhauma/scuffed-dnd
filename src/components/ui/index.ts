@@ -50,4 +50,6 @@ export { Label } from './Label/Label';
 export type { LabelProps } from './Label/Label';
 export { Dialog } from './Dialog/Dialog';
 export type { DialogProps } from './Dialog/Dialog';
+export { FormulaEditor } from './FormulaEditor/FormulaEditor';
+export type { FormulaEditorProps } from './FormulaEditor/FormulaEditor';
 

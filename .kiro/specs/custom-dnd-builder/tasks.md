@@ -192,7 +192,7 @@ This plan implements a browser-based React application for creating and playing 
     - Encapsulate intrinsic styles only
     - _Requirements: 21.1-21.5, 22.1-22.6_
   
-  - [ ] 10.9 Create FormulaEditor component
+  - [x] 10.9 Create FormulaEditor component
     - Use base Input component
     - Implement formula input with syntax highlighting
     - Add autocomplete for available skill codes
