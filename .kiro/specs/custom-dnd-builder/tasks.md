@@ -111,15 +111,15 @@ This plan implements a browser-based React application for creating and playing 
     - Generate validation report with all issues
     - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.5, 18.6_
 
-- [ ] 8. Create Zustand stores
-  - [ ] 8.1 Create ConfigStore
+- [x] 8. Create Zustand stores
+  - [x] 8.1 Create ConfigStore
     - Initialize empty configuration state
     - Implement actions for CRUD operations on all config entities
     - Implement auto-save to LocalStorage on changes
     - Implement load from LocalStorage on init
     - _Requirements: 1.1, 1.2, 1.3, 17.1, 17.3_
   
-  - [ ] 8.2 Create CharacterStore
+  - [x] 8.2 Create CharacterStore
     - Initialize character list state
     - Implement character CRUD operations
     - Implement inventory management actions
@@ -128,7 +128,7 @@ This plan implements a browser-based React application for creating and playing 
     - Implement load from LocalStorage on init
     - _Requirements: 11.1, 12.5, 12.6, 14.2, 17.2, 17.4_
   
-  - [ ] 8.3 Create UIStore
+  - [x] 8.3 Create UIStore
     - Implement mode switching (config/play)
     - Implement dialog state management
     - Implement validation result storage
