@@ -39,7 +39,7 @@ This plan implements a browser-based React application for creating and playing 
     - Support variable references (3-letter skill codes)
     - _Requirements: 16.1, 16.2, 3.2_
   
-  - [ ] 3.2 Create formula evaluator
+  - [x] 3.2 Create formula evaluator
     - Implement AST evaluation with FormulaContext
     - Handle arithmetic operations with proper precedence
     - Return calculated numeric results
