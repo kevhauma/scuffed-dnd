@@ -65,7 +65,7 @@ This plan implements a browser-based React application for creating and playing 
     - Apply focus stat bonus if applicable
     - _Requirements: 4.3, 4.4, 9.3_
   
-  - [ ] 4.3 Create combat skill bonus calculator
+  - [x] 4.3 Create combat skill bonus calculator
     - Calculate bonus from formula referencing main and speciality skills
     - Support equipment bonuses in calculation
     - _Requirements: 5.4, 13.3_

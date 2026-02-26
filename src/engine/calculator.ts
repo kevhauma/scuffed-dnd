@@ -12,6 +12,7 @@ import type { Character } from '../types/character';
 export * from './calculators/mainSkillCalculator';
 export * from './calculators/statCalculator';
 export * from './calculators/specialitySkillCalculator';
+export * from './calculators/combatSkillCalculator';
 
 // Import for convenience function
 import { calculateTotalMainSkillLevels } from './calculators/mainSkillCalculator';
