@@ -34,8 +34,8 @@
 // defined in src/styles.css to maintain consistent theming throughout the app.
 
 // Export base components here as they are created
-// Example:
-// export { Button } from './Button';
+export { Button } from './Button/Button';
+export type { ButtonProps } from './Button/Button';
 // export { Input } from './Input';
 // export { Card } from './Card';
 

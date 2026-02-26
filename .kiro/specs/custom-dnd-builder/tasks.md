@@ -135,11 +135,11 @@ This plan implements a browser-based React application for creating and playing 
     - Implement roll history tracking
     - _Requirements: 19.3, 15.5_
 
-- [ ] 9. Checkpoint - Ensure all tests pass
+- [x] 9. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 10. Create base component library with medieval theme
-  - [ ] 10.1 Create Button component
+  - [x] 10.1 Create Button component
     - Implement base button with medieval styling (borders, colors, hover states)
     - Support variants (primary, secondary, danger)
     - Accept className prop for positioning
