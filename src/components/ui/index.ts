@@ -46,4 +46,6 @@ export { Checkbox } from './Checkbox/Checkbox';
 export type { CheckboxProps } from './Checkbox/Checkbox';
 export { Card } from './Card/Card';
 export type { CardProps } from './Card/Card';
+export { Label } from './Label/Label';
+export type { LabelProps } from './Label/Label';
 
