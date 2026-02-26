@@ -36,6 +36,6 @@
 // Export base components here as they are created
 export { Button } from './Button/Button';
 export type { ButtonProps } from './Button/Button';
-// export { Input } from './Input';
-// export { Card } from './Card';
+export { Input } from './Input/Input';
+export type { InputProps } from './Input/Input';
 

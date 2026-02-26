@@ -146,7 +146,7 @@ This plan implements a browser-based React application for creating and playing 
     - Encapsulate intrinsic styles only (no margin/positioning)
     - _Requirements: 21.1-21.5, 22.1-22.6_
   
-  - [ ] 10.2 Create Input component
+  - [x] 10.2 Create Input component
     - Implement text input with medieval styling (parchment-like background, borders)
     - Support different input types (text, number)
     - Accept className prop for positioning
