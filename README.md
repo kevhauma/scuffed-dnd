@@ -1,204 +1,92 @@
-Welcome to your new TanStack Start app! 
+# Custom DnD Builder
 
-# Getting Started
+A browser-based React application for creating fully customizable tabletop RPG experiences.
 
-To run this application:
+## Project Structure
+
+```
+src/
+├── routes/                    # TanStack Router file-based routes
+│   ├── __root.tsx            # Root layout with mode switcher
+│   ├── index.tsx             # Landing page
+│   ├── config/               # Configuration mode routes
+│   │   ├── index.tsx         # Config dashboard
+│   │   ├── skills.tsx        # Main/Speciality/Combat skills
+│   │   ├── stats.tsx         # Stats configuration
+│   │   ├── materials.tsx     # Materials and categories
+│   │   ├── items.tsx         # Items and equipment slots
+│   │   ├── races.tsx         # Race configuration
+│   │   └── currency.tsx      # Currency tiers
+│   └── play/                 # Play mode routes
+│       ├── index.tsx         # Character list
+│       ├── character.$id.tsx # Character sheet
+│       └── create.tsx        # Character creation
+├── stores/                   # Zustand state stores
+├── engine/                   # Core logic
+│   └── formula/             # Formula engine
+├── services/                # External interactions
+├── components/              # Reusable UI components
+│   ├── config/             # Configuration components
+│   ├── play/               # Play mode components
+│   └── shared/             # Shared components
+├── types/                   # TypeScript type definitions
+└── utils/                   # Utility functions
+```
+
+## Technology Stack
+
+- **Framework**: React 19 with TypeScript
+- **Build Tool**: Vite
+- **Routing**: TanStack Router (file-based routing)
+- **State Management**: Zustand
+- **Styling**: Tailwind CSS
+- **Testing**: Vitest + fast-check
+
+## Getting Started
 
 ```bash
+# Install dependencies
 yarn install
-yarn run dev
+
+# Start development server
+yarn dev
+
+# Run tests
+yarn test
+
+# Build for production
+yarn build
 ```
 
-# Building For Production
+## Features
 
-To build this application for production:
+### Configuration Mode
+- Define custom skills with 3-letter codes
+- Create stats with formula-based calculations
+- Build materials with bonuses and tiers
+- Design items and equipment systems
+- Configure races with skill modifiers
+- Set up multi-tier currency systems
 
-```bash
-yarn run build
-```
+### Play Mode
+- Create characters with your custom system
+- Manage inventory and equipment
+- Track stats and skill progression
+- Roll combat skills with dice simulation
+- All data stored locally in browser
 
-## Testing
+## Development
 
-This project uses [Vitest](https://vitest.dev/) for testing. You can run the tests with:
+The application uses file-based routing with TanStack Router. Routes are automatically generated from the `src/routes/` directory structure.
 
-```bash
-yarn run test
-```
-
-## Styling
-
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
-
-### Removing Tailwind CSS
-
-If you prefer not to use Tailwind CSS:
-
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Uninstall the packages: `yarn add @tailwindcss/vite tailwindcss --dev`
+All data persists in browser LocalStorage with import/export capabilities for sharing configurations.
 
 ## Linting & Formatting
 
-This project uses [Biome](https://biomejs.dev/) for linting and formatting. The following scripts are available:
-
+This project uses [Biome](https://biomejs.dev/) for linting and formatting:
 
 ```bash
 yarn run lint
 yarn run format
 yarn run check
 ```
-
-
-
-## Routing
-
-This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
-
-### Adding A Route
-
-To add a new route to your application just add a new file in the `./src/routes` directory.
-
-TanStack will automatically generate the content of the route file for you.
-
-Now that you have two routes you can use a `Link` component to navigate between them.
-
-### Adding Links
-
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
-
-```tsx
-import { Link } from "@tanstack/react-router";
-```
-
-Then anywhere in your JSX you can use it like so:
-
-```tsx
-<Link to="/about">About</Link>
-```
-
-This will create a link that will navigate to the `/about` route.
-
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
-
-### Using A Layout
-
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you render `{children}` in the `shellComponent`.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-
-export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'My App' },
-    ],
-  }),
-  shellComponent: ({ children }) => (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <header>
-          <nav>
-            <Link to="/">Home</Link>
-            <Link to="/about">About</Link>
-          </nav>
-        </header>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  ),
-})
-```
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-## Server Functions
-
-TanStack Start provides server functions that allow you to write server-side code that seamlessly integrates with your client components.
-
-```tsx
-import { createServerFn } from '@tanstack/react-start'
-
-const getServerTime = createServerFn({
-  method: 'GET',
-}).handler(async () => {
-  return new Date().toISOString()
-})
-
-// Use in a component
-function MyComponent() {
-  const [time, setTime] = useState('')
-  
-  useEffect(() => {
-    getServerTime().then(setTime)
-  }, [])
-  
-  return <div>Server time: {time}</div>
-}
-```
-
-## API Routes
-
-You can create API routes by using the `server` property in your route definitions:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { json } from '@tanstack/react-start'
-
-export const Route = createFileRoute('/api/hello')({
-  server: {
-    handlers: {
-      GET: () => json({ message: 'Hello, World!' }),
-    },
-  },
-})
-```
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-
-export const Route = createFileRoute('/people')({
-  loader: async () => {
-    const response = await fetch('https://swapi.dev/api/people')
-    return response.json()
-  },
-  component: PeopleComponent,
-})
-
-function PeopleComponent() {
-  const data = Route.useLoaderData()
-  return (
-    <ul>
-      {data.results.map((person) => (
-        <li key={person.name}>{person.name}</li>
-      ))}
-    </ul>
-  )
-}
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-# Demo files
-
-Files prefixed with `demo` can be safely deleted. They are there to provide a starting point for you to play around with the features you've installed.
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
-
-For TanStack Start specific documentation, visit [TanStack Start](https://tanstack.com/start).
