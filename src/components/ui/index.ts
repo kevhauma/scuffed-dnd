@@ -44,4 +44,6 @@ export { Textarea } from './Textarea/Textarea';
 export type { TextareaProps } from './Textarea/Textarea';
 export { Checkbox } from './Checkbox/Checkbox';
 export type { CheckboxProps } from './Checkbox/Checkbox';
+export { Card } from './Card/Card';
+export type { CardProps } from './Card/Card';
 

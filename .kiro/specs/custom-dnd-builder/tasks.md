@@ -172,7 +172,7 @@ This plan implements a browser-based React application for creating and playing 
     - Encapsulate intrinsic styles only
     - _Requirements: 21.1-21.5, 22.1-22.6_
   
-  - [ ] 10.6 Create Card component
+  - [x] 10.6 Create Card component
     - Implement card container with parchment/medieval styling
     - Support header and footer sections
     - Accept className prop for positioning
