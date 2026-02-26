@@ -160,7 +160,7 @@ This plan implements a browser-based React application for creating and playing 
     - Encapsulate intrinsic styles only
     - _Requirements: 21.1-21.5, 22.1-22.6_
   
-  - [ ] 10.4 Create Textarea component
+  - [x] 10.4 Create Textarea component
     - Implement textarea with medieval styling
     - Accept className prop for positioning
     - Encapsulate intrinsic styles only
