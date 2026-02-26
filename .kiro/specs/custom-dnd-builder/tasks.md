@@ -32,7 +32,7 @@ This plan implements a browser-based React application for creating and playing 
     - Define DiceConfig and dice result types
     - _Requirements: 16.1, 5.2_
 
-- [ ] 3. Implement formula engine
+- [x] 3. Implement formula engine
   - [x] 3.1 Create formula parser
     - Implement tokenizer for formula strings
     - Build AST parser supporting +, -, *, /, parentheses
@@ -45,7 +45,7 @@ This plan implements a browser-based React application for creating and playing 
     - Return calculated numeric results
     - _Requirements: 3.4, 4.4, 5.4_
   
-  - [ ] 3.3 Create formula validator
+  - [x] 3.3 Create formula validator
     - Validate formula syntax and return clear error messages
     - Detect undefined variable references
     - Detect circular dependencies in formula chains
