@@ -48,4 +48,6 @@ export { Card } from './Card/Card';
 export type { CardProps } from './Card/Card';
 export { Label } from './Label/Label';
 export type { LabelProps } from './Label/Label';
+export { Dialog } from './Dialog/Dialog';
+export type { DialogProps } from './Dialog/Dialog';
 
