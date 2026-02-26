@@ -153,7 +153,7 @@ This plan implements a browser-based React application for creating and playing 
     - Encapsulate intrinsic styles only
     - _Requirements: 21.1-21.5, 22.1-22.6_
   
-  - [ ] 10.3 Create Select component
+  - [x] 10.3 Create Select component
     - Implement dropdown select with medieval styling
     - Support multi-select variant
     - Accept className prop for positioning
