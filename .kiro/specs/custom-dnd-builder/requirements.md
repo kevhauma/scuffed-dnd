@@ -279,3 +279,30 @@ This document specifies requirements for a custom DnD experience builder - a Rea
 5. THE Application SHALL NOT include any predefined Races
 6. THE Application SHALL NOT include any predefined Currency_Tiers
 7. WHEN a new Configuration is created, THE Application SHALL start with empty systems requiring User input
+
+### Requirement 21: Component Library Architecture
+
+**User Story:** As a Developer, I want a clear separation between base UI components and feature components, so that the application maintains consistent styling and reusable components.
+
+#### Acceptance Criteria
+
+1. THE Application SHALL provide a component library containing all base UI components (inputs, buttons, selects, textareas, checkboxes, etc.)
+2. THE base components SHALL encapsulate all intrinsic styling (colors, borders, padding, typography, hover states, focus states)
+3. THE base components SHALL NOT include positioning styles (margin, flex properties, grid properties, absolute/relative positioning)
+4. THE feature components SHALL use base components from the component library exclusively
+5. THE feature components SHALL handle all layout and positioning concerns (flexbox, grid, margins, spacing)
+6. THE base components SHALL accept className props to allow feature components to add positioning styles when needed
+7. THE Application SHALL maintain visual consistency by centralizing all base component styling in the component library
+
+### Requirement 22: Medieval Visual Theme
+
+**User Story:** As a User and Player, I want the application to have a medieval aesthetic, so that it feels appropriate for a tabletop RPG experience.
+
+#### Acceptance Criteria
+
+1. THE Application SHALL use a medieval-inspired visual theme throughout the interface
+2. THE visual design SHALL evoke a medieval aesthetic without requiring highly detailed ornamentation
+3. THE Application SHALL avoid modern UI patterns that break immersion (e.g., overly flat design, neon colors, modern sans-serif fonts as primary typography)
+4. THE Application SHALL use design elements that suggest a fantasy/medieval context (e.g., parchment-like backgrounds, serif or medieval-style fonts, earthy color palettes, subtle textures)
+5. THE medieval theme SHALL remain subtle enough to not interfere with usability and readability
+6. THE Application SHALL maintain accessibility standards while applying the medieval theme

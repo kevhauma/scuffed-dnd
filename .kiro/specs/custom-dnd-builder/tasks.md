@@ -6,13 +6,14 @@ This plan implements a browser-based React application for creating and playing 
 
 ## Tasks
 
-- [ ] 1. Project setup and core infrastructure
-  - Initialize Vite project with React and TypeScript
-  - Install dependencies: TanStack Router, Zustand, Tailwind CSS, Vitest, fast-check
-  - Configure Tailwind CSS
+- [x] 1. Project setup and core infrastructure
+  - Install dependencies: Zustand, Tailwind CSS, Vitest, fast-check
+  - Configure Tailwind CSS with medieval theme (fonts, colors, textures)
+  - Add medieval/fantasy fonts (serif or medieval-style typefaces)
+  - Define earthy color palette (browns, tans, dark greens, muted golds)
   - Set up TanStack Router file-based routing structure
-  - Create basic project directory structure (routes, stores, engine, services, components, types, utils)
-  - _Requirements: 1.1, 19.1, 19.2_
+  - Create basic project directory structure (routes, stores, engine, services, components, types, utils, components/ui)
+  - _Requirements: 1.1, 19.1, 19.2, 22.1-22.6_
 
 - [ ] 2. Define core TypeScript types and data models
   - [ ] 2.1 Create configuration types
@@ -137,130 +138,212 @@ This plan implements a browser-based React application for creating and playing 
 - [ ] 9. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 10. Create shared UI components
-  - [ ] 10.1 Create FormulaEditor component
+- [ ] 10. Create base component library with medieval theme
+  - [ ] 10.1 Create Button component
+    - Implement base button with medieval styling (borders, colors, hover states)
+    - Support variants (primary, secondary, danger)
+    - Accept className prop for positioning
+    - Encapsulate intrinsic styles only (no margin/positioning)
+    - _Requirements: 21.1-21.5, 22.1-22.6_
+  
+  - [ ] 10.2 Create Input component
+    - Implement text input with medieval styling (parchment-like background, borders)
+    - Support different input types (text, number)
+    - Accept className prop for positioning
+    - Encapsulate intrinsic styles only
+    - _Requirements: 21.1-21.5, 22.1-22.6_
+  
+  - [ ] 10.3 Create Select component
+    - Implement dropdown select with medieval styling
+    - Support multi-select variant
+    - Accept className prop for positioning
+    - Encapsulate intrinsic styles only
+    - _Requirements: 21.1-21.5, 22.1-22.6_
+  
+  - [ ] 10.4 Create Textarea component
+    - Implement textarea with medieval styling
+    - Accept className prop for positioning
+    - Encapsulate intrinsic styles only
+    - _Requirements: 21.1-21.5, 22.1-22.6_
+  
+  - [ ] 10.5 Create Checkbox component
+    - Implement checkbox with medieval styling
+    - Accept className prop for positioning
+    - Encapsulate intrinsic styles only
+    - _Requirements: 21.1-21.5, 22.1-22.6_
+  
+  - [ ] 10.6 Create Card component
+    - Implement card container with parchment/medieval styling
+    - Support header and footer sections
+    - Accept className prop for positioning
+    - Encapsulate intrinsic styles only
+    - _Requirements: 21.1-21.5, 22.1-22.6_
+  
+  - [ ] 10.7 Create Label component
+    - Implement form label with medieval typography
+    - Accept className prop for positioning
+    - Encapsulate intrinsic styles only
+    - _Requirements: 21.1-21.5, 22.1-22.6_
+  
+  - [ ] 10.8 Create Dialog component
+    - Implement modal dialog with medieval styling
+    - Support header, body, footer sections
+    - Accept className prop for positioning
+    - Encapsulate intrinsic styles only
+    - _Requirements: 21.1-21.5, 22.1-22.6_
+  
+  - [ ] 10.9 Create FormulaEditor component
+    - Use base Input component
     - Implement formula input with syntax highlighting
     - Add autocomplete for available skill codes
     - Display real-time validation feedback
     - Show error messages for invalid formulas
-    - _Requirements: 3.3, 4.5, 16.4_
+    - Handle layout/positioning with className
+    - _Requirements: 3.3, 4.5, 16.4, 21.1-21.5_
   
-  - [ ] 10.2 Create ValidationReport component
+  - [ ] 10.10 Create ValidationReport component
+    - Use base Card component
     - Display validation issues grouped by severity
     - Make issues clickable to navigate to problem area
     - Show summary count of issues
-    - _Requirements: 18.5, 18.6_
-  
-  - [ ] 10.3 Create basic form components
-    - Create reusable input, select, button components
-    - Style with Tailwind CSS
-    - Ensure accessibility compliance
+    - Handle layout/positioning with className
+    - _Requirements: 18.5, 18.6, 21.1-21.5_
 
 - [ ] 11. Implement configuration mode UI components
   - [ ] 11.1 Create SkillsConfigPanel component
+    - Use base components (Button, Input, Card, Label) exclusively
     - Display main skills list with add/edit/delete actions
     - Enforce unique 3-letter codes
     - Show dependency warnings before deletion
     - Display speciality skills with formula editor
     - Display combat skills with dice configuration
-    - _Requirements: 2.1, 2.2, 2.4, 2.5, 2.6, 4.1, 4.2, 4.3, 5.1, 5.2, 5.3_
+    - Handle all layout/positioning in this component
+    - _Requirements: 2.1, 2.2, 2.4, 2.5, 2.6, 4.1, 4.2, 4.3, 5.1, 5.2, 5.3, 21.1-21.5_
   
   - [ ] 11.2 Create StatsConfigPanel component
+    - Use base components (Button, Input, Card, Label) exclusively
     - Display stats list with add/edit/delete actions
     - Integrate FormulaEditor for stat formulas
     - Show preview of calculated values with sample inputs
-    - _Requirements: 3.1, 3.2, 3.3_
+    - Handle all layout/positioning in this component
+    - _Requirements: 3.1, 3.2, 3.3, 21.1-21.5_
   
   - [ ] 11.3 Create MaterialsConfigPanel component
+    - Use base components (Button, Input, Select, Card, Label) exclusively
     - Display material categories with CRUD operations
     - Display materials nested under categories
     - Display material levels with bonus/penalty editor
     - Implement value editor with currency tier selection
-    - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7_
+    - Handle all layout/positioning in this component
+    - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 21.1-21.5_
   
   - [ ] 11.4 Create ItemsConfigPanel component
+    - Use base components (Button, Input, Select, Card, Label) exclusively
     - Display items list with filtering by category
     - Implement material assignment dropdown
     - Implement equipment slot type selector
     - Support optional material and equipment slot
-    - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
+    - Handle all layout/positioning in this component
+    - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 21.1-21.5_
   
   - [ ] 11.5 Create RacesConfigPanel component
+    - Use base components (Button, Input, Card, Label) exclusively
     - Display races list with add/edit/delete actions
     - Implement skill modifier editor for main skills
     - Show preview of total modifiers
-    - _Requirements: 8.1, 8.2, 8.5_
+    - Handle all layout/positioning in this component
+    - _Requirements: 8.1, 8.2, 8.5, 21.1-21.5_
   
   - [ ] 11.6 Create CurrencyConfigPanel component
+    - Use base components (Button, Input, Card, Label) exclusively
     - Display ordered currency tiers list
     - Implement drag-to-reorder functionality
     - Implement conversion rate editor
     - Show conversion calculator preview
-    - _Requirements: 10.1, 10.2, 10.3, 10.5_
+    - Handle all layout/positioning in this component
+    - _Requirements: 10.1, 10.2, 10.3, 10.5, 21.1-21.5_
   
   - [ ] 11.7 Create EquipmentSlotsConfig component
+    - Use base components (Button, Input, Card, Label) exclusively
     - Display equipment slot types with CRUD operations
-    - _Requirements: 7.5_
+    - Handle all layout/positioning in this component
+    - _Requirements: 7.5, 21.1-21.5_
   
   - [ ] 11.8 Create FocusStatConfig component
+    - Use base components (Button, Input, Card, Label) exclusively
     - Configure focus stat bonus level
-    - _Requirements: 9.1_
+    - Handle all layout/positioning in this component
+    - _Requirements: 9.1, 21.1-21.5_
 
 - [ ] 12. Implement play mode UI components
   - [ ] 12.1 Create CharacterList component
+    - Use base components (Button, Card) exclusively
     - Display all characters with names and summary info
     - Implement create character button
     - Implement delete character action with confirmation
     - Implement select character navigation
-    - _Requirements: 11.1, 17.4_
+    - Handle all layout/positioning in this component
+    - _Requirements: 11.1, 17.4, 21.1-21.5_
   
   - [ ] 12.2 Create CharacterCreationWizard component
+    - Use base components (Button, Input, Select, Card, Label) exclusively
     - Step 1: Name input and race selection (multi-select)
     - Step 2: Main skill point allocation with validation
     - Step 3: Focus stat selection (one main or speciality skill)
     - Step 4: Review and confirm
     - Calculate all derived values automatically
     - Initialize empty inventory with equipment slots
-    - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6_
+    - Handle all layout/positioning in this component
+    - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 21.1-21.5_
   
   - [ ] 12.3 Create CharacterSheet component
+    - Use base components (Button, Input, Card, Label) exclusively
     - Display character header (name, races)
     - Display main skills with racial bonuses shown separately
     - Display stats with current/max values and edit controls
     - Display speciality skills (calculated, read-only)
     - Display combat skills with roll buttons
     - Integrate InventoryPanel
-    - _Requirements: 8.5, 13.4, 14.1, 14.2_
+    - Handle all layout/positioning in this component
+    - _Requirements: 8.5, 13.4, 14.1, 14.2, 21.1-21.5_
   
   - [ ] 12.4 Create InventoryPanel component
+    - Use base components (Button, Select, Card, Label) exclusively
     - Display equipment slots grid
     - Display miscellaneous items list
     - Implement drag-and-drop item assignment
     - Implement add item from catalog
     - Implement remove item action
     - Validate equipment slot type matches when assigning
-    - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6_
+    - Handle all layout/positioning in this component
+    - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 21.1-21.5_
   
   - [ ] 12.5 Create CombatSkillRoller component
+    - Use base components (Button, Card) exclusively
     - Display roll button for each combat skill
-    - Implement animated dice display
+    - Implement animated dice display with medieval aesthetics
     - Show result breakdown (individual dice, bonus, total)
     - Maintain roll history for session
-    - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5_
+    - Handle all layout/positioning in this component
+    - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5, 21.1-21.5, 22.1-22.6_
   
   - [ ] 12.6 Create StatEditor component
+    - Use base components (Button, Input, Label) exclusively
     - Display current and maximum stat values
     - Allow editing current values
     - Prevent current from exceeding maximum
     - Allow negative current values
-    - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5_
+    - Handle all layout/positioning in this component
+    - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5, 21.1-21.5_
 
 - [ ] 13. Implement routing and layout
   - [ ] 13.1 Create root layout
-    - Implement mode switcher (config/play)
+    - Use base components (Button, Card) exclusively
+    - Implement mode switcher (config/play) with medieval styling
     - Create navigation for each mode
     - Prevent config modification in play mode
-    - _Requirements: 19.1, 19.2, 19.3, 19.4, 19.5, 19.6_
+    - Handle all layout/positioning in this component
+    - _Requirements: 19.1, 19.2, 19.3, 19.4, 19.5, 19.6, 21.1-21.5, 22.1-22.6_
   
   - [ ] 13.2 Create configuration mode routes
     - /config - Dashboard with validation status
@@ -287,15 +370,19 @@ This plan implements a browser-based React application for creating and playing 
 
 - [ ] 15. Implement import/export UI
   - [ ] 15.1 Create export button in config mode
+    - Use base Button component
     - Trigger JSON file download with current configuration
-    - _Requirements: 1.4_
+    - Handle layout/positioning with className
+    - _Requirements: 1.4, 21.1-21.5_
   
   - [ ] 15.2 Create import button in config mode
+    - Use base Button and Dialog components
     - Open file picker for JSON files
     - Validate imported configuration
     - Show validation errors if any
     - Apply configuration if valid
-    - _Requirements: 1.5, 1.6_
+    - Handle layout/positioning with className
+    - _Requirements: 1.5, 1.6, 21.1-21.5_
 
 - [ ] 16. Implement currency conversion utilities
   - [ ] 16.1 Create currency converter
@@ -311,10 +398,12 @@ This plan implements a browser-based React application for creating and playing 
     - _Requirements: 17.1, 17.2, 17.3, 17.4_
   
   - [ ] 17.2 Implement validation UI integration
+    - Use base components (Button, Card) exclusively
     - Add validation status indicator to config dashboard
     - Add "Validate Configuration" button
     - Display ValidationReport when validation runs
-    - _Requirements: 18.5, 18.6_
+    - Handle layout/positioning with className
+    - _Requirements: 18.5, 18.6, 21.1-21.5_
   
   - [ ] 17.3 Test multi-race character support
     - Verify bonuses combine additively
@@ -326,6 +415,20 @@ This plan implements a browser-based React application for creating and playing 
     - Verify speciality skills recalculate when dependencies change
     - Verify combat bonuses recalculate when equipment changes
     - _Requirements: 3.6, 13.3_
+  
+  - [ ] 17.5 Verify medieval theme consistency
+    - Check all components use medieval styling consistently
+    - Verify fonts, colors, and textures applied throughout
+    - Test accessibility with medieval theme
+    - Ensure readability and usability maintained
+    - _Requirements: 22.1-22.6_
+  
+  - [ ] 17.6 Verify component library architecture
+    - Ensure all feature components use base components exclusively
+    - Verify base components have no positioning styles
+    - Verify feature components handle all layout/positioning
+    - Check className props work correctly for positioning
+    - _Requirements: 21.1-21.5_
 
 - [ ] 18. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
@@ -338,3 +441,6 @@ This plan implements a browser-based React application for creating and playing 
 - The implementation follows a bottom-up approach: data models → logic → state → UI
 - All formula-related functionality is centralized in the formula engine
 - LocalStorage auto-save ensures no data loss during development
+- Base component library (components/ui) encapsulates medieval theme and intrinsic styling
+- Feature components use base components exclusively and handle all layout/positioning
+- Medieval theme uses earthy colors, serif/medieval fonts, parchment textures while maintaining accessibility
