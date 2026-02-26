@@ -102,8 +102,8 @@ This plan implements a browser-based React application for creating and playing 
     - Validate imported configuration before applying
     - _Requirements: 1.4, 1.5, 1.6_
 
-- [ ] 7. Implement configuration validation service
-  - [ ] 7.1 Create configuration validator
+- [x] 7. Implement configuration validation service
+  - [x] 7.1 Create configuration validator
     - Validate formula references point to existing skills
     - Validate equipment slot types referenced by items exist
     - Validate material categories referenced by materials exist
