@@ -52,7 +52,7 @@ This plan implements a browser-based React application for creating and playing 
     - Return list of referenced variables
     - _Requirements: 3.3, 4.5, 16.4, 16.5, 16.6, 18.1, 18.2_
 
-- [ ] 4. Implement calculation engine
+- [x] 4. Implement calculation engine
   - [x] 4.1 Create stat calculator
     - Calculate maximum stat values from formulas and main skill levels
     - Recalculate when main skill levels change
@@ -70,7 +70,7 @@ This plan implements a browser-based React application for creating and playing 
     - Support equipment bonuses in calculation
     - _Requirements: 5.4, 13.3_
   
-  - [ ] 4.4 Create equipment bonus aggregator
+  - [x] 4.4 Create equipment bonus aggregator
     - Collect bonuses from all equipped items
     - Combine bonuses additively
     - Apply material bonuses from items

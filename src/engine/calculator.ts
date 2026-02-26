@@ -13,6 +13,7 @@ export * from './calculators/mainSkillCalculator';
 export * from './calculators/statCalculator';
 export * from './calculators/specialitySkillCalculator';
 export * from './calculators/combatSkillCalculator';
+export * from './calculators/equipmentBonusCalculator';
 
 // Import for convenience function
 import { calculateTotalMainSkillLevels } from './calculators/mainSkillCalculator';
