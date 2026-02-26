@@ -33,7 +33,7 @@ This plan implements a browser-based React application for creating and playing 
     - _Requirements: 16.1, 5.2_
 
 - [ ] 3. Implement formula engine
-  - [ ] 3.1 Create formula parser
+  - [x] 3.1 Create formula parser
     - Implement tokenizer for formula strings
     - Build AST parser supporting +, -, *, /, parentheses
     - Support variable references (3-letter skill codes)
