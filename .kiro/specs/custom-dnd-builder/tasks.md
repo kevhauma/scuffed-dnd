@@ -166,7 +166,7 @@ This plan implements a browser-based React application for creating and playing 
     - Encapsulate intrinsic styles only
     - _Requirements: 21.1-21.5, 22.1-22.6_
   
-  - [ ] 10.5 Create Checkbox component
+  - [x] 10.5 Create Checkbox component
     - Implement checkbox with medieval styling
     - Accept className prop for positioning
     - Encapsulate intrinsic styles only

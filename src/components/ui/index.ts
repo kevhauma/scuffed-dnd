@@ -42,4 +42,6 @@ export { Select } from './Select/Select';
 export type { SelectProps, SelectOption } from './Select/Select';
 export { Textarea } from './Textarea/Textarea';
 export type { TextareaProps } from './Textarea/Textarea';
+export { Checkbox } from './Checkbox/Checkbox';
+export type { CheckboxProps } from './Checkbox/Checkbox';
 
