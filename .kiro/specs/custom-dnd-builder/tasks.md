@@ -53,7 +53,7 @@ This plan implements a browser-based React application for creating and playing 
     - _Requirements: 3.3, 4.5, 16.4, 16.5, 16.6, 18.1, 18.2_
 
 - [ ] 4. Implement calculation engine
-  - [ ] 4.1 Create stat calculator
+  - [x] 4.1 Create stat calculator
     - Calculate maximum stat values from formulas and main skill levels
     - Recalculate when main skill levels change
     - Apply racial bonuses to main skills before calculation
