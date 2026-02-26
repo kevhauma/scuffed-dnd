@@ -59,7 +59,7 @@ This plan implements a browser-based React application for creating and playing 
     - Apply racial bonuses to main skills before calculation
     - _Requirements: 3.4, 3.6, 8.4_
   
-  - [ ] 4.2 Create speciality skill calculator
+  - [x] 4.2 Create speciality skill calculator
     - Calculate bonus from formula
     - Combine base level with formula bonus
     - Apply focus stat bonus if applicable
