@@ -104,14 +104,15 @@ src/
 │   │   ├── Card.tsx        # Base card/panel component
 │   │   ├── Label.tsx       # Base label component
 │   │   ├── Dialog.tsx      # Base dialog/modal component
-│   │   └── index.ts        # Component library exports
+│   │   └── index.ts        # Component library exports (barrel file)
 │   ├── config/             # Configuration feature components
 │   ├── play/               # Play mode feature components
 │   └── shared/             # Shared feature components
 ├── types/                   # TypeScript type definitions
 │   ├── config.ts           # Configuration types
 │   ├── character.ts        # Character types
-│   └── formula.ts          # Formula types
+│   ├── formula.ts          # Formula types
+│   └── index.ts            # Type exports (barrel file)
 ├── styles/                  # Styling configuration
 │   ├── theme.ts            # Medieval theme configuration
 │   └── tailwind.config.ts  # Tailwind customization
@@ -119,6 +120,22 @@ src/
     ├── validation.ts       # Validation helpers
     └── conversion.ts       # Currency conversion
 ```
+
+### Code Organization Standards
+
+**Barrel Files (index.ts)**
+- All barrel files must use `export *` syntax for re-exporting
+- Never explicitly list individual exports in barrel files
+- Example:
+  ```typescript
+  // ✅ Correct
+  export * from './config';
+  export * from './character';
+  
+  // ❌ Incorrect
+  export type { Configuration, MainSkill } from './config';
+  ```
+- This ensures barrel files remain maintainable and automatically include new exports
 
 ### State Management Strategy
 

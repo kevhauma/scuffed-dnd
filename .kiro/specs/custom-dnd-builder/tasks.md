@@ -15,19 +15,19 @@ This plan implements a browser-based React application for creating and playing 
   - Create basic project directory structure (routes, stores, engine, services, components, types, utils, components/ui)
   - _Requirements: 1.1, 19.1, 19.2, 22.1-22.6_
 
-- [ ] 2. Define core TypeScript types and data models
-  - [ ] 2.1 Create configuration types
+- [x] 2. Define core TypeScript types and data models
+  - [x] 2.1 Create configuration types
     - Define Configuration, MainSkill, Stat, SpecialitySkill, CombatSkill types
     - Define Material, MaterialLevel, MaterialCategory, Item, EquipmentSlot types
     - Define Race, CurrencyTier, SkillModifier, CurrencyValue types
     - _Requirements: 2.1, 2.2, 3.1, 4.1, 5.1, 6.1, 7.1, 8.1, 10.1, 20.1-20.7_
   
-  - [ ] 2.2 Create character types
+  - [x] 2.2 Create character types
     - Define Character, Inventory, CalculatedCharacter types
     - Define helper types for character state management
     - _Requirements: 11.1, 12.1, 14.1_
   
-  - [ ] 2.3 Create formula engine types
+  - [x] 2.3 Create formula engine types
     - Define FormulaAST, FormulaContext, FormulaValidationResult types
     - Define DiceConfig and dice result types
     - _Requirements: 16.1, 5.2_
