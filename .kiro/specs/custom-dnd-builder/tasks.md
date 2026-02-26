@@ -88,15 +88,15 @@ This plan implements a browser-based React application for creating and playing 
     - Return breakdown of dice results, bonus, and total
     - _Requirements: 5.5, 5.6_
 
-- [ ] 6. Implement storage service
-  - [ ] 6.1 Create LocalStorage abstraction
+- [x] 6. Implement storage service
+  - [x] 6.1 Create LocalStorage abstraction
     - Implement save/load for Configuration
     - Implement save/load for Character array
     - Handle JSON serialization/deserialization
     - Handle storage quota errors gracefully
     - _Requirements: 1.2, 17.1, 17.2, 17.3, 17.4, 17.5_
   
-  - [ ] 6.2 Create import/export service
+  - [x] 6.2 Create import/export service
     - Export Configuration as JSON file
     - Import Configuration from JSON file
     - Validate imported configuration before applying
