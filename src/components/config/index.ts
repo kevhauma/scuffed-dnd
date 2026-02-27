@@ -13,6 +13,7 @@ export * from './stats/StatsConfigPanel';
 export * from './materials/MaterialsConfigPanel';
 export * from './items/ItemsConfigPanel';
 export * from './races/RacesConfigPanel';
+export * from './currency/CurrencyConfigPanel';
 
 // Card components
 export * from './skills/main/MainSkillCard';
@@ -23,6 +24,7 @@ export * from './materials/MaterialCategoryCard';
 export * from './materials/MaterialCard';
 export * from './items/ItemCard';
 export * from './races/RaceCard';
+export * from './currency/CurrencyTierCard';
 
 // Form components
 export * from './skills/main/MainSkillFormDialog';
@@ -35,6 +37,7 @@ export * from './materials/MaterialLevelFormDialog';
 export * from './items/ItemFormDialog';
 export * from './items/EquipmentSlotFormDialog';
 export * from './races/RaceFormDialog';
+export * from './currency/CurrencyFormDialog';
 
 // Hooks
 export * from './skills/main/useMainSkillManager';
@@ -45,6 +48,7 @@ export * from './stats/useStatManager';
 export * from './materials/useMaterialManager';
 export * from './items/useItemManager';
 export * from './races/useRaceManager';
+export * from './currency/useCurrencyManager';
 
 // Shared components
 export * from './skills/shared/SkillFormFields';

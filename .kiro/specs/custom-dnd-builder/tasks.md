@@ -254,7 +254,7 @@ This plan implements a browser-based React application for creating and playing 
     - Handle all layout/positioning in this component
     - _Requirements: 8.1, 8.2, 8.5, 21.1-21.5_
   
-  - [ ] 11.6 Create CurrencyConfigPanel component
+  - [x] 11.6 Create CurrencyConfigPanel component
     - Use base components (Button, Input, Card, Label) exclusively
     - Display ordered currency tiers list
     - Implement drag-to-reorder functionality
