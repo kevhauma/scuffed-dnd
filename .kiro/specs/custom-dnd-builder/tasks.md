@@ -228,7 +228,7 @@ This plan implements a browser-based React application for creating and playing 
     - Handle all layout/positioning in this component
     - _Requirements: 3.1, 3.2, 3.3, 21.1-21.5_
   
-  - [ ] 11.3 Create MaterialsConfigPanel component
+  - [x] 11.3 Create MaterialsConfigPanel component
     - Use base components (Button, Input, Select, Card, Label) exclusively
     - Display material categories with CRUD operations
     - Display materials nested under categories
