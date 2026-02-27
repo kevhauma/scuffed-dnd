@@ -11,6 +11,7 @@ export * from './skills/combat/CombatSkillsPanel';
 export * from './skills/shared/BaseSkillPanel';
 export * from './stats/StatsConfigPanel';
 export * from './materials/MaterialsConfigPanel';
+export * from './items/ItemsConfigPanel';
 
 // Card components
 export * from './skills/main/MainSkillCard';
@@ -19,6 +20,7 @@ export * from './skills/combat/CombatSkillCard';
 export * from './stats/StatCard';
 export * from './materials/MaterialCategoryCard';
 export * from './materials/MaterialCard';
+export * from './items/ItemCard';
 
 // Form components
 export * from './skills/main/MainSkillFormDialog';
@@ -28,6 +30,8 @@ export * from './stats/StatFormDialog';
 export * from './materials/MaterialCategoryFormDialog';
 export * from './materials/MaterialFormDialog';
 export * from './materials/MaterialLevelFormDialog';
+export * from './items/ItemFormDialog';
+export * from './items/EquipmentSlotFormDialog';
 
 // Hooks
 export * from './skills/main/useMainSkillManager';
@@ -36,6 +40,7 @@ export * from './skills/combat/useCombatSkillManager';
 export * from './skills/shared/useSkillDependencies';
 export * from './stats/useStatManager';
 export * from './materials/useMaterialManager';
+export * from './items/useItemManager';
 
 // Shared components
 export * from './skills/shared/SkillFormFields';

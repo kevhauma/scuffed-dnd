@@ -237,7 +237,7 @@ This plan implements a browser-based React application for creating and playing 
     - Handle all layout/positioning in this component
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 21.1-21.5_
   
-  - [ ] 11.4 Create ItemsConfigPanel component
+  - [x] 11.4 Create ItemsConfigPanel component
     - Use base components (Button, Input, Select, Card, Label) exclusively
     - Display items list with filtering by category
     - Implement material assignment dropdown
