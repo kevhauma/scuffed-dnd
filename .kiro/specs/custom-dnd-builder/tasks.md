@@ -246,7 +246,7 @@ This plan implements a browser-based React application for creating and playing 
     - Handle all layout/positioning in this component
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 21.1-21.5_
   
-  - [ ] 11.5 Create RacesConfigPanel component
+  - [x] 11.5 Create RacesConfigPanel component
     - Use base components (Button, Input, Card, Label) exclusively
     - Display races list with add/edit/delete actions
     - Implement skill modifier editor for main skills
