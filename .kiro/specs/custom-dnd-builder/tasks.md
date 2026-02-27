@@ -220,7 +220,7 @@ This plan implements a browser-based React application for creating and playing 
     - Handle all layout/positioning in this component
     - _Requirements: 2.1, 2.2, 2.4, 2.5, 2.6, 4.1, 4.2, 4.3, 5.1, 5.2, 5.3, 21.1-21.5_
   
-  - [ ] 11.2 Create StatsConfigPanel component
+  - [x] 11.2 Create StatsConfigPanel component
     - Use base components (Button, Input, Card, Label) exclusively
     - Display stats list with add/edit/delete actions
     - Integrate FormulaEditor for stat formulas
