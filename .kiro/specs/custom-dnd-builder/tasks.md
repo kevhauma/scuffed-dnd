@@ -263,7 +263,7 @@ This plan implements a browser-based React application for creating and playing 
     - Handle all layout/positioning in this component
     - _Requirements: 10.1, 10.2, 10.3, 10.5, 21.1-21.5_
   
-  - [ ] 11.7 Create EquipmentSlotsConfig component
+  - [x] 11.7 Create EquipmentSlotsConfig component
     - Use base components (Button, Input, Card, Label) exclusively
     - Display equipment slot types with CRUD operations
     - Handle all layout/positioning in this component
