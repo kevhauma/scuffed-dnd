@@ -14,6 +14,7 @@ export * from './materials/MaterialsConfigPanel';
 export * from './items/ItemsConfigPanel';
 export * from './races/RacesConfigPanel';
 export * from './currency/CurrencyConfigPanel';
+export * from './focus/FocusStatConfig';
 
 // Card components
 export * from './skills/main/MainSkillCard';

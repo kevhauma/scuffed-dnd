@@ -269,7 +269,7 @@ This plan implements a browser-based React application for creating and playing 
     - Handle all layout/positioning in this component
     - _Requirements: 7.5, 21.1-21.5_
   
-  - [ ] 11.8 Create FocusStatConfig component
+  - [x] 11.8 Create FocusStatConfig component
     - Use base components (Button, Input, Card, Label) exclusively
     - Configure focus stat bonus level
     - Handle all layout/positioning in this component
