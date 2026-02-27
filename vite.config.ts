@@ -17,8 +17,8 @@ const config = defineConfig({
   ],
   test: {
     globals: true,
-    environment: 'jsdom',
-    setupFiles: [],
+    environment: 'happy-dom',
+    setupFiles: ['./vitest.setup.ts'],
   },
 })
 

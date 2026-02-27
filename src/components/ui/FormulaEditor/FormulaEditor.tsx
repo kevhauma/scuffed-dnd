@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Input } from '../Input/Input';
 import { Label } from '../Label/Label';
 import { containerStyles, errorMessageStyles, suggestionListStyles, suggestionItemStyles } from './FormulaEditor.style';
