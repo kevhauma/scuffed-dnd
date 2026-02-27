@@ -54,4 +54,9 @@ export { FormulaEditor } from './FormulaEditor/FormulaEditor';
 export type { FormulaEditorProps } from './FormulaEditor/FormulaEditor';
 export { ValidationReport } from './ValidationReport/ValidationReport';
 export type { ValidationReportProps, ValidationIssue, ValidationSeverity } from './ValidationReport/ValidationReport';
+export { Text } from './Text/Text';
+export type { TextProps } from './Text/Text';
+export type { TextVariant } from './Text/Text.style';
+export { FormField } from './FormField/FormField';
+export type { FormFieldProps } from './FormField/FormField';
 

@@ -210,7 +210,7 @@ This plan implements a browser-based React application for creating and playing 
     - _Requirements: 18.5, 18.6, 21.1-21.5_
 
 - [ ] 11. Implement configuration mode UI components
-  - [ ] 11.1 Create SkillsConfigPanel component
+  - [x] 11.1 Create SkillsConfigPanel component
     - Use base components (Button, Input, Card, Label) exclusively
     - Display main skills list with add/edit/delete actions
     - Enforce unique 3-letter codes
