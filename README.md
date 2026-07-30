@@ -75,6 +75,35 @@ yarn build
 - Roll combat skills with dice simulation
 - All data stored locally in browser
 
+## Specs and tickets
+
+Work is specced and ticketed under [`docs/`](docs/README.md), one folder per version:
+
+- [`v1.0_foundation/requirements.md`](docs/v1.0_foundation/requirements.md) — numbered requirements with EARS-style acceptance criteria and the domain glossary
+- [`v1.0_foundation/design.md`](docs/v1.0_foundation/design.md) — architecture, component contracts, data models, theme
+- [`v1.0_foundation/overview.md`](docs/v1.0_foundation/overview.md) — what's built and what's next, in build order
+- [`v1.0_foundation/tickets/`](docs/v1.0_foundation/tickets/) — one file per ticket: user story, as-is, to-be, acceptance criteria
+- [`v1.0_foundation/tasks.md`](docs/v1.0_foundation/tasks.md) — the original numbered plan, kept because older commits reference its task numbers
+
+Commits are named after the ticket they complete (`TICKET-CHAR-01 Create CharacterList component`);
+older ones use plan task numbers (`11.8 Create FocusStatConfig component`).
+
+## Working with Claude Code
+
+[`CLAUDE.md`](CLAUDE.md) carries the project context Claude loads automatically — commands,
+architecture, hard rules, and where the rest of the knowledge lives.
+
+| Skill / command | Does |
+| --- | --- |
+| `story-ticket` | Writes a new ticket (user story, as-is, to-be, acceptance criteria) and inserts its line into the right version's `overview.md` at the right build-order position |
+| `work-ticket` | Builds one ticket end-to-end: plan → approval → implement → tick each criterion with evidence → check off the story |
+| `/spec-status` | Progress per version plus a test / typecheck / lint delta against the known baseline |
+
+Subagents: `verifier` (runs the suite, reports regressions vs. the documented baseline),
+`conventions-reviewer` (diff review against this project's rules), `spec-navigator` (requirement
+questions). Knowledge skills — `project-map`, `data-model`, `coding-conventions` — are read
+instead of re-exploring the codebase, and are updated by the ticket that changes them.
+
 ## Development
 
 The application uses file-based routing with TanStack Router. Routes are automatically generated from the `src/routes/` directory structure.
@@ -90,3 +119,6 @@ yarn run lint
 yarn run format
 yarn run check
 ```
+
+Use `yarn run check`, not `yarn check` — Yarn v1's built-in `check` command shadows the script
+and only verifies the lockfile.

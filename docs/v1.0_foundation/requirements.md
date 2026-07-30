@@ -40,6 +40,11 @@ This document specifies requirements for a custom DnD experience builder - a Rea
 5. THE Application SHALL allow Users to import configurations from JSON files
 6. THE Application SHALL prevent data loss by validating imported configurations before applying them
 
+> **Decision (2026-07-30):** the Application holds **one** configuration at a time. The plural in
+> this requirement refers to exported JSON files, not to an in-app configuration picker — keeping
+> several rulesets around is done by exporting and re-importing (criteria 4 and 5). See
+> [overview.md](./overview.md#spec-decisions-answered-2026-07-30).
+
 ### Requirement 2: Main Skills Configuration
 
 **User Story:** As a User, I want to define custom main skills, so that I can create the foundational building blocks for my game system.
@@ -117,6 +122,11 @@ This document specifies requirements for a custom DnD experience builder - a Rea
 4. THE Application SHALL allow Users to categorize Items with User-defined categories
 5. THE Application SHALL allow Users to define Equipment_Slot types (helmet, shoes, main hand, off hand, etc.)
 6. WHEN an Item has a Material, THE Application SHALL inherit the Material's bonuses
+
+> **Decision (2026-07-30):** item categories (criterion 4) are free text on the Item, not a
+> configured entity. A category exists as long as at least one Item references it; a category with
+> no Items assigned is ignored. See
+> [overview.md](./overview.md#spec-decisions-answered-2026-07-30).
 
 ### Requirement 8: Character Race Configuration
 

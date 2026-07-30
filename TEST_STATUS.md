@@ -1,15 +1,33 @@
 # Test Status
 
+_Last verified: 2026-07-30 (`yarn run test`)._
+
 ## Summary
 
-- **Total Tests**: 372
-- **Passing**: 361 (97%)
+- **Total Tests**: 420
+- **Passing**: 361 (86%)
 - **Skipped**: 11 (3%)
-- **Failing**: 0
+- **Failing**: 48 (11%)
+
+All 48 failures are the same React 19 + Vitest hooks-dispatcher issue described below, now
+reappearing in the task-11 configuration panels (which all use `useState`):
+
+| Test file | Failing |
+| --- | --- |
+| `src/components/config/focus/FocusStatConfig.test.tsx` | 15 |
+| `src/components/config/currency/CurrencyConfigPanel.test.tsx` | 11 |
+| `src/components/config/items/ItemsConfigPanel.test.tsx` | 6 |
+| `src/components/config/materials/MaterialsConfigPanel.test.tsx` | 5 |
+| `src/components/config/races/RacesConfigPanel.test.tsx` | 4 |
+| `src/components/config/items/EquipmentSlotsConfigPanel.test.tsx` | 4 |
+| `src/components/config/stats/StatsConfigPanel.test.tsx` | 3 |
+
+These were left failing rather than skipped. Fixing the root cause below would clear all of
+them at once, so it is worth doing before task 12 adds more hook-using components.
 
 ## Skipped Tests
 
-The following test suites are currently skipped due to a React 19 + Vitest compatibility issue:
+The following test suites are currently skipped due to the same React 19 + Vitest compatibility issue:
 
 ### Dialog Component (6 tests)
 - Location: `src/components/ui/Dialog/Dialog.test.tsx`

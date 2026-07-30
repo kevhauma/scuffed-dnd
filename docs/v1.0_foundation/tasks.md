@@ -1,5 +1,12 @@
 # Implementation Plan: Custom DnD Builder
 
+> **Historical plan — not the working checklist.** Tasks 1–11 were built from this plan before the
+> ticket workflow existed, and commit messages plus code comments reference these task numbers, so
+> it stays. Open work is now tracked in [overview.md](./overview.md) and its `tickets/` folder:
+> expand a plan item into a ticket with the `story-ticket` skill, build it with `work-ticket`, and
+> tick the box in **both** files when it lands. Requirement traceability below (`_Requirements:_`)
+> is still authoritative — tickets inherit it.
+
 ## Overview
 
 This plan implements a browser-based React application for creating and playing custom tabletop RPG experiences. The implementation follows a layered architecture: Data Layer (types and storage) → Core Logic (formula engine and calculators) → State Management (Zustand stores) → UI Components (configuration and play modes). The application uses TypeScript, React 18+, Vite, TanStack Router, Zustand, and Tailwind CSS.
@@ -76,7 +83,7 @@ This plan implements a browser-based React application for creating and playing 
     - Apply material bonuses from items
     - _Requirements: 13.1, 13.2, 7.6_
 
-- [ ] 5. Implement dice rolling system
+- [ ] 5. Implement dice rolling system — ticketed as [TICKET-ROLL-01](./tickets/TICKET-ROLL-01-dice-rolling-engine.md)
   - [ ] 5.1 Create dice simulator
     - Simulate rolls for d4, d6, d8, d10, d12, d20
     - Support multiple dice of each type
@@ -209,7 +216,7 @@ This plan implements a browser-based React application for creating and playing 
     - Handle layout/positioning with className
     - _Requirements: 18.5, 18.6, 21.1-21.5_
 
-- [ ] 11. Implement configuration mode UI components
+- [x] 11. Implement configuration mode UI components
   - [x] 11.1 Create SkillsConfigPanel component
     - Use base components (Button, Input, Card, Label) exclusively
     - Display main skills list with add/edit/delete actions
@@ -276,7 +283,7 @@ This plan implements a browser-based React application for creating and playing 
     - _Requirements: 9.1, 21.1-21.5_
 
 - [ ] 12. Implement play mode UI components
-  - [ ] 12.1 Create CharacterList component
+  - [ ] 12.1 Create CharacterList component — ticketed as [TICKET-CHAR-01](./tickets/TICKET-CHAR-01-character-list.md)
     - Use base components (Button, Card) exclusively
     - Display all characters with names and summary info
     - Implement create character button
@@ -285,7 +292,7 @@ This plan implements a browser-based React application for creating and playing 
     - Handle all layout/positioning in this component
     - _Requirements: 11.1, 17.4, 21.1-21.5_
   
-  - [ ] 12.2 Create CharacterCreationWizard component
+  - [ ] 12.2 Create CharacterCreationWizard component — ticketed as [TICKET-CHAR-02](./tickets/TICKET-CHAR-02-character-creation-wizard.md)
     - Use base components (Button, Input, Select, Card, Label) exclusively
     - Step 1: Name input and race selection (multi-select)
     - Step 2: Main skill point allocation with validation

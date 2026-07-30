@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(yarn run test)",
+      "Bash(yarn run lint:*)",
+      "Bash(yarn run format:*)",
+      "Bash(yarn run check:*)",
+      "Bash(npx vitest run:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ]
+  }
+}
