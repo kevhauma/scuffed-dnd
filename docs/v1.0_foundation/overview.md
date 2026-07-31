@@ -29,7 +29,7 @@ retroactively ticketed. Their detail (and requirement traceability) stays in [ta
 ## Open — in build order
 
 - [x] [TICKET-NAV-02](./tickets/TICKET-NAV-02-wire-config-routes-to-panels.md) — Mount the configuration panels on their routes (bug fix, Req 19.4 — six of the eight panels §11 built are unreachable; every `/config/*` route but the dashboard is still a placeholder) — **first**: smallest ticket in the backlog and it makes a third of the codebase reachable, so everything after it can be checked in a browser
-- [ ] [TICKET-DX-01](./tickets/TICKET-DX-01-fix-react19-vitest-hooks-failures.md) — Fix the React 19 + Vitest hooks-dispatcher failures (48 failing, 11 skipped) — early, because until it lands every ticket is verified against a baseline instead of a green suite, and each new hook-using component widens the exception list
+- [x] [TICKET-DX-01](./tickets/TICKET-DX-01-fix-react19-vitest-hooks-failures.md) — Fix the React 19 + Vitest hooks-dispatcher failures (48 failing, 11 skipped) — early, because until it lands every ticket is verified against a baseline instead of a green suite, and each new hook-using component widens the exception list
 - [ ] [TICKET-CALC-01](./tickets/TICKET-CALC-01-calculated-character-assembly.md) — Assemble `CalculatedCharacter`, apply equipment bonuses to main and speciality skills (Req 11.5, 13.1-13.3, 6.7, 9.3) — §4 was checked off with the calculators built but never composed, so every play-mode screen would otherwise invent its own arithmetic
 - [ ] [TICKET-IO-01](./tickets/TICKET-IO-01-restore-state-on-app-start.md) — Restore configuration and characters on app start (bug fix, Req 17.3, 17.4 — hydration only fires inside `/config`, and `loadCharacters()` has no caller at all) — small and independent; take it early so later tickets aren't developed against an app that only has state if you visited `/config` first
 - [ ] [TICKET-FORM-01](./tickets/TICKET-FORM-01-block-circular-formulas-on-save.md) — Block circular formulas on save and derive skill dependencies from the parser (bug fix, Req 16.5, 16.6, 2.6 — decision recorded below) — independent; do it while the config panels are freshly reachable from NAV-02
@@ -78,17 +78,17 @@ These are settled — don't re-open them without a new decision here.
 
 ## Definition of Done (applies to every ticket)
 
-Per [../../CLAUDE.md](../../CLAUDE.md): `npx vitest run` with **no new failures beyond the set
-documented in [TEST_STATUS.md](../../TEST_STATUS.md)**, `npx tsc --noEmit` clean, `yarn run lint`
-with no new errors, plus a live browser check for any UI-visible change. Persistence goes through
+Per [../../CLAUDE.md](../../CLAUDE.md): `npx vitest run` **green — 0 failures, 0 skips**,
+`npx tsc --noEmit` with no errors beyond the 9 pre-existing ones in
+[TEST_STATUS.md](../../TEST_STATUS.md), `yarn run lint` with no new errors, plus a live browser
+check for any UI-visible change. Persistence goes through
 a store action, never a direct storage-service or `localStorage` call from a component. Derived
 numbers come from the engine calculators and are never persisted onto `Character`. Feature
 components compose `components/ui` primitives and own their layout; base components never gain
 margin or positioning. Styling uses the medieval theme tokens only. `src/routeTree.gen.ts` is
 generated and never hand-edited.
 
-**The "all tests pass" checkpoint (§18) is unreachable until
-[TICKET-DX-01](./tickets/TICKET-DX-01-fix-react19-vitest-hooks-failures.md) lands** — 48 tests fail
-on a React 19 + Vitest hooks-dispatcher issue that has nothing to do with the code under test.
-Every ticket before it is judged on the no-new-failures bar; once it lands, that bar goes back to
-"the suite passes" here, in `CLAUDE.md`, and in the `verifier` subagent's brief.
+[TICKET-DX-01](./tickets/TICKET-DX-01-fix-react19-vitest-hooks-failures.md) landed on 2026-07-31,
+so the §18 "all tests pass" checkpoint is now reachable and the bar above is the strict one. The
+cause was `tanstackStart()` in the Vitest plugin pipeline double-instantiating React; tests now run
+from a dedicated `vitest.config.ts`. See [TEST_STATUS.md](../../TEST_STATUS.md).

@@ -26,10 +26,15 @@ Verification before declaring any change done: `npx vitest run` + `npx tsc --noE
 so and skip it if unavailable in the session, don't skip it silently), plus a live browser check
 for UI-visible changes.
 
-**The suite is not green and the bar is a delta, not an absolute.** 48 tests fail on a React 19 +
-Vitest hooks-dispatcher issue unrelated to the code under test, and the repo carries 35
-pre-existing lint errors plus formatting drift. [TEST_STATUS.md](TEST_STATUS.md) is the baseline;
-"passes" means *no new failures beyond it*. Never fix a failure by weakening the check.
+**The test suite is green — 400 passing, 0 failing, 0 skipped.** Any failing or newly-skipped test
+is a regression. Typecheck and lint are *not* clean: 9 pre-existing `tsc` errors and 35
+pre-existing lint errors plus formatting drift, all enumerated in
+[TEST_STATUS.md](TEST_STATUS.md), which is the baseline for those two. Never fix a failure by
+weakening the check.
+
+Tests run from [vitest.config.ts](vitest.config.ts), which deliberately omits `tanstackStart()` —
+that plugin double-instantiates React under Vitest and nulls the hooks dispatcher. Don't collapse
+it back into `vite.config.ts`; TEST_STATUS.md has the evidence.
 
 ## Where knowledge lives (read these instead of re-exploring)
 

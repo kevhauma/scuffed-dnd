@@ -2,12 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Dialog } from './Dialog';
 
-// NOTE: These tests are currently skipped due to a React 19 + Vitest compatibility issue
-// where hooks (useEffect) cause errors in the test environment. The component works correctly
-// in the actual application. This is a known issue with React 19 and certain test configurations.
-// See: https://github.com/testing-library/react-testing-library/issues/1216
-
-describe.skip('Dialog', () => {
+describe('Dialog', () => {
   it('does not render when open is false', () => {
     render(
       <Dialog open={false} onClose={() => {}} title="Test Dialog">
@@ -41,16 +36,16 @@ describe.skip('Dialog', () => {
 
   it('calls onClose when overlay is clicked', () => {
     const onClose = vi.fn();
-    render(
+    // The overlay is the outermost element Dialog renders; the dialog box inside it
+    // stops propagation, so the click has to land on the overlay itself.
+    const { container } = render(
       <Dialog open={true} onClose={onClose} title="Test Dialog">
         Content
       </Dialog>
     );
-    const overlay = screen.getByText('Test Dialog').parentElement?.parentElement;
-    if (overlay) {
-      fireEvent.click(overlay);
-      expect(onClose).toHaveBeenCalledTimes(1);
-    }
+    const overlay = container.firstChild as HTMLElement;
+    fireEvent.click(overlay);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('does not call onClose when dialog content is clicked', () => {

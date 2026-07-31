@@ -13,21 +13,22 @@ root:
 
 Run all three even if an earlier step fails, so the report is complete.
 
-**This repo is not green, and that is the point of your job.** Read
-[TEST_STATUS.md](../../TEST_STATUS.md) first — it records the known-failing tests (a React 19 +
-Vitest hooks-dispatcher issue affecting components that call `useState`) and the counts at last
-verification. `yarn run lint` likewise carries a pre-existing error/warning count, and
-`yarn run check` additionally reports large formatting drift.
+Read [TEST_STATUS.md](../../TEST_STATUS.md) first — it records the current baseline for all three
+steps.
 
-So report a **delta, not an absolute**:
+**The test suite is green (400 passing, 0 failing, 0 skipped) as of TICKET-DX-01.** For tests the
+bar is absolute: any failure, and any newly-skipped test, is a regression and is the finding. The
+old "no new failures beyond a documented list" bar is retired — do not reinstate it.
 
-- Tests: total / passed / failed / skipped, and explicitly whether the failing set matches the one
-  documented in TEST_STATUS.md. Name any test file that is failing and is *not* on that list —
-  those are regressions and are the finding.
-- Typecheck: must be clean. Any error is a regression.
-- Lint: new errors introduced by the change under review (`git diff --name-only` tells you which
-  files are in scope) versus the repo-wide pre-existing count. Do not report the pre-existing ones
-  as findings.
+Typecheck and lint are *not* clean, so those stay a delta:
+
+- Tests: total / passed / failed / skipped. Any failure or skip is a regression. Name the file and
+  diagnose it.
+- Typecheck: **9 pre-existing errors**, listed file-by-file in TEST_STATUS.md. Report only errors
+  outside that list; say "at baseline" if the set matches.
+- Lint: **35 errors / 23 warnings** pre-existing. Report new errors introduced by the change under
+  review (`git diff --name-only` tells you which files are in scope). Do not report the
+  pre-existing ones as findings. `yarn run check` additionally reports large formatting drift.
 
 Rules:
 
@@ -36,9 +37,9 @@ Rules:
   loosened types. You are read-only on source anyway: report, don't repair.
 - For each failure include the failing command, a trimmed error excerpt, the file/line, and your
   best diagnosis of the root cause.
-- If a failure looks like the known hooks-dispatcher issue, say so and cite the symptom
-  (`Cannot read properties of null (reading 'useState')` / `ReactSharedInternals.H` is null)
-  rather than lumping it in with real regressions.
+- If `Cannot read properties of null (reading 'useState')` reappears, that is the
+  hooks-dispatcher bug returning: check that `vitest.config.ts` still exists and still omits
+  `tanstackStart()`. TEST_STATUS.md explains why. It is a regression, not a known failure.
 
 Final report format: one line per step with PASS / FAIL / FAIL (known), then details only for
 regressions. If the tree is at its documented baseline, say so plainly and stop — do not pad.
