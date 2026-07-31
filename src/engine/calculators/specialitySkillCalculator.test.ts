@@ -515,4 +515,68 @@ describe('calculateSpecialitySkillLevels', () => {
       /Failed to calculate bonus for speciality skill "Melee"/
     );
   });
+
+  describe('with equipment bonuses', () => {
+    const character: Character = {
+      id: '1',
+      name: 'Test Character',
+      configurationId: 'config1',
+      raceIds: [],
+      mainSkillLevels: { STR: 10, DEX: 8 },
+      specialitySkillBaseLevels: { STL: 5 },
+      currentStatValues: {},
+      inventory: { equippedItems: {}, miscItems: [] },
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+    };
+
+    const config: Configuration = {
+      id: 'config1',
+      name: 'Test Config',
+      version: '1.0',
+      mainSkills: [
+        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      ],
+      stats: [],
+      specialitySkills: [
+        {
+          code: 'STL',
+          name: 'Stealth',
+          description: '',
+          maxBaseLevel: 10,
+          bonusFormula: 'DEX / 2', // 8 / 2 = 4
+        },
+      ],
+      combatSkills: [],
+      materials: [],
+      materialCategories: [],
+      items: [],
+      equipmentSlots: [],
+      races: [],
+      currencyTiers: [],
+      focusStatBonusLevel: 0,
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+    };
+
+    const totalMainSkillLevels = { STR: 10, DEX: 8 };
+
+    it('should add equipment bonuses that target the speciality skill', () => {
+      const result = calculateSpecialitySkillLevels(character, config, totalMainSkillLevels, [
+        { skillCode: 'STL', modifier: 3 },
+      ]);
+
+      expect(result).toEqual({ STL: 12 }); // 5 (base) + 4 (formula) + 3 (equipment)
+    });
+
+    it('should ignore equipment bonuses that target another kind of skill', () => {
+      const result = calculateSpecialitySkillLevels(character, config, totalMainSkillLevels, [
+        { skillCode: 'STR', modifier: 2 },
+        { skillCode: 'MEL', modifier: 5 },
+      ]);
+
+      expect(result).toEqual({ STL: 9 }); // 5 (base) + 4 (formula)
+    });
+  });
 });

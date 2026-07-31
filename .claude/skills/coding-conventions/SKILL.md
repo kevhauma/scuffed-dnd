@@ -78,7 +78,7 @@ Imports are relative (`../../ui/Button/Button`). The `#/*` → `./src/*` alias e
 - **Persistence belongs to the store action**: patch state, then call the storage service in the
   same action. Components never call `saveConfiguration`/`saveCharacters`/`localStorage`.
 - **Derived values are computed, never stored.** Anything downstream of a formula comes from
-  `calculateCharacterStats()` or a `calculators/*` function at read time — see the **data-model**
+  `calculateCharacter()` (the one composed entry point) at read time — see the **data-model**
   skill for why `currentStatValues` is the one exception.
 - Session-only UI state (open dialogs, roll history, active mode) lives in `useUIStore`, not in
   the persisted stores.

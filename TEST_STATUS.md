@@ -1,12 +1,12 @@
 # Test Status
 
 _Last verified: 2026-07-31 (`npx vitest run`), after
-[TICKET-DX-01](docs/v1.0_foundation/tickets/TICKET-DX-01-fix-react19-vitest-hooks-failures.md)._
+[TICKET-CALC-01](docs/v1.0_foundation/tickets/TICKET-CALC-01-calculated-character-assembly.md)._
 
 ## Summary
 
-- **Total tests**: 400
-- **Passing**: 400 (100%)
+- **Total tests**: 420
+- **Passing**: 420 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 

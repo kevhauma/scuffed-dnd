@@ -52,11 +52,11 @@ Identity rules that the rest of the app depends on:
 
 **Derived values are never persisted.** Total main-skill levels (with racial bonuses), max stat
 values, speciality totals, combat bonuses, and equipment bonuses are computed on demand from
-`src/engine/`. Note the current state: `calculateCharacterStats()` in
-[calculator.ts](../../../src/engine/calculator.ts) composes only main-skill totals → max stat
-values, and nothing produces the declared `CalculatedCharacter` yet — TICKET-CALC-01 adds that
-single entry point. If you find yourself wanting to store a computed number on `Character`, the
-answer is a recalculation call at read time instead. The one deliberate
+`src/engine/`. `calculateCharacter(character, config)` in
+[calculator.ts](../../../src/engine/calculator.ts) is the single entry point that produces a
+`CalculatedCharacter` with all five derived fields populated; `calculateCharacterStats()` is a thin
+wrapper over it for callers that only want the stat values. If you find yourself wanting to store a
+computed number on `Character`, the answer is a recalculation call at read time instead. The one deliberate
 exception is `currentStatValues` — the player's *current* HP/mana, which is state, not derivation
 (its maximum is derived; its current value is not).
 
@@ -80,9 +80,10 @@ concern, so:
 
 1. **Config edit** — panel hook calls a `useConfigStore` action → state patched → `saveConfiguration()`.
 2. **Character edit** — component calls a `useCharacterStore` action → state patched → `saveCharacters()`.
-3. **Anything displayed as a number** — component reads `calculateCharacterStats(character, config)`;
+3. **Anything displayed as a number** — component reads `calculateCharacter(character, config)`;
    the engine parses the relevant formulas and returns the `CalculatedCharacter`.
-4. **Equipment change** — inventory action updates `Inventory` → next recalculation picks up the
-   changed equipment bonuses (wiring this to the sheet is task 14.1).
+4. **Equipment change** — inventory action updates `Inventory` → next `calculateCharacter()` call
+   picks up the changed bonuses on main, speciality *and* combat skills (wiring this to the sheet
+   is task 14.1).
 5. **Import** — file → `validateConfiguration()` → `importConfiguration()` → store replaces config
    → persisted. Invalid files are rejected before anything is overwritten.

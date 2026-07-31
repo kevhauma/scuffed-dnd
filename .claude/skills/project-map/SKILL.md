@@ -80,17 +80,19 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 - `formula/evaluator.ts` — `evaluateFormula(ast, context)` where context is `{ variables: Record<code, number> }`.
 - `formula/validator.ts` — `validateFormula`, `validateFormulaCollection`, `detectCircularDependencies`.
   Returns referenced variables so callers can check them against configured skill codes.
-- `calculators/mainSkillCalculator.ts` — `calculateTotalMainSkillLevels` (base + racial modifiers).
+- `calculators/mainSkillCalculator.ts` — `calculateTotalMainSkillLevels` (base + racial + equipment
+  + focus, the last three via an options argument) and `calculateRacialSkillModifiers` (the racial
+  contribution on its own, for display).
 - `calculators/statCalculator.ts` — `calculateMaxStatValues` (stat formulas over total main skills).
-- `calculators/specialitySkillCalculator.ts` — `calculateSpecialitySkillLevels` (base + formula bonus + focus bonus).
+- `calculators/specialitySkillCalculator.ts` — `calculateSpecialitySkillLevels` (base + formula bonus + equipment + focus bonus).
 - `calculators/combatSkillCalculator.ts` — `calculateCombatSkillBonuses` (formula + equipment bonuses).
 - `calculators/equipmentBonusCalculator.ts` — `calculateEquipmentBonuses` (aggregates equipped items' material bonuses).
-- `calculator.ts` — re-exports the calculators, plus `calculateCharacterStats()`, which composes
-  **only** main-skill totals → max stat values and returns `Record<statId, number>`.
-  **There is no producer of `CalculatedCharacter` yet**, and equipment bonuses currently reach
-  combat skills only — that is TICKET-CALC-01. Until it lands, a caller needing speciality totals
-  or equipment-aware numbers has to compose the calculators by hand; prefer waiting for the ticket
-  over adding a second composition.
+- `calculator.ts` — re-exports the calculators, plus **`calculateCharacter(character, config):
+  CalculatedCharacter`**, the single composed entry point (equipment → main skills → stats →
+  speciality → combat, in that order). Call it for any derived number; don't compose the
+  calculators by hand. `calculateCharacterStats()` remains as a thin documented wrapper returning
+  just `.maxStatValues`. Each equipment bonus is claimed by exactly one step, since skill codes are
+  unique across main/speciality/combat.
 - `validator.ts` — `validateConfiguration(config): ValidationReport` (cross-entity referential
   integrity: formula refs, equipment slot types, material categories, circular formulas).
 

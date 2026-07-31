@@ -1,11 +1,14 @@
 /**
  * Speciality Skill Calculator
- * 
- * Calculates total speciality skill levels including base level, formula bonus, and focus stat bonus.
+ *
+ * Calculates total speciality skill levels including base level, formula bonus, equipment
+ * bonuses, and focus stat bonus.
+ *
+ * **Validates: Requirements 3.6, 6.7, 9.3, 16.6**
  */
 
 import type { Character } from '../../types/character';
-import type { Configuration } from '../../types/config';
+import type { Configuration, SkillModifier } from '../../types/config';
 import type { FormulaContext } from '../../types/formula';
 import { parseFormula } from '../formula/parser';
 import { evaluateFormula } from '../formula/evaluator';
@@ -16,18 +19,21 @@ import { evaluateFormula } from '../formula/evaluator';
  * Calculates the total level for each speciality skill by:
  * 1. Starting with the base level
  * 2. Adding the bonus calculated from the formula
- * 3. Adding the focus stat bonus if this skill is the character's focus stat
- * 
+ * 3. Adding equipment bonuses targeting this speciality skill's code
+ * 4. Adding the focus stat bonus if this skill is the character's focus stat
+ *
  * @param character - The character whose speciality skills to calculate
  * @param config - The game configuration containing speciality skill definitions
- * @param totalMainSkillLevels - Main skill levels with racial bonuses applied
+ * @param totalMainSkillLevels - Main skill levels with racial and equipment bonuses applied
+ * @param equipmentBonuses - Bonuses from equipped items; only those targeting a speciality skill code are used
  * @returns Record of speciality skill code to total level
  * @throws Error if formula parsing or evaluation fails
  */
 export function calculateSpecialitySkillLevels(
   character: Character,
   config: Configuration,
-  totalMainSkillLevels: Record<string, number>
+  totalMainSkillLevels: Record<string, number>,
+  equipmentBonuses: SkillModifier[] = []
 ): Record<string, number> {
   const specialitySkillLevels: Record<string, number> = {};
 
@@ -52,8 +58,13 @@ export function calculateSpecialitySkillLevels(
       );
     }
 
-    // Combine base level with formula bonus
-    let totalLevel = baseLevel + bonus;
+    // Add equipment bonuses targeting this speciality skill (Requirement 6.7)
+    const equipmentBonus = equipmentBonuses
+      .filter((modifier) => modifier.skillCode === skill.code)
+      .reduce((sum, modifier) => sum + modifier.modifier, 0);
+
+    // Combine base level with formula and equipment bonuses
+    let totalLevel = baseLevel + bonus + equipmentBonus;
 
     // Apply focus stat bonus if this skill is the character's focus stat
     if (character.focusStatCode === skill.code) {
