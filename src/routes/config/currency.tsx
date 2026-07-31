@@ -1,16 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { CurrencyConfigPanel } from '../../components/config/currency/CurrencyConfigPanel'
 
 export const Route = createFileRoute('/config/currency')({
   component: CurrencyConfig,
 })
 
-function CurrencyConfig() {
+/** Exported for tests: automatic code splitting makes `Route.options.component` a lazy wrapper. */
+export function CurrencyConfig() {
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold mb-4">Currency Configuration</h1>
-      <p className="text-gray-600">
-        Define currency tiers and conversion rates.
-      </p>
+    <div className="max-w-7xl mx-auto p-6">
+      <CurrencyConfigPanel />
     </div>
   )
 }

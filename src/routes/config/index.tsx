@@ -1,9 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { useConfigStore } from '../../stores/configStore'
-import { MainSkillsPanel } from '../../components/config/skills/main/MainSkillsPanel'
-import { SpecialitySkillsPanel } from '../../components/config/skills/speciality/SpecialitySkillsPanel'
-import { CombatSkillsPanel } from '../../components/config/skills/combat/CombatSkillsPanel'
 import { Button } from '../../components/ui/Button/Button'
 import { Card } from '../../components/ui/Card/Card'
 import { Text } from '../../components/ui/Text/Text'
@@ -11,6 +8,16 @@ import { Text } from '../../components/ui/Text/Text'
 export const Route = createFileRoute('/config/')({
   component: ConfigDashboard,
 })
+
+const CONFIG_SECTIONS = [
+  { to: '/config/skills', label: 'Skills', description: 'Main, speciality, and combat skills' },
+  { to: '/config/stats', label: 'Stats', description: 'Stats derived from main skills via formulas' },
+  { to: '/config/materials', label: 'Materials', description: 'Materials, levels, and categories' },
+  { to: '/config/items', label: 'Items', description: 'Items and equipment slots' },
+  { to: '/config/races', label: 'Races', description: 'Races and their skill modifiers' },
+  { to: '/config/currency', label: 'Currency', description: 'Currency tiers and conversion rates' },
+  { to: '/config/focus', label: 'Focus Stat', description: 'Bonus level granted by a focus stat' },
+] as const
 
 function ConfigDashboard() {
   const config = useConfigStore((state) => state.config)
@@ -57,14 +64,23 @@ function ConfigDashboard() {
   return (
     <div className="max-w-7xl mx-auto p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Configuration Dashboard</h1>
-        <p className="text-gray-600">Configure your custom game system: {config.name}</p>
+        <Text variant="h1" as="h1" className="mb-2">Configuration Dashboard</Text>
+        <Text variant="body-secondary">Configure your custom game system: {config.name}</Text>
       </div>
-      
-      <div className="space-y-8">
-        <MainSkillsPanel />
-        <SpecialitySkillsPanel />
-        <CombatSkillsPanel />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {CONFIG_SECTIONS.map((section) => (
+          <Link
+            key={section.to}
+            to={section.to}
+            className="block rounded-lg hover:shadow-parchment-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber"
+          >
+            <Card className="h-full">
+              <Text variant="h5" as="h2" className="mb-1">{section.label}</Text>
+              <Text variant="body-small-secondary">{section.description}</Text>
+            </Card>
+          </Link>
+        ))}
       </div>
     </div>
   )

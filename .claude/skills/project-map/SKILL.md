@@ -28,13 +28,14 @@ File-based via TanStack Router; `src/routeTree.gen.ts` is **generated — never 
 | Route | File | State |
 |---|---|---|
 | `/` | `routes/index.tsx` | landing page, feature overview |
-| `/config` | `routes/config/index.tsx` | the only wired config screen: initialise-config empty state + `MainSkillsPanel` / `SpecialitySkillsPanel` / `CombatSkillsPanel` |
-| `/config/skills` | `routes/config/skills.tsx` | **placeholder** — the skills panels are mounted on `/config` instead |
-| `/config/stats` | `routes/config/stats.tsx` | **placeholder** — `StatsConfigPanel` exists but is unreachable |
-| `/config/materials` | `routes/config/materials.tsx` | **placeholder** — `MaterialsConfigPanel` exists but is unreachable |
-| `/config/items` | `routes/config/items.tsx` | **placeholder** — `ItemsConfigPanel` / `EquipmentSlotsConfigPanel` exist but are unreachable |
-| `/config/races` | `routes/config/races.tsx` | **placeholder** — `RacesConfigPanel` exists but is unreachable |
-| `/config/currency` | `routes/config/currency.tsx` | **placeholder** — `CurrencyConfigPanel` / `ConversionCalculator` exist but are unreachable |
+| `/config` | `routes/config/index.tsx` | dashboard: initialise-config empty state, then a card index linking the seven sections below |
+| `/config/skills` | `routes/config/skills.tsx` | `MainSkillsPanel` + `SpecialitySkillsPanel` + `CombatSkillsPanel` |
+| `/config/stats` | `routes/config/stats.tsx` | `StatsConfigPanel` |
+| `/config/materials` | `routes/config/materials.tsx` | `MaterialsConfigPanel` |
+| `/config/items` | `routes/config/items.tsx` | `ItemsConfigPanel` + `EquipmentSlotsConfigPanel` |
+| `/config/races` | `routes/config/races.tsx` | `RacesConfigPanel` |
+| `/config/currency` | `routes/config/currency.tsx` | `CurrencyConfigPanel` (which renders `ConversionCalculator` once tiers exist) |
+| `/config/focus` | `routes/config/focus.tsx` | `FocusStatConfig` |
 | `/play` | `routes/play/index.tsx` | **placeholder** — CharacterList is TICKET-CHAR-01 |
 | `/play/create` | `routes/play/create.tsx` | **placeholder** — creation wizard is TICKET-CHAR-02 |
 | `/play/character/$id` | `routes/play/character.$id.tsx` | **placeholder** — character sheet is task 12.3 |
@@ -42,10 +43,19 @@ File-based via TanStack Router; `src/routeTree.gen.ts` is **generated — never 
 Route files stay thin: they render a feature component and pass route params down. Data fetching
 is a no-op here — everything comes from the Zustand stores.
 
-**Most of the configuration UI is built but not mounted.** Task §11 shipped eight panels; only the
-three skills panels are reachable, and from `/config` rather than `/config/skills`. TICKET-NAV-02
-wires the rest. Don't conclude a panel is missing because its route renders a placeholder — check
-`src/components/config/` first.
+**The whole configuration UI is mounted and browsable** as of TICKET-NAV-02 — all eight §11 panels
+have a route. Play mode is still all placeholders.
+
+Two things to know about route files here:
+
+- Each page component is **exported by name** (`StatsConfig`, `FocusConfig`, …) so tests can render
+  it. Automatic code splitting rewrites `Route.options.component` into a lazy wrapper whose dynamic
+  import Vitest cannot resolve, and TanStack Start omits `autoCodeSplitting` from its accepted
+  router config, so importing the named export is the only way to test a route component. See
+  `routes/config/configRoutes.test.tsx`.
+- Colocated route tests work because `vite.config.ts` passes
+  `tanstackStart({ router: { routeFileIgnorePattern: '\\.test\\.tsx?$' } })`; without it the route
+  generator warns that the test file exports no `Route`.
 
 ## Stores (`src/stores/`)
 

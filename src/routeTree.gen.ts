@@ -18,6 +18,7 @@ import { Route as ConfigSkillsRouteImport } from './routes/config/skills'
 import { Route as ConfigRacesRouteImport } from './routes/config/races'
 import { Route as ConfigMaterialsRouteImport } from './routes/config/materials'
 import { Route as ConfigItemsRouteImport } from './routes/config/items'
+import { Route as ConfigFocusRouteImport } from './routes/config/focus'
 import { Route as ConfigCurrencyRouteImport } from './routes/config/currency'
 import { Route as PlayCharacterIdRouteImport } from './routes/play/character.$id'
 
@@ -66,6 +67,11 @@ const ConfigItemsRoute = ConfigItemsRouteImport.update({
   path: '/config/items',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConfigFocusRoute = ConfigFocusRouteImport.update({
+  id: '/config/focus',
+  path: '/config/focus',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConfigCurrencyRoute = ConfigCurrencyRouteImport.update({
   id: '/config/currency',
   path: '/config/currency',
@@ -80,6 +86,7 @@ const PlayCharacterIdRoute = PlayCharacterIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/config/currency': typeof ConfigCurrencyRoute
+  '/config/focus': typeof ConfigFocusRoute
   '/config/items': typeof ConfigItemsRoute
   '/config/materials': typeof ConfigMaterialsRoute
   '/config/races': typeof ConfigRacesRoute
@@ -93,6 +100,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/config/currency': typeof ConfigCurrencyRoute
+  '/config/focus': typeof ConfigFocusRoute
   '/config/items': typeof ConfigItemsRoute
   '/config/materials': typeof ConfigMaterialsRoute
   '/config/races': typeof ConfigRacesRoute
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/config/currency': typeof ConfigCurrencyRoute
+  '/config/focus': typeof ConfigFocusRoute
   '/config/items': typeof ConfigItemsRoute
   '/config/materials': typeof ConfigMaterialsRoute
   '/config/races': typeof ConfigRacesRoute
@@ -122,6 +131,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/config/currency'
+    | '/config/focus'
     | '/config/items'
     | '/config/materials'
     | '/config/races'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/config/currency'
+    | '/config/focus'
     | '/config/items'
     | '/config/materials'
     | '/config/races'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/config/currency'
+    | '/config/focus'
     | '/config/items'
     | '/config/materials'
     | '/config/races'
@@ -162,6 +174,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfigCurrencyRoute: typeof ConfigCurrencyRoute
+  ConfigFocusRoute: typeof ConfigFocusRoute
   ConfigItemsRoute: typeof ConfigItemsRoute
   ConfigMaterialsRoute: typeof ConfigMaterialsRoute
   ConfigRacesRoute: typeof ConfigRacesRoute
@@ -238,6 +251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfigItemsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/config/focus': {
+      id: '/config/focus'
+      path: '/config/focus'
+      fullPath: '/config/focus'
+      preLoaderRoute: typeof ConfigFocusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/config/currency': {
       id: '/config/currency'
       path: '/config/currency'
@@ -258,6 +278,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfigCurrencyRoute: ConfigCurrencyRoute,
+  ConfigFocusRoute: ConfigFocusRoute,
   ConfigItemsRoute: ConfigItemsRoute,
   ConfigMaterialsRoute: ConfigMaterialsRoute,
   ConfigRacesRoute: ConfigRacesRoute,

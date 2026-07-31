@@ -83,7 +83,7 @@ export function FocusStatConfig() {
               id="focusBonusLevel"
               type="number"
               value={localValue}
-              onChange={handleChange}
+              onChange={(e) => handleChange(e.target.value)}
               placeholder="Enter bonus level (e.g., 5)"
               error={!isValid}
               className="mt-2"

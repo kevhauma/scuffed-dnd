@@ -1,16 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { StatsConfigPanel } from '../../components/config/stats/StatsConfigPanel'
 
 export const Route = createFileRoute('/config/stats')({
   component: StatsConfig,
 })
 
-function StatsConfig() {
+/** Exported for tests: automatic code splitting makes `Route.options.component` a lazy wrapper. */
+export function StatsConfig() {
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold mb-4">Stats Configuration</h1>
-      <p className="text-gray-600">
-        Define stats derived from main skills using custom formulas.
-      </p>
+    <div className="max-w-7xl mx-auto p-6">
+      <StatsConfigPanel />
     </div>
   )
 }

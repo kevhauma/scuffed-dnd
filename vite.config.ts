@@ -12,7 +12,8 @@ const config = defineConfig({
     devtools(),
     tsconfigPaths({ projects: ['./tsconfig.json'] }),
     tailwindcss(),
-    tanstackStart(),
+    // Colocated route tests live in src/routes/ but are not routes.
+    tanstackStart({ router: { routeFileIgnorePattern: '\\.test\\.tsx?$' } }),
     viteReact(),
   ],
   test: {

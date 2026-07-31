@@ -12,6 +12,7 @@ export * from './skills/shared/BaseSkillPanel';
 export * from './stats/StatsConfigPanel';
 export * from './materials/MaterialsConfigPanel';
 export * from './items/ItemsConfigPanel';
+export * from './items/EquipmentSlotsConfigPanel';
 export * from './races/RacesConfigPanel';
 export * from './currency/CurrencyConfigPanel';
 export * from './focus/FocusStatConfig';
@@ -26,6 +27,8 @@ export * from './materials/MaterialCard';
 export * from './items/ItemCard';
 export * from './races/RaceCard';
 export * from './currency/CurrencyTierCard';
+export * from './currency/ConversionCalculator';
+export * from './items/EquipmentSlotCard';
 
 // Form components
 export * from './skills/main/MainSkillFormDialog';
@@ -48,6 +51,7 @@ export * from './skills/shared/useSkillDependencies';
 export * from './stats/useStatManager';
 export * from './materials/useMaterialManager';
 export * from './items/useItemManager';
+export * from './items/useEquipmentSlotManager';
 export * from './races/useRaceManager';
 export * from './currency/useCurrencyManager';
 

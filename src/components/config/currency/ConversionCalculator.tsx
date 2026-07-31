@@ -81,14 +81,9 @@ export function ConversionCalculator({ tiers }: ConversionCalculatorProps) {
             id="calc-from"
             value={fromTierId}
             onChange={(e) => setFromTierId(e.target.value)}
+            options={tiers.map(tier => ({ value: tier.id, label: tier.name }))}
             className="w-full mt-1"
-          >
-            {tiers.map(tier => (
-              <option key={tier.id} value={tier.id}>
-                {tier.name}
-              </option>
-            ))}
-          </Select>
+          />
         </div>
       </div>
 
