@@ -78,6 +78,9 @@ concern, so:
 
 ## Data flow
 
+0. **App start** — `RootLayout` calls `useAppHydration()` (`components/shared/`), which probes
+   `isStorageAvailable()` and then restores both stores once per page load. Nothing else reads
+   storage at start-up, and each store's `isLoaded` guard keeps it to one read.
 1. **Config edit** — panel hook calls a `useConfigStore` action → state patched → `saveConfiguration()`.
 2. **Character edit** — component calls a `useCharacterStore` action → state patched → `saveCharacters()`.
 3. **Anything displayed as a number** — component reads `calculateCharacter(character, config)`;

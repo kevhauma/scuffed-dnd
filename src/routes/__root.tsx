@@ -2,6 +2,9 @@ import { HeadContent, Scripts, createRootRoute, Link, Outlet } from '@tanstack/r
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
+import { StorageNotice } from '../components/shared/StorageNotice'
+import { useAppHydration } from '../components/shared/useAppHydration'
+
 import appCss from '../styles.css?url'
 
 export const Route = createRootRoute({
@@ -54,7 +57,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   )
 }
 
-function RootLayout() {
+export function RootLayout() {
+  // The single hydration point for the whole app — every route renders inside this layout
+  const { storageAvailable, storageError } = useAppHydration()
+
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white shadow-sm border-b">
@@ -92,7 +98,14 @@ function RootLayout() {
         </div>
       </nav>
       <main>
-        <Outlet />
+        {storageAvailable ? (
+          <>
+            {storageError && <StorageNotice message={storageError} />}
+            <Outlet />
+          </>
+        ) : (
+          <StorageNotice message={storageError ?? ''} />
+        )}
       </main>
     </div>
   )

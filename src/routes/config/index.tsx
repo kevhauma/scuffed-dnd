@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useEffect } from 'react'
 import { useConfigStore } from '../../stores/configStore'
 import { Button } from '../../components/ui/Button/Button'
 import { Card } from '../../components/ui/Card/Card'
@@ -19,17 +18,11 @@ const CONFIG_SECTIONS = [
   { to: '/config/focus', label: 'Focus Stat', description: 'Bonus level granted by a focus stat' },
 ] as const
 
-function ConfigDashboard() {
+export function ConfigDashboard() {
+  // Hydration is owned by the root layout (useAppHydration) — this route only reads the result
   const config = useConfigStore((state) => state.config)
   const isLoaded = useConfigStore((state) => state.isLoaded)
-  const loadConfig = useConfigStore((state) => state.loadConfig)
   const initializeConfig = useConfigStore((state) => state.initializeConfig)
-
-  useEffect(() => {
-    if (!isLoaded) {
-      loadConfig()
-    }
-  }, [isLoaded, loadConfig])
 
   const handleInitialize = () => {
     initializeConfig('My Custom Game System')

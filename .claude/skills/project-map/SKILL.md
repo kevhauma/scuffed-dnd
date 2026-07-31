@@ -24,6 +24,10 @@ this map is the index.
 
 File-based via TanStack Router; `src/routeTree.gen.ts` is **generated — never edit it**.
 `src/router.tsx` creates the router, `src/routes/__root.tsx` is the shell (nav + mode switcher).
+`RootLayout` there is **the app's only hydration point** — it calls `useAppHydration()`
+(`components/shared/`), which restores both persisted stores once per page load and renders
+`StorageNotice` instead of the `<Outlet />` when LocalStorage is unavailable. Route components
+never call `loadConfig`/`loadCharacters` themselves.
 
 | Route | File | State |
 |---|---|---|
@@ -132,7 +136,9 @@ flex/grid, and positioning arrive from the caller's `className`.
 **`play/` — empty.** Character list, creation wizard, character sheet, inventory panel, combat
 roller, and stat editor are all still open (see `docs/v1.0_foundation/overview.md`).
 
-**`shared/` — empty.** First genuinely cross-mode component goes here.
+**`shared/`** — cross-mode components and hooks, barrelled by `shared/index.ts`:
+`useAppHydration.ts` (the app-wide LocalStorage restore, called only by `RootLayout`) and
+`StorageNotice.tsx` (the storage-unavailable message it drives).
 
 `components/Header.tsx` sits at the root of `components/`, outside the three folders.
 

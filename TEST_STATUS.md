@@ -1,12 +1,12 @@
 # Test Status
 
 _Last verified: 2026-07-31 (`npx vitest run`), after
-[TICKET-CALC-01](docs/v1.0_foundation/tickets/TICKET-CALC-01-calculated-character-assembly.md)._
+[TICKET-IO-01](docs/v1.0_foundation/tickets/TICKET-IO-01-restore-state-on-app-start.md)._
 
 ## Summary
 
-- **Total tests**: 420
-- **Passing**: 420 (100%)
+- **Total tests**: 431
+- **Passing**: 431 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 

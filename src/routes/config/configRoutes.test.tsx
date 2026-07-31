@@ -11,7 +11,7 @@
  * **Validates: Requirements 19.4**
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 vi.mock('../../components/config/skills/main/MainSkillsPanel', () => ({
@@ -45,6 +45,18 @@ vi.mock('../../components/config/focus/FocusStatConfig', () => ({
   FocusStatConfig: () => <div data-testid="focus-stat-config" />,
 }));
 
+// The dashboard must not hydrate itself — the root layout owns that (TICKET-IO-01)
+vi.mock('../../services/storage', () => ({
+  loadConfiguration: vi.fn(() => null),
+  saveConfiguration: vi.fn(),
+  loadCharacters: vi.fn(() => []),
+  saveCharacters: vi.fn(),
+  isStorageAvailable: vi.fn(() => true),
+}));
+
+import { loadConfiguration } from '../../services/storage';
+import { useConfigStore } from '../../stores/configStore';
+import { ConfigDashboard } from './index';
 import { SkillsConfig } from './skills';
 import { StatsConfig } from './stats';
 import { MaterialsConfig } from './materials';
@@ -115,5 +127,26 @@ describe('configuration routes', () => {
       expect(container.textContent).not.toMatch(/^\s*\w+ Configuration\s*$/);
       unmount();
     }
+  });
+});
+
+describe('/config dashboard hydration', () => {
+  beforeEach(() => {
+    vi.mocked(loadConfiguration).mockClear();
+    useConfigStore.setState({ config: null, isLoaded: false });
+  });
+
+  it('does not hydrate itself — the root layout owns that', () => {
+    render(<ConfigDashboard />);
+
+    expect(loadConfiguration).not.toHaveBeenCalled();
+  });
+
+  it('still shows the empty state when storage genuinely holds no configuration', () => {
+    useConfigStore.setState({ config: null, isLoaded: true });
+
+    render(<ConfigDashboard />);
+
+    expect(screen.getByText('No Configuration Found')).toBeDefined();
   });
 });
