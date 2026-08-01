@@ -5,7 +5,7 @@
  * Implements character CRUD operations, inventory management, and stat updates
  * with auto-save to LocalStorage.
  * 
- * **Validates: Requirements 11.1, 12.5, 12.6, 14.2, 17.2, 17.4**
+ * **Validates: Requirements 11.1, 12.5, 12.6, 14.2, 14.3, 14.4, 14.5, 17.2, 17.4**
  */
 
 import { create } from 'zustand';
@@ -39,8 +39,50 @@ interface CharacterState {
   moveItemToEquipment: (characterId: string, itemId: string, equipmentSlotType: string) => void;
   
   // Current Stat Value Updates
-  updateCurrentStatValue: (characterId: string, statId: string, value: number) => void;
-  updateCurrentStatValues: (characterId: string, values: Record<string, number>) => void;
+  updateCurrentStatValue: (
+    characterId: string,
+    statId: string,
+    value: number,
+    config: Configuration
+  ) => void;
+  updateCurrentStatValues: (
+    characterId: string,
+    values: Record<string, number>,
+    config: Configuration
+  ) => void;
+}
+
+/**
+ * Clamp requested current stat values to their calculated maxima
+ *
+ * Requirement 14.3 caps a current value at its maximum and Requirement 14.4 allows it to go
+ * negative, so this is a one-sided clamp. It lives in the store rather than in the stat editor so
+ * no caller can write an out-of-range value, and it takes the `Configuration` because the maxima
+ * are derived from the stat formulas — they are never stored on the character.
+ *
+ * A stat with no calculated maximum (an unknown id, or a ruleset whose formulas do not evaluate)
+ * is written through unclamped: refusing the edit would leave a Player unable to track anything on
+ * a broken ruleset, and the sheet surfaces the formula error separately.
+ */
+function clampToMaxStatValues(
+  character: Character,
+  values: Record<string, number>,
+  config: Configuration
+): Record<string, number> {
+  let maxStatValues: Record<string, number>;
+  try {
+    maxStatValues = calculateCharacter(character, config).maxStatValues;
+  } catch {
+    return values;
+  }
+
+  const clamped: Record<string, number> = {};
+  for (const [statId, value] of Object.entries(values)) {
+    const max = maxStatValues[statId];
+    clamped[statId] = max === undefined ? value : Math.min(value, max);
+  }
+
+  return clamped;
 }
 
 /**
@@ -279,36 +321,31 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   },
   
   // Update single current stat value
-  updateCurrentStatValue: (characterId: string, statId: string, value: number) => {
-    const { characters } = get();
-    const updated = autoSave(
-      characters.map(char => {
-        if (char.id !== characterId) return char;
-        
-        return updateTimestamp({
-          ...char,
-          currentStatValues: {
-            ...char.currentStatValues,
-            [statId]: value,
-          },
-        });
-      })
-    );
-    set({ characters: updated });
+  updateCurrentStatValue: (
+    characterId: string,
+    statId: string,
+    value: number,
+    config: Configuration
+  ) => {
+    get().updateCurrentStatValues(characterId, { [statId]: value }, config);
   },
-  
+
   // Update multiple current stat values
-  updateCurrentStatValues: (characterId: string, values: Record<string, number>) => {
+  updateCurrentStatValues: (
+    characterId: string,
+    values: Record<string, number>,
+    config: Configuration
+  ) => {
     const { characters } = get();
     const updated = autoSave(
       characters.map(char => {
         if (char.id !== characterId) return char;
-        
+
         return updateTimestamp({
           ...char,
           currentStatValues: {
             ...char.currentStatValues,
-            ...values,
+            ...clampToMaxStatValues(char, values, config),
           },
         });
       })

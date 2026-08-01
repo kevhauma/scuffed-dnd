@@ -18,9 +18,15 @@ vi.mock('../../components/play/characters/CharacterList', () => ({
 vi.mock('../../components/play/creation/CharacterCreationWizard', () => ({
   CharacterCreationWizard: () => <div data-testid="creation-wizard" />,
 }));
+vi.mock('../../components/play/sheet/CharacterSheet', () => ({
+  CharacterSheet: ({ characterId }: { characterId: string }) => (
+    <div data-testid="character-sheet">{characterId}</div>
+  ),
+}));
 
 import { PlayIndex } from './index';
 import { PlayCreate } from './create';
+import { Route as CharacterRoute, PlayCharacterSheet } from './character.$id';
 
 describe('/play', () => {
   it('should render the character list', () => {
@@ -58,6 +64,31 @@ describe('/play/create', () => {
 
   it('should carry no stock Tailwind palette classes', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/routes/play/create.tsx'), 'utf8');
+
+    expect(source).not.toMatch(/\b(text|bg|border)-(gray|slate|zinc|blue|green|red)-\d{2,3}\b/);
+  });
+});
+
+describe('/play/character/$id', () => {
+  it('should render the character sheet for the route param', () => {
+    // The route reads `id` from `useParams`; stub it rather than standing up a router
+    vi.spyOn(CharacterRoute, 'useParams').mockReturnValue({ id: 'char1' });
+
+    render(<PlayCharacterSheet />);
+
+    expect(screen.getByTestId('character-sheet').textContent).toBe('char1');
+  });
+
+  it('should no longer render the scaffold placeholder copy', () => {
+    vi.spyOn(CharacterRoute, 'useParams').mockReturnValue({ id: 'char1' });
+
+    const { container } = render(<PlayCharacterSheet />);
+
+    expect(container.textContent).not.toMatch(/will appear here/i);
+  });
+
+  it('should carry no stock Tailwind palette classes', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/routes/play/character.$id.tsx'), 'utf8');
 
     expect(source).not.toMatch(/\b(text|bg|border)-(gray|slate|zinc|blue|green|red)-\d{2,3}\b/);
   });

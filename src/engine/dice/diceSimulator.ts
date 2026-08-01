@@ -85,3 +85,18 @@ export function rollDice(dice: DiceConfig, rng: RandomSource = Math.random): Dic
 export function sumDiceResults(diceResults: DiceRollResult[]): number {
   return diceResults.reduce((sum, result) => sum + result.total, 0);
 }
+
+/**
+ * Render a dice configuration as conventional notation
+ *
+ * Display-only, but it lives here so every screen showing a combat skill's dice reads the same
+ * string, in the same `DIE_TYPES` order as an actual roll's breakdown.
+ *
+ * @param dice - Count per die type
+ * @returns e.g. `"2d6 + 1d20"`, or an empty string when no die has a count
+ */
+export function formatDiceNotation(dice: DiceConfig): string {
+  return DIE_TYPES.filter((dieType) => dice[dieType] > 0)
+    .map((dieType) => `${dice[dieType]}${dieType}`)
+    .join(' + ');
+}

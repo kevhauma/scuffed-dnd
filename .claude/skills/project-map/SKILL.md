@@ -46,14 +46,14 @@ rather than a read-only config UI).
 | `/config/focus` | `routes/config/focus.tsx` | `FocusStatConfig` |
 | `/play` | `routes/play/index.tsx` | `CharacterList` — the play-mode entry point |
 | `/play/create` | `routes/play/create.tsx` | `CharacterCreationWizard` — the four-step wizard |
-| `/play/character/$id` | `routes/play/character.$id.tsx` | **placeholder** — character sheet is task 12.3 |
+| `/play/character/$id` | `routes/play/character.$id.tsx` | `CharacterSheet` — takes the route param as `characterId` |
 
 Route files stay thin: they render a feature component and pass route params down. Data fetching
 is a no-op here — everything comes from the Zustand stores.
 
 **The whole configuration UI is mounted and browsable** as of TICKET-NAV-02 — all eight §11 panels
-have a route. In play mode `/play` and `/play/create` are real (TICKET-CHAR-01, TICKET-CHAR-02);
-`/play/character/$id` is still a placeholder.
+have a route. Play mode's three routes are all real: `/play` (TICKET-CHAR-01), `/play/create`
+(TICKET-CHAR-02) and `/play/character/$id` (TICKET-CHAR-03).
 
 Two things to know about route files here:
 
@@ -101,7 +101,7 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 - `calculators/statCalculator.ts` — `calculateMaxStatValues` (stat formulas over total main skills).
 - `calculators/specialitySkillCalculator.ts` — `calculateSpecialitySkillLevels` (base + formula bonus + equipment + focus bonus).
 - `calculators/combatSkillCalculator.ts` — `calculateCombatSkillBonuses` (formula + equipment bonuses).
-- `calculators/equipmentBonusCalculator.ts` — `calculateEquipmentBonuses` (aggregates equipped items' material bonuses).
+- `calculators/equipmentBonusCalculator.ts` — `calculateEquipmentBonuses` (aggregates equipped items' material bonuses) and `indexSkillModifiers(modifiers)` → `Record<skillCode, number>` (any `SkillModifier[]` as a per-code lookup, for showing a skill's equipment contribution on its own).
 - `calculator.ts` — re-exports the calculators, plus **`calculateCharacter(character, config):
   CalculatedCharacter`**, the single composed entry point (equipment → main skills → stats →
   speciality → combat, in that order). Call it for any derived number; don't compose the
@@ -119,7 +119,8 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 
 - `dice/diceSimulator.ts` — `rollDice(diceConfig, rng?)` → `DiceRollResult[]` (one entry per die
   type with a count above zero, carrying every individual roll), plus `rollDie`, `sumDiceResults`,
-  `DIE_SIDES`, `DIE_TYPES`.
+  `DIE_SIDES`, `DIE_TYPES`, and `formatDiceNotation(dice)` → `"2d6 + 1d20"` (the one definition of
+  dice notation — the sheet and the roller share it).
 - `dice/combatRoll.ts` — `rollCombatSkill(skill, calculatedCharacter, config, rng?, timestamp?)` →
   `CombatRollResult`. Takes its bonus from `calculateCombatSkillBonuses()`, so a roll can never
   disagree with the sheet. Both take an injectable `RandomSource`, defaulting to `Math.random`;
@@ -164,8 +165,14 @@ flex/grid, and positioning arrive from the caller's `className`.
 `creation/` holds the four-step wizard: `CharacterCreationWizard` dispatches on a step index and
 the four step components (`IdentityStep`, `SkillAllocationStep`, `FocusStatStep`, `ReviewStep`)
 are pure props — all state, validation and the submit live in `useCharacterCreation`. That is the
-multi-step pattern to copy. Character sheet, inventory panel, combat roller, and stat editor are
-still open (see `docs/v1.0_foundation/overview.md`).
+multi-step pattern to copy.
+`sheet/` holds the character sheet: `CharacterSheet` (composition + the four dead-end notices) and
+`useCharacterSheet` (status resolution, the one `calculateCharacter` call, and the stat handler),
+with `SheetHeader`, `RacialModifiersSection`, `MainSkillsSection`, `StatsSection` (rendering a
+`StatEditor` per stat), `SpecialitySkillsSection` and `CombatSkillsSection` as pure props.
+`SkillBreakdownRow` is the shared "total plus its labelled contributions" row — reuse it rather
+than re-deriving a breakdown layout. Inventory panel and combat roller are still open (see
+`docs/v1.0_foundation/overview.md`); the roller mounts into `CombatSkillsSection`.
 
 **`shared/`** — cross-mode components and hooks, barrelled by `shared/index.ts`:
 `AppShell.tsx` (the medieval frame + mode switcher + per-mode nav), `useAppMode.ts` (route↔mode

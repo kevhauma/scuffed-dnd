@@ -370,14 +370,40 @@ describe('CharacterStore', () => {
   
   describe('Current Stat Value Updates', () => {
     let character: Character;
-    
+
+    /**
+     * `STR 10` gives Health a maximum of 100 and Mana a maximum of 50, so the fixture's stored
+     * values start exactly at their maxima and any increase has to be clamped.
+     */
+    const statConfig: Configuration = {
+      id: 'config-1',
+      name: 'Test Config',
+      version: '1.0',
+      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      stats: [
+        { id: 'health', name: 'Health', description: '', formula: 'STR * 10' },
+        { id: 'mana', name: 'Mana', description: '', formula: 'STR * 5' },
+      ],
+      specialitySkills: [],
+      combatSkills: [],
+      materials: [],
+      materialCategories: [],
+      items: [],
+      equipmentSlots: [],
+      races: [],
+      currencyTiers: [],
+      focusStatBonusLevel: 0,
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+    };
+
     beforeEach(() => {
       character = {
         id: 'char-1',
         name: 'Test',
         configurationId: 'config-1',
         raceIds: [],
-        mainSkillLevels: {},
+        mainSkillLevels: { STR: 10 },
         specialitySkillBaseLevels: {},
         currentStatValues: { health: 100, mana: 50 },
         inventory: { equippedItems: {}, miscItems: [] },
@@ -386,47 +412,94 @@ describe('CharacterStore', () => {
       };
       useCharacterStore.setState({ characters: [character], isLoaded: true });
     });
-    
+
     describe('updateCurrentStatValue', () => {
       it('should update single stat value', () => {
-        useCharacterStore.getState().updateCurrentStatValue('char-1', 'health', 80);
-        
+        useCharacterStore.getState().updateCurrentStatValue('char-1', 'health', 80, statConfig);
+
         const updated = useCharacterStore.getState().characters[0];
         expect(updated.currentStatValues['health']).toBe(80);
         expect(updated.currentStatValues['mana']).toBe(50);
         expect(storage.saveCharacters).toHaveBeenCalled();
       });
-      
+
       it('should allow negative values', () => {
-        useCharacterStore.getState().updateCurrentStatValue('char-1', 'health', -10);
-        
+        useCharacterStore.getState().updateCurrentStatValue('char-1', 'health', -10, statConfig);
+
         const updated = useCharacterStore.getState().characters[0];
         expect(updated.currentStatValues['health']).toBe(-10);
       });
+
+      it('should clamp a value above the calculated maximum', () => {
+        // Requirement 14.3 — the cap lives in the action, so no caller can write past it
+        useCharacterStore.getState().updateCurrentStatValue('char-1', 'health', 999, statConfig);
+
+        const updated = useCharacterStore.getState().characters[0];
+        expect(updated.currentStatValues['health']).toBe(100);
+      });
+
+      it('should write through a stat the configuration does not define', () => {
+        useCharacterStore.getState().updateCurrentStatValue('char-1', 'stamina', 42, statConfig);
+
+        const updated = useCharacterStore.getState().characters[0];
+        expect(updated.currentStatValues['stamina']).toBe(42);
+      });
+
+      it('should write through unclamped when the ruleset has a broken formula', () => {
+        const brokenConfig: Configuration = {
+          ...statConfig,
+          stats: [{ id: 'health', name: 'Health', description: '', formula: 'UNKNOWN * 10' }],
+        };
+
+        useCharacterStore.getState().updateCurrentStatValue('char-1', 'health', 999, brokenConfig);
+
+        const updated = useCharacterStore.getState().characters[0];
+        expect(updated.currentStatValues['health']).toBe(999);
+      });
     });
-    
+
     describe('updateCurrentStatValues', () => {
       it('should update multiple stat values', () => {
-        useCharacterStore.getState().updateCurrentStatValues('char-1', {
-          health: 90,
-          mana: 40,
-        });
-        
+        useCharacterStore.getState().updateCurrentStatValues(
+          'char-1',
+          {
+            health: 90,
+            mana: 40,
+          },
+          statConfig
+        );
+
         const updated = useCharacterStore.getState().characters[0];
         expect(updated.currentStatValues['health']).toBe(90);
         expect(updated.currentStatValues['mana']).toBe(40);
         expect(storage.saveCharacters).toHaveBeenCalled();
       });
-      
+
       it('should merge with existing values', () => {
-        useCharacterStore.getState().updateCurrentStatValues('char-1', {
-          stamina: 60,
-        });
-        
+        useCharacterStore.getState().updateCurrentStatValues(
+          'char-1',
+          {
+            stamina: 60,
+          },
+          statConfig
+        );
+
         const updated = useCharacterStore.getState().characters[0];
         expect(updated.currentStatValues['health']).toBe(100);
         expect(updated.currentStatValues['mana']).toBe(50);
         expect(updated.currentStatValues['stamina']).toBe(60);
+      });
+
+      it('should clamp each value independently', () => {
+        useCharacterStore.getState().updateCurrentStatValues(
+          'char-1',
+          { health: 500, mana: -5 },
+          statConfig
+        );
+
+        const updated = useCharacterStore.getState().characters[0];
+        expect(updated.currentStatValues['health']).toBe(100);
+        expect(updated.currentStatValues['mana']).toBe(-5);
       });
     });
   });

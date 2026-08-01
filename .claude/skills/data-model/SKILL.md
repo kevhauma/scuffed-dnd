@@ -65,7 +65,12 @@ values, speciality totals, combat bonuses, and equipment bonuses are computed on
 wrapper over it for callers that only want the stat values. If you find yourself wanting to store a
 computed number on `Character`, the answer is a recalculation call at read time instead. The one deliberate
 exception is `currentStatValues` — the player's *current* HP/mana, which is state, not derivation
-(its maximum is derived; its current value is not).
+(its maximum is derived; its current value is not). Because the maximum *is* derived,
+`updateCurrentStatValue(characterId, statId, value, config)` and its plural sibling both take the
+`Configuration` and clamp to `calculateCharacter().maxStatValues` inside the action (Req 14.3);
+negatives pass through (Req 14.4). A stat with no calculated maximum — an unknown id, or a ruleset
+whose formulas throw — is written unclamped. Don't clamp in a component; the rule lives in the
+store so no caller can bypass it.
 
 ## Changing a persisted shape
 

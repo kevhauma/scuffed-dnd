@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { calculateEquipmentBonuses } from './equipmentBonusCalculator';
+import { calculateEquipmentBonuses, indexSkillModifiers } from './equipmentBonusCalculator';
 import type { Character } from '../../types/character';
 import type { Configuration, Material, Item } from '../../types/config';
 
@@ -718,5 +718,25 @@ describe('calculateEquipmentBonuses', () => {
     expect(result).toContainEqual({ skillCode: 'STR', modifier: 4 }); // 2 + 2
     expect(result).toContainEqual({ skillCode: 'DEF', modifier: 8 }); // 3 + 3 + 1 + 1
     expect(result).toContainEqual({ skillCode: 'DEX', modifier: 6 }); // 3 + 3
+  });
+});
+
+describe('indexSkillModifiers', () => {
+  it('should index a modifier by its skill code', () => {
+    expect(indexSkillModifiers([{ skillCode: 'STR', modifier: 2 }])).toEqual({ STR: 2 });
+  });
+
+  it('should combine repeated codes additively', () => {
+    expect(
+      indexSkillModifiers([
+        { skillCode: 'STR', modifier: 2 },
+        { skillCode: 'DEX', modifier: -1 },
+        { skillCode: 'STR', modifier: 3 },
+      ])
+    ).toEqual({ STR: 5, DEX: -1 });
+  });
+
+  it('should return an empty record for no modifiers', () => {
+    expect(indexSkillModifiers([])).toEqual({});
   });
 });

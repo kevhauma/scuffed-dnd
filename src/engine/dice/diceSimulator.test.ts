@@ -7,7 +7,14 @@
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
 import type { DiceConfig } from '../../types/config';
-import { DIE_SIDES, DIE_TYPES, rollDice, rollDie, sumDiceResults } from './diceSimulator';
+import {
+  DIE_SIDES,
+  DIE_TYPES,
+  formatDiceNotation,
+  rollDice,
+  rollDie,
+  sumDiceResults,
+} from './diceSimulator';
 
 const emptyDice: DiceConfig = { d4: 0, d6: 0, d8: 0, d10: 0, d12: 0, d20: 0 };
 
@@ -144,5 +151,15 @@ describe('rollDice', () => {
 describe('DIE_TYPES', () => {
   it('should cover all six die types in ascending order', () => {
     expect(DIE_TYPES).toEqual(['d4', 'd6', 'd8', 'd10', 'd12', 'd20']);
+  });
+});
+
+describe('formatDiceNotation', () => {
+  it('should list only die types with a count, ascending', () => {
+    expect(formatDiceNotation({ ...emptyDice, d20: 1, d6: 2 })).toBe('2d6 + 1d20');
+  });
+
+  it('should return an empty string when no die has a count', () => {
+    expect(formatDiceNotation(emptyDice)).toBe('');
   });
 });

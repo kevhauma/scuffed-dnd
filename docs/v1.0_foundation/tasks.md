@@ -303,7 +303,9 @@ This plan implements a browser-based React application for creating and playing 
     - Handle all layout/positioning in this component
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 21.1-21.5_
   
-  - [ ] 12.3 Create CharacterSheet component
+  - [ ] 12.3 Create CharacterSheet component — **mostly done by TICKET-CHAR-03** (2026-08-01); the
+    two bullets below still open are "roll buttons" (§12.5's roller mounts into the sheet's combat
+    section) and "Integrate InventoryPanel" (§12.4). Everything else shipped.
     - Use base components (Button, Input, Card, Label) exclusively
     - Display character header (name, races)
     - Display main skills with racial bonuses shown separately
@@ -334,7 +336,7 @@ This plan implements a browser-based React application for creating and playing 
     - Handle all layout/positioning in this component
     - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5, 21.1-21.5, 22.1-22.6_
   
-  - [ ] 12.6 Create StatEditor component
+  - [x] 12.6 Create StatEditor component — TICKET-CHAR-03
     - Use base components (Button, Input, Label) exclusively
     - Display current and maximum stat values
     - Allow editing current values

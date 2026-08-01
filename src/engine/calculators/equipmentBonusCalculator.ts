@@ -1,7 +1,9 @@
 /**
  * Equipment Bonus Calculator
- * 
+ *
  * Aggregates bonuses from all equipped items including material bonuses.
+ *
+ * **Validates: Requirements 13.1, 13.2, 13.4**
  */
 
 import type { Character } from '../../types/character';
@@ -51,4 +53,25 @@ export function calculateEquipmentBonuses(
     skillCode,
     modifier,
   }));
+}
+
+/**
+ * Index skill modifiers by skill code
+ *
+ * The character sheet has to show each skill's equipment contribution separately from its base
+ * (Requirement 13.4), which means a per-code lookup rather than a list. Doing it here keeps the
+ * summing in the engine — `calculateEquipmentBonuses` already returns one entry per code, but an
+ * arbitrary `SkillModifier[]` (a race's modifiers, a material level's bonuses) may repeat one.
+ *
+ * @param modifiers - Any list of skill modifiers
+ * @returns Record of skill code to the combined modifier for that code
+ */
+export function indexSkillModifiers(modifiers: SkillModifier[]): Record<string, number> {
+  const indexed: Record<string, number> = {};
+
+  for (const modifier of modifiers) {
+    indexed[modifier.skillCode] = (indexed[modifier.skillCode] ?? 0) + modifier.modifier;
+  }
+
+  return indexed;
 }
