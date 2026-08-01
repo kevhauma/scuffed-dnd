@@ -5,12 +5,12 @@
  * Implements character CRUD operations, inventory management, and stat updates
  * with auto-save to LocalStorage.
  * 
- * **Validates: Requirements 11.1, 12.5, 12.6, 14.2, 14.3, 14.4, 14.5, 17.2, 17.4**
+ * **Validates: Requirements 11.1, 12.2, 12.3, 12.5, 12.6, 14.2, 14.3, 14.4, 14.5, 17.2, 17.4**
  */
 
 import { create } from 'zustand';
 import { calculateCharacter } from '../engine/calculator';
-import type { Character, CharacterCreationData } from '../types/character';
+import type { Character, CharacterCreationData, Inventory } from '../types/character';
 import type { Configuration } from '../types/config';
 import { saveCharacters, loadCharacters } from '../services/storage';
 
@@ -31,12 +31,22 @@ interface CharacterState {
   getCharacter: (id: string) => Character | undefined;
   
   // Inventory Management
-  equipItem: (characterId: string, equipmentSlotType: string, itemId: string) => void;
+  equipItem: (
+    characterId: string,
+    equipmentSlotType: string,
+    itemId: string,
+    config: Configuration
+  ) => void;
   unequipItem: (characterId: string, equipmentSlotType: string) => void;
   addMiscItem: (characterId: string, itemId: string) => void;
   removeMiscItem: (characterId: string, itemId: string) => void;
   moveItemToMisc: (characterId: string, equipmentSlotType: string) => void;
-  moveItemToEquipment: (characterId: string, itemId: string, equipmentSlotType: string) => void;
+  moveItemToEquipment: (
+    characterId: string,
+    itemId: string,
+    equipmentSlotType: string,
+    config: Configuration
+  ) => void;
   
   // Current Stat Value Updates
   updateCurrentStatValue: (
@@ -127,6 +137,61 @@ function createCharacterFromData(
 }
 
 /**
+ * Decide whether an item may occupy an equipment slot
+ *
+ * Requirement 12.3: an item goes in the slot type it declares, and only that one. An item the
+ * configuration does not define, or one with no `equipmentSlotType` at all, fits nowhere — a
+ * strict equality against the declared type covers all three cases at once.
+ *
+ * This lives in the store so the rule holds for every caller, not only for a panel that happens to
+ * offer the right options.
+ */
+function fitsSlot(itemId: string, equipmentSlotType: string, config: Configuration): boolean {
+  const item = config.items.find((candidate) => candidate.id === itemId);
+  return item?.equipmentSlotType === equipmentSlotType;
+}
+
+/**
+ * An equipped-items map with one slot emptied
+ */
+function withoutSlot(
+  equippedItems: Inventory['equippedItems'],
+  equipmentSlotType: string
+): Inventory['equippedItems'] {
+  const { [equipmentSlotType]: removed, ...remaining } = equippedItems;
+  return remaining;
+}
+
+/**
+ * Apply a change to one character's inventory, then stamp and persist
+ *
+ * Every inventory action is the same three steps — find the character, replace its `Inventory`,
+ * save — differing only in how the new inventory is derived. That difference is the `update`
+ * callback; returning the inventory unchanged is how an action declines to do anything.
+ */
+function patchInventory(
+  set: (partial: Partial<CharacterState>) => void,
+  get: () => CharacterState,
+  characterId: string,
+  update: (inventory: Inventory) => Inventory
+): void {
+  const { characters } = get();
+
+  const updated = autoSave(
+    characters.map(char => {
+      if (char.id !== characterId) return char;
+
+      const inventory = update(char.inventory);
+      if (inventory === char.inventory) return char;
+
+      return updateTimestamp({ ...char, inventory });
+    })
+  );
+
+  set({ characters: updated });
+}
+
+/**
  * Auto-save helper - saves characters and updates timestamp
  */
 function autoSave(characters: Character[]): Character[] {
@@ -191,135 +256,78 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   },
   
   // Equip item to equipment slot
-  equipItem: (characterId: string, equipmentSlotType: string, itemId: string) => {
-    const { characters } = get();
-    const updated = autoSave(
-      characters.map(char => {
-        if (char.id !== characterId) return char;
-        
-        return updateTimestamp({
-          ...char,
-          inventory: {
-            ...char.inventory,
-            equippedItems: {
-              ...char.inventory.equippedItems,
-              [equipmentSlotType]: itemId,
-            },
-          },
-        });
-      })
-    );
-    set({ characters: updated });
+  equipItem: (
+    characterId: string,
+    equipmentSlotType: string,
+    itemId: string,
+    config: Configuration
+  ) => {
+    if (!fitsSlot(itemId, equipmentSlotType, config)) return;
+
+    patchInventory(set, get, characterId, inventory => ({
+      ...inventory,
+      equippedItems: { ...inventory.equippedItems, [equipmentSlotType]: itemId },
+    }));
   },
-  
+
   // Unequip item from equipment slot
   unequipItem: (characterId: string, equipmentSlotType: string) => {
-    const { characters } = get();
-    const updated = autoSave(
-      characters.map(char => {
-        if (char.id !== characterId) return char;
-        
-        const { [equipmentSlotType]: removed, ...remaining } = char.inventory.equippedItems;
-        
-        return updateTimestamp({
-          ...char,
-          inventory: {
-            ...char.inventory,
-            equippedItems: remaining,
-          },
-        });
-      })
-    );
-    set({ characters: updated });
+    patchInventory(set, get, characterId, inventory => ({
+      ...inventory,
+      equippedItems: withoutSlot(inventory.equippedItems, equipmentSlotType),
+    }));
   },
-  
+
   // Add item to miscellaneous inventory
   addMiscItem: (characterId: string, itemId: string) => {
-    const { characters } = get();
-    const updated = autoSave(
-      characters.map(char => {
-        if (char.id !== characterId) return char;
-        
-        return updateTimestamp({
-          ...char,
-          inventory: {
-            ...char.inventory,
-            miscItems: [...char.inventory.miscItems, itemId],
-          },
-        });
-      })
-    );
-    set({ characters: updated });
+    patchInventory(set, get, characterId, inventory => ({
+      ...inventory,
+      miscItems: [...inventory.miscItems, itemId],
+    }));
   },
-  
+
   // Remove item from miscellaneous inventory
   removeMiscItem: (characterId: string, itemId: string) => {
-    const { characters } = get();
-    const updated = autoSave(
-      characters.map(char => {
-        if (char.id !== characterId) return char;
-        
-        return updateTimestamp({
-          ...char,
-          inventory: {
-            ...char.inventory,
-            miscItems: char.inventory.miscItems.filter(id => id !== itemId),
-          },
-        });
-      })
-    );
-    set({ characters: updated });
+    patchInventory(set, get, characterId, inventory => ({
+      ...inventory,
+      miscItems: inventory.miscItems.filter(id => id !== itemId),
+    }));
   },
-  
+
   // Move equipped item to miscellaneous inventory
   moveItemToMisc: (characterId: string, equipmentSlotType: string) => {
-    const { characters } = get();
-    const character = characters.find(char => char.id === characterId);
-    if (!character) return;
-    
-    const itemId = character.inventory.equippedItems[equipmentSlotType];
-    if (!itemId) return;
-    
-    const updated = autoSave(
-      characters.map(char => {
-        if (char.id !== characterId) return char;
-        
-        const { [equipmentSlotType]: removed, ...remaining } = char.inventory.equippedItems;
-        
-        return updateTimestamp({
-          ...char,
-          inventory: {
-            equippedItems: remaining,
-            miscItems: [...char.inventory.miscItems, itemId],
-          },
-        });
-      })
-    );
-    set({ characters: updated });
+    patchInventory(set, get, characterId, inventory => {
+      const itemId = inventory.equippedItems[equipmentSlotType];
+      if (!itemId) return inventory;
+
+      return {
+        equippedItems: withoutSlot(inventory.equippedItems, equipmentSlotType),
+        miscItems: [...inventory.miscItems, itemId],
+      };
+    });
   },
-  
+
   // Move miscellaneous item to equipment slot
-  moveItemToEquipment: (characterId: string, itemId: string, equipmentSlotType: string) => {
-    const { characters } = get();
-    const updated = autoSave(
-      characters.map(char => {
-        if (char.id !== characterId) return char;
-        
-        return updateTimestamp({
-          ...char,
-          inventory: {
-            equippedItems: {
-              ...char.inventory.equippedItems,
-              [equipmentSlotType]: itemId,
-            },
-            miscItems: char.inventory.miscItems.filter(id => id !== itemId),
-          },
-        });
-      })
-    );
-    set({ characters: updated });
+  moveItemToEquipment: (
+    characterId: string,
+    itemId: string,
+    equipmentSlotType: string,
+    config: Configuration
+  ) => {
+    if (!fitsSlot(itemId, equipmentSlotType, config)) return;
+
+    patchInventory(set, get, characterId, inventory => {
+      // A slot holds one item, so whatever was in it swaps back to misc rather than vanishing
+      const displaced = inventory.equippedItems[equipmentSlotType];
+      const miscItems = inventory.miscItems.filter(id => id !== itemId);
+
+      return {
+        equippedItems: { ...inventory.equippedItems, [equipmentSlotType]: itemId },
+        miscItems: displaced ? [...miscItems, displaced] : miscItems,
+      };
+    });
   },
-  
+
   // Update single current stat value
   updateCurrentStatValue: (
     characterId: string,

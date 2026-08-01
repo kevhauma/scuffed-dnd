@@ -72,6 +72,14 @@ negatives pass through (Req 14.4). A stat with no calculated maximum — an unkn
 whose formulas throw — is written unclamped. Don't clamp in a component; the rule lives in the
 store so no caller can bypass it.
 
+The same holds for equipment: `equipItem(characterId, slotType, itemId, config)` and
+`moveItemToEquipment(characterId, itemId, slotType, config)` take the `Configuration` and refuse
+any item whose `Item.equipmentSlotType` does not equal the target slot — including an item with no
+slot type and one the ruleset does not define (Req 12.3). All six inventory actions go through one
+`patchInventory(set, get, characterId, update)` helper; returning the inventory unchanged is how an
+action declines. Equipping triggers no recalculation — derived values read `equippedItems` at read
+time.
+
 ## Changing a persisted shape
 
 There is no schema version and no migration runner. That makes compatibility a hand-checked

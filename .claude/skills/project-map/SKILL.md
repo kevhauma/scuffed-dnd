@@ -171,8 +171,11 @@ multi-step pattern to copy.
 with `SheetHeader`, `RacialModifiersSection`, `MainSkillsSection`, `StatsSection` (rendering a
 `StatEditor` per stat), `SpecialitySkillsSection` and `CombatSkillsSection` as pure props.
 `SkillBreakdownRow` is the shared "total plus its labelled contributions" row — reuse it rather
-than re-deriving a breakdown layout. Inventory panel and combat roller are still open (see
-`docs/v1.0_foundation/overview.md`); the roller mounts into `CombatSkillsSection`.
+than re-deriving a breakdown layout.
+`inventory/` holds `InventoryPanel` (mounted by the sheet, taking only a `characterId`) with
+`EquipmentSlotRow`, `MiscItemRow` and `useInventoryManager`. Equipping needs no recalculation call:
+`calculateCharacter` reads `inventory.equippedItems` at render time. The combat roller is still
+open (see `docs/v1.0_foundation/overview.md`); it mounts into `CombatSkillsSection`.
 
 **`shared/`** — cross-mode components and hooks, barrelled by `shared/index.ts`:
 `AppShell.tsx` (the medieval frame + mode switcher + per-mode nav), `useAppMode.ts` (route↔mode

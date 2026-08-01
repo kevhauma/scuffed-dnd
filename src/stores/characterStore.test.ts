@@ -226,7 +226,38 @@ describe('CharacterStore', () => {
   
   describe('Inventory Management', () => {
     let character: Character;
-    
+
+    /**
+     * `item-1` and `item-2` are helmets; `item-gloves` belongs to another slot and `item-loose`
+     * declares no slot at all — the two cases Requirement 12.3 has to refuse.
+     */
+    const inventoryConfig: Configuration = {
+      id: 'config-1',
+      name: 'Test Config',
+      version: '1.0',
+      mainSkills: [],
+      stats: [],
+      specialitySkills: [],
+      combatSkills: [],
+      materials: [],
+      materialCategories: [],
+      items: [
+        { id: 'item-1', name: 'Iron Helm', description: '', equipmentSlotType: 'helmet' },
+        { id: 'item-2', name: 'Steel Helm', description: '', equipmentSlotType: 'helmet' },
+        { id: 'item-gloves', name: 'Gloves', description: '', equipmentSlotType: 'hands' },
+        { id: 'item-loose', name: 'Rope', description: '' },
+      ],
+      equipmentSlots: [
+        { type: 'helmet', name: 'Helmet', description: '' },
+        { type: 'hands', name: 'Hands', description: '' },
+      ],
+      races: [],
+      currencyTiers: [],
+      focusStatBonusLevel: 0,
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+    };
+
     beforeEach(() => {
       character = {
         id: 'char-1',
@@ -245,13 +276,13 @@ describe('CharacterStore', () => {
     
     describe('equipItem', () => {
       it('should equip item to slot', () => {
-        useCharacterStore.getState().equipItem('char-1', 'helmet', 'item-1');
-        
+        useCharacterStore.getState().equipItem('char-1', 'helmet', 'item-1', inventoryConfig);
+
         const updated = useCharacterStore.getState().characters[0];
         expect(updated.inventory.equippedItems['helmet']).toBe('item-1');
         expect(storage.saveCharacters).toHaveBeenCalled();
       });
-      
+
       it('should replace existing item in slot', () => {
         useCharacterStore.setState({
           characters: [{
@@ -263,11 +294,36 @@ describe('CharacterStore', () => {
           }],
           isLoaded: true,
         });
-        
-        useCharacterStore.getState().equipItem('char-1', 'helmet', 'item-2');
-        
+
+        useCharacterStore.getState().equipItem('char-1', 'helmet', 'item-2', inventoryConfig);
+
         const updated = useCharacterStore.getState().characters[0];
         expect(updated.inventory.equippedItems['helmet']).toBe('item-2');
+      });
+
+      it('should refuse an item whose slot type does not match', () => {
+        // Requirement 12.3 — gloves are not headwear, and the rule lives here, not in the panel
+        useCharacterStore.getState().equipItem('char-1', 'helmet', 'item-gloves', inventoryConfig);
+
+        const updated = useCharacterStore.getState().characters[0];
+        expect(updated.inventory.equippedItems['helmet']).toBeUndefined();
+        expect(storage.saveCharacters).not.toHaveBeenCalled();
+      });
+
+      it('should refuse an item that declares no slot type', () => {
+        useCharacterStore.getState().equipItem('char-1', 'helmet', 'item-loose', inventoryConfig);
+
+        expect(
+          useCharacterStore.getState().characters[0].inventory.equippedItems['helmet']
+        ).toBeUndefined();
+      });
+
+      it('should refuse an item the configuration does not define', () => {
+        useCharacterStore.getState().equipItem('char-1', 'helmet', 'ghost-item', inventoryConfig);
+
+        expect(
+          useCharacterStore.getState().characters[0].inventory.equippedItems['helmet']
+        ).toBeUndefined();
       });
     });
     
@@ -357,13 +413,51 @@ describe('CharacterStore', () => {
           }],
           isLoaded: true,
         });
-        
-        useCharacterStore.getState().moveItemToEquipment('char-1', 'item-1', 'helmet');
-        
+
+        useCharacterStore
+          .getState()
+          .moveItemToEquipment('char-1', 'item-1', 'helmet', inventoryConfig);
+
         const updated = useCharacterStore.getState().characters[0];
         expect(updated.inventory.equippedItems['helmet']).toBe('item-1');
         expect(updated.inventory.miscItems).not.toContain('item-1');
         expect(storage.saveCharacters).toHaveBeenCalled();
+      });
+
+      it('should refuse an item whose slot type does not match', () => {
+        useCharacterStore.setState({
+          characters: [{
+            ...character,
+            inventory: { equippedItems: {}, miscItems: ['item-gloves'] },
+          }],
+          isLoaded: true,
+        });
+
+        useCharacterStore
+          .getState()
+          .moveItemToEquipment('char-1', 'item-gloves', 'helmet', inventoryConfig);
+
+        const updated = useCharacterStore.getState().characters[0];
+        expect(updated.inventory.equippedItems['helmet']).toBeUndefined();
+        expect(updated.inventory.miscItems).toContain('item-gloves');
+      });
+
+      it('should swap the displaced item back into the pack rather than losing it', () => {
+        useCharacterStore.setState({
+          characters: [{
+            ...character,
+            inventory: { equippedItems: { helmet: 'item-1' }, miscItems: ['item-2'] },
+          }],
+          isLoaded: true,
+        });
+
+        useCharacterStore
+          .getState()
+          .moveItemToEquipment('char-1', 'item-2', 'helmet', inventoryConfig);
+
+        const updated = useCharacterStore.getState().characters[0];
+        expect(updated.inventory.equippedItems['helmet']).toBe('item-2');
+        expect(updated.inventory.miscItems).toEqual(['item-1']);
       });
     });
   });

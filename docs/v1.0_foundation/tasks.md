@@ -316,7 +316,10 @@ This plan implements a browser-based React application for creating and playing 
     - Handle all layout/positioning in this component
     - _Requirements: 8.5, 13.4, 14.1, 14.2, 21.1-21.5_
   
-  - [ ] 12.4 Create InventoryPanel component
+  - [ ] 12.4 Create InventoryPanel component — **done by TICKET-INV-01** (2026-08-01) except
+    "Implement drag-and-drop item assignment", which was deliberately not built: it needs a new
+    runtime dependency and explicit equip/unequip controls satisfy Requirement 12 in full. Left
+    unticked so the gap stays visible; see the ticket's Notes.
     - Use base components (Button, Select, Card, Label) exclusively
     - Display equipment slots grid
     - Display miscellaneous items list
@@ -371,7 +374,7 @@ This plan implements a browser-based React application for creating and playing 
     - _Requirements: 19.5_
 
 - [ ] 14. Implement equipment bonus system
-  - [ ] 14.1 Wire equipment changes to recalculation
+  - [x] 14.1 Wire equipment changes to recalculation — TICKET-INV-01
     - When item equipped, trigger bonus recalculation
     - When item unequipped, remove bonuses and recalculate
     - Update character sheet display automatically

@@ -11,6 +11,7 @@
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
+import { InventoryPanel } from '../inventory/InventoryPanel';
 import { CombatSkillsSection } from './CombatSkillsSection';
 import { MainSkillsSection } from './MainSkillsSection';
 import { RacialModifiersSection } from './RacialModifiersSection';
@@ -130,6 +131,8 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
       <MainSkillsSection mainSkills={mainSkills} />
 
       <StatsSection stats={stats} onChangeStatValue={handleChangeStatValue} />
+
+      <InventoryPanel characterId={characterId} />
 
       <SpecialitySkillsSection specialitySkills={specialitySkills} />
 
