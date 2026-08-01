@@ -86,6 +86,9 @@ interface ConfigState {
   
   // Focus Stat Configuration
   setFocusStatBonusLevel: (level: number) => void;
+
+  // Main Skill Point Allocation
+  setMainSkillPointBudget: (budget: number | undefined) => void;
 }
 
 /**
@@ -514,6 +517,19 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       ...config,
       focusStatBonusLevel: level,
     });
+    set({ config: updated });
+  },
+
+  // Main Skill Point Allocation
+  setMainSkillPointBudget: (budget: number | undefined) => {
+    const { config } = get();
+    if (!config) return;
+
+    // undefined clears the limit — the field is optional and absent means unlimited
+    const { mainSkillPointBudget: _removed, ...rest } = config;
+    const updated = autoSave(
+      budget === undefined ? rest : { ...config, mainSkillPointBudget: budget }
+    );
     set({ config: updated });
   },
 }));

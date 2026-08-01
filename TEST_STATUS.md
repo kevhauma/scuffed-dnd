@@ -1,12 +1,12 @@
 # Test Status
 
 _Last verified: 2026-08-01 (`npx vitest run`), after
-[TICKET-ROLL-01](docs/v1.0_foundation/tickets/TICKET-ROLL-01-dice-rolling-engine.md)._
+[TICKET-SKL-01](docs/v1.0_foundation/tickets/TICKET-SKL-01-main-skill-point-allocation-rules.md)._
 
 ## Summary
 
-- **Total tests**: 472
-- **Passing**: 472 (100%)
+- **Total tests**: 497
+- **Passing**: 497 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
@@ -100,7 +100,7 @@ are documented here so a future regression is distinguishable from this noise:
 | `src/components/ui/ValidationReport/ValidationReport.test.tsx:3` | TS1484 — `ValidationIssue` needs a type-only import under `verbatimModuleSyntax` |
 | `src/components/ui/Button/Button.test.tsx:68` | TS2339 — `.disabled` read off `HTMLElement` |
 | `src/engine/formula/parser.test.ts:7` | TS6133 — unused `FormulaAST` import |
-| `src/services/importExport.test.ts:341` | TS2352 — `Blob`-shaped literal cast to `File` |
+| `src/services/importExport.test.ts:381` | TS2352 — `Blob`-shaped literal cast to `File` |
 
 The `evaluator.ts` and `BaseSkillPanel.tsx` entries are the two worth a real look; the rest are
 unused-symbol and test-typing noise.

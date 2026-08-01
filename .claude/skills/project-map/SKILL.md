@@ -105,6 +105,9 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   unique across main/speciality/combat.
 - `validator.ts` — `validateConfiguration(config): ValidationReport` (cross-entity referential
   integrity: formula refs, equipment slot types, material categories, circular formulas).
+- `skillAllocation.ts` — `validateMainSkillAllocation(levels, config)` → points spent/remaining,
+  per-skill violations, verdict. The single global point pool (`Configuration.mainSkillPointBudget`,
+  absent = unlimited). The creation wizard reads this; it never re-sums levels itself.
 
 - `dice/diceSimulator.ts` — `rollDice(diceConfig, rng?)` → `DiceRollResult[]` (one entry per die
   type with a count above zero, carrying every individual roll), plus `rollDie`, `sumDiceResults`,

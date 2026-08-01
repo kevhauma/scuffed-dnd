@@ -692,10 +692,43 @@ describe('ConfigStore', () => {
 
     it('should set focus stat bonus level', () => {
       useConfigStore.getState().setFocusStatBonusLevel(5);
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.focusStatBonusLevel).toBe(5);
       expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+  });
+
+  describe('Main Skill Point Budget', () => {
+    beforeEach(() => {
+      useConfigStore.getState().initializeConfig('Test');
+      vi.clearAllMocks();
+    });
+
+    it('should start with no budget, meaning unlimited', () => {
+      expect(useConfigStore.getState().config?.mainSkillPointBudget).toBeUndefined();
+    });
+
+    it('should set the main skill point budget and persist it', () => {
+      useConfigStore.getState().setMainSkillPointBudget(20);
+
+      expect(useConfigStore.getState().config?.mainSkillPointBudget).toBe(20);
+      expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+
+    it('should accept a budget of zero', () => {
+      useConfigStore.getState().setMainSkillPointBudget(0);
+
+      expect(useConfigStore.getState().config?.mainSkillPointBudget).toBe(0);
+    });
+
+    it('should remove the field entirely when cleared, rather than storing undefined', () => {
+      useConfigStore.getState().setMainSkillPointBudget(20);
+      useConfigStore.getState().setMainSkillPointBudget(undefined);
+
+      const { config } = useConfigStore.getState();
+      expect(config?.mainSkillPointBudget).toBeUndefined();
+      expect(config && 'mainSkillPointBudget' in config).toBe(false);
     });
   });
 

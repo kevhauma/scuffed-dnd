@@ -51,19 +51,30 @@ ruleset has no say. This ticket adds the rule to the configuration and its enfor
 - An existing configuration without the field keeps working: absent budget means unlimited, so
   saved rulesets and characters don't become invalid on upgrade.
 
+## Decision (2026-08-01) — option (a), a single global pool
+
+The User asked for the backlog to be worked through without stopping for input, so the blocking
+decision was resolved using the tiebreaker this ticket already recorded: **(a) is the smaller,
+reversible choice — adding per-skill `pointCost` later is additive, removing it is not.**
+
+Built as: `Configuration.mainSkillPointBudget?: number`, one point per level, spent across every
+main skill, each still bounded by its own `maxLevel`. `MainSkill` is unchanged, so option (b)
+remains available later without a migration. **If asymmetric per-skill costs are wanted, say so
+and it can be added on top of this** — nothing here has to be undone.
+
 ## Acceptance criteria
 
-- [ ] The User can set the main-skill point budget in configuration mode, and it persists (Req 2.4).
-- [ ] The budget survives export → import round-trip, and importing a file that predates the field succeeds with the "unlimited" fallback rather than failing validation.
-- [ ] `validateMainSkillAllocation` reports points spent, points remaining, and which skills exceed their own `maxLevel`, as data — it does not throw, and it does not render.
-- [ ] An allocation exceeding the budget is reported as invalid; an allocation exactly at the budget is valid (boundary).
-- [ ] A per-skill level above that skill's `maxLevel` is invalid even when the budget has room.
-- [ ] With no budget configured, any allocation within per-skill `maxLevel` is valid (backwards compatibility).
-- [ ] The validator lives in the engine and is pure — no store access, no React.
-- [ ] TICKET-CHAR-02's wizard consumes this validator rather than its own arithmetic (cross-check when that ticket is built; if it landed first, update it in this ticket).
-- [ ] Unit tests cover: under / exactly at / over budget; per-skill cap violation with budget remaining; absent budget; empty allocation; (if option (b)) weighted costs summing correctly.
-- [ ] Verified via the fallow skill and the react-conventions skill.
-- [ ] Verified live in the browser: set a budget, reload, confirm it persisted, and confirm the skills panel shows it.
+- [x] The User can set the main-skill point budget in configuration mode, and it persists (Req 2.4). (New `MainSkillPointBudget` card in `src/components/config/skills/main/`, rendered by `MainSkillsPanel` beneath the skill list; it calls the new `setMainSkillPointBudget` store action, which persists like every other config mutation. Tests: `MainSkillPointBudget.test.tsx` *"should save a budget through the store action"*, `configStore.test.ts` *"should set the main skill point budget and persist it"*.)
+- [x] The budget survives export → import round-trip, and importing a file that predates the field succeeds with the "unlimited" fallback rather than failing validation. (`importExport.test.ts` → *"should survive export then import unchanged"* (25 in, 25 out, whole config deep-equal), *"should import a file that predates the field, leaving it unlimited"* (the existing fixture has no budget and still validates), *"should round-trip a budget of zero rather than dropping it"*, and *"should reject a non-numeric or negative budget"*.)
+- [x] `validateMainSkillAllocation` reports points spent, points remaining, and which skills exceed their own `maxLevel`, as data — it does not throw, and it does not render. (`src/engine/skillAllocation.ts` returns `{ isValid, pointsSpent, pointBudget, pointsRemaining, isOverBudget, violations[], unknownSkillCodes[] }`. No `throw` in the module; every test asserts on the returned object.)
+- [x] An allocation exceeding the budget is reported as invalid; an allocation exactly at the budget is valid (boundary). (Tests *"should accept an allocation exactly at the budget"* (15/15, `pointsRemaining: 0`) and *"should reject an allocation one point over the budget"* (16/15, `pointsRemaining: -1`). *"should treat a budget of zero as 'no points to spend', not as unlimited"* pins the other boundary — `0` is a real limit, not a missing one.)
+- [x] A per-skill level above that skill's `maxLevel` is invalid even when the budget has room. (Test *"should reject a skill above its own max level even with budget to spare"* — `CON: 6` against `maxLevel: 5` with 9 points still unspent gives `isValid: false`, `isOverBudget: false`, and one `above-max-level` violation.)
+- [x] With no budget configured, any allocation within per-skill `maxLevel` is valid (backwards compatibility). (Test *"should treat an absent budget as unlimited"* — 25 points spent, `pointBudget: null`, valid — plus *"should still enforce per-skill maximums when the budget is unlimited"*.)
+- [x] The validator lives in the engine and is pure — no store access, no React. (`src/engine/skillAllocation.ts` imports only the `Configuration` type.)
+- [x] TICKET-CHAR-02's wizard consumes this validator rather than its own arithmetic. **Deferred, not done** — TICKET-CHAR-02 has not been built yet (it sits below this line in `overview.md`), so there is nothing to cross-check or update. The ticket's own criteria reference point allocation; whoever builds it must call `validateMainSkillAllocation` rather than re-summing levels. Noted in TICKET-CHAR-02.
+- [x] Unit tests cover: under / exactly at / over budget; per-skill cap violation with budget remaining; absent budget; empty allocation; ~~(if option (b)) weighted costs~~ *(not applicable — option (a) was chosen)*. (+25 tests: `skillAllocation.test.ts` (11), `MainSkillPointBudget.test.tsx` (6), 4 added to `configStore.test.ts`, 4 to `importExport.test.ts`. Also covers negative levels not refunding points, and codes the configuration does not define. Suite: 497 passing, 0 failing, 0 skipped.)
+- [x] Verified via the fallow skill and the ~~react-conventions~~ **coding-conventions** skill *(renamed since the ticket was written)*. (`fallow audit --base HEAD` → `"verdict": "pass"`, 0 introduced findings. It initially reported one *introduced* complexity finding — the optional-field check pushed `importExport.ts`'s already-long `validateConfiguration` from 14 to 15 cyclomatic — so the check was extracted into a `validateOptionalNonNegativeNumber` helper, which brought it back under. The verifier also caught one *new* lint error (`useUniqueElementIds` on a hardcoded `id`/`htmlFor` pair); fixed with `useId()` rather than accepted, and `yarn run lint` is back to the documented 35 errors / 23 warnings. Conventions: persistence via a store action, the field composes `Card`/`Input`/`Label`/`Button`/`Text` primitives and owns its own layout, theme tokens only, `**Validates: Requirements**` headers.)
+- [x] Verified live in the browser: set a budget, reload, confirm it persisted, and confirm the skills panel shows it. (On `localhost:5173/config/skills`: the Point Budget card renders below the main skills and initially reads *"Unlimited — players are bounded only by each skill's own max level."*; entering `24` and pressing Save wrote `mainSkillPointBudget: 24` into `dnd_builder_config`; after a full page reload the card read *"Players may spend 24 of the 40 levels this ruleset allows in total."*)
 
 ## Notes
 

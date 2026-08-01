@@ -26,9 +26,16 @@ as part of the action. That is the equivalent of a repository layer here.
 
 ## Configuration (the ruleset)
 
-One `Configuration` per browser: id, name, version, timestamps, `focusStatBonusLevel`, plus the
-entity arrays — `mainSkills`, `stats`, `specialitySkills`, `combatSkills`, `materials`,
-`materialCategories`, `items`, `equipmentSlots`, `races`, `currencyTiers`.
+One `Configuration` per browser: id, name, version, timestamps, `focusStatBonusLevel`, the optional
+`mainSkillPointBudget`, plus the entity arrays — `mainSkills`, `stats`, `specialitySkills`,
+`combatSkills`, `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
+`currencyTiers`.
+
+`mainSkillPointBudget?: number` is the worked example of an optional field done right, and the
+pattern to copy: **absent means unlimited**, so rulesets saved before it existed stay valid;
+`validateConfiguration()` in `importExport.ts` accepts `undefined` and only type-checks a present
+value; `setMainSkillPointBudget(undefined)` deletes the key rather than storing `undefined`; and
+`validateMainSkillAllocation()` in `src/engine/skillAllocation.ts` reads it as `null` = no limit.
 
 Identity rules that the rest of the app depends on:
 

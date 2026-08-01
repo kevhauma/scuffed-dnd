@@ -291,6 +291,46 @@ describe('Import/Export Service', () => {
     });
   });
 
+  describe('mainSkillPointBudget round-trip', () => {
+    /** exportConfiguration returns a Blob, so a real round-trip has to read it back */
+    const roundTrip = async (config: Configuration): Promise<Configuration> =>
+      importConfiguration(await exportConfiguration(config).text());
+
+    it('should survive export then import unchanged', async () => {
+      const withBudget: Configuration = { ...validConfig, mainSkillPointBudget: 25 };
+
+      const imported = await roundTrip(withBudget);
+
+      expect(imported.mainSkillPointBudget).toBe(25);
+      expect(imported).toEqual(withBudget);
+    });
+
+    it('should import a file that predates the field, leaving it unlimited', () => {
+      // validConfig has no mainSkillPointBudget — exactly the shape older exports have
+      const imported = importConfiguration(JSON.stringify(validConfig));
+
+      expect(imported.mainSkillPointBudget).toBeUndefined();
+      expect(validateConfiguration(validConfig).isValid).toBe(true);
+    });
+
+    it('should round-trip a budget of zero rather than dropping it', async () => {
+      const withNoPoints: Configuration = { ...validConfig, mainSkillPointBudget: 0 };
+
+      const imported = await roundTrip(withNoPoints);
+
+      expect(imported.mainSkillPointBudget).toBe(0);
+    });
+
+    it('should reject a non-numeric or negative budget', () => {
+      const wrongType = { ...validConfig, mainSkillPointBudget: 'lots' };
+      expect(validateConfiguration(wrongType).isValid).toBe(false);
+      expect(validateConfiguration(wrongType).errors.join(' ')).toContain('mainSkillPointBudget');
+
+      const negative = { ...validConfig, mainSkillPointBudget: -1 };
+      expect(validateConfiguration(negative).isValid).toBe(false);
+    });
+  });
+
   describe('importConfigurationFromFile', () => {
     it('should import configuration from file', async () => {
       const json = JSON.stringify(validConfig);

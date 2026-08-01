@@ -23,6 +23,11 @@ export interface Configuration {
   races: Race[];
   currencyTiers: CurrencyTier[];
   focusStatBonusLevel: number;
+  /**
+   * Points a Player may spend across all Main_Skills at character creation, one point per level.
+   * Absent means unlimited, so rulesets saved before this field existed keep working.
+   */
+  mainSkillPointBudget?: number;
   createdAt: string;
   updatedAt: string;
 }

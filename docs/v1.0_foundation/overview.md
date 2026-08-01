@@ -34,7 +34,7 @@ retroactively ticketed. Their detail (and requirement traceability) stays in [ta
 - [x] [TICKET-IO-01](./tickets/TICKET-IO-01-restore-state-on-app-start.md) — Restore configuration and characters on app start (bug fix, Req 17.3, 17.4 — hydration only fires inside `/config`, and `loadCharacters()` has no caller at all) — small and independent; take it early so later tickets aren't developed against an app that only has state if you visited `/config` first
 - [x] [TICKET-FORM-01](./tickets/TICKET-FORM-01-block-circular-formulas-on-save.md) — Block circular formulas on save and derive skill dependencies from the parser (bug fix, Req 16.5, 16.6, 2.6 — decision recorded below) — independent; do it while the config panels are freshly reachable from NAV-02
 - [x] [TICKET-ROLL-01](./tickets/TICKET-ROLL-01-dice-rolling-engine.md) — Dice simulator and combat roll aggregator (Req 5.5, 5.6) — pure engine, no UI; the last unbuilt piece of the logic layer, and TICKET-ROLL-02 plus the sheet's roll buttons both depend on it
-- [ ] [TICKET-SKL-01](./tickets/TICKET-SKL-01-main-skill-point-allocation-rules.md) — Point allocation rules for main skills (Req 2.4, 11.3) — never modelled; blocks TICKET-CHAR-02 from honestly satisfying 11.3. Carries a blocking design decision for the User
+- [x] [TICKET-SKL-01](./tickets/TICKET-SKL-01-main-skill-point-allocation-rules.md) — Point allocation rules for main skills (Req 2.4, 11.3) — never modelled; blocked TICKET-CHAR-02 from honestly satisfying 11.3. ~~Carries a blocking design decision for the User~~ — **decided: option (a), a single global `mainSkillPointBudget`** (see the ticket and the spec decision below)
 - [ ] [TICKET-CHAR-01](./tickets/TICKET-CHAR-01-character-list.md) — Character list at `/play` (Req 11.1, 17.4, 21.1-21.5) — the entry point to play mode; nothing else in play mode is reachable until it exists
 - [ ] [TICKET-CHAR-02](./tickets/TICKET-CHAR-02-character-creation-wizard.md) — Character creation wizard at `/play/create` (Req 11.1-11.6, 21.1-21.5) — needs TICKET-CHAR-01 for its entry point, TICKET-CALC-01 for its review step, and TICKET-SKL-01 for point allocation; produces the characters every later play-mode ticket renders
 - [ ] [TICKET-NAV-01](./tickets/TICKET-NAV-01-root-layout-and-mode-switching.md) — Root layout: medieval shell, real mode switching, play-mode config lock (bug fix, Req 19.1-19.6, 22.1-22.6 — `__root.tsx` is still stock scaffold and `useUIStore.mode` is never written) — after the first play screens exist so the play nav has destinations, but before the §17.5 polish pass
@@ -75,6 +75,17 @@ These are settled — don't re-open them without a new decision here.
 - **Level-ups after creation: out of scope** for v1.0, to be tackled when it comes up.
   [TICKET-SKL-01](./tickets/TICKET-SKL-01-main-skill-point-allocation-rules.md) stays scoped to
   creation-time allocation.
+
+## Spec decision taken without the User (2026-08-01) — flagged for review
+
+The User asked for the backlog to be worked straight through without stopping for input, so
+TICKET-SKL-01's **blocking** decision was taken using the tiebreaker recorded in the ticket itself.
+
+- **Main-skill point allocation: option (a), a single global pool.**
+  `Configuration.mainSkillPointBudget?: number`, one point per level, each skill still capped by its
+  own `maxLevel`; absent means unlimited. Option (b) — a per-skill `pointCost` weighting — was not
+  built, because adding it later is additive and removing it would not be. `MainSkill` is unchanged,
+  so nothing has to be undone to add weighted costs on top. **Say so if you want (b).**
 
 ## Definition of Done (applies to every ticket)
 

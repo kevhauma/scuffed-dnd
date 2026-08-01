@@ -81,10 +81,30 @@ export function downloadConfiguration(config: Configuration, filename?: string):
 }
 
 /**
+ * Validate an optional numeric field
+ *
+ * Absent is valid — that is what makes a field optional, and it is how a file exported before
+ * the field existed stays importable.
+ *
+ * @param value The field's value, possibly undefined
+ * @param field The field name, for the error message
+ * @returns An error message, or null when the value is acceptable
+ */
+function validateOptionalNonNegativeNumber(value: unknown, field: string): string | null {
+  if (value === undefined) {
+    return null;
+  }
+  if (typeof value !== 'number' || value < 0) {
+    return `Field '${field}' must be a number of 0 or more when present`;
+  }
+  return null;
+}
+
+/**
  * Validate configuration structure
- * 
+ *
  * Checks that the imported data has all required fields and correct types.
- * 
+ *
  * @param data Unknown data to validate
  * @returns Validation result with errors if any
  */
@@ -108,6 +128,15 @@ export function validateConfiguration(data: unknown): ValidationResult {
   // Required number fields
   if (typeof config.focusStatBonusLevel !== 'number') {
     errors.push("Field 'focusStatBonusLevel' must be a number");
+  }
+
+  // Optional number fields — absent is valid, so files predating the field still import
+  const budgetError = validateOptionalNonNegativeNumber(
+    config.mainSkillPointBudget,
+    'mainSkillPointBudget'
+  );
+  if (budgetError) {
+    errors.push(budgetError);
   }
 
   // Required array fields

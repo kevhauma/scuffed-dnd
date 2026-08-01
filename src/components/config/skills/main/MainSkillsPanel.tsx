@@ -8,6 +8,7 @@ import { useMainSkillManager } from './useMainSkillManager';
 import { BaseSkillPanel } from '../shared/BaseSkillPanel';
 import { MainSkillCard } from './MainSkillCard';
 import { MainSkillFormDialog } from './MainSkillFormDialog';
+import { MainSkillPointBudget } from './MainSkillPointBudget';
 import { Card } from '../../../ui/Card/Card';
 import { Text } from '../../../ui/Text/Text';
 
@@ -39,34 +40,38 @@ export function MainSkillsPanel() {
   }
 
   return (
-    <BaseSkillPanel
-      title="Main Skills"
-      description="Foundational skills with 3-letter codes and levels"
-      addButtonText="Add Main Skill"
-      emptyMessage="No main skills configured yet. Click 'Add' to create your first skill."
-      skills={currentSkills}
-      isDialogOpen={isDialogOpen}
-      deleteWarning={deleteWarning}
-      onAdd={handleAdd}
-      onCloseDialog={() => setIsDialogOpen(false)}
-      onCloseWarning={() => setDeleteWarning(null)}
-      renderSkillCard={(skill) => (
-        <MainSkillCard
-          skill={skill}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-        />
-      )}
-      renderFormDialog={() => (
-        <MainSkillFormDialog
-          isOpen={isDialogOpen}
-          isEditing={!!editingSkill}
-          form={form}
-          validateCode={validateCode}
-          onClose={() => setIsDialogOpen(false)}
-          onSave={handleSave}
-        />
-      )}
-    />
+    <div className="space-y-4">
+      <BaseSkillPanel
+        title="Main Skills"
+        description="Foundational skills with 3-letter codes and levels"
+        addButtonText="Add Main Skill"
+        emptyMessage="No main skills configured yet. Click 'Add' to create your first skill."
+        skills={currentSkills}
+        isDialogOpen={isDialogOpen}
+        deleteWarning={deleteWarning}
+        onAdd={handleAdd}
+        onCloseDialog={() => setIsDialogOpen(false)}
+        onCloseWarning={() => setDeleteWarning(null)}
+        renderSkillCard={(skill) => (
+          <MainSkillCard
+            skill={skill}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+          />
+        )}
+        renderFormDialog={() => (
+          <MainSkillFormDialog
+            isOpen={isDialogOpen}
+            isEditing={!!editingSkill}
+            form={form}
+            validateCode={validateCode}
+            onClose={() => setIsDialogOpen(false)}
+            onSave={handleSave}
+          />
+        )}
+      />
+
+      <MainSkillPointBudget />
+    </div>
   );
 }

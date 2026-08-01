@@ -38,10 +38,12 @@ character with an inventory initialised from the configured equipment slots.
 - The multi-step form pattern does not exist yet in this codebase; the closest reference is the
   form-dialog + `useXManager` + `react-hook-form` shape used by the config panels, e.g.
   [`useRaceManager`](../../../src/components/config/races/useRaceManager.ts).
-- **Point-allocation rules are underspecified.** Requirement 11.3 says points are allocated
-  "according to User-defined rules", and Requirement 2.4 says the User can define point allocation
-  rules for Main_Skills — but `MainSkill` only carries `maxLevel`; there is no point-budget field
-  in the configuration today.
+- ~~**Point-allocation rules are underspecified.**~~ **Resolved by
+  [TICKET-SKL-01](./TICKET-SKL-01-main-skill-point-allocation-rules.md) (landed 2026-08-01):**
+  `Configuration.mainSkillPointBudget?: number` is a single global pool, one point per level, and
+  `validateMainSkillAllocation(levels, config)` in `src/engine/skillAllocation.ts` returns points
+  spent, points remaining, per-skill violations and the verdict. **Step 2 must call it** — do not
+  re-sum levels in the wizard. An absent budget means unlimited.
 
 ## Desired result (to-be)
 
@@ -84,12 +86,12 @@ character with an inventory initialised from the configured equipment slots.
 
 ## Notes
 
-- **The point budget is now its own ticket**:
-  [TICKET-SKL-01](./TICKET-SKL-01-main-skill-point-allocation-rules.md) adds the allocation rule to
-  the configuration plus a pure `validateMainSkillAllocation` validator. Build it first and consume
-  the validator here. If this wizard is built before SKL-01 lands, step 2 enforces per-skill
-  `maxLevel` only, and criterion 11.3 stays open with that noted on the line — don't tick it and
-  don't invent a budget rule inline.
+- **The point budget shipped in
+  [TICKET-SKL-01](./TICKET-SKL-01-main-skill-point-allocation-rules.md)** (2026-08-01), so this
+  ticket is no longer blocked on it. Step 2 consumes `validateMainSkillAllocation` and renders
+  `pointsSpent` / `pointsRemaining` / `violations`; it must not re-implement the arithmetic or
+  invent a rule inline. SKL-01 left its own "CHAR-02 consumes the validator" criterion pointing
+  here, so satisfying 11.3 in step 2 closes both.
 - Multi-race bonuses combine additively (Req 8.3, 8.4) — that is already the calculator's job; the
   wizard only has to display them separately from allocated levels.
 - `createCharacterFromData()` already initialises `currentStatValues: {}` and an empty inventory,
