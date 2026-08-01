@@ -1,12 +1,12 @@
 # Test Status
 
 _Last verified: 2026-08-01 (`npx vitest run`), after
-[TICKET-SKL-01](docs/v1.0_foundation/tickets/TICKET-SKL-01-main-skill-point-allocation-rules.md)._
+[TICKET-CHAR-01](docs/v1.0_foundation/tickets/TICKET-CHAR-01-character-list.md)._
 
 ## Summary
 
-- **Total tests**: 497
-- **Passing**: 497 (100%)
+- **Total tests**: 512
+- **Passing**: 512 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 

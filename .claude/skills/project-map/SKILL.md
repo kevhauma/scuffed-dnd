@@ -40,7 +40,7 @@ never call `loadConfig`/`loadCharacters` themselves.
 | `/config/races` | `routes/config/races.tsx` | `RacesConfigPanel` |
 | `/config/currency` | `routes/config/currency.tsx` | `CurrencyConfigPanel` (which renders `ConversionCalculator` once tiers exist) |
 | `/config/focus` | `routes/config/focus.tsx` | `FocusStatConfig` |
-| `/play` | `routes/play/index.tsx` | **placeholder** — CharacterList is TICKET-CHAR-01 |
+| `/play` | `routes/play/index.tsx` | `CharacterList` — the play-mode entry point |
 | `/play/create` | `routes/play/create.tsx` | **placeholder** — creation wizard is TICKET-CHAR-02 |
 | `/play/character/$id` | `routes/play/character.$id.tsx` | **placeholder** — character sheet is task 12.3 |
 
@@ -48,7 +48,8 @@ Route files stay thin: they render a feature component and pass route params dow
 is a no-op here — everything comes from the Zustand stores.
 
 **The whole configuration UI is mounted and browsable** as of TICKET-NAV-02 — all eight §11 panels
-have a route. Play mode is still all placeholders.
+have a route. In play mode only `/play` is real (TICKET-CHAR-01); `/play/create` and
+`/play/character/$id` are still placeholders.
 
 Two things to know about route files here:
 
@@ -105,6 +106,9 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   unique across main/speciality/combat.
 - `validator.ts` — `validateConfiguration(config): ValidationReport` (cross-entity referential
   integrity: formula refs, equipment slot types, material categories, circular formulas).
+- `characterSummary.ts` — `calculateCharacterLevel(character)` and `toCharacterSummary(character)`.
+  **The single definition of "level"**: the sum of allocated `mainSkillLevels`, deliberately
+  excluding racial/equipment/focus modifiers. Every screen showing a level reads it from here.
 - `skillAllocation.ts` — `validateMainSkillAllocation(levels, config)` → points spent/remaining,
   per-skill violations, verdict. The single global point pool (`Configuration.mainSkillPointBudget`,
   absent = unlimited). The creation wizard reads this; it never re-sums levels itself.
@@ -151,8 +155,10 @@ flex/grid, and positioning arrive from the caller's `className`.
 `config/index.ts` re-exports all of it. `skills/shared/BaseSkillPanel.tsx` +
 `useSkillDependencies.ts` are shared across the three skill kinds.
 
-**`play/` — empty.** Character list, creation wizard, character sheet, inventory panel, combat
-roller, and stat editor are all still open (see `docs/v1.0_foundation/overview.md`).
+**`play/`** — barrelled by `play/index.ts`. `characters/` holds `CharacterList` +
+`CharacterCard` + `useCharacterListManager`, mirroring `config/`'s domain-folder shape; it is the
+exemplar to copy for the rest of play mode. Creation wizard, character sheet, inventory panel,
+combat roller, and stat editor are still open (see `docs/v1.0_foundation/overview.md`).
 
 **`shared/`** — cross-mode components and hooks, barrelled by `shared/index.ts`:
 `useAppHydration.ts` (the app-wide LocalStorage restore, called only by `RootLayout`) and
