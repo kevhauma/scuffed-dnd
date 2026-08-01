@@ -36,7 +36,7 @@ rather than a read-only config UI).
 | Route | File | State |
 |---|---|---|
 | `/` | `routes/index.tsx` | landing page, feature overview |
-| `/config` | `routes/config/index.tsx` | dashboard: initialise-config empty state, then a card index linking the seven sections below |
+| `/config` | `routes/config/index.tsx` | `ConfigDashboard` (components/config/dashboard/) — validation status, the "Validate Configuration" action, and a card index of the seven sections below |
 | `/config/skills` | `routes/config/skills.tsx` | `MainSkillsPanel` + `SpecialitySkillsPanel` + `CombatSkillsPanel` |
 | `/config/stats` | `routes/config/stats.tsx` | `StatsConfigPanel` |
 | `/config/materials` | `routes/config/materials.tsx` | `MaterialsConfigPanel` |

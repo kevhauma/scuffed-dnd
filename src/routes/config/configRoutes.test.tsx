@@ -56,7 +56,7 @@ vi.mock('../../services/storage', () => ({
 
 import { loadConfiguration } from '../../services/storage';
 import { useConfigStore } from '../../stores/configStore';
-import { ConfigDashboard } from './index';
+import { ConfigIndex } from './index';
 import { SkillsConfig } from './skills';
 import { StatsConfig } from './stats';
 import { MaterialsConfig } from './materials';
@@ -137,7 +137,7 @@ describe('/config dashboard hydration', () => {
   });
 
   it('does not hydrate itself — the root layout owns that', () => {
-    render(<ConfigDashboard />);
+    render(<ConfigIndex />);
 
     expect(loadConfiguration).not.toHaveBeenCalled();
   });
@@ -145,7 +145,7 @@ describe('/config dashboard hydration', () => {
   it('still shows the empty state when storage genuinely holds no configuration', () => {
     useConfigStore.setState({ config: null, isLoaded: true });
 
-    render(<ConfigDashboard />);
+    render(<ConfigIndex />);
 
     expect(screen.getByText('No Configuration Found')).toBeDefined();
   });
