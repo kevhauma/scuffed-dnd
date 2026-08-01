@@ -174,8 +174,12 @@ with `SheetHeader`, `RacialModifiersSection`, `MainSkillsSection`, `StatsSection
 than re-deriving a breakdown layout.
 `inventory/` holds `InventoryPanel` (mounted by the sheet, taking only a `characterId`) with
 `EquipmentSlotRow`, `MiscItemRow` and `useInventoryManager`. Equipping needs no recalculation call:
-`calculateCharacter` reads `inventory.equippedItems` at render time. The combat roller is still
-open (see `docs/v1.0_foundation/overview.md`); it mounts into `CombatSkillsSection`.
+`calculateCharacter` reads `inventory.equippedItems` at render time.
+`rolls/` holds `useCombatRoller` (the one caller of `rollCombatSkill`, taking the sheet's
+`CalculatedCharacter` so the roll is not calculated twice), `RollBreakdown` and `RollHistoryPanel`.
+The roll button and the last result live in `CombatSkillsSection`; the history is its own panel.
+Randomness is injectable via `useCombatRoller(id, calculated, { rng })` — never spy on
+`Math.random`.
 
 **`shared/`** — cross-mode components and hooks, barrelled by `shared/index.ts`:
 `AppShell.tsx` (the medieval frame + mode switcher + per-mode nav), `useAppMode.ts` (route↔mode

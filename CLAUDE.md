@@ -26,7 +26,7 @@ Verification before declaring any change done: `npx vitest run` + `npx tsc --noE
 so and skip it if unavailable in the session, don't skip it silently), plus a live browser check
 for UI-visible changes.
 
-**The test suite is green — 587 passing, 0 failing, 0 skipped.** Any failing or newly-skipped test
+**The test suite is green — 599 passing, 0 failing, 0 skipped.** Any failing or newly-skipped test
 is a regression. Typecheck and lint are *not* clean: 9 pre-existing `tsc` errors and 35
 pre-existing lint errors plus formatting drift, all enumerated in
 [TEST_STATUS.md](TEST_STATUS.md), which is the baseline for those two. Never fix a failure by

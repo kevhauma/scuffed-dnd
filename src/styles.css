@@ -68,3 +68,35 @@ body {
 code {
   font-family: var(--font-family-mono);
 }
+
+/*
+ * Dice-roll settle — the "animated dice" of a combat roll.
+ *
+ * A short tumble-and-settle applied to a freshly rolled result. Keyed off the roll's own
+ * `key` in the JSX, so a new roll restarts it without a timer. Kept to a single keyframe rather
+ * than an animation library; the app takes on no runtime dependency for this.
+ */
+@keyframes roll-settle {
+  0% {
+    opacity: 0;
+    transform: translateY(-0.35rem) rotate(-6deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0.1rem) rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+.animate-roll-settle {
+  animation: roll-settle 400ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-roll-settle {
+    animation: none;
+  }
+}

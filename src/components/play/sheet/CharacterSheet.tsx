@@ -12,6 +12,8 @@ import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 import { InventoryPanel } from '../inventory/InventoryPanel';
+import { RollHistoryPanel } from '../rolls/RollHistoryPanel';
+import { useCombatRoller } from '../rolls/useCombatRoller';
 import { CombatSkillsSection } from './CombatSkillsSection';
 import { MainSkillsSection } from './MainSkillsSection';
 import { RacialModifiersSection } from './RacialModifiersSection';
@@ -57,6 +59,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
   const {
     status,
     character,
+    calculated,
     formulaError,
     raceNames,
     level,
@@ -68,6 +71,15 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     handleChangeStatValue,
     handleBack,
   } = useCharacterSheet(characterId);
+
+  const {
+    results: rollResults,
+    errors: rollErrors,
+    history: rollHistory,
+    canRoll,
+    handleRoll,
+    handleClearHistory,
+  } = useCombatRoller(characterId, calculated);
 
   if (status === 'no-configuration') {
     return (
@@ -136,7 +148,15 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
 
       <SpecialitySkillsSection specialitySkills={specialitySkills} />
 
-      <CombatSkillsSection combatSkills={combatSkills} />
+      <CombatSkillsSection
+        combatSkills={combatSkills}
+        results={rollResults}
+        errors={rollErrors}
+        canRoll={canRoll}
+        onRoll={handleRoll}
+      />
+
+      <RollHistoryPanel history={rollHistory} onClear={handleClearHistory} />
     </div>
   );
 }

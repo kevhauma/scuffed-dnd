@@ -330,7 +330,7 @@ This plan implements a browser-based React application for creating and playing 
     - Handle all layout/positioning in this component
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 21.1-21.5_
   
-  - [ ] 12.5 Create CombatSkillRoller component
+  - [x] 12.5 Create CombatSkillRoller component — TICKET-ROLL-02
     - Use base components (Button, Card) exclusively
     - Display roll button for each combat skill
     - Implement animated dice display with medieval aesthetics

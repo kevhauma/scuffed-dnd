@@ -240,6 +240,8 @@ export function useCharacterSheet(characterId: string) {
   return {
     status,
     character,
+    /** The engine result, for callers that need more than the rendered breakdowns (the roller) */
+    calculated,
     formulaError: error,
     level: character ? calculateCharacterLevel(character) : 0,
     ...view,
