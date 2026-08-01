@@ -7,7 +7,7 @@ describe('Textarea', () => {
     render(<Textarea placeholder="Test textarea" />);
     const textarea = screen.getByPlaceholderText('Test textarea');
     expect(textarea).toBeDefined();
-    expect(textarea.className).toContain('bg-white');
+    expect(textarea.className).toContain('bg-parchment-50');
     expect(textarea.className).toContain('border-stone-200');
     expect(textarea.className).toContain('resize-y');
   });

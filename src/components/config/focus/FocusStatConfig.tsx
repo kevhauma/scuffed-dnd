@@ -86,7 +86,7 @@ export function FocusStatConfig() {
               onChange={(e) => handleChange(e.target.value)}
               placeholder="Enter bonus level (e.g., 5)"
               error={!isValid}
-              className="mt-2"
+              className="w-full mt-2"
             />
             {!isValid && (
               <Text variant="body-small" className="text-crimson mt-1">

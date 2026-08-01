@@ -14,8 +14,8 @@
     primary: [
       'bg-royal text-parchment-50',
       'border-royal',
-      'hover:bg-[#243447] hover:border-[#243447]',
-      'active:bg-[#1a2633] active:shadow-inner',
+      'hover:bg-royal-dark hover:border-royal-dark',
+      'active:bg-royal-darker active:shadow-inner',
       'shadow-parchment',
     ].join(' '),
     secondary: [
@@ -28,8 +28,8 @@
     danger: [
       'bg-crimson text-parchment-50',
       'border-crimson',
-      'hover:bg-[#6b2424] hover:border-[#6b2424]',
-      'active:bg-[#4a1919] active:shadow-inner',
+      'hover:bg-crimson-dark hover:border-crimson-dark',
+      'active:bg-crimson-darker active:shadow-inner',
       'shadow-parchment',
     ].join(' '),
     ghost: [

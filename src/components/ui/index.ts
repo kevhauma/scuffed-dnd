@@ -1,8 +1,8 @@
 // Base Component Library
 // This directory contains all base UI components with medieval theme styling
-// 
+//
 // ARCHITECTURE PRINCIPLES:
-// 
+//
 // Base components encapsulate INTRINSIC styles only:
 // - Colors (background, text, border colors)
 // - Typography (font family, size, weight, line height)
@@ -13,12 +13,15 @@
 // - Box shadows and visual effects
 // - Intrinsic sizing (min-width, min-height)
 //
-// Base components DO NOT include POSITIONING styles:
+// Base components DO NOT include POSITIONING styles on their outermost element:
 // - Margin (external spacing)
 // - Flexbox/Grid properties (display, flex, grid, align-items, justify-content)
 // - Positioning (absolute, relative, fixed, sticky)
-// - Width/height constraints imposed by parent layout
+// - Width/height constraints imposed by parent layout — including `w-full`
 // - Z-index layering
+//
+// A component laying out its OWN sub-elements is fine: FormField's label-to-input gap,
+// FormulaEditor's error-message spacing, Dialog's `fixed inset-0` (a modal owns its placement).
 //
 // USAGE:
 // Feature components use these base components and handle all layout/positioning
@@ -26,37 +29,28 @@
 //
 // Example:
 //   <Button variant="primary" className="ml-4 flex-1">Save</Button>
-//                                      ^^^^^^^^^^^^^^^^
-//                                      Positioning added by feature component
+//   <Input className="w-full" />   <- width is the caller's decision, not the input's
+//                             ^^^^^^^^^^^^^^^^
+//                             Positioning added by feature component
+//
+// IMPORTING:
+// Feature code imports base components by deep path (`../../ui/Button/Button`), which is what
+// every call site already does. This barrel is the folder's public listing rather than the
+// import route — see the coding-conventions skill.
 //
 // MEDIEVAL THEME:
 // All base components use the medieval color palette, fonts, and styling
 // defined in src/styles.css to maintain consistent theming throughout the app.
 
-// Export base components here as they are created
-export { Button } from './Button/Button';
-export type { ButtonProps } from './Button/Button';
-export { Input } from './Input/Input';
-export type { InputProps } from './Input/Input';
-export { Select } from './Select/Select';
-export type { SelectProps, SelectOption } from './Select/Select';
-export { Textarea } from './Textarea/Textarea';
-export type { TextareaProps } from './Textarea/Textarea';
-export { Checkbox } from './Checkbox/Checkbox';
-export type { CheckboxProps } from './Checkbox/Checkbox';
-export { Card } from './Card/Card';
-export type { CardProps } from './Card/Card';
-export { Label } from './Label/Label';
-export type { LabelProps } from './Label/Label';
-export { Dialog } from './Dialog/Dialog';
-export type { DialogProps } from './Dialog/Dialog';
-export { FormulaEditor } from './FormulaEditor/FormulaEditor';
-export type { FormulaEditorProps } from './FormulaEditor/FormulaEditor';
-export { ValidationReport } from './ValidationReport/ValidationReport';
-export type { ValidationReportProps, ValidationIssue, ValidationSeverity } from './ValidationReport/ValidationReport';
-export { Text } from './Text/Text';
-export type { TextProps } from './Text/Text';
-export type { TextVariant } from './Text/Text.style';
-export { FormField } from './FormField/FormField';
-export type { FormFieldProps } from './FormField/FormField';
-
+export * from './Button/Button';
+export * from './Input/Input';
+export * from './Select/Select';
+export * from './Textarea/Textarea';
+export * from './Checkbox/Checkbox';
+export * from './Card/Card';
+export * from './Label/Label';
+export * from './Dialog/Dialog';
+export * from './FormulaEditor/FormulaEditor';
+export * from './ValidationReport/ValidationReport';
+export * from './Text/Text';
+export * from './FormField/FormField';

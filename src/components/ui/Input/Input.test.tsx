@@ -7,7 +7,7 @@ describe('Input', () => {
     render(<Input placeholder="Test input" />);
     const input = screen.getByPlaceholderText('Test input');
     expect(input).toBeDefined();
-    expect(input.className).toContain('bg-white');
+    expect(input.className).toContain('bg-parchment-50');
     expect(input.className).toContain('border-stone-200');
   });
 

@@ -2,7 +2,7 @@
 export const checkboxStyles = [
   'w-5 h-5',
   'text-royal', // Checked color
-  'bg-white',
+  'bg-parchment-50',
   'border-2 border-stone-200',
   'rounded',
   'transition-all duration-200',
@@ -10,7 +10,7 @@ export const checkboxStyles = [
   'hover:border-stone-300',
   'cursor-pointer',
   'checked:bg-royal checked:border-royal',
-  'checked:hover:bg-[#243447] checked:hover:border-[#243447]',
+  'checked:hover:bg-royal-dark checked:hover:border-royal-dark',
 ].join(' ');
 
 // Label text styles

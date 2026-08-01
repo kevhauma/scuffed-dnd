@@ -13,7 +13,7 @@ describe('Select', () => {
     render(<Select options={options} />);
     const select = screen.getByRole('combobox');
     expect(select).toBeDefined();
-    expect(select.className).toContain('bg-white');
+    expect(select.className).toContain('bg-parchment-50');
     expect(select.className).toContain('border-stone-200');
   });
 

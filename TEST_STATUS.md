@@ -1,12 +1,12 @@
 # Test Status
 
 _Last verified: 2026-08-01 (`npx vitest run`), after
-[TICKET-NAV-01](docs/v1.0_foundation/tickets/TICKET-NAV-01-root-layout-and-mode-switching.md)._
+[TICKET-UI-01](docs/v1.0_foundation/tickets/TICKET-UI-01-base-component-convention-cleanup.md)._
 
 ## Summary
 
-- **Total tests**: 539
-- **Passing**: 539 (100%)
+- **Total tests**: 543
+- **Passing**: 543 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 

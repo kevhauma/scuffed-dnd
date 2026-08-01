@@ -68,7 +68,7 @@ export function StatFormDialog({
           }}
           availableVariables={availableSkillCodes}
           placeholder="e.g., STR * 10 + CON * 5"
-          className="mb-2"
+          className="w-full mb-2"
         />
         {errors.formula && (
           <Text variant="error" as="p" className="mt-1">

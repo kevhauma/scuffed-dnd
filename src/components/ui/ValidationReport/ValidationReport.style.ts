@@ -1,7 +1,5 @@
-// Container styles - allows positioning via className
-export const containerStyles = [
-  'w-full',
-].join(' ');
+// Container styles - intrinsic only; width and placement come from the caller's className
+export const containerStyles = '';
 
 // Header styles
 export const headerStyles = [

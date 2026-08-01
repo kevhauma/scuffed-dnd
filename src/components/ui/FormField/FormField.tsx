@@ -8,6 +8,7 @@
 import { Label } from '../Label/Label';
 import { Input, type InputProps } from '../Input/Input';
 import { Text } from '../Text/Text';
+import { inputStyles, messageStyles } from './FormField.style';
 import type { FieldError, Merge, FieldErrorsImpl } from 'react-hook-form';
 
 export interface FormFieldProps extends Omit<InputProps, 'error'> {
@@ -37,14 +38,14 @@ export function FormField({
       <Input
         id={fieldId}
         error={!!error}
-        className="w-full mt-2"
+        className={inputStyles}
         {...inputProps}
       />
       {error && (
-        <Text variant="error" className="mt-1">{error.toString()}</Text>
+        <Text variant="error" className={messageStyles}>{error.toString()}</Text>
       )}
       {!error && helperText && (
-        <Text variant="muted" className="mt-1">{helperText}</Text>
+        <Text variant="muted" className={messageStyles}>{helperText}</Text>
       )}
     </div>
   );

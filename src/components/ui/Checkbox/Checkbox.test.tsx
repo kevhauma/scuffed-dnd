@@ -7,7 +7,7 @@ describe('Checkbox', () => {
     render(<Checkbox />);
     const checkbox = screen.getByRole('checkbox');
     expect(checkbox).toBeDefined();
-    expect(checkbox.className).toContain('bg-white');
+    expect(checkbox.className).toContain('bg-parchment-50');
     expect(checkbox.className).toContain('border-stone-200');
   });
 

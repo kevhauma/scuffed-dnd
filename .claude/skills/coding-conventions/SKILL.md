@@ -49,14 +49,28 @@ rewrite it as drive-by work either.
 Imports are relative (`../../ui/Button/Button`). The `#/*` → `./src/*` alias exists in
 `package.json` but nothing uses it — don't introduce it in one file and leave the codebase split.
 
+**Base components are imported by deep path, not through the barrel** (TICKET-UI-01) — every call
+site does, so match it. `components/ui/index.ts` is the folder's public listing; keep it complete
+(a test asserts every primitive appears in it) but don't import from it. Feature barrels
+(`config/index.ts`, `play/index.ts`, `shared/index.ts`) are the same: `export *`, kept complete,
+and adding a component means adding its barrel line in the same change.
+
 ## Components
 
 - **Function components, named exports**, typed props interface exported alongside
   (`export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>`).
 - **Base components (`components/ui/`) carry intrinsic styling only** — colors, typography,
   padding, borders, radius, hover/focus/disabled states, transitions, shadows, intrinsic sizing.
-  They must never contain margin, flex/grid, `position`, z-index, or parent-imposed width/height.
-  Every one accepts `className` so the caller can position it.
+  They must never contain margin, flex/grid, `position`, z-index, or parent-imposed width/height
+  **on their outermost element — including `w-full`** (TICKET-UI-01: width is the caller's
+  decision, passed as `className="w-full"`). Laying out a component's *own* sub-elements is fine,
+  as is a modal or popover owning its placement. Every one accepts `className` so the caller can
+  position it. `src/components/ui/libraryConventions.test.ts` asserts all of this, plus that each
+  component has a `.style.ts` and appears in the barrel — run it before hand-auditing.
+- **Theme tokens only inside `components/ui/`** — no `bg-white` (use `parchment-50`, the paper
+  tone) and no hex literals. A new shade goes in `styles.css`'s `@theme` block as a named token
+  first (`--color-royal-dark`, `--color-crimson-dark`, …). Note: Tailwind v4's dev server serves a
+  stale CSS bundle after a new token is added — hard-reload before concluding it doesn't work.
 - **Feature components own all layout** and compose base components — never a raw `<button>`,
   `<input>`, `<select>`, or `<textarea>` in `components/config/` or `components/play/`.
 - Class strings live in the sibling `.style.ts` as `baseStyles` / `variantStyles` / `sizeStyles`

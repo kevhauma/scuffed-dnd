@@ -1,10 +1,9 @@
 // Base styles - intrinsic only (no margin/positioning)
 export const baseStyles = [
-  'w-full',
   'px-3 py-2',
   'font-body text-base',
   'text-ink-900',
-  'bg-white',
+  'bg-parchment-50',
   'border-2 border-stone-200',
   'rounded-md',
   'transition-all duration-200',

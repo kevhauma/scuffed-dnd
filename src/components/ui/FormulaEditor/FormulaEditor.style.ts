@@ -1,7 +1,5 @@
-// Container styles - allows positioning via className
-export const containerStyles = [
-  'w-full',
-].join(' ');
+// Container styles - intrinsic only; width and placement come from the caller's className
+export const containerStyles = '';
 
 // Error message styles
 export const errorMessageStyles = [
@@ -18,7 +16,7 @@ export const suggestionListStyles = [
   'left-0',
   'right-0',
   'mt-1',
-  'bg-white',
+  'bg-parchment-50',
   'border-2 border-stone-200',
   'rounded-md',
   'shadow-parchment-lg',

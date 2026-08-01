@@ -6,6 +6,7 @@
 
 // Panel components
 export * from './skills/main/MainSkillsPanel';
+export * from './skills/main/MainSkillPointBudget';
 export * from './skills/speciality/SpecialitySkillsPanel';
 export * from './skills/combat/CombatSkillsPanel';
 export * from './skills/shared/BaseSkillPanel';

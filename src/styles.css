@@ -23,6 +23,14 @@
   --color-forest: #3a5a40;
   --color-royal: #2e4057;
   --color-amber: #b8860b;
+
+  /* Darker steps of the accents, for hover and active states.
+     These were hand-inlined as hex literals in Button and Checkbox; naming them here means
+     changing an accent colour no longer leaves its interaction states behind. */
+  --color-crimson-dark: #6b2424;
+  --color-crimson-darker: #4a1919;
+  --color-royal-dark: #243447;
+  --color-royal-darker: #1a2633;
   
   /* Neutral stone tones */
   --color-stone-100: #e8e4df;
