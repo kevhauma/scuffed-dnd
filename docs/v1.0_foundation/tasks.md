@@ -367,7 +367,7 @@ This plan implements a browser-based React application for creating and playing 
     - /config/currency - Currency configuration
     - _Requirements: 19.4_
   
-  - [ ] 13.3 Create play mode routes
+  - [x] 13.3 Create play mode routes — TICKET-CHAR-01/02/03
     - /play - Character list
     - /play/create - Character creation wizard
     - /play/character/:id - Character sheet
