@@ -83,14 +83,14 @@ This plan implements a browser-based React application for creating and playing 
     - Apply material bonuses from items
     - _Requirements: 13.1, 13.2, 7.6_
 
-- [ ] 5. Implement dice rolling system — ticketed as [TICKET-ROLL-01](./tickets/TICKET-ROLL-01-dice-rolling-engine.md)
-  - [ ] 5.1 Create dice simulator
+- [x] 5. Implement dice rolling system — [TICKET-ROLL-01](./tickets/TICKET-ROLL-01-dice-rolling-engine.md)
+  - [x] 5.1 Create dice simulator
     - Simulate rolls for d4, d6, d8, d10, d12, d20
     - Support multiple dice of each type
     - Return individual die results
     - _Requirements: 5.5_
   
-  - [ ] 5.2 Create combat roll aggregator
+  - [x] 5.2 Create combat roll aggregator
     - Combine dice results with calculated bonuses
     - Return breakdown of dice results, bonus, and total
     - _Requirements: 5.5, 5.6_
