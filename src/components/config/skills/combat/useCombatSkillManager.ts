@@ -1,11 +1,14 @@
 /**
  * Combat Skill Manager Hook
- * 
+ *
  * Manages combat skill CRUD operations and form state.
+ *
+ * **Validates: Requirements 4.4, 16.5, 16.6, 2.5, 2.6**
  */
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { validateFormulaChange } from '../../../../engine/formula/formulaChange';
 import { useConfigStore } from '../../../../stores/configStore';
 import { useSkillDependencies } from '../shared/useSkillDependencies';
 import type { CombatSkill, DiceConfig } from '../../../../types';
@@ -109,14 +112,31 @@ export function useCombatSkillManager() {
   };
 
   const handleSave = form.handleSubmit((data) => {
+    if (!config) return;
+
+    const code = data.code.toUpperCase();
+
+    // Refuse the save if the bonus formula would not compute (Req 16.5, 16.6)
+    const validation = validateFormulaChange(config, {
+      owner: 'combat-skill',
+      id: code,
+      formula: data.bonusFormula,
+      previousId: editingSkill ?? undefined,
+    });
+
+    if (!validation.isValid) {
+      form.setError('bonusFormula', { type: 'validate', message: validation.errors.join(' ') });
+      return;
+    }
+
     const skill: CombatSkill = {
-      code: data.code.toUpperCase(),
+      code,
       name: data.name,
       description: data.description,
       dice: data.dice,
       bonusFormula: data.bonusFormula,
     };
-    
+
     if (editingSkill) {
       updateCombatSkill(editingSkill, skill);
     } else {

@@ -87,6 +87,9 @@ Imports are relative (`../../ui/Button/Button`). The `#/*` → `./src/*` alias e
 
 Every user-authored expression goes through the engine: `parseFormula` → `validateFormula` →
 `evaluateFormula`. Never `eval`, never `new Function`, never a hand-rolled arithmetic pass.
+A formula heading for the store goes through `validateFormulaChange(config, change)` first, in the
+`useXManager` hook's save path — it refuses the save and returns the message to show. Never scan a
+formula with `String.includes`; ask the parser via `validateFormula(f).referencedVariables`.
 Validation errors are shown to the user (the `FormulaEditor` primitive already does this) rather
 than thrown away; a formula referencing an unknown 3-letter code is a user-visible error, not a
 crash.

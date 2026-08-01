@@ -9,6 +9,7 @@ import { Button } from '../../../ui/Button/Button';
 import { Dialog } from '../../../ui/Dialog/Dialog';
 import { FormulaEditor } from '../../../ui/FormulaEditor/FormulaEditor';
 import { FormField } from '../../../ui/FormField/FormField';
+import { Text } from '../../../ui/Text/Text';
 import type { DiceConfig } from '../../../../types';
 
 interface SkillFormData {
@@ -97,13 +98,22 @@ export function SpecialitySkillFormDialog({
             <FormulaEditor
               label="Bonus Formula"
               value={field.value}
-              onChange={field.onChange}
+              onChange={(value) => {
+                // Editing clears a refusal from the previous save attempt
+                form.clearErrors('bonusFormula')
+                field.onChange(value)
+              }}
               availableVariables={availableSkillCodes}
               placeholder="(STR + DEX) / 2"
               className="w-full"
             />
           )}
         />
+        {errors.bonusFormula && (
+          <Text variant="error" as="p" className="mt-1">
+            {errors.bonusFormula.message}
+          </Text>
+        )}
 
         {/* Actions */}
         <div className="flex justify-end gap-3 mt-6">

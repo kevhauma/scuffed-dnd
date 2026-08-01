@@ -1,12 +1,12 @@
 # Test Status
 
-_Last verified: 2026-07-31 (`npx vitest run`), after
-[TICKET-IO-01](docs/v1.0_foundation/tickets/TICKET-IO-01-restore-state-on-app-start.md)._
+_Last verified: 2026-08-01 (`npx vitest run`), after
+[TICKET-FORM-01](docs/v1.0_foundation/tickets/TICKET-FORM-01-block-circular-formulas-on-save.md)._
 
 ## Summary
 
-- **Total tests**: 431
-- **Passing**: 431 (100%)
+- **Total tests**: 454
+- **Passing**: 454 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 

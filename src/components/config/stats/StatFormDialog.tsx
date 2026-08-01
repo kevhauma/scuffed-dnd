@@ -9,6 +9,7 @@ import { Button } from '../../ui/Button/Button';
 import { FormField } from '../../ui/FormField/FormField';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormulaEditor } from '../../ui/FormulaEditor/FormulaEditor';
+import { Text } from '../../ui/Text/Text';
 
 interface StatFormData {
   name: string;
@@ -60,20 +61,19 @@ export function StatFormDialog({
         <FormulaEditor
           label="Formula"
           value={formulaValue}
-          onChange={(value) => setValue('formula', value)}
+          onChange={(value) => {
+            // Editing clears a refusal from the previous save attempt
+            form.clearErrors('formula');
+            setValue('formula', value);
+          }}
           availableVariables={availableSkillCodes}
           placeholder="e.g., STR * 10 + CON * 5"
-          onValidate={(isValid, error) => {
-            if (!isValid && error) {
-              form.setError('formula', { message: error });
-            } else {
-              form.clearErrors('formula');
-            }
-          }}
           className="mb-2"
         />
         {errors.formula && (
-          <p className="text-sm text-crimson mt-1">{errors.formula.message}</p>
+          <Text variant="error" as="p" className="mt-1">
+            {errors.formula.message}
+          </Text>
         )}
 
         {/* Actions */}

@@ -84,6 +84,12 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 - `formula/evaluator.ts` — `evaluateFormula(ast, context)` where context is `{ variables: Record<code, number> }`.
 - `formula/validator.ts` — `validateFormula`, `validateFormulaCollection`, `detectCircularDependencies`.
   Returns referenced variables so callers can check them against configured skill codes.
+- `formula/formulaChange.ts` — `validateFormulaChange(config, change)`, the **save-time guard** the
+  three formula-owning `useXManager` hooks call before writing to the store. It validates the
+  configuration *as it would be after the save* (syntax → cycles → undefined codes) and reuses the
+  validator's detector rather than adding a second one. Reference scope per kind lives here:
+  stats and speciality skills may name main skill codes, combat skills may also name speciality
+  codes — which makes the graph a DAG and means a multi-formula cycle can only arrive by import.
 - `calculators/mainSkillCalculator.ts` — `calculateTotalMainSkillLevels` (base + racial + equipment
   + focus, the last three via an options argument) and `calculateRacialSkillModifiers` (the racial
   contribution on its own, for display).

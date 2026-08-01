@@ -1,11 +1,14 @@
 /**
  * Speciality Skill Manager Hook
- * 
+ *
  * Manages speciality skill CRUD operations and form state.
+ *
+ * **Validates: Requirements 3.5, 16.5, 16.6, 2.5, 2.6**
  */
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { validateFormulaChange } from '../../../../engine/formula/formulaChange';
 import { useConfigStore } from '../../../../stores/configStore';
 import { useSkillDependencies } from '../shared/useSkillDependencies';
 import type { SpecialitySkill, DiceConfig } from '../../../../types';
@@ -106,14 +109,31 @@ export function useSpecialitySkillManager() {
   };
 
   const handleSave = form.handleSubmit((data) => {
+    if (!config) return;
+
+    const code = data.code.toUpperCase();
+
+    // Refuse the save if the bonus formula would not compute (Req 16.5, 16.6)
+    const validation = validateFormulaChange(config, {
+      owner: 'speciality-skill',
+      id: code,
+      formula: data.bonusFormula,
+      previousId: editingSkill ?? undefined,
+    });
+
+    if (!validation.isValid) {
+      form.setError('bonusFormula', { type: 'validate', message: validation.errors.join(' ') });
+      return;
+    }
+
     const skill: SpecialitySkill = {
-      code: data.code.toUpperCase(),
+      code,
       name: data.name,
       description: data.description,
       maxBaseLevel: data.maxLevel,
       bonusFormula: data.bonusFormula,
     };
-    
+
     if (editingSkill) {
       updateSpecialitySkill(editingSkill, skill);
     } else {
