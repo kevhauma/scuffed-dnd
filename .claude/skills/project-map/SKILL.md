@@ -27,7 +27,11 @@ File-based via TanStack Router; `src/routeTree.gen.ts` is **generated — never 
 `RootLayout` there is **the app's only hydration point** — it calls `useAppHydration()`
 (`components/shared/`), which restores both persisted stores once per page load and renders
 `StorageNotice` instead of the `<Outlet />` when LocalStorage is unavailable. Route components
-never call `loadConfig`/`loadCharacters` themselves.
+never call `loadConfig`/`loadCharacters` themselves. It renders everything inside
+**`AppShell`** (`components/shared/`), which owns the medieval frame, the mode switcher, and the
+per-mode navigation; `useAppMode` keeps `useUIStore.mode` in step with the route and **redirects
+`/config/*` to `/play` while in play mode** (Req 19.6 — see TICKET-NAV-01 for why a redirect
+rather than a read-only config UI).
 
 | Route | File | State |
 |---|---|---|
@@ -164,8 +168,9 @@ multi-step pattern to copy. Character sheet, inventory panel, combat roller, and
 still open (see `docs/v1.0_foundation/overview.md`).
 
 **`shared/`** — cross-mode components and hooks, barrelled by `shared/index.ts`:
-`useAppHydration.ts` (the app-wide LocalStorage restore, called only by `RootLayout`) and
-`StorageNotice.tsx` (the storage-unavailable message it drives).
+`AppShell.tsx` (the medieval frame + mode switcher + per-mode nav), `useAppMode.ts` (route↔mode
+sync and the play-mode config lock), `useAppHydration.ts` (the app-wide LocalStorage restore,
+called only by `RootLayout`) and `StorageNotice.tsx` (the storage-unavailable message it drives).
 
 `components/Header.tsx` sits at the root of `components/`, outside the three folders.
 

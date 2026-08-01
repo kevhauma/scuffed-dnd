@@ -4,5 +4,7 @@
  * Components and hooks used across both configuration and play mode.
  */
 
+export * from './AppShell';
 export * from './StorageNotice';
 export * from './useAppHydration';
+export * from './useAppMode';

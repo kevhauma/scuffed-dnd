@@ -26,6 +26,11 @@ vi.mock('@tanstack/react-router', async () => {
   };
 });
 
+// The shell needs a router to read the current route; it has its own test file
+vi.mock('../components/shared/AppShell', () => ({
+  AppShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
 vi.mock('../components/shared/useAppHydration', () => ({
   useAppHydration: vi.fn(),
 }));

@@ -52,18 +52,41 @@ mode behaviour entirely unimplemented — including 19.6, which is a data-safety
   the links alone does not satisfy "prevent" when the URLs still work.
 - The layout is responsive and keeps the theme's accessibility bar (focus rings, contrast).
 
+## Decision (2026-08-01) — how play mode prevents configuration modification
+
+Taken without the User, who asked for the backlog to be worked straight through. **Chosen: hide the
+config navigation *and* guard the routes — a `/config/*` route entered while the app is in play
+mode redirects to `/play`.** Not "viewable but read-only".
+
+Why: read-only would mean threading a disabled state through all eight config panels, their form
+dialogs and their manager hooks — a large change with many places to get it wrong, and a
+half-disabled form is a worse answer to "prevent" than not showing it. The guard is one check in
+one place and is unambiguous.
+
+How mode and route stay in sync without the guard defeating itself:
+
+- Landing on a `/play/*` route sets mode to `play`; landing on a `/config/*` route **while already
+  in configuration mode** keeps it `config`. Store and route therefore never disagree.
+- The guard only fires when the app is in play mode and something tries to reach `/config/*` —
+  i.e. mid-session. Leaving play mode is one click on the mode switcher.
+- **Known limit, stated deliberately:** `useUIStore.mode` is session state and is not persisted, so
+  a hard page load at a `/config/*` URL starts a fresh session in configuration mode and is
+  allowed. Requirement 19.6 guards against editing the rules *while playing*; deliberately loading
+  a configuration URL from scratch is leaving play, not an accident. Persisting the mode would
+  change this and is not in scope.
+
 ## Acceptance criteria
 
-- [ ] `__root.tsx` contains no stock-palette classes (`gray-*`, `blue-*`, `green-*`, `white`) — only medieval theme tokens (Req 22.1-22.4).
-- [ ] The shell composes `components/ui` primitives instead of raw controls, and any layout classes live on the layout's own elements, not pushed into base components (Req 21.4, 21.5).
-- [ ] Switching mode updates `useUIStore.mode` and navigates; entering a `/play/*` or `/config/*` URL directly sets the matching mode, so store and route never disagree (Req 19.3).
-- [ ] Configuration mode shows the configuration navigation only; play mode shows the play navigation only (Req 19.4, 19.5).
-- [ ] While in play mode, configuration cannot be modified — including via a direct `/config/*` URL, not just via hidden links (Req 19.6). The chosen mechanism is stated on this ticket.
-- [ ] Keyboard focus is visible on every interactive element in the shell, and text meets the theme's contrast bar (Req 22.6).
-- [ ] The layout is usable at a narrow viewport (nav does not overflow or clip).
-- [ ] Unit tests cover: mode switch calls `setMode`; nav contents differ per mode; a `/config` route while in play mode is blocked by the chosen mechanism.
-- [ ] Verified via the fallow skill and the react-conventions skill.
-- [ ] Verified live in the browser: switch modes both ways, deep-link into each mode, attempt a config URL while in play mode, and check the shell at a narrow width.
+- [x] `__root.tsx` contains no stock-palette classes (`gray-*`, `blue-*`, `green-*`, `white`) — only medieval theme tokens (Req 22.1-22.4). (The scaffold nav is gone; `RootLayout` is now `<AppShell>{…}</AppShell>` and carries no classes at all. The shell uses `bg-parchment-50/100`, `border-stone-200`, `text-ink-700/900`, `shadow-parchment`, `font-heading`, `ring-amber`. Test *"should carry no stock Tailwind palette classes in the shell or the root layout"* reads both files and asserts against `(text|bg|border|ring)-(gray|slate|zinc|neutral|blue|green|red)-NNN` and `bg-white`, so a regression fails the suite.)
+- [x] The shell composes `components/ui` primitives instead of raw controls, and any layout classes live on the layout's own elements, not pushed into base components (Req 21.4, 21.5). (The mode switcher is two `Button`s and the footer a `Text`; no raw `<button>`. Layout — `flex`, `flex-wrap`, `gap-*`, `max-w-7xl`, `px-*` — sits on the shell's own `header`/`nav`/`div` elements. No base component was edited.)
+- [x] Switching mode updates `useUIStore.mode` and navigates; entering a `/play/*` or `/config/*` URL directly sets the matching mode, so store and route never disagree (Req 19.3). (`useAppMode` derives the route's mode via `modeForPath` and syncs the store in an effect. Tests *"should set the mode and navigate when the switcher is used"*, *"should adopt the mode of the route it was entered on, so store and route agree"*, *"should leave the mode alone on a route that belongs to neither mode"* (the landing page), and `modeForPath`'s own two tests — including *"should not mistake a path that merely begins with the same letters"* (`/playground` is neither mode).)
+- [x] Configuration mode shows the configuration navigation only; play mode shows the play navigation only (Req 19.4, 19.5). (Tests *"should show the configuration navigation in configuration mode, and not the play links"* and its play counterpart assert both presence **and** absence. Browser: config mode listed Dashboard/Skills/Stats/Materials/Items/Races/Currency/Focus Stat; play mode listed Characters/New Character and none of the config links.)
+- [x] While in play mode, configuration cannot be modified — including via a direct `/config/*` URL, not just via hidden links (Req 19.6). The chosen mechanism is stated on this ticket. (See the Decision section above: hidden links **plus** a redirect. Test *"should redirect a config route away while in play mode"* asserts `navigate({ to: '/play', replace: true })` and that the lock beats the route-to-mode sync rather than quietly switching to config. Browser: in play mode, pushing `/config/skills` landed back on `/play` with the character list rendered.)
+- [x] Keyboard focus is visible on every interactive element in the shell, and text meets the theme's contrast bar (Req 22.6). (Every shell link carries `focus-visible:ring-2 focus-visible:ring-amber`, asserted for all of them by test *"should give every interactive element a visible focus ring"*; the `Button` primitive brings its own focus ring. Text uses `ink-700`/`ink-900` on `parchment-50`/`parchment-100` — the theme's intended pairings, unchanged from the primitives.)
+- [x] The layout is usable at a narrow viewport (nav does not overflow or clip). (Both nav rows are `flex-wrap`. Browser at 375×812: `document.documentElement.scrollWidth === clientWidth === 375` — no horizontal overflow — in play mode and again in configuration mode with all 8 links wrapping.)
+- [x] Unit tests cover: mode switch calls `setMode`; nav contents differ per mode; a `/config` route while in play mode is blocked by the chosen mechanism. (+11 tests in `src/components/shared/AppShell.test.tsx`. Suite: 539 passing, 0 failing, 0 skipped. `src/routes/__root.test.tsx` now mocks `AppShell`, keeping that file about hydration wiring.)
+- [x] Verified via the fallow skill and the ~~react-conventions~~ **coding-conventions** skill *(renamed since the ticket was written)*. (`fallow audit --base HEAD` → `"verdict": "pass"`, 0 introduced findings of any kind. Conventions: the shell and its hook live in `components/shared/` behind the `export *` barrel, mode state stays in `useUIStore` (session-only, not persisted), and the shell holds no store logic beyond the hook.)
+- [x] Verified live in the browser: on `localhost:5173` — `/config` showed the configuration nav with the Configuration button `aria-pressed="true"` and the footer reading "Configuration mode — you are editing the ruleset."; clicking Play navigated to `/play`, swapped the nav to Characters/New Character and the footer to "Play mode — the ruleset is locked while you play."; pushing `/config/skills` while in play mode redirected straight back to `/play`; and at 375px wide neither mode overflowed horizontally.
 
 ## Notes
 
