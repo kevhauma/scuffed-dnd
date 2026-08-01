@@ -106,7 +106,16 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 - `validator.ts` — `validateConfiguration(config): ValidationReport` (cross-entity referential
   integrity: formula refs, equipment slot types, material categories, circular formulas).
 
-Not built yet: the dice roller (TICKET-ROLL-01) will land in `engine/dice/`.
+- `dice/diceSimulator.ts` — `rollDice(diceConfig, rng?)` → `DiceRollResult[]` (one entry per die
+  type with a count above zero, carrying every individual roll), plus `rollDie`, `sumDiceResults`,
+  `DIE_SIDES`, `DIE_TYPES`.
+- `dice/combatRoll.ts` — `rollCombatSkill(skill, calculatedCharacter, config, rng?, timestamp?)` →
+  `CombatRollResult`. Takes its bonus from `calculateCombatSkillBonuses()`, so a roll can never
+  disagree with the sheet. Both take an injectable `RandomSource`, defaulting to `Math.random`;
+  production callers pass nothing. Barrelled by `dice/index.ts`.
+
+`CombatRollResult` (`types/formula.ts`) is the **only** dice-result shape — `useUIStore`'s
+`RollResult` extends it and adds `id`/`characterId`/`characterName`. Don't reintroduce a second one.
 
 ## Services (`src/services/`)
 

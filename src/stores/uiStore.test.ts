@@ -160,7 +160,11 @@ describe('UIStore', () => {
       characterName: 'Test Character',
       skillCode: 'MEL',
       skillName: 'Melee',
-      diceResults: { d20: [15], d6: [3, 4] },
+      diceResults: [
+        { dieType: 'd6', rolls: [3, 4], total: 7 },
+        { dieType: 'd20', rolls: [15], total: 15 },
+      ],
+      diceTotal: 22,
       bonus: 5,
       total: 27,
       timestamp: '2024-01-01T00:00:00.000Z',

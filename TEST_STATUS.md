@@ -1,12 +1,12 @@
 # Test Status
 
 _Last verified: 2026-08-01 (`npx vitest run`), after
-[TICKET-FORM-01](docs/v1.0_foundation/tickets/TICKET-FORM-01-block-circular-formulas-on-save.md)._
+[TICKET-ROLL-01](docs/v1.0_foundation/tickets/TICKET-ROLL-01-dice-rolling-engine.md)._
 
 ## Summary
 
-- **Total tests**: 454
-- **Passing**: 454 (100%)
+- **Total tests**: 472
+- **Passing**: 472 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
