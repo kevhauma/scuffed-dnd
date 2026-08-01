@@ -1,0 +1,126 @@
+/**
+ * Creation Step 4 — Review
+ *
+ * Every derived value, read from the composed calculator. No arithmetic happens here.
+ *
+ * **Validates: Requirements 11.5, 13.1, 21.1-21.5**
+ */
+
+import type { CalculatedCharacter } from '../../../types/character';
+import type { Configuration } from '../../../types/config';
+import { Card } from '../../ui/Card/Card';
+import { Text } from '../../ui/Text/Text';
+
+export interface ReviewStepProps {
+  config: Configuration;
+  characterName: string;
+  raceNames: string[];
+  preview: CalculatedCharacter | null;
+}
+
+/** One label/value row of the derived summary */
+function SummaryRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-stone-200 py-1 last:border-b-0">
+      <Text variant="body-small" as="span">
+        {label}
+      </Text>
+      <Text variant="highlight" as="span">
+        {value}
+      </Text>
+    </div>
+  );
+}
+
+export function ReviewStep({ config, characterName, raceNames, preview }: ReviewStepProps) {
+  if (!preview) {
+    return (
+      <Card className="p-6">
+        <Text variant="h4" as="h2" className="mb-2">
+          Review
+        </Text>
+        <Text variant="error" as="p">
+          The derived values cannot be calculated — this ruleset has a formula that does not
+          evaluate. You can still create the character, but fix the ruleset in configuration mode
+          before playing.
+        </Text>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card className="p-6">
+        <Text variant="h4" as="h2" className="mb-1">
+          {characterName || 'Unnamed character'}
+        </Text>
+        <Text variant="body-small-secondary">
+          {raceNames.length > 0 ? raceNames.join(', ') : 'No races'}
+          {preview.focusStatCode && ` · focus: ${preview.focusStatCode}`}
+        </Text>
+      </Card>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card className="p-6">
+          <Text variant="h5" as="h3" className="mb-3">
+            Main Skills
+          </Text>
+          {config.mainSkills.map((skill) => (
+            <SummaryRow
+              key={skill.code}
+              label={`${skill.name} (${skill.code})`}
+              value={preview.totalMainSkillLevels[skill.code] ?? 0}
+            />
+          ))}
+        </Card>
+
+        <Card className="p-6">
+          <Text variant="h5" as="h3" className="mb-3">
+            Stats
+          </Text>
+          {config.stats.length === 0 ? (
+            <Text variant="body-small-secondary">No stats configured.</Text>
+          ) : (
+            config.stats.map((stat) => (
+              <SummaryRow
+                key={stat.id}
+                label={stat.name}
+                value={preview.maxStatValues[stat.id] ?? 0}
+              />
+            ))
+          )}
+        </Card>
+
+        {config.specialitySkills.length > 0 && (
+          <Card className="p-6">
+            <Text variant="h5" as="h3" className="mb-3">
+              Speciality Skills
+            </Text>
+            {config.specialitySkills.map((skill) => (
+              <SummaryRow
+                key={skill.code}
+                label={`${skill.name} (${skill.code})`}
+                value={preview.specialitySkillTotalLevels[skill.code] ?? 0}
+              />
+            ))}
+          </Card>
+        )}
+
+        {config.combatSkills.length > 0 && (
+          <Card className="p-6">
+            <Text variant="h5" as="h3" className="mb-3">
+              Combat Bonuses
+            </Text>
+            {config.combatSkills.map((skill) => (
+              <SummaryRow
+                key={skill.code}
+                label={`${skill.name} (${skill.code})`}
+                value={preview.combatSkillBonuses[skill.code] ?? 0}
+              />
+            ))}
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}

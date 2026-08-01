@@ -1,12 +1,12 @@
 # Test Status
 
 _Last verified: 2026-08-01 (`npx vitest run`), after
-[TICKET-CHAR-01](docs/v1.0_foundation/tickets/TICKET-CHAR-01-character-list.md)._
+[TICKET-CHAR-02](docs/v1.0_foundation/tickets/TICKET-CHAR-02-character-creation-wizard.md)._
 
 ## Summary
 
-- **Total tests**: 512
-- **Passing**: 512 (100%)
+- **Total tests**: 528
+- **Passing**: 528 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 

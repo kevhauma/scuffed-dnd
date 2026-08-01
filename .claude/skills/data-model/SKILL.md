@@ -90,6 +90,10 @@ concern, so:
    storage at start-up, and each store's `isLoaded` guard keeps it to one read.
 1. **Config edit** — panel hook calls a `useConfigStore` action → state patched → `saveConfiguration()`.
 2. **Character edit** — component calls a `useCharacterStore` action → state patched → `saveCharacters()`.
+   `createCharacter(data, config)` takes the whole `Configuration`, not just its id: it seeds
+   `currentStatValues` to the calculated maxima so a new character starts at full health. That is
+   the one place a derived number is written onto a `Character`, and it is player state from then
+   on — see the `currentStatValues` exception above.
 3. **Anything displayed as a number** — component reads `calculateCharacter(character, config)`;
    the engine parses the relevant formulas and returns the `CalculatedCharacter`.
 4. **Equipment change** — inventory action updates `Inventory` → next `calculateCharacter()` call

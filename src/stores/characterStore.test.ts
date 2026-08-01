@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useCharacterStore } from './characterStore';
 import type { Character, CharacterCreationData } from '../types/character';
+import type { Configuration } from '../types/config';
 import * as storage from '../services/storage';
 
 // Mock storage service
@@ -49,6 +50,29 @@ describe('CharacterStore', () => {
   });
   
   describe('createCharacter', () => {
+    /** A ruleset with one stat, so seeded current values are observable */
+    const testConfig: Configuration = {
+      id: 'config-1',
+      name: 'Test Config',
+      version: '1.0',
+      mainSkills: [
+        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      ],
+      stats: [{ id: 'health', name: 'Health', description: '', formula: 'STR * 10' }],
+      specialitySkills: [],
+      combatSkills: [],
+      materials: [],
+      materialCategories: [],
+      items: [],
+      equipmentSlots: [{ type: 'main_hand', name: 'Main Hand', description: '' }],
+      races: [],
+      currencyTiers: [],
+      focusStatBonusLevel: 0,
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+    };
+
     it('should create a new character and save to storage', () => {
       const creationData: CharacterCreationData = {
         name: 'New Character',
@@ -58,7 +82,7 @@ describe('CharacterStore', () => {
         specialitySkillBaseLevels: { SWD: 5 },
       };
       
-      const character = useCharacterStore.getState().createCharacter(creationData, 'config-1');
+      const character = useCharacterStore.getState().createCharacter(creationData, testConfig);
       
       expect(character.name).toBe('New Character');
       expect(character.raceIds).toEqual(['race-1']);
@@ -81,12 +105,45 @@ describe('CharacterStore', () => {
         specialitySkillBaseLevels: {},
       };
       
-      const character = useCharacterStore.getState().createCharacter(creationData, 'config-1');
+      const character = useCharacterStore.getState().createCharacter(creationData, testConfig);
       
       expect(character.inventory).toEqual({
         equippedItems: {},
         miscItems: [],
       });
+    });
+
+    it('should seed current stat values to their calculated maxima', () => {
+      const creationData: CharacterCreationData = {
+        name: 'Full Health',
+        raceIds: [],
+        mainSkillLevels: { STR: 7 },
+        specialitySkillBaseLevels: {},
+      };
+
+      const character = useCharacterStore.getState().createCharacter(creationData, testConfig);
+
+      // health = STR * 10, so a new character starts at full rather than at zero
+      expect(character.currentStatValues).toEqual({ health: 70 });
+    });
+
+    it('should still create the character when a stat formula does not evaluate', () => {
+      const brokenConfig: Configuration = {
+        ...testConfig,
+        stats: [{ id: 'mana', name: 'Mana', description: '', formula: 'WIS * 5' }],
+      };
+      const creationData: CharacterCreationData = {
+        name: 'Survivor',
+        raceIds: [],
+        mainSkillLevels: { STR: 3 },
+        specialitySkillBaseLevels: {},
+      };
+
+      const character = useCharacterStore.getState().createCharacter(creationData, brokenConfig);
+
+      expect(character.name).toBe('Survivor');
+      expect(character.currentStatValues).toEqual({});
+      expect(useCharacterStore.getState().characters).toHaveLength(1);
     });
   });
   

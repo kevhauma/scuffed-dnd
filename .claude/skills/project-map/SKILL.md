@@ -41,15 +41,15 @@ never call `loadConfig`/`loadCharacters` themselves.
 | `/config/currency` | `routes/config/currency.tsx` | `CurrencyConfigPanel` (which renders `ConversionCalculator` once tiers exist) |
 | `/config/focus` | `routes/config/focus.tsx` | `FocusStatConfig` |
 | `/play` | `routes/play/index.tsx` | `CharacterList` — the play-mode entry point |
-| `/play/create` | `routes/play/create.tsx` | **placeholder** — creation wizard is TICKET-CHAR-02 |
+| `/play/create` | `routes/play/create.tsx` | `CharacterCreationWizard` — the four-step wizard |
 | `/play/character/$id` | `routes/play/character.$id.tsx` | **placeholder** — character sheet is task 12.3 |
 
 Route files stay thin: they render a feature component and pass route params down. Data fetching
 is a no-op here — everything comes from the Zustand stores.
 
 **The whole configuration UI is mounted and browsable** as of TICKET-NAV-02 — all eight §11 panels
-have a route. In play mode only `/play` is real (TICKET-CHAR-01); `/play/create` and
-`/play/character/$id` are still placeholders.
+have a route. In play mode `/play` and `/play/create` are real (TICKET-CHAR-01, TICKET-CHAR-02);
+`/play/character/$id` is still a placeholder.
 
 Two things to know about route files here:
 
@@ -155,10 +155,13 @@ flex/grid, and positioning arrive from the caller's `className`.
 `config/index.ts` re-exports all of it. `skills/shared/BaseSkillPanel.tsx` +
 `useSkillDependencies.ts` are shared across the three skill kinds.
 
-**`play/`** — barrelled by `play/index.ts`. `characters/` holds `CharacterList` +
-`CharacterCard` + `useCharacterListManager`, mirroring `config/`'s domain-folder shape; it is the
-exemplar to copy for the rest of play mode. Creation wizard, character sheet, inventory panel,
-combat roller, and stat editor are still open (see `docs/v1.0_foundation/overview.md`).
+**`play/`** — barrelled by `play/index.ts`, mirroring `config/`'s domain-folder shape.
+`characters/` holds `CharacterList` + `CharacterCard` + `useCharacterListManager`.
+`creation/` holds the four-step wizard: `CharacterCreationWizard` dispatches on a step index and
+the four step components (`IdentityStep`, `SkillAllocationStep`, `FocusStatStep`, `ReviewStep`)
+are pure props — all state, validation and the submit live in `useCharacterCreation`. That is the
+multi-step pattern to copy. Character sheet, inventory panel, combat roller, and stat editor are
+still open (see `docs/v1.0_foundation/overview.md`).
 
 **`shared/`** — cross-mode components and hooks, barrelled by `shared/index.ts`:
 `useAppHydration.ts` (the app-wide LocalStorage restore, called only by `RootLayout`) and

@@ -9,7 +9,9 @@
  */
 
 import { create } from 'zustand';
+import { calculateCharacter } from '../engine/calculator';
 import type { Character, CharacterCreationData } from '../types/character';
+import type { Configuration } from '../types/config';
 import { saveCharacters, loadCharacters } from '../services/storage';
 
 /**
@@ -23,7 +25,7 @@ interface CharacterState {
   loadCharacters: () => void;
   
   // Character CRUD
-  createCharacter: (data: CharacterCreationData, configId: string) => Character;
+  createCharacter: (data: CharacterCreationData, config: Configuration) => Character;
   updateCharacter: (id: string, updates: Partial<Character>) => void;
   deleteCharacter: (id: string) => void;
   getCharacter: (id: string) => Character | undefined;
@@ -43,16 +45,20 @@ interface CharacterState {
 
 /**
  * Create character from creation data
+ *
+ * A new character starts at full: `currentStatValues` is seeded to the calculated maxima, since a
+ * Player expects a fresh character to be at full health rather than at zero. Seeding happens here,
+ * where the rest of the character shape is assembled, rather than in the creation wizard.
  */
 function createCharacterFromData(
   data: CharacterCreationData,
-  configId: string
+  config: Configuration
 ): Character {
   const now = new Date().toISOString();
-  return {
+  const character: Character = {
     id: crypto.randomUUID(),
     name: data.name,
-    configurationId: configId,
+    configurationId: config.id,
     raceIds: data.raceIds,
     mainSkillLevels: data.mainSkillLevels,
     focusStatCode: data.focusStatCode,
@@ -65,6 +71,17 @@ function createCharacterFromData(
     createdAt: now,
     updatedAt: now,
   };
+
+  try {
+    return {
+      ...character,
+      currentStatValues: { ...calculateCharacter(character, config).maxStatValues },
+    };
+  } catch {
+    // A ruleset with a broken formula must not block character creation; the sheet will
+    // surface the formula error where it can be acted on.
+    return character;
+  }
 }
 
 /**
@@ -99,8 +116,8 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   },
   
   // Create new character
-  createCharacter: (data: CharacterCreationData, configId: string) => {
-    const character = createCharacterFromData(data, configId);
+  createCharacter: (data: CharacterCreationData, config: Configuration) => {
+    const character = createCharacterFromData(data, config);
     const { characters } = get();
     const updated = autoSave([...characters, character]);
     set({ characters: updated });
