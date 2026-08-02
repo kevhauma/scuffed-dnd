@@ -428,7 +428,7 @@ This plan implements a browser-based React application for creating and playing 
     - Verify combat bonuses recalculate when equipment changes
     - _Requirements: 3.6, 13.3_
   
-  - [ ] 17.5 Verify medieval theme consistency
+  - [x] 17.5 Verify medieval theme consistency — TICKET-POL-01 (browser walk-through still open)
     - Check all components use medieval styling consistently
     - Verify fonts, colors, and textures applied throughout
     - Test accessibility with medieval theme

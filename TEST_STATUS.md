@@ -5,8 +5,8 @@ _Last verified: 2026-08-01 (`npx vitest run`), after
 
 ## Summary
 
-- **Total tests**: 641
-- **Passing**: 641 (100%)
+- **Total tests**: 646
+- **Passing**: 646 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
@@ -107,8 +107,8 @@ unused-symbol and test-typing noise.
 
 ## Lint
 
-`yarn run lint --max-diagnostics=1000` reports **35 errors, 23 warnings** — the pre-existing set
-described in `CLAUDE.md`, unchanged by this ticket (warnings dropped from 31 only because the
-deleted files carried some). `yarn run check` additionally reports large formatting drift.
+`yarn run lint --max-diagnostics=1000` reports **33 errors, 23 warnings** — the pre-existing set
+described in `CLAUDE.md`. It was 35 errors until TICKET-POL-01 deleted the dead scaffold
+`Header.tsx`, which carried two of them; 33 is the standing number. `yarn run check` additionally reports large formatting drift.
 [TICKET-DX-02](docs/v1.0_foundation/tickets/TICKET-DX-02-reconcile-biome-with-the-codebase.md)
 owns clearing these.
