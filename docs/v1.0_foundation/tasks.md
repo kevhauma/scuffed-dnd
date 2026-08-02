@@ -396,8 +396,8 @@ This plan implements a browser-based React application for creating and playing 
     - Handle layout/positioning with className
     - _Requirements: 1.5, 1.6, 21.1-21.5_
 
-- [ ] 16. Implement currency conversion utilities
-  - [ ] 16.1 Create currency converter
+- [x] 16. Implement currency conversion utilities — [TICKET-CUR-01](./tickets/TICKET-CUR-01-currency-conversion-engine.md)
+  - [x] 16.1 Create currency converter — TICKET-CUR-01
     - Convert between currency tiers using conversion rates
     - Display item and material values in appropriate tiers
     - _Requirements: 10.4, 10.5_

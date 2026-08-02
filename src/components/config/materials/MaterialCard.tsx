@@ -1,10 +1,17 @@
 /**
  * Material Card Component
- * 
+ *
  * Displays a material with its levels, bonuses, and values.
+ *
+ * Values are shown in the tier they read most naturally in (Requirement 10.4), with the amount the
+ * User actually entered kept alongside whenever normalizing moved it — the stored value is never
+ * rewritten, only displayed differently.
+ *
+ * **Validates: Requirements 10.4, 21.1-21.5**
  */
 
 import { useState } from 'react';
+import { formatCurrency, normalizeCurrency } from '../../../engine/currency';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
@@ -143,12 +150,17 @@ export function MaterialCard({
                   </div>
                 )}
 
-                {/* Value */}
+                {/* Value — shown in its natural tier, with the entered amount when they differ */}
                 <div>
                   <Text variant="body-small-secondary">Value:</Text>
                   <Text variant="body-small" className="ml-2">
-                    {level.value.amount} {getCurrencyTierName(level.value.tierId)}
+                    {formatCurrency(normalizeCurrency(level.value, currencyTiers), currencyTiers)}
                   </Text>
+                  {normalizeCurrency(level.value, currencyTiers).tierId !== level.value.tierId && (
+                    <Text variant="caption" className="ml-2">
+                      entered as {level.value.amount} {getCurrencyTierName(level.value.tierId)}
+                    </Text>
+                  )}
                 </div>
               </div>
             ))

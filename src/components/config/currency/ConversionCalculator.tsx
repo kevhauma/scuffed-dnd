@@ -1,10 +1,14 @@
 /**
  * Conversion Calculator
- * 
- * Preview component showing currency conversion examples.
+ *
+ * Preview component showing currency conversion examples. The arithmetic belongs to
+ * `engine/currency.ts`; this only picks the inputs and renders what comes back.
+ *
+ * **Validates: Requirements 10.5, 21.1-21.5**
  */
 
 import { useState } from 'react';
+import { convertCurrency } from '../../../engine/currency';
 import type { CurrencyTier } from '../../../types';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
@@ -27,36 +31,11 @@ export function ConversionCalculator({ tiers }: ConversionCalculatorProps) {
   const fromTier = tiers.find(t => t.id === fromTierId);
   if (!fromTier) return null;
 
-  // Calculate conversions to all other tiers
-  const conversions = tiers.map(toTier => {
-    if (toTier.id === fromTier.id) {
-      return { tier: toTier, amount };
-    }
-
-    let convertedAmount = amount;
-    
-    // Convert up (to higher value tiers)
-    if (toTier.order > fromTier.order) {
-      for (let i = fromTier.order; i < toTier.order; i++) {
-        const currentTier = tiers.find(t => t.order === i);
-        if (currentTier) {
-          convertedAmount = convertedAmount / currentTier.conversionToNext;
-        }
-      }
-    }
-    
-    // Convert down (to lower value tiers)
-    if (toTier.order < fromTier.order) {
-      for (let i = toTier.order; i < fromTier.order; i++) {
-        const currentTier = tiers.find(t => t.order === i);
-        if (currentTier) {
-          convertedAmount = convertedAmount * currentTier.conversionToNext;
-        }
-      }
-    }
-
-    return { tier: toTier, amount: convertedAmount };
-  });
+  // Conversions to every other tier — the engine owns the arithmetic
+  const conversions = tiers.map(toTier => ({
+    tier: toTier,
+    amount: convertCurrency({ tierId: fromTier.id, amount }, toTier.id, tiers).amount,
+  }));
 
   return (
     <Card className="p-6">

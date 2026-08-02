@@ -110,6 +110,11 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   unique across main/speciality/combat.
 - `validator.ts` — `validateConfiguration(config): ValidationReport` (cross-entity referential
   integrity: formula refs, equipment slot types, material categories, circular formulas).
+- `currency.ts` — `convertCurrency(value, toTierId, tiers)`, `normalizeCurrency(value, tiers)` (the
+  highest tier where the amount is still ≥ 1 — what Req 10.4's "appropriate tier" means here) and
+  `formatCurrency(value, tiers)`. Conversion is arithmetic over a configured rate, **not** a
+  user-authored expression, so it does not go through the formula engine. Unknown tiers and
+  non-positive rates degrade rather than producing `NaN`/`Infinity`.
 - `characterSummary.ts` — `calculateCharacterLevel(character)` and `toCharacterSummary(character)`.
   **The single definition of "level"**: the sum of allocated `mainSkillLevels`, deliberately
   excluding racial/equipment/focus modifiers. Every screen showing a level reads it from here.
