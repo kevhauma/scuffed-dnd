@@ -2,6 +2,9 @@
 
 A browser-based React application for creating fully customizable tabletop RPG experiences.
 
+New to the project? Start with [ONBOARDING.md](ONBOARDING.md) — what the app does, how the code
+is organised, setup steps, and the rules every change must follow.
+
 ## Project Structure
 
 ```
