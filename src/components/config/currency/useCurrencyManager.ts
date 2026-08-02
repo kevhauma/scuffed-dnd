@@ -2,6 +2,8 @@
  * Currency Manager Hook
  *
  * Manages currency tier CRUD operations, form state, and reordering.
+ *
+ * **Validates: Requirements 10.1, 10.2, 10.3**
  */
 
 import { useState } from 'react';

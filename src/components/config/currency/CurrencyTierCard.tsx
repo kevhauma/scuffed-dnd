@@ -2,6 +2,8 @@
  * Currency Tier Card
  *
  * Displays a single currency tier with reorder controls and edit/delete actions.
+ *
+ * **Validates: Requirements 10.1, 10.2, 10.3, 21.1-21.5**
  */
 
 import type { CurrencyTier } from '../../../types';

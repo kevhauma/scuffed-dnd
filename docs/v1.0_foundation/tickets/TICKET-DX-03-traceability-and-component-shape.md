@@ -48,15 +48,19 @@ and both get harder the more code lands on top.
 
 ## Acceptance criteria
 
-- [ ] Every file in `src/components/config/`, `src/stores/`, `src/services/`, `src/engine/`, and `src/routes/` that implements a named requirement carries a `**Validates: Requirements …**` line in its JSDoc header.
-- [ ] Each added line cites requirement numbers that actually cover what the module does — spot-checkable against `requirements.md`, with no invented numbers.
-- [ ] Files implementing no requirement are left without a header rather than given a filler one.
-- [ ] `FocusStatConfig` no longer calls `useConfigStore` or `useState` directly; a `useFocusStatManager` hook does, and the component consumes it (Req 21.4, 21.5).
-- [ ] `FocusStatConfig`'s existing tests still pass at the [TEST_STATUS.md](../../../TEST_STATUS.md) baseline, and the hook is covered by its own test cases.
-- [ ] `components/config/index.ts` exports the four missing modules (skip if TICKET-UI-01 already did it).
-- [ ] The react-conventions skill documents both conventions explicitly.
-- [ ] No behaviour change: this is comments plus one hook extraction.
-- [ ] Verified via the fallow skill and the react-conventions skill.
+> **The as-is figure was stale.** The ticket says "10 of 108 modules"; by the time it was worked,
+> the play-mode and config tickets had brought it to **88 of 154** non-test modules, because each
+> wrote its own header as it landed. The sweep closed the rest.
+
+- [x] Every file in `src/components/config/`, `src/stores/`, `src/services/`, `src/engine/`, and `src/routes/` that implements a named requirement carries a `**Validates: Requirements …**` line in its JSDoc header. (**88 → 151 of 154.** `git grep -l 'Validates: Requirements' -- 'src/**' | wc -l`. Per folder, all now complete: `components/config` 16→49, `components/ui` 0→12, `routes` 1→10, `engine` 10→16, and `components/play`, `components/shared`, `stores`, `services` were already at 100%.)
+- [x] Each added line cites requirement numbers that actually cover what the module does — spot-checkable against `requirements.md`, with no invented numbers. (Mapped per domain against the requirement list, not guessed from filenames: currency → 10.x, items → 7.x (equipment slots specifically 7.5), materials → 6.x, races → 8.x, main/speciality/combat skills → 2.x/4.x/5.x, stats → 3.x, base components → 21.1/21.2/21.3/21.6/21.7 + 22.1-22.6, config routes → their domain plus 19.4, play routes → 19.5. Sub-numbers were read out of `requirements.md` for the two domains where they were not obvious — Requirements 6 and 7.)
+- [x] Files implementing no requirement are left without a header rather than given a filler one. (The 3 without one are all barrels (`index.ts`, pure re-exports) and `types/` declaration files. Listed and checked individually rather than assumed.)
+- [x] `FocusStatConfig` no longer calls `useConfigStore` or `useState` directly; a `useFocusStatManager` hook does, and the component consumes it (Req 21.4, 21.5). ([`useFocusStatManager.ts`](../../../src/components/config/focus/useFocusStatManager.ts) holds the selectors, the draft value, validity and the three handlers. `grep -n "useConfigStore\|useState\|numValue\|localValue"` over the component returns nothing. The draft stays a string so a half-typed value survives editing, and is parsed only on save.)
+- [x] `FocusStatConfig`'s existing tests still pass at the [TEST_STATUS.md](../../../TEST_STATUS.md) baseline, and the hook is covered by its own test cases. (All **15** existing component tests passed against the extracted hook unchanged — the useful signal that the extraction was behaviour-neutral. +6 hook tests in `useFocusStatManager.test.ts`: initial state, a pending change not reaching the store, save through the action, negative and non-numeric drafts both refused, reset, and the no-configuration case.)
+- [x] `components/config/index.ts` exports the four missing modules (skip if TICKET-UI-01 already did it). (TICKET-UI-01 had already added all four — verified by grep, not assumed. The new `useFocusStatManager` was added to the barrel in the same change, per the rule that adding a component means adding its barrel line.)
+- [x] The ~~react-conventions~~ **coding-conventions** skill documents both conventions explicitly. (Two additions: the traceability section now states the sweep is done, that numbers must be checked against `requirements.md` because `spec-navigator` quotes them as fact, and that a module implementing nothing is left alone rather than given a plausible number. The panel/hook section records that no exception remains, so there is no precedent for putting store selectors in a panel.)
+- [x] No behaviour change: this is comments plus one hook extraction. (652 passing, 0 failing, 0 skipped — up from 646 by exactly the 6 new hook tests. `npx tsc --noEmit` unchanged at 4. `yarn run check` clean.)
+- [x] Verified via the fallow skill and the ~~react-conventions~~ **coding-conventions** skill. (`fallow audit --base HEAD` → `"verdict": "pass"`, 0 introduced findings of every kind.)
 
 ## Notes
 

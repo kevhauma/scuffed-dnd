@@ -2,6 +2,8 @@
  * Combat Skill Card Component
  *
  * Displays a combat skill with dice configuration and bonus formula.
+ *
+ * **Validates: Requirements 5.1, 5.2, 5.3, 21.1-21.5**
  */
 
 import type { CombatSkill } from '../../../../types';

@@ -1,3 +1,11 @@
+/**
+ * Currency Configuration Route
+ *
+ * Mounts the feature component and passes route params down.
+ *
+ * **Validates: Requirements 10.1, 19.4**
+ */
+
 import { createFileRoute } from '@tanstack/react-router';
 import { CurrencyConfigPanel } from '../../components/config/currency/CurrencyConfigPanel';
 

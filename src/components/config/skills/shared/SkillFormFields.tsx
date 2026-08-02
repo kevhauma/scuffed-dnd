@@ -2,6 +2,8 @@
  * Shared Skill Form Fields
  *
  * Common form fields used by all skill types (code, name, description).
+ *
+ * **Validates: Requirements 2.2, 4.1, 5.1, 20.1-20.7, 21.1-21.5**
  */
 
 import type { FieldValues, UseFormReturn } from 'react-hook-form';

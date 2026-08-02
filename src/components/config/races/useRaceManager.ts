@@ -2,6 +2,8 @@
  * Race Manager Hook
  *
  * Manages race CRUD operations and form state.
+ *
+ * **Validates: Requirements 8.1, 8.2**
  */
 
 import { useState } from 'react';

@@ -7,6 +7,8 @@
  * - Material categories referenced by materials exist
  * - No circular dependencies in formulas
  * - Currency tier references are valid
+ *
+ * **Validates: Requirements 18.1, 18.2, 18.3, 18.4, 18.5**
  */
 
 import type { Configuration } from '../types/config';

@@ -1,3 +1,11 @@
+/**
+ * Validation Report Component
+ *
+ * Renders configuration validation issues grouped by severity.
+ *
+ * **Validates: Requirements 18.5, 21.1, 21.2, 21.3, 21.6, 21.7, 22.1-22.6**
+ */
+
 import { Card } from '../Card/Card';
 import {
   containerStyles,

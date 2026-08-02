@@ -2,6 +2,8 @@
  * Main Skill Card Component
  *
  * Displays a main skill with its properties.
+ *
+ * **Validates: Requirements 2.1, 2.2, 2.3, 21.1-21.5**
  */
 
 import type { MainSkill } from '../../../../types';

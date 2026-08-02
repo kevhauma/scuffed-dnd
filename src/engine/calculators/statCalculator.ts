@@ -2,6 +2,8 @@
  * Stat Calculator
  *
  * Calculates maximum stat values from formulas.
+ *
+ * **Validates: Requirements 3.4, 3.6, 8.4**
  */
 
 import type { Stat } from '../../types/config';

@@ -1,3 +1,11 @@
+/**
+ * Formula Editor Component
+ *
+ * Base formula input that surfaces validation errors inline rather than discarding them.
+ *
+ * **Validates: Requirements 16.4, 16.6, 21.1, 21.2, 21.3, 21.6, 21.7, 22.1-22.6**
+ */
+
 import { useState } from 'react';
 import { Input } from '../Input/Input';
 import { Label } from '../Label/Label';

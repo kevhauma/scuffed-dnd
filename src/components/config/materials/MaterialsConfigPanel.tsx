@@ -2,6 +2,8 @@
  * Materials Configuration Panel
  *
  * Manages material categories, materials, and material levels with bonuses and values.
+ *
+ * **Validates: Requirements 6.1, 6.2, 6.3, 6.4, 21.1-21.5**
  */
 
 import { Button } from '../../ui/Button/Button';

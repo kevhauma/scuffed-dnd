@@ -2,6 +2,8 @@
  * Material Level Form Dialog
  *
  * Form for adding/editing material levels with bonuses and values.
+ *
+ * **Validates: Requirements 6.4, 6.5, 6.6, 6.7, 21.1-21.5**
  */
 
 import { useId } from 'react';

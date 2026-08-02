@@ -3,6 +3,8 @@
  *
  * Validates formula syntax, detects undefined variable references,
  * and detects circular dependencies in formula chains.
+ *
+ * **Validates: Requirements 16.4, 16.5, 16.6, 18.1, 18.2**
  */
 
 import type { FormulaAST, FormulaValidationResult } from '../../types/formula';

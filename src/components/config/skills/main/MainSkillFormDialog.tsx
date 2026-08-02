@@ -2,6 +2,8 @@
  * Main Skill Form Dialog
  *
  * Form for adding/editing main skills.
+ *
+ * **Validates: Requirements 2.1, 2.2, 2.3, 2.5, 21.1-21.5**
  */
 
 import type { UseFormReturn } from 'react-hook-form';

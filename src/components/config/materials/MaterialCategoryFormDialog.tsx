@@ -2,6 +2,8 @@
  * Material Category Form Dialog
  *
  * Form for adding/editing material categories.
+ *
+ * **Validates: Requirements 6.3, 21.1-21.5**
  */
 
 import type { UseFormReturn } from 'react-hook-form';

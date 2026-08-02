@@ -2,6 +2,8 @@
  * Material Category Card Component
  *
  * Displays a material category with nested materials and their levels.
+ *
+ * **Validates: Requirements 6.3, 21.1-21.5**
  */
 
 import { useState } from 'react';

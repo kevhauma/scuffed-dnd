@@ -1,3 +1,11 @@
+/**
+ * Input Component
+ *
+ * Base text/number input with medieval styling.
+ *
+ * **Validates: Requirements 21.1, 21.2, 21.3, 21.6, 21.7, 22.1-22.6**
+ */
+
 import type React from 'react';
 import { baseStyles, disabledStyles, errorStyles } from './Input.style';
 

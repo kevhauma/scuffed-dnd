@@ -2,6 +2,8 @@
  * Main Skills Configuration Panel
  *
  * Manages main skills with 3-letter codes and max levels.
+ *
+ * **Validates: Requirements 2.1, 21.1-21.5**
  */
 
 import { Card } from '../../../ui/Card/Card';

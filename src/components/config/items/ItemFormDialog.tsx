@@ -2,6 +2,8 @@
  * Item Form Dialog Component
  *
  * Dialog for creating and editing items with material and equipment slot assignment.
+ *
+ * **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 21.1-21.5**
  */
 
 import { useEffect, useId } from 'react';

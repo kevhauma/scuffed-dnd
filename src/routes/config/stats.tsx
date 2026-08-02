@@ -1,3 +1,11 @@
+/**
+ * Stats Configuration Route
+ *
+ * Mounts the feature component and passes route params down.
+ *
+ * **Validates: Requirements 3.1, 19.4**
+ */
+
 import { createFileRoute } from '@tanstack/react-router';
 import { StatsConfigPanel } from '../../components/config/stats/StatsConfigPanel';
 

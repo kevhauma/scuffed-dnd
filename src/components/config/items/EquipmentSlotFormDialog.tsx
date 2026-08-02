@@ -1,10 +1,12 @@
-import { useId } from 'react';
 /**
  * Equipment Slot Form Dialog Component
  *
  * Dialog for creating and editing equipment slot types.
+ *
+ * **Validates: Requirements 7.5, 21.1-21.5**
  */
 
+import { useId } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';

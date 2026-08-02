@@ -2,6 +2,8 @@
  * Stats Configuration Panel
  *
  * Manages stats with formula editor and preview calculations.
+ *
+ * **Validates: Requirements 3.1, 21.1-21.5**
  */
 
 import { Button } from '../../ui/Button/Button';

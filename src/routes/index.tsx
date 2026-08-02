@@ -1,3 +1,11 @@
+/**
+ * Landing Page Route
+ *
+ * The way into both modes.
+ *
+ * **Validates: Requirements 19.1, 22.1-22.4**
+ */
+
 import { createFileRoute, Link } from '@tanstack/react-router';
 
 import { Card } from '../components/ui/Card/Card';

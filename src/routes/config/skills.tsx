@@ -1,3 +1,11 @@
+/**
+ * Skills Configuration Route
+ *
+ * Mounts the feature component and passes route params down.
+ *
+ * **Validates: Requirements 2.1, 4.1, 5.1, 19.4**
+ */
+
 import { createFileRoute } from '@tanstack/react-router';
 import { CombatSkillsPanel } from '../../components/config/skills/combat/CombatSkillsPanel';
 import { MainSkillsPanel } from '../../components/config/skills/main/MainSkillsPanel';

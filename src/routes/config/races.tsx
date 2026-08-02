@@ -1,3 +1,11 @@
+/**
+ * Races Configuration Route
+ *
+ * Mounts the feature component and passes route params down.
+ *
+ * **Validates: Requirements 8.1, 19.4**
+ */
+
 import { createFileRoute } from '@tanstack/react-router';
 import { RacesConfigPanel } from '../../components/config/races/RacesConfigPanel';
 

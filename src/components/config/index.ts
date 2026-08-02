@@ -15,6 +15,7 @@ export * from './dashboard/ConfigTransferPanel';
 export * from './dashboard/useConfigDashboard';
 export * from './dashboard/useConfigTransfer';
 export * from './focus/FocusStatConfig';
+export * from './focus/useFocusStatManager';
 export * from './items/EquipmentSlotCard';
 export * from './items/EquipmentSlotFormDialog';
 export * from './items/EquipmentSlotsConfigPanel';

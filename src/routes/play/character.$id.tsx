@@ -1,3 +1,11 @@
+/**
+ * Character Sheet Route
+ *
+ * Mounts the feature component and passes route params down.
+ *
+ * **Validates: Requirements 19.5**
+ */
+
 import { createFileRoute } from '@tanstack/react-router';
 
 import { CharacterSheet } from '../../components/play/sheet/CharacterSheet';

@@ -2,6 +2,8 @@
  * Speciality Skills Configuration Panel
  *
  * Manages speciality skills with base levels and bonus formulas.
+ *
+ * **Validates: Requirements 4.1, 21.1-21.5**
  */
 
 import { Card } from '../../../ui/Card/Card';

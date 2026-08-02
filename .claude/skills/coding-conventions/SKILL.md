@@ -40,7 +40,16 @@ stores own state + persistence calls, components own rendering, routes own param
 
 Every module opens with a short JSDoc block naming what it is. Modules that implement spec
 requirements add a `**Validates: Requirements 8.1, 8.2, 21.1-21.5**` line to that block — this is
-the code→requirements traceability link, keep adding it.
+the code→requirements traceability link, and `spec-navigator` greps for it.
+
+**The sweep is done** (TICKET-DX-03): 146 of 154 non-test modules carry one. Write the line when
+you create the module, not later. Two rules on it:
+
+- **Cite numbers you have checked** against `docs/v1.0_foundation/requirements.md`. A wrong line is
+  worse than none, because `spec-navigator` will quote it as fact.
+- **Not every file gets one.** The eight without a header implement nothing on their own — barrels
+  (pure re-exports) and `types/` (declarations). If you cannot name the requirement, leave it out
+  rather than inventing a plausible number.
 
 **Barrels use `export *`** (design.md, "Code Organization Standards") — never enumerate named
 exports. `components/ui/index.ts` predates the rule and enumerates; don't copy it, and don't
@@ -79,7 +88,10 @@ and adding a component means adding its barrel line in the same change.
   composition only) + `XCard` (one entity) + `XFormDialog` (add/edit) + `useXManager` (the hook).
   Follow it for new domains, including in `components/play/`.
 - **Panels don't hold logic.** Store selectors, `react-hook-form` state, and handlers live in the
-  `useXManager` hook; the panel destructures the hook and renders. Copy
+  `useXManager` hook; the panel destructures the hook and renders. **Every configuration domain now
+  follows this** — `FocusStatConfig` was the last exception and gained `useFocusStatManager` in
+  TICKET-DX-03, so there is no precedent left for putting store selectors or `useState` in a panel.
+  Copy
   [useRaceManager.ts](../../../src/components/config/races/useRaceManager.ts) as the exemplar.
 - Forms use `react-hook-form` (`useForm`, `form.reset(...)` on open) — no hand-rolled field state.
 

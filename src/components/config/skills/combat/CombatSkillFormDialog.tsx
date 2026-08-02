@@ -2,6 +2,8 @@
  * Combat Skill Form Dialog
  *
  * Form for adding/editing combat skills with dice and bonus formula.
+ *
+ * **Validates: Requirements 5.1, 5.2, 5.3, 5.4, 21.1-21.5**
  */
 
 import { Controller, type UseFormReturn } from 'react-hook-form';

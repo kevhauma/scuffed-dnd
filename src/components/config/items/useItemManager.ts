@@ -2,6 +2,8 @@
  * Item Manager Hook
  *
  * Manages items and equipment slots CRUD operations and form state.
+ *
+ * **Validates: Requirements 7.1, 7.2, 7.3, 7.4**
  */
 
 import { useState } from 'react';

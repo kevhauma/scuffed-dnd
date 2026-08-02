@@ -2,6 +2,8 @@
  * Stat Card Component
  *
  * Displays a stat with its formula and preview calculation.
+ *
+ * **Validates: Requirements 3.1, 3.2, 21.1-21.5**
  */
 
 import { useMemo, useState } from 'react';

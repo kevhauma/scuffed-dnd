@@ -2,6 +2,8 @@
  * Stat Form Dialog
  *
  * Form for adding/editing stats with formula editor.
+ *
+ * **Validates: Requirements 3.1, 3.2, 3.3, 21.1-21.5**
  */
 
 import type { UseFormReturn } from 'react-hook-form';

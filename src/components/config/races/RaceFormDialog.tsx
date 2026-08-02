@@ -2,6 +2,8 @@
  * Race Form Dialog
  *
  * Form for adding/editing races with skill modifier editor.
+ *
+ * **Validates: Requirements 8.1, 8.2, 21.1-21.5**
  */
 
 import { useState } from 'react';

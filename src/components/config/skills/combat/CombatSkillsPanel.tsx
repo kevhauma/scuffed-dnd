@@ -2,6 +2,8 @@
  * Combat Skills Configuration Panel
  *
  * Manages combat skills with dice rolls and bonus formulas.
+ *
+ * **Validates: Requirements 5.1, 21.1-21.5**
  */
 
 import { Card } from '../../../ui/Card/Card';

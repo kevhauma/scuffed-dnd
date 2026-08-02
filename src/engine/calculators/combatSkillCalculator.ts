@@ -2,6 +2,8 @@
  * Combat Skill Bonus Calculator
  *
  * Calculates combat skill bonuses from formulas and equipment.
+ *
+ * **Validates: Requirements 5.4, 13.3**
  */
 
 import type { Configuration, SkillModifier } from '../../types/config';

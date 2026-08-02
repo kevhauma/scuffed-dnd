@@ -3,6 +3,8 @@
  *
  * Base text component with semantic variants for consistent typography.
  * Supports different HTML elements while maintaining consistent styling.
+ *
+ * **Validates: Requirements 21.1, 21.2, 21.3, 21.6, 21.7, 22.1-22.6**
  */
 
 import type React from 'react';

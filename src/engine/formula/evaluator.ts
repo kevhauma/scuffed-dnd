@@ -3,6 +3,8 @@
  *
  * Evaluates Abstract Syntax Trees (AST) with a given context to produce numeric results.
  * Handles arithmetic operations with proper precedence through the AST structure.
+ *
+ * **Validates: Requirements 16.1, 3.4, 4.4, 5.4**
  */
 
 import type { FormulaAST, FormulaContext } from '../../types/formula';

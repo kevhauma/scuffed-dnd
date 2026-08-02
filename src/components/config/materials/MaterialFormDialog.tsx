@@ -2,6 +2,8 @@
  * Material Form Dialog
  *
  * Form for adding/editing materials.
+ *
+ * **Validates: Requirements 6.1, 6.2, 21.1-21.5**
  */
 
 import type { UseFormReturn } from 'react-hook-form';

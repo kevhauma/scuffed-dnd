@@ -7,6 +7,8 @@
  * The form dialog's open state is **not** a prop here: `renderFormDialog()` is the caller's own
  * closure, so it already has it. Two props that carried it were accepted and silently dropped
  * until TICKET-DX-02 removed them.
+ *
+ * **Validates: Requirements 2.1, 4.1, 5.1, 21.1-21.5**
  */
 
 import type { ReactNode } from 'react';

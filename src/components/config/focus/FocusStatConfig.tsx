@@ -6,42 +6,27 @@
  * **Validates: Requirements 9.1, 21.1-21.5**
  */
 
-import { useId, useState } from 'react';
-import { useConfigStore } from '../../../stores/configStore';
+import { useId } from 'react';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
+import { useFocusStatManager } from './useFocusStatManager';
 
 export function FocusStatConfig() {
   const focusBonusLevelId = useId();
 
-  const config = useConfigStore((state) => state.config);
-  const setFocusStatBonusLevel = useConfigStore((state) => state.setFocusStatBonusLevel);
-
-  const [localValue, setLocalValue] = useState<string>(
-    config?.focusStatBonusLevel.toString() ?? '0'
-  );
-  const [hasChanges, setHasChanges] = useState(false);
-
-  const handleChange = (value: string) => {
-    setLocalValue(value);
-    setHasChanges(true);
-  };
-
-  const handleSave = () => {
-    const numValue = Number.parseInt(localValue, 10);
-    if (!Number.isNaN(numValue) && numValue >= 0) {
-      setFocusStatBonusLevel(numValue);
-      setHasChanges(false);
-    }
-  };
-
-  const handleReset = () => {
-    setLocalValue(config?.focusStatBonusLevel.toString() ?? '0');
-    setHasChanges(false);
-  };
+  const {
+    config,
+    draftValue,
+    parsedValue,
+    isValid,
+    hasChanges,
+    handleChange,
+    handleSave,
+    handleReset,
+  } = useFocusStatManager();
 
   if (!config) {
     return (
@@ -52,9 +37,6 @@ export function FocusStatConfig() {
       </Card>
     );
   }
-
-  const numValue = Number.parseInt(localValue, 10);
-  const isValid = !Number.isNaN(numValue) && numValue >= 0;
 
   return (
     <div className="space-y-6">
@@ -88,7 +70,7 @@ export function FocusStatConfig() {
             <Input
               id={focusBonusLevelId}
               type="number"
-              value={localValue}
+              value={draftValue}
               onChange={(e) => handleChange(e.target.value)}
               placeholder="Enter bonus level (e.g., 5)"
               error={!isValid}
@@ -106,12 +88,12 @@ export function FocusStatConfig() {
           </div>
 
           {/* Example Preview */}
-          {isValid && numValue > 0 && (
+          {isValid && parsedValue > 0 && (
             <div className="p-4 bg-forest/10 border border-forest/30 rounded">
               <Text variant="body-small" className="text-ink-700">
                 <strong>Example:</strong> If a character has 10 levels in STR and selects it as
-                their focus stat, their effective STR level becomes {10 + numValue} (10 base +{' '}
-                {numValue} focus bonus).
+                their focus stat, their effective STR level becomes {10 + parsedValue} (10 base +{' '}
+                {parsedValue} focus bonus).
               </Text>
             </div>
           )}

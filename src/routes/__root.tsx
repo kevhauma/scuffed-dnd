@@ -1,3 +1,11 @@
+/**
+ * Root Layout
+ *
+ * The app shell and the only hydration point: restores both persisted stores once per page load.
+ *
+ * **Validates: Requirements 19.1, 19.2, 19.3, 19.6, 17.3, 17.4, 22.1-22.6**
+ */
+
 import { TanStackDevtools } from '@tanstack/react-devtools';
 import { createRootRoute, HeadContent, Outlet, Scripts } from '@tanstack/react-router';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';

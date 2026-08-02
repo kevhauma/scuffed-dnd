@@ -2,6 +2,8 @@
  * Race Card Component
  *
  * Displays a race with its skill modifiers and total modifier preview.
+ *
+ * **Validates: Requirements 8.1, 8.2, 21.1-21.5**
  */
 
 import { useMemo } from 'react';

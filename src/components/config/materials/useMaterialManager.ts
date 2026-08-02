@@ -2,6 +2,8 @@
  * Material Manager Hook
  *
  * Manages material categories, materials, and levels CRUD operations and form state.
+ *
+ * **Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.6**
  */
 
 import { useState } from 'react';

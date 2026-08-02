@@ -1,3 +1,11 @@
+/**
+ * Button Component
+ *
+ * Base button with medieval styling and primary/secondary/danger/ghost variants.
+ *
+ * **Validates: Requirements 21.1, 21.2, 21.3, 21.6, 21.7, 22.1-22.6**
+ */
+
 import type React from 'react';
 import { baseStyles, sizeStyles, variantStyles } from './Button.style';
 

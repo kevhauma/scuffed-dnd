@@ -2,6 +2,8 @@
  * Speciality Skill Form Dialog
  *
  * Form for adding/editing speciality skills with bonus formula.
+ *
+ * **Validates: Requirements 4.1, 4.2, 4.3, 4.5, 21.1-21.5**
  */
 
 import { Controller, type UseFormReturn } from 'react-hook-form';

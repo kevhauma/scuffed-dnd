@@ -1,3 +1,11 @@
+/**
+ * Dialog Component
+ *
+ * Base modal: owns its own placement, closes on Escape, the backdrop, or its close button.
+ *
+ * **Validates: Requirements 21.1, 21.2, 21.3, 21.6, 21.7, 22.1-22.6**
+ */
+
 import type React from 'react';
 import { useEffect } from 'react';
 import {

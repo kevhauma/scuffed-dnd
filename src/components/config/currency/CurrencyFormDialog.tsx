@@ -1,10 +1,12 @@
-import { useId } from 'react';
 /**
  * Currency Form Dialog
  *
  * Dialog for creating and editing currency tiers.
+ *
+ * **Validates: Requirements 10.1, 10.2, 10.3, 21.1-21.5**
  */
 
+import { useId } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';

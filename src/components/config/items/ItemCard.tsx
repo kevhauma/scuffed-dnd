@@ -2,6 +2,8 @@
  * Item Card Component
  *
  * Displays an item with its material, equipment slot, and category information.
+ *
+ * **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 7.6, 21.1-21.5**
  */
 
 import type { EquipmentSlot, Item, Material } from '../../../types';

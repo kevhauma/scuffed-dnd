@@ -3,6 +3,8 @@
  *
  * Combines Label, Input, and error message into a single component.
  * Works seamlessly with React Hook Form.
+ *
+ * **Validates: Requirements 21.1, 21.2, 21.3, 21.6, 21.7, 22.1-22.6**
  */
 
 import type { FieldError, FieldErrorsImpl, FieldValues, Merge } from 'react-hook-form';

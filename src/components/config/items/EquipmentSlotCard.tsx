@@ -2,6 +2,8 @@
  * Equipment Slot Card Component
  *
  * Displays an equipment slot with its details and action buttons.
+ *
+ * **Validates: Requirements 7.5, 21.1-21.5**
  */
 
 import type { EquipmentSlot } from '../../../types';

@@ -2,6 +2,8 @@
  * Speciality Skill Card Component
  *
  * Displays a speciality skill with base level and bonus formula.
+ *
+ * **Validates: Requirements 4.1, 4.2, 4.3, 21.1-21.5**
  */
 
 import type { SpecialitySkill } from '../../../../types';

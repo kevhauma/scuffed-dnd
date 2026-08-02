@@ -3,6 +3,8 @@
  *
  * Tokenizes and parses formula strings into Abstract Syntax Trees (AST).
  * Supports arithmetic operators (+, -, *, /), parentheses, numbers, and variable references.
+ *
+ * **Validates: Requirements 16.1, 16.2, 16.3**
  */
 
 import type { FormulaAST } from '../../types/formula';

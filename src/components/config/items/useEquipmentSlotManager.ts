@@ -2,6 +2,8 @@
  * Equipment Slot Manager Hook
  *
  * Manages equipment slot CRUD operations and form state.
+ *
+ * **Validates: Requirements 7.5**
  */
 
 import { useState } from 'react';
