@@ -1,3 +1,4 @@
+import { useId } from 'react';
 /**
  * Equipment Slot Form Dialog Component
  *
@@ -32,6 +33,10 @@ export function EquipmentSlotFormDialog({
   onClose,
   onSave,
 }: EquipmentSlotFormDialogProps) {
+  const slotDescriptionId = useId();
+  const slotNameId = useId();
+  const slotTypeId = useId();
+
   const {
     register,
     formState: { errors },
@@ -51,11 +56,11 @@ export function EquipmentSlotFormDialog({
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Type */}
         <div>
-          <Label htmlFor="slot-type" required>
+          <Label htmlFor={slotTypeId} required>
             Type
           </Label>
           <Input
-            id="slot-type"
+            id={slotTypeId}
             {...register('type', {
               required: 'Type is required',
               pattern: {
@@ -78,11 +83,11 @@ export function EquipmentSlotFormDialog({
 
         {/* Name */}
         <div>
-          <Label htmlFor="slot-name" required>
+          <Label htmlFor={slotNameId} required>
             Display Name
           </Label>
           <Input
-            id="slot-name"
+            id={slotNameId}
             {...register('name', { required: 'Name is required' })}
             placeholder="e.g., Main Hand, Off Hand"
             error={!!errors.name}
@@ -93,9 +98,9 @@ export function EquipmentSlotFormDialog({
 
         {/* Description */}
         <div>
-          <Label htmlFor="slot-description">Description</Label>
+          <Label htmlFor={slotDescriptionId}>Description</Label>
           <Textarea
-            id="slot-description"
+            id={slotDescriptionId}
             {...register('description')}
             rows={3}
             className="w-full mt-1"

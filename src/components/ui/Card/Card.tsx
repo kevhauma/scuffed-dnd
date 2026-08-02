@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { baseStyles, variantStyles } from './Card.style';
 
 export interface CardProps {

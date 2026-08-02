@@ -5,7 +5,7 @@
  * Works seamlessly with React Hook Form.
  */
 
-import type { FieldError, FieldErrorsImpl, Merge } from 'react-hook-form';
+import type { FieldError, FieldErrorsImpl, FieldValues, Merge } from 'react-hook-form';
 import { Input, type InputProps } from '../Input/Input';
 import { Label } from '../Label/Label';
 import { Text } from '../Text/Text';
@@ -13,7 +13,7 @@ import { inputStyles, messageStyles } from './FormField.style';
 
 export interface FormFieldProps extends Omit<InputProps, 'error'> {
   label: string;
-  error?: string | FieldError | Merge<FieldError, FieldErrorsImpl<any>> | undefined;
+  error?: string | FieldError | Merge<FieldError, FieldErrorsImpl<FieldValues>> | undefined;
   required?: boolean;
   helperText?: string;
 }

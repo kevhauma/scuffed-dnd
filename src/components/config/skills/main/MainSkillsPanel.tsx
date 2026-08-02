@@ -47,10 +47,8 @@ export function MainSkillsPanel() {
         addButtonText="Add Main Skill"
         emptyMessage="No main skills configured yet. Click 'Add' to create your first skill."
         skills={currentSkills}
-        isDialogOpen={isDialogOpen}
         deleteWarning={deleteWarning}
         onAdd={handleAdd}
-        onCloseDialog={() => setIsDialogOpen(false)}
         onCloseWarning={() => setDeleteWarning(null)}
         renderSkillCard={(skill) => (
           <MainSkillCard skill={skill} onEdit={handleEdit} onDelete={handleDelete} />

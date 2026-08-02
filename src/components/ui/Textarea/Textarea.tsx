@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { baseStyles, disabledStyles } from './Textarea.style';
 
 export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {

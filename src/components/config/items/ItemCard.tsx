@@ -5,6 +5,7 @@
  */
 
 import type { EquipmentSlot, Item, Material } from '../../../types';
+import { SkillModifierBadge } from '../../shared/SkillModifierBadge';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
@@ -92,18 +93,8 @@ export function ItemCard({ item, materials, equipmentSlots, onEdit, onDelete }: 
               Bonuses:
             </Text>
             <div className="flex flex-wrap gap-2">
-              {materialLevel.bonuses.map((bonus, idx) => (
-                <span
-                  key={idx}
-                  className={`text-xs px-2 py-1 rounded ${
-                    bonus.modifier >= 0
-                      ? 'bg-forest/10 text-forest border border-forest'
-                      : 'bg-crimson/10 text-crimson border border-crimson'
-                  }`}
-                >
-                  {bonus.skillCode}: {bonus.modifier >= 0 ? '+' : ''}
-                  {bonus.modifier}
-                </span>
+              {materialLevel.bonuses.map((bonus) => (
+                <SkillModifierBadge key={bonus.skillCode} modifier={bonus} />
               ))}
             </div>
           </div>

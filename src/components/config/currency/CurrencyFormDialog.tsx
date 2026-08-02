@@ -1,3 +1,4 @@
+import { useId } from 'react';
 /**
  * Currency Form Dialog
  *
@@ -30,6 +31,9 @@ export function CurrencyFormDialog({
   onClose,
   onSave,
 }: CurrencyFormDialogProps) {
+  const conversionToNextId = useId();
+  const nameId = useId();
+
   const {
     register,
     formState: { errors },
@@ -44,11 +48,11 @@ export function CurrencyFormDialog({
       <form onSubmit={onSave} className="space-y-4">
         {/* Name */}
         <div>
-          <Label htmlFor="name" required>
+          <Label htmlFor={nameId} required>
             Name
           </Label>
           <Input
-            id="name"
+            id={nameId}
             {...register('name', { required: 'Name is required' })}
             placeholder="e.g., Copper, Silver, Gold"
             error={!!errors.name}
@@ -59,9 +63,9 @@ export function CurrencyFormDialog({
 
         {/* Conversion Rate */}
         <div>
-          <Label htmlFor="conversionToNext">Conversion to Next Tier</Label>
+          <Label htmlFor={conversionToNextId}>Conversion to Next Tier</Label>
           <Input
-            id="conversionToNext"
+            id={conversionToNextId}
             type="number"
             {...register('conversionToNext', {
               required: 'Conversion rate is required',

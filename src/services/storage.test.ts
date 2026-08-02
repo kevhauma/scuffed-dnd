@@ -78,7 +78,7 @@ describe('Storage Service', () => {
 
       const stored = localStorage.getItem('dnd_builder_config');
       expect(stored).toBeTruthy();
-      expect(JSON.parse(stored!)).toEqual(config);
+      expect(JSON.parse(stored ?? '')).toEqual(config);
     });
 
     it('should throw StorageQuotaError when quota is exceeded', () => {
@@ -210,7 +210,7 @@ describe('Storage Service', () => {
 
       const stored = localStorage.getItem('dnd_builder_characters');
       expect(stored).toBeTruthy();
-      expect(JSON.parse(stored!)).toEqual(characters);
+      expect(JSON.parse(stored ?? '')).toEqual(characters);
     });
 
     it('should throw StorageQuotaError when quota is exceeded', () => {

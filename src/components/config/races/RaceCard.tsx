@@ -66,9 +66,9 @@ export function RaceCard({ race, availableMainSkills, onEdit, onDelete }: RaceCa
             Skill Modifiers:
           </Text>
           <div className="grid grid-cols-2 gap-2">
-            {race.skillModifiers.map((modifier, index) => (
+            {race.skillModifiers.map((modifier) => (
               <div
-                key={index}
+                key={modifier.skillCode}
                 className="flex justify-between items-center p-2 bg-parchment-100 rounded"
               >
                 <Text variant="body-small">{getSkillName(modifier.skillCode)}</Text>

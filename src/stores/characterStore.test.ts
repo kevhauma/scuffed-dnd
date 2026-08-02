@@ -279,7 +279,7 @@ describe('CharacterStore', () => {
         useCharacterStore.getState().equipItem('char-1', 'helmet', 'item-1', inventoryConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.inventory.equippedItems['helmet']).toBe('item-1');
+        expect(updated.inventory.equippedItems.helmet).toBe('item-1');
         expect(storage.saveCharacters).toHaveBeenCalled();
       });
 
@@ -300,7 +300,7 @@ describe('CharacterStore', () => {
         useCharacterStore.getState().equipItem('char-1', 'helmet', 'item-2', inventoryConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.inventory.equippedItems['helmet']).toBe('item-2');
+        expect(updated.inventory.equippedItems.helmet).toBe('item-2');
       });
 
       it('should refuse an item whose slot type does not match', () => {
@@ -308,7 +308,7 @@ describe('CharacterStore', () => {
         useCharacterStore.getState().equipItem('char-1', 'helmet', 'item-gloves', inventoryConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.inventory.equippedItems['helmet']).toBeUndefined();
+        expect(updated.inventory.equippedItems.helmet).toBeUndefined();
         expect(storage.saveCharacters).not.toHaveBeenCalled();
       });
 
@@ -316,7 +316,7 @@ describe('CharacterStore', () => {
         useCharacterStore.getState().equipItem('char-1', 'helmet', 'item-loose', inventoryConfig);
 
         expect(
-          useCharacterStore.getState().characters[0].inventory.equippedItems['helmet']
+          useCharacterStore.getState().characters[0].inventory.equippedItems.helmet
         ).toBeUndefined();
       });
 
@@ -324,7 +324,7 @@ describe('CharacterStore', () => {
         useCharacterStore.getState().equipItem('char-1', 'helmet', 'ghost-item', inventoryConfig);
 
         expect(
-          useCharacterStore.getState().characters[0].inventory.equippedItems['helmet']
+          useCharacterStore.getState().characters[0].inventory.equippedItems.helmet
         ).toBeUndefined();
       });
     });
@@ -347,7 +347,7 @@ describe('CharacterStore', () => {
         useCharacterStore.getState().unequipItem('char-1', 'helmet');
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.inventory.equippedItems['helmet']).toBeUndefined();
+        expect(updated.inventory.equippedItems.helmet).toBeUndefined();
         expect(storage.saveCharacters).toHaveBeenCalled();
       });
     });
@@ -403,7 +403,7 @@ describe('CharacterStore', () => {
         useCharacterStore.getState().moveItemToMisc('char-1', 'helmet');
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.inventory.equippedItems['helmet']).toBeUndefined();
+        expect(updated.inventory.equippedItems.helmet).toBeUndefined();
         expect(updated.inventory.miscItems).toContain('item-1');
         expect(storage.saveCharacters).toHaveBeenCalled();
       });
@@ -429,7 +429,7 @@ describe('CharacterStore', () => {
           .moveItemToEquipment('char-1', 'item-1', 'helmet', inventoryConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.inventory.equippedItems['helmet']).toBe('item-1');
+        expect(updated.inventory.equippedItems.helmet).toBe('item-1');
         expect(updated.inventory.miscItems).not.toContain('item-1');
         expect(storage.saveCharacters).toHaveBeenCalled();
       });
@@ -450,7 +450,7 @@ describe('CharacterStore', () => {
           .moveItemToEquipment('char-1', 'item-gloves', 'helmet', inventoryConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.inventory.equippedItems['helmet']).toBeUndefined();
+        expect(updated.inventory.equippedItems.helmet).toBeUndefined();
         expect(updated.inventory.miscItems).toContain('item-gloves');
       });
 
@@ -470,7 +470,7 @@ describe('CharacterStore', () => {
           .moveItemToEquipment('char-1', 'item-2', 'helmet', inventoryConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.inventory.equippedItems['helmet']).toBe('item-2');
+        expect(updated.inventory.equippedItems.helmet).toBe('item-2');
         expect(updated.inventory.miscItems).toEqual(['item-1']);
       });
     });
@@ -526,8 +526,8 @@ describe('CharacterStore', () => {
         useCharacterStore.getState().updateCurrentStatValue('char-1', 'health', 80, statConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentStatValues['health']).toBe(80);
-        expect(updated.currentStatValues['mana']).toBe(50);
+        expect(updated.currentStatValues.health).toBe(80);
+        expect(updated.currentStatValues.mana).toBe(50);
         expect(storage.saveCharacters).toHaveBeenCalled();
       });
 
@@ -535,7 +535,7 @@ describe('CharacterStore', () => {
         useCharacterStore.getState().updateCurrentStatValue('char-1', 'health', -10, statConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentStatValues['health']).toBe(-10);
+        expect(updated.currentStatValues.health).toBe(-10);
       });
 
       it('should clamp a value above the calculated maximum', () => {
@@ -543,14 +543,14 @@ describe('CharacterStore', () => {
         useCharacterStore.getState().updateCurrentStatValue('char-1', 'health', 999, statConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentStatValues['health']).toBe(100);
+        expect(updated.currentStatValues.health).toBe(100);
       });
 
       it('should write through a stat the configuration does not define', () => {
         useCharacterStore.getState().updateCurrentStatValue('char-1', 'stamina', 42, statConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentStatValues['stamina']).toBe(42);
+        expect(updated.currentStatValues.stamina).toBe(42);
       });
 
       it('should write through unclamped when the ruleset has a broken formula', () => {
@@ -562,7 +562,7 @@ describe('CharacterStore', () => {
         useCharacterStore.getState().updateCurrentStatValue('char-1', 'health', 999, brokenConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentStatValues['health']).toBe(999);
+        expect(updated.currentStatValues.health).toBe(999);
       });
     });
 
@@ -578,8 +578,8 @@ describe('CharacterStore', () => {
         );
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentStatValues['health']).toBe(90);
-        expect(updated.currentStatValues['mana']).toBe(40);
+        expect(updated.currentStatValues.health).toBe(90);
+        expect(updated.currentStatValues.mana).toBe(40);
         expect(storage.saveCharacters).toHaveBeenCalled();
       });
 
@@ -593,9 +593,9 @@ describe('CharacterStore', () => {
         );
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentStatValues['health']).toBe(100);
-        expect(updated.currentStatValues['mana']).toBe(50);
-        expect(updated.currentStatValues['stamina']).toBe(60);
+        expect(updated.currentStatValues.health).toBe(100);
+        expect(updated.currentStatValues.mana).toBe(50);
+        expect(updated.currentStatValues.stamina).toBe(60);
       });
 
       it('should clamp each value independently', () => {
@@ -604,8 +604,8 @@ describe('CharacterStore', () => {
           .updateCurrentStatValues('char-1', { health: 500, mana: -5 }, statConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentStatValues['health']).toBe(100);
-        expect(updated.currentStatValues['mana']).toBe(-5);
+        expect(updated.currentStatValues.health).toBe(100);
+        expect(updated.currentStatValues.mana).toBe(-5);
       });
     });
   });

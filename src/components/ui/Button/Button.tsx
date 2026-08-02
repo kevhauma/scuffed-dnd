@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { baseStyles, sizeStyles, variantStyles } from './Button.style';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {

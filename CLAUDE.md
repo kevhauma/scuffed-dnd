@@ -27,10 +27,10 @@ so and skip it if unavailable in the session, don't skip it silently), plus a li
 for UI-visible changes.
 
 **The test suite is green — 646 passing, 0 failing, 0 skipped.** Any failing or newly-skipped test
-is a regression. Typecheck and lint are *not* clean: 9 pre-existing `tsc` errors and 33
-pre-existing lint errors plus formatting drift, all enumerated in
-[TEST_STATUS.md](TEST_STATUS.md), which is the baseline for those two. Never fix a failure by
-weakening the check.
+is a regression. **`yarn run check` is clean** as of TICKET-DX-02 — zero lint errors, zero
+formatting drift — and a pre-commit hook keeps it that way, so any finding it reports is yours.
+`npx tsc --noEmit` still has **4** known errors, enumerated in [TEST_STATUS.md](TEST_STATUS.md),
+which is the baseline for that one. Never fix a failure by weakening the check.
 
 Tests run from [vitest.config.ts](vitest.config.ts), which deliberately omits `tanstackStart()` —
 that plugin double-instantiates React under Vitest and nulls the hooks dispatcher. Don't collapse
@@ -92,8 +92,11 @@ acceptance criteria.
 - New barrels use `export *`; imports are relative (the `#/*` alias exists but is unused — don't
   half-adopt it).
 - No new runtime dependencies without asking. The app stays browser-only.
-- Don't mass-reformat: `yarn run check` reports ~270 issues, mostly the committed code's 2-space/
-  single-quote style versus `biome.json`'s tabs/double-quotes. Match the file you're editing.
+- **Formatting is settled and enforced** (TICKET-DX-02): `biome.json` is space/2, single quotes,
+  `lineWidth` 100, es5 trailing commas — the style the code was already written in. The tree was
+  formatted to match in one mechanical commit, so `npx biome check --write .` is now safe and
+  expected rather than a mass-reformat hazard. A `.githooks/pre-commit` hook runs `yarn run check`
+  on every commit; enable it in a fresh clone with `git config core.hooksPath .githooks`.
 
 ## Verifying
 

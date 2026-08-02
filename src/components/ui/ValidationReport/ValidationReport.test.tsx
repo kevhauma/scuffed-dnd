@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { ValidationIssue, ValidationReport } from './ValidationReport';
+import { type ValidationIssue, ValidationReport } from './ValidationReport';
 
 describe('ValidationReport', () => {
   const errorIssue: ValidationIssue = {

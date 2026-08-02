@@ -4,11 +4,16 @@
  * Common form fields used by all skill types (code, name, description).
  */
 
-import { type UseFormReturn } from 'react-hook-form';
+import type { FieldValues, UseFormReturn } from 'react-hook-form';
 import { FormField } from '../../../ui/FormField/FormField';
 
+/**
+ * Every skill kind has its own form shape, and this component only ever touches `code`, `name` and
+ * `description`. `FieldValues` is react-hook-form's own type for "some form" — a generic bounded on
+ * the three fields fights RHF's `Path<T>` inference for no gain here.
+ */
 interface SkillFormFieldsProps {
-  form: UseFormReturn<any>;
+  form: UseFormReturn<FieldValues>;
   isEditing: boolean;
   validateCode: (code: string) => string | true;
   codePlaceholder?: string;

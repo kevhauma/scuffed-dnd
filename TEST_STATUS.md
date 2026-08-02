@@ -86,29 +86,34 @@ One FormulaEditor test was **removed, not fixed**: it drove `value` by rerender 
 value changes leave its `error` stale. That is a genuine component bug, tracked separately — the
 fix touches a base primitive used by three form dialogs and needs its own browser check.
 
-## Typecheck: 9 pre-existing errors
+## Typecheck: 4 known errors
 
-`npx tsc --noEmit` exits non-zero with 9 errors. **None are new**, and none were introduced by this
-ticket — it removed 5 (`toBeInTheDocument`) and added none. They predate the ticket workflow. They
-are documented here so a future regression is distinguishable from this noise:
+`npx tsc --noEmit` exits non-zero with 4 errors. **None are new.** They predate the ticket workflow
+and are documented here so a future regression is distinguishable from this noise:
 
 | File | Error |
 | --- | --- |
 | `src/engine/formula/evaluator.ts:48,59` | TS2339 — `operator` does not exist on type `never`; the switch has narrowed the AST union to nothing by these arms |
-| `src/components/config/skills/shared/BaseSkillPanel.tsx:35,38` | TS6133 — `isDialogOpen` and `onCloseDialog` declared but never read (two props accepted and silently dropped) |
-| `src/components/ui/ValidationReport/ValidationReport.tsx:1` | TS6133 — unused `React` import |
-| `src/components/ui/ValidationReport/ValidationReport.test.tsx:3` | TS1484 — `ValidationIssue` needs a type-only import under `verbatimModuleSyntax` |
 | `src/components/ui/Button/Button.test.tsx:68` | TS2339 — `.disabled` read off `HTMLElement` |
-| `src/engine/formula/parser.test.ts:7` | TS6133 — unused `FormulaAST` import |
-| `src/services/importExport.test.ts:381` | TS2352 — `Blob`-shaped literal cast to `File` |
+| `src/services/importExport.test.ts:379` | TS2352 — `Blob`-shaped literal cast to `File` |
 
-The `evaluator.ts` and `BaseSkillPanel.tsx` entries are the two worth a real look; the rest are
-unused-symbol and test-typing noise.
+The `evaluator.ts` pair is the one worth a real look; the other two are test-typing noise.
 
-## Lint
+**Was 9 until TICKET-DX-02**, which cleared five as a side effect of fixing the matching lint
+errors: the two dead `BaseSkillPanel` props, the unused `React` and `FormulaAST` imports, and the
+type-only import in `ValidationReport.test.tsx`. Fixing dead code once satisfied both tools.
 
-`yarn run lint --max-diagnostics=1000` reports **33 errors, 23 warnings** — the pre-existing set
-described in `CLAUDE.md`. It was 35 errors until TICKET-POL-01 deleted the dead scaffold
-`Header.tsx`, which carried two of them; 33 is the standing number. `yarn run check` additionally reports large formatting drift.
-[TICKET-DX-02](docs/v1.0_foundation/tickets/TICKET-DX-02-reconcile-biome-with-the-codebase.md)
-owns clearing these.
+## Lint and formatting: clean
+
+`yarn run check` reports **no findings at all** as of
+[TICKET-DX-02](docs/v1.0_foundation/tickets/TICKET-DX-02-reconcile-biome-with-the-codebase.md).
+There is no baseline to subtract any more — anything it reports is yours.
+
+How it got there: `biome.json` was reconciled with the code (space/2, single quotes, `lineWidth`
+100, es5 trailing commas), the tree was formatted to match in one mechanical commit, and the 33
+real lint errors were fixed rather than suppressed. `.githooks/pre-commit` runs `yarn run check`
+on every commit — enable it in a fresh clone with `git config core.hooksPath .githooks`.
+
+Three suppressions exist, each with a stated reason: two in `Dialog.tsx` and `Label.tsx` where a
+base primitive cannot see the association the caller owns. No lint rule is disabled in
+`biome.json`.

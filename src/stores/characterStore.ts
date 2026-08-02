@@ -155,8 +155,9 @@ function withoutSlot(
   equippedItems: Inventory['equippedItems'],
   equipmentSlotType: string
 ): Inventory['equippedItems'] {
-  const { [equipmentSlotType]: removed, ...remaining } = equippedItems;
-  return remaining;
+  return Object.fromEntries(
+    Object.entries(equippedItems).filter(([slotType]) => slotType !== equipmentSlotType)
+  );
 }
 
 /**

@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import type React from 'react';
+import { useEffect } from 'react';
 import {
   bodyStyles,
   closeButtonStyles,
@@ -53,8 +54,19 @@ export function Dialog({ open, onClose, title, children, className = '' }: Dialo
     .join(' ');
 
   return (
-    <div className={overlayStyles} onClick={onClose}>
-      <div className={combinedDialogClassName} onClick={(e) => e.stopPropagation()}>
+    // The backdrop is decoration: clicking it is a shortcut, never the only way out — Escape is
+    // handled above and the header carries a real close button. Comparing target to currentTarget
+    // means only the backdrop itself dismisses, so the dialog needs no click handler of its own
+    // just to stop propagation.
+    // biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismissal duplicates Escape and the close button
+    <div
+      className={overlayStyles}
+      role="presentation"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className={combinedDialogClassName} role="dialog" aria-modal="true" aria-label={title}>
         <div className={headerStyles}>
           <h2 className={titleStyles}>{title}</h2>
           <button

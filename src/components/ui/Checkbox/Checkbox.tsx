@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { checkboxStyles, disabledStyles, labelStyles } from './Checkbox.style';
 
 export interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {

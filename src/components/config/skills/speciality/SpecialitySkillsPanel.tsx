@@ -46,10 +46,8 @@ export function SpecialitySkillsPanel() {
       addButtonText="Add Speciality Skill"
       emptyMessage="No speciality skills configured yet. Click 'Add' to create your first skill."
       skills={currentSkills}
-      isDialogOpen={isDialogOpen}
       deleteWarning={deleteWarning}
       onAdd={handleAdd}
-      onCloseDialog={() => setIsDialogOpen(false)}
       onCloseWarning={() => setDeleteWarning(null)}
       renderSkillCard={(skill) => (
         <SpecialitySkillCard skill={skill} onEdit={handleEdit} onDelete={handleDelete} />

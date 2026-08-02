@@ -3,6 +3,10 @@
  *
  * Generic panel component that can be reused for all skill types.
  * Accepts render props for customization.
+ *
+ * The form dialog's open state is **not** a prop here: `renderFormDialog()` is the caller's own
+ * closure, so it already has it. Two props that carried it were accepted and silently dropped
+ * until TICKET-DX-02 removed them.
  */
 
 import type { ReactNode } from 'react';
@@ -17,10 +21,8 @@ interface BaseSkillPanelProps<T> {
   addButtonText: string;
   emptyMessage: string;
   skills: T[];
-  isDialogOpen: boolean;
   deleteWarning: string | null;
   onAdd: () => void;
-  onCloseDialog: () => void;
   onCloseWarning: () => void;
   renderSkillCard: (skill: T) => ReactNode;
   renderFormDialog: () => ReactNode;
@@ -32,10 +34,8 @@ export function BaseSkillPanel<T extends { code: string }>({
   addButtonText,
   emptyMessage,
   skills,
-  isDialogOpen,
   deleteWarning,
   onAdd,
-  onCloseDialog,
   onCloseWarning,
   renderSkillCard,
   renderFormDialog,

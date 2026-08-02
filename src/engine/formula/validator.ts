@@ -36,10 +36,11 @@ function extractVariables(ast: FormulaAST): string[] {
         traverse(node.operand);
         break;
 
-      default:
+      default: {
         // TypeScript exhaustiveness check
         const _exhaustive: never = node;
         throw new Error(`Unknown AST node type: ${(_exhaustive as FormulaAST).type}`);
+      }
     }
   }
 

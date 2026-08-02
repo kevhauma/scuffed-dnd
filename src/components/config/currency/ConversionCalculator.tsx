@@ -7,7 +7,7 @@
  * **Validates: Requirements 10.5, 21.1-21.5**
  */
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { convertCurrency } from '../../../engine/currency';
 import type { CurrencyTier } from '../../../types';
 import { Card } from '../../ui/Card/Card';
@@ -21,6 +21,9 @@ interface ConversionCalculatorProps {
 }
 
 export function ConversionCalculator({ tiers }: ConversionCalculatorProps) {
+  const calcAmountId = useId();
+  const calcFromId = useId();
+
   const [amount, setAmount] = useState<number>(1);
   const [fromTierId, setFromTierId] = useState<string>(tiers[0]?.id || '');
 
@@ -45,9 +48,9 @@ export function ConversionCalculator({ tiers }: ConversionCalculatorProps) {
 
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <Label htmlFor="calc-amount">Amount</Label>
+          <Label htmlFor={calcAmountId}>Amount</Label>
           <Input
-            id="calc-amount"
+            id={calcAmountId}
             type="number"
             value={amount}
             onChange={(e) => setAmount(Number(e.target.value) || 0)}
@@ -57,9 +60,9 @@ export function ConversionCalculator({ tiers }: ConversionCalculatorProps) {
         </div>
 
         <div>
-          <Label htmlFor="calc-from">From Tier</Label>
+          <Label htmlFor={calcFromId}>From Tier</Label>
           <Select
-            id="calc-from"
+            id={calcFromId}
             value={fromTierId}
             onChange={(e) => setFromTierId(e.target.value)}
             options={tiers.map((tier) => ({ value: tier.id, label: tier.name }))}

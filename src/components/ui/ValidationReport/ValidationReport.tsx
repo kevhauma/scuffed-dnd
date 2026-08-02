@@ -1,4 +1,3 @@
-import React from 'react';
 import { Card } from '../Card/Card';
 import {
   containerStyles,
@@ -40,6 +39,36 @@ export function ValidationReport({ issues, onIssueClick, className = '' }: Valid
     }
   };
 
+  /**
+   * Interaction props, attached only when the row is actually interactive
+   *
+   * A row with no `onIssueClick` is static text: giving it a click handler, a button role and a tab
+   * stop would announce it to assistive tech as something you can activate when nothing happens.
+   */
+  const interactionProps = (issue: ValidationIssue) =>
+    onIssueClick
+      ? {
+          onClick: () => handleIssueClick(issue),
+          onKeyDown: (event: React.KeyboardEvent) => handleIssueKeyDown(event, issue),
+          role: 'button',
+          tabIndex: 0,
+        }
+      : {};
+
+  /**
+   * Keyboard equivalent of clicking an issue
+   *
+   * An issue row is only interactive when `onIssueClick` is given, and then it takes `role="button"`
+   * and a tab stop — so it has to answer Enter and Space like a real button does.
+   */
+  const handleIssueKeyDown = (event: React.KeyboardEvent, issue: ValidationIssue) => {
+    if (!onIssueClick) return;
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+
+    event.preventDefault();
+    onIssueClick(issue);
+  };
+
   return (
     <Card variant="bordered" className={`${containerStyles} ${className}`}>
       <div className={headerStyles}>
@@ -70,13 +99,11 @@ export function ValidationReport({ issues, onIssueClick, className = '' }: Valid
             <div className="mb-4">
               <h4 className="font-heading font-semibold text-lg text-crimson mb-2">Errors</h4>
               <div className={issueListStyles}>
-                {errors.map((issue, index) => (
+                {errors.map((issue) => (
                   <div
-                    key={index}
+                    key={`${issue.category}-${issue.entityId ?? issue.entityName ?? ''}-${issue.message}`}
                     className={issueItemStyles}
-                    onClick={() => handleIssueClick(issue)}
-                    role={onIssueClick ? 'button' : undefined}
-                    tabIndex={onIssueClick ? 0 : undefined}
+                    {...interactionProps(issue)}
                   >
                     <span className={errorIconStyles}>✕</span>
                     <div className="flex-1">
@@ -98,13 +125,11 @@ export function ValidationReport({ issues, onIssueClick, className = '' }: Valid
             <div>
               <h4 className="font-heading font-semibold text-lg text-amber mb-2">Warnings</h4>
               <div className={issueListStyles}>
-                {warnings.map((issue, index) => (
+                {warnings.map((issue) => (
                   <div
-                    key={index}
+                    key={`${issue.category}-${issue.entityId ?? issue.entityName ?? ''}-${issue.message}`}
                     className={issueItemStyles}
-                    onClick={() => handleIssueClick(issue)}
-                    role={onIssueClick ? 'button' : undefined}
-                    tabIndex={onIssueClick ? 0 : undefined}
+                    {...interactionProps(issue)}
                   >
                     <span className={warningIconStyles}>⚠</span>
                     <div className="flex-1">

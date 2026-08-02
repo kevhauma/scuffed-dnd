@@ -6,7 +6,7 @@
  * **Validates: Requirements 9.1, 21.1-21.5**
  */
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useConfigStore } from '../../../stores/configStore';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
@@ -15,6 +15,8 @@ import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
 
 export function FocusStatConfig() {
+  const focusBonusLevelId = useId();
+
   const config = useConfigStore((state) => state.config);
   const setFocusStatBonusLevel = useConfigStore((state) => state.setFocusStatBonusLevel);
 
@@ -80,11 +82,11 @@ export function FocusStatConfig() {
       <Card className="p-6">
         <div className="space-y-4">
           <div>
-            <Label htmlFor="focusBonusLevel" required>
+            <Label htmlFor={focusBonusLevelId} required>
               Focus Stat Bonus Level
             </Label>
             <Input
-              id="focusBonusLevel"
+              id={focusBonusLevelId}
               type="number"
               value={localValue}
               onChange={(e) => handleChange(e.target.value)}

@@ -53,10 +53,10 @@ export function useCombatRoller(
       const result = rollCombatSkill(skill, calculated, config, rng);
 
       setResults((current) => ({ ...current, [skillCode]: result }));
-      setErrors((current) => {
-        const { [skillCode]: cleared, ...remaining } = current;
-        return remaining;
-      });
+      // A successful roll clears any error standing against that skill
+      setErrors((current) =>
+        Object.fromEntries(Object.entries(current).filter(([code]) => code !== skillCode))
+      );
 
       // Session history belongs to the UI store; it is deliberately never persisted
       addRollResult({

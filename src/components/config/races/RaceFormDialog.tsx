@@ -151,7 +151,10 @@ export function RaceFormDialog({
           ) : (
             <div className="space-y-2">
               {skillModifiers.map((modifier, index) => (
-                <div key={index} className="flex items-center gap-2 p-2 bg-parchment-50 rounded">
+                <div
+                  key={modifier.skillCode}
+                  className="flex items-center gap-2 p-2 bg-parchment-50 rounded"
+                >
                   <Text variant="body-small" className="flex-1">
                     {getSkillName(modifier.skillCode)}
                   </Text>

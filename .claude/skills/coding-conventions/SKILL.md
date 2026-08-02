@@ -128,19 +128,20 @@ crash.
 - Component tests mock the store module (`vi.mock('../../../stores/configStore')` +
   `vi.mocked(useConfigStore).mockReturnValue(...)`), so the component under test is isolated from
   persistence.
-- **The suite is not currently green** — see [TEST_STATUS.md](../../../TEST_STATUS.md). All
-  failures are one React 19 + Vitest hooks-dispatcher issue affecting components that call
-  `useState`. "Tests pass" means *no new failures beyond that documented set*. Do not skip a test
-  to make a run look clean; if you add a component that hits the same issue, say so.
+- **The suite is green** — 0 failing, 0 skipped (see [TEST_STATUS.md](../../../TEST_STATUS.md)).
+  The React 19 + Vitest hooks-dispatcher failures were fixed by TICKET-DX-01; a failing or
+  newly-skipped test is a regression, not background noise. Never skip a test to make a run look
+  clean.
 
 ## Verification
 
 Before calling any change done:
 
 1. `npx vitest run` (or the affected files) — no new failures vs. TEST_STATUS.md
-2. `npx tsc --noEmit` — clean
-3. `yarn run lint` — no new errors (the repo has 35 pre-existing lint errors and formatting drift;
-   don't mass-reformat, match the file you're in)
+2. `npx tsc --noEmit` — no errors beyond the 4 in TEST_STATUS.md
+3. `yarn run check` — **must be completely clean** (TICKET-DX-02 cleared it and a
+   `.githooks/pre-commit` hook holds the line). `npx biome check --write .` fixes the mechanical
+   ones; formatting is settled, so this is no longer a mass-reformat hazard
 4. The **fallow** skill for code-quality review, if available in the session — if it isn't, say so
    rather than skipping silently
 5. A live browser check for anything UI-visible (`yarn dev`, port 3000)

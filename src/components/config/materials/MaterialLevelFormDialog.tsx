@@ -4,11 +4,13 @@
  * Form for adding/editing material levels with bonuses and values.
  */
 
+import { useId } from 'react';
 import { type UseFormReturn, useFieldArray } from 'react-hook-form';
 import type { CurrencyTier } from '../../../types';
 import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
+import { Label } from '../../ui/Label/Label';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
 
@@ -39,6 +41,8 @@ export function MaterialLevelFormDialog({
   onClose,
   onSave,
 }: MaterialLevelFormDialogProps) {
+  const tierId = useId();
+
   const {
     register,
     formState: { errors },
@@ -176,8 +180,11 @@ export function MaterialLevelFormDialog({
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-sm font-medium text-ink-800 mb-1">Currency Tier</label>
+                <Label htmlFor={tierId} className="block mb-1">
+                  Currency Tier
+                </Label>
                 <Select
+                  id={tierId}
                   value={watch('tierId')}
                   onChange={(e) => form.setValue('tierId', e.target.value)}
                   options={currencyTiers

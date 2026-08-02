@@ -46,10 +46,8 @@ export function CombatSkillsPanel() {
       addButtonText="Add Combat Skill"
       emptyMessage="No combat skills configured yet. Click 'Add' to create your first skill."
       skills={currentSkills}
-      isDialogOpen={isDialogOpen}
       deleteWarning={deleteWarning}
       onAdd={handleAdd}
-      onCloseDialog={() => setIsDialogOpen(false)}
       onCloseWarning={() => setDeleteWarning(null)}
       renderSkillCard={(skill) => (
         <CombatSkillCard skill={skill} onEdit={handleEdit} onDelete={handleDelete} />

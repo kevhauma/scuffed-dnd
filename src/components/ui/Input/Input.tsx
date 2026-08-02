@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { baseStyles, disabledStyles, errorStyles } from './Input.style';
 
 export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {

@@ -60,9 +60,10 @@ export function evaluateFormula(ast: FormulaAST, context: FormulaContext): numbe
       }
     }
 
-    default:
+    default: {
       // TypeScript exhaustiveness check
       const _exhaustive: never = ast;
       throw new Error(`Unknown AST node type: ${(_exhaustive as FormulaAST).type}`);
+    }
   }
 }

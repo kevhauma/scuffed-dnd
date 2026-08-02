@@ -44,7 +44,7 @@ export function StatCard({ stat, availableSkillCodes, onEdit, onDelete }: StatCa
       const ast = parseFormula(stat.formula);
       const value = evaluateFormula(ast, { variables: sampleValues });
       return Math.round(value * 100) / 100; // Round to 2 decimal places
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }, [stat.formula, sampleValues, validation.isValid]);

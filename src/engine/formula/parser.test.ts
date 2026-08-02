@@ -3,7 +3,6 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { FormulaAST } from '../../types/formula';
 import { parseFormula } from './parser';
 
 describe('Formula Parser', () => {

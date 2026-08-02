@@ -4,7 +4,7 @@
  * Dialog for creating and editing items with material and equipment slot assignment.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import type { EquipmentSlot, Material } from '../../../types';
 import { Button } from '../../ui/Button/Button';
@@ -42,6 +42,13 @@ export function ItemFormDialog({
   onClose,
   onSave,
 }: ItemFormDialogProps) {
+  const itemCategoryId = useId();
+  const itemDescriptionId = useId();
+  const itemEquipmentSlotId = useId();
+  const itemMaterialId = useId();
+  const itemMaterialLevelId = useId();
+  const itemNameId = useId();
+
   const {
     register,
     watch,
@@ -73,11 +80,11 @@ export function ItemFormDialog({
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Name */}
         <div>
-          <Label htmlFor="item-name" required>
+          <Label htmlFor={itemNameId} required>
             Name
           </Label>
           <Input
-            id="item-name"
+            id={itemNameId}
             {...register('name', { required: 'Name is required' })}
             error={!!errors.name}
             className="w-full mt-1"
@@ -87,9 +94,9 @@ export function ItemFormDialog({
 
         {/* Description */}
         <div>
-          <Label htmlFor="item-description">Description</Label>
+          <Label htmlFor={itemDescriptionId}>Description</Label>
           <Textarea
-            id="item-description"
+            id={itemDescriptionId}
             {...register('description')}
             rows={3}
             className="w-full mt-1"
@@ -98,9 +105,9 @@ export function ItemFormDialog({
 
         {/* Category */}
         <div>
-          <Label htmlFor="item-category">Category (optional)</Label>
+          <Label htmlFor={itemCategoryId}>Category (optional)</Label>
           <Input
-            id="item-category"
+            id={itemCategoryId}
             {...register('categoryId')}
             placeholder="e.g., Weapons, Armor, Consumables"
             className="w-full mt-1"
@@ -109,9 +116,9 @@ export function ItemFormDialog({
 
         {/* Material */}
         <div>
-          <Label htmlFor="item-material">Material (optional)</Label>
+          <Label htmlFor={itemMaterialId}>Material (optional)</Label>
           <Select
-            id="item-material"
+            id={itemMaterialId}
             {...register('materialId')}
             options={[
               { value: '', label: 'None' },
@@ -124,9 +131,9 @@ export function ItemFormDialog({
         {/* Material Level */}
         {selectedMaterial && selectedMaterial.levels.length > 0 && (
           <div>
-            <Label htmlFor="item-material-level">Material Level</Label>
+            <Label htmlFor={itemMaterialLevelId}>Material Level</Label>
             <Select
-              id="item-material-level"
+              id={itemMaterialLevelId}
               {...register('materialLevel', { valueAsNumber: true })}
               options={selectedMaterial.levels.map((l) => ({
                 value: l.level.toString(),
@@ -139,9 +146,9 @@ export function ItemFormDialog({
 
         {/* Equipment Slot */}
         <div>
-          <Label htmlFor="item-equipment-slot">Equipment Slot (optional)</Label>
+          <Label htmlFor={itemEquipmentSlotId}>Equipment Slot (optional)</Label>
           <Select
-            id="item-equipment-slot"
+            id={itemEquipmentSlotId}
             {...register('equipmentSlotType')}
             options={[
               { value: '', label: 'None (Miscellaneous)' },

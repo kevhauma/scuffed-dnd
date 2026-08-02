@@ -302,7 +302,7 @@ export function validateConfiguration(config: Configuration): ValidationReport {
     if (!codeMap.has(code)) {
       codeMap.set(code, []);
     }
-    codeMap.get(code)!.push({ type, name });
+    codeMap.get(code)?.push({ type, name });
   }
 
   for (const [code, skills] of codeMap.entries()) {

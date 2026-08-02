@@ -5,7 +5,7 @@
  * Supports different HTML elements while maintaining consistent styling.
  */
 
-import React from 'react';
+import type React from 'react';
 import { baseStyles, type TextVariant, variantStyles } from './Text.style';
 
 export interface TextProps {

@@ -1,0 +1,25 @@
+#!/bin/sh
+#
+# Pre-commit gate for Custom DnD Builder (TICKET-DX-02).
+#
+# Runs Biome over the repo before every commit, so the formatting/lint gap that this ticket closed
+# cannot silently reopen. It is deliberately just `check` — fast (~200ms) and about the code's
+# shape. Tests and typecheck are not run here; they are too slow to sit in front of every commit.
+#
+# Enabled by `git config core.hooksPath .githooks`, which is a one-time local step per clone.
+# `yarn run check`, never `yarn check` — Yarn v1's builtin shadows the script and only verifies
+# the lockfile, which would make this hook silently pass everything.
+#
+# To bypass once, deliberately: git commit --no-verify
+
+set -e
+
+echo "pre-commit: yarn run check"
+
+if ! yarn run check; then
+  echo ""
+  echo "pre-commit: Biome found problems. Fix them, or run:"
+  echo "    npx biome check --write ."
+  echo "for the mechanical ones. To bypass this hook: git commit --no-verify"
+  exit 1
+fi

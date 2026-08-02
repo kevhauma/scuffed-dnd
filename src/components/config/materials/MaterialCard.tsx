@@ -13,6 +13,7 @@
 import { useState } from 'react';
 import { formatCurrency, normalizeCurrency } from '../../../engine/currency';
 import type { CurrencyTier, Material } from '../../../types';
+import { SkillModifierBadge } from '../../shared/SkillModifierBadge';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
@@ -103,7 +104,10 @@ export function MaterialCard({
             </Text>
           ) : (
             material.levels.map((level, index) => (
-              <div key={index} className="p-3 bg-parchment-50 border border-stone-200 rounded">
+              <div
+                key={level.level}
+                className="p-3 bg-parchment-50 border border-stone-200 rounded"
+              >
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <Text variant="body-small" className="font-semibold">
@@ -135,18 +139,8 @@ export function MaterialCard({
                       Bonuses:
                     </Text>
                     <div className="flex flex-wrap gap-2">
-                      {level.bonuses.map((bonus, bonusIdx) => (
-                        <span
-                          key={bonusIdx}
-                          className={`text-xs px-2 py-1 rounded ${
-                            bonus.modifier >= 0
-                              ? 'bg-forest/10 text-forest border border-forest'
-                              : 'bg-crimson/10 text-crimson border border-crimson'
-                          }`}
-                        >
-                          {bonus.skillCode}: {bonus.modifier >= 0 ? '+' : ''}
-                          {bonus.modifier}
-                        </span>
+                      {level.bonuses.map((bonus) => (
+                        <SkillModifierBadge key={bonus.skillCode} modifier={bonus} />
                       ))}
                     </div>
                   </div>
