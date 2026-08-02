@@ -380,14 +380,14 @@ This plan implements a browser-based React application for creating and playing 
     - Update character sheet display automatically
     - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
-- [ ] 15. Implement import/export UI
-  - [ ] 15.1 Create export button in config mode
+- [x] 15. Implement import/export UI — [TICKET-IO-02](./tickets/TICKET-IO-02-export-import-and-rename-configuration.md)
+  - [x] 15.1 Create export button in config mode — TICKET-IO-02
     - Use base Button component
     - Trigger JSON file download with current configuration
     - Handle layout/positioning with className
     - _Requirements: 1.4, 21.1-21.5_
   
-  - [ ] 15.2 Create import button in config mode
+  - [x] 15.2 Create import button in config mode — TICKET-IO-02
     - Use base Button and Dialog components
     - Open file picker for JSON files
     - Validate imported configuration

@@ -33,6 +33,8 @@ interface ConfigState {
   // Initialization
   initializeConfig: (name: string) => void;
   loadConfig: () => void;
+  replaceConfig: (config: Configuration) => void;
+  renameConfig: (name: string) => void;
   
   // Main Skills CRUD
   addMainSkill: (skill: MainSkill) => void;
@@ -146,6 +148,27 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   loadConfig: () => {
     const config = loadConfiguration();
     set({ config, isLoaded: true });
+  },
+
+  /**
+   * Replace the whole configuration — what applying an import means
+   *
+   * The Application holds one configuration at a time, so an import discards the current one
+   * rather than adding to a list. The caller is responsible for validating the incoming data and
+   * for confirming with the User first; by the time this runs, the decision is made.
+   */
+  replaceConfig: (config: Configuration) => {
+    const saved = autoSave(config);
+    set({ config: saved, isLoaded: true });
+  },
+
+  /** Rename the current configuration; the export filename derives from this */
+  renameConfig: (name: string) => {
+    const { config } = get();
+    if (!config) return;
+
+    const updated = autoSave({ ...config, name });
+    set({ config: updated });
   },
   
   // Main Skills CRUD

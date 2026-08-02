@@ -94,6 +94,12 @@ concern, so:
 - **Import/export is a public boundary.** `importExport.ts`'s `validateConfiguration()` inspects
   untrusted JSON before it is applied; any new required field must be added to that check, or a
   file exported by an older build will be accepted and then break at render time.
+  Import validates **twice**, and the two are not interchangeable: `importExport.ts` checks
+  *structure* and refuses to apply a file that fails, while `engine/validator.ts` checks
+  *references* (formula codes, slot types, categories, cycles) and only reports — a
+  referentially-broken ruleset is still applied, so the User can repair it in the app.
+  `useConfigStore.replaceConfig(config)` is what applying an import means (the app holds one
+  configuration, so it replaces rather than appends); `renameConfig(name)` renames it.
 - Round-trip test: export → import must reproduce an equivalent configuration.
 
 ## Data flow

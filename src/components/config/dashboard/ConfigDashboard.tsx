@@ -13,6 +13,7 @@ import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 import { ValidationReport } from '../../ui/ValidationReport/ValidationReport';
+import { ConfigTransferPanel } from './ConfigTransferPanel';
 import { useConfigDashboard } from './useConfigDashboard';
 
 export function ConfigDashboard() {
@@ -90,6 +91,8 @@ export function ConfigDashboard() {
         {/* Shown once the User has asked, even when clean — the primitive has its own empty state */}
         {report && <ValidationReport issues={reportIssues} className="mt-4" />}
       </Card>
+
+      <ConfigTransferPanel />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {sections.map((section) => (

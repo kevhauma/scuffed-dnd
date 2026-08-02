@@ -6,6 +6,8 @@
 
 // Panel components
 export * from './dashboard/ConfigDashboard';
+export * from './dashboard/ConfigTransferPanel';
+export * from './dashboard/useConfigTransfer';
 export * from './dashboard/useConfigDashboard';
 export * from './skills/main/MainSkillsPanel';
 export * from './skills/main/MainSkillPointBudget';

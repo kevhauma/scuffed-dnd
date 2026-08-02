@@ -86,6 +86,47 @@ describe('ConfigStore', () => {
       expect(isLoaded).toBe(true);
       expect(config).toEqual(mockConfig);
     });
+
+    it('should replace the whole configuration and persist it', () => {
+      useConfigStore.getState().initializeConfig('Original');
+      const original = useConfigStore.getState().config;
+      if (!original) throw new Error('initializeConfig produced no configuration');
+
+      useConfigStore.getState().replaceConfig({
+        ...original,
+        id: 'imported-id',
+        name: 'Imported',
+        focusStatBonusLevel: 4,
+      });
+
+      // Applying an import discards the current ruleset — the app holds exactly one
+      const { config, isLoaded } = useConfigStore.getState();
+      expect(config?.id).toBe('imported-id');
+      expect(config?.name).toBe('Imported');
+      expect(config?.focusStatBonusLevel).toBe(4);
+      expect(isLoaded).toBe(true);
+      expect(storage.saveConfiguration).toHaveBeenCalledWith(config);
+    });
+
+    it('should rename the configuration without touching anything else', () => {
+      useConfigStore.getState().initializeConfig('Original');
+      const before = useConfigStore.getState().config;
+
+      useConfigStore.getState().renameConfig('Grimdark Hollow');
+
+      const after = useConfigStore.getState().config;
+      expect(after?.name).toBe('Grimdark Hollow');
+      expect(after?.id).toBe(before?.id);
+      expect(after?.focusStatBonusLevel).toBe(before?.focusStatBonusLevel);
+      expect(storage.saveConfiguration).toHaveBeenCalledWith(after);
+    });
+
+    it('should ignore a rename when there is no configuration', () => {
+      useConfigStore.getState().renameConfig('Nothing To Rename');
+
+      expect(useConfigStore.getState().config).toBeNull();
+      expect(storage.saveConfiguration).not.toHaveBeenCalled();
+    });
   });
 
   describe('Main Skills CRUD', () => {
