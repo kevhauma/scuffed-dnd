@@ -403,7 +403,7 @@ This plan implements a browser-based React application for creating and playing 
     - _Requirements: 10.4, 10.5_
 
 - [ ] 17. Final integration and polish
-  - [ ] 17.1 Wire all stores to components
+  - [x] 17.1 Wire all stores to components — TICKET-POL-02
     - Ensure all components use Zustand stores correctly
     - Verify auto-save triggers on all state changes
     - Test LocalStorage persistence across page reloads
@@ -417,12 +417,12 @@ This plan implements a browser-based React application for creating and playing 
     - Handle layout/positioning with className
     - _Requirements: 18.5, 18.6, 21.1-21.5_
   
-  - [ ] 17.3 Test multi-race character support
+  - [x] 17.3 Test multi-race character support — TICKET-POL-02
     - Verify bonuses combine additively
     - Verify display shows all races
     - _Requirements: 8.3, 8.4_
   
-  - [ ] 17.4 Test formula recalculation flows
+  - [x] 17.4 Test formula recalculation flows — TICKET-POL-02
     - Verify stats recalculate when main skills change
     - Verify speciality skills recalculate when dependencies change
     - Verify combat bonuses recalculate when equipment changes
@@ -442,8 +442,12 @@ This plan implements a browser-based React application for creating and playing 
     - Check className props work correctly for positioning
     - _Requirements: 21.1-21.5_
 
-- [ ] 18. Final checkpoint - Ensure all tests pass
+- [x] 18. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
+  - **Met 2026-08-01: 660 passing, 0 failing, 0 skipped**, plus `yarn run check` completely clean
+    (TICKET-DX-02) and a pre-commit hook holding it there. `npx tsc --noEmit` still has 4 known
+    errors, documented in TEST_STATUS.md — that was never part of this checkpoint's bar, but it is
+    the one thing in the verification set that is not clean.
 
 ## Notes
 

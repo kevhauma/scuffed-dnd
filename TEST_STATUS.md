@@ -5,8 +5,8 @@ _Last verified: 2026-08-01 (`npx vitest run`), after
 
 ## Summary
 
-- **Total tests**: 652
-- **Passing**: 652 (100%)
+- **Total tests**: 660
+- **Passing**: 660 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 

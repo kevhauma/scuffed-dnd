@@ -49,8 +49,22 @@ retroactively ticketed. Their detail (and requirement traceability) stays in [ta
 - [x] [TICKET-POL-01](./tickets/TICKET-POL-01-route-layer-theme-and-composition.md) — Route layer: medieval theme tokens, `Text` primitive instead of raw markup, delete the dead `Header.tsx` (refactor, Req 22.1-22.4, 21.4, 21.5) *(covers plan §17.5)* — **after** NAV-02 and NAV-01, or it re-themes markup that's about to be replaced. Landed 2026-08-01: by then the intervening tickets had already cleaned 12 of the 13 files, so this reduced to the landing page plus the dead `Header.tsx` (and the `lucide-react` dependency that only it used). Browser criterion **still open** at the User's request — and it matters most here, this being a visual refactor
 - [x] [TICKET-DX-02](./tickets/TICKET-DX-02-reconcile-biome-with-the-codebase.md) — Reconcile `biome.json` with the codebase and clear the lint errors (refactor; carried a formatting decision for the User) — landed 2026-08-01 in two commits, the mechanical reformat separate from the fixes. **`yarn run check` is now completely clean** and `.githooks/pre-commit` holds it there, so it is a real gate rather than a baseline to subtract; `npx tsc --noEmit` fell 9 → 4 as a side effect. The User chose config-matches-code, then re-chose on corrected information when the promised zero-diff turned out to be 142 files — see the ticket
 - [x] [TICKET-DX-03](./tickets/TICKET-DX-03-traceability-and-component-shape.md) — `**Validates: Requirements**` headers across the codebase and a `useFocusStatManager` hook for the one panel missing it *(covers the rest of plan §17.6)* — late, so the sweep covers the whole codebase once. Landed 2026-08-01: coverage 88 → 151 of 154 non-test modules (the ticket's "10 of 108" was stale — the play-mode tickets had each written their own), and every configuration domain now has its `useXManager`
-- [ ] Remaining integration passes — stores wired to components, multi-race bonuses, formula recalculation flows *(plan §17.1, 17.3, 17.4)* — verification work, last
-- [ ] Final checkpoint — full suite green *(plan §18)* — reachable once TICKET-DX-01 lands
+- [x] [TICKET-POL-02](./tickets/TICKET-POL-02-integration-passes.md) — Integration passes: persistence round-trip, multi-race, recalculation flows (Req 17.1-17.4, 8.3, 8.4, 3.6, 13.3) *(covers plan §17.1, §17.3, §17.4)* — verification work, last. Landed 2026-08-01: multi-race and equipment recalculation were already covered, so the new tests are the persistence round-trip and the two unproven recalculation flows. **Found a real bug** — an unallocated main skill breaks every formula naming it — raised as its own ticket rather than fixed here
+- [x] Final checkpoint — full suite green *(plan §18)* — **met 2026-08-01: 660 passing, 0 failing, 0 skipped**, `yarn run check` clean, `npx tsc --noEmit` at 4 known errors (see [TEST_STATUS.md](../../TEST_STATUS.md))
+
+## What is not done
+
+Every line above is ticked, but two things are deliberately outstanding and should not be mistaken
+for finished:
+
+- **No ticket from 2026-08-01 has had its browser check.** The User asked for the run to skip them,
+  so each of TICKET-CHAR-03, INV-01, ROLL-02, VAL-01, IO-02, CUR-01, POL-01 and DX-02 carries one
+  open criterion with a note. They are unticked, not quietly passed. The ones that most want a real
+  browser are **POL-01** (a purely visual refactor), **IO-02** (jsdom cannot exercise the actual
+  file download) and **ROLL-02** (the dice settle animation).
+- **One known bug, found by TICKET-POL-02 and raised separately**: a main skill a character never
+  allocated is missing from the formula context, so adding a main skill to a ruleset breaks every
+  existing character's sheet with `Undefined variable`.
 
 ## Spec decisions (answered 2026-07-30)
 
