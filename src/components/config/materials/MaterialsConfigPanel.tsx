@@ -1,17 +1,17 @@
 /**
  * Materials Configuration Panel
- * 
+ *
  * Manages material categories, materials, and material levels with bonuses and values.
  */
 
-import { useMaterialManager } from './useMaterialManager';
+import { Button } from '../../ui/Button/Button';
+import { Card } from '../../ui/Card/Card';
+import { Text } from '../../ui/Text/Text';
 import { MaterialCategoryCard } from './MaterialCategoryCard';
 import { MaterialCategoryFormDialog } from './MaterialCategoryFormDialog';
 import { MaterialFormDialog } from './MaterialFormDialog';
 import { MaterialLevelFormDialog } from './MaterialLevelFormDialog';
-import { Button } from '../../ui/Button/Button';
-import { Card } from '../../ui/Card/Card';
-import { Text } from '../../ui/Text/Text';
+import { useMaterialManager } from './useMaterialManager';
 
 export function MaterialsConfigPanel() {
   const {
@@ -61,7 +61,9 @@ export function MaterialsConfigPanel() {
       <Card className="p-6">
         <div className="flex justify-between items-start mb-4">
           <div>
-            <Text variant="h4" as="h2" className="mb-2">Materials</Text>
+            <Text variant="h4" as="h2" className="mb-2">
+              Materials
+            </Text>
             <Text variant="body-secondary">
               Define materials with categories, levels, bonuses, and values
             </Text>
@@ -92,7 +94,8 @@ export function MaterialsConfigPanel() {
       {categories.length === 0 ? (
         <Card className="p-6">
           <Text variant="body-secondary" className="text-center">
-            No material categories configured yet. Click 'Add Category' to create your first category.
+            No material categories configured yet. Click 'Add Category' to create your first
+            category.
           </Text>
         </Card>
       ) : (
@@ -101,7 +104,7 @@ export function MaterialsConfigPanel() {
             <MaterialCategoryCard
               key={category.id}
               category={category}
-              materials={config.materials.filter(m => m.categoryId === category.id)}
+              materials={config.materials.filter((m) => m.categoryId === category.id)}
               availableSkillCodes={availableSkillCodes}
               currencyTiers={currencyTiers}
               onEditCategory={handleEditCategory}

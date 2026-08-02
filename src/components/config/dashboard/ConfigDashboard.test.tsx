@@ -7,12 +7,14 @@
  * **Validates: Requirements 18.1, 18.2, 18.3, 18.4, 18.5, 18.6, 21.1-21.5**
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Configuration } from '../../../types/config';
 
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children, to }: { children: React.ReactNode; to: string }) => <a href={to}>{children}</a>,
+  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
+    <a href={to}>{children}</a>
+  ),
 }));
 
 vi.mock('../../../services/storage', () => ({

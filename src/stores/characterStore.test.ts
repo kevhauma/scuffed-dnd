@@ -1,14 +1,14 @@
 /**
  * Character Store Tests
- * 
+ *
  * Unit tests for the character store with auto-save functionality.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { useCharacterStore } from './characterStore';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as storage from '../services/storage';
 import type { Character, CharacterCreationData } from '../types/character';
 import type { Configuration } from '../types/config';
-import * as storage from '../services/storage';
+import { useCharacterStore } from './characterStore';
 
 // Mock storage service
 vi.mock('../services/storage', () => ({
@@ -22,7 +22,7 @@ describe('CharacterStore', () => {
     useCharacterStore.setState({ characters: [], isLoaded: false });
     vi.clearAllMocks();
   });
-  
+
   describe('loadCharacters', () => {
     it('should load characters from storage', () => {
       const mockCharacters: Character[] = [
@@ -39,16 +39,16 @@ describe('CharacterStore', () => {
           updatedAt: '2024-01-01T00:00:00.000Z',
         },
       ];
-      
+
       vi.mocked(storage.loadCharacters).mockReturnValue(mockCharacters);
-      
+
       useCharacterStore.getState().loadCharacters();
-      
+
       expect(useCharacterStore.getState().characters).toEqual(mockCharacters);
       expect(useCharacterStore.getState().isLoaded).toBe(true);
     });
   });
-  
+
   describe('createCharacter', () => {
     /** A ruleset with one stat, so seeded current values are observable */
     const testConfig: Configuration = {
@@ -81,9 +81,9 @@ describe('CharacterStore', () => {
         focusStatCode: 'STR',
         specialitySkillBaseLevels: { SWD: 5 },
       };
-      
+
       const character = useCharacterStore.getState().createCharacter(creationData, testConfig);
-      
+
       expect(character.name).toBe('New Character');
       expect(character.raceIds).toEqual(['race-1']);
       expect(character.mainSkillLevels).toEqual({ STR: 10, DEX: 8 });
@@ -92,11 +92,11 @@ describe('CharacterStore', () => {
       expect(character.id).toBeDefined();
       expect(character.createdAt).toBeDefined();
       expect(character.updatedAt).toBeDefined();
-      
+
       expect(useCharacterStore.getState().characters).toHaveLength(1);
       expect(storage.saveCharacters).toHaveBeenCalledWith([character]);
     });
-    
+
     it('should initialize empty inventory', () => {
       const creationData: CharacterCreationData = {
         name: 'Test',
@@ -104,9 +104,9 @@ describe('CharacterStore', () => {
         mainSkillLevels: {},
         specialitySkillBaseLevels: {},
       };
-      
+
       const character = useCharacterStore.getState().createCharacter(creationData, testConfig);
-      
+
       expect(character.inventory).toEqual({
         equippedItems: {},
         miscItems: [],
@@ -146,7 +146,7 @@ describe('CharacterStore', () => {
       expect(useCharacterStore.getState().characters).toHaveLength(1);
     });
   });
-  
+
   describe('updateCharacter', () => {
     it('should update character and save to storage', () => {
       const character: Character = {
@@ -161,18 +161,18 @@ describe('CharacterStore', () => {
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
       };
-      
+
       useCharacterStore.setState({ characters: [character], isLoaded: true });
-      
+
       useCharacterStore.getState().updateCharacter('char-1', { name: 'Updated Name' });
-      
+
       const updated = useCharacterStore.getState().characters[0];
       expect(updated.name).toBe('Updated Name');
       expect(updated.updatedAt).not.toBe(character.updatedAt);
       expect(storage.saveCharacters).toHaveBeenCalled();
     });
   });
-  
+
   describe('deleteCharacter', () => {
     it('should delete character and save to storage', () => {
       const character: Character = {
@@ -187,16 +187,16 @@ describe('CharacterStore', () => {
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
       };
-      
+
       useCharacterStore.setState({ characters: [character], isLoaded: true });
-      
+
       useCharacterStore.getState().deleteCharacter('char-1');
-      
+
       expect(useCharacterStore.getState().characters).toHaveLength(0);
       expect(storage.saveCharacters).toHaveBeenCalledWith([]);
     });
   });
-  
+
   describe('getCharacter', () => {
     it('should return character by ID', () => {
       const character: Character = {
@@ -211,19 +211,19 @@ describe('CharacterStore', () => {
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
       };
-      
+
       useCharacterStore.setState({ characters: [character], isLoaded: true });
-      
+
       const found = useCharacterStore.getState().getCharacter('char-1');
       expect(found).toEqual(character);
     });
-    
+
     it('should return undefined for non-existent character', () => {
       const found = useCharacterStore.getState().getCharacter('non-existent');
       expect(found).toBeUndefined();
     });
   });
-  
+
   describe('Inventory Management', () => {
     let character: Character;
 
@@ -273,7 +273,7 @@ describe('CharacterStore', () => {
       };
       useCharacterStore.setState({ characters: [character], isLoaded: true });
     });
-    
+
     describe('equipItem', () => {
       it('should equip item to slot', () => {
         useCharacterStore.getState().equipItem('char-1', 'helmet', 'item-1', inventoryConfig);
@@ -285,13 +285,15 @@ describe('CharacterStore', () => {
 
       it('should replace existing item in slot', () => {
         useCharacterStore.setState({
-          characters: [{
-            ...character,
-            inventory: {
-              equippedItems: { helmet: 'item-1' },
-              miscItems: [],
+          characters: [
+            {
+              ...character,
+              inventory: {
+                equippedItems: { helmet: 'item-1' },
+                miscItems: [],
+              },
             },
-          }],
+          ],
           isLoaded: true,
         });
 
@@ -326,91 +328,99 @@ describe('CharacterStore', () => {
         ).toBeUndefined();
       });
     });
-    
+
     describe('unequipItem', () => {
       it('should remove item from slot', () => {
         useCharacterStore.setState({
-          characters: [{
-            ...character,
-            inventory: {
-              equippedItems: { helmet: 'item-1' },
-              miscItems: [],
+          characters: [
+            {
+              ...character,
+              inventory: {
+                equippedItems: { helmet: 'item-1' },
+                miscItems: [],
+              },
             },
-          }],
+          ],
           isLoaded: true,
         });
-        
+
         useCharacterStore.getState().unequipItem('char-1', 'helmet');
-        
+
         const updated = useCharacterStore.getState().characters[0];
         expect(updated.inventory.equippedItems['helmet']).toBeUndefined();
         expect(storage.saveCharacters).toHaveBeenCalled();
       });
     });
-    
+
     describe('addMiscItem', () => {
       it('should add item to miscellaneous inventory', () => {
         useCharacterStore.getState().addMiscItem('char-1', 'item-1');
-        
+
         const updated = useCharacterStore.getState().characters[0];
         expect(updated.inventory.miscItems).toContain('item-1');
         expect(storage.saveCharacters).toHaveBeenCalled();
       });
     });
-    
+
     describe('removeMiscItem', () => {
       it('should remove item from miscellaneous inventory', () => {
         useCharacterStore.setState({
-          characters: [{
-            ...character,
-            inventory: {
-              equippedItems: {},
-              miscItems: ['item-1', 'item-2'],
+          characters: [
+            {
+              ...character,
+              inventory: {
+                equippedItems: {},
+                miscItems: ['item-1', 'item-2'],
+              },
             },
-          }],
+          ],
           isLoaded: true,
         });
-        
+
         useCharacterStore.getState().removeMiscItem('char-1', 'item-1');
-        
+
         const updated = useCharacterStore.getState().characters[0];
         expect(updated.inventory.miscItems).toEqual(['item-2']);
         expect(storage.saveCharacters).toHaveBeenCalled();
       });
     });
-    
+
     describe('moveItemToMisc', () => {
       it('should move equipped item to miscellaneous inventory', () => {
         useCharacterStore.setState({
-          characters: [{
-            ...character,
-            inventory: {
-              equippedItems: { helmet: 'item-1' },
-              miscItems: [],
+          characters: [
+            {
+              ...character,
+              inventory: {
+                equippedItems: { helmet: 'item-1' },
+                miscItems: [],
+              },
             },
-          }],
+          ],
           isLoaded: true,
         });
-        
+
         useCharacterStore.getState().moveItemToMisc('char-1', 'helmet');
-        
+
         const updated = useCharacterStore.getState().characters[0];
         expect(updated.inventory.equippedItems['helmet']).toBeUndefined();
         expect(updated.inventory.miscItems).toContain('item-1');
         expect(storage.saveCharacters).toHaveBeenCalled();
       });
     });
-    
+
     describe('moveItemToEquipment', () => {
       it('should move miscellaneous item to equipment slot', () => {
         useCharacterStore.setState({
-          characters: [{
-            ...character,
-            inventory: {
-              equippedItems: {},
-              miscItems: ['item-1'],
+          characters: [
+            {
+              ...character,
+              inventory: {
+                equippedItems: {},
+                miscItems: ['item-1'],
+              },
             },
-          }],
+          ],
           isLoaded: true,
         });
 
@@ -426,10 +436,12 @@ describe('CharacterStore', () => {
 
       it('should refuse an item whose slot type does not match', () => {
         useCharacterStore.setState({
-          characters: [{
-            ...character,
-            inventory: { equippedItems: {}, miscItems: ['item-gloves'] },
-          }],
+          characters: [
+            {
+              ...character,
+              inventory: { equippedItems: {}, miscItems: ['item-gloves'] },
+            },
+          ],
           isLoaded: true,
         });
 
@@ -444,10 +456,12 @@ describe('CharacterStore', () => {
 
       it('should swap the displaced item back into the pack rather than losing it', () => {
         useCharacterStore.setState({
-          characters: [{
-            ...character,
-            inventory: { equippedItems: { helmet: 'item-1' }, miscItems: ['item-2'] },
-          }],
+          characters: [
+            {
+              ...character,
+              inventory: { equippedItems: { helmet: 'item-1' }, miscItems: ['item-2'] },
+            },
+          ],
           isLoaded: true,
         });
 
@@ -461,7 +475,7 @@ describe('CharacterStore', () => {
       });
     });
   });
-  
+
   describe('Current Stat Value Updates', () => {
     let character: Character;
 
@@ -585,11 +599,9 @@ describe('CharacterStore', () => {
       });
 
       it('should clamp each value independently', () => {
-        useCharacterStore.getState().updateCurrentStatValues(
-          'char-1',
-          { health: 500, mana: -5 },
-          statConfig
-        );
+        useCharacterStore
+          .getState()
+          .updateCurrentStatValues('char-1', { health: 500, mana: -5 }, statConfig);
 
         const updated = useCharacterStore.getState().characters[0];
         expect(updated.currentStatValues['health']).toBe(100);

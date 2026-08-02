@@ -1,6 +1,6 @@
 /**
  * Formula Evaluator
- * 
+ *
  * Evaluates Abstract Syntax Trees (AST) with a given context to produce numeric results.
  * Handles arithmetic operations with proper precedence through the AST structure.
  */
@@ -9,7 +9,7 @@ import type { FormulaAST, FormulaContext } from '../../types/formula';
 
 /**
  * Evaluate a formula AST with the given context
- * 
+ *
  * @param ast - The Abstract Syntax Tree to evaluate
  * @param context - Variable values for evaluation
  * @returns The calculated numeric result

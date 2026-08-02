@@ -1,12 +1,12 @@
 /**
  * Combat Skill Bonus Calculator Tests
- * 
+ *
  * Tests for combat skill bonus calculation including formula evaluation and equipment bonuses.
  */
 
-import { describe, it, expect } from 'vitest';
-import { calculateCombatSkillBonuses } from './combatSkillCalculator';
+import { describe, expect, it } from 'vitest';
 import type { Configuration, SkillModifier } from '../../types/config';
+import { calculateCombatSkillBonuses } from './combatSkillCalculator';
 
 describe('calculateCombatSkillBonuses', () => {
   it('should calculate combat skill bonus from formula referencing main skills', () => {
@@ -65,9 +65,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      ],
+      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [
         {
@@ -125,9 +123,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      ],
+      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [],
       combatSkills: [
@@ -178,9 +174,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      ],
+      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [],
       combatSkills: [
@@ -295,9 +289,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      ],
+      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [],
       combatSkills: [
@@ -460,9 +452,7 @@ describe('calculateCombatSkillBonuses', () => {
       SWD: 15,
     };
 
-    const equipmentBonuses: SkillModifier[] = [
-      { skillCode: 'MEL', modifier: 6 },
-    ];
+    const equipmentBonuses: SkillModifier[] = [{ skillCode: 'MEL', modifier: 6 }];
 
     const result = calculateCombatSkillBonuses(
       config,
@@ -481,9 +471,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      ],
+      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [],
       combatSkills: [
@@ -528,9 +516,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      ],
+      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [],
       combatSkills: [

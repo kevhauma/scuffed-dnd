@@ -28,11 +28,7 @@ export function Select({
     .join(' ');
 
   return (
-    <select
-      disabled={disabled}
-      className={combinedClassName}
-      {...props}
-    >
+    <select disabled={disabled} className={combinedClassName} {...props}>
       {placeholder && (
         <option value="" disabled>
           {placeholder}

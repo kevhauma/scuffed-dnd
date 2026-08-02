@@ -1,14 +1,14 @@
 /**
  * Main Skill Form Dialog
- * 
+ *
  * Form for adding/editing main skills.
  */
 
 import type { UseFormReturn } from 'react-hook-form';
-import { Button } from '../../../ui/Button/Button';
-import { FormField } from '../../../ui/FormField/FormField';
-import { Dialog } from '../../../ui/Dialog/Dialog';
 import type { DiceConfig } from '../../../../types';
+import { Button } from '../../../ui/Button/Button';
+import { Dialog } from '../../../ui/Dialog/Dialog';
+import { FormField } from '../../../ui/FormField/FormField';
 
 interface SkillFormData {
   code: string;
@@ -36,14 +36,13 @@ export function MainSkillFormDialog({
   onClose,
   onSave,
 }: MainSkillFormDialogProps) {
-  const { register, formState: { errors } } = form;
+  const {
+    register,
+    formState: { errors },
+  } = form;
 
   return (
-    <Dialog 
-      open={isOpen} 
-      onClose={onClose} 
-      title={`${isEditing ? 'Edit' : 'Add'} Main Skill`}
-    >
+    <Dialog open={isOpen} onClose={onClose} title={`${isEditing ? 'Edit' : 'Add'} Main Skill`}>
       <form onSubmit={onSave} className="space-y-4">
         <FormField
           label="3-Letter Code"

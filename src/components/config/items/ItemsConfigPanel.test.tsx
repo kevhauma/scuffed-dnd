@@ -1,13 +1,13 @@
 /**
  * Items Configuration Panel Tests
- * 
+ *
  * Tests for the ItemsConfigPanel component.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { ItemsConfigPanel } from './ItemsConfigPanel';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { useConfigStore } from '../../../stores/configStore';
+import { ItemsConfigPanel } from './ItemsConfigPanel';
 
 describe('ItemsConfigPanel', () => {
   beforeEach(() => {

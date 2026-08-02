@@ -1,16 +1,16 @@
 /**
  * Speciality Skill Form Dialog
- * 
+ *
  * Form for adding/editing speciality skills with bonus formula.
  */
 
 import { Controller, type UseFormReturn } from 'react-hook-form';
+import type { DiceConfig } from '../../../../types';
 import { Button } from '../../../ui/Button/Button';
 import { Dialog } from '../../../ui/Dialog/Dialog';
-import { FormulaEditor } from '../../../ui/FormulaEditor/FormulaEditor';
 import { FormField } from '../../../ui/FormField/FormField';
+import { FormulaEditor } from '../../../ui/FormulaEditor/FormulaEditor';
 import { Text } from '../../../ui/Text/Text';
-import type { DiceConfig } from '../../../../types';
 
 interface SkillFormData {
   code: string;
@@ -40,12 +40,16 @@ export function SpecialitySkillFormDialog({
   onClose,
   onSave,
 }: SpecialitySkillFormDialogProps) {
-  const { register, control, formState: { errors } } = form;
+  const {
+    register,
+    control,
+    formState: { errors },
+  } = form;
 
   return (
-    <Dialog 
-      open={isOpen} 
-      onClose={onClose} 
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
       title={`${isEditing ? 'Edit' : 'Add'} Speciality Skill`}
     >
       <form onSubmit={onSave} className="space-y-4">
@@ -100,8 +104,8 @@ export function SpecialitySkillFormDialog({
               value={field.value}
               onChange={(value) => {
                 // Editing clears a refusal from the previous save attempt
-                form.clearErrors('bonusFormula')
-                field.onChange(value)
+                form.clearErrors('bonusFormula');
+                field.onChange(value);
               }}
               availableVariables={availableSkillCodes}
               placeholder="(STR + DEX) / 2"

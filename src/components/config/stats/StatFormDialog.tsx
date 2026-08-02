@@ -1,13 +1,13 @@
 /**
  * Stat Form Dialog
- * 
+ *
  * Form for adding/editing stats with formula editor.
  */
 
 import type { UseFormReturn } from 'react-hook-form';
 import { Button } from '../../ui/Button/Button';
-import { FormField } from '../../ui/FormField/FormField';
 import { Dialog } from '../../ui/Dialog/Dialog';
+import { FormField } from '../../ui/FormField/FormField';
 import { FormulaEditor } from '../../ui/FormulaEditor/FormulaEditor';
 import { Text } from '../../ui/Text/Text';
 
@@ -34,15 +34,16 @@ export function StatFormDialog({
   onClose,
   onSave,
 }: StatFormDialogProps) {
-  const { register, formState: { errors }, watch, setValue } = form;
+  const {
+    register,
+    formState: { errors },
+    watch,
+    setValue,
+  } = form;
   const formulaValue = watch('formula');
 
   return (
-    <Dialog 
-      open={isOpen} 
-      onClose={onClose} 
-      title={`${isEditing ? 'Edit' : 'Add'} Stat`}
-    >
+    <Dialog open={isOpen} onClose={onClose} title={`${isEditing ? 'Edit' : 'Add'} Stat`}>
       <form onSubmit={onSave} className="space-y-4">
         <FormField
           label="Name"

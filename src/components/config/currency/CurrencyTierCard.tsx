@@ -1,6 +1,6 @@
 /**
  * Currency Tier Card
- * 
+ *
  * Displays a single currency tier with reorder controls and edit/delete actions.
  */
 
@@ -33,22 +33,10 @@ export function CurrencyTierCard({
       <div className="flex items-start justify-between gap-4">
         {/* Reorder Controls */}
         <div className="flex flex-col gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onMoveUp}
-            disabled={isFirst}
-            className="px-2"
-          >
+          <Button variant="ghost" size="sm" onClick={onMoveUp} disabled={isFirst} className="px-2">
             ▲
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onMoveDown}
-            disabled={isLast}
-            className="px-2"
-          >
+          <Button variant="ghost" size="sm" onClick={onMoveDown} disabled={isLast} className="px-2">
             ▼
           </Button>
         </div>
@@ -59,15 +47,17 @@ export function CurrencyTierCard({
             <Text variant="body-small" className="text-ink-600">
               Order: {tier.order}
             </Text>
-            <Text variant="h5" as="h3">{tier.name}</Text>
+            <Text variant="h5" as="h3">
+              {tier.name}
+            </Text>
           </div>
-          
+
           {!isLast && (
             <Text variant="body-small" className="text-ink-600">
               Conversion: {tier.conversionToNext} {tier.name} = 1 (next tier)
             </Text>
           )}
-          
+
           {isLast && (
             <Text variant="body-small" className="text-ink-600 italic">
               Highest value tier

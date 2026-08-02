@@ -11,8 +11,8 @@
 
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useEffect } from 'react';
-import { useUIStore } from '../../stores/uiStore';
 import type { AppMode } from '../../stores/uiStore';
+import { useUIStore } from '../../stores/uiStore';
 
 /**
  * Which mode a path belongs to, or null for paths that belong to neither (the landing page)

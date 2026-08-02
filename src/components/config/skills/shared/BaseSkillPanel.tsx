@@ -1,6 +1,6 @@
 /**
  * Base Skill Panel Component
- * 
+ *
  * Generic panel component that can be reused for all skill types.
  * Accepts render props for customization.
  */
@@ -46,7 +46,9 @@ export function BaseSkillPanel<T extends { code: string }>({
       <Card className="p-6">
         <div className="flex justify-between items-center mb-4">
           <div>
-            <Text variant="h3" as="h2" className="mb-2">{title}</Text>
+            <Text variant="h3" as="h2" className="mb-2">
+              {title}
+            </Text>
             <Text variant="body-secondary">{description}</Text>
           </div>
           <Button variant="primary" onClick={onAdd}>
@@ -65,9 +67,7 @@ export function BaseSkillPanel<T extends { code: string }>({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {skills.map((skill) => (
-            <div key={skill.code}>
-              {renderSkillCard(skill)}
-            </div>
+            <div key={skill.code}>{renderSkillCard(skill)}</div>
           ))}
         </div>
       )}
@@ -76,13 +76,11 @@ export function BaseSkillPanel<T extends { code: string }>({
       {renderFormDialog()}
 
       {/* Delete Warning Dialog */}
-      <Dialog
-        open={!!deleteWarning}
-        onClose={onCloseWarning}
-        title="Cannot Delete Skill"
-      >
+      <Dialog open={!!deleteWarning} onClose={onCloseWarning} title="Cannot Delete Skill">
         <div className="space-y-4">
-          <Text variant="body" className="whitespace-pre-line">{deleteWarning}</Text>
+          <Text variant="body" className="whitespace-pre-line">
+            {deleteWarning}
+          </Text>
           <div className="flex justify-end">
             <Button variant="primary" onClick={onCloseWarning}>
               OK

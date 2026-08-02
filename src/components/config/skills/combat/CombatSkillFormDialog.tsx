@@ -1,18 +1,18 @@
 /**
  * Combat Skill Form Dialog
- * 
+ *
  * Form for adding/editing combat skills with dice and bonus formula.
  */
 
 import { Controller, type UseFormReturn } from 'react-hook-form';
+import type { DiceConfig } from '../../../../types';
 import { Button } from '../../../ui/Button/Button';
+import { Dialog } from '../../../ui/Dialog/Dialog';
+import { FormField } from '../../../ui/FormField/FormField';
+import { FormulaEditor } from '../../../ui/FormulaEditor/FormulaEditor';
 import { Input } from '../../../ui/Input/Input';
 import { Label } from '../../../ui/Label/Label';
-import { Dialog } from '../../../ui/Dialog/Dialog';
-import { FormulaEditor } from '../../../ui/FormulaEditor/FormulaEditor';
-import { FormField } from '../../../ui/FormField/FormField';
 import { Text } from '../../../ui/Text/Text';
-import type { DiceConfig } from '../../../../types';
 
 interface SkillFormData {
   code: string;
@@ -42,14 +42,14 @@ export function CombatSkillFormDialog({
   onClose,
   onSave,
 }: CombatSkillFormDialogProps) {
-  const { register, control, formState: { errors } } = form;
+  const {
+    register,
+    control,
+    formState: { errors },
+  } = form;
 
   return (
-    <Dialog 
-      open={isOpen} 
-      onClose={onClose} 
-      title={`${isEditing ? 'Edit' : 'Add'} Combat Skill`}
-    >
+    <Dialog open={isOpen} onClose={onClose} title={`${isEditing ? 'Edit' : 'Add'} Combat Skill`}>
       <form onSubmit={onSave} className="space-y-4">
         <FormField
           label="3-Letter Code"
@@ -113,8 +113,8 @@ export function CombatSkillFormDialog({
               value={field.value}
               onChange={(value) => {
                 // Editing clears a refusal from the previous save attempt
-                form.clearErrors('bonusFormula')
-                field.onChange(value)
+                form.clearErrors('bonusFormula');
+                field.onChange(value);
               }}
               availableVariables={availableSkillCodes}
               placeholder="STR + MEL"

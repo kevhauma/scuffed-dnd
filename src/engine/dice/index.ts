@@ -4,5 +4,5 @@
  * Dice simulation and combat roll aggregation. Pure — no React, no storage.
  */
 
-export * from './diceSimulator';
 export * from './combatRoll';
+export * from './diceSimulator';

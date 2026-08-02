@@ -6,8 +6,8 @@
  * **Validates: Requirements 11.1, 17.4, 21.1-21.5**
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Character } from '../../../types/character';
 import type { Configuration } from '../../../types/config';
 

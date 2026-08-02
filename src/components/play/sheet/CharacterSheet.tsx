@@ -96,8 +96,8 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     return (
       <SheetNotice title="Character Not Found" onBack={handleBack}>
         <Text variant="body-secondary">
-          No saved character has the id {characterId}. It may have been deleted, or this link may
-          be from another browser.
+          No saved character has the id {characterId}. It may have been deleted, or this link may be
+          from another browser.
         </Text>
       </SheetNotice>
     );

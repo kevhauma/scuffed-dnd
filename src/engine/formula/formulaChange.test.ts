@@ -4,7 +4,7 @@
  * **Validates: Requirements 16.5, 16.6, 2.3, 3.5**
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { Configuration } from '../../types/config';
 import { validateFormulaChange } from './formulaChange';
 
@@ -76,7 +76,9 @@ describe('validateFormulaChange', () => {
     });
 
     expect(result.isValid).toBe(false);
-    expect(result.errors.join(' ')).toMatch(/Circular dependency detected: (STL → ACR → STL|ACR → STL → ACR)/);
+    expect(result.errors.join(' ')).toMatch(
+      /Circular dependency detected: (STL → ACR → STL|ACR → STL → ACR)/
+    );
   });
 
   it('should evaluate the post-save state, catching an edit that turns a valid formula circular', () => {

@@ -29,11 +29,7 @@ export const headerStyles = [
 ].join(' ');
 
 // Title styles
-export const titleStyles = [
-  'font-heading font-bold text-2xl',
-  'text-ink-900',
-  'm-0',
-].join(' ');
+export const titleStyles = ['font-heading font-bold text-2xl', 'text-ink-900', 'm-0'].join(' ');
 
 // Close button styles
 export const closeButtonStyles = [
@@ -53,8 +49,4 @@ export const closeButtonStyles = [
 ].join(' ');
 
 // Body styles
-export const bodyStyles = [
-  'p-6',
-  'overflow-y-auto',
-  'flex-1',
-].join(' ');
+export const bodyStyles = ['p-6', 'overflow-y-auto', 'flex-1'].join(' ');

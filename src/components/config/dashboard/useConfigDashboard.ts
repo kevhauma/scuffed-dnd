@@ -19,7 +19,11 @@ import { useUIStore } from '../../../stores/uiStore';
 /** The seven configuration areas, in the order the dashboard lists them — reached via `sections` */
 const CONFIG_SECTIONS = [
   { to: '/config/skills', label: 'Skills', description: 'Main, speciality, and combat skills' },
-  { to: '/config/stats', label: 'Stats', description: 'Stats derived from main skills via formulas' },
+  {
+    to: '/config/stats',
+    label: 'Stats',
+    description: 'Stats derived from main skills via formulas',
+  },
   { to: '/config/materials', label: 'Materials', description: 'Materials, levels, and categories' },
   { to: '/config/items', label: 'Items', description: 'Items and equipment slots' },
   { to: '/config/races', label: 'Races', description: 'Races and their skill modifiers' },

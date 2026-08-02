@@ -8,16 +8,7 @@ export const baseStyles = [
 
 // Variant styles
 export const variantStyles = {
-  default: [
-    'border border-stone-200',
-    'shadow-parchment',
-  ].join(' '),
-  elevated: [
-    'border border-stone-200',
-    'shadow-parchment-lg',
-  ].join(' '),
-  bordered: [
-    'border-2 border-ink-700',
-    'shadow-none',
-  ].join(' '),
+  default: ['border border-stone-200', 'shadow-parchment'].join(' '),
+  elevated: ['border border-stone-200', 'shadow-parchment-lg'].join(' '),
+  bordered: ['border-2 border-ink-700', 'shadow-none'].join(' '),
 };

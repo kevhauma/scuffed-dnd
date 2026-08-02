@@ -1,9 +1,9 @@
 /**
  * Import/Export Service
- * 
+ *
  * Handles exporting Configuration as JSON files and importing/validating
  * Configuration from JSON files.
- * 
+ *
  * **Validates: Requirements 1.4, 1.5, 1.6**
  */
 
@@ -13,14 +13,20 @@ import type { Configuration } from '../types/config';
  * Import/Export error types
  */
 export class ImportExportError extends Error {
-  constructor(message: string, public readonly cause?: unknown) {
+  constructor(
+    message: string,
+    public readonly cause?: unknown
+  ) {
     super(message);
     this.name = 'ImportExportError';
   }
 }
 
 export class ValidationError extends ImportExportError {
-  constructor(message: string, public readonly errors: string[] = []) {
+  constructor(
+    message: string,
+    public readonly errors: string[] = []
+  ) {
     super(message);
     this.name = 'ValidationError';
   }
@@ -36,10 +42,10 @@ export interface ValidationResult {
 
 /**
  * Export configuration as JSON file
- * 
+ *
  * Creates a downloadable JSON file with the configuration data.
  * The file is named based on the configuration name and timestamp.
- * 
+ *
  * @param config Configuration to export
  * @returns Blob containing the JSON data
  */
@@ -54,9 +60,9 @@ export function exportConfiguration(config: Configuration): Blob {
 
 /**
  * Download configuration as JSON file
- * 
+ *
  * Triggers a browser download of the configuration as a JSON file.
- * 
+ *
  * @param config Configuration to download
  * @param filename Optional custom filename (defaults to config name + timestamp)
  */
@@ -65,15 +71,15 @@ export function downloadConfiguration(config: Configuration, filename?: string):
     const blob = exportConfiguration(config);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    
+
     const defaultFilename = `${config.name.replace(/\s+/g, '_')}_${Date.now()}.json`;
     link.href = url;
     link.download = filename || defaultFilename;
-    
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     URL.revokeObjectURL(url);
   } catch (error) {
     throw new ImportExportError('Failed to download configuration', error);
@@ -250,9 +256,9 @@ export function validateConfiguration(data: unknown): ValidationResult {
 
 /**
  * Import configuration from JSON string
- * 
+ *
  * Parses and validates JSON string, returning a Configuration object.
- * 
+ *
  * @param json JSON string to parse
  * @returns Parsed and validated Configuration
  * @throws {ValidationError} If validation fails
@@ -281,9 +287,9 @@ export function importConfiguration(json: string): Configuration {
 
 /**
  * Import configuration from File object
- * 
+ *
  * Reads a File object and imports the configuration.
- * 
+ *
  * @param file File object to read
  * @returns Promise resolving to parsed Configuration
  * @throws {ValidationError} If validation fails

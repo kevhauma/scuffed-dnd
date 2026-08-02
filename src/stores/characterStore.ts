@@ -1,18 +1,18 @@
 /**
  * Character Store
- * 
+ *
  * Zustand store for managing player character data.
  * Implements character CRUD operations, inventory management, and stat updates
  * with auto-save to LocalStorage.
- * 
+ *
  * **Validates: Requirements 11.1, 12.2, 12.3, 12.5, 12.6, 14.2, 14.3, 14.4, 14.5, 17.2, 17.4**
  */
 
 import { create } from 'zustand';
 import { calculateCharacter } from '../engine/calculator';
+import { loadCharacters, saveCharacters } from '../services/storage';
 import type { Character, CharacterCreationData, Inventory } from '../types/character';
 import type { Configuration } from '../types/config';
-import { saveCharacters, loadCharacters } from '../services/storage';
 
 /**
  * Character store state
@@ -20,16 +20,16 @@ import { saveCharacters, loadCharacters } from '../services/storage';
 interface CharacterState {
   characters: Character[];
   isLoaded: boolean;
-  
+
   // Initialization
   loadCharacters: () => void;
-  
+
   // Character CRUD
   createCharacter: (data: CharacterCreationData, config: Configuration) => Character;
   updateCharacter: (id: string, updates: Partial<Character>) => void;
   deleteCharacter: (id: string) => void;
   getCharacter: (id: string) => Character | undefined;
-  
+
   // Inventory Management
   equipItem: (
     characterId: string,
@@ -47,7 +47,7 @@ interface CharacterState {
     equipmentSlotType: string,
     config: Configuration
   ) => void;
-  
+
   // Current Stat Value Updates
   updateCurrentStatValue: (
     characterId: string,
@@ -102,10 +102,7 @@ function clampToMaxStatValues(
  * Player expects a fresh character to be at full health rather than at zero. Seeding happens here,
  * where the rest of the character shape is assembled, rather than in the creation wizard.
  */
-function createCharacterFromData(
-  data: CharacterCreationData,
-  config: Configuration
-): Character {
+function createCharacterFromData(data: CharacterCreationData, config: Configuration): Character {
   const now = new Date().toISOString();
   const character: Character = {
     id: crypto.randomUUID(),
@@ -178,7 +175,7 @@ function patchInventory(
   const { characters } = get();
 
   const updated = autoSave(
-    characters.map(char => {
+    characters.map((char) => {
       if (char.id !== characterId) return char;
 
       const inventory = update(char.inventory);
@@ -215,13 +212,13 @@ function updateTimestamp(character: Character): Character {
 export const useCharacterStore = create<CharacterState>((set, get) => ({
   characters: [],
   isLoaded: false,
-  
+
   // Load characters from LocalStorage
   loadCharacters: () => {
     const characters = loadCharacters();
     set({ characters, isLoaded: true });
   },
-  
+
   // Create new character
   createCharacter: (data: CharacterCreationData, config: Configuration) => {
     const character = createCharacterFromData(data, config);
@@ -230,31 +227,29 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     set({ characters: updated });
     return character;
   },
-  
+
   // Update character
   updateCharacter: (id: string, updates: Partial<Character>) => {
     const { characters } = get();
     const updated = autoSave(
-      characters.map(char =>
-        char.id === id ? updateTimestamp({ ...char, ...updates }) : char
-      )
+      characters.map((char) => (char.id === id ? updateTimestamp({ ...char, ...updates }) : char))
     );
     set({ characters: updated });
   },
-  
+
   // Delete character
   deleteCharacter: (id: string) => {
     const { characters } = get();
-    const updated = autoSave(characters.filter(char => char.id !== id));
+    const updated = autoSave(characters.filter((char) => char.id !== id));
     set({ characters: updated });
   },
-  
+
   // Get character by ID
   getCharacter: (id: string) => {
     const { characters } = get();
-    return characters.find(char => char.id === id);
+    return characters.find((char) => char.id === id);
   },
-  
+
   // Equip item to equipment slot
   equipItem: (
     characterId: string,
@@ -264,7 +259,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   ) => {
     if (!fitsSlot(itemId, equipmentSlotType, config)) return;
 
-    patchInventory(set, get, characterId, inventory => ({
+    patchInventory(set, get, characterId, (inventory) => ({
       ...inventory,
       equippedItems: { ...inventory.equippedItems, [equipmentSlotType]: itemId },
     }));
@@ -272,7 +267,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
 
   // Unequip item from equipment slot
   unequipItem: (characterId: string, equipmentSlotType: string) => {
-    patchInventory(set, get, characterId, inventory => ({
+    patchInventory(set, get, characterId, (inventory) => ({
       ...inventory,
       equippedItems: withoutSlot(inventory.equippedItems, equipmentSlotType),
     }));
@@ -280,7 +275,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
 
   // Add item to miscellaneous inventory
   addMiscItem: (characterId: string, itemId: string) => {
-    patchInventory(set, get, characterId, inventory => ({
+    patchInventory(set, get, characterId, (inventory) => ({
       ...inventory,
       miscItems: [...inventory.miscItems, itemId],
     }));
@@ -288,15 +283,15 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
 
   // Remove item from miscellaneous inventory
   removeMiscItem: (characterId: string, itemId: string) => {
-    patchInventory(set, get, characterId, inventory => ({
+    patchInventory(set, get, characterId, (inventory) => ({
       ...inventory,
-      miscItems: inventory.miscItems.filter(id => id !== itemId),
+      miscItems: inventory.miscItems.filter((id) => id !== itemId),
     }));
   },
 
   // Move equipped item to miscellaneous inventory
   moveItemToMisc: (characterId: string, equipmentSlotType: string) => {
-    patchInventory(set, get, characterId, inventory => {
+    patchInventory(set, get, characterId, (inventory) => {
       const itemId = inventory.equippedItems[equipmentSlotType];
       if (!itemId) return inventory;
 
@@ -316,10 +311,10 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   ) => {
     if (!fitsSlot(itemId, equipmentSlotType, config)) return;
 
-    patchInventory(set, get, characterId, inventory => {
+    patchInventory(set, get, characterId, (inventory) => {
       // A slot holds one item, so whatever was in it swaps back to misc rather than vanishing
       const displaced = inventory.equippedItems[equipmentSlotType];
-      const miscItems = inventory.miscItems.filter(id => id !== itemId);
+      const miscItems = inventory.miscItems.filter((id) => id !== itemId);
 
       return {
         equippedItems: { ...inventory.equippedItems, [equipmentSlotType]: itemId },
@@ -346,7 +341,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   ) => {
     const { characters } = get();
     const updated = autoSave(
-      characters.map(char => {
+      characters.map((char) => {
         if (char.id !== characterId) return char;
 
         return updateTimestamp({

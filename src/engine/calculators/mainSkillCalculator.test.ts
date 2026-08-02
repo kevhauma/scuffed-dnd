@@ -1,16 +1,16 @@
 /**
  * Main Skill Calculator Tests
- * 
+ *
  * Tests for main skill calculation including racial bonuses.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import type { Character } from '../../types/character';
+import type { MainSkill, Race } from '../../types/config';
 import {
   calculateRacialSkillModifiers,
   calculateTotalMainSkillLevels,
 } from './mainSkillCalculator';
-import type { Character } from '../../types/character';
-import type { MainSkill, Race } from '../../types/config';
 
 describe('calculateTotalMainSkillLevels', () => {
   it('should return base skill levels when no races provided', () => {
@@ -205,21 +205,19 @@ describe('calculateTotalMainSkillLevels', () => {
     });
 
     it('should apply the focus stat bonus when the focus stat is a main skill', () => {
-      const result = calculateTotalMainSkillLevels(
-        createCharacter({ focusStatCode: 'DEX' }),
-        [],
-        { mainSkills, focusStatBonusLevel: 3 }
-      );
+      const result = calculateTotalMainSkillLevels(createCharacter({ focusStatCode: 'DEX' }), [], {
+        mainSkills,
+        focusStatBonusLevel: 3,
+      });
 
       expect(result).toEqual({ STR: 10, DEX: 11 });
     });
 
     it('should not apply the focus stat bonus when the focus stat is not a main skill', () => {
-      const result = calculateTotalMainSkillLevels(
-        createCharacter({ focusStatCode: 'STL' }),
-        [],
-        { mainSkills, focusStatBonusLevel: 3 }
-      );
+      const result = calculateTotalMainSkillLevels(createCharacter({ focusStatCode: 'STL' }), [], {
+        mainSkills,
+        focusStatBonusLevel: 3,
+      });
 
       expect(result).toEqual({ STR: 10, DEX: 8 });
     });

@@ -4,7 +4,7 @@
  * **Validates: Requirements 5.5, 5.6**
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { CalculatedCharacter } from '../../types/character';
 import type { CombatSkill, Configuration } from '../../types/config';
 import { calculateCharacter } from '../calculator';

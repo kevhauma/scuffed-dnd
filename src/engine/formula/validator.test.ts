@@ -2,12 +2,12 @@
  * Formula Validator Tests
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  validateFormula,
   detectCircularDependencies,
-  validateFormulaCollection,
   type FormulaDependency,
+  validateFormula,
+  validateFormulaCollection,
 } from './validator';
 
 describe('validateFormula', () => {
@@ -109,7 +109,7 @@ describe('validateFormula', () => {
     it('should detect undefined variable', () => {
       const availableVars = new Set(['STR', 'DEX', 'CON']);
       const result = validateFormula('STR + WIS', availableVars);
-      
+
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain('Undefined variable: WIS');
       expect(result.referencedVariables).toEqual(['STR', 'WIS']);
@@ -118,7 +118,7 @@ describe('validateFormula', () => {
     it('should detect multiple undefined variables', () => {
       const availableVars = new Set(['STR', 'DEX']);
       const result = validateFormula('STR + CON + WIS', availableVars);
-      
+
       expect(result.isValid).toBe(false);
       expect(result.errors[0]).toContain('Undefined variables: CON, WIS');
       expect(result.referencedVariables).toEqual(['STR', 'CON', 'WIS']);
@@ -127,14 +127,14 @@ describe('validateFormula', () => {
     it('should pass when all variables are defined', () => {
       const availableVars = new Set(['STR', 'DEX', 'CON']);
       const result = validateFormula('STR + DEX + CON', availableVars);
-      
+
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
     it('should not check undefined variables when availableVariables not provided', () => {
       const result = validateFormula('STR + UNDEFINED');
-      
+
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
       expect(result.referencedVariables).toEqual(['STR', 'UNDEFINED']);
@@ -151,7 +151,7 @@ describe('detectCircularDependencies', () => {
 
     const cycles = detectCircularDependencies(formulas);
     expect(cycles.length).toBeGreaterThan(0);
-    
+
     // Check that we found a cycle containing both A and B
     const cycle = cycles[0];
     expect(cycle).toContain('A');
@@ -167,7 +167,7 @@ describe('detectCircularDependencies', () => {
 
     const cycles = detectCircularDependencies(formulas);
     expect(cycles.length).toBeGreaterThan(0);
-    
+
     const cycle = cycles[0];
     expect(cycle).toContain('A');
     expect(cycle).toContain('B');
@@ -217,7 +217,7 @@ describe('detectCircularDependencies', () => {
 
     const cycles = detectCircularDependencies(formulas);
     expect(cycles.length).toBeGreaterThan(0);
-    
+
     // Should find cycle involving A, B, D
     const cycle = cycles[0];
     expect(cycle).toContain('A');

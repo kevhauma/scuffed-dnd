@@ -1,6 +1,6 @@
 /**
  * Equipment Slot Manager Hook
- * 
+ *
  * Manages equipment slot CRUD operations and form state.
  */
 
@@ -45,9 +45,9 @@ export function useEquipmentSlotManager() {
   };
 
   const handleEdit = (type: string) => {
-    const slot = equipmentSlots.find(s => s.type === type);
+    const slot = equipmentSlots.find((s) => s.type === type);
     if (!slot) return;
-    
+
     setEditingSlotType(type);
     form.reset({
       type: slot.type,
@@ -59,15 +59,19 @@ export function useEquipmentSlotManager() {
 
   const handleDelete = (type: string) => {
     // Check if any items reference this equipment slot
-    const referencingItems = config?.items.filter(item => item.equipmentSlotType === type) || [];
-    
+    const referencingItems = config?.items.filter((item) => item.equipmentSlotType === type) || [];
+
     if (referencingItems.length > 0) {
-      const itemNames = referencingItems.map(item => item.name).join(', ');
-      if (!confirm(`This equipment slot is used by ${referencingItems.length} item(s): ${itemNames}. Deleting it will remove the equipment slot assignment from these items. Continue?`)) {
+      const itemNames = referencingItems.map((item) => item.name).join(', ');
+      if (
+        !confirm(
+          `This equipment slot is used by ${referencingItems.length} item(s): ${itemNames}. Deleting it will remove the equipment slot assignment from these items. Continue?`
+        )
+      ) {
         return;
       }
     }
-    
+
     deleteEquipmentSlot(type);
   };
 
@@ -77,13 +81,13 @@ export function useEquipmentSlotManager() {
       name: data.name,
       description: data.description,
     };
-    
+
     if (editingSlotType) {
       updateEquipmentSlot(editingSlotType, slot);
     } else {
       addEquipmentSlot(slot);
     }
-    
+
     setIsDialogOpen(false);
   });
 

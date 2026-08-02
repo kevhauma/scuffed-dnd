@@ -1,24 +1,24 @@
 /**
  * Configuration Store Tests
- * 
+ *
  * Tests for ConfigStore CRUD operations and auto-save functionality.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { useConfigStore } from './configStore';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as storage from '../services/storage';
 import type {
-  MainSkill,
-  Stat,
-  SpecialitySkill,
   CombatSkill,
+  CurrencyTier,
+  EquipmentSlot,
+  Item,
+  MainSkill,
   Material,
   MaterialCategory,
-  Item,
-  EquipmentSlot,
   Race,
-  CurrencyTier,
+  SpecialitySkill,
+  Stat,
 } from '../types/config';
+import { useConfigStore } from './configStore';
 
 // Mock storage service
 vi.mock('../services/storage', () => ({
@@ -36,9 +36,9 @@ describe('ConfigStore', () => {
   describe('Initialization', () => {
     it('should initialize empty configuration', () => {
       const { initializeConfig } = useConfigStore.getState();
-      
+
       initializeConfig('Test Config');
-      
+
       const { config, isLoaded } = useConfigStore.getState();
       expect(isLoaded).toBe(true);
       expect(config).toBeDefined();
@@ -76,12 +76,12 @@ describe('ConfigStore', () => {
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
       };
-      
+
       vi.mocked(storage.loadConfiguration).mockReturnValue(mockConfig);
-      
+
       const { loadConfig } = useConfigStore.getState();
       loadConfig();
-      
+
       const { config, isLoaded } = useConfigStore.getState();
       expect(isLoaded).toBe(true);
       expect(config).toEqual(mockConfig);
@@ -142,9 +142,9 @@ describe('ConfigStore', () => {
         description: 'Physical power',
         maxLevel: 10,
       };
-      
+
       useConfigStore.getState().addMainSkill(skill);
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.mainSkills).toHaveLength(1);
       expect(config?.mainSkills[0]).toEqual(skill);
@@ -158,12 +158,12 @@ describe('ConfigStore', () => {
         description: 'Physical power',
         maxLevel: 10,
       };
-      
+
       useConfigStore.getState().addMainSkill(skill);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().updateMainSkill('STR', { maxLevel: 20 });
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.mainSkills[0].maxLevel).toBe(20);
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -176,12 +176,12 @@ describe('ConfigStore', () => {
         description: 'Physical power',
         maxLevel: 10,
       };
-      
+
       useConfigStore.getState().addMainSkill(skill);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().deleteMainSkill('STR');
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.mainSkills).toHaveLength(0);
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -201,9 +201,9 @@ describe('ConfigStore', () => {
         description: 'Hit points',
         formula: 'STR * 10',
       };
-      
+
       useConfigStore.getState().addStat(stat);
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.stats).toHaveLength(1);
       expect(config?.stats[0]).toEqual(stat);
@@ -217,12 +217,12 @@ describe('ConfigStore', () => {
         description: 'Hit points',
         formula: 'STR * 10',
       };
-      
+
       useConfigStore.getState().addStat(stat);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().updateStat('health', { formula: 'STR * 20' });
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.stats[0].formula).toBe('STR * 20');
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -235,12 +235,12 @@ describe('ConfigStore', () => {
         description: 'Hit points',
         formula: 'STR * 10',
       };
-      
+
       useConfigStore.getState().addStat(stat);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().deleteStat('health');
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.stats).toHaveLength(0);
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -261,9 +261,9 @@ describe('ConfigStore', () => {
         maxBaseLevel: 10,
         bonusFormula: 'STR + DEX',
       };
-      
+
       useConfigStore.getState().addSpecialitySkill(skill);
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.specialitySkills).toHaveLength(1);
       expect(config?.specialitySkills[0]).toEqual(skill);
@@ -278,12 +278,12 @@ describe('ConfigStore', () => {
         maxBaseLevel: 10,
         bonusFormula: 'STR + DEX',
       };
-      
+
       useConfigStore.getState().addSpecialitySkill(skill);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().updateSpecialitySkill('MEL', { maxBaseLevel: 20 });
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.specialitySkills[0].maxBaseLevel).toBe(20);
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -297,12 +297,12 @@ describe('ConfigStore', () => {
         maxBaseLevel: 10,
         bonusFormula: 'STR + DEX',
       };
-      
+
       useConfigStore.getState().addSpecialitySkill(skill);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().deleteSpecialitySkill('MEL');
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.specialitySkills).toHaveLength(0);
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -323,9 +323,9 @@ describe('ConfigStore', () => {
         dice: { d4: 0, d6: 2, d8: 0, d10: 0, d12: 0, d20: 0 },
         bonusFormula: 'STR + MEL',
       };
-      
+
       useConfigStore.getState().addCombatSkill(skill);
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.combatSkills).toHaveLength(1);
       expect(config?.combatSkills[0]).toEqual(skill);
@@ -340,14 +340,14 @@ describe('ConfigStore', () => {
         dice: { d4: 0, d6: 2, d8: 0, d10: 0, d12: 0, d20: 0 },
         bonusFormula: 'STR + MEL',
       };
-      
+
       useConfigStore.getState().addCombatSkill(skill);
       vi.clearAllMocks();
-      
-      useConfigStore.getState().updateCombatSkill('ATK', { 
-        dice: { d4: 0, d6: 0, d8: 2, d10: 0, d12: 0, d20: 0 } 
+
+      useConfigStore.getState().updateCombatSkill('ATK', {
+        dice: { d4: 0, d6: 0, d8: 2, d10: 0, d12: 0, d20: 0 },
       });
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.combatSkills[0].dice.d8).toBe(2);
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -361,12 +361,12 @@ describe('ConfigStore', () => {
         dice: { d4: 0, d6: 2, d8: 0, d10: 0, d12: 0, d20: 0 },
         bonusFormula: 'STR + MEL',
       };
-      
+
       useConfigStore.getState().addCombatSkill(skill);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().deleteCombatSkill('ATK');
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.combatSkills).toHaveLength(0);
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -385,9 +385,9 @@ describe('ConfigStore', () => {
         name: 'Metals',
         description: 'Metal materials',
       };
-      
+
       useConfigStore.getState().addMaterialCategory(category);
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.materialCategories).toHaveLength(1);
       expect(config?.materialCategories[0]).toEqual(category);
@@ -400,12 +400,12 @@ describe('ConfigStore', () => {
         name: 'Metals',
         description: 'Metal materials',
       };
-      
+
       useConfigStore.getState().addMaterialCategory(category);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().updateMaterialCategory('metals', { name: 'Alloys' });
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.materialCategories[0].name).toBe('Alloys');
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -417,12 +417,12 @@ describe('ConfigStore', () => {
         name: 'Metals',
         description: 'Metal materials',
       };
-      
+
       useConfigStore.getState().addMaterialCategory(category);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().deleteMaterialCategory('metals');
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.materialCategories).toHaveLength(0);
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -443,9 +443,9 @@ describe('ConfigStore', () => {
         categoryId: 'metals',
         levels: [],
       };
-      
+
       useConfigStore.getState().addMaterial(material);
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.materials).toHaveLength(1);
       expect(config?.materials[0]).toEqual(material);
@@ -460,12 +460,12 @@ describe('ConfigStore', () => {
         categoryId: 'metals',
         levels: [],
       };
-      
+
       useConfigStore.getState().addMaterial(material);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().updateMaterial('iron', { name: 'Steel' });
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.materials[0].name).toBe('Steel');
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -479,12 +479,12 @@ describe('ConfigStore', () => {
         categoryId: 'metals',
         levels: [],
       };
-      
+
       useConfigStore.getState().addMaterial(material);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().deleteMaterial('iron');
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.materials).toHaveLength(0);
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -507,9 +507,9 @@ describe('ConfigStore', () => {
         materialLevel: 1,
         equipmentSlotType: 'main_hand',
       };
-      
+
       useConfigStore.getState().addItem(item);
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.items).toHaveLength(1);
       expect(config?.items[0]).toEqual(item);
@@ -522,12 +522,12 @@ describe('ConfigStore', () => {
         name: 'Sword',
         description: 'A sharp blade',
       };
-      
+
       useConfigStore.getState().addItem(item);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().updateItem('sword', { name: 'Longsword' });
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.items[0].name).toBe('Longsword');
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -539,12 +539,12 @@ describe('ConfigStore', () => {
         name: 'Sword',
         description: 'A sharp blade',
       };
-      
+
       useConfigStore.getState().addItem(item);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().deleteItem('sword');
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.items).toHaveLength(0);
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -563,9 +563,9 @@ describe('ConfigStore', () => {
         name: 'Helmet',
         description: 'Head protection',
       };
-      
+
       useConfigStore.getState().addEquipmentSlot(slot);
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.equipmentSlots).toHaveLength(1);
       expect(config?.equipmentSlots[0]).toEqual(slot);
@@ -578,12 +578,12 @@ describe('ConfigStore', () => {
         name: 'Helmet',
         description: 'Head protection',
       };
-      
+
       useConfigStore.getState().addEquipmentSlot(slot);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().updateEquipmentSlot('helmet', { name: 'Headgear' });
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.equipmentSlots[0].name).toBe('Headgear');
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -595,12 +595,12 @@ describe('ConfigStore', () => {
         name: 'Helmet',
         description: 'Head protection',
       };
-      
+
       useConfigStore.getState().addEquipmentSlot(slot);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().deleteEquipmentSlot('helmet');
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.equipmentSlots).toHaveLength(0);
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -620,9 +620,9 @@ describe('ConfigStore', () => {
         description: 'Versatile race',
         skillModifiers: [{ skillCode: 'STR', modifier: 1 }],
       };
-      
+
       useConfigStore.getState().addRace(race);
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.races).toHaveLength(1);
       expect(config?.races[0]).toEqual(race);
@@ -636,12 +636,12 @@ describe('ConfigStore', () => {
         description: 'Versatile race',
         skillModifiers: [],
       };
-      
+
       useConfigStore.getState().addRace(race);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().updateRace('human', { name: 'Humans' });
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.races[0].name).toBe('Humans');
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -654,12 +654,12 @@ describe('ConfigStore', () => {
         description: 'Versatile race',
         skillModifiers: [],
       };
-      
+
       useConfigStore.getState().addRace(race);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().deleteRace('human');
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.races).toHaveLength(0);
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -679,9 +679,9 @@ describe('ConfigStore', () => {
         order: 0,
         conversionToNext: 10,
       };
-      
+
       useConfigStore.getState().addCurrencyTier(tier);
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.currencyTiers).toHaveLength(1);
       expect(config?.currencyTiers[0]).toEqual(tier);
@@ -695,12 +695,12 @@ describe('ConfigStore', () => {
         order: 0,
         conversionToNext: 10,
       };
-      
+
       useConfigStore.getState().addCurrencyTier(tier);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().updateCurrencyTier('copper', { conversionToNext: 100 });
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.currencyTiers[0].conversionToNext).toBe(100);
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -713,12 +713,12 @@ describe('ConfigStore', () => {
         order: 0,
         conversionToNext: 10,
       };
-      
+
       useConfigStore.getState().addCurrencyTier(tier);
       vi.clearAllMocks();
-      
+
       useConfigStore.getState().deleteCurrencyTier('copper');
-      
+
       const { config } = useConfigStore.getState();
       expect(config?.currencyTiers).toHaveLength(0);
       expect(storage.saveConfiguration).toHaveBeenCalled();
@@ -782,11 +782,11 @@ describe('ConfigStore', () => {
     it('should update timestamp on every change', () => {
       const initialConfig = useConfigStore.getState().config;
       const initialTimestamp = initialConfig?.updatedAt;
-      
+
       // Wait a bit to ensure timestamp changes
       setTimeout(() => {
         useConfigStore.getState().setFocusStatBonusLevel(10);
-        
+
         const updatedConfig = useConfigStore.getState().config;
         expect(updatedConfig?.updatedAt).not.toBe(initialTimestamp);
       }, 10);
@@ -799,13 +799,13 @@ describe('ConfigStore', () => {
         description: 'Physical power',
         maxLevel: 10,
       };
-      
+
       useConfigStore.getState().addMainSkill(skill);
       expect(storage.saveConfiguration).toHaveBeenCalledTimes(1);
-      
+
       useConfigStore.getState().updateMainSkill('STR', { maxLevel: 20 });
       expect(storage.saveConfiguration).toHaveBeenCalledTimes(2);
-      
+
       useConfigStore.getState().deleteMainSkill('STR');
       expect(storage.saveConfiguration).toHaveBeenCalledTimes(3);
     });

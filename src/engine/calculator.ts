@@ -7,22 +7,22 @@
  * **Validates: Requirements 11.5, 13.1, 13.2, 13.3, 6.7, 3.6, 8.4, 9.3**
  */
 
-import type { Configuration } from '../types/config';
 import type { CalculatedCharacter, Character } from '../types/character';
+import type { Configuration } from '../types/config';
 
-// Re-export all calculator functions
-export * from './calculators/mainSkillCalculator';
-export * from './calculators/statCalculator';
-export * from './calculators/specialitySkillCalculator';
 export * from './calculators/combatSkillCalculator';
 export * from './calculators/equipmentBonusCalculator';
+// Re-export all calculator functions
+export * from './calculators/mainSkillCalculator';
+export * from './calculators/specialitySkillCalculator';
+export * from './calculators/statCalculator';
 
-// Import for the composed entry point
-import { calculateTotalMainSkillLevels } from './calculators/mainSkillCalculator';
-import { calculateMaxStatValues } from './calculators/statCalculator';
-import { calculateSpecialitySkillLevels } from './calculators/specialitySkillCalculator';
 import { calculateCombatSkillBonuses } from './calculators/combatSkillCalculator';
 import { calculateEquipmentBonuses } from './calculators/equipmentBonusCalculator';
+// Import for the composed entry point
+import { calculateTotalMainSkillLevels } from './calculators/mainSkillCalculator';
+import { calculateSpecialitySkillLevels } from './calculators/specialitySkillCalculator';
+import { calculateMaxStatValues } from './calculators/statCalculator';
 
 /**
  * Calculate every derived value for a character

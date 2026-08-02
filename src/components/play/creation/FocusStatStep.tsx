@@ -59,9 +59,7 @@ export function FocusStatStep({
         Focus stat
       </Label>
       {options.length === 0 ? (
-        <Text variant="body-small-secondary">
-          This ruleset defines no skills to focus on yet.
-        </Text>
+        <Text variant="body-small-secondary">This ruleset defines no skills to focus on yet.</Text>
       ) : (
         <Select
           id={selectId}

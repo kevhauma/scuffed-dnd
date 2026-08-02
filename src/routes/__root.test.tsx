@@ -11,14 +11,13 @@
  * **Validates: Requirements 17.3, 17.4, 17.5**
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppHydration } from '../components/shared/useAppHydration';
 
 vi.mock('@tanstack/react-router', async () => {
-  const actual = await vi.importActual<typeof import('@tanstack/react-router')>(
-    '@tanstack/react-router'
-  );
+  const actual =
+    await vi.importActual<typeof import('@tanstack/react-router')>('@tanstack/react-router');
   return {
     ...actual,
     Link: ({ children }: { children: React.ReactNode }) => <a href="/">{children}</a>,

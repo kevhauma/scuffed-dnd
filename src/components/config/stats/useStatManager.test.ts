@@ -7,8 +7,8 @@
  * **Validates: Requirements 2.3, 16.5, 16.6**
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Configuration } from '../../../types/config';
 
 vi.mock('../../../services/storage', () => ({

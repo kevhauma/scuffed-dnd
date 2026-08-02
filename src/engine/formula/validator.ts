@@ -1,6 +1,6 @@
 /**
  * Formula Validator
- * 
+ *
  * Validates formula syntax, detects undefined variable references,
  * and detects circular dependencies in formula chains.
  */
@@ -10,7 +10,7 @@ import { parseFormula } from './parser';
 
 /**
  * Extract all variable references from an AST
- * 
+ *
  * @param ast - The Abstract Syntax Tree to analyze
  * @returns Array of unique variable names referenced in the formula
  */
@@ -49,7 +49,7 @@ function extractVariables(ast: FormulaAST): string[] {
 
 /**
  * Validate a formula string
- * 
+ *
  * @param formula - Formula string to validate
  * @param availableVariables - Set of valid variable names (skill codes)
  * @returns Validation result with errors and referenced variables
@@ -98,9 +98,7 @@ export function validateFormula(
 
   // Check for undefined variable references if availableVariables provided
   if (availableVariables) {
-    const undefinedVars = referencedVariables.filter(
-      (varName) => !availableVariables.has(varName)
-    );
+    const undefinedVars = referencedVariables.filter((varName) => !availableVariables.has(varName));
 
     if (undefinedVars.length > 0) {
       errors.push(
@@ -127,13 +125,11 @@ export interface FormulaDependency {
 
 /**
  * Detect circular dependencies in a set of formulas
- * 
+ *
  * @param formulas - Array of formula dependencies to check
  * @returns Array of circular dependency chains found (empty if none)
  */
-export function detectCircularDependencies(
-  formulas: FormulaDependency[]
-): string[][] {
+export function detectCircularDependencies(formulas: FormulaDependency[]): string[][] {
   const circularChains: string[][] = [];
   const formulaMap = new Map<string, FormulaDependency>();
 
@@ -201,13 +197,11 @@ export function detectCircularDependencies(
 
 /**
  * Validate a collection of formulas for circular dependencies
- * 
+ *
  * @param formulas - Array of formula dependencies to validate
  * @returns Validation result with circular dependency errors
  */
-export function validateFormulaCollection(
-  formulas: FormulaDependency[]
-): FormulaValidationResult {
+export function validateFormulaCollection(formulas: FormulaDependency[]): FormulaValidationResult {
   const errors: string[] = [];
   const allReferencedVariables = new Set<string>();
 

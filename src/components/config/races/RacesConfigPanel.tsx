@@ -1,17 +1,17 @@
 /**
  * Races Configuration Panel
- * 
+ *
  * Manages races with skill modifiers and total modifier preview.
- * 
+ *
  * **Validates: Requirements 8.1, 8.2, 8.5, 21.1-21.5**
  */
 
-import { useRaceManager } from './useRaceManager';
-import { RaceCard } from './RaceCard';
-import { RaceFormDialog } from './RaceFormDialog';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
+import { RaceCard } from './RaceCard';
+import { RaceFormDialog } from './RaceFormDialog';
+import { useRaceManager } from './useRaceManager';
 
 export function RacesConfigPanel() {
   const {
@@ -44,7 +44,9 @@ export function RacesConfigPanel() {
       <Card className="p-6">
         <div className="flex justify-between items-start mb-4">
           <div>
-            <Text variant="h4" as="h2" className="mb-2">Races</Text>
+            <Text variant="h4" as="h2" className="mb-2">
+              Races
+            </Text>
             <Text variant="body-secondary">
               Character lineages with skill bonuses and penalties
             </Text>

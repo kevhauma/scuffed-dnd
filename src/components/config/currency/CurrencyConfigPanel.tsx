@@ -1,18 +1,18 @@
 /**
  * Currency Configuration Panel
- * 
+ *
  * Manages currency tiers with reordering, conversion rates, and calculator preview.
- * 
+ *
  * **Validates: Requirements 10.1, 10.2, 10.3, 10.5, 21.1-21.5**
  */
 
-import { useCurrencyManager } from './useCurrencyManager';
-import { CurrencyTierCard } from './CurrencyTierCard';
-import { CurrencyFormDialog } from './CurrencyFormDialog';
-import { ConversionCalculator } from './ConversionCalculator';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
+import { ConversionCalculator } from './ConversionCalculator';
+import { CurrencyFormDialog } from './CurrencyFormDialog';
+import { CurrencyTierCard } from './CurrencyTierCard';
+import { useCurrencyManager } from './useCurrencyManager';
 
 export function CurrencyConfigPanel() {
   const {
@@ -46,7 +46,9 @@ export function CurrencyConfigPanel() {
       <Card className="p-6">
         <div className="flex justify-between items-start mb-4">
           <div>
-            <Text variant="h4" as="h2" className="mb-2">Currency Tiers</Text>
+            <Text variant="h4" as="h2" className="mb-2">
+              Currency Tiers
+            </Text>
             <Text variant="body-secondary">
               Define your monetary system with multiple currency tiers and conversion rates
             </Text>
@@ -58,8 +60,8 @@ export function CurrencyConfigPanel() {
 
         <div className="mt-4 p-4 bg-parchment-100 border border-stone-200 rounded">
           <Text variant="body-small" className="text-ink-700">
-            <strong>Tip:</strong> Order tiers from lowest to highest value. Use the arrow buttons to reorder.
-            The conversion rate determines how many of one tier equals 1 of the next tier.
+            <strong>Tip:</strong> Order tiers from lowest to highest value. Use the arrow buttons to
+            reorder. The conversion rate determines how many of one tier equals 1 of the next tier.
           </Text>
         </div>
       </Card>
@@ -89,9 +91,7 @@ export function CurrencyConfigPanel() {
       )}
 
       {/* Conversion Calculator */}
-      {currentTiers.length > 1 && (
-        <ConversionCalculator tiers={currentTiers} />
-      )}
+      {currentTiers.length > 1 && <ConversionCalculator tiers={currentTiers} />}
 
       {/* Form Dialog */}
       <CurrencyFormDialog

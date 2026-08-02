@@ -1,10 +1,10 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { ItemsConfigPanel } from '../../components/config/items/ItemsConfigPanel'
-import { EquipmentSlotsConfigPanel } from '../../components/config/items/EquipmentSlotsConfigPanel'
+import { createFileRoute } from '@tanstack/react-router';
+import { EquipmentSlotsConfigPanel } from '../../components/config/items/EquipmentSlotsConfigPanel';
+import { ItemsConfigPanel } from '../../components/config/items/ItemsConfigPanel';
 
 export const Route = createFileRoute('/config/items')({
   component: ItemsConfig,
-})
+});
 
 /** Exported for tests: automatic code splitting makes `Route.options.component` a lazy wrapper. */
 export function ItemsConfig() {
@@ -13,5 +13,5 @@ export function ItemsConfig() {
       <ItemsConfigPanel />
       <EquipmentSlotsConfigPanel />
     </div>
-  )
+  );
 }

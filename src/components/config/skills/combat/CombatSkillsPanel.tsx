@@ -1,15 +1,15 @@
 /**
  * Combat Skills Configuration Panel
- * 
+ *
  * Manages combat skills with dice rolls and bonus formulas.
  */
 
-import { useCombatSkillManager } from './useCombatSkillManager';
+import { Card } from '../../../ui/Card/Card';
+import { Text } from '../../../ui/Text/Text';
 import { BaseSkillPanel } from '../shared/BaseSkillPanel';
 import { CombatSkillCard } from './CombatSkillCard';
 import { CombatSkillFormDialog } from './CombatSkillFormDialog';
-import { Card } from '../../../ui/Card/Card';
-import { Text } from '../../../ui/Text/Text';
+import { useCombatSkillManager } from './useCombatSkillManager';
 
 export function CombatSkillsPanel() {
   const {
@@ -52,11 +52,7 @@ export function CombatSkillsPanel() {
       onCloseDialog={() => setIsDialogOpen(false)}
       onCloseWarning={() => setDeleteWarning(null)}
       renderSkillCard={(skill) => (
-        <CombatSkillCard
-          skill={skill}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-        />
+        <CombatSkillCard skill={skill} onEdit={handleEdit} onDelete={handleDelete} />
       )}
       renderFormDialog={() => (
         <CombatSkillFormDialog

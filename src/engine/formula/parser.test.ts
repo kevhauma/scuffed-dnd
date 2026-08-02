@@ -2,9 +2,9 @@
  * Formula Parser Tests
  */
 
-import { describe, it, expect } from 'vitest';
-import { parseFormula } from './parser';
+import { describe, expect, it } from 'vitest';
 import type { FormulaAST } from '../../types/formula';
+import { parseFormula } from './parser';
 
 describe('Formula Parser', () => {
   describe('Number Literals', () => {
@@ -346,7 +346,7 @@ describe('Formula Parser', () => {
       const ast1 = parseFormula('STR+DEX');
       const ast2 = parseFormula('STR + DEX');
       const ast3 = parseFormula('  STR  +  DEX  ');
-      
+
       expect(ast1).toEqual(ast2);
       expect(ast2).toEqual(ast3);
     });

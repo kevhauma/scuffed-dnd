@@ -1,13 +1,13 @@
 /**
  * Speciality Skill Calculator Tests
- * 
+ *
  * Tests for speciality skill calculation including base level, formula bonus, and focus stat bonus.
  */
 
-import { describe, it, expect } from 'vitest';
-import { calculateSpecialitySkillLevels } from './specialitySkillCalculator';
+import { describe, expect, it } from 'vitest';
 import type { Character } from '../../types/character';
 import type { Configuration } from '../../types/config';
+import { calculateSpecialitySkillLevels } from './specialitySkillCalculator';
 
 describe('calculateSpecialitySkillLevels', () => {
   it('should calculate speciality skill with base level and formula bonus', () => {
@@ -224,9 +224,7 @@ describe('calculateSpecialitySkillLevels', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      ],
+      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [
         {
@@ -426,9 +424,7 @@ describe('calculateSpecialitySkillLevels', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      ],
+      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [
         {
@@ -482,9 +478,7 @@ describe('calculateSpecialitySkillLevels', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      ],
+      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [
         {

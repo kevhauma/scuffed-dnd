@@ -13,8 +13,8 @@
 
 import type { Configuration } from '../../types/config';
 import type { FormulaValidationResult } from '../../types/formula';
-import { validateFormula, validateFormulaCollection } from './validator';
 import type { FormulaDependency } from './validator';
+import { validateFormula, validateFormulaCollection } from './validator';
 
 /**
  * Which collection the changed formula belongs to

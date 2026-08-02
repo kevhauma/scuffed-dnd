@@ -11,10 +11,10 @@ import { useState } from 'react';
 import { convertCurrency } from '../../../engine/currency';
 import type { CurrencyTier } from '../../../types';
 import { Card } from '../../ui/Card/Card';
-import { Text } from '../../ui/Text/Text';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Select } from '../../ui/Select/Select';
+import { Text } from '../../ui/Text/Text';
 
 interface ConversionCalculatorProps {
   tiers: CurrencyTier[];
@@ -28,19 +28,21 @@ export function ConversionCalculator({ tiers }: ConversionCalculatorProps) {
     return null;
   }
 
-  const fromTier = tiers.find(t => t.id === fromTierId);
+  const fromTier = tiers.find((t) => t.id === fromTierId);
   if (!fromTier) return null;
 
   // Conversions to every other tier — the engine owns the arithmetic
-  const conversions = tiers.map(toTier => ({
+  const conversions = tiers.map((toTier) => ({
     tier: toTier,
     amount: convertCurrency({ tierId: fromTier.id, amount }, toTier.id, tiers).amount,
   }));
 
   return (
     <Card className="p-6">
-      <Text variant="h5" as="h3" className="mb-4">Conversion Calculator</Text>
-      
+      <Text variant="h5" as="h3" className="mb-4">
+        Conversion Calculator
+      </Text>
+
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
           <Label htmlFor="calc-amount">Amount</Label>
@@ -53,14 +55,14 @@ export function ConversionCalculator({ tiers }: ConversionCalculatorProps) {
             className="w-full mt-1"
           />
         </div>
-        
+
         <div>
           <Label htmlFor="calc-from">From Tier</Label>
           <Select
             id="calc-from"
             value={fromTierId}
             onChange={(e) => setFromTierId(e.target.value)}
-            options={tiers.map(tier => ({ value: tier.id, label: tier.name }))}
+            options={tiers.map((tier) => ({ value: tier.id, label: tier.name }))}
             className="w-full mt-1"
           />
         </div>
@@ -71,7 +73,10 @@ export function ConversionCalculator({ tiers }: ConversionCalculatorProps) {
           Conversions:
         </Text>
         {conversions.map(({ tier, amount: convertedAmount }) => (
-          <div key={tier.id} className="flex justify-between items-center py-2 border-b border-stone-200 last:border-0">
+          <div
+            key={tier.id}
+            className="flex justify-between items-center py-2 border-b border-stone-200 last:border-0"
+          >
             <Text variant="body">{tier.name}</Text>
             <Text variant="body" className="font-mono">
               {convertedAmount.toFixed(2)}

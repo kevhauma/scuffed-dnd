@@ -1,13 +1,13 @@
 /**
  * Equipment Bonus Calculator Tests
- * 
+ *
  * Tests for equipment bonus aggregation including material bonuses.
  */
 
-import { describe, it, expect } from 'vitest';
-import { calculateEquipmentBonuses, indexSkillModifiers } from './equipmentBonusCalculator';
+import { describe, expect, it } from 'vitest';
 import type { Character } from '../../types/character';
-import type { Configuration, Material, Item } from '../../types/config';
+import type { Configuration, Item, Material } from '../../types/config';
+import { calculateEquipmentBonuses, indexSkillModifiers } from './equipmentBonusCalculator';
 
 describe('calculateEquipmentBonuses', () => {
   it('should return empty array when no items equipped', () => {

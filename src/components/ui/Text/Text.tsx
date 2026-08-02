@@ -1,12 +1,12 @@
 /**
  * Text Component
- * 
+ *
  * Base text component with semantic variants for consistent typography.
  * Supports different HTML elements while maintaining consistent styling.
  */
 
 import React from 'react';
-import { baseStyles, variantStyles, type TextVariant } from './Text.style';
+import { baseStyles, type TextVariant, variantStyles } from './Text.style';
 
 export interface TextProps {
   variant?: TextVariant;
@@ -24,12 +24,8 @@ export function Text({
   htmlFor,
 }: TextProps) {
   const Component = as;
-  
-  const combinedClassName = [
-    baseStyles,
-    variantStyles[variant],
-    className,
-  ]
+
+  const combinedClassName = [baseStyles, variantStyles[variant], className]
     .filter(Boolean)
     .join(' ');
 

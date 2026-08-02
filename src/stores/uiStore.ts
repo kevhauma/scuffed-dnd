@@ -1,9 +1,9 @@
 /**
  * UI Store
- * 
+ *
  * Zustand store for managing application UI state.
  * Handles mode switching, dialog states, validation results, and roll history.
- * 
+ *
  * **Validates: Requirements 19.3, 15.5**
  */
 
@@ -44,19 +44,19 @@ interface UIState {
   // Mode management
   mode: AppMode;
   setMode: (mode: AppMode) => void;
-  
+
   // Dialog management
   dialogs: Record<string, DialogState>;
   openDialog: (dialogId: string, type?: string, data?: unknown) => void;
   closeDialog: (dialogId: string) => void;
   isDialogOpen: (dialogId: string) => boolean;
   getDialogData: (dialogId: string) => unknown;
-  
+
   // Validation results
   validationReport: ValidationReport | null;
   setValidationReport: (report: ValidationReport | null) => void;
   clearValidationReport: () => void;
-  
+
   // Roll history
   rollHistory: RollResult[];
   addRollResult: (result: RollResult) => void;
@@ -70,14 +70,14 @@ interface UIState {
 export const useUIStore = create<UIState>((set, get) => ({
   // Mode management
   mode: 'config',
-  
+
   setMode: (mode: AppMode) => {
     set({ mode });
   },
-  
+
   // Dialog management
   dialogs: {},
-  
+
   openDialog: (dialogId: string, type?: string, data?: unknown) => {
     set((state) => ({
       dialogs: {
@@ -90,7 +90,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       },
     }));
   },
-  
+
   closeDialog: (dialogId: string) => {
     set((state) => ({
       dialogs: {
@@ -103,41 +103,41 @@ export const useUIStore = create<UIState>((set, get) => ({
       },
     }));
   },
-  
+
   isDialogOpen: (dialogId: string) => {
     const { dialogs } = get();
     return dialogs[dialogId]?.isOpen ?? false;
   },
-  
+
   getDialogData: (dialogId: string) => {
     const { dialogs } = get();
     return dialogs[dialogId]?.data;
   },
-  
+
   // Validation results
   validationReport: null,
-  
+
   setValidationReport: (report: ValidationReport | null) => {
     set({ validationReport: report });
   },
-  
+
   clearValidationReport: () => {
     set({ validationReport: null });
   },
-  
+
   // Roll history
   rollHistory: [],
-  
+
   addRollResult: (result: RollResult) => {
     set((state) => ({
       rollHistory: [result, ...state.rollHistory],
     }));
   },
-  
+
   clearRollHistory: () => {
     set({ rollHistory: [] });
   },
-  
+
   getRollHistory: (characterId?: string) => {
     const { rollHistory } = get();
     if (!characterId) {

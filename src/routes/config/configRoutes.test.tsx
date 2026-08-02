@@ -11,8 +11,8 @@
  * **Validates: Requirements 19.4**
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../components/config/skills/main/MainSkillsPanel', () => ({
   MainSkillsPanel: () => <div data-testid="main-skills-panel" />,
@@ -56,14 +56,14 @@ vi.mock('../../services/storage', () => ({
 
 import { loadConfiguration } from '../../services/storage';
 import { useConfigStore } from '../../stores/configStore';
-import { ConfigIndex } from './index';
-import { SkillsConfig } from './skills';
-import { StatsConfig } from './stats';
-import { MaterialsConfig } from './materials';
-import { ItemsConfig } from './items';
-import { RacesConfig } from './races';
 import { CurrencyConfig } from './currency';
 import { FocusConfig } from './focus';
+import { ConfigIndex } from './index';
+import { ItemsConfig } from './items';
+import { MaterialsConfig } from './materials';
+import { RacesConfig } from './races';
+import { SkillsConfig } from './skills';
+import { StatsConfig } from './stats';
 
 describe('configuration routes', () => {
   it('/config/skills renders the three skills panels', () => {

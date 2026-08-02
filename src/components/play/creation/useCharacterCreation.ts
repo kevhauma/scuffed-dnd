@@ -12,11 +12,15 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { calculateCharacter } from '../../../engine/calculator';
 import { calculateRacialSkillModifiers } from '../../../engine/calculators/mainSkillCalculator';
-import { validateMainSkillAllocation } from '../../../engine/skillAllocation';
 import type { MainSkillAllocationResult } from '../../../engine/skillAllocation';
+import { validateMainSkillAllocation } from '../../../engine/skillAllocation';
 import { useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
-import type { CalculatedCharacter, Character, CharacterCreationData } from '../../../types/character';
+import type {
+  CalculatedCharacter,
+  Character,
+  CharacterCreationData,
+} from '../../../types/character';
 
 /**
  * The wizard's steps, in order — exposed to callers as the hook's `steps`

@@ -7,10 +7,10 @@
  * **Validates: Requirements 8.5, 9.3, 13.4, 21.1-21.5**
  */
 
-import type { MainSkillBreakdown } from './useCharacterSheet';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 import { SkillBreakdownRow } from './SkillBreakdownRow';
+import type { MainSkillBreakdown } from './useCharacterSheet';
 
 export interface MainSkillsSectionProps {
   mainSkills: MainSkillBreakdown[];

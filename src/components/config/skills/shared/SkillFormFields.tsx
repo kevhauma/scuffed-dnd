@@ -1,6 +1,6 @@
 /**
  * Shared Skill Form Fields
- * 
+ *
  * Common form fields used by all skill types (code, name, description).
  */
 
@@ -24,7 +24,10 @@ export function SkillFormFields({
   namePlaceholder = 'Strength',
   descriptionPlaceholder = 'Physical power and muscle',
 }: SkillFormFieldsProps) {
-  const { register, formState: { errors } } = form;
+  const {
+    register,
+    formState: { errors },
+  } = form;
 
   return (
     <>

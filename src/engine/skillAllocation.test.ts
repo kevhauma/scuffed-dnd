@@ -4,7 +4,7 @@
  * **Validates: Requirements 2.4, 11.3**
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { Configuration } from '../types/config';
 import { validateMainSkillAllocation } from './skillAllocation';
 

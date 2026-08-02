@@ -1,6 +1,6 @@
 /**
  * Race Manager Hook
- * 
+ *
  * Manages race CRUD operations and form state.
  */
 
@@ -46,9 +46,9 @@ export function useRaceManager() {
   };
 
   const handleEdit = (id: string) => {
-    const race = currentRaces.find(r => r.id === id);
+    const race = currentRaces.find((r) => r.id === id);
     if (!race) return;
-    
+
     setEditingRaceId(id);
     form.reset({
       name: race.name,
@@ -69,13 +69,13 @@ export function useRaceManager() {
       description: data.description,
       skillModifiers: data.skillModifiers,
     };
-    
+
     if (editingRaceId) {
       updateRace(editingRaceId, race);
     } else {
       addRace(race);
     }
-    
+
     setIsDialogOpen(false);
   });
 

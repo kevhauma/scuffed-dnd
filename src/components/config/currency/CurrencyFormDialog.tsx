@@ -1,12 +1,12 @@
 /**
  * Currency Form Dialog
- * 
+ *
  * Dialog for creating and editing currency tiers.
  */
 
 import type { UseFormReturn } from 'react-hook-form';
-import { Dialog } from '../../ui/Dialog/Dialog';
 import { Button } from '../../ui/Button/Button';
+import { Dialog } from '../../ui/Dialog/Dialog';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 
@@ -30,7 +30,10 @@ export function CurrencyFormDialog({
   onClose,
   onSave,
 }: CurrencyFormDialogProps) {
-  const { register, formState: { errors } } = form;
+  const {
+    register,
+    formState: { errors },
+  } = form;
 
   return (
     <Dialog
@@ -41,7 +44,9 @@ export function CurrencyFormDialog({
       <form onSubmit={onSave} className="space-y-4">
         {/* Name */}
         <div>
-          <Label htmlFor="name" required>Name</Label>
+          <Label htmlFor="name" required>
+            Name
+          </Label>
           <Input
             id="name"
             {...register('name', { required: 'Name is required' })}
@@ -49,9 +54,7 @@ export function CurrencyFormDialog({
             error={!!errors.name}
             className="w-full mt-1"
           />
-          {errors.name && (
-            <p className="text-crimson text-sm mt-1">{errors.name.message}</p>
-          )}
+          {errors.name && <p className="text-crimson text-sm mt-1">{errors.name.message}</p>}
         </div>
 
         {/* Conversion Rate */}

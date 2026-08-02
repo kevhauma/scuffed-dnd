@@ -1,9 +1,9 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router';
 
-import { Card } from '../components/ui/Card/Card'
-import { Text } from '../components/ui/Text/Text'
+import { Card } from '../components/ui/Card/Card';
+import { Text } from '../components/ui/Text/Text';
 
-export const Route = createFileRoute('/')({ component: Home })
+export const Route = createFileRoute('/')({ component: Home });
 
 /** What each mode actually does, as the app now stands */
 const MODES = [
@@ -33,7 +33,7 @@ const MODES = [
       'Everything stored in your browser, nowhere else',
     ],
   },
-] as const
+] as const;
 
 export function Home() {
   return (
@@ -44,8 +44,8 @@ export function Home() {
         </Text>
         <Text variant="body-secondary" as="p" className="mx-auto mb-8 max-w-2xl">
           Build a tabletop RPG ruleset of your own — skills, stats, materials, items and races —
-          then play characters on it. No account, no server: everything lives in this browser, and
-          a ruleset travels as a JSON file.
+          then play characters on it. No account, no server: everything lives in this browser, and a
+          ruleset travels as a JSON file.
         </Text>
       </section>
 
@@ -83,5 +83,5 @@ export function Home() {
         ))}
       </section>
     </div>
-  )
+  );
 }

@@ -11,10 +11,10 @@ import type { Configuration, SkillModifier } from '../../types/config';
 
 /**
  * Calculate equipment bonuses from all equipped items
- * 
+ *
  * Collects bonuses from all equipped items and combines them additively.
  * If an item has a material, the material's bonuses are applied.
- * 
+ *
  * @param character - The character whose equipment to evaluate
  * @param config - The game configuration containing items and materials
  * @returns Array of skill modifiers from all equipped items

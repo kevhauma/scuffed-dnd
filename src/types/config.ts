@@ -1,6 +1,6 @@
 /**
  * Configuration Types
- * 
+ *
  * Type definitions for the user-defined configuration system.
  * All game rules, skills, materials, items, and races are defined here.
  */

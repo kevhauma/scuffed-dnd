@@ -7,10 +7,10 @@
  * **Validates: Requirements 19.5, 11.1**
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../components/play/characters/CharacterList', () => ({
   CharacterList: () => <div data-testid="character-list" />,
@@ -24,9 +24,9 @@ vi.mock('../../components/play/sheet/CharacterSheet', () => ({
   ),
 }));
 
-import { PlayIndex } from './index';
-import { PlayCreate } from './create';
 import { Route as CharacterRoute, PlayCharacterSheet } from './character.$id';
+import { PlayCreate } from './create';
+import { PlayIndex } from './index';
 
 describe('/play', () => {
   it('should render the character list', () => {
@@ -88,7 +88,10 @@ describe('/play/character/$id', () => {
   });
 
   it('should carry no stock Tailwind palette classes', () => {
-    const source = readFileSync(resolve(process.cwd(), 'src/routes/play/character.$id.tsx'), 'utf8');
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/routes/play/character.$id.tsx'),
+      'utf8'
+    );
 
     expect(source).not.toMatch(/\b(text|bg|border)-(gray|slate|zinc|blue|green|red)-\d{2,3}\b/);
   });

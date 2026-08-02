@@ -1,18 +1,18 @@
 /**
  * Item Form Dialog Component
- * 
+ *
  * Dialog for creating and editing items with material and equipment slot assignment.
  */
 
 import { useEffect } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { Dialog } from '../../ui/Dialog/Dialog';
+import type { EquipmentSlot, Material } from '../../../types';
 import { Button } from '../../ui/Button/Button';
+import { Dialog } from '../../ui/Dialog/Dialog';
 import { Input } from '../../ui/Input/Input';
-import { Textarea } from '../../ui/Textarea/Textarea';
-import { Select } from '../../ui/Select/Select';
 import { Label } from '../../ui/Label/Label';
-import type { Material, EquipmentSlot } from '../../../types';
+import { Select } from '../../ui/Select/Select';
+import { Textarea } from '../../ui/Textarea/Textarea';
 
 interface ItemFormData {
   name: string;
@@ -42,16 +42,21 @@ export function ItemFormDialog({
   onClose,
   onSave,
 }: ItemFormDialogProps) {
-  const { register, watch, setValue, formState: { errors } } = form;
-  
+  const {
+    register,
+    watch,
+    setValue,
+    formState: { errors },
+  } = form;
+
   const selectedMaterialId = watch('materialId');
-  const selectedMaterial = materials.find(m => m.id === selectedMaterialId);
+  const selectedMaterial = materials.find((m) => m.id === selectedMaterialId);
 
   // Reset material level when material changes
   useEffect(() => {
     if (selectedMaterialId && selectedMaterial) {
       const currentLevel = watch('materialLevel');
-      const validLevel = selectedMaterial.levels.find(l => l.level === currentLevel);
+      const validLevel = selectedMaterial.levels.find((l) => l.level === currentLevel);
       if (!validLevel && selectedMaterial.levels.length > 0) {
         setValue('materialLevel', selectedMaterial.levels[0].level);
       }
@@ -64,24 +69,20 @@ export function ItemFormDialog({
   };
 
   return (
-    <Dialog
-      open={isOpen}
-      onClose={onClose}
-      title={isEditing ? 'Edit Item' : 'Add Item'}
-    >
+    <Dialog open={isOpen} onClose={onClose} title={isEditing ? 'Edit Item' : 'Add Item'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Name */}
         <div>
-          <Label htmlFor="item-name" required>Name</Label>
+          <Label htmlFor="item-name" required>
+            Name
+          </Label>
           <Input
             id="item-name"
             {...register('name', { required: 'Name is required' })}
             error={!!errors.name}
             className="w-full mt-1"
           />
-          {errors.name && (
-            <span className="text-xs text-crimson mt-1">{errors.name.message}</span>
-          )}
+          {errors.name && <span className="text-xs text-crimson mt-1">{errors.name.message}</span>}
         </div>
 
         {/* Description */}
@@ -114,7 +115,7 @@ export function ItemFormDialog({
             {...register('materialId')}
             options={[
               { value: '', label: 'None' },
-              ...materials.map(m => ({ value: m.id, label: m.name }))
+              ...materials.map((m) => ({ value: m.id, label: m.name })),
             ]}
             className="w-full mt-1"
           />
@@ -127,9 +128,9 @@ export function ItemFormDialog({
             <Select
               id="item-material-level"
               {...register('materialLevel', { valueAsNumber: true })}
-              options={selectedMaterial.levels.map(l => ({
+              options={selectedMaterial.levels.map((l) => ({
                 value: l.level.toString(),
-                label: `Level ${l.level}: ${l.name}`
+                label: `Level ${l.level}: ${l.name}`,
               }))}
               className="w-full mt-1"
             />
@@ -144,7 +145,7 @@ export function ItemFormDialog({
             {...register('equipmentSlotType')}
             options={[
               { value: '', label: 'None (Miscellaneous)' },
-              ...equipmentSlots.map(s => ({ value: s.type, label: s.name }))
+              ...equipmentSlots.map((s) => ({ value: s.type, label: s.name })),
             ]}
             className="w-full mt-1"
           />

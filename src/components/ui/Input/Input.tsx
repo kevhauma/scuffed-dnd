@@ -1,5 +1,5 @@
 import React from 'react';
-import { baseStyles, errorStyles, disabledStyles } from './Input.style';
+import { baseStyles, disabledStyles, errorStyles } from './Input.style';
 
 export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
   error?: boolean;
@@ -22,12 +22,5 @@ export function Input({
     .filter(Boolean)
     .join(' ');
 
-  return (
-    <input
-      type={type}
-      disabled={disabled}
-      className={combinedClassName}
-      {...props}
-    />
-  );
+  return <input type={type} disabled={disabled} className={combinedClassName} {...props} />;
 }

@@ -10,12 +10,12 @@
 import type { Character } from '../../types/character';
 import type { Configuration, SkillModifier } from '../../types/config';
 import type { FormulaContext } from '../../types/formula';
-import { parseFormula } from '../formula/parser';
 import { evaluateFormula } from '../formula/evaluator';
+import { parseFormula } from '../formula/parser';
 
 /**
  * Calculate total speciality skill levels
- * 
+ *
  * Calculates the total level for each speciality skill by:
  * 1. Starting with the base level
  * 2. Adding the bonus calculated from the formula

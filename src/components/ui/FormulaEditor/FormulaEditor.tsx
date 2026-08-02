@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { Input } from '../Input/Input';
 import { Label } from '../Label/Label';
-import { containerStyles, errorMessageStyles, suggestionListStyles, suggestionItemStyles } from './FormulaEditor.style';
+import {
+  containerStyles,
+  errorMessageStyles,
+  suggestionItemStyles,
+  suggestionListStyles,
+} from './FormulaEditor.style';
 
 export interface FormulaEditorProps {
   value: string;
@@ -37,7 +42,7 @@ export function FormulaEditor({
     // Extract potential variable references (3-letter uppercase sequences)
     const variablePattern = /\b[A-Z]{3}\b/g;
     const referencedVars = formulaValue.match(variablePattern) || [];
-    const undefinedVars = referencedVars.filter(v => !availableVariables.includes(v));
+    const undefinedVars = referencedVars.filter((v) => !availableVariables.includes(v));
 
     if (undefinedVars.length > 0) {
       const errorMsg = `Undefined variables: ${undefinedVars.join(', ')}`;
@@ -52,7 +57,7 @@ export function FormulaEditor({
   // Handle autocomplete suggestions and validation
   const handleInputChange = (newValue: string) => {
     onChange(newValue);
-    
+
     // Validate the new value
     validateFormula(newValue);
 
@@ -62,7 +67,7 @@ export function FormulaEditor({
 
     if (lastWord.length > 0 && lastWord.length < 3) {
       // Show suggestions for partial matches
-      const matches = availableVariables.filter(v => v.startsWith(lastWord));
+      const matches = availableVariables.filter((v) => v.startsWith(lastWord));
       setSuggestions(matches);
       setShowSuggestions(matches.length > 0);
     } else {

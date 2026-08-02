@@ -10,8 +10,8 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { validateFormulaChange } from '../../../../engine/formula/formulaChange';
 import { useConfigStore } from '../../../../stores/configStore';
-import { useSkillDependencies } from '../shared/useSkillDependencies';
 import type { CombatSkill, DiceConfig } from '../../../../types';
+import { useSkillDependencies } from '../shared/useSkillDependencies';
 
 interface SkillFormData {
   code: string;
@@ -46,28 +46,27 @@ export function useCombatSkillManager() {
   });
 
   const currentSkills = config?.combatSkills || [];
-  
-  const availableSkillCodes = config ? [
-    ...config.mainSkills.map(s => s.code),
-    ...config.specialitySkills.map(s => s.code),
-  ] : [];
+
+  const availableSkillCodes = config
+    ? [...config.mainSkills.map((s) => s.code), ...config.specialitySkills.map((s) => s.code)]
+    : [];
 
   const validateCode = (code: string): string | true => {
     if (!config) return 'No configuration loaded';
-    
+
     if (code.length !== 3) return 'Code must be exactly 3 letters';
     if (!/^[A-Z]{3}$/.test(code)) return 'Code must be 3 uppercase letters';
-    
+
     const allCodes = [
-      ...config.mainSkills.map(s => s.code),
-      ...config.specialitySkills.map(s => s.code),
-      ...config.combatSkills.map(s => s.code),
+      ...config.mainSkills.map((s) => s.code),
+      ...config.specialitySkills.map((s) => s.code),
+      ...config.combatSkills.map((s) => s.code),
     ];
-    
+
     if (!editingSkill && allCodes.includes(code)) {
       return 'Code already exists';
     }
-    
+
     return true;
   };
 
@@ -85,9 +84,9 @@ export function useCombatSkillManager() {
   };
 
   const handleEdit = (code: string) => {
-    const skill = currentSkills.find(s => s.code === code);
+    const skill = currentSkills.find((s) => s.code === code);
     if (!skill) return;
-    
+
     setEditingSkill(code);
     form.reset({
       code: skill.code,
@@ -102,12 +101,12 @@ export function useCombatSkillManager() {
 
   const handleDelete = (code: string) => {
     const dependencies = checkDependencies(code);
-    
+
     if (dependencies.length > 0) {
       setDeleteWarning(`Cannot delete ${code}. It is referenced by:\n${dependencies.join('\n')}`);
       return;
     }
-    
+
     deleteCombatSkill(code);
   };
 
@@ -142,7 +141,7 @@ export function useCombatSkillManager() {
     } else {
       addCombatSkill(skill);
     }
-    
+
     setIsDialogOpen(false);
   });
 

@@ -5,12 +5,7 @@ export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextArea
   className?: string;
 }
 
-export function Textarea({
-  disabled = false,
-  className = '',
-  rows = 4,
-  ...props
-}: TextareaProps) {
+export function Textarea({ disabled = false, className = '', rows = 4, ...props }: TextareaProps) {
   const combinedClassName = [
     baseStyles,
     disabled ? disabledStyles : '',
@@ -19,12 +14,5 @@ export function Textarea({
     .filter(Boolean)
     .join(' ');
 
-  return (
-    <textarea
-      disabled={disabled}
-      rows={rows}
-      className={combinedClassName}
-      {...props}
-    />
-  );
+  return <textarea disabled={disabled} rows={rows} className={combinedClassName} {...props} />;
 }

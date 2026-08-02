@@ -7,8 +7,8 @@
  * **Validates: Requirements 8.5, 9.3, 13.4, 14.1, 14.2, 14.3, 14.4, 14.5, 21.1-21.5**
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Character } from '../../../types/character';
 import type { Configuration } from '../../../types/config';
 
@@ -173,18 +173,21 @@ describe('CharacterSheet', () => {
     render(<CharacterSheet characterId="char1" />);
 
     // Main skills, speciality totals, combat bonuses and stat maxima all come from the engine
-    expect(within(rowFor(/Strength \(STR\)/)).getByText(String(expected.totalMainSkillLevels.STR)))
-      .toBeDefined();
-    expect(within(rowFor(/Dexterity \(DEX\)/)).getByText(String(expected.totalMainSkillLevels.DEX)))
-      .toBeDefined();
+    expect(
+      within(rowFor(/Strength \(STR\)/)).getByText(String(expected.totalMainSkillLevels.STR))
+    ).toBeDefined();
+    expect(
+      within(rowFor(/Dexterity \(DEX\)/)).getByText(String(expected.totalMainSkillLevels.DEX))
+    ).toBeDefined();
     expect(
       within(rowFor(/Stealth \(STL\)/)).getByText(String(expected.specialitySkillTotalLevels.STL))
     ).toBeDefined();
     expect(
       within(rowFor(/Melee \(MEL\)/)).getByText(`+${expected.combatSkillBonuses.MEL}`)
     ).toBeDefined();
-    expect(within(rowFor('Health')).getByText(`of ${expected.maxStatValues.health} max`))
-      .toBeDefined();
+    expect(
+      within(rowFor('Health')).getByText(`of ${expected.maxStatValues.health} max`)
+    ).toBeDefined();
   });
 
   it('should list each combat skill with its dice notation and bonus', () => {
@@ -197,7 +200,9 @@ describe('CharacterSheet', () => {
     render(<CharacterSheet characterId="char1" />);
 
     // Requirement 14.1 — STR 6 gives Health a max of 60, DEX 6 gives Mana a max of 30
-    expect((within(rowFor('Health')).getByLabelText('Health') as HTMLInputElement).value).toBe('60');
+    expect((within(rowFor('Health')).getByLabelText('Health') as HTMLInputElement).value).toBe(
+      '60'
+    );
     expect(within(rowFor('Health')).getByText('of 60 max')).toBeDefined();
     expect((within(rowFor('Mana')).getByLabelText('Mana') as HTMLInputElement).value).toBe('30');
     expect(within(rowFor('Mana')).getByText('of 30 max')).toBeDefined();
@@ -222,7 +227,9 @@ describe('CharacterSheet', () => {
 
     // Requirement 14.3 — the store refuses to store more than the calculated max of 60
     expect(useCharacterStore.getState().characters[0].currentStatValues.health).toBe(60);
-    expect((within(rowFor('Health')).getByLabelText('Health') as HTMLInputElement).value).toBe('60');
+    expect((within(rowFor('Health')).getByLabelText('Health') as HTMLInputElement).value).toBe(
+      '60'
+    );
   });
 
   it('should allow a negative current stat value', () => {

@@ -1,15 +1,15 @@
 /**
  * Form Field Component
- * 
+ *
  * Combines Label, Input, and error message into a single component.
  * Works seamlessly with React Hook Form.
  */
 
-import { Label } from '../Label/Label';
+import type { FieldError, FieldErrorsImpl, Merge } from 'react-hook-form';
 import { Input, type InputProps } from '../Input/Input';
+import { Label } from '../Label/Label';
 import { Text } from '../Text/Text';
 import { inputStyles, messageStyles } from './FormField.style';
-import type { FieldError, Merge, FieldErrorsImpl } from 'react-hook-form';
 
 export interface FormFieldProps extends Omit<InputProps, 'error'> {
   label: string;
@@ -35,17 +35,16 @@ export function FormField({
       <Label htmlFor={fieldId} required={required}>
         {label}
       </Label>
-      <Input
-        id={fieldId}
-        error={!!error}
-        className={inputStyles}
-        {...inputProps}
-      />
+      <Input id={fieldId} error={!!error} className={inputStyles} {...inputProps} />
       {error && (
-        <Text variant="error" className={messageStyles}>{error.toString()}</Text>
+        <Text variant="error" className={messageStyles}>
+          {error.toString()}
+        </Text>
       )}
       {!error && helperText && (
-        <Text variant="muted" className={messageStyles}>{helperText}</Text>
+        <Text variant="muted" className={messageStyles}>
+          {helperText}
+        </Text>
       )}
     </div>
   );

@@ -1,15 +1,15 @@
 /**
  * Stats Configuration Panel
- * 
+ *
  * Manages stats with formula editor and preview calculations.
  */
 
-import { useStatManager } from './useStatManager';
-import { StatCard } from './StatCard';
-import { StatFormDialog } from './StatFormDialog';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
+import { StatCard } from './StatCard';
+import { StatFormDialog } from './StatFormDialog';
+import { useStatManager } from './useStatManager';
 
 export function StatsConfigPanel() {
   const {
@@ -42,7 +42,9 @@ export function StatsConfigPanel() {
       <Card className="p-6">
         <div className="flex justify-between items-start mb-4">
           <div>
-            <Text variant="h4" as="h2" className="mb-2">Stats</Text>
+            <Text variant="h4" as="h2" className="mb-2">
+              Stats
+            </Text>
             <Text variant="body-secondary">
               Derived values calculated from main skills using custom formulas
             </Text>

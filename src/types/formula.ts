@@ -1,17 +1,13 @@
 /**
  * Formula Engine Types
- * 
+ *
  * Type definitions for the formula parsing, evaluation, and validation system.
  */
 
 /**
  * Formula Abstract Syntax Tree (AST) node types
  */
-export type FormulaAST =
-  | NumberNode
-  | VariableNode
-  | BinaryOpNode
-  | UnaryOpNode;
+export type FormulaAST = NumberNode | VariableNode | BinaryOpNode | UnaryOpNode;
 
 /**
  * Number literal node

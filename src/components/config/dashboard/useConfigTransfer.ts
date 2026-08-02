@@ -15,8 +15,8 @@
  */
 
 import { useState } from 'react';
-import { validateConfiguration } from '../../../engine/validator';
 import type { ValidationReport } from '../../../engine/validator';
+import { validateConfiguration } from '../../../engine/validator';
 import {
   downloadConfiguration,
   importConfigurationFromFile,

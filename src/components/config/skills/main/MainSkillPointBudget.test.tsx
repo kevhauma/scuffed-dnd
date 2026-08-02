@@ -4,8 +4,8 @@
  * **Validates: Requirements 2.4**
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Configuration } from '../../../../types/config';
 
 vi.mock('../../../../services/storage', () => ({

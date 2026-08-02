@@ -1,15 +1,15 @@
 /**
  * Equipment Slot Form Dialog Component
- * 
+ *
  * Dialog for creating and editing equipment slot types.
  */
 
 import type { UseFormReturn } from 'react-hook-form';
-import { Dialog } from '../../ui/Dialog/Dialog';
 import { Button } from '../../ui/Button/Button';
+import { Dialog } from '../../ui/Dialog/Dialog';
 import { Input } from '../../ui/Input/Input';
-import { Textarea } from '../../ui/Textarea/Textarea';
 import { Label } from '../../ui/Label/Label';
+import { Textarea } from '../../ui/Textarea/Textarea';
 
 interface EquipmentSlotFormData {
   type: string;
@@ -32,7 +32,10 @@ export function EquipmentSlotFormDialog({
   onClose,
   onSave,
 }: EquipmentSlotFormDialogProps) {
-  const { register, formState: { errors } } = form;
+  const {
+    register,
+    formState: { errors },
+  } = form;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,24 +51,24 @@ export function EquipmentSlotFormDialog({
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Type */}
         <div>
-          <Label htmlFor="slot-type" required>Type</Label>
+          <Label htmlFor="slot-type" required>
+            Type
+          </Label>
           <Input
             id="slot-type"
-            {...register('type', { 
+            {...register('type', {
               required: 'Type is required',
               pattern: {
                 value: /^[a-z_]+$/,
-                message: 'Type must be lowercase with underscores only (e.g., main_hand)'
-              }
+                message: 'Type must be lowercase with underscores only (e.g., main_hand)',
+              },
             })}
             placeholder="e.g., helmet, main_hand, off_hand"
             error={!!errors.type}
             disabled={isEditing}
             className="w-full mt-1"
           />
-          {errors.type && (
-            <span className="text-xs text-crimson mt-1">{errors.type.message}</span>
-          )}
+          {errors.type && <span className="text-xs text-crimson mt-1">{errors.type.message}</span>}
           {!isEditing && (
             <span className="text-xs text-ink-600 mt-1 block">
               Use lowercase with underscores (e.g., main_hand, off_hand)
@@ -75,7 +78,9 @@ export function EquipmentSlotFormDialog({
 
         {/* Name */}
         <div>
-          <Label htmlFor="slot-name" required>Display Name</Label>
+          <Label htmlFor="slot-name" required>
+            Display Name
+          </Label>
           <Input
             id="slot-name"
             {...register('name', { required: 'Name is required' })}
@@ -83,9 +88,7 @@ export function EquipmentSlotFormDialog({
             error={!!errors.name}
             className="w-full mt-1"
           />
-          {errors.name && (
-            <span className="text-xs text-crimson mt-1">{errors.name.message}</span>
-          )}
+          {errors.name && <span className="text-xs text-crimson mt-1">{errors.name.message}</span>}
         </div>
 
         {/* Description */}

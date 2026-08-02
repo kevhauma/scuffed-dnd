@@ -36,7 +36,7 @@ export function useStatManager() {
   });
 
   const currentStats = config?.stats || [];
-  const availableSkillCodes = config?.mainSkills.map(s => s.code) || [];
+  const availableSkillCodes = config?.mainSkills.map((s) => s.code) || [];
 
   const handleAdd = () => {
     setEditingStatId(null);
@@ -49,9 +49,9 @@ export function useStatManager() {
   };
 
   const handleEdit = (id: string) => {
-    const stat = currentStats.find(s => s.id === id);
+    const stat = currentStats.find((s) => s.id === id);
     if (!stat) return;
-    
+
     setEditingStatId(id);
     form.reset({
       name: stat.name,
@@ -95,7 +95,7 @@ export function useStatManager() {
     } else {
       addStat(stat);
     }
-    
+
     setIsDialogOpen(false);
   });
 

@@ -7,12 +7,7 @@ export interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> 
   className?: string;
 }
 
-export function Label({
-  required = false,
-  children,
-  className = '',
-  ...props
-}: LabelProps) {
+export function Label({ required = false, children, className = '', ...props }: LabelProps) {
   const combinedClassName = [
     baseStyles,
     className, // Allow parent to add positioning/layout classes

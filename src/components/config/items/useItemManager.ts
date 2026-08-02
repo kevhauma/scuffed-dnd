@@ -1,13 +1,13 @@
 /**
  * Item Manager Hook
- * 
+ *
  * Manages items and equipment slots CRUD operations and form state.
  */
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../stores/configStore';
-import type { Item, EquipmentSlot } from '../../../types';
+import type { EquipmentSlot, Item } from '../../../types';
 
 interface ItemFormData {
   name: string;
@@ -63,14 +63,11 @@ export function useItemManager() {
   const equipmentSlots = config?.equipmentSlots || [];
 
   // Get unique categories from items
-  const itemCategories = Array.from(
-    new Set(items.map(item => item.categoryId).filter(Boolean))
-  );
+  const itemCategories = Array.from(new Set(items.map((item) => item.categoryId).filter(Boolean)));
 
   // Filter items by category
-  const filteredItems = categoryFilter === 'all' 
-    ? items 
-    : items.filter(item => item.categoryId === categoryFilter);
+  const filteredItems =
+    categoryFilter === 'all' ? items : items.filter((item) => item.categoryId === categoryFilter);
 
   // Item handlers
   const handleAddItem = () => {
@@ -87,9 +84,9 @@ export function useItemManager() {
   };
 
   const handleEditItem = (id: string) => {
-    const item = items.find(i => i.id === id);
+    const item = items.find((i) => i.id === id);
     if (!item) return;
-    
+
     setEditingItemId(id);
     itemForm.reset({
       name: item.name,
@@ -118,13 +115,13 @@ export function useItemManager() {
       materialLevel: data.materialId ? data.materialLevel : undefined,
       equipmentSlotType: data.equipmentSlotType || undefined,
     };
-    
+
     if (editingItemId) {
       updateItem(editingItemId, item);
     } else {
       addItem(item);
     }
-    
+
     setIsItemDialogOpen(false);
   });
 
@@ -140,9 +137,9 @@ export function useItemManager() {
   };
 
   const handleEditEquipmentSlot = (type: string) => {
-    const slot = equipmentSlots.find(s => s.type === type);
+    const slot = equipmentSlots.find((s) => s.type === type);
     if (!slot) return;
-    
+
     setEditingEquipmentSlotType(type);
     equipmentSlotForm.reset({
       type: slot.type,
@@ -154,7 +151,7 @@ export function useItemManager() {
 
   const handleDeleteEquipmentSlot = (type: string) => {
     // Check if equipment slot is used by items
-    const isUsed = items.some(item => item.equipmentSlotType === type);
+    const isUsed = items.some((item) => item.equipmentSlotType === type);
     if (isUsed) {
       alert('Cannot delete equipment slot used by items. Remove from items first.');
       return;
@@ -168,13 +165,13 @@ export function useItemManager() {
       name: data.name,
       description: data.description,
     };
-    
+
     if (editingEquipmentSlotType) {
       updateEquipmentSlot(editingEquipmentSlotType, slot);
     } else {
       addEquipmentSlot(slot);
     }
-    
+
     setIsEquipmentSlotDialogOpen(false);
   });
 

@@ -6,10 +6,10 @@
  * **Validates: Requirements 19.3, 19.4, 19.5, 19.6, 22.1-22.6**
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const navigate = vi.fn();
 let pathname = '/config';
@@ -140,7 +140,8 @@ describe('AppShell', () => {
   });
 
   it('should carry no stock Tailwind palette classes in the shell or the root layout', () => {
-    const stockPalette = /\b(text|bg|border|ring)-(gray|slate|zinc|neutral|blue|green|red)-\d{2,3}\b/;
+    const stockPalette =
+      /\b(text|bg|border|ring)-(gray|slate|zinc|neutral|blue|green|red)-\d{2,3}\b/;
 
     for (const file of ['src/components/shared/AppShell.tsx', 'src/routes/__root.tsx']) {
       const source = readFileSync(resolve(process.cwd(), file), 'utf8');

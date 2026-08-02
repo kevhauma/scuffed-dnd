@@ -1,22 +1,21 @@
 /**
  * Combat Skill Bonus Calculator
- * 
+ *
  * Calculates combat skill bonuses from formulas and equipment.
  */
 
-import type { Configuration } from '../../types/config';
-import type { SkillModifier } from '../../types/config';
+import type { Configuration, SkillModifier } from '../../types/config';
 import type { FormulaContext } from '../../types/formula';
-import { parseFormula } from '../formula/parser';
 import { evaluateFormula } from '../formula/evaluator';
+import { parseFormula } from '../formula/parser';
 
 /**
  * Calculate combat skill bonuses
- * 
+ *
  * Calculates the bonus for each combat skill by:
  * 1. Evaluating the bonus formula with main and speciality skill levels
  * 2. Adding equipment bonuses for the specific combat skill
- * 
+ *
  * @param config - The game configuration containing combat skill definitions
  * @param totalMainSkillLevels - Main skill levels with racial bonuses applied
  * @param specialitySkillLevels - Calculated speciality skill levels

@@ -4,7 +4,7 @@
  * **Validates: Requirements 11.1**
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { Character } from '../types/character';
 import { calculateCharacterLevel, toCharacterSummary } from './characterSummary';
 

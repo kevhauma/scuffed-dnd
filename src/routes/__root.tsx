@@ -1,12 +1,12 @@
-import { HeadContent, Scripts, createRootRoute, Outlet } from '@tanstack/react-router'
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { TanStackDevtools } from '@tanstack/react-devtools'
+import { TanStackDevtools } from '@tanstack/react-devtools';
+import { createRootRoute, HeadContent, Outlet, Scripts } from '@tanstack/react-router';
+import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 
-import { AppShell } from '../components/shared/AppShell'
-import { StorageNotice } from '../components/shared/StorageNotice'
-import { useAppHydration } from '../components/shared/useAppHydration'
+import { AppShell } from '../components/shared/AppShell';
+import { StorageNotice } from '../components/shared/StorageNotice';
+import { useAppHydration } from '../components/shared/useAppHydration';
 
-import appCss from '../styles.css?url'
+import appCss from '../styles.css?url';
 
 export const Route = createRootRoute({
   head: () => ({
@@ -31,7 +31,7 @@ export const Route = createRootRoute({
   }),
   shellComponent: RootDocument,
   component: RootLayout,
-})
+});
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
@@ -55,12 +55,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <Scripts />
       </body>
     </html>
-  )
+  );
 }
 
 export function RootLayout() {
   // The single hydration point for the whole app — every route renders inside this layout
-  const { storageAvailable, storageError } = useAppHydration()
+  const { storageAvailable, storageError } = useAppHydration();
 
   return (
     <AppShell>
@@ -73,5 +73,5 @@ export function RootLayout() {
         <StorageNotice message={storageError ?? ''} />
       )}
     </AppShell>
-  )
+  );
 }

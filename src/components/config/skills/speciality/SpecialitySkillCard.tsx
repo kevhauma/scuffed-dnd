@@ -1,13 +1,13 @@
 /**
  * Speciality Skill Card Component
- * 
+ *
  * Displays a speciality skill with base level and bonus formula.
  */
 
+import type { SpecialitySkill } from '../../../../types';
 import { Button } from '../../../ui/Button/Button';
 import { Card } from '../../../ui/Card/Card';
 import { Text } from '../../../ui/Text/Text';
-import type { SpecialitySkill } from '../../../../types';
 
 interface SpecialitySkillCardProps {
   skill: SpecialitySkill;
@@ -23,18 +23,20 @@ export function SpecialitySkillCard({ skill, onEdit, onDelete }: SpecialitySkill
           <Text variant="highlight" className="mb-2">
             {skill.code}
           </Text>
-          <Text variant="h5" as="h3">{skill.name}</Text>
+          <Text variant="h5" as="h3">
+            {skill.name}
+          </Text>
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             onClick={() => onEdit(skill.code)}
             className="text-sm px-2 py-1"
           >
             Edit
           </Button>
-          <Button 
-            variant="danger" 
+          <Button
+            variant="danger"
             onClick={() => onDelete(skill.code)}
             className="text-sm px-2 py-1"
           >
@@ -42,13 +44,13 @@ export function SpecialitySkillCard({ skill, onEdit, onDelete }: SpecialitySkill
           </Button>
         </div>
       </div>
-      
+
       {skill.description && (
         <Text variant="body-small-secondary" as="p" className="mb-3">
           {skill.description}
         </Text>
       )}
-      
+
       <div className="space-y-2">
         <div className="flex justify-between">
           <Text variant="body-small-secondary">Max Base Level:</Text>

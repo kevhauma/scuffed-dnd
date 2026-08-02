@@ -23,21 +23,21 @@ export function useSkillDependencies() {
     const dependencies: string[] = [];
 
     // Check stats
-    config.stats.forEach(stat => {
+    config.stats.forEach((stat) => {
       if (references(stat.formula)) {
         dependencies.push(`Stat: ${stat.name}`);
       }
     });
 
     // Check speciality skills
-    config.specialitySkills.forEach(skill => {
+    config.specialitySkills.forEach((skill) => {
       if (references(skill.bonusFormula)) {
         dependencies.push(`Speciality Skill: ${skill.name}`);
       }
     });
 
     // Check combat skills
-    config.combatSkills.forEach(skill => {
+    config.combatSkills.forEach((skill) => {
       if (references(skill.bonusFormula)) {
         dependencies.push(`Combat Skill: ${skill.name}`);
       }

@@ -1,15 +1,15 @@
 /**
  * Material Category Card Component
- * 
+ *
  * Displays a material category with nested materials and their levels.
  */
 
 import { useState } from 'react';
+import type { CurrencyTier, Material, MaterialCategory } from '../../../types';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 import { MaterialCard } from './MaterialCard';
-import type { MaterialCategory, Material, CurrencyTier } from '../../../types';
 
 interface MaterialCategoryCardProps {
   category: MaterialCategory;
@@ -55,7 +55,9 @@ export function MaterialCategoryCard({
             >
               {isExpanded ? '▼' : '▶'}
             </Button>
-            <Text variant="h5" as="h3">{category.name}</Text>
+            <Text variant="h5" as="h3">
+              {category.name}
+            </Text>
             <Text variant="body-small-secondary" className="ml-2">
               ({materials.length} material{materials.length !== 1 ? 's' : ''})
             </Text>
@@ -67,22 +69,18 @@ export function MaterialCategoryCard({
           )}
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant="secondary" 
-            onClick={onAddMaterial}
-            className="text-sm px-2 py-1"
-          >
+          <Button variant="secondary" onClick={onAddMaterial} className="text-sm px-2 py-1">
             Add Material
           </Button>
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             onClick={() => onEditCategory(category.id)}
             className="text-sm px-2 py-1"
           >
             Edit
           </Button>
-          <Button 
-            variant="danger" 
+          <Button
+            variant="danger"
             onClick={() => onDeleteCategory(category.id)}
             className="text-sm px-2 py-1"
           >

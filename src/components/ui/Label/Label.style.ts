@@ -7,8 +7,4 @@ export const baseStyles = [
 ].join(' ');
 
 // Required indicator styles
-export const requiredStyles = [
-  'ml-1',
-  'text-crimson',
-  'font-bold',
-].join(' ');
+export const requiredStyles = ['ml-1', 'text-crimson', 'font-bold'].join(' ');

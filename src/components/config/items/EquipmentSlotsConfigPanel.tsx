@@ -1,17 +1,17 @@
 /**
  * Equipment Slots Configuration Panel
- * 
+ *
  * Manages equipment slot types with CRUD operations.
- * 
+ *
  * **Validates: Requirements 7.5, 21.1-21.5**
  */
 
-import { useEquipmentSlotManager } from './useEquipmentSlotManager';
-import { EquipmentSlotCard } from './EquipmentSlotCard';
-import { EquipmentSlotFormDialog } from './EquipmentSlotFormDialog';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
+import { EquipmentSlotCard } from './EquipmentSlotCard';
+import { EquipmentSlotFormDialog } from './EquipmentSlotFormDialog';
+import { useEquipmentSlotManager } from './useEquipmentSlotManager';
 
 export function EquipmentSlotsConfigPanel() {
   const {
@@ -43,10 +43,10 @@ export function EquipmentSlotsConfigPanel() {
       <Card className="p-6">
         <div className="flex justify-between items-start mb-4">
           <div>
-            <Text variant="h4" as="h2" className="mb-2">Equipment Slots</Text>
-            <Text variant="body-secondary">
-              Define where items can be equipped on characters
+            <Text variant="h4" as="h2" className="mb-2">
+              Equipment Slots
             </Text>
+            <Text variant="body-secondary">Define where items can be equipped on characters</Text>
           </div>
           <Button variant="primary" onClick={handleAdd}>
             Add Equipment Slot

@@ -8,8 +8,8 @@
  * **Validates: Requirements 15.1, 15.2, 15.3, 15.4, 15.5, 5.5, 5.6**
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, fireEvent, render, renderHook, screen, within } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CalculatedCharacter, Character } from '../../../types/character';
 import type { Configuration } from '../../../types/config';
 
@@ -125,7 +125,7 @@ describe('useCombatRoller', () => {
     expect(roll.total).toBe(12);
   });
 
-  it("should take its bonus from the same calculator the sheet displays", () => {
+  it('should take its bonus from the same calculator the sheet displays', () => {
     const config = createConfig();
     const calculated = calculatedFor(config, createCharacter());
 
@@ -249,8 +249,16 @@ describe('rolling from the character sheet', () => {
 
     // Requirement 15.4 — with real randomness the numbers vary, so assert the invariant
     const breakdown = screen.getByText(/^d6: /).parentElement as HTMLElement;
-    const dice = Number(within(breakdown).getByText(/^dice /).textContent?.replace('dice ', ''));
-    const bonus = Number(within(breakdown).getByText(/^bonus /).textContent?.replace('bonus ', ''));
+    const dice = Number(
+      within(breakdown)
+        .getByText(/^dice /)
+        .textContent?.replace('dice ', '')
+    );
+    const bonus = Number(
+      within(breakdown)
+        .getByText(/^bonus /)
+        .textContent?.replace('bonus ', '')
+    );
 
     expect(bonus).toBe(5);
     expect(dice).toBeGreaterThanOrEqual(2);
@@ -258,16 +266,14 @@ describe('rolling from the character sheet', () => {
     expect(within(breakdown).getByText(String(dice + bonus))).toBeDefined();
   });
 
-  it("should roll the bonus the sheet displays for that skill", () => {
+  it('should roll the bonus the sheet displays for that skill', () => {
     render(<CharacterSheet characterId="char1" />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Roll RNG' }));
 
     // The Ranged row shows +10 (STR 5 * 2) and the roll must agree. The name also appears in the
     // history panel below, so take the first — the combat section renders ahead of it.
-    const row = screen
-      .getAllByText(/Ranged \(RNG\)/)[0]
-      .closest('div.border-b') as HTMLElement;
+    const row = screen.getAllByText(/Ranged \(RNG\)/)[0].closest('div.border-b') as HTMLElement;
     expect(within(row).getByText('+10')).toBeDefined();
     expect(within(row).getByText('bonus +10')).toBeDefined();
   });
@@ -280,13 +286,14 @@ describe('rolling from the character sheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Roll MEL' }));
     fireEvent.click(screen.getByRole('button', { name: 'Roll RNG' }));
 
-    const history = screen.getByRole('heading', { name: 'Roll History' })
-      .parentElement?.parentElement as HTMLElement;
+    const history = screen.getByRole('heading', { name: 'Roll History' }).parentElement
+      ?.parentElement as HTMLElement;
     // Requirement 15.5 — newest first
-    expect(within(history).getAllByText(/\((MEL|RNG)\)/).map((node) => node.textContent)).toEqual([
-      'Ranged (RNG)',
-      'Melee (MEL)',
-    ]);
+    expect(
+      within(history)
+        .getAllByText(/\((MEL|RNG)\)/)
+        .map((node) => node.textContent)
+    ).toEqual(['Ranged (RNG)', 'Melee (MEL)']);
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear History' }));
     expect(screen.getByText(/No rolls this session/)).toBeDefined();

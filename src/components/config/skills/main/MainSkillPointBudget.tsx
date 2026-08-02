@@ -37,10 +37,7 @@ export function MainSkillPointBudget() {
     setLocalValue(savedValue?.toString() ?? '');
   };
 
-  const totalMaxLevels = (config?.mainSkills ?? []).reduce(
-    (sum, skill) => sum + skill.maxLevel,
-    0
-  );
+  const totalMaxLevels = (config?.mainSkills ?? []).reduce((sum, skill) => sum + skill.maxLevel, 0);
 
   return (
     <Card className="p-6">

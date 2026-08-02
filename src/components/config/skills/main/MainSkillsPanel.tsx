@@ -1,16 +1,16 @@
 /**
  * Main Skills Configuration Panel
- * 
+ *
  * Manages main skills with 3-letter codes and max levels.
  */
 
-import { useMainSkillManager } from './useMainSkillManager';
+import { Card } from '../../../ui/Card/Card';
+import { Text } from '../../../ui/Text/Text';
 import { BaseSkillPanel } from '../shared/BaseSkillPanel';
 import { MainSkillCard } from './MainSkillCard';
 import { MainSkillFormDialog } from './MainSkillFormDialog';
 import { MainSkillPointBudget } from './MainSkillPointBudget';
-import { Card } from '../../../ui/Card/Card';
-import { Text } from '../../../ui/Text/Text';
+import { useMainSkillManager } from './useMainSkillManager';
 
 export function MainSkillsPanel() {
   const {
@@ -53,11 +53,7 @@ export function MainSkillsPanel() {
         onCloseDialog={() => setIsDialogOpen(false)}
         onCloseWarning={() => setDeleteWarning(null)}
         renderSkillCard={(skill) => (
-          <MainSkillCard
-            skill={skill}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
+          <MainSkillCard skill={skill} onEdit={handleEdit} onDelete={handleDelete} />
         )}
         renderFormDialog={() => (
           <MainSkillFormDialog

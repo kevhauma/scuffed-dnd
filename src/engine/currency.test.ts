@@ -4,8 +4,8 @@
  * **Validates: Requirements 10.4, 10.5**
  */
 
-import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
+import { describe, expect, it } from 'vitest';
 import type { CurrencyTier } from '../types/config';
 import { convertCurrency, formatCurrency, normalizeCurrency } from './currency';
 
@@ -40,16 +40,20 @@ describe('convertCurrency', () => {
 
   it('should convert across several tiers', () => {
     // 100 copper to the silver, 10 silver to the gold → 1000 copper is 1 gold
-    expect(convertCurrency({ tierId: 'copper', amount: 1000 }, 'gold', tiers).amount).toBeCloseTo(1);
-    expect(convertCurrency({ tierId: 'gold', amount: 2 }, 'copper', tiers).amount).toBeCloseTo(2000);
+    expect(convertCurrency({ tierId: 'copper', amount: 1000 }, 'gold', tiers).amount).toBeCloseTo(
+      1
+    );
+    expect(convertCurrency({ tierId: 'gold', amount: 2 }, 'copper', tiers).amount).toBeCloseTo(
+      2000
+    );
   });
 
   it('should sort by order rather than trusting the array order', () => {
     const shuffled = [tiers[2], tiers[0], tiers[1]];
 
-    expect(convertCurrency({ tierId: 'copper', amount: 1000 }, 'gold', shuffled).amount).toBeCloseTo(
-      1
-    );
+    expect(
+      convertCurrency({ tierId: 'copper', amount: 1000 }, 'gold', shuffled).amount
+    ).toBeCloseTo(1);
   });
 
   it('should leave the value alone when a tier is unknown', () => {

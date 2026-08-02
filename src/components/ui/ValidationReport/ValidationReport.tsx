@@ -1,16 +1,16 @@
 import React from 'react';
 import { Card } from '../Card/Card';
-import { 
-  containerStyles, 
-  headerStyles, 
-  summaryStyles, 
-  issueListStyles, 
-  issueItemStyles, 
-  errorIconStyles, 
-  warningIconStyles,
-  messageStyles,
+import {
+  containerStyles,
+  emptyStateStyles,
   entityInfoStyles,
-  emptyStateStyles
+  errorIconStyles,
+  headerStyles,
+  issueItemStyles,
+  issueListStyles,
+  messageStyles,
+  summaryStyles,
+  warningIconStyles,
 } from './ValidationReport.style';
 
 export type ValidationSeverity = 'error' | 'warning';
@@ -30,13 +30,9 @@ export interface ValidationReportProps {
   className?: string;
 }
 
-export function ValidationReport({
-  issues,
-  onIssueClick,
-  className = '',
-}: ValidationReportProps) {
-  const errors = issues.filter(i => i.severity === 'error');
-  const warnings = issues.filter(i => i.severity === 'warning');
+export function ValidationReport({ issues, onIssueClick, className = '' }: ValidationReportProps) {
+  const errors = issues.filter((i) => i.severity === 'error');
+  const warnings = issues.filter((i) => i.severity === 'warning');
 
   const handleIssueClick = (issue: ValidationIssue) => {
     if (onIssueClick) {
@@ -47,9 +43,7 @@ export function ValidationReport({
   return (
     <Card variant="bordered" className={`${containerStyles} ${className}`}>
       <div className={headerStyles}>
-        <h3 className="font-heading font-bold text-xl text-ink-900 m-0">
-          Validation Report
-        </h3>
+        <h3 className="font-heading font-bold text-xl text-ink-900 m-0">Validation Report</h3>
         <div className={summaryStyles}>
           {errors.length > 0 && (
             <span className="text-crimson font-semibold">
@@ -61,28 +55,20 @@ export function ValidationReport({
               {warnings.length} {warnings.length === 1 ? 'Warning' : 'Warnings'}
             </span>
           )}
-          {issues.length === 0 && (
-            <span className="text-forest font-semibold">
-              No Issues
-            </span>
-          )}
+          {issues.length === 0 && <span className="text-forest font-semibold">No Issues</span>}
         </div>
       </div>
 
       {issues.length === 0 ? (
         <div className={emptyStateStyles}>
           <span className="text-4xl">✓</span>
-          <p className="text-ink-700 font-body">
-            Configuration is valid. No issues detected.
-          </p>
+          <p className="text-ink-700 font-body">Configuration is valid. No issues detected.</p>
         </div>
       ) : (
         <>
           {errors.length > 0 && (
             <div className="mb-4">
-              <h4 className="font-heading font-semibold text-lg text-crimson mb-2">
-                Errors
-              </h4>
+              <h4 className="font-heading font-semibold text-lg text-crimson mb-2">Errors</h4>
               <div className={issueListStyles}>
                 {errors.map((issue, index) => (
                   <div
@@ -110,9 +96,7 @@ export function ValidationReport({
 
           {warnings.length > 0 && (
             <div>
-              <h4 className="font-heading font-semibold text-lg text-amber mb-2">
-                Warnings
-              </h4>
+              <h4 className="font-heading font-semibold text-lg text-amber mb-2">Warnings</h4>
               <div className={issueListStyles}>
                 {warnings.map((issue, index) => (
                   <div

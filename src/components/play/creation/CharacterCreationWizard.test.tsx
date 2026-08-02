@@ -4,8 +4,8 @@
  * **Validates: Requirements 11.1-11.6, 21.1-21.5**
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Configuration } from '../../../types/config';
 
 const navigate = vi.fn();
@@ -223,9 +223,7 @@ describe('CharacterCreationWizard', () => {
       `Stealth (STL)${expected.specialitySkillTotalLevels.STL}`
     );
     expect(rowValue('Melee (MEL)')).toBe(`Melee (MEL)${expected.combatSkillBonuses.MEL}`);
-    expect(rowValue('Dexterity (DEX)')).toBe(
-      `Dexterity (DEX)${expected.totalMainSkillLevels.DEX}`
-    );
+    expect(rowValue('Dexterity (DEX)')).toBe(`Dexterity (DEX)${expected.totalMainSkillLevels.DEX}`);
   });
 
   it('should create the character once and navigate to its sheet', () => {

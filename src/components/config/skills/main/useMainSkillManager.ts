@@ -1,14 +1,14 @@
 /**
  * Main Skill Manager Hook
- * 
+ *
  * Manages main skill CRUD operations and form state.
  */
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../../stores/configStore';
+import type { DiceConfig, MainSkill } from '../../../../types';
 import { useSkillDependencies } from '../shared/useSkillDependencies';
-import type { MainSkill, DiceConfig } from '../../../../types';
 
 interface SkillFormData {
   code: string;
@@ -46,20 +46,20 @@ export function useMainSkillManager() {
 
   const validateCode = (code: string): string | true => {
     if (!config) return 'No configuration loaded';
-    
+
     if (code.length !== 3) return 'Code must be exactly 3 letters';
     if (!/^[A-Z]{3}$/.test(code)) return 'Code must be 3 uppercase letters';
-    
+
     const allCodes = [
-      ...config.mainSkills.map(s => s.code),
-      ...config.specialitySkills.map(s => s.code),
-      ...config.combatSkills.map(s => s.code),
+      ...config.mainSkills.map((s) => s.code),
+      ...config.specialitySkills.map((s) => s.code),
+      ...config.combatSkills.map((s) => s.code),
     ];
-    
+
     if (!editingSkill && allCodes.includes(code)) {
       return 'Code already exists';
     }
-    
+
     return true;
   };
 
@@ -77,9 +77,9 @@ export function useMainSkillManager() {
   };
 
   const handleEdit = (code: string) => {
-    const skill = currentSkills.find(s => s.code === code);
+    const skill = currentSkills.find((s) => s.code === code);
     if (!skill) return;
-    
+
     setEditingSkill(code);
     form.reset({
       code: skill.code,
@@ -94,12 +94,12 @@ export function useMainSkillManager() {
 
   const handleDelete = (code: string) => {
     const dependencies = checkDependencies(code);
-    
+
     if (dependencies.length > 0) {
       setDeleteWarning(`Cannot delete ${code}. It is referenced by:\n${dependencies.join('\n')}`);
       return;
     }
-    
+
     deleteMainSkill(code);
   };
 
@@ -110,13 +110,13 @@ export function useMainSkillManager() {
       description: data.description,
       maxLevel: data.maxLevel,
     };
-    
+
     if (editingSkill) {
       updateMainSkill(editingSkill, skill);
     } else {
       addMainSkill(skill);
     }
-    
+
     setIsDialogOpen(false);
   });
 

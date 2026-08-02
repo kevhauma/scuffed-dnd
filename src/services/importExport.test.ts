@@ -1,20 +1,20 @@
 /**
  * Import/Export Service Tests
- * 
+ *
  * Unit tests for configuration import/export functionality
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Configuration } from '../types/config';
 import {
-  exportConfiguration,
   downloadConfiguration,
-  validateConfiguration,
+  exportConfiguration,
+  ImportExportError,
   importConfiguration,
   importConfigurationFromFile,
   ValidationError,
-  ImportExportError,
+  validateConfiguration,
 } from './importExport';
-import type { Configuration } from '../types/config';
 
 describe('Import/Export Service', () => {
   let validConfig: Configuration;
@@ -28,9 +28,7 @@ describe('Import/Export Service', () => {
         { code: 'STR', name: 'Strength', description: 'Physical power', maxLevel: 10 },
         { code: 'DEX', name: 'Dexterity', description: 'Agility', maxLevel: 10 },
       ],
-      stats: [
-        { id: 'health', name: 'Health', description: 'Hit points', formula: 'STR * 10' },
-      ],
+      stats: [{ id: 'health', name: 'Health', description: 'Hit points', formula: 'STR * 10' }],
       specialitySkills: [
         {
           code: 'MEL',
@@ -71,7 +69,7 @@ describe('Import/Export Service', () => {
 
     it('should create valid JSON content', () => {
       const blob = exportConfiguration(validConfig);
-      
+
       // Read blob content using FileReader-like approach
       const reader = new FileReader();
       return new Promise<void>((resolve) => {
@@ -87,7 +85,7 @@ describe('Import/Export Service', () => {
 
     it('should format JSON with indentation', () => {
       const blob = exportConfiguration(validConfig);
-      
+
       const reader = new FileReader();
       return new Promise<void>((resolve) => {
         reader.onload = () => {
@@ -172,7 +170,7 @@ describe('Import/Export Service', () => {
       const result = validateConfiguration(invalid);
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.some(e => e.includes('name'))).toBe(true);
+      expect(result.errors.some((e) => e.includes('name'))).toBe(true);
     });
 
     it('should validate required number fields', () => {
@@ -180,7 +178,7 @@ describe('Import/Export Service', () => {
       const result = validateConfiguration(invalid);
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.some(e => e.includes('focusStatBonusLevel'))).toBe(true);
+      expect(result.errors.some((e) => e.includes('focusStatBonusLevel'))).toBe(true);
     });
 
     it('should validate required array fields', () => {
@@ -188,7 +186,7 @@ describe('Import/Export Service', () => {
       const result = validateConfiguration(invalid);
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.some(e => e.includes('mainSkills'))).toBe(true);
+      expect(result.errors.some((e) => e.includes('mainSkills'))).toBe(true);
     });
 
     it('should validate main skill structure', () => {
@@ -199,7 +197,7 @@ describe('Import/Export Service', () => {
       const result = validateConfiguration(invalid);
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.some(e => e.includes('3-letter'))).toBe(true);
+      expect(result.errors.some((e) => e.includes('3-letter'))).toBe(true);
     });
 
     it('should validate stat structure', () => {
@@ -210,7 +208,7 @@ describe('Import/Export Service', () => {
       const result = validateConfiguration(invalid);
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.some(e => e.includes('formula'))).toBe(true);
+      expect(result.errors.some((e) => e.includes('formula'))).toBe(true);
     });
 
     it('should validate speciality skill structure', () => {
@@ -223,7 +221,7 @@ describe('Import/Export Service', () => {
       const result = validateConfiguration(invalid);
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.some(e => e.includes('3-letter'))).toBe(true);
+      expect(result.errors.some((e) => e.includes('3-letter'))).toBe(true);
     });
 
     it('should validate combat skill structure', () => {
@@ -236,7 +234,7 @@ describe('Import/Export Service', () => {
       const result = validateConfiguration(invalid);
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.some(e => e.includes('dice'))).toBe(true);
+      expect(result.errors.some((e) => e.includes('dice'))).toBe(true);
     });
 
     it('should collect multiple errors', () => {
@@ -335,7 +333,7 @@ describe('Import/Export Service', () => {
     it('should import configuration from file', async () => {
       const json = JSON.stringify(validConfig);
       const blob = new Blob([json], { type: 'application/json' });
-      
+
       // Create a mock file with text() method
       const file = Object.assign(blob, {
         name: 'config.json',
@@ -352,7 +350,7 @@ describe('Import/Export Service', () => {
       const invalid = { ...validConfig, name: 123 };
       const json = JSON.stringify(invalid);
       const blob = new Blob([json], { type: 'application/json' });
-      
+
       const file = Object.assign(blob, {
         name: 'config.json',
         lastModified: Date.now(),
@@ -365,7 +363,7 @@ describe('Import/Export Service', () => {
     it('should throw ImportExportError for invalid JSON in file', async () => {
       const invalidJson = '{ invalid json }';
       const blob = new Blob([invalidJson], { type: 'application/json' });
-      
+
       const file = Object.assign(blob, {
         name: 'config.json',
         lastModified: Date.now(),
@@ -377,7 +375,7 @@ describe('Import/Export Service', () => {
 
     it('should handle file read errors', async () => {
       const blob = new Blob(['test'], { type: 'application/json' });
-      
+
       const file = Object.assign(blob, {
         name: 'config.json',
         lastModified: Date.now(),

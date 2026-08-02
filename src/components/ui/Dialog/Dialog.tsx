@@ -1,5 +1,12 @@
 import React, { useEffect } from 'react';
-import { overlayStyles, dialogStyles, headerStyles, titleStyles, closeButtonStyles, bodyStyles } from './Dialog.style';
+import {
+  bodyStyles,
+  closeButtonStyles,
+  dialogStyles,
+  headerStyles,
+  overlayStyles,
+  titleStyles,
+} from './Dialog.style';
 
 export interface DialogProps {
   open: boolean;
@@ -9,13 +16,7 @@ export interface DialogProps {
   className?: string;
 }
 
-export function Dialog({
-  open,
-  onClose,
-  title,
-  children,
-  className = '',
-}: DialogProps) {
+export function Dialog({ open, onClose, title, children, className = '' }: DialogProps) {
   // Handle escape key to close dialog
   useEffect(() => {
     if (!open) return;
@@ -65,9 +66,7 @@ export function Dialog({
             ×
           </button>
         </div>
-        <div className={bodyStyles}>
-          {children}
-        </div>
+        <div className={bodyStyles}>{children}</div>
       </div>
     </div>
   );

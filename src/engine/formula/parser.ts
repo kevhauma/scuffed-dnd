@@ -1,6 +1,6 @@
 /**
  * Formula Parser
- * 
+ *
  * Tokenizes and parses formula strings into Abstract Syntax Trees (AST).
  * Supports arithmetic operators (+, -, *, /), parentheses, numbers, and variable references.
  */
@@ -10,7 +10,7 @@ import type { FormulaAST } from '../../types/formula';
 /**
  * Token types for lexical analysis
  */
-type TokenType = 
+type TokenType =
   | 'NUMBER'
   | 'VARIABLE'
   | 'PLUS'
@@ -149,7 +149,7 @@ class Tokenizer {
 
 /**
  * Parser class - converts tokens into AST
- * 
+ *
  * Grammar:
  *   expression  := term ((PLUS | MINUS) term)*
  *   term        := factor ((MULTIPLY | DIVIDE) factor)*
@@ -236,7 +236,7 @@ export class FormulaParser {
 
     while (this.currentToken.type === 'MULTIPLY' || this.currentToken.type === 'DIVIDE') {
       const token = this.currentToken;
-      
+
       if (token.type === 'MULTIPLY') {
         this.eat('MULTIPLY');
         node = {
@@ -267,7 +267,7 @@ export class FormulaParser {
 
     while (this.currentToken.type === 'PLUS' || this.currentToken.type === 'MINUS') {
       const token = this.currentToken;
-      
+
       if (token.type === 'PLUS') {
         this.eat('PLUS');
         node = {
@@ -295,7 +295,7 @@ export class FormulaParser {
    */
   public parse(): FormulaAST {
     const ast = this.expression();
-    
+
     // Ensure we've consumed all tokens
     if (this.currentToken.type !== 'EOF') {
       throw new Error(
@@ -309,7 +309,7 @@ export class FormulaParser {
 
 /**
  * Parse a formula string into an AST
- * 
+ *
  * @param formula - Formula string to parse
  * @returns AST representation of the formula
  * @throws Error if formula has syntax errors

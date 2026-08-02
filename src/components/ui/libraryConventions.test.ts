@@ -7,9 +7,9 @@
  * **Validates: Requirements 21.2, 21.3, 21.6, 21.7, 22.1, 22.4**
  */
 
-import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 const UI_ROOT = resolve(process.cwd(), 'src/components/ui');
 

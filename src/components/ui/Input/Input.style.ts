@@ -13,14 +13,7 @@ export const baseStyles = [
 ].join(' ');
 
 // Error state styles
-export const errorStyles = [
-  'border-crimson',
-  'focus:ring-crimson focus:border-crimson',
-].join(' ');
+export const errorStyles = ['border-crimson', 'focus:ring-crimson focus:border-crimson'].join(' ');
 
 // Disabled state styles
-export const disabledStyles = [
-  'opacity-50',
-  'cursor-not-allowed',
-  'bg-parchment-100',
-].join(' ');
+export const disabledStyles = ['opacity-50', 'cursor-not-allowed', 'bg-parchment-100'].join(' ');

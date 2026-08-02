@@ -11,7 +11,7 @@ import type { CalculatedCharacter } from '../../types/character';
 import type { CombatSkill, Configuration } from '../../types/config';
 import type { CombatRollResult } from '../../types/formula';
 import { calculateCombatSkillBonuses } from '../calculators/combatSkillCalculator';
-import { rollDice, sumDiceResults, type RandomSource } from './diceSimulator';
+import { type RandomSource, rollDice, sumDiceResults } from './diceSimulator';
 
 /**
  * Roll a combat skill for a character

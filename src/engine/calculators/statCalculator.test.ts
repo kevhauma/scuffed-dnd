@@ -1,12 +1,12 @@
 /**
  * Stat Calculator Tests
- * 
+ *
  * Tests for stat calculation from formulas.
  */
 
-import { describe, it, expect } from 'vitest';
-import { calculateMaxStatValues } from './statCalculator';
+import { describe, expect, it } from 'vitest';
 import type { Stat } from '../../types/config';
+import { calculateMaxStatValues } from './statCalculator';
 
 describe('calculateMaxStatValues', () => {
   it('should calculate stat values from simple formulas', () => {

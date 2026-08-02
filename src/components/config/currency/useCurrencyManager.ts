@@ -1,6 +1,6 @@
 /**
  * Currency Manager Hook
- * 
+ *
  * Manages currency tier CRUD operations, form state, and reordering.
  */
 
@@ -43,9 +43,9 @@ export function useCurrencyManager() {
   };
 
   const handleEdit = (id: string) => {
-    const tier = currentTiers.find(t => t.id === id);
+    const tier = currentTiers.find((t) => t.id === id);
     if (!tier) return;
-    
+
     setEditingTierId(id);
     form.reset({
       name: tier.name,
@@ -63,27 +63,27 @@ export function useCurrencyManager() {
       id: editingTierId || crypto.randomUUID(),
       name: data.name,
       conversionToNext: data.conversionToNext,
-      order: editingTierId 
-        ? currentTiers.find(t => t.id === editingTierId)?.order || currentTiers.length
+      order: editingTierId
+        ? currentTiers.find((t) => t.id === editingTierId)?.order || currentTiers.length
         : currentTiers.length,
     };
-    
+
     if (editingTierId) {
       updateCurrencyTier(editingTierId, tier);
     } else {
       addCurrencyTier(tier);
     }
-    
+
     setIsDialogOpen(false);
   });
 
   const handleReorder = (fromIndex: number, toIndex: number) => {
     if (fromIndex === toIndex) return;
-    
+
     const reordered = [...currentTiers];
     const [moved] = reordered.splice(fromIndex, 1);
     reordered.splice(toIndex, 0, moved);
-    
+
     // Update order for all tiers
     reordered.forEach((tier, index) => {
       updateCurrencyTier(tier.id, { order: index });

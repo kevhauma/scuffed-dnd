@@ -4,8 +4,8 @@
  * **Validates: Requirements 5.5**
  */
 
-import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
+import { describe, expect, it } from 'vitest';
 import type { DiceConfig } from '../../types/config';
 import {
   DIE_SIDES,
@@ -139,9 +139,7 @@ describe('rollDice', () => {
 
           // ...and the overall total is the sum of every roll made
           const everyRoll = results.flatMap((result) => result.rolls);
-          expect(sumDiceResults(results)).toBe(
-            everyRoll.reduce((sum, roll) => sum + roll, 0)
-          );
+          expect(sumDiceResults(results)).toBe(everyRoll.reduce((sum, roll) => sum + roll, 0));
         }
       )
     );

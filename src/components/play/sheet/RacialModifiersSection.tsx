@@ -31,9 +31,7 @@ export function RacialModifiersSection({
       {raceNames.length === 0 ? (
         <Text variant="body-small-secondary">This character has no races.</Text>
       ) : entries.length === 0 ? (
-        <Text variant="body-small-secondary">
-          {raceNames.join(', ')} — no skill modifiers.
-        </Text>
+        <Text variant="body-small-secondary">{raceNames.join(', ')} — no skill modifiers.</Text>
       ) : (
         <div className="flex flex-wrap gap-2">
           {entries.map(([skillCode, modifier]) => (

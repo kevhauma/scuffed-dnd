@@ -22,7 +22,4 @@ export const labelStyles = [
 ].join(' ');
 
 // Disabled state styles
-export const disabledStyles = [
-  'opacity-50',
-  'cursor-not-allowed',
-].join(' ');
+export const disabledStyles = ['opacity-50', 'cursor-not-allowed'].join(' ');

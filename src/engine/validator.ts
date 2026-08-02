@@ -1,6 +1,6 @@
 /**
  * Configuration Validator
- * 
+ *
  * Validates complete configuration for:
  * - Formula references point to existing skills
  * - Equipment slot types referenced by items exist
@@ -42,7 +42,7 @@ export interface ValidationReport {
 
 /**
  * Validate a complete configuration
- * 
+ *
  * @param config - Configuration to validate
  * @returns Validation report with all detected issues
  */
@@ -54,11 +54,7 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   const mainSkillCodes = new Set(config.mainSkills.map((s) => s.code));
   const specialitySkillCodes = new Set(config.specialitySkills.map((s) => s.code));
   const combatSkillCodes = new Set(config.combatSkills.map((s) => s.code));
-  const allSkillCodes = new Set([
-    ...mainSkillCodes,
-    ...specialitySkillCodes,
-    ...combatSkillCodes,
-  ]);
+  const allSkillCodes = new Set([...mainSkillCodes, ...specialitySkillCodes, ...combatSkillCodes]);
   const materialCategoryIds = new Set(config.materialCategories.map((c) => c.id));
   const equipmentSlotTypes = new Set(config.equipmentSlots.map((s) => s.type));
   const materialIds = new Set(config.materials.map((m) => m.id));
@@ -67,7 +63,7 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   // Validate stat formulas
   for (const stat of config.stats) {
     const result = validateFormula(stat.formula, mainSkillCodes);
-    
+
     if (!result.isValid) {
       for (const error of result.errors) {
         errors.push({
@@ -85,7 +81,7 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   // Validate speciality skill formulas
   for (const skill of config.specialitySkills) {
     const result = validateFormula(skill.bonusFormula, mainSkillCodes);
-    
+
     if (!result.isValid) {
       for (const error of result.errors) {
         errors.push({
@@ -102,10 +98,10 @@ export function validateConfiguration(config: Configuration): ValidationReport {
 
   // Validate combat skill formulas
   const availableForCombatSkills = new Set([...mainSkillCodes, ...specialitySkillCodes]);
-  
+
   for (const skill of config.combatSkills) {
     const result = validateFormula(skill.bonusFormula, availableForCombatSkills);
-    
+
     if (!result.isValid) {
       for (const error of result.errors) {
         errors.push({
@@ -293,7 +289,11 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   // Validate unique skill codes
   const allCodes = [
     ...config.mainSkills.map((s) => ({ code: s.code, type: 'Main Skill', name: s.name })),
-    ...config.specialitySkills.map((s) => ({ code: s.code, type: 'Speciality Skill', name: s.name })),
+    ...config.specialitySkills.map((s) => ({
+      code: s.code,
+      type: 'Speciality Skill',
+      name: s.name,
+    })),
     ...config.combatSkills.map((s) => ({ code: s.code, type: 'Combat Skill', name: s.name })),
   ];
 

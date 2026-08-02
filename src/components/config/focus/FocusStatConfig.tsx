@@ -1,23 +1,23 @@
 /**
  * Focus Stat Configuration Component
- * 
+ *
  * Allows users to configure the bonus level applied when a character selects a focus stat.
- * 
+ *
  * **Validates: Requirements 9.1, 21.1-21.5**
  */
 
+import { useState } from 'react';
 import { useConfigStore } from '../../../stores/configStore';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
-import { useState } from 'react';
 
 export function FocusStatConfig() {
   const config = useConfigStore((state) => state.config);
   const setFocusStatBonusLevel = useConfigStore((state) => state.setFocusStatBonusLevel);
-  
+
   const [localValue, setLocalValue] = useState<string>(
     config?.focusStatBonusLevel.toString() ?? '0'
   );
@@ -59,7 +59,9 @@ export function FocusStatConfig() {
       {/* Header */}
       <Card className="p-6">
         <div className="mb-4">
-          <Text variant="h4" as="h2" className="mb-2">Focus Stat Configuration</Text>
+          <Text variant="h4" as="h2" className="mb-2">
+            Focus Stat Configuration
+          </Text>
           <Text variant="body-secondary">
             Configure the bonus level characters receive when they select a focus stat
           </Text>
@@ -67,7 +69,9 @@ export function FocusStatConfig() {
 
         <div className="mt-4 p-4 bg-parchment-100 border border-stone-200 rounded">
           <Text variant="body-small" className="text-ink-700">
-            <strong>What is a Focus Stat?</strong> During character creation, players can select one Main Skill or Speciality Skill as their focus stat. This represents their character's area of expertise and grants bonus levels.
+            <strong>What is a Focus Stat?</strong> During character creation, players can select one
+            Main Skill or Speciality Skill as their focus stat. This represents their character's
+            area of expertise and grants bonus levels.
           </Text>
         </div>
       </Card>
@@ -94,7 +98,8 @@ export function FocusStatConfig() {
               </Text>
             )}
             <Text variant="body-small" className="text-ink-600 mt-2">
-              This bonus will be added to the selected skill's level when a character chooses it as their focus stat
+              This bonus will be added to the selected skill's level when a character chooses it as
+              their focus stat
             </Text>
           </div>
 
@@ -102,18 +107,16 @@ export function FocusStatConfig() {
           {isValid && numValue > 0 && (
             <div className="p-4 bg-forest/10 border border-forest/30 rounded">
               <Text variant="body-small" className="text-ink-700">
-                <strong>Example:</strong> If a character has 10 levels in STR and selects it as their focus stat, their effective STR level becomes {10 + numValue} (10 base + {numValue} focus bonus).
+                <strong>Example:</strong> If a character has 10 levels in STR and selects it as
+                their focus stat, their effective STR level becomes {10 + numValue} (10 base +{' '}
+                {numValue} focus bonus).
               </Text>
             </div>
           )}
 
           {/* Action Buttons */}
           <div className="flex gap-3 pt-4">
-            <Button
-              variant="primary"
-              onClick={handleSave}
-              disabled={!hasChanges || !isValid}
-            >
+            <Button variant="primary" onClick={handleSave} disabled={!hasChanges || !isValid}>
               Save Changes
             </Button>
             {hasChanges && (

@@ -1,14 +1,14 @@
 /**
  * Storage Service
- * 
+ *
  * LocalStorage abstraction for persisting Configuration and Character data.
  * Handles JSON serialization/deserialization and storage quota errors.
- * 
+ *
  * **Validates: Requirements 1.2, 17.1, 17.2, 17.3, 17.4, 17.5**
  */
 
-import type { Configuration } from '../types/config';
 import type { Character } from '../types/character';
+import type { Configuration } from '../types/config';
 
 // LocalStorage keys
 const STORAGE_KEYS = {
@@ -21,7 +21,10 @@ const STORAGE_KEYS = {
  * Storage error types
  */
 export class StorageError extends Error {
-  constructor(message: string, public readonly cause?: unknown) {
+  constructor(
+    message: string,
+    public readonly cause?: unknown
+  ) {
     super(message);
     this.name = 'StorageError';
   }
@@ -43,7 +46,7 @@ export class StorageParseError extends StorageError {
 
 /**
  * Save configuration to LocalStorage
- * 
+ *
  * @throws {StorageQuotaError} When storage quota is exceeded
  * @throws {StorageError} When serialization or storage fails
  */
@@ -61,7 +64,7 @@ export function saveConfiguration(config: Configuration): void {
 
 /**
  * Load configuration from LocalStorage
- * 
+ *
  * @returns Configuration object or null if not found
  * @throws {StorageParseError} When stored data is invalid JSON
  * @throws {StorageError} When retrieval fails
@@ -72,7 +75,7 @@ export function loadConfiguration(): Configuration | null {
     if (!serialized) {
       return null;
     }
-    
+
     const config = JSON.parse(serialized) as Configuration;
     return config;
   } catch (error) {
@@ -85,7 +88,7 @@ export function loadConfiguration(): Configuration | null {
 
 /**
  * Save character array to LocalStorage
- * 
+ *
  * @throws {StorageQuotaError} When storage quota is exceeded
  * @throws {StorageError} When serialization or storage fails
  */
@@ -103,7 +106,7 @@ export function saveCharacters(characters: Character[]): void {
 
 /**
  * Load character array from LocalStorage
- * 
+ *
  * @returns Array of characters or empty array if not found
  * @throws {StorageParseError} When stored data is invalid JSON
  * @throws {StorageError} When retrieval fails
@@ -114,7 +117,7 @@ export function loadCharacters(): Character[] {
     if (!serialized) {
       return [];
     }
-    
+
     const characters = JSON.parse(serialized) as Character[];
     return Array.isArray(characters) ? characters : [];
   } catch (error) {
@@ -136,7 +139,7 @@ export function clearAllData(): void {
 
 /**
  * Check if storage is available and has space
- * 
+ *
  * @returns true if storage is available, false otherwise
  */
 export function isStorageAvailable(): boolean {
@@ -152,7 +155,7 @@ export function isStorageAvailable(): boolean {
 
 /**
  * Get approximate storage usage in bytes
- * 
+ *
  * @returns Approximate size of stored data in bytes
  */
 export function getStorageSize(): number {

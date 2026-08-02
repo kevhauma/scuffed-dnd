@@ -2,12 +2,7 @@
 export const containerStyles = '';
 
 // Error message styles
-export const errorMessageStyles = [
-  'mt-2',
-  'text-sm',
-  'text-crimson',
-  'font-body',
-].join(' ');
+export const errorMessageStyles = ['mt-2', 'text-sm', 'text-crimson', 'font-body'].join(' ');
 
 // Suggestion list styles
 export const suggestionListStyles = [

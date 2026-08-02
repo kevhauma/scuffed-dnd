@@ -1,15 +1,15 @@
 /**
  * Speciality Skills Configuration Panel
- * 
+ *
  * Manages speciality skills with base levels and bonus formulas.
  */
 
-import { useSpecialitySkillManager } from './useSpecialitySkillManager';
+import { Card } from '../../../ui/Card/Card';
+import { Text } from '../../../ui/Text/Text';
 import { BaseSkillPanel } from '../shared/BaseSkillPanel';
 import { SpecialitySkillCard } from './SpecialitySkillCard';
 import { SpecialitySkillFormDialog } from './SpecialitySkillFormDialog';
-import { Card } from '../../../ui/Card/Card';
-import { Text } from '../../../ui/Text/Text';
+import { useSpecialitySkillManager } from './useSpecialitySkillManager';
 
 export function SpecialitySkillsPanel() {
   const {
@@ -52,11 +52,7 @@ export function SpecialitySkillsPanel() {
       onCloseDialog={() => setIsDialogOpen(false)}
       onCloseWarning={() => setDeleteWarning(null)}
       renderSkillCard={(skill) => (
-        <SpecialitySkillCard
-          skill={skill}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-        />
+        <SpecialitySkillCard skill={skill} onEdit={handleEdit} onDelete={handleDelete} />
       )}
       renderFormDialog={() => (
         <SpecialitySkillFormDialog

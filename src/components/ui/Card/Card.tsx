@@ -7,11 +7,7 @@ export interface CardProps {
   className?: string;
 }
 
-export function Card({
-  variant = 'default',
-  children,
-  className = '',
-}: CardProps) {
+export function Card({ variant = 'default', children, className = '' }: CardProps) {
   const combinedClassName = [
     baseStyles,
     variantStyles[variant],
@@ -20,9 +16,5 @@ export function Card({
     .filter(Boolean)
     .join(' ');
 
-  return (
-    <div className={combinedClassName}>
-      {children}
-    </div>
-  );
+  return <div className={combinedClassName}>{children}</div>;
 }

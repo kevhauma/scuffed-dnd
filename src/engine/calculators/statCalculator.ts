@@ -1,19 +1,19 @@
 /**
  * Stat Calculator
- * 
+ *
  * Calculates maximum stat values from formulas.
  */
 
 import type { Stat } from '../../types/config';
 import type { FormulaContext } from '../../types/formula';
-import { parseFormula } from '../formula/parser';
 import { evaluateFormula } from '../formula/evaluator';
+import { parseFormula } from '../formula/parser';
 
 /**
  * Calculate maximum stat values from formulas
- * 
+ *
  * Evaluates stat formulas using the character's total main skill levels (including racial bonuses).
- * 
+ *
  * @param stats - Array of Stat definitions from configuration
  * @param totalMainSkillLevels - Main skill levels with racial bonuses applied
  * @returns Record of stat ID to maximum value

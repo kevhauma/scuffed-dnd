@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { FormulaEditor } from './FormulaEditor';
 
 describe('FormulaEditor', () => {
@@ -19,13 +19,7 @@ describe('FormulaEditor', () => {
 
   it('calls onChange when input value changes', () => {
     const onChange = vi.fn();
-    render(
-      <FormulaEditor
-        value=""
-        onChange={onChange}
-        availableVariables={availableVariables}
-      />
-    );
+    render(<FormulaEditor value="" onChange={onChange} availableVariables={availableVariables} />);
     const input = screen.getByPlaceholderText(/Enter formula/);
     fireEvent.change(input, { target: { value: 'STR + DEX' } });
     expect(onChange).toHaveBeenCalled();

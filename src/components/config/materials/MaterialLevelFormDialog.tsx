@@ -1,16 +1,16 @@
 /**
  * Material Level Form Dialog
- * 
+ *
  * Form for adding/editing material levels with bonuses and values.
  */
 
-import { useFieldArray, type UseFormReturn } from 'react-hook-form';
+import { type UseFormReturn, useFieldArray } from 'react-hook-form';
+import type { CurrencyTier } from '../../../types';
 import { Button } from '../../ui/Button/Button';
-import { FormField } from '../../ui/FormField/FormField';
 import { Dialog } from '../../ui/Dialog/Dialog';
+import { FormField } from '../../ui/FormField/FormField';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
-import type { CurrencyTier } from '../../../types';
 
 interface LevelFormData {
   level: number;
@@ -39,7 +39,12 @@ export function MaterialLevelFormDialog({
   onClose,
   onSave,
 }: MaterialLevelFormDialogProps) {
-  const { register, formState: { errors }, control, watch } = form;
+  const {
+    register,
+    formState: { errors },
+    control,
+    watch,
+  } = form;
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'bonuses',
@@ -50,9 +55,9 @@ export function MaterialLevelFormDialog({
   };
 
   return (
-    <Dialog 
-      open={isOpen} 
-      onClose={onClose} 
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
       title={`${isEditing ? 'Edit' : 'Add'} Material Level`}
       className="max-w-2xl"
     >
@@ -64,7 +69,7 @@ export function MaterialLevelFormDialog({
           required
           placeholder="1"
           error={errors.level?.message}
-          {...register('level', { 
+          {...register('level', {
             required: 'Level is required',
             valueAsNumber: true,
             min: { value: 1, message: 'Level must be at least 1' },
@@ -86,9 +91,9 @@ export function MaterialLevelFormDialog({
             <Text variant="body-small" className="font-semibold">
               Skill Bonuses/Penalties
             </Text>
-            <Button 
+            <Button
               type="button"
-              variant="secondary" 
+              variant="secondary"
               onClick={handleAddBonus}
               disabled={availableSkillCodes.length === 0}
               className="text-xs px-2 py-1"
@@ -115,7 +120,7 @@ export function MaterialLevelFormDialog({
                 <Select
                   value={watch(`bonuses.${index}.skillCode`)}
                   onChange={(e) => form.setValue(`bonuses.${index}.skillCode`, e.target.value)}
-                  options={availableSkillCodes.map(code => ({
+                  options={availableSkillCodes.map((code) => ({
                     value: code,
                     label: code,
                   }))}
@@ -132,9 +137,9 @@ export function MaterialLevelFormDialog({
                   })}
                 />
               </div>
-              <Button 
+              <Button
                 type="button"
-                variant="danger" 
+                variant="danger"
                 onClick={() => remove(index)}
                 className="text-xs px-2 py-1 mt-1"
               >
@@ -163,7 +168,7 @@ export function MaterialLevelFormDialog({
                   required
                   placeholder="100"
                   error={errors.amount?.message}
-                  {...register('amount', { 
+                  {...register('amount', {
                     required: 'Amount is required',
                     valueAsNumber: true,
                     min: { value: 0, message: 'Amount must be non-negative' },
@@ -171,15 +176,13 @@ export function MaterialLevelFormDialog({
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-sm font-medium text-ink-800 mb-1">
-                  Currency Tier
-                </label>
+                <label className="block text-sm font-medium text-ink-800 mb-1">Currency Tier</label>
                 <Select
                   value={watch('tierId')}
                   onChange={(e) => form.setValue('tierId', e.target.value)}
                   options={currencyTiers
                     .sort((a, b) => a.order - b.order)
-                    .map(tier => ({
+                    .map((tier) => ({
                       value: tier.id,
                       label: tier.name,
                     }))}

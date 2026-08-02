@@ -8,8 +8,8 @@
  * **Validates: Requirements 1.1, 1.4, 1.5, 1.6, 18.5**
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Configuration } from '../../../types/config';
 
 vi.mock('../../../services/storage', () => ({

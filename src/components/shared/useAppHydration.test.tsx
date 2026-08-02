@@ -7,8 +7,8 @@
  * **Validates: Requirements 17.3, 17.4, 17.5**
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Character } from '../../types/character';
 import type { Configuration } from '../../types/config';
 
@@ -20,11 +20,7 @@ vi.mock('../../services/storage', () => ({
   saveCharacters: vi.fn(),
 }));
 
-import {
-  isStorageAvailable,
-  loadCharacters,
-  loadConfiguration,
-} from '../../services/storage';
+import { isStorageAvailable, loadCharacters, loadConfiguration } from '../../services/storage';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useConfigStore } from '../../stores/configStore';
 import { useAppHydration } from './useAppHydration';

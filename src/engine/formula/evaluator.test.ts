@@ -2,10 +2,10 @@
  * Formula Evaluator Tests
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import type { FormulaContext } from '../../types/formula';
 import { evaluateFormula } from './evaluator';
 import { parseFormula } from './parser';
-import type { FormulaContext } from '../../types/formula';
 
 describe('Formula Evaluator', () => {
   describe('Number literals', () => {

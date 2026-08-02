@@ -1,18 +1,18 @@
 /**
  * Race Form Dialog
- * 
+ *
  * Form for adding/editing races with skill modifier editor.
  */
 
 import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { Button } from '../../ui/Button/Button';
-import { FormField } from '../../ui/FormField/FormField';
-import { Dialog } from '../../ui/Dialog/Dialog';
-import { Select } from '../../ui/Select/Select';
-import { Input } from '../../ui/Input/Input';
-import { Text } from '../../ui/Text/Text';
 import type { MainSkill, SkillModifier } from '../../../types';
+import { Button } from '../../ui/Button/Button';
+import { Dialog } from '../../ui/Dialog/Dialog';
+import { FormField } from '../../ui/FormField/FormField';
+import { Input } from '../../ui/Input/Input';
+import { Select } from '../../ui/Select/Select';
+import { Text } from '../../ui/Text/Text';
 
 interface RaceFormData {
   name: string;
@@ -37,7 +37,12 @@ export function RaceFormDialog({
   onClose,
   onSave,
 }: RaceFormDialogProps) {
-  const { register, formState: { errors }, watch, setValue } = form;
+  const {
+    register,
+    formState: { errors },
+    watch,
+    setValue,
+  } = form;
   const skillModifiers = watch('skillModifiers');
 
   const [selectedSkillCode, setSelectedSkillCode] = useState('');
@@ -45,15 +50,15 @@ export function RaceFormDialog({
 
   // Get available skills that haven't been added yet
   const availableSkills = availableMainSkills.filter(
-    skill => !skillModifiers.some(m => m.skillCode === skill.code)
+    (skill) => !skillModifiers.some((m) => m.skillCode === skill.code)
   );
 
   const handleAddModifier = () => {
     if (!selectedSkillCode) return;
-    
+
     const newModifiers = [
       ...skillModifiers,
-      { skillCode: selectedSkillCode, modifier: modifierValue }
+      { skillCode: selectedSkillCode, modifier: modifierValue },
     ];
     setValue('skillModifiers', newModifiers);
     setSelectedSkillCode('');
@@ -73,16 +78,12 @@ export function RaceFormDialog({
 
   // Get skill name from code
   const getSkillName = (code: string) => {
-    const skill = availableMainSkills.find(s => s.code === code);
+    const skill = availableMainSkills.find((s) => s.code === code);
     return skill ? skill.name : code;
   };
 
   return (
-    <Dialog 
-      open={isOpen} 
-      onClose={onClose} 
-      title={`${isEditing ? 'Edit' : 'Add'} Race`}
-    >
+    <Dialog open={isOpen} onClose={onClose} title={`${isEditing ? 'Edit' : 'Add'} Race`}>
       <form onSubmit={onSave} className="space-y-4">
         <FormField
           label="Name"
@@ -100,8 +101,10 @@ export function RaceFormDialog({
 
         {/* Skill Modifiers Section */}
         <div className="space-y-3">
-          <Text variant="body-small" className="font-semibold">Skill Modifiers</Text>
-          
+          <Text variant="body-small" className="font-semibold">
+            Skill Modifiers
+          </Text>
+
           {/* Add Modifier Controls */}
           {availableSkills.length > 0 && (
             <div className="p-3 bg-parchment-100 rounded space-y-2">
@@ -112,10 +115,10 @@ export function RaceFormDialog({
                   onChange={(e) => setSelectedSkillCode(e.target.value)}
                   options={[
                     { value: '', label: 'Select skill...' },
-                    ...availableSkills.map(skill => ({
+                    ...availableSkills.map((skill) => ({
                       value: skill.code,
-                      label: `${skill.name} (${skill.code})`
-                    }))
+                      label: `${skill.name} (${skill.code})`,
+                    })),
                   ]}
                   className="flex-1"
                 />
@@ -148,10 +151,7 @@ export function RaceFormDialog({
           ) : (
             <div className="space-y-2">
               {skillModifiers.map((modifier, index) => (
-                <div 
-                  key={index}
-                  className="flex items-center gap-2 p-2 bg-parchment-50 rounded"
-                >
+                <div key={index} className="flex items-center gap-2 p-2 bg-parchment-50 rounded">
                   <Text variant="body-small" className="flex-1">
                     {getSkillName(modifier.skillCode)}
                   </Text>

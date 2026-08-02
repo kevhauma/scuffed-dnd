@@ -1,14 +1,14 @@
 /**
  * Calculation Engine Tests
- * 
+ *
  * Tests for the main calculator convenience function.
  * Individual calculator tests are in their respective files.
  */
 
-import { describe, it, expect } from 'vitest';
-import { calculateCharacter, calculateCharacterStats } from './calculator';
+import { describe, expect, it } from 'vitest';
 import type { Character } from '../types/character';
 import type { Configuration } from '../types/config';
+import { calculateCharacter, calculateCharacterStats } from './calculator';
 
 describe('calculateCharacterStats', () => {
   it('should calculate stats with racial bonuses applied', () => {
@@ -136,9 +136,7 @@ describe('calculateCharacterStats', () => {
           id: 'human',
           name: 'Human',
           description: 'Versatile and adaptable',
-          skillModifiers: [
-            { skillCode: 'STR', modifier: 1 },
-          ],
+          skillModifiers: [{ skillCode: 'STR', modifier: 1 }],
         },
       ],
       currencyTiers: [],
@@ -174,9 +172,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      ],
+      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [
         {
           id: 'health',

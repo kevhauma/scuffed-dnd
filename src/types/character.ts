@@ -1,6 +1,6 @@
 /**
  * Character Types
- * 
+ *
  * Type definitions for player characters and their state.
  */
 

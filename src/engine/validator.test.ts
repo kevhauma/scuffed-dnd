@@ -2,9 +2,9 @@
  * Configuration Validator Tests
  */
 
-import { describe, it, expect } from 'vitest';
-import { validateConfiguration } from './validator';
+import { describe, expect, it } from 'vitest';
 import type { Configuration } from '../types/config';
+import { validateConfiguration } from './validator';
 
 /**
  * Helper to create a minimal valid configuration
@@ -46,9 +46,7 @@ describe('validateConfiguration', () => {
         { code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
         { code: 'CON', name: 'Constitution', description: '', maxLevel: 10 },
       ];
-      config.stats = [
-        { id: 'hp', name: 'Health', description: '', formula: 'STR * 10 + CON * 5' },
-      ];
+      config.stats = [{ id: 'hp', name: 'Health', description: '', formula: 'STR * 10 + CON * 5' }];
 
       const result = validateConfiguration(config);
 
@@ -80,9 +78,7 @@ describe('validateConfiguration', () => {
 
     it('should validate combat skills referencing main and speciality skills', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
+      config.mainSkills = [{ code: 'STR', name: 'Strength', description: '', maxLevel: 10 }];
       config.specialitySkills = [
         {
           code: 'MEL',
@@ -110,15 +106,9 @@ describe('validateConfiguration', () => {
 
     it('should validate materials with valid category and skill references', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
-      config.materialCategories = [
-        { id: 'metals', name: 'Metals', description: '' },
-      ];
-      config.currencyTiers = [
-        { id: 'gold', name: 'Gold', order: 0, conversionToNext: 1 },
-      ];
+      config.mainSkills = [{ code: 'STR', name: 'Strength', description: '', maxLevel: 10 }];
+      config.materialCategories = [{ id: 'metals', name: 'Metals', description: '' }];
+      config.currencyTiers = [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 1 }];
       config.materials = [
         {
           id: 'iron',
@@ -144,15 +134,9 @@ describe('validateConfiguration', () => {
 
     it('should validate items with valid equipment slot and material references', () => {
       const config = createMinimalConfig();
-      config.equipmentSlots = [
-        { type: 'helmet', name: 'Helmet', description: '' },
-      ];
-      config.materialCategories = [
-        { id: 'metals', name: 'Metals', description: '' },
-      ];
-      config.currencyTiers = [
-        { id: 'gold', name: 'Gold', order: 0, conversionToNext: 1 },
-      ];
+      config.equipmentSlots = [{ type: 'helmet', name: 'Helmet', description: '' }];
+      config.materialCategories = [{ id: 'metals', name: 'Metals', description: '' }];
+      config.currencyTiers = [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 1 }];
       config.materials = [
         {
           id: 'iron',
@@ -214,12 +198,8 @@ describe('validateConfiguration', () => {
   describe('Formula validation errors', () => {
     it('should detect undefined variable in stat formula', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
-      config.stats = [
-        { id: 'hp', name: 'Health', description: '', formula: 'STR + UNDEFINED' },
-      ];
+      config.mainSkills = [{ code: 'STR', name: 'Strength', description: '', maxLevel: 10 }];
+      config.stats = [{ id: 'hp', name: 'Health', description: '', formula: 'STR + UNDEFINED' }];
 
       const result = validateConfiguration(config);
 
@@ -232,9 +212,7 @@ describe('validateConfiguration', () => {
 
     it('should detect undefined variable in speciality skill formula', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
+      config.mainSkills = [{ code: 'STR', name: 'Strength', description: '', maxLevel: 10 }];
       config.specialitySkills = [
         {
           code: 'MEL',
@@ -255,9 +233,7 @@ describe('validateConfiguration', () => {
 
     it('should detect undefined variable in combat skill formula', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
+      config.mainSkills = [{ code: 'STR', name: 'Strength', description: '', maxLevel: 10 }];
       config.combatSkills = [
         {
           code: 'SWD',
@@ -278,12 +254,8 @@ describe('validateConfiguration', () => {
 
     it('should detect syntax errors in formulas', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
-      config.stats = [
-        { id: 'hp', name: 'Health', description: '', formula: 'STR + * 10' },
-      ];
+      config.mainSkills = [{ code: 'STR', name: 'Strength', description: '', maxLevel: 10 }];
+      config.stats = [{ id: 'hp', name: 'Health', description: '', formula: 'STR + * 10' }];
 
       const result = validateConfiguration(config);
 
@@ -294,9 +266,7 @@ describe('validateConfiguration', () => {
 
     it('should detect empty formulas', () => {
       const config = createMinimalConfig();
-      config.stats = [
-        { id: 'hp', name: 'Health', description: '', formula: '' },
-      ];
+      config.stats = [{ id: 'hp', name: 'Health', description: '', formula: '' }];
 
       const result = validateConfiguration(config);
 
@@ -309,15 +279,11 @@ describe('validateConfiguration', () => {
   describe('Circular dependency detection', () => {
     it('should detect circular dependency between stats', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
+      config.mainSkills = [{ code: 'STR', name: 'Strength', description: '', maxLevel: 10 }];
       // This creates a circular dependency if stats could reference each other
       // In the current design, stats only reference main skills, so this won't create a cycle
       // But we test the validator's capability
-      config.stats = [
-        { id: 'hp', name: 'Health', description: '', formula: 'STR' },
-      ];
+      config.stats = [{ id: 'hp', name: 'Health', description: '', formula: 'STR' }];
 
       const result = validateConfiguration(config);
 
@@ -327,9 +293,7 @@ describe('validateConfiguration', () => {
 
     it('should detect circular dependency in speciality skills', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
+      config.mainSkills = [{ code: 'STR', name: 'Strength', description: '', maxLevel: 10 }];
       // Speciality skills can't reference each other in current design
       // They only reference main skills
       config.specialitySkills = [
@@ -349,9 +313,7 @@ describe('validateConfiguration', () => {
 
     it('should detect circular dependency between combat and speciality skills', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
+      config.mainSkills = [{ code: 'STR', name: 'Strength', description: '', maxLevel: 10 }];
       config.specialitySkills = [
         {
           code: 'MEL',
@@ -441,12 +403,8 @@ describe('validateConfiguration', () => {
 
     it('should detect invalid material level in item', () => {
       const config = createMinimalConfig();
-      config.materialCategories = [
-        { id: 'metals', name: 'Metals', description: '' },
-      ];
-      config.currencyTiers = [
-        { id: 'gold', name: 'Gold', order: 0, conversionToNext: 1 },
-      ];
+      config.materialCategories = [{ id: 'metals', name: 'Metals', description: '' }];
+      config.currencyTiers = [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 1 }];
       config.materials = [
         {
           id: 'iron',
@@ -483,12 +441,8 @@ describe('validateConfiguration', () => {
 
     it('should detect invalid skill reference in material bonuses', () => {
       const config = createMinimalConfig();
-      config.materialCategories = [
-        { id: 'metals', name: 'Metals', description: '' },
-      ];
-      config.currencyTiers = [
-        { id: 'gold', name: 'Gold', order: 0, conversionToNext: 1 },
-      ];
+      config.materialCategories = [{ id: 'metals', name: 'Metals', description: '' }];
+      config.currencyTiers = [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 1 }];
       config.materials = [
         {
           id: 'iron',
@@ -516,9 +470,7 @@ describe('validateConfiguration', () => {
 
     it('should detect invalid currency tier reference in material', () => {
       const config = createMinimalConfig();
-      config.materialCategories = [
-        { id: 'metals', name: 'Metals', description: '' },
-      ];
+      config.materialCategories = [{ id: 'metals', name: 'Metals', description: '' }];
       config.materials = [
         {
           id: 'iron',
@@ -567,9 +519,7 @@ describe('validateConfiguration', () => {
   describe('Uniqueness validation', () => {
     it('should detect duplicate skill codes across skill types', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
+      config.mainSkills = [{ code: 'STR', name: 'Strength', description: '', maxLevel: 10 }];
       config.specialitySkills = [
         {
           code: 'STR',
@@ -675,9 +625,7 @@ describe('validateConfiguration', () => {
 
     it('should include entity information in errors', () => {
       const config = createMinimalConfig();
-      config.stats = [
-        { id: 'hp', name: 'Health', description: '', formula: 'INVALID' },
-      ];
+      config.stats = [{ id: 'hp', name: 'Health', description: '', formula: 'INVALID' }];
 
       const result = validateConfiguration(config);
 

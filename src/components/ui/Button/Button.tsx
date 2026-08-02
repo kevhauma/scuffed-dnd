@@ -1,5 +1,5 @@
 import React from 'react';
-import { baseStyles, variantStyles, sizeStyles } from './Button.style';
+import { baseStyles, sizeStyles, variantStyles } from './Button.style';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -17,7 +17,6 @@ export function Button({
   type = 'button',
   ...props
 }: ButtonProps) {
-
   const combinedClassName = [
     baseStyles,
     variantStyles[variant],
@@ -28,12 +27,7 @@ export function Button({
     .join(' ');
 
   return (
-    <button
-      type={type}
-      disabled={disabled}
-      className={combinedClassName}
-      {...props}
-    >
+    <button type={type} disabled={disabled} className={combinedClassName} {...props}>
       {children}
     </button>
   );

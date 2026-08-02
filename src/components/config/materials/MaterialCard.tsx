@@ -12,10 +12,10 @@
 
 import { useState } from 'react';
 import { formatCurrency, normalizeCurrency } from '../../../engine/currency';
+import type { CurrencyTier, Material } from '../../../types';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
-import type { Material, CurrencyTier } from '../../../types';
 
 interface MaterialCardProps {
   material: Material;
@@ -40,7 +40,7 @@ export function MaterialCard({
   const [isExpanded, setIsExpanded] = useState(false);
 
   const getCurrencyTierName = (tierId: string) => {
-    return currencyTiers.find(t => t.id === tierId)?.name || 'Unknown';
+    return currencyTiers.find((t) => t.id === tierId)?.name || 'Unknown';
   };
 
   return (
@@ -56,7 +56,9 @@ export function MaterialCard({
             >
               {isExpanded ? '▼' : '▶'}
             </Button>
-            <Text variant="body" className="font-semibold">{material.name}</Text>
+            <Text variant="body" className="font-semibold">
+              {material.name}
+            </Text>
             <Text variant="body-small-secondary" className="ml-2">
               ({material.levels.length} level{material.levels.length !== 1 ? 's' : ''})
             </Text>
@@ -68,22 +70,22 @@ export function MaterialCard({
           )}
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             onClick={() => onAddLevel(material.id)}
             className="text-xs px-2 py-1"
           >
             Add Level
           </Button>
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             onClick={() => onEdit(material.id)}
             className="text-xs px-2 py-1"
           >
             Edit
           </Button>
-          <Button 
-            variant="danger" 
+          <Button
+            variant="danger"
             onClick={() => onDelete(material.id)}
             className="text-xs px-2 py-1"
           >
@@ -101,10 +103,7 @@ export function MaterialCard({
             </Text>
           ) : (
             material.levels.map((level, index) => (
-              <div 
-                key={index}
-                className="p-3 bg-parchment-50 border border-stone-200 rounded"
-              >
+              <div key={index} className="p-3 bg-parchment-50 border border-stone-200 rounded">
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <Text variant="body-small" className="font-semibold">
@@ -112,15 +111,15 @@ export function MaterialCard({
                     </Text>
                   </div>
                   <div className="flex gap-2">
-                    <Button 
-                      variant="secondary" 
+                    <Button
+                      variant="secondary"
                       onClick={() => onEditLevel(material.id, index)}
                       className="text-xs px-2 py-0.5"
                     >
                       Edit
                     </Button>
-                    <Button 
-                      variant="danger" 
+                    <Button
+                      variant="danger"
                       onClick={() => onDeleteLevel(material.id, index)}
                       className="text-xs px-2 py-0.5"
                     >
@@ -132,18 +131,21 @@ export function MaterialCard({
                 {/* Bonuses */}
                 {level.bonuses.length > 0 && (
                   <div className="mb-2">
-                    <Text variant="body-small-secondary" className="mb-1">Bonuses:</Text>
+                    <Text variant="body-small-secondary" className="mb-1">
+                      Bonuses:
+                    </Text>
                     <div className="flex flex-wrap gap-2">
                       {level.bonuses.map((bonus, bonusIdx) => (
-                        <span 
+                        <span
                           key={bonusIdx}
                           className={`text-xs px-2 py-1 rounded ${
-                            bonus.modifier >= 0 
-                              ? 'bg-forest/10 text-forest border border-forest' 
+                            bonus.modifier >= 0
+                              ? 'bg-forest/10 text-forest border border-forest'
                               : 'bg-crimson/10 text-crimson border border-crimson'
                           }`}
                         >
-                          {bonus.skillCode}: {bonus.modifier >= 0 ? '+' : ''}{bonus.modifier}
+                          {bonus.skillCode}: {bonus.modifier >= 0 ? '+' : ''}
+                          {bonus.modifier}
                         </span>
                       ))}
                     </div>

@@ -1,24 +1,24 @@
 /**
  * Storage Service Tests
- * 
+ *
  * Unit tests for LocalStorage abstraction
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import {
-  saveConfiguration,
-  loadConfiguration,
-  saveCharacters,
-  loadCharacters,
-  clearAllData,
-  isStorageAvailable,
-  getStorageSize,
-  StorageQuotaError,
-  StorageParseError,
-  StorageError,
-} from './storage';
-import type { Configuration } from '../types/config';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Character } from '../types/character';
+import type { Configuration } from '../types/config';
+import {
+  clearAllData,
+  getStorageSize,
+  isStorageAvailable,
+  loadCharacters,
+  loadConfiguration,
+  StorageError,
+  StorageParseError,
+  StorageQuotaError,
+  saveCharacters,
+  saveConfiguration,
+} from './storage';
 
 // Mock localStorage
 const localStorageMock = (() => {
