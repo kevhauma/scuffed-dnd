@@ -1,0 +1,384 @@
+{
+  "id": "demo-ruleset-0001",
+  "name": "Emberfall Demo Ruleset",
+  "version": "1.0.0",
+  "focusStatBonusLevel": 2,
+  "mainSkillPointBudget": 20,
+  "mainSkills": [
+    {
+      "code": "STR",
+      "name": "Strength",
+      "description": "Raw physical power. Governs melee blows and how much you can haul.",
+      "maxLevel": 10
+    },
+    {
+      "code": "DEX",
+      "name": "Dexterity",
+      "description": "Agility, reflexes, and precision with ranged weapons.",
+      "maxLevel": 10
+    },
+    {
+      "code": "CON",
+      "name": "Constitution",
+      "description": "Toughness and endurance. The backbone of health and stamina.",
+      "maxLevel": 10
+    },
+    {
+      "code": "INT",
+      "name": "Intellect",
+      "description": "Reasoning and arcane aptitude. Fuels mana and spellcraft.",
+      "maxLevel": 10
+    },
+    {
+      "code": "WIS",
+      "name": "Wisdom",
+      "description": "Perception, intuition, and force of will.",
+      "maxLevel": 10
+    },
+    {
+      "code": "CHA",
+      "name": "Charisma",
+      "description": "Presence and persuasiveness in speech and song.",
+      "maxLevel": 10
+    }
+  ],
+  "stats": [
+    {
+      "id": "stat-health",
+      "name": "Health",
+      "description": "Hit points. Reach zero and you fall.",
+      "formula": "CON * 10 + STR * 2"
+    },
+    {
+      "id": "stat-mana",
+      "name": "Mana",
+      "description": "Arcane reserves spent on spells.",
+      "formula": "INT * 8 + WIS * 4"
+    },
+    {
+      "id": "stat-stamina",
+      "name": "Stamina",
+      "description": "Energy for sprinting, climbing, and heavy swings.",
+      "formula": "(CON + DEX) * 5"
+    }
+  ],
+  "specialitySkills": [
+    {
+      "code": "STL",
+      "name": "Stealth",
+      "description": "Moving unseen and unheard.",
+      "maxBaseLevel": 5,
+      "bonusFormula": "(DEX + WIS) / 2"
+    },
+    {
+      "code": "ATH",
+      "name": "Athletics",
+      "description": "Climbing, swimming, jumping, and grappling.",
+      "maxBaseLevel": 5,
+      "bonusFormula": "(STR + CON) / 2"
+    },
+    {
+      "code": "PRS",
+      "name": "Persuasion",
+      "description": "Talking your way into (or out of) trouble.",
+      "maxBaseLevel": 5,
+      "bonusFormula": "(CHA + WIS) / 2"
+    },
+    {
+      "code": "LOR",
+      "name": "Lore",
+      "description": "Knowledge of history, arcana, and forgotten things.",
+      "maxBaseLevel": 5,
+      "bonusFormula": "(INT + WIS) / 2"
+    },
+    {
+      "code": "SUR",
+      "name": "Survival",
+      "description": "Tracking, foraging, and reading the wilds.",
+      "maxBaseLevel": 5,
+      "bonusFormula": "(WIS + CON) / 2"
+    }
+  ],
+  "combatSkills": [
+    {
+      "code": "MEL",
+      "name": "Melee Strike",
+      "description": "A close-quarters weapon attack.",
+      "dice": { "d4": 0, "d6": 0, "d8": 1, "d10": 0, "d12": 0, "d20": 0 },
+      "bonusFormula": "STR + ATH / 2"
+    },
+    {
+      "code": "RNG",
+      "name": "Ranged Shot",
+      "description": "A bow or thrown-weapon attack from distance.",
+      "dice": { "d4": 0, "d6": 2, "d8": 0, "d10": 0, "d12": 0, "d20": 0 },
+      "bonusFormula": "DEX + SUR / 2"
+    },
+    {
+      "code": "ARC",
+      "name": "Arcane Bolt",
+      "description": "A crackling missile of raw magic.",
+      "dice": { "d4": 0, "d6": 0, "d8": 0, "d10": 1, "d12": 0, "d20": 0 },
+      "bonusFormula": "INT + LOR / 2"
+    }
+  ],
+  "materialCategories": [
+    {
+      "id": "cat-metal",
+      "name": "Metal",
+      "description": "Forged ores for blades and armour."
+    },
+    {
+      "id": "cat-leather",
+      "name": "Leather",
+      "description": "Cured hides for light armour and gear."
+    },
+    {
+      "id": "cat-wood",
+      "name": "Wood",
+      "description": "Worked timber for bows, hafts, and shields."
+    }
+  ],
+  "materials": [
+    {
+      "id": "mat-battle-metal",
+      "name": "Battle Metal",
+      "description": "Ore refined for war, from pig iron to legendary mithril.",
+      "categoryId": "cat-metal",
+      "levels": [
+        {
+          "level": 1,
+          "name": "Iron",
+          "bonuses": [{ "skillCode": "MEL", "modifier": 1 }],
+          "value": { "tierId": "tier-silver", "amount": 20 }
+        },
+        {
+          "level": 2,
+          "name": "Steel",
+          "bonuses": [{ "skillCode": "MEL", "modifier": 2 }],
+          "value": { "tierId": "tier-gold", "amount": 5 }
+        },
+        {
+          "level": 3,
+          "name": "Mithril",
+          "bonuses": [
+            { "skillCode": "MEL", "modifier": 4 },
+            { "skillCode": "STL", "modifier": 1 }
+          ],
+          "value": { "tierId": "tier-gold", "amount": 50 }
+        }
+      ]
+    },
+    {
+      "id": "mat-beast-hide",
+      "name": "Beast Hide",
+      "description": "Hides tanned into supple protective leather.",
+      "categoryId": "cat-leather",
+      "levels": [
+        {
+          "level": 1,
+          "name": "Rawhide",
+          "bonuses": [{ "skillCode": "STL", "modifier": 1 }],
+          "value": { "tierId": "tier-copper", "amount": 50 }
+        },
+        {
+          "level": 2,
+          "name": "Boiled Leather",
+          "bonuses": [{ "skillCode": "STL", "modifier": 2 }],
+          "value": { "tierId": "tier-silver", "amount": 15 }
+        },
+        {
+          "level": 3,
+          "name": "Drakescale",
+          "bonuses": [
+            { "skillCode": "STL", "modifier": 2 },
+            { "skillCode": "RNG", "modifier": 1 }
+          ],
+          "value": { "tierId": "tier-gold", "amount": 8 }
+        }
+      ]
+    },
+    {
+      "id": "mat-heartwood",
+      "name": "Heartwood",
+      "description": "Seasoned timber prized by bowyers and shieldwrights.",
+      "categoryId": "cat-wood",
+      "levels": [
+        {
+          "level": 1,
+          "name": "Pine",
+          "bonuses": [{ "skillCode": "RNG", "modifier": 1 }],
+          "value": { "tierId": "tier-copper", "amount": 30 }
+        },
+        {
+          "level": 2,
+          "name": "Oak",
+          "bonuses": [{ "skillCode": "RNG", "modifier": 2 }],
+          "value": { "tierId": "tier-silver", "amount": 10 }
+        },
+        {
+          "level": 3,
+          "name": "Ironwood",
+          "bonuses": [
+            { "skillCode": "RNG", "modifier": 3 },
+            { "skillCode": "MEL", "modifier": 1 }
+          ],
+          "value": { "tierId": "tier-gold", "amount": 4 }
+        }
+      ]
+    }
+  ],
+  "equipmentSlots": [
+    {
+      "type": "head",
+      "name": "Head",
+      "description": "Helms, hoods, and circlets."
+    },
+    {
+      "type": "chest",
+      "name": "Chest",
+      "description": "Armour worn on the torso."
+    },
+    {
+      "type": "main_hand",
+      "name": "Main Hand",
+      "description": "Your primary weapon or tool."
+    },
+    {
+      "type": "off_hand",
+      "name": "Off Hand",
+      "description": "Shields, focuses, or a second blade."
+    },
+    {
+      "type": "feet",
+      "name": "Feet",
+      "description": "Boots and greaves."
+    }
+  ],
+  "items": [
+    {
+      "id": "item-longsword",
+      "name": "Longsword",
+      "description": "A dependable double-edged blade.",
+      "categoryId": "cat-metal",
+      "materialId": "mat-battle-metal",
+      "materialLevel": 2,
+      "equipmentSlotType": "main_hand"
+    },
+    {
+      "id": "item-hunting-bow",
+      "name": "Hunting Bow",
+      "description": "A shortbow strung for the chase.",
+      "categoryId": "cat-wood",
+      "materialId": "mat-heartwood",
+      "materialLevel": 2,
+      "equipmentSlotType": "main_hand"
+    },
+    {
+      "id": "item-leather-jerkin",
+      "name": "Leather Jerkin",
+      "description": "Light armour that doesn't slow you down.",
+      "categoryId": "cat-leather",
+      "materialId": "mat-beast-hide",
+      "materialLevel": 2,
+      "equipmentSlotType": "chest"
+    },
+    {
+      "id": "item-iron-helm",
+      "name": "Iron Helm",
+      "description": "A plain but sturdy helmet.",
+      "categoryId": "cat-metal",
+      "materialId": "mat-battle-metal",
+      "materialLevel": 1,
+      "equipmentSlotType": "head"
+    },
+    {
+      "id": "item-wooden-buckler",
+      "name": "Wooden Buckler",
+      "description": "A small round shield of pine.",
+      "categoryId": "cat-wood",
+      "materialId": "mat-heartwood",
+      "materialLevel": 1,
+      "equipmentSlotType": "off_hand"
+    },
+    {
+      "id": "item-travelers-boots",
+      "name": "Traveler's Boots",
+      "description": "Broken-in rawhide boots, quiet on the road.",
+      "categoryId": "cat-leather",
+      "materialId": "mat-beast-hide",
+      "materialLevel": 1,
+      "equipmentSlotType": "feet"
+    },
+    {
+      "id": "item-torch",
+      "name": "Torch",
+      "description": "Burns for about an hour. No slot — carried loose."
+    },
+    {
+      "id": "item-hempen-rope",
+      "name": "Hempen Rope",
+      "description": "Fifty feet of rough rope. Always useful."
+    }
+  ],
+  "races": [
+    {
+      "id": "race-human",
+      "name": "Human",
+      "description": "Adaptable and ambitious, at home anywhere.",
+      "skillModifiers": [{ "skillCode": "CHA", "modifier": 1 }]
+    },
+    {
+      "id": "race-dwarf",
+      "name": "Dwarf",
+      "description": "Stout mountain folk, tough as the stone they mine.",
+      "skillModifiers": [
+        { "skillCode": "CON", "modifier": 2 },
+        { "skillCode": "STR", "modifier": 1 },
+        { "skillCode": "DEX", "modifier": -1 }
+      ]
+    },
+    {
+      "id": "race-elf",
+      "name": "Elf",
+      "description": "Graceful and long-lived, with keen minds and keener eyes.",
+      "skillModifiers": [
+        { "skillCode": "DEX", "modifier": 2 },
+        { "skillCode": "INT", "modifier": 1 },
+        { "skillCode": "CON", "modifier": -1 }
+      ]
+    },
+    {
+      "id": "race-orc",
+      "name": "Orc",
+      "description": "Fierce warriors bred for the front line.",
+      "skillModifiers": [
+        { "skillCode": "STR", "modifier": 2 },
+        { "skillCode": "CON", "modifier": 1 },
+        { "skillCode": "INT", "modifier": -1 }
+      ]
+    }
+  ],
+  "currencyTiers": [
+    {
+      "id": "tier-copper",
+      "name": "Copper",
+      "order": 0,
+      "conversionToNext": 10
+    },
+    {
+      "id": "tier-silver",
+      "name": "Silver",
+      "order": 1,
+      "conversionToNext": 10
+    },
+    {
+      "id": "tier-gold",
+      "name": "Gold",
+      "order": 2,
+      "conversionToNext": 1
+    }
+  ],
+  "createdAt": "2026-08-02T12:00:00.000Z",
+  "updatedAt": "2026-08-02T12:00:00.000Z"
+}
