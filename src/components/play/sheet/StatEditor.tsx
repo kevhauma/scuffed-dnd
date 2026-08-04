@@ -9,19 +9,21 @@
  * enforced in the store action, not here — this component reports the requested value and renders
  * whatever came back.
  *
- * **Validates: Requirements 14.1, 14.2, 21.1-21.5**
+ * **Validates: Requirements 14.1, 14.2, 16.6, 21.1-21.5**
  */
 
 import { useId, useState } from 'react';
 import { Button } from '../../ui/Button/Button';
+import { ErrorChip } from '../../ui/ErrorChip/ErrorChip';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
+import type { DerivedValue } from './useCharacterSheet';
 
 export interface StatEditorProps {
   name: string;
   current: number;
-  max: number;
+  max: DerivedValue;
   onChange: (value: number) => void;
 }
 
@@ -61,7 +63,7 @@ export function StatEditor({ name, current, max, onChange }: StatEditorProps) {
       <Input
         id={inputId}
         type="number"
-        max={max}
+        max={max.value ?? undefined}
         value={draft ?? current}
         onChange={(event) => handleChange(event.target.value)}
         onBlur={() => setDraft(null)}
@@ -72,15 +74,20 @@ export function StatEditor({ name, current, max, onChange }: StatEditorProps) {
         variant="secondary"
         size="sm"
         aria-label={`Increase ${name}`}
-        disabled={current >= max}
+        // With no calculated maximum there is no ceiling to stop at, so the control stays usable
+        disabled={max.value !== null && current >= max.value}
         onClick={() => onChange(current + 1)}
       >
         +
       </Button>
 
-      <Text variant="body-small-secondary" as="span">
-        of {max} max
-      </Text>
+      {max.error !== null ? (
+        <ErrorChip label="max unavailable" detail={max.error} />
+      ) : (
+        <Text variant="body-small-secondary" as="span">
+          of {max.value} max
+        </Text>
+      )}
     </div>
   );
 }

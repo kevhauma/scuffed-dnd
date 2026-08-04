@@ -46,6 +46,7 @@ export * from './Button/Button';
 export * from './Card/Card';
 export * from './Checkbox/Checkbox';
 export * from './Dialog/Dialog';
+export * from './ErrorChip/ErrorChip';
 export * from './FormField/FormField';
 export * from './FormulaEditor/FormulaEditor';
 export * from './Input/Input';

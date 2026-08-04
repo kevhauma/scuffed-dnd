@@ -286,19 +286,141 @@ describe('CharacterSheet', () => {
       expect(screen.getByRole('heading', { name: 'Different Ruleset Loaded' })).toBeDefined();
       expect(screen.queryByRole('heading', { name: 'Main Skills' })).toBeNull();
     });
+  });
 
-    it('should surface a formula that does not evaluate', () => {
+  describe('a formula that does not evaluate (TICKET-FORM-06)', () => {
+    /**
+     * The v1.0 known bug's regression: a ruleset gains a reference the characters cannot satisfy.
+     * Before FORM-05/06 this blanked the entire sheet; now it costs exactly the broken value.
+     */
+    function renderWithBrokenStat() {
       useConfigStore.setState({
         config: createConfig({
-          stats: [{ id: 'health', name: 'Health', description: '', formula: 'NOPE * 10' }],
+          stats: [
+            { id: 'health', name: 'Health', description: '', formula: 'NOPE * 10' },
+            { id: 'evasion', name: 'Evasion', description: '', formula: 'DEX * 2' },
+          ],
+        }),
+        isLoaded: true,
+      });
+
+      render(<CharacterSheet characterId="char1" />);
+    }
+
+    it('should keep the sheet rendering rather than replacing it with an error page', () => {
+      renderWithBrokenStat();
+
+      expect(screen.queryByRole('heading', { name: 'Ruleset Formula Error' })).toBeNull();
+      expect(screen.getByRole('heading', { name: 'Main Skills' })).toBeDefined();
+      expect(screen.getByRole('heading', { name: 'Stats' })).toBeDefined();
+      expect(screen.getByRole('heading', { name: 'Speciality Skills' })).toBeDefined();
+    });
+
+    it('should show one chip carrying the provenance text, on the broken value only', () => {
+      renderWithBrokenStat();
+
+      const chips = screen.getAllByRole('img', { name: /Undefined variable: NOPE/ });
+
+      expect(chips).toHaveLength(1);
+      expect(chips[0].getAttribute('aria-label')).toContain('Stat "Health"');
+    });
+
+    it('should chip a broken speciality total and the combat skill that reads it', () => {
+      // Melee is `STR + STL`, so breaking Stealth's own formula breaks Melee too — and the
+      // combat chip must name Stealth as the cause, which is the whole point of the chain.
+      useConfigStore.setState({
+        config: createConfig({
+          specialitySkills: [
+            {
+              code: 'STL',
+              name: 'Stealth',
+              description: '',
+              maxBaseLevel: 10,
+              bonusFormula: 'MAG',
+            },
+          ],
         }),
         isLoaded: true,
       });
 
       render(<CharacterSheet characterId="char1" />);
 
-      expect(screen.getByRole('heading', { name: 'Ruleset Formula Error' })).toBeDefined();
-      expect(screen.queryByRole('heading', { name: 'Main Skills' })).toBeNull();
+      // The speciality's own total is unavailable
+      expect(
+        within(rowFor(/Stealth \(STL\)/)).getByRole('img', { name: /Undefined variable: MAG/ })
+      ).toBeDefined();
+
+      // …and Melee's chip names Stealth as the upstream cause
+      const meleeChip = within(rowFor(/Melee \(MEL\)/)).getByRole('img', { name: /STL/ });
+      const chain = meleeChip.getAttribute('aria-label') ?? '';
+      expect(chain).toContain('Combat Skill "Melee"');
+      expect(chain).toContain('Speciality Skill "Stealth"');
+      expect(chain).toContain('Undefined variable: MAG');
+    });
+
+    it('should refuse to roll a combat skill whose bonus could not be calculated', () => {
+      useConfigStore.setState({
+        config: createConfig({
+          combatSkills: [
+            {
+              code: 'MEL',
+              name: 'Melee',
+              description: '',
+              dice: { d4: 0, d6: 2, d8: 0, d10: 0, d12: 0, d20: 1 },
+              bonusFormula: 'MAG',
+            },
+          ],
+        }),
+        isLoaded: true,
+      });
+
+      render(<CharacterSheet characterId="char1" />);
+
+      const rollButton = within(rowFor(/Melee \(MEL\)/)).getByRole('button', { name: 'Roll MEL' });
+      expect((rollButton as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('should survive the v1.0 bug: a new stat referencing a code no character has', () => {
+      // The original report: the User adds something to the ruleset, and every existing
+      // character's sheet goes blank with `Undefined variable`. It must now cost one chip.
+      useConfigStore.setState({
+        config: createConfig({
+          mainSkills: [
+            { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+            { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+            { code: 'WIS', name: 'Wisdom', description: '', maxLevel: 20 }, // newly added
+          ],
+          stats: [
+            { id: 'health', name: 'Health', description: '', formula: 'STR * 10' },
+            { id: 'insight', name: 'Insight', description: '', formula: 'WIS * 3' }, // newly added
+          ],
+        }),
+        isLoaded: true,
+      });
+
+      render(<CharacterSheet characterId="char1" />);
+
+      // The sheet is still a sheet
+      expect(screen.getByRole('heading', { level: 1, name: 'Aria' })).toBeDefined();
+      expect(screen.getByRole('heading', { name: 'Stats' })).toBeDefined();
+
+      // Health still calculates from the levels the character does have
+      expect(within(rowFor('Health')).getByText('of 60 max')).toBeDefined();
+
+      // …and only the new stat carries a chip
+      expect(screen.getAllByRole('img', { name: /Undefined variable: WIS/ })).toHaveLength(1);
+    });
+
+    it('should still render every other section its numbers', () => {
+      renderWithBrokenStat();
+
+      // Evasion's own formula is fine, so its maximum is still shown: DEX 4 + elf racial 2 = 6,
+      // and the formula doubles it
+      expect(within(rowFor('Evasion')).getByText('of 12 max')).toBeDefined();
+
+      // …as are the main skill totals, which never depended on the broken formula
+      expect(within(rowFor(/Strength \(STR\)/)).getByText('6')).toBeDefined();
+      expect(within(rowFor(/Stealth \(STL\)/)).getByText('12')).toBeDefined();
     });
   });
 });

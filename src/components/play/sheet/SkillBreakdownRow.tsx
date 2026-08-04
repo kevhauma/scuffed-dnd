@@ -5,10 +5,12 @@
  * pre-summed so a Player can see what their equipment, races and focus stat are actually doing
  * (Requirement 13.4).
  *
- * **Validates: Requirements 13.4, 8.5, 9.3, 21.1-21.5**
+ * **Validates: Requirements 13.4, 8.5, 9.3, 16.6, 21.1-21.5**
  */
 
+import { ErrorChip } from '../../ui/ErrorChip/ErrorChip';
 import { Text } from '../../ui/Text/Text';
+import type { DerivedValue } from './useCharacterSheet';
 
 /** One named contribution to a skill's total */
 export interface SkillContribution {
@@ -24,7 +26,11 @@ export interface SkillContribution {
 export interface SkillBreakdownRowProps {
   name: string;
   code: string;
-  total: number;
+  /**
+   * The engine's total. A main skill is always a number; a speciality skill's total comes from a
+   * formula and may be an error, which renders as a chip in place of the number.
+   */
+  total: DerivedValue;
   /** Contributions in display order; zero-valued ones are dropped */
   contributions: SkillContribution[];
   isFocusStat?: boolean;
@@ -65,9 +71,13 @@ export function SkillBreakdownRow({
             {contribution.label} {signed(contribution.value)}
           </Text>
         ))}
-        <Text variant="highlight" as="span">
-          {total}
-        </Text>
+        {total.error !== null ? (
+          <ErrorChip label="unavailable" detail={total.error} />
+        ) : (
+          <Text variant="highlight" as="span">
+            {total.value}
+          </Text>
+        )}
       </div>
     </div>
   );

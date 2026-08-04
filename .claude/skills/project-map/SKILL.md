@@ -177,9 +177,17 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 
 **`ui/` — base primitives.** One folder per component holding `Name.tsx`, `Name.style.ts`,
 `Name.test.tsx`. Current set: Button, Input, Select, Textarea, Checkbox, Card, Label, Text,
-FormField, Dialog, FormulaEditor, ValidationReport — **read `ui/index.ts` for the live list**.
-They carry intrinsic styling only (colors, typography, padding, borders, states); margin,
+FormField, Dialog, FormulaEditor, ValidationReport, ErrorChip — **read `ui/index.ts` for the live
+list**. They carry intrinsic styling only (colors, typography, padding, borders, states); margin,
 flex/grid, and positioning arrive from the caller's `className`.
+`libraryConventions.test.ts` enforces all of that by walking the folder, so a new primitive is
+covered without editing the test.
+
+`ErrorChip` (TICKET-FORM-06) is the standard stand-in for a value that could not be calculated.
+It takes plain `label`/`detail` strings, never a `FormulaError` — the caller turns an error into
+words with `describeFormulaError`. On the character sheet the interpreting happens once in
+`useCharacterSheet`, which hands sections a `DerivedValue` (`{ value, error }`) so they never
+import the engine to decide what to draw.
 
 **`config/` — configuration-mode features**, one folder per domain
 (`skills/{main,speciality,combat,shared}`, `stats/`, `materials/`, `items/`, `races/`,

@@ -8,21 +8,22 @@
  * Every derived number here comes from `calculateCharacter` / `calculateRacialSkillModifiers` /
  * `indexSkillModifiers` — the sheet does no arithmetic of its own.
  *
- * **Validates: Requirements 8.5, 9.3, 13.4, 14.1, 14.2, 14.5, 21.1-21.5**
+ * **Validates: Requirements 8.5, 9.3, 13.4, 14.1, 14.2, 14.5, 16.6, 21.1-21.5**
  */
 
 import { useNavigate } from '@tanstack/react-router';
 import { useMemo } from 'react';
-import { calculateCharacter, firstCalculationError } from '../../../engine/calculator';
+import { calculateCharacter } from '../../../engine/calculator';
 import { indexSkillModifiers } from '../../../engine/calculators/equipmentBonusCalculator';
 import { calculateRacialSkillModifiers } from '../../../engine/calculators/mainSkillCalculator';
 import { calculateCharacterLevel } from '../../../engine/characterSummary';
 import { formatDiceNotation } from '../../../engine/dice/diceSimulator';
-import { describeFormulaError, numberOr } from '../../../engine/formula/errors';
+import { describeFormulaError, isFormulaError } from '../../../engine/formula/errors';
 import { useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
 import type { CalculatedCharacter, Character } from '../../../types/character';
 import type { Configuration } from '../../../types/config';
+import type { FormulaResult } from '../../../types/formula';
 
 /**
  * Why the sheet cannot be drawn, or `ready` when it can
@@ -38,8 +39,22 @@ type CharacterSheetStatus =
   | 'not-found'
   /** The character was built on a different ruleset than the one loaded */
   | 'configuration-mismatch'
-  /** The ruleset has a formula that does not evaluate */
+  /**
+   * The engine itself failed — a bug, not a ruleset mistake.
+   *
+   * Since TICKET-FORM-06 a broken *formula* no longer lands here: it renders as a chip on the one
+   * value it broke, and the rest of the sheet stays usable. Only an actual throw from
+   * `calculateCharacter` reaches this state now.
+   */
   | 'formula-error';
+
+/**
+ * A derived number for display: the value, or the error that stands in for it
+ *
+ * The hook interprets `FormulaResult` once, here, so the sections stay presentational and never
+ * import the engine to decide what to draw.
+ */
+export type DerivedValue = { value: number; error: null } | { value: null; error: string };
 
 /**
  * A main skill's contributions, kept apart rather than pre-summed (Requirement 13.4)
@@ -55,8 +70,13 @@ export interface MainSkillBreakdown {
   equipment: number;
   /** The configured focus bonus, non-zero only on the character's focus skill */
   focus: number;
-  /** The engine's total — not the sum of the fields above, which is why they are shown apart */
-  total: number;
+  /**
+   * The engine's total — not the sum of the fields above, which is why they are shown apart.
+   *
+   * Carried as a `DerivedValue` for uniformity with the other breakdowns, though a main skill's
+   * level is allocated and modified rather than formula-derived, so its `error` is always null.
+   */
+  total: DerivedValue;
   isFocusStat: boolean;
 }
 
@@ -69,7 +89,7 @@ export interface SpecialitySkillBreakdown {
   base: number;
   equipment: number;
   focus: number;
-  total: number;
+  total: DerivedValue;
   isFocusStat: boolean;
 }
 
@@ -80,7 +100,7 @@ export interface StatBreakdown {
   id: string;
   name: string;
   current: number;
-  max: number;
+  max: DerivedValue;
 }
 
 /**
@@ -90,7 +110,7 @@ export interface CombatSkillBreakdown {
   code: string;
   name: string;
   diceNotation: string;
-  bonus: number;
+  bonus: DerivedValue;
 }
 
 /** Everything the sheet's sections render, or empty when there is no sheet to draw */
@@ -119,21 +139,29 @@ interface CalculationOutcome {
 }
 
 /**
- * Run the calculation engine, converting a formula failure into a message rather than a crash
+ * Turn one engine result into something a section can render
  *
- * Since TICKET-FORM-05 the engine returns error **values** instead of throwing, so a broken
- * formula would otherwise reach the sheet as a silent `0`. `firstCalculationError` finds it and
- * the sheet keeps reporting the whole-sheet `formula-error` state until TICKET-FORM-06 renders a
- * chip per value — visibly broken beats quietly wrong. The `try` still guards against a genuine
- * engine bug.
+ * A missing entry (a stat the engine produced nothing for) reads as 0 rather than an error —
+ * that is absence, not breakage.
+ */
+function derived(result: FormulaResult | undefined): DerivedValue {
+  if (result === undefined) return { value: 0, error: null };
+  if (isFormulaError(result)) return { value: null, error: describeFormulaError(result) };
+  return { value: result, error: null };
+}
+
+/**
+ * Run the calculation engine, keeping a genuine crash out of the render
+ *
+ * Ruleset problems do **not** come through here: since TICKET-FORM-05 they are error values
+ * inside the result, and since TICKET-FORM-06 each renders as a chip on the single value it
+ * broke. Only an actual throw — an engine bug — produces an `error` here.
  */
 function calculate(character: Character | null, config: Configuration | null): CalculationOutcome {
   if (!character || !config) return { calculated: null, error: null };
 
   try {
-    const calculated = calculateCharacter(character, config);
-    const broken = firstCalculationError(calculated);
-    return { calculated, error: broken ? describeFormulaError(broken) : null };
+    return { calculated: calculateCharacter(character, config), error: null };
   } catch (error) {
     return {
       calculated: null,
@@ -187,7 +215,7 @@ function buildView(
       racial: racialModifiers[skill.code] ?? 0,
       equipment: equipmentBonuses[skill.code] ?? 0,
       focus: focusFor(skill.code),
-      total: calculated.totalMainSkillLevels[skill.code] ?? 0,
+      total: { value: calculated.totalMainSkillLevels[skill.code] ?? 0, error: null },
       isFocusStat: character.focusStatCode === skill.code,
     })),
 
@@ -197,7 +225,7 @@ function buildView(
       base: character.specialitySkillBaseLevels[skill.code] ?? 0,
       equipment: equipmentBonuses[skill.code] ?? 0,
       focus: focusFor(skill.code),
-      total: numberOr(calculated.specialitySkillTotalLevels[skill.code], 0),
+      total: derived(calculated.specialitySkillTotalLevels[skill.code]),
       isFocusStat: character.focusStatCode === skill.code,
     })),
 
@@ -205,14 +233,14 @@ function buildView(
       id: stat.id,
       name: stat.name,
       current: character.currentStatValues[stat.id] ?? 0,
-      max: numberOr(calculated.maxStatValues[stat.id], 0),
+      max: derived(calculated.maxStatValues[stat.id]),
     })),
 
     combatSkills: config.combatSkills.map((skill) => ({
       code: skill.code,
       name: skill.name,
       diceNotation: formatDiceNotation(skill.dice),
-      bonus: numberOr(calculated.combatSkillBonuses[skill.code], 0),
+      bonus: derived(calculated.combatSkillBonuses[skill.code]),
     })),
   };
 }

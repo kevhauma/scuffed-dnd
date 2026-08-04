@@ -4,12 +4,13 @@
  * Each combat skill's dice and calculated bonus, with the control to roll it and the breakdown of
  * the last roll.
  *
- * **Validates: Requirements 5.5, 13.4, 15.1, 15.4, 21.1-21.5**
+ * **Validates: Requirements 5.5, 13.4, 15.1, 15.4, 16.6, 21.1-21.5**
  */
 
 import type { CombatRollResult } from '../../../types/formula';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
+import { ErrorChip } from '../../ui/ErrorChip/ErrorChip';
 import { Text } from '../../ui/Text/Text';
 import { RollBreakdown } from '../rolls/RollBreakdown';
 import type { CombatSkillBreakdown } from './useCharacterSheet';
@@ -54,13 +55,17 @@ export function CombatSkillsSection({
                   <Text variant="caption" as="span">
                     {skill.diceNotation || 'no dice'}
                   </Text>
-                  <Text variant="highlight" as="span">
-                    {skill.bonus > 0 ? `+${skill.bonus}` : skill.bonus}
-                  </Text>
+                  {skill.bonus.error !== null ? (
+                    <ErrorChip label="bonus unavailable" detail={skill.bonus.error} />
+                  ) : (
+                    <Text variant="highlight" as="span">
+                      {skill.bonus.value > 0 ? `+${skill.bonus.value}` : skill.bonus.value}
+                    </Text>
+                  )}
                   <Button
                     variant="primary"
                     size="sm"
-                    disabled={!canRoll}
+                    disabled={!canRoll || skill.bonus.error !== null}
                     onClick={() => onRoll(skill.code)}
                   >
                     Roll {skill.code}
