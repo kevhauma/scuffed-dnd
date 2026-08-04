@@ -4,10 +4,11 @@
  * Evaluates Abstract Syntax Trees (AST) with a given context to produce numeric results.
  * Handles arithmetic operations with proper precedence through the AST structure.
  *
- * **Validates: Requirements 16.1, 3.4, 4.4, 5.4**
+ * **Validates: Requirements 16.1, 3.4, 4.4, 5.4; Concepts 01, 02; spec §5.3**
  */
 
 import type { FormulaAST, FormulaContext } from '../../types/formula';
+import { describeArity, FORMULA_FUNCTIONS } from './functions';
 
 /**
  * Evaluate a formula AST with the given context
@@ -60,6 +61,17 @@ export function evaluateFormula(ast: FormulaAST, context: FormulaContext): numbe
         default:
           throw new Error(`Unknown unary operator: ${ast.operator}`);
       }
+    }
+
+    case 'function_call': {
+      const fn = FORMULA_FUNCTIONS[ast.name];
+      if (!fn) {
+        throw new Error(`Unknown function: ${ast.name}`);
+      }
+      if (ast.args.length < fn.minArgs || (fn.maxArgs !== null && ast.args.length > fn.maxArgs)) {
+        throw new Error(`${ast.name} expects ${describeArity(fn)}, got ${ast.args.length}`);
+      }
+      return fn.apply(ast.args.map((arg) => evaluateFormula(arg, context)));
     }
 
     default: {

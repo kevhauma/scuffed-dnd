@@ -410,3 +410,123 @@ describe('Formula Parser', () => {
     });
   });
 });
+
+describe('Function calls (TICKET-FORM-02)', () => {
+  it('should parse a simple call', () => {
+    const ast = parseFormula('round(STR)');
+    expect(ast).toEqual({
+      type: 'function_call',
+      name: 'round',
+      args: [{ type: 'variable', value: 'STR' }],
+    });
+  });
+
+  it('should parse nested calls', () => {
+    const ast = parseFormula('max(1, round(SPD / 30))');
+    expect(ast).toEqual({
+      type: 'function_call',
+      name: 'max',
+      args: [
+        { type: 'number', value: 1 },
+        {
+          type: 'function_call',
+          name: 'round',
+          args: [
+            {
+              type: 'binary_op',
+              operator: '/',
+              left: { type: 'variable', value: 'SPD' },
+              right: { type: 'number', value: 30 },
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('should bind calls tighter than surrounding operators', () => {
+    // 1 + max(2, 3) * 2 must parse as 1 + (max(2, 3) * 2)
+    const ast = parseFormula('1 + max(2, 3) * 2');
+    expect(ast).toEqual({
+      type: 'binary_op',
+      operator: '+',
+      left: { type: 'number', value: 1 },
+      right: {
+        type: 'binary_op',
+        operator: '*',
+        left: {
+          type: 'function_call',
+          name: 'max',
+          args: [
+            { type: 'number', value: 2 },
+            { type: 'number', value: 3 },
+          ],
+        },
+        right: { type: 'number', value: 2 },
+      },
+    });
+  });
+
+  it('should parse expressions as arguments', () => {
+    const ast = parseFormula('clamp(STR + 1, 0, 10)');
+    expect(ast).toEqual({
+      type: 'function_call',
+      name: 'clamp',
+      args: [
+        {
+          type: 'binary_op',
+          operator: '+',
+          left: { type: 'variable', value: 'STR' },
+          right: { type: 'number', value: 1 },
+        },
+        { type: 'number', value: 0 },
+        { type: 'number', value: 10 },
+      ],
+    });
+  });
+
+  it('should parse an empty argument list (arity is a validation concern)', () => {
+    const ast = parseFormula('round()');
+    expect(ast).toEqual({
+      type: 'function_call',
+      name: 'round',
+      args: [],
+    });
+  });
+
+  it('should keep the function name case as written (case-sensitive library)', () => {
+    const ast = parseFormula('ROUND(1)');
+    expect(ast).toEqual({
+      type: 'function_call',
+      name: 'ROUND',
+      args: [{ type: 'number', value: 1 }],
+    });
+  });
+
+  it('should parse unknown names as calls (unknown-name is a validation concern)', () => {
+    const ast = parseFormula('foo(1)');
+    expect(ast).toEqual({
+      type: 'function_call',
+      name: 'foo',
+      args: [{ type: 'number', value: 1 }],
+    });
+  });
+
+  it('should still parse a lowercase identifier without parens as a variable', () => {
+    const ast = parseFormula('round + 1');
+    expect(ast).toEqual({
+      type: 'binary_op',
+      operator: '+',
+      left: { type: 'variable', value: 'ROUND' },
+      right: { type: 'number', value: 1 },
+    });
+  });
+
+  it('should reject a bare comma outside a call', () => {
+    expect(() => parseFormula('1, 2')).toThrow();
+  });
+
+  it('should reject an unterminated call', () => {
+    expect(() => parseFormula('max(1, 2')).toThrow();
+  });
+});

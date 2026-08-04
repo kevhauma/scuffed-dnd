@@ -2,9 +2,21 @@
  * Formula Parser
  *
  * Tokenizes and parses formula strings into Abstract Syntax Trees (AST).
- * Supports arithmetic operators (+, -, *, /), parentheses, numbers, and variable references.
  *
- * **Validates: Requirements 16.1, 16.2, 16.3**
+ * Grammar:
+ *   expression  := term ((PLUS | MINUS) term)*
+ *   term        := factor ((MULTIPLY | DIVIDE) factor)*
+ *   factor      := PLUS factor | MINUS factor | NUMBER | call | VARIABLE
+ *                | LPAREN expression RPAREN
+ *   call        := IDENTIFIER LPAREN (expression (COMMA expression)*)? RPAREN
+ *
+ * An identifier directly followed by `(` always parses as a function call; its name is kept
+ * exactly as written and checked case-sensitively against the closed library in
+ * `functions.ts` — `round`, `roundup`, `rounddown`, `floor`, `ceil`, `min`, `max`, `clamp`,
+ * `abs` (lowercase, reserved). Unknown names and wrong arity are validation errors, not parse
+ * errors. Any other identifier is a variable reference, normalized to uppercase.
+ *
+ * **Validates: Requirements 16.1, 16.2, 16.3; Concepts 01, 02; spec §5.3**
  */
 
 import type { FormulaAST } from '../../types/formula';
@@ -14,13 +26,14 @@ import type { FormulaAST } from '../../types/formula';
  */
 type TokenType =
   | 'NUMBER'
-  | 'VARIABLE'
+  | 'IDENTIFIER'
   | 'PLUS'
   | 'MINUS'
   | 'MULTIPLY'
   | 'DIVIDE'
   | 'LPAREN'
   | 'RPAREN'
+  | 'COMMA'
   | 'EOF';
 
 /**
@@ -83,20 +96,23 @@ class Tokenizer {
   }
 
   /**
-   * Parse a variable token (3-letter skill code)
+   * Parse an identifier token (variable code or function name)
+   *
+   * Case is preserved here — the parser uppercases variable references but matches
+   * function names case-sensitively.
    */
-  private parseVariable(): Token {
+  private parseIdentifier(): Token {
     const startPos = this.position;
-    let varStr = '';
+    let idStr = '';
 
     while (this.currentChar !== null && /[A-Za-z]/.test(this.currentChar)) {
-      varStr += this.currentChar;
+      idStr += this.currentChar;
       this.advance();
     }
 
     return {
-      type: 'VARIABLE',
-      value: varStr.toUpperCase(), // Normalize to uppercase
+      type: 'IDENTIFIER',
+      value: idStr,
       position: startPos,
     };
   }
@@ -117,9 +133,9 @@ class Tokenizer {
         return this.parseNumber();
       }
 
-      // Variables (letters)
+      // Identifiers (letters) — variable codes or function names
       if (/[A-Za-z]/.test(this.currentChar)) {
-        return this.parseVariable();
+        return this.parseIdentifier();
       }
 
       // Operators and parentheses
@@ -140,6 +156,8 @@ class Tokenizer {
           return { type: 'LPAREN', value: '(', position: pos };
         case ')':
           return { type: 'RPAREN', value: ')', position: pos };
+        case ',':
+          return { type: 'COMMA', value: ',', position: pos };
         default:
           throw new Error(`Unexpected character '${char}' at position ${pos}`);
       }
@@ -150,12 +168,7 @@ class Tokenizer {
 }
 
 /**
- * Parser class - converts tokens into AST
- *
- * Grammar:
- *   expression  := term ((PLUS | MINUS) term)*
- *   term        := factor ((MULTIPLY | DIVIDE) factor)*
- *   factor      := PLUS factor | MINUS factor | NUMBER | VARIABLE | LPAREN expression RPAREN
+ * Parser class - converts tokens into AST (grammar in the module JSDoc above)
  */
 export class FormulaParser {
   private tokenizer: Tokenizer;
@@ -180,7 +193,7 @@ export class FormulaParser {
   }
 
   /**
-   * Parse factor: NUMBER | VARIABLE | LPAREN expression RPAREN | unary operator
+   * Parse factor: NUMBER | call | VARIABLE | LPAREN expression RPAREN | unary operator
    */
   private factor(): FormulaAST {
     const token = this.currentToken;
@@ -210,12 +223,17 @@ export class FormulaParser {
       };
     }
 
-    // Variable reference
-    if (token.type === 'VARIABLE') {
-      this.eat('VARIABLE');
+    // Function call (identifier directly followed by `(`) or variable reference
+    if (token.type === 'IDENTIFIER') {
+      this.eat('IDENTIFIER');
+
+      if (this.currentToken.type === 'LPAREN') {
+        return this.callArguments(token.value as string);
+      }
+
       return {
         type: 'variable',
-        value: token.value as string,
+        value: (token.value as string).toUpperCase(), // Normalize to uppercase
       };
     }
 
@@ -228,6 +246,32 @@ export class FormulaParser {
     }
 
     throw new Error(`Unexpected token ${token.type} at position ${token.position}`);
+  }
+
+  /**
+   * Parse call arguments: LPAREN (expression (COMMA expression)*)? RPAREN
+   *
+   * The name is kept as written — arity and library membership are validation
+   * concerns, not parse errors.
+   */
+  private callArguments(name: string): FormulaAST {
+    this.eat('LPAREN');
+    const args: FormulaAST[] = [];
+
+    if (this.currentToken.type !== 'RPAREN') {
+      args.push(this.expression());
+      while (this.currentToken.type === 'COMMA') {
+        this.eat('COMMA');
+        args.push(this.expression());
+      }
+    }
+
+    this.eat('RPAREN');
+    return {
+      type: 'function_call',
+      name,
+      args,
+    };
   }
 
   /**

@@ -294,3 +294,129 @@ describe('Formula Evaluator', () => {
     });
   });
 });
+
+describe('Function calls (TICKET-FORM-02)', () => {
+  const empty: FormulaContext = { variables: {} };
+
+  const evaluate = (formula: string, context: FormulaContext = empty): number =>
+    evaluateFormula(parseFormula(formula), context);
+
+  describe('round — half away from zero (Excel semantics)', () => {
+    it('round(1.5) = 2', () => {
+      expect(evaluate('round(1.5)')).toBe(2);
+    });
+
+    it('round(2.5) = 3', () => {
+      expect(evaluate('round(2.5)')).toBe(3);
+    });
+
+    it('round(7.5 / 5) = 2', () => {
+      expect(evaluate('round(7.5 / 5)')).toBe(2);
+    });
+
+    it('round(-0.5) = -1', () => {
+      expect(evaluate('round(-0.5)')).toBe(-1);
+    });
+
+    it('round(-1.5) = -2', () => {
+      expect(evaluate('round(-1.5)')).toBe(-2);
+    });
+
+    it('round(0.4) = 0 and round(0) = 0', () => {
+      expect(evaluate('round(0.4)')).toBe(0);
+      expect(evaluate('round(0)')).toBe(0);
+    });
+  });
+
+  describe('roundup / rounddown — away from / toward zero', () => {
+    it('roundup(1.2) = 2', () => {
+      expect(evaluate('roundup(1.2)')).toBe(2);
+    });
+
+    it('roundup(-1.2) = -2 (away from zero)', () => {
+      expect(evaluate('roundup(-1.2)')).toBe(-2);
+    });
+
+    it('rounddown(1.8) = 1', () => {
+      expect(evaluate('rounddown(1.8)')).toBe(1);
+    });
+
+    it('rounddown(-1.8) = -1 (toward zero)', () => {
+      expect(evaluate('rounddown(-1.8)')).toBe(-1);
+    });
+  });
+
+  describe('floor / ceil', () => {
+    it('floor(-1.5) = -2', () => {
+      expect(evaluate('floor(-1.5)')).toBe(-2);
+    });
+
+    it('ceil(-1.5) = -1', () => {
+      expect(evaluate('ceil(-1.5)')).toBe(-1);
+    });
+  });
+
+  describe('variadic min / max', () => {
+    it('accepts a single argument', () => {
+      expect(evaluate('max(3)')).toBe(3);
+      expect(evaluate('min(3)')).toBe(3);
+    });
+
+    it('takes the extreme of many arguments', () => {
+      expect(evaluate('max(1, 5, 3)')).toBe(5);
+      expect(evaluate('min(4, 2, 8)')).toBe(2);
+    });
+  });
+
+  describe('clamp boundaries', () => {
+    it('passes a value inside the range through', () => {
+      expect(evaluate('clamp(5, 0, 10)')).toBe(5);
+    });
+
+    it('clamps below and above', () => {
+      expect(evaluate('clamp(-1, 0, 10)')).toBe(0);
+      expect(evaluate('clamp(11, 0, 10)')).toBe(10);
+    });
+
+    it('keeps exact boundary values', () => {
+      expect(evaluate('clamp(0, 0, 10)')).toBe(0);
+      expect(evaluate('clamp(10, 0, 10)')).toBe(10);
+    });
+  });
+
+  describe('abs', () => {
+    it('abs(-3) = 3', () => {
+      expect(evaluate('abs(-3)')).toBe(3);
+    });
+  });
+
+  describe('composition', () => {
+    it('evaluates the sheet APT derivation max(1, round(SPD / 30))', () => {
+      expect(evaluate('max(1, round(SPD / 30))', { variables: { SPD: 45 } })).toBe(2);
+      expect(evaluate('max(1, round(SPD / 30))', { variables: { SPD: 10 } })).toBe(1);
+    });
+
+    it('evaluates calls with operator precedence: 1 + max(2, 3) * 2 = 7', () => {
+      expect(evaluate('1 + max(2, 3) * 2')).toBe(7);
+    });
+  });
+
+  describe('errors', () => {
+    it('throws on an unknown function', () => {
+      expect(() => evaluate('foo(1)')).toThrow('Unknown function: foo');
+    });
+
+    it('throws on wrong arity', () => {
+      expect(() => evaluate('round(1, 2)')).toThrow();
+      expect(() => evaluate('clamp(1, 2)')).toThrow();
+    });
+
+    it('still throws on division by zero inside an argument', () => {
+      expect(() => evaluate('round(1 / 0)')).toThrow('Division by zero');
+    });
+
+    it('still throws on an undefined variable inside an argument', () => {
+      expect(() => evaluate('round(XYZ)')).toThrow('Undefined variable: XYZ');
+    });
+  });
+});

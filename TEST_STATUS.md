@@ -93,7 +93,7 @@ and are documented here so a future regression is distinguishable from this nois
 
 | File | Error |
 | --- | --- |
-| `src/engine/formula/evaluator.ts:48,59` | TS2339 — `operator` does not exist on type `never`; the switch has narrowed the AST union to nothing by these arms |
+| `src/engine/formula/evaluator.ts:51,62` | TS2339 — `operator` does not exist on type `never`; the switch has narrowed the AST union to nothing by these arms (lines shifted from 48,59 by TICKET-FORM-02's insertions) |
 | `src/components/ui/Button/Button.test.tsx:68` | TS2339 — `.disabled` read off `HTMLElement` |
 | `src/services/importExport.test.ts:379` | TS2352 — `Blob`-shaped literal cast to `File` |
 

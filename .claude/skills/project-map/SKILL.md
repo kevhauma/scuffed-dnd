@@ -85,7 +85,11 @@ list — it changes more often than this table.
 Pure functions, no React, no storage. Every user-authored number in the app resolves here.
 
 - `formula/parser.ts` — tokenizer + `FormulaParser` class → `parseFormula(src): FormulaAST`.
-  Supports `+ - * /`, parentheses, unary negation, numeric literals, and 3-letter variable refs.
+  Supports `+ - * /`, parentheses, unary negation, numeric literals, 3-letter variable refs, and
+  function calls `name(arg, …)` (grammar in the module JSDoc).
+- `formula/functions.ts` — the closed function library (`round`/`roundup`/`rounddown`/`floor`/
+  `ceil`/`min`/`max`/`clamp`/`abs`), lowercase reserved names matched case-sensitively; `round` is
+  Excel half-away-from-zero (TICKET-FORM-02).
 - `formula/evaluator.ts` — `evaluateFormula(ast, context)` where context is `{ variables: Record<code, number> }`.
 - `formula/validator.ts` — `validateFormula`, `validateFormulaCollection`, `detectCircularDependencies`.
   Returns referenced variables so callers can check them against configured skill codes.

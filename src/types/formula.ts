@@ -7,7 +7,7 @@
 /**
  * Formula Abstract Syntax Tree (AST) node types
  */
-export type FormulaAST = NumberNode | VariableNode | BinaryOpNode | UnaryOpNode;
+export type FormulaAST = NumberNode | VariableNode | BinaryOpNode | UnaryOpNode | FunctionCallNode;
 
 /**
  * Number literal node
@@ -42,6 +42,19 @@ export interface UnaryOpNode {
   type: 'unary_op';
   operator: 'negate';
   operand: FormulaAST;
+}
+
+/**
+ * Function call node (closed library — see engine/formula/functions.ts)
+ *
+ * `name` is kept exactly as written: library names are lowercase and matched
+ * case-sensitively, so `round(…)` is a call into the library while `ROUND(…)`
+ * is an unknown function reported by validation.
+ */
+export interface FunctionCallNode {
+  type: 'function_call';
+  name: string;
+  args: FormulaAST[];
 }
 
 /**

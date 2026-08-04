@@ -284,3 +284,64 @@ describe('validateFormulaCollection', () => {
     expect(result.referencedVariables).toHaveLength(0);
   });
 });
+
+describe('Function calls (TICKET-FORM-02)', () => {
+  it('should accept a known function with correct arity', () => {
+    const result = validateFormula('max(1, round(SPD / 30))', new Set(['SPD']));
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+    expect(result.referencedVariables).toEqual(['SPD']);
+  });
+
+  it('should report an unknown function as a named error, not a throw', () => {
+    let result: ReturnType<typeof validateFormula> | undefined;
+    expect(() => {
+      result = validateFormula('foo(1)');
+    }).not.toThrow();
+    expect(result?.isValid).toBe(false);
+    expect(result?.errors).toContain('Unknown function: foo');
+  });
+
+  it('should match library names case-sensitively (ROUND is unknown)', () => {
+    const result = validateFormula('ROUND(1)');
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain('Unknown function: ROUND');
+  });
+
+  it('should report wrong arity for exact-arity functions', () => {
+    const result = validateFormula('round(1, 2)');
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain('round expects exactly 1 argument, got 2');
+  });
+
+  it('should report wrong arity for clamp', () => {
+    const result = validateFormula('clamp(1, 2)');
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain('clamp expects exactly 3 arguments, got 2');
+  });
+
+  it('should report an empty argument list on a variadic function', () => {
+    const result = validateFormula('max()');
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain('max expects at least 1 argument, got 0');
+  });
+
+  it('should report nested errors inside call arguments', () => {
+    const result = validateFormula('max(1, foo(2))');
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain('Unknown function: foo');
+  });
+
+  it('should extract variables from call arguments but not function names', () => {
+    const result = validateFormula('clamp(STR, AGI, VIT)', new Set(['STR', 'AGI', 'VIT']));
+    expect(result.isValid).toBe(true);
+    expect(result.referencedVariables).toEqual(expect.arrayContaining(['STR', 'AGI', 'VIT']));
+    expect(result.referencedVariables).toHaveLength(3);
+  });
+
+  it('should flag undefined variables inside call arguments', () => {
+    const result = validateFormula('round(XYZ)', new Set(['STR']));
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain('Undefined variable: XYZ');
+  });
+});

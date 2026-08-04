@@ -4,10 +4,11 @@
  * Validates formula syntax, detects undefined variable references,
  * and detects circular dependencies in formula chains.
  *
- * **Validates: Requirements 16.4, 16.5, 16.6, 18.1, 18.2**
+ * **Validates: Requirements 16.4, 16.5, 16.6, 18.1, 18.2; Concepts 01, 02; spec §5.3**
  */
 
 import type { FormulaAST, FormulaValidationResult } from '../../types/formula';
+import { describeArity, FORMULA_FUNCTIONS } from './functions';
 import { parseFormula } from './parser';
 
 /**
@@ -38,6 +39,12 @@ function extractVariables(ast: FormulaAST): string[] {
         traverse(node.operand);
         break;
 
+      case 'function_call':
+        for (const arg of node.args) {
+          traverse(arg);
+        }
+        break;
+
       default: {
         // TypeScript exhaustiveness check
         const _exhaustive: never = node;
@@ -48,6 +55,57 @@ function extractVariables(ast: FormulaAST): string[] {
 
   traverse(ast);
   return Array.from(variables);
+}
+
+/**
+ * Collect function-call errors from an AST: unknown names and wrong arity
+ *
+ * Library names are matched case-sensitively — `ROUND(…)` is an unknown function.
+ */
+function collectFunctionErrors(ast: FormulaAST): string[] {
+  const errors: string[] = [];
+
+  function traverse(node: FormulaAST): void {
+    switch (node.type) {
+      case 'number':
+      case 'variable':
+        break;
+
+      case 'binary_op':
+        traverse(node.left);
+        traverse(node.right);
+        break;
+
+      case 'unary_op':
+        traverse(node.operand);
+        break;
+
+      case 'function_call': {
+        const fn = FORMULA_FUNCTIONS[node.name];
+        if (!fn) {
+          errors.push(`Unknown function: ${node.name}`);
+        } else if (
+          node.args.length < fn.minArgs ||
+          (fn.maxArgs !== null && node.args.length > fn.maxArgs)
+        ) {
+          errors.push(`${node.name} expects ${describeArity(fn)}, got ${node.args.length}`);
+        }
+        for (const arg of node.args) {
+          traverse(arg);
+        }
+        break;
+      }
+
+      default: {
+        // TypeScript exhaustiveness check
+        const _exhaustive: never = node;
+        throw new Error(`Unknown AST node type: ${(_exhaustive as FormulaAST).type}`);
+      }
+    }
+  }
+
+  traverse(ast);
+  return errors;
 }
 
 /**
@@ -98,6 +156,9 @@ export function validateFormula(
       referencedVariables: [],
     };
   }
+
+  // Unknown functions and wrong arity (parse succeeds; these are validation errors)
+  errors.push(...collectFunctionErrors(ast));
 
   // Check for undefined variable references if availableVariables provided
   if (availableVariables) {
