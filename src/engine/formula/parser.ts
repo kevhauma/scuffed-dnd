@@ -6,17 +6,27 @@
  * Grammar:
  *   expression  := term ((PLUS | MINUS) term)*
  *   term        := factor ((MULTIPLY | DIVIDE) factor)*
- *   factor      := PLUS factor | MINUS factor | NUMBER | call | VARIABLE
- *                | LPAREN expression RPAREN
- *   call        := IDENTIFIER LPAREN (expression (COMMA expression)*)? RPAREN
+ *   factor      := PLUS factor | MINUS factor | NUMBER | ref | LPAREN expression RPAREN
+ *   ref         := IDENTIFIER LPAREN args RPAREN                        (function call)
+ *                | IDENTIFIER DOT IDENTIFIER LPAREN args RPAREN         (namespaced call, e.g. curve.cr(x))
+ *                | IDENTIFIER DOT IDENTIFIER (DOT IDENTIFIER)?          (namespaced reference)
+ *                | IDENTIFIER                                           (bare variable — deprecated)
+ *   args        := (expression (COMMA expression)*)?
+ *   IDENTIFIER  := [A-Za-z][A-Za-z0-9_]*
  *
  * An identifier directly followed by `(` always parses as a function call; its name is kept
  * exactly as written and checked case-sensitively against the closed library in
  * `functions.ts` — `round`, `roundup`, `rounddown`, `floor`, `ceil`, `min`, `max`, `clamp`,
  * `abs` (lowercase, reserved). Unknown names and wrong arity are validation errors, not parse
- * errors. Any other identifier is a variable reference, normalized to uppercase.
+ * errors.
  *
- * **Validates: Requirements 16.1, 16.2, 16.3; Concepts 01, 02; spec §5.3**
+ * Dotted references (`stats.speed`, `skills.healing.level`, `const.bonus_divider`) keep every
+ * segment exactly as written — namespaces are lowercase and resolved case-sensitively at
+ * evaluation time. A namespaced call (`curve.cr(x)`) parses but does not evaluate until
+ * TICKET-CRV-01. A bare identifier is a legacy variable reference, normalized to uppercase —
+ * **deprecated**, kept until TICKET-STAT-01 removes flat codes.
+ *
+ * **Validates: Requirements 16.1, 16.2, 16.3; Concepts 00 §5, 01, 02; spec §5.1, §5.3**
  */
 
 import type { FormulaAST } from '../../types/formula';
@@ -34,6 +44,7 @@ type TokenType =
   | 'LPAREN'
   | 'RPAREN'
   | 'COMMA'
+  | 'DOT'
   | 'EOF';
 
 /**
@@ -96,16 +107,18 @@ class Tokenizer {
   }
 
   /**
-   * Parse an identifier token (variable code or function name)
+   * Parse an identifier token — a variable code, a function name, or one segment of a
+   * dotted reference (`[A-Za-z][A-Za-z0-9_]*`, so `bonus_divider` and `STR2` are single
+   * identifiers).
    *
-   * Case is preserved here — the parser uppercases variable references but matches
-   * function names case-sensitively.
+   * Case is preserved here — the parser uppercases bare variable references but matches
+   * function names and namespace segments case-sensitively.
    */
   private parseIdentifier(): Token {
     const startPos = this.position;
     let idStr = '';
 
-    while (this.currentChar !== null && /[A-Za-z]/.test(this.currentChar)) {
+    while (this.currentChar !== null && /[A-Za-z0-9_]/.test(this.currentChar)) {
       idStr += this.currentChar;
       this.advance();
     }
@@ -158,6 +171,8 @@ class Tokenizer {
           return { type: 'RPAREN', value: ')', position: pos };
         case ',':
           return { type: 'COMMA', value: ',', position: pos };
+        case '.':
+          return { type: 'DOT', value: '.', position: pos };
         default:
           throw new Error(`Unexpected character '${char}' at position ${pos}`);
       }
@@ -193,7 +208,10 @@ export class FormulaParser {
   }
 
   /**
-   * Parse factor: NUMBER | call | VARIABLE | LPAREN expression RPAREN | unary operator
+   * Parse factor: NUMBER | ref | LPAREN expression RPAREN | unary operator
+   *
+   * `ref` covers all four identifier-led forms — function call, namespaced call, namespaced
+   * reference, and bare variable — see the `ref` production in the module grammar.
    */
   private factor(): FormulaAST {
     const token = this.currentToken;
@@ -223,12 +241,20 @@ export class FormulaParser {
       };
     }
 
-    // Function call (identifier directly followed by `(`) or variable reference
+    // Function call, namespaced reference/call, or bare variable reference
     if (token.type === 'IDENTIFIER') {
       this.eat('IDENTIFIER');
 
       if (this.currentToken.type === 'LPAREN') {
-        return this.callArguments(token.value as string);
+        return {
+          type: 'function_call',
+          name: token.value as string,
+          args: this.callArguments(),
+        };
+      }
+
+      if (this.currentToken.type === 'DOT') {
+        return this.namespacedReference(token.value as string);
       }
 
       return {
@@ -249,12 +275,54 @@ export class FormulaParser {
   }
 
   /**
+   * Parse a dotted reference after its namespace segment:
+   * DOT IDENTIFIER (LPAREN args RPAREN | DOT IDENTIFIER)?
+   *
+   * Two segments make a namespaced reference (`stats.speed`), an argument list after the
+   * member makes a namespaced call (`curve.cr(x)`), and a third segment is a property
+   * access (`skills.healing.level`). Segments are kept exactly as written.
+   */
+  private namespacedReference(namespace: string): FormulaAST {
+    this.eat('DOT');
+    const memberToken = this.currentToken;
+    this.eat('IDENTIFIER');
+    const member = memberToken.value as string;
+
+    if (this.currentToken.type === 'LPAREN') {
+      return {
+        type: 'namespaced_call',
+        namespace,
+        member,
+        args: this.callArguments(),
+      };
+    }
+
+    if (this.currentToken.type === 'DOT') {
+      this.eat('DOT');
+      const propertyToken = this.currentToken;
+      this.eat('IDENTIFIER');
+      return {
+        type: 'namespaced_ref',
+        namespace,
+        member,
+        property: propertyToken.value as string,
+      };
+    }
+
+    return {
+      type: 'namespaced_ref',
+      namespace,
+      member,
+    };
+  }
+
+  /**
    * Parse call arguments: LPAREN (expression (COMMA expression)*)? RPAREN
    *
-   * The name is kept as written — arity and library membership are validation
+   * Names are kept as written — arity and library membership are validation
    * concerns, not parse errors.
    */
-  private callArguments(name: string): FormulaAST {
+  private callArguments(): FormulaAST[] {
     this.eat('LPAREN');
     const args: FormulaAST[] = [];
 
@@ -267,11 +335,7 @@ export class FormulaParser {
     }
 
     this.eat('RPAREN');
-    return {
-      type: 'function_call',
-      name,
-      args,
-    };
+    return args;
   }
 
   /**

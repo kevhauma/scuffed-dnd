@@ -1,14 +1,17 @@
 # Test Status
 
-_Last verified: 2026-08-01 (`npx vitest run`), after
-[TICKET-UI-01](docs/v1.0_foundation/tickets/TICKET-UI-01-base-component-convention-cleanup.md)._
+_Last verified: 2026-08-04 (`npx vitest run`), after
+[TICKET-FORM-03](docs/v2.0_sheet_core/tickets/TICKET-FORM-03-namespaced-reference-syntax-and-resolution.md)._
 
 ## Summary
 
-- **Total tests**: 660
-- **Passing**: 660 (100%)
+- **Total tests**: 733
+- **Passing**: 733 (100%)
 - **Skipped**: 0
 - **Failing**: 0
+
+Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's formula-engine tickets added
++43 (FORM-02) and +30 (FORM-03), all appended, none edited.
 
 **The suite is green. The bar is "the suite passes", not "no new failures beyond a documented
 list".** Any failing test is a regression.

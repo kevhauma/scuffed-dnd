@@ -530,3 +530,116 @@ describe('Function calls (TICKET-FORM-02)', () => {
     expect(() => parseFormula('max(1, 2')).toThrow();
   });
 });
+
+describe('Namespaced references (TICKET-FORM-03)', () => {
+  it('should parse a two-segment reference', () => {
+    const ast = parseFormula('stats.speed');
+    expect(ast).toEqual({
+      type: 'namespaced_ref',
+      namespace: 'stats',
+      member: 'speed',
+    });
+  });
+
+  it('should parse a property access as the third segment', () => {
+    const ast = parseFormula('skills.healing.level');
+    expect(ast).toEqual({
+      type: 'namespaced_ref',
+      namespace: 'skills',
+      member: 'healing',
+      property: 'level',
+    });
+  });
+
+  it('should allow underscores and digits in members', () => {
+    const ast = parseFormula('const.bonus_divider2');
+    expect(ast).toEqual({
+      type: 'namespaced_ref',
+      namespace: 'const',
+      member: 'bonus_divider2',
+    });
+  });
+
+  it('should parse namespaced references inside expressions', () => {
+    const ast = parseFormula('stats.str * 2 + const.base');
+    expect(ast).toEqual({
+      type: 'binary_op',
+      operator: '+',
+      left: {
+        type: 'binary_op',
+        operator: '*',
+        left: { type: 'namespaced_ref', namespace: 'stats', member: 'str' },
+        right: { type: 'number', value: 2 },
+      },
+      right: { type: 'namespaced_ref', namespace: 'const', member: 'base' },
+    });
+  });
+
+  it('should parse a namespaced call', () => {
+    const ast = parseFormula('curve.cr(STR)');
+    expect(ast).toEqual({
+      type: 'namespaced_call',
+      namespace: 'curve',
+      member: 'cr',
+      args: [{ type: 'variable', value: 'STR' }],
+    });
+  });
+
+  it('should parse expression arguments in a namespaced call', () => {
+    const ast = parseFormula('curve.cr(stats.total + 1)');
+    expect(ast).toEqual({
+      type: 'namespaced_call',
+      namespace: 'curve',
+      member: 'cr',
+      args: [
+        {
+          type: 'binary_op',
+          operator: '+',
+          left: { type: 'namespaced_ref', namespace: 'stats', member: 'total' },
+          right: { type: 'number', value: 1 },
+        },
+      ],
+    });
+  });
+
+  it('should keep segment case as written (namespaces resolve case-sensitively)', () => {
+    const ast = parseFormula('STATS.SPD');
+    expect(ast).toEqual({
+      type: 'namespaced_ref',
+      namespace: 'STATS',
+      member: 'SPD',
+    });
+  });
+
+  it('should mix legacy bare codes and namespaced references', () => {
+    const ast = parseFormula('STR + stats.speed');
+    expect(ast).toEqual({
+      type: 'binary_op',
+      operator: '+',
+      left: { type: 'variable', value: 'STR' },
+      right: { type: 'namespaced_ref', namespace: 'stats', member: 'speed' },
+    });
+  });
+
+  it('should reject a trailing dot', () => {
+    expect(() => parseFormula('stats.')).toThrow();
+  });
+
+  it('should reject a fourth segment', () => {
+    expect(() => parseFormula('a.b.c.d')).toThrow();
+  });
+
+  it('should reject a dot before a number segment', () => {
+    expect(() => parseFormula('stats.2')).toThrow();
+  });
+
+  it('should take digits and underscores into a bare identifier', () => {
+    // Widened from letters-only so `const.bonus_divider` tokenizes; the legacy bare path
+    // widens with it, so `STR2` is now one variable rather than a tokenizer error.
+    expect(parseFormula('STR2')).toEqual({ type: 'variable', value: 'STR2' });
+    expect(parseFormula('bonus_divider')).toEqual({
+      type: 'variable',
+      value: 'BONUS_DIVIDER',
+    });
+  });
+});

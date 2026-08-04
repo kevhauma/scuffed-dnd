@@ -7,7 +7,14 @@
 /**
  * Formula Abstract Syntax Tree (AST) node types
  */
-export type FormulaAST = NumberNode | VariableNode | BinaryOpNode | UnaryOpNode | FunctionCallNode;
+export type FormulaAST =
+  | NumberNode
+  | VariableNode
+  | BinaryOpNode
+  | UnaryOpNode
+  | FunctionCallNode
+  | NamespacedRefNode
+  | NamespacedCallNode;
 
 /**
  * Number literal node
@@ -58,10 +65,47 @@ export interface FunctionCallNode {
 }
 
 /**
+ * Namespaced reference node — `stats.speed`, `skills.healing.level`
+ *
+ * All segments are kept exactly as written; namespaces are lowercase and resolved
+ * case-sensitively, member/property matching is the resolver's concern.
+ */
+export interface NamespacedRefNode {
+  type: 'namespaced_ref';
+  namespace: string;
+  member: string;
+  property?: string;
+}
+
+/**
+ * Namespaced call node — `curve.cr(x)` (parse-only until TICKET-CRV-01 lands evaluation)
+ */
+export interface NamespacedCallNode {
+  type: 'namespaced_call';
+  namespace: string;
+  member: string;
+  args: FormulaAST[];
+}
+
+/**
+ * Resolves members of one namespace (`stats`, `skills`, `const`, `curve`, …) during evaluation.
+ *
+ * Returns `undefined` for an unknown member/property — the evaluator turns that into an
+ * "Unknown member" error, distinct from an undefined bare variable.
+ */
+export interface NamespaceResolver {
+  resolve(member: string, property?: string): number | undefined;
+}
+
+/**
  * Formula context - provides variable values for evaluation
+ *
+ * `variables` is the legacy flat lookup for bare codes (deprecated — removed by
+ * TICKET-STAT-01); `namespaces` carries the resolvers for dotted references.
  */
 export interface FormulaContext {
   variables: Record<string, number>; // skillCode -> value
+  namespaces?: Record<string, NamespaceResolver>;
 }
 
 /**

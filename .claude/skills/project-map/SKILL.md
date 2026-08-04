@@ -85,14 +85,25 @@ list — it changes more often than this table.
 Pure functions, no React, no storage. Every user-authored number in the app resolves here.
 
 - `formula/parser.ts` — tokenizer + `FormulaParser` class → `parseFormula(src): FormulaAST`.
-  Supports `+ - * /`, parentheses, unary negation, numeric literals, 3-letter variable refs, and
-  function calls `name(arg, …)` (grammar in the module JSDoc).
+  Supports `+ - * /`, parentheses, unary negation, numeric literals, function calls
+  `name(arg, …)`, dotted namespaced references (`stats.speed`, `skills.healing.level`,
+  `curve.cr(x)`), and bare variable refs (**deprecated**, removed by TICKET-STAT-01).
+  Identifiers are `[A-Za-z][A-Za-z0-9_]*`. **Full grammar lives in the module JSDoc** — read it
+  there rather than restating it.
 - `formula/functions.ts` — the closed function library (`round`/`roundup`/`rounddown`/`floor`/
   `ceil`/`min`/`max`/`clamp`/`abs`), lowercase reserved names matched case-sensitively; `round` is
   Excel half-away-from-zero (TICKET-FORM-02).
-- `formula/evaluator.ts` — `evaluateFormula(ast, context)` where context is `{ variables: Record<code, number> }`.
-- `formula/validator.ts` — `validateFormula`, `validateFormulaCollection`, `detectCircularDependencies`.
-  Returns referenced variables so callers can check them against configured skill codes.
+- `formula/evaluator.ts` — `evaluateFormula(ast, context)`. Context is
+  `{ variables: Record<code, number>; namespaces?: Record<string, NamespaceResolver> }` — the flat
+  map serves legacy bare codes, the resolvers serve dotted references. **No calculator builds a
+  `namespaces` map yet** (TICKET-FORM-03 defined the shape; CST-01/CRV-01/STAT-01 populate it), so
+  a saved namespaced formula currently throws `Unknown namespace: …` at calculation time.
+  Namespaced calls (`curve.cr(x)`) parse but throw until TICKET-CRV-01.
+- `formula/validator.ts` — `validateFormula`, `validateFormulaCollection`, `detectCircularDependencies`,
+  plus a private `walkFormula(ast, visit)` that is the single place knowing the AST union's shape —
+  **extend that when adding a node type**, not each analysis pass. Returns referenced variables
+  (legacy bare codes only) so callers can check them against configured skill codes; namespace
+  scoping is TICKET-FORM-04.
 - `formula/formulaChange.ts` — `validateFormulaChange(config, change)`, the **save-time guard** the
   three formula-owning `useXManager` hooks call before writing to the store. It validates the
   configuration *as it would be after the save* (syntax → cycles → undefined codes) and reuses the

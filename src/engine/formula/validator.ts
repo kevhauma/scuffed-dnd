@@ -1,10 +1,12 @@
 /**
  * Formula Validator
  *
- * Validates formula syntax, detects undefined variable references,
- * and detects circular dependencies in formula chains.
+ * Validates formula syntax, detects undefined variable references, checks calls against the
+ * closed function library, and detects circular dependencies in formula chains. Namespaced
+ * references are not legacy variables and are deliberately not scoped here — the namespace
+ * scoping table arrives with TICKET-FORM-04.
  *
- * **Validates: Requirements 16.4, 16.5, 16.6, 18.1, 18.2; Concepts 01, 02; spec §5.3**
+ * **Validates: Requirements 16.4, 16.5, 16.6, 18.1, 18.2; Concepts 00 §5, 01, 02; spec §5.1, §5.3**
  */
 
 import type { FormulaAST, FormulaValidationResult } from '../../types/formula';
@@ -12,7 +14,52 @@ import { describeArity, FORMULA_FUNCTIONS } from './functions';
 import { parseFormula } from './parser';
 
 /**
+ * Visit every node of an AST, parents before children
+ *
+ * The one place that knows the shape of the union, so a new node type is handled here
+ * rather than in each analysis pass. Namespaced references have no children to descend
+ * into — their scoping and member checks arrive with TICKET-FORM-04.
+ *
+ * @param ast - The Abstract Syntax Tree to walk
+ * @param visit - Called once per node
+ */
+function walkFormula(ast: FormulaAST, visit: (node: FormulaAST) => void): void {
+  visit(ast);
+
+  switch (ast.type) {
+    case 'number':
+    case 'variable':
+    case 'namespaced_ref':
+      break;
+
+    case 'binary_op':
+      walkFormula(ast.left, visit);
+      walkFormula(ast.right, visit);
+      break;
+
+    case 'unary_op':
+      walkFormula(ast.operand, visit);
+      break;
+
+    case 'function_call':
+    case 'namespaced_call':
+      for (const arg of ast.args) {
+        walkFormula(arg, visit);
+      }
+      break;
+
+    default: {
+      // TypeScript exhaustiveness check
+      const _exhaustive: never = ast;
+      throw new Error(`Unknown AST node type: ${(_exhaustive as FormulaAST).type}`);
+    }
+  }
+}
+
+/**
  * Extract all variable references from an AST
+ *
+ * Only legacy bare codes count — a namespaced reference is not a variable.
  *
  * @param ast - The Abstract Syntax Tree to analyze
  * @returns Array of unique variable names referenced in the formula
@@ -20,40 +67,12 @@ import { parseFormula } from './parser';
 function extractVariables(ast: FormulaAST): string[] {
   const variables = new Set<string>();
 
-  function traverse(node: FormulaAST): void {
-    switch (node.type) {
-      case 'number':
-        // No variables in number nodes
-        break;
-
-      case 'variable':
-        variables.add(node.value);
-        break;
-
-      case 'binary_op':
-        traverse(node.left);
-        traverse(node.right);
-        break;
-
-      case 'unary_op':
-        traverse(node.operand);
-        break;
-
-      case 'function_call':
-        for (const arg of node.args) {
-          traverse(arg);
-        }
-        break;
-
-      default: {
-        // TypeScript exhaustiveness check
-        const _exhaustive: never = node;
-        throw new Error(`Unknown AST node type: ${(_exhaustive as FormulaAST).type}`);
-      }
+  walkFormula(ast, (node) => {
+    if (node.type === 'variable') {
+      variables.add(node.value);
     }
-  }
+  });
 
-  traverse(ast);
   return Array.from(variables);
 }
 
@@ -65,46 +84,22 @@ function extractVariables(ast: FormulaAST): string[] {
 function collectFunctionErrors(ast: FormulaAST): string[] {
   const errors: string[] = [];
 
-  function traverse(node: FormulaAST): void {
-    switch (node.type) {
-      case 'number':
-      case 'variable':
-        break;
-
-      case 'binary_op':
-        traverse(node.left);
-        traverse(node.right);
-        break;
-
-      case 'unary_op':
-        traverse(node.operand);
-        break;
-
-      case 'function_call': {
-        const fn = FORMULA_FUNCTIONS[node.name];
-        if (!fn) {
-          errors.push(`Unknown function: ${node.name}`);
-        } else if (
-          node.args.length < fn.minArgs ||
-          (fn.maxArgs !== null && node.args.length > fn.maxArgs)
-        ) {
-          errors.push(`${node.name} expects ${describeArity(fn)}, got ${node.args.length}`);
-        }
-        for (const arg of node.args) {
-          traverse(arg);
-        }
-        break;
-      }
-
-      default: {
-        // TypeScript exhaustiveness check
-        const _exhaustive: never = node;
-        throw new Error(`Unknown AST node type: ${(_exhaustive as FormulaAST).type}`);
-      }
+  walkFormula(ast, (node) => {
+    if (node.type !== 'function_call') {
+      return;
     }
-  }
 
-  traverse(ast);
+    const fn = FORMULA_FUNCTIONS[node.name];
+    if (!fn) {
+      errors.push(`Unknown function: ${node.name}`);
+      return;
+    }
+
+    if (node.args.length < fn.minArgs || (fn.maxArgs !== null && node.args.length > fn.maxArgs)) {
+      errors.push(`${node.name} expects ${describeArity(fn)}, got ${node.args.length}`);
+    }
+  });
+
   return errors;
 }
 

@@ -2,9 +2,12 @@
  * Formula Evaluator
  *
  * Evaluates Abstract Syntax Trees (AST) with a given context to produce numeric results.
- * Handles arithmetic operations with proper precedence through the AST structure.
+ * Handles arithmetic operations with proper precedence through the AST structure, applies the
+ * closed function library, and resolves dotted references through the context's namespace
+ * resolvers. Namespaced calls (`curve.cr(x)`) parse but throw until TICKET-CRV-01 lands curve
+ * lookup.
  *
- * **Validates: Requirements 16.1, 3.4, 4.4, 5.4; Concepts 01, 02; spec §5.3**
+ * **Validates: Requirements 16.1, 3.4, 4.4, 5.4; Concepts 00 §5, 01, 02; spec §5.1, §5.3**
  */
 
 import type { FormulaAST, FormulaContext } from '../../types/formula';
@@ -73,6 +76,27 @@ export function evaluateFormula(ast: FormulaAST, context: FormulaContext): numbe
       }
       return fn.apply(ast.args.map((arg) => evaluateFormula(arg, context)));
     }
+
+    case 'namespaced_ref': {
+      const resolver = context.namespaces?.[ast.namespace];
+      if (!resolver) {
+        throw new Error(`Unknown namespace: ${ast.namespace}`);
+      }
+      const path = ast.property
+        ? `${ast.namespace}.${ast.member}.${ast.property}`
+        : `${ast.namespace}.${ast.member}`;
+      const value = resolver.resolve(ast.member, ast.property);
+      if (value === undefined) {
+        throw new Error(`Unknown member: ${path}`);
+      }
+      return value;
+    }
+
+    case 'namespaced_call':
+      // Parse-only until TICKET-CRV-01 lands curve lookup evaluation
+      throw new Error(
+        `${ast.namespace}.${ast.member}(…) cannot be evaluated yet — curve lookups arrive with TICKET-CRV-01`
+      );
 
     default: {
       // TypeScript exhaustiveness check

@@ -345,3 +345,52 @@ describe('Function calls (TICKET-FORM-02)', () => {
     expect(result.errors).toContain('Undefined variable: XYZ');
   });
 });
+
+describe('Namespaced references (TICKET-FORM-03)', () => {
+  it('should validate a namespaced formula with no available-variable set', () => {
+    const result = validateFormula('stats.str * 2 + const.base');
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it('should not treat namespace segments as legacy variables', () => {
+    // Scoping is TICKET-FORM-04's concern; here the point is that `stats`/`str` never
+    // enter referencedVariables and so cannot be reported as undefined codes.
+    const result = validateFormula('stats.str + const.base', new Set(['STR']));
+    expect(result.isValid).toBe(true);
+    expect(result.referencedVariables).toHaveLength(0);
+  });
+
+  it('should still collect legacy bare codes alongside namespaced references', () => {
+    const result = validateFormula('STR + stats.speed', new Set(['STR']));
+    expect(result.isValid).toBe(true);
+    expect(result.referencedVariables).toEqual(['STR']);
+  });
+
+  it('should still flag an undefined legacy code in a mixed formula', () => {
+    const result = validateFormula('XYZ + stats.speed', new Set(['STR']));
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain('Undefined variable: XYZ');
+  });
+
+  it('should validate arguments of a namespaced call', () => {
+    const result = validateFormula('curve.cr(STR)', new Set(['STR']));
+    expect(result.isValid).toBe(true);
+    expect(result.referencedVariables).toEqual(['STR']);
+  });
+
+  it('should report an unknown function nested in a namespaced call argument', () => {
+    const result = validateFormula('curve.cr(foo(1))');
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain('Unknown function: foo');
+  });
+
+  it('should report a malformed dotted reference as a syntax error, not a throw', () => {
+    let result: ReturnType<typeof validateFormula> | undefined;
+    expect(() => {
+      result = validateFormula('stats.');
+    }).not.toThrow();
+    expect(result?.isValid).toBe(false);
+    expect(result?.errors.length).toBeGreaterThan(0);
+  });
+});

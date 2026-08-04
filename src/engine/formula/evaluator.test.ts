@@ -420,3 +420,73 @@ describe('Function calls (TICKET-FORM-02)', () => {
     });
   });
 });
+
+describe('Namespaced references (TICKET-FORM-03)', () => {
+  /** Build a resolver over a plain lookup table keyed `member` or `member.property` */
+  const tableResolver = (table: Record<string, number>) => ({
+    resolve: (member: string, property?: string): number | undefined =>
+      table[property ? `${member}.${property}` : member],
+  });
+
+  const context: FormulaContext = {
+    variables: { STR: 7 },
+    namespaces: {
+      stats: tableResolver({ speed: 45, str: 10 }),
+      skills: tableResolver({ 'healing.level': 12, 'healing.bonus': 2 }),
+      const: tableResolver({ bonus_divider: 5, base: 3 }),
+    },
+  };
+
+  const evaluate = (formula: string, ctx: FormulaContext = context): number =>
+    evaluateFormula(parseFormula(formula), ctx);
+
+  it('resolves each namespace', () => {
+    expect(evaluate('stats.speed')).toBe(45);
+    expect(evaluate('const.bonus_divider')).toBe(5);
+    expect(evaluate('skills.healing.level')).toBe(12);
+  });
+
+  it('resolves a property access distinctly from its sibling', () => {
+    expect(evaluate('skills.healing.bonus')).toBe(2);
+  });
+
+  it('evaluates namespaced references inside expressions', () => {
+    expect(evaluate('stats.str * 2 + const.base')).toBe(23);
+  });
+
+  it('evaluates namespaced references through the function library', () => {
+    expect(evaluate('max(1, round(stats.speed / 30))')).toBe(2);
+    expect(evaluate('round(skills.healing.level / const.bonus_divider)')).toBe(2);
+  });
+
+  it('mixes legacy bare codes with namespaced references', () => {
+    expect(evaluate('STR + stats.speed')).toBe(52);
+  });
+
+  it('reports an unknown member distinctly from an undefined variable', () => {
+    expect(() => evaluate('stats.nope')).toThrow('Unknown member: stats.nope');
+    expect(() => evaluate('XYZ')).toThrow('Undefined variable: XYZ');
+  });
+
+  it('reports an unknown property on a known member', () => {
+    expect(() => evaluate('skills.healing.missing')).toThrow(
+      'Unknown member: skills.healing.missing'
+    );
+  });
+
+  it('reports an unknown namespace', () => {
+    expect(() => evaluate('nope.thing')).toThrow('Unknown namespace: nope');
+  });
+
+  it('reports a missing namespaces map as an unknown namespace', () => {
+    expect(() => evaluate('stats.speed', { variables: {} })).toThrow('Unknown namespace: stats');
+  });
+
+  it('matches namespaces case-sensitively', () => {
+    expect(() => evaluate('STATS.speed')).toThrow('Unknown namespace: STATS');
+  });
+
+  it('defers namespaced calls to TICKET-CRV-01 rather than silently returning a number', () => {
+    expect(() => evaluate('curve.cr(1)')).toThrow('TICKET-CRV-01');
+  });
+});
