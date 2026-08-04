@@ -46,10 +46,12 @@ Identity rules that the rest of the app depends on:
 - **Formulas are strings** on `Stat.formula`, `SpecialitySkill.bonusFormula`, and
   `CombatSkill.bonusFormula`. They are parsed by the formula engine, never `eval`'d, and a bare
   variable is only valid if it resolves to a configured skill code. Since TICKET-FORM-03 a formula
-  may also carry **dotted namespaced references** (`stats.speed`, `const.bonus_divider`), which are
-  *not* checked against skill codes — scoping is TICKET-FORM-04 and no namespace resolver is wired
-  yet, so such a formula saves but throws at calculation time. Persisted formula strings are
-  therefore not yet guaranteed evaluable; treat that as temporary, closing with FORM-04/FORM-05.
+  may also carry **dotted namespaced references** (`stats.speed`, `const.bonus_divider`); which of
+  those a formula may use depends on its attachment point, per the tables in
+  `engine/formula/scoping.ts` (TICKET-FORM-04). The save-time guard refuses out-of-scope
+  namespaces and unknown members, so a persisted formula's references are in scope — but it can
+  still fail to *evaluate*, because no calculator supplies namespace resolvers until
+  CST-01/CRV-01/STAT-01. Callers of `calculateCharacter` all catch that.
 - **Deletion is reference-checked**: a skill/material/slot/category referenced elsewhere must not
   be deletable without warning the user — that's what `engine/validator.ts` and the panels'
   dependency checks exist for.

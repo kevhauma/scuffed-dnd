@@ -109,12 +109,22 @@ export interface FormulaContext {
 }
 
 /**
+ * A dotted reference found in a formula, as written
+ */
+export interface NamespacedReference {
+  namespace: string;
+  member: string;
+  property?: string;
+}
+
+/**
  * Formula validation result
  */
 export interface FormulaValidationResult {
   isValid: boolean;
   errors: string[];
-  referencedVariables: string[]; // List of skill codes referenced in formula
+  referencedVariables: string[]; // List of legacy bare skill codes referenced in formula
+  namespacedReferences: NamespacedReference[]; // Dotted references (`stats.speed`) referenced in formula
 }
 
 /**

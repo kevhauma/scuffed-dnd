@@ -192,3 +192,218 @@ describe('validateFormulaChange', () => {
     expect(result.isValid).toBe(true);
   });
 });
+
+describe('Namespace scoping (TICKET-FORM-04)', () => {
+  describe('the three scoping errors', () => {
+    it('names a namespace the engine has never heard of', () => {
+      const result = validateFormulaChange(createConfig(), {
+        owner: 'stat',
+        id: 'armour',
+        formula: 'wibble.thing + 1',
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Unknown namespace: wibble');
+    });
+
+    it('names a real namespace that is out of scope at this attachment point', () => {
+      // `skills` is available to stats and combat skills, not to a speciality skill's own level
+      const result = validateFormulaChange(createConfig(), {
+        owner: 'speciality-skill',
+        id: 'ACR',
+        formula: 'skills.STL + 1',
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Namespace not available here: skills');
+    });
+
+    it('names a member the namespace does not provide', () => {
+      const result = validateFormulaChange(createConfig(), {
+        owner: 'stat',
+        id: 'armour',
+        formula: 'stats.nonexistent + 1',
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Unknown member: stats.nonexistent');
+    });
+
+    it('distinguishes the three from each other in one formula', () => {
+      const result = validateFormulaChange(createConfig(), {
+        owner: 'speciality-skill',
+        id: 'ACR',
+        formula: 'wibble.a + skills.STL + stats.nope',
+      });
+
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          'Unknown namespace: wibble',
+          'Namespace not available here: skills',
+          'Unknown member: stats.nope',
+        ])
+      );
+    });
+
+    it('accepts an in-scope namespace and member', () => {
+      const result = validateFormulaChange(createConfig(), {
+        owner: 'stat',
+        id: 'armour',
+        // `health` is a stat in the base config, and stats are in scope for a stat formula
+        formula: 'stats.health + 1',
+      });
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toEqual([]);
+      expect(result.namespacedReferences).toEqual([{ namespace: 'stats', member: 'health' }]);
+    });
+
+    it('reports every member of an entity-less namespace as unknown until its ticket lands', () => {
+      // `const` is in scope for a stat but has no members until TICKET-CST-01
+      const result = validateFormulaChange(createConfig(), {
+        owner: 'stat',
+        id: 'armour',
+        formula: 'const.bonus_divider',
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Unknown member: const.bonus_divider');
+    });
+  });
+
+  describe('cycle detection across namespaced references', () => {
+    it('blocks a self-reference written in namespaced syntax, naming the path', () => {
+      const result = validateFormulaChange(createConfig(), {
+        owner: 'stat',
+        id: 'health',
+        formula: 'stats.health + 1',
+        previousId: 'health',
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors[0]).toBe('Circular dependency detected: health → health');
+    });
+
+    it('blocks a two-formula cycle written in namespaced syntax, naming the path', () => {
+      const config = createConfig({
+        stats: [
+          { id: 'health', name: 'Health', description: '', formula: 'stats.armour + 1' },
+          { id: 'armour', name: 'Armour', description: '', formula: 'STR * 2' },
+        ],
+      });
+
+      const result = validateFormulaChange(config, {
+        owner: 'stat',
+        id: 'armour',
+        formula: 'stats.health + 1',
+        previousId: 'armour',
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors.join(' ')).toMatch(
+        /Circular dependency detected: (health → armour → health|armour → health → armour)/
+      );
+    });
+
+    it('catches a cycle that mixes namespaced and bare syntax', () => {
+      // An imported configuration where STL names ACR with a bare code. Closing the loop from
+      // the other side with dotted syntax must still register as the same cycle — the two
+      // spellings have to land on one graph node for that to work.
+      const config = createConfig({
+        specialitySkills: [
+          { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'ACR' },
+          {
+            code: 'ACR',
+            name: 'Acrobatics',
+            description: '',
+            maxBaseLevel: 10,
+            bonusFormula: 'DEX',
+          },
+        ],
+        combatSkills: [],
+      });
+
+      const result = validateFormulaChange(config, {
+        owner: 'speciality-skill',
+        id: 'ACR',
+        formula: 'skills.STL + 1',
+        previousId: 'ACR',
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors.join(' ')).toMatch(
+        /Circular dependency detected: (STL → ACR → STL|ACR → STL → ACR)/
+      );
+    });
+
+    it('leaves an acyclic chain written in namespaced syntax alone', () => {
+      // MEL → STL is a chain, not a cycle; `skills` is in scope for a combat skill
+      const result = validateFormulaChange(createConfig(), {
+        owner: 'combat-skill',
+        id: 'RNG',
+        formula: 'skills.STL + 1',
+      });
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toEqual([]);
+    });
+  });
+
+  describe('legacy bare-code scoping is unchanged', () => {
+    it('still lets a stat name a main skill', () => {
+      const result = validateFormulaChange(createConfig(), {
+        owner: 'stat',
+        id: 'armour',
+        formula: 'STR * 2',
+      });
+
+      expect(result.isValid).toBe(true);
+    });
+
+    it('still refuses a stat naming a speciality code', () => {
+      const result = validateFormulaChange(createConfig(), {
+        owner: 'stat',
+        id: 'armour',
+        formula: 'STL * 2',
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Undefined variable: STL');
+    });
+
+    it('still refuses a speciality skill naming another speciality code', () => {
+      const config = createConfig({
+        specialitySkills: [
+          { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'DEX' },
+          {
+            code: 'ACR',
+            name: 'Acrobatics',
+            description: '',
+            maxBaseLevel: 10,
+            bonusFormula: 'DEX',
+          },
+        ],
+        combatSkills: [],
+      });
+
+      const result = validateFormulaChange(config, {
+        owner: 'speciality-skill',
+        id: 'ACR',
+        formula: 'STL + 1',
+        previousId: 'ACR',
+      });
+
+      expect(result.isValid).toBe(false);
+    });
+
+    it('still lets a combat skill name both main and speciality codes', () => {
+      const result = validateFormulaChange(createConfig(), {
+        owner: 'combat-skill',
+        id: 'RNG',
+        formula: 'DEX + STL',
+      });
+
+      expect(result.isValid).toBe(true);
+    });
+  });
+});

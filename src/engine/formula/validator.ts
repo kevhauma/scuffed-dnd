@@ -2,23 +2,26 @@
  * Formula Validator
  *
  * Validates formula syntax, detects undefined variable references, checks calls against the
- * closed function library, and detects circular dependencies in formula chains. Namespaced
- * references are not legacy variables and are deliberately not scoped here — the namespace
- * scoping table arrives with TICKET-FORM-04.
+ * closed function library, scopes dotted references against their attachment point's row in
+ * `scoping.ts`, and detects circular dependencies in formula chains. Bare codes and dotted
+ * references share graph nodes, so a cycle written either way is caught — see
+ * `formulaDependencyKeys`.
  *
  * **Validates: Requirements 16.4, 16.5, 16.6, 18.1, 18.2; Concepts 00 §5, 01, 02; spec §5.1, §5.3**
  */
 
-import type { FormulaAST, FormulaValidationResult } from '../../types/formula';
+import type { FormulaAST, FormulaValidationResult, NamespacedReference } from '../../types/formula';
 import { describeArity, FORMULA_FUNCTIONS } from './functions';
 import { parseFormula } from './parser';
+import type { FormulaScope } from './scoping';
+import { isKnownNamespace } from './scoping';
 
 /**
  * Visit every node of an AST, parents before children
  *
  * The one place that knows the shape of the union, so a new node type is handled here
- * rather than in each analysis pass. Namespaced references have no children to descend
- * into — their scoping and member checks arrive with TICKET-FORM-04.
+ * rather than in each analysis pass. Namespaced references have no children to descend into;
+ * the passes below decide what to do with them.
  *
  * @param ast - The Abstract Syntax Tree to walk
  * @param visit - Called once per node
@@ -104,18 +107,79 @@ function collectFunctionErrors(ast: FormulaAST): string[] {
 }
 
 /**
+ * Extract every dotted reference from an AST, as written
+ */
+function extractNamespacedReferences(ast: FormulaAST): NamespacedReference[] {
+  const references: NamespacedReference[] = [];
+
+  walkFormula(ast, (node) => {
+    if (node.type === 'namespaced_ref') {
+      references.push({
+        namespace: node.namespace,
+        member: node.member,
+        ...(node.property === undefined ? {} : { property: node.property }),
+      });
+    } else if (node.type === 'namespaced_call') {
+      references.push({ namespace: node.namespace, member: node.member });
+    }
+  });
+
+  return references;
+}
+
+/**
+ * Render a namespaced reference the way the user wrote it
+ */
+function referencePath(reference: NamespacedReference): string {
+  return reference.property
+    ? `${reference.namespace}.${reference.member}.${reference.property}`
+    : `${reference.namespace}.${reference.member}`;
+}
+
+/**
+ * Check dotted references against the scope of their attachment point
+ *
+ * Produces the three distinct scoping errors: a namespace the engine has never heard of, a
+ * namespace that exists but is out of scope here, and a member the namespace does not provide.
+ */
+function collectScopeErrors(references: NamespacedReference[], scope: FormulaScope): string[] {
+  const errors: string[] = [];
+
+  for (const reference of references) {
+    if (!isKnownNamespace(reference.namespace)) {
+      errors.push(`Unknown namespace: ${reference.namespace}`);
+      continue;
+    }
+
+    const members = scope.namespaces[reference.namespace];
+    if (!members) {
+      errors.push(`Namespace not available here: ${reference.namespace}`);
+      continue;
+    }
+
+    if (!members.has(reference.member)) {
+      errors.push(`Unknown member: ${referencePath(reference)}`);
+    }
+  }
+
+  return errors;
+}
+
+/**
  * Validate a formula string
  *
  * @param formula - Formula string to validate
- * @param availableVariables - Set of valid variable names (skill codes)
- * @returns Validation result with errors and referenced variables
+ * @param availableVariables - Set of valid legacy bare codes; omit to skip the check
+ * @param scope - The attachment point's scope (`scopeFor(config, owner)`); omit to skip
+ *   namespace and member checks, which is what callers that only need syntax should do
+ * @returns Validation result with errors, bare codes, and dotted references
  */
 export function validateFormula(
   formula: string,
-  availableVariables?: Set<string>
+  availableVariables?: ReadonlySet<string>,
+  scope?: FormulaScope
 ): FormulaValidationResult {
   const errors: string[] = [];
-  let referencedVariables: string[] = [];
 
   // Empty formula check
   if (!formula || formula.trim() === '') {
@@ -124,6 +188,7 @@ export function validateFormula(
       isValid: false,
       errors,
       referencedVariables: [],
+      namespacedReferences: [],
     };
   }
 
@@ -137,18 +202,23 @@ export function validateFormula(
       isValid: false,
       errors,
       referencedVariables: [],
+      namespacedReferences: [],
     };
   }
 
-  // Extract referenced variables
+  // Extract references
+  let referencedVariables: string[] = [];
+  let namespacedReferences: NamespacedReference[] = [];
   try {
     referencedVariables = extractVariables(ast);
+    namespacedReferences = extractNamespacedReferences(ast);
   } catch (error) {
     errors.push(error instanceof Error ? error.message : 'Error extracting variables');
     return {
       isValid: false,
       errors,
       referencedVariables: [],
+      namespacedReferences: [],
     };
   }
 
@@ -166,11 +236,51 @@ export function validateFormula(
     }
   }
 
+  // Namespace and member scoping if a scope was provided
+  if (scope) {
+    errors.push(...collectScopeErrors(namespacedReferences, scope));
+  }
+
   return {
     isValid: errors.length === 0,
     errors,
     referencedVariables,
+    namespacedReferences,
   };
+}
+
+/**
+ * Graph keys a validated formula depends on, for cycle detection
+ *
+ * Bare codes are keys already; a dotted reference contributes its **member**, which is the stat
+ * id or skill code the dependency graph is keyed by. So `stats.health` and legacy `HEALTH` land
+ * on the same node and a cycle written either way is caught.
+ *
+ * The namespace is deliberately dropped, which is what makes that parity work — the cost is that
+ * `stats.x` and `skills.x` would share a node and could report a phantom cycle. Not reachable
+ * today (stat ids are lowercase slugs, skill codes are 3-letter uppercase) but worth knowing
+ * before TICKET-STAT-01 reshapes either key space.
+ *
+ * @param result - A result from `validateFormula`
+ * @returns Unique graph keys the formula references
+ */
+export function dependencyKeysOf(result: FormulaValidationResult): string[] {
+  return Array.from(
+    new Set([
+      ...result.referencedVariables,
+      ...result.namespacedReferences.map((reference) => reference.member),
+    ])
+  );
+}
+
+/**
+ * Build a dependency-graph entry for one formula
+ *
+ * The single place that turns a formula into graph edges, so every caller of
+ * `validateFormulaCollection` agrees about what an edge is.
+ */
+export function toFormulaDependency(id: string, formula: string): FormulaDependency {
+  return { id, formula, referencedVariables: dependencyKeysOf(validateFormula(formula)) };
 }
 
 /**
@@ -284,5 +394,8 @@ export function validateFormulaCollection(formulas: FormulaDependency[]): Formul
     isValid: errors.length === 0,
     errors,
     referencedVariables: Array.from(allReferencedVariables),
+    // Always empty: this pass reasons about graph keys supplied by the caller, not about the
+    // references in any one formula. Read them from `validateFormula` instead.
+    namespacedReferences: [],
   };
 }

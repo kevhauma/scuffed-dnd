@@ -99,11 +99,18 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   `namespaces` map yet** (TICKET-FORM-03 defined the shape; CST-01/CRV-01/STAT-01 populate it), so
   a saved namespaced formula currently throws `Unknown namespace: …` at calculation time.
   Namespaced calls (`curve.cr(x)`) parse but throw until TICKET-CRV-01.
-- `formula/validator.ts` — `validateFormula`, `validateFormulaCollection`, `detectCircularDependencies`,
-  plus a private `walkFormula(ast, visit)` that is the single place knowing the AST union's shape —
-  **extend that when adding a node type**, not each analysis pass. Returns referenced variables
-  (legacy bare codes only) so callers can check them against configured skill codes; namespace
-  scoping is TICKET-FORM-04.
+- `formula/scoping.ts` — **the reference-scope tables as data** (TICKET-FORM-04):
+  `NAMESPACE_SCOPES` and `LEGACY_CODE_SCOPES` keyed by `FormulaOwner` (the attachment point),
+  `KNOWN_NAMESPACES`, and `scopeFor(config, owner)`. A new attachment point is a **new row here**,
+  never a branch — there is no `switch` on owner kind in the engine, and a test enforces that
+  every owner has a row. `const`/`curve` are in scope but have no members until CST-01/CRV-01.
+- `formula/validator.ts` — `validateFormula(formula, availableCodes?, scope?)`,
+  `validateFormulaCollection`, `detectCircularDependencies`, `dependencyKeysOf`,
+  `toFormulaDependency`, plus a private `walkFormula(ast, visit)` that is the single place knowing
+  the AST union's shape — **extend that when adding a node type**, not each analysis pass.
+  Passing a `scope` turns on the three scoping errors (unknown namespace / not available here /
+  unknown member). **Use `toFormulaDependency` to build cycle-graph entries** — it is what makes
+  `stats.health` and bare `HEALTH` land on the same node.
 - `formula/formulaChange.ts` — `validateFormulaChange(config, change)`, the **save-time guard** the
   three formula-owning `useXManager` hooks call before writing to the store. It validates the
   configuration *as it would be after the save* (syntax → cycles → undefined codes) and reuses the

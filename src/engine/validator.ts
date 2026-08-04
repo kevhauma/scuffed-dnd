@@ -12,8 +12,13 @@
  */
 
 import type { Configuration } from '../types/config';
+import { scopeFor } from './formula/scoping';
 import type { FormulaDependency } from './formula/validator';
-import { validateFormula, validateFormulaCollection } from './formula/validator';
+import {
+  toFormulaDependency,
+  validateFormula,
+  validateFormulaCollection,
+} from './formula/validator';
 
 /**
  * Validation issue severity levels
@@ -62,9 +67,15 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   const materialIds = new Set(config.materials.map((m) => m.id));
   const currencyTierIds = new Set(config.currencyTiers.map((t) => t.id));
 
+  // Validate formulas against the same scoping table the save-time guard uses, so an imported
+  // ruleset is judged by exactly the rules a panel would have enforced (Concept 00 §5).
+  const statScope = scopeFor(config, 'stat');
+  const specialityScope = scopeFor(config, 'speciality-skill');
+  const combatScope = scopeFor(config, 'combat-skill');
+
   // Validate stat formulas
   for (const stat of config.stats) {
-    const result = validateFormula(stat.formula, mainSkillCodes);
+    const result = validateFormula(stat.formula, statScope.codes, statScope);
 
     if (!result.isValid) {
       for (const error of result.errors) {
@@ -82,7 +93,7 @@ export function validateConfiguration(config: Configuration): ValidationReport {
 
   // Validate speciality skill formulas
   for (const skill of config.specialitySkills) {
-    const result = validateFormula(skill.bonusFormula, mainSkillCodes);
+    const result = validateFormula(skill.bonusFormula, specialityScope.codes, specialityScope);
 
     if (!result.isValid) {
       for (const error of result.errors) {
@@ -99,10 +110,8 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   }
 
   // Validate combat skill formulas
-  const availableForCombatSkills = new Set([...mainSkillCodes, ...specialitySkillCodes]);
-
   for (const skill of config.combatSkills) {
-    const result = validateFormula(skill.bonusFormula, availableForCombatSkills);
+    const result = validateFormula(skill.bonusFormula, combatScope.codes, combatScope);
 
     if (!result.isValid) {
       for (const error of result.errors) {
@@ -118,35 +127,12 @@ export function validateConfiguration(config: Configuration): ValidationReport {
     }
   }
 
-  // Validate circular dependencies in formulas
+  // Validate circular dependencies in formulas. `toFormulaDependency` is the one place that
+  // decides what an edge is, so bare codes and dotted references land on the same graph nodes.
   const formulaDependencies: FormulaDependency[] = [
-    // Stats can reference main skills
-    ...config.stats.map((stat) => {
-      const result = validateFormula(stat.formula);
-      return {
-        id: stat.id,
-        formula: stat.formula,
-        referencedVariables: result.referencedVariables,
-      };
-    }),
-    // Speciality skills can reference main skills
-    ...config.specialitySkills.map((skill) => {
-      const result = validateFormula(skill.bonusFormula);
-      return {
-        id: skill.code,
-        formula: skill.bonusFormula,
-        referencedVariables: result.referencedVariables,
-      };
-    }),
-    // Combat skills can reference main and speciality skills
-    ...config.combatSkills.map((skill) => {
-      const result = validateFormula(skill.bonusFormula);
-      return {
-        id: skill.code,
-        formula: skill.bonusFormula,
-        referencedVariables: result.referencedVariables,
-      };
-    }),
+    ...config.stats.map((stat) => toFormulaDependency(stat.id, stat.formula)),
+    ...config.specialitySkills.map((skill) => toFormulaDependency(skill.code, skill.bonusFormula)),
+    ...config.combatSkills.map((skill) => toFormulaDependency(skill.code, skill.bonusFormula)),
   ];
 
   const circularResult = validateFormulaCollection(formulaDependencies);

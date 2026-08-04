@@ -634,4 +634,61 @@ describe('validateConfiguration', () => {
       expect(result.errors[0].entityName).toBe('Health');
     });
   });
+
+  describe('namespace scoping on import (TICKET-FORM-04)', () => {
+    // The import-time report and the save-time guard must answer the same question the same
+    // way. Both read `scopeFor`; if this file ever hardcodes the rule again, these fail.
+    it('reports an unknown namespace in an imported stat formula', () => {
+      const config = createMinimalConfig();
+      config.stats = [{ id: 'hp', name: 'Health', description: '', formula: 'wibble.thing' }];
+
+      const result = validateConfiguration(config);
+
+      expect(result.errors.some((e) => e.message.includes('Unknown namespace: wibble'))).toBe(true);
+    });
+
+    it('reports an unknown member in an imported stat formula', () => {
+      const config = createMinimalConfig();
+      config.stats = [{ id: 'hp', name: 'Health', description: '', formula: 'stats.bogus' }];
+
+      const result = validateConfiguration(config);
+
+      expect(result.errors.some((e) => e.message.includes('Unknown member: stats.bogus'))).toBe(
+        true
+      );
+    });
+
+    it('reports a namespace that is out of scope for a speciality skill', () => {
+      const config = createMinimalConfig();
+      config.mainSkills = [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }];
+      config.specialitySkills = [
+        {
+          code: 'STL',
+          name: 'Stealth',
+          description: '',
+          maxBaseLevel: 10,
+          bonusFormula: 'curve.growth(STR)',
+        },
+      ];
+
+      const result = validateConfiguration(config);
+
+      expect(
+        result.errors.some((e) => e.message.includes('Namespace not available here: curve'))
+      ).toBe(true);
+    });
+
+    it('accepts an in-scope namespaced reference', () => {
+      const config = createMinimalConfig();
+      config.mainSkills = [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }];
+      config.stats = [
+        { id: 'hp', name: 'Health', description: '', formula: 'STR * 10' },
+        { id: 'armour', name: 'Armour', description: '', formula: 'stats.hp / 2' },
+      ];
+
+      const result = validateConfiguration(config);
+
+      expect(result.errors.filter((e) => e.category === 'Formula Validation')).toEqual([]);
+    });
+  });
 });

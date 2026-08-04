@@ -58,7 +58,7 @@ Formula engine (all additive, suite stays green):
 
 - [x] [TICKET-FORM-02](./tickets/TICKET-FORM-02-formula-function-library.md) — Function calls in the formula engine (Concepts 01, 02) — **first**: `round`/`max` unlock every confirmed derivation
 - [x] [TICKET-FORM-03](./tickets/TICKET-FORM-03-namespaced-reference-syntax-and-resolution.md) — Namespaced reference syntax and resolution (Concept 00 §5) — needs FORM-02's parser work fresh
-- [ ] [TICKET-FORM-04](./tickets/TICKET-FORM-04-namespace-scoping-and-cycle-detection.md) — Namespace scoping table + cycle detection across namespaces (Concept 00 §5) — pairs with FORM-03
+- [x] [TICKET-FORM-04](./tickets/TICKET-FORM-04-namespace-scoping-and-cycle-detection.md) — Namespace scoping table + cycle detection across namespaces (Concept 00 §5) — pairs with FORM-03
 - [ ] [TICKET-FORM-05](./tickets/TICKET-FORM-05-errors-as-values-engine.md) — Errors as values in the engine (Concept 00 §7) — before the entity tickets multiply `CalculatedCharacter` consumers
 - [ ] [TICKET-FORM-06](./tickets/TICKET-FORM-06-error-chips-on-the-sheet.md) — Error chips on the character sheet (Concept 00 §7) — renders FORM-05; closes the v1.0 known bug's visible half
 

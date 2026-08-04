@@ -7,6 +7,7 @@
  */
 
 import { useState } from 'react';
+import { validateFormula as validateFormulaSyntax } from '../../../engine/formula/validator';
 import { Input } from '../Input/Input';
 import { Label } from '../Label/Label';
 import {
@@ -39,27 +40,27 @@ export function FormulaEditor({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
-  // Validate formula and check for undefined variables
-  const validateFormula = (formulaValue: string) => {
+  // Validate through the formula engine. Never scan the string here: a regex over
+  // `skills.STL + 1` sees a bare `STL` that isn't there, and only the parser knows the
+  // difference between a bare code and a namespace member.
+  const validate = (formulaValue: string) => {
     if (!formulaValue.trim()) {
       setError(undefined);
       onValidate?.(true);
       return;
     }
 
-    // Extract potential variable references (3-letter uppercase sequences)
-    const variablePattern = /\b[A-Z]{3}\b/g;
-    const referencedVars = formulaValue.match(variablePattern) || [];
-    const undefinedVars = referencedVars.filter((v) => !availableVariables.includes(v));
+    const result = validateFormulaSyntax(formulaValue, new Set(availableVariables));
 
-    if (undefinedVars.length > 0) {
-      const errorMsg = `Undefined variables: ${undefinedVars.join(', ')}`;
-      setError(errorMsg);
-      onValidate?.(false, errorMsg);
-    } else {
+    if (result.isValid) {
       setError(undefined);
       onValidate?.(true);
+      return;
     }
+
+    const errorMsg = result.errors.join('; ');
+    setError(errorMsg);
+    onValidate?.(false, errorMsg);
   };
 
   // Handle autocomplete suggestions and validation
@@ -67,7 +68,7 @@ export function FormulaEditor({
     onChange(newValue);
 
     // Validate the new value
-    validateFormula(newValue);
+    validate(newValue);
 
     // Get the last word being typed
     const words = newValue.split(/[\s+\-*/()]/);
