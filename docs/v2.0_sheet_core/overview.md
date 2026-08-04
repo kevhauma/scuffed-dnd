@@ -61,6 +61,7 @@ Formula engine (all additive, suite stays green):
 - [x] [TICKET-FORM-04](./tickets/TICKET-FORM-04-namespace-scoping-and-cycle-detection.md) — Namespace scoping table + cycle detection across namespaces (Concept 00 §5) — pairs with FORM-03
 - [x] [TICKET-FORM-05](./tickets/TICKET-FORM-05-errors-as-values-engine.md) — Errors as values in the engine (Concept 00 §7) — before the entity tickets multiply `CalculatedCharacter` consumers
 - [x] [TICKET-FORM-06](./tickets/TICKET-FORM-06-error-chips-on-the-sheet.md) — Error chips on the character sheet (Concept 00 §7) — renders FORM-05; closes the v1.0 known bug's visible half
+- [x] [TICKET-CALC-02](./tickets/TICKET-CALC-02-seed-configured-main-skills.md) — An unallocated main skill is 0, not missing (bug fix, Concept 01, v1.0 Req 16.6 — `calculateTotalMainSkillLevels` seeds from `character.mainSkillLevels`, so a configured-but-unallocated code is absent from the formula context and every formula naming it reports `Undefined variable`) — **directly after FORM-06**: that ticket made the v1.0 known bug survivable, this removes its cause; a few lines on the current model, and the invariant carries into STAT-01
 
 Identity and the two new config concepts:
 

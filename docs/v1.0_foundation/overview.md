@@ -62,9 +62,14 @@ for finished:
   open criterion with a note. They are unticked, not quietly passed. The ones that most want a real
   browser are **POL-01** (a purely visual refactor), **IO-02** (jsdom cannot exercise the actual
   file download) and **ROLL-02** (the dice settle animation).
-- **One known bug, found by TICKET-POL-02 and raised separately**: a main skill a character never
-  allocated is missing from the formula context, so adding a main skill to a ruleset breaks every
-  existing character's sheet with `Undefined variable`.
+- **One known bug, found by TICKET-POL-02 and raised separately — now fixed**: a main skill a
+  character never allocated was missing from the formula context, so adding a main skill to a
+  ruleset broke every existing character's sheet with `Undefined variable`. Closed in the next
+  milestone —
+  [TICKET-FORM-06](../v2.0_sheet_core/tickets/TICKET-FORM-06-error-chips-on-the-sheet.md) took the
+  user-visible half (a chip instead of a blank sheet) and
+  [TICKET-CALC-02](../v2.0_sheet_core/tickets/TICKET-CALC-02-seed-configured-main-skills.md)
+  removed the cause (a configured code with no allocation now reads as 0).
 
 ## Spec decisions (answered 2026-07-30)
 

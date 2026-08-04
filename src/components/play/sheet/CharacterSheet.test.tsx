@@ -380,9 +380,24 @@ describe('CharacterSheet', () => {
       expect((rollButton as HTMLButtonElement).disabled).toBe(true);
     });
 
-    it('should survive the v1.0 bug: a new stat referencing a code no character has', () => {
+    it('should still render every other section its numbers', () => {
+      renderWithBrokenStat();
+
+      // Evasion's own formula is fine, so its maximum is still shown: DEX 4 + elf racial 2 = 6,
+      // and the formula doubles it
+      expect(within(rowFor('Evasion')).getByText('of 12 max')).toBeDefined();
+
+      // …as are the main skill totals, which never depended on the broken formula
+      expect(within(rowFor(/Strength \(STR\)/)).getByText('6')).toBeDefined();
+      expect(within(rowFor(/Stealth \(STL\)/)).getByText('12')).toBeDefined();
+    });
+  });
+
+  describe('a main skill no character allocated (TICKET-CALC-02)', () => {
+    it('should calculate a new stat over it rather than chipping the sheet', () => {
       // The original report: the User adds something to the ruleset, and every existing
-      // character's sheet goes blank with `Undefined variable`. It must now cost one chip.
+      // character's sheet goes blank with `Undefined variable`. FORM-06 reduced that to one chip;
+      // CALC-02 removes the chip too — a configured main skill nobody allocated is simply 0.
       useConfigStore.setState({
         config: createConfig({
           mainSkills: [
@@ -407,20 +422,12 @@ describe('CharacterSheet', () => {
       // Health still calculates from the levels the character does have
       expect(within(rowFor('Health')).getByText('of 60 max')).toBeDefined();
 
-      // …and only the new stat carries a chip
-      expect(screen.getAllByRole('img', { name: /Undefined variable: WIS/ })).toHaveLength(1);
-    });
+      // …the new main skill reads as 0 rather than as a missing variable…
+      expect(within(rowFor(/Wisdom \(WIS\)/)).getByText('0')).toBeDefined();
 
-    it('should still render every other section its numbers', () => {
-      renderWithBrokenStat();
-
-      // Evasion's own formula is fine, so its maximum is still shown: DEX 4 + elf racial 2 = 6,
-      // and the formula doubles it
-      expect(within(rowFor('Evasion')).getByText('of 12 max')).toBeDefined();
-
-      // …as are the main skill totals, which never depended on the broken formula
-      expect(within(rowFor(/Strength \(STR\)/)).getByText('6')).toBeDefined();
-      expect(within(rowFor(/Stealth \(STL\)/)).getByText('12')).toBeDefined();
+      // …so the new stat is a number, and nothing on the sheet is chipped
+      expect(within(rowFor('Insight')).getByText('of 0 max')).toBeDefined();
+      expect(screen.queryAllByRole('img', { name: /Undefined variable/ })).toHaveLength(0);
     });
   });
 });

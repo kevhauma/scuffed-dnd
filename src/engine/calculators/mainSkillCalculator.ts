@@ -50,10 +50,16 @@ export function calculateRacialSkillModifiers(races: Race[]): Record<string, num
  * Calculate total main skill levels
  *
  * Combines, in order:
+ * 0. every configured main skill code, seeded to 0 (when `options.mainSkills` is given);
  * 1. the character's allocated levels;
  * 2. racial modifiers from every race the character has;
  * 3. equipment modifiers targeting a main skill code (Requirement 6.7, 13.3);
  * 4. the focus stat bonus, but only when the focus stat is a main skill (Requirement 9.3).
+ *
+ * **Every configured main skill has a value; absence is not a state.** The returned record is the
+ * main skill namespace handed to the formula engine, so a code the ruleset defines but the
+ * character never allocated must read as 0 rather than as an undefined variable. `Undefined
+ * variable` is reserved for codes the configuration genuinely does not define.
  *
  * @param character - The character whose skills to calculate
  * @param races - Array of Race objects for the character's races
@@ -67,7 +73,15 @@ export function calculateTotalMainSkillLevels(
 ): Record<string, number> {
   const { mainSkills, equipmentBonuses = [], focusStatBonusLevel = 0 } = options;
 
-  const totalLevels: Record<string, number> = { ...character.mainSkillLevels };
+  // Seed the configured namespace first, so an unallocated code is 0 rather than missing.
+  // Omitting `mainSkills` leaves the plain allocation shape untouched for callers with no
+  // configuration to seed from.
+  const seededLevels: Record<string, number> = {};
+  for (const skill of mainSkills ?? []) {
+    seededLevels[skill.code] = 0;
+  }
+
+  const totalLevels: Record<string, number> = { ...seededLevels, ...character.mainSkillLevels };
 
   // Apply racial bonuses additively
   const racialModifiers = calculateRacialSkillModifiers(races);

@@ -74,6 +74,14 @@ computed number on `Character`, the answer is a recalculation call at read time 
 exception is `currentStatValues` — the player's *current* HP/mana, which is state, not derivation
 (its maximum is derived; its current value is not).
 
+**Since TICKET-CALC-02, every *configured* code has a value; absence is not a state.**
+`calculateTotalMainSkillLevels` seeds every code in `config.mainSkills` to 0 before applying
+allocations, racial modifiers, equipment and the focus bonus, so `totalMainSkillLevels` is the
+configured namespace in full and a main skill the character never allocated reads as `0` rather
+than as an undefined variable in every formula naming it. `Undefined variable` is reserved for
+codes the configuration genuinely does not define. Seed in the calculator — never default in a
+component or back-fill `Character.mainSkillLevels` on save.
+
 **Since TICKET-FORM-05 the three formula-derived maps hold `FormulaResult` — a number *or* a
 `FormulaError`** (`maxStatValues`, `specialitySkillTotalLevels`, `combatSkillBonuses`;
 `totalMainSkillLevels` stays plain numbers, since nothing there comes from a user formula).

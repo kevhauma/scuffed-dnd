@@ -226,6 +226,26 @@ describe('CharacterCreationWizard', () => {
     expect(rowValue('Dexterity (DEX)')).toBe(`Dexterity (DEX)${expected.totalMainSkillLevels.DEX}`);
   });
 
+  it('should preview numbers on review before anything is allocated (TICKET-CALC-02)', () => {
+    // The wizard starts with an empty allocation map, so every configured main skill is
+    // unallocated here — the reported repro at its purest. It must summarise as zeroes rather
+    // than withhold the preview over `Undefined variable`.
+    render(<CharacterCreationWizard />);
+
+    fireEvent.change(nameField(), { target: { value: 'Aria' } });
+    next(); // Skills — nothing entered
+    next(); // Focus
+    next(); // Review
+
+    expect(screen.queryByText(/formula that does not evaluate/)).toBeNull();
+
+    const rowValue = (label: string) => screen.getByText(label).parentElement?.textContent ?? '';
+
+    expect(rowValue('Strength (STR)')).toBe('Strength (STR)0');
+    expect(rowValue('Health')).toBe('Health0'); // STR 0 * 10
+    expect(rowValue('Melee (MEL)')).toBe('Melee (MEL)0'); // STR 0 + STL 0
+  });
+
   it('should create the character once and navigate to its sheet', () => {
     render(<CharacterCreationWizard />);
 

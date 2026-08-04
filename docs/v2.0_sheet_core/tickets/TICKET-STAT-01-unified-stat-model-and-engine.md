@@ -55,6 +55,15 @@ TICKET-STAT-02; wizard and sheet are TICKET-STAT-03.
 ## Notes
 
 - Sequence inside the ticket: types → engine → stores → mechanical UI updates.
+- **Carry [TICKET-CALC-02](./TICKET-CALC-02-seed-configured-main-skills.md)'s invariant across:
+  *every configured stat has a value; absence is not a state.*** The composition calculator seeds
+  every stat in `config.stats` before applying invested points, race bases and equipment, so the
+  namespace handed to the formula engine is the configured namespace, complete. `Undefined
+  variable` stays reserved for references the configuration genuinely does not define. Carry the
+  regression tests over too — `CharacterSheet.test.tsx` → *"should calculate a new stat over it
+  rather than chipping the sheet"* and `CharacterCreationWizard.test.tsx` → *"should preview
+  numbers on review before anything is allocated"*, both of which fail the moment a stat goes
+  missing from the context rather than reading 0.
 - [`examples/demo-ruleset.json`](../../../examples/demo-ruleset.json) must be re-authored to the
   v2 shape or deleted — a stale example is worse than none.
 - Old `maxLevel` (investment cap) is replaced by value clamps; if per-stat investment caps are

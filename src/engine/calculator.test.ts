@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Character } from '../types/character';
 import type { Configuration } from '../types/config';
-import { calculateCharacter, calculateCharacterStats } from './calculator';
+import { calculateCharacter, calculateCharacterStats, firstCalculationError } from './calculator';
 import { isFormulaError } from './formula/errors';
 
 describe('calculateCharacterStats', () => {
@@ -600,5 +600,63 @@ describe('calculateCharacter', () => {
     expect(calculateCharacterStats(character, config)).toEqual(
       calculateCharacter(character, config).maxStatValues
     );
+  });
+});
+
+describe('calculateCharacter over an unallocated main skill (TICKET-CALC-02)', () => {
+  /**
+   * The reported shape: the ruleset gains WIS and formulas that read it, while the character —
+   * created before WIS existed — has no allocation for it.
+   */
+  const createConfigWithWisdom = (): Configuration =>
+    createFixtureConfig({
+      mainSkills: [
+        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+        { code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
+        { code: 'WIS', name: 'Wisdom', description: '', maxLevel: 20 }, // newly added
+      ],
+      stats: [{ id: 'insight', name: 'Insight', description: '', formula: 'WIS * 3' }],
+      specialitySkills: [
+        { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'WIS' },
+      ],
+      combatSkills: [
+        {
+          code: 'MEL',
+          name: 'Melee',
+          description: '',
+          dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
+          bonusFormula: 'STR + WIS',
+        },
+      ],
+    });
+
+  it('should return numbers throughout when stat, speciality and combat formulas read it', () => {
+    const result = calculateCharacter(createFixtureCharacter(), createConfigWithWisdom());
+
+    expect(result.totalMainSkillLevels.WIS).toBe(0);
+    expect(result.maxStatValues.insight).toBe(0); // WIS 0 * 3
+    expect(result.specialitySkillTotalLevels.STL).toBe(2); // base 2 + WIS 0
+    expect(result.combatSkillBonuses.MEL).toBe(9); // STR 9 (10 - 1 elf) + WIS 0
+    expect(firstCalculationError(result)).toBeUndefined();
+  });
+
+  it('should still report a code the configuration does not define as undefined', () => {
+    const config = createConfigWithWisdom();
+    const result = calculateCharacter(
+      createFixtureCharacter(),
+      // MAG is in no namespace — unlike WIS, there is nothing to seed it from
+      {
+        ...config,
+        stats: [...config.stats, { id: 'mana', name: 'Mana', description: '', formula: 'MAG * 5' }],
+      }
+    );
+
+    expect(result.maxStatValues.insight).toBe(0);
+    expect(result.maxStatValues.mana).toMatchObject({
+      kind: 'undefined-variable',
+      message: 'Undefined variable: MAG',
+      source: { kind: 'stat', id: 'mana', name: 'Mana' },
+    });
   });
 });

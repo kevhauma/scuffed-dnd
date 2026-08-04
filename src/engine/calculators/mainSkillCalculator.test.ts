@@ -222,6 +222,77 @@ describe('calculateTotalMainSkillLevels', () => {
       expect(result).toEqual({ STR: 10, DEX: 8 });
     });
   });
+
+  // TICKET-CALC-02: the returned record is the main skill namespace the formula engine sees, so a
+  // configured code the character never allocated has to be 0 rather than absent.
+  describe('with the configured main skill namespace', () => {
+    /** CON is configured but never allocated by `createCharacter` */
+    const mainSkills: MainSkill[] = [
+      { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+      { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      { code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
+    ];
+
+    const createCharacter = (overrides: Partial<Character> = {}): Character => ({
+      id: '1',
+      name: 'Test Character',
+      configurationId: 'config1',
+      raceIds: [],
+      mainSkillLevels: { STR: 10, DEX: 8 },
+      specialitySkillBaseLevels: {},
+      currentStatValues: {},
+      inventory: { equippedItems: {}, miscItems: [] },
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+      ...overrides,
+    });
+
+    it('should total a configured but unallocated skill to 0 rather than omitting it', () => {
+      const result = calculateTotalMainSkillLevels(createCharacter(), [], { mainSkills });
+
+      expect(result).toEqual({ STR: 10, DEX: 8, CON: 0 });
+    });
+
+    it('should total an unallocated skill with only a racial modifier to the modifier', () => {
+      const races: Race[] = [
+        {
+          id: 'dwarf',
+          name: 'Dwarf',
+          description: '',
+          skillModifiers: [{ skillCode: 'CON', modifier: 3 }],
+        },
+      ];
+
+      const result = calculateTotalMainSkillLevels(createCharacter(), races, { mainSkills });
+
+      expect(result).toEqual({ STR: 10, DEX: 8, CON: 3 });
+    });
+
+    it('should total an unallocated skill with only an equipment bonus to the bonus', () => {
+      const result = calculateTotalMainSkillLevels(createCharacter(), [], {
+        mainSkills,
+        equipmentBonuses: [{ skillCode: 'CON', modifier: 4 }],
+      });
+
+      expect(result).toEqual({ STR: 10, DEX: 8, CON: 4 });
+    });
+
+    it('should total an unallocated skill chosen as the focus stat to the focus bonus', () => {
+      const result = calculateTotalMainSkillLevels(createCharacter({ focusStatCode: 'CON' }), [], {
+        mainSkills,
+        focusStatBonusLevel: 3,
+      });
+
+      expect(result).toEqual({ STR: 10, DEX: 8, CON: 3 });
+    });
+
+    it('should keep the sparse allocation shape when no main skills are given', () => {
+      // Callers with no configuration to seed from are unaffected by the seeding
+      const result = calculateTotalMainSkillLevels(createCharacter(), []);
+
+      expect(result).toEqual({ STR: 10, DEX: 8 });
+    });
+  });
 });
 
 describe('calculateRacialSkillModifiers', () => {
