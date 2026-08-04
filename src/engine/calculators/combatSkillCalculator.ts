@@ -3,13 +3,13 @@
  *
  * Calculates combat skill bonuses from formulas and equipment.
  *
- * **Validates: Requirements 5.4, 13.3**
+ * **Validates: Requirements 5.4, 13.3, 16.6; Concept 00 §7**
  */
 
 import type { Configuration, SkillModifier } from '../../types/config';
-import type { FormulaContext } from '../../types/formula';
-import { evaluateFormula } from '../formula/evaluator';
-import { parseFormula } from '../formula/parser';
+import type { FormulaContext, FormulaResult } from '../../types/formula';
+import { isFormulaError, withSource } from '../formula/errors';
+import { evaluateFormulaString } from '../formula/evaluator';
 
 /**
  * Calculate combat skill bonuses
@@ -22,18 +22,18 @@ import { parseFormula } from '../formula/parser';
  * @param totalMainSkillLevels - Main skill levels with racial bonuses applied
  * @param specialitySkillLevels - Calculated speciality skill levels
  * @param equipmentBonuses - Bonuses from equipped items
- * @returns Record of combat skill code to total bonus
- * @throws Error if formula parsing or evaluation fails
+ * @returns Record of combat skill code to total bonus or error
  */
 export function calculateCombatSkillBonuses(
   config: Configuration,
-  totalMainSkillLevels: Record<string, number>,
-  specialitySkillLevels: Record<string, number>,
+  totalMainSkillLevels: Record<string, FormulaResult>,
+  specialitySkillLevels: Record<string, FormulaResult>,
   equipmentBonuses: SkillModifier[]
-): Record<string, number> {
-  const combatSkillBonuses: Record<string, number> = {};
+): Record<string, FormulaResult> {
+  const combatSkillBonuses: Record<string, FormulaResult> = {};
 
-  // Create formula context from main and speciality skill levels
+  // Formula context from main and speciality skill levels. A speciality level that is itself an
+  // error stays an error here, so a combat skill reading it reports the upstream cause.
   const context: FormulaContext = {
     variables: {
       ...totalMainSkillLevels,
@@ -43,15 +43,14 @@ export function calculateCombatSkillBonuses(
 
   // Calculate each combat skill bonus
   for (const skill of config.combatSkills) {
-    // Calculate bonus from formula
-    let formulaBonus = 0;
-    try {
-      const ast = parseFormula(skill.bonusFormula);
-      formulaBonus = evaluateFormula(ast, context);
-    } catch (error) {
-      throw new Error(
-        `Failed to calculate bonus for combat skill "${skill.name}" (${skill.code}): ${error instanceof Error ? error.message : String(error)}`
-      );
+    const formulaBonus = evaluateFormulaString(skill.bonusFormula, context);
+    if (isFormulaError(formulaBonus)) {
+      combatSkillBonuses[skill.code] = withSource(formulaBonus, {
+        kind: 'combat-skill',
+        id: skill.code,
+        name: skill.name,
+      });
+      continue;
     }
 
     // Add equipment bonuses for this combat skill

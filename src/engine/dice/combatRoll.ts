@@ -9,8 +9,9 @@
 
 import type { CalculatedCharacter } from '../../types/character';
 import type { CombatSkill, Configuration } from '../../types/config';
-import type { CombatRollResult } from '../../types/formula';
+import type { CombatRollResult, FormulaError } from '../../types/formula';
 import { calculateCombatSkillBonuses } from '../calculators/combatSkillCalculator';
+import { isFormulaError } from '../formula/errors';
 import { type RandomSource, rollDice, sumDiceResults } from './diceSimulator';
 
 /**
@@ -25,8 +26,9 @@ import { type RandomSource, rollDice, sumDiceResults } from './diceSimulator';
  * @param config - The configuration the character was built on
  * @param rng - Source of randomness; defaults to `Math.random`
  * @param timestamp - ISO timestamp for the result; defaults to now
- * @returns The full breakdown: per-die-type rolls, dice total, bonus, and combined total
- * @throws Error naming the skill if its bonus formula cannot be evaluated
+ * @returns The full breakdown — per-die-type rolls, dice total, bonus, and combined total — or a
+ *   `FormulaError` naming the skill if its bonus formula cannot be evaluated. Returning the error
+ *   rather than a bonus of zero keeps a broken roll visibly broken (Concept 00 §7).
  */
 export function rollCombatSkill(
   skill: CombatSkill,
@@ -34,7 +36,7 @@ export function rollCombatSkill(
   config: Configuration,
   rng: RandomSource = Math.random,
   timestamp: string = new Date().toISOString()
-): CombatRollResult {
+): CombatRollResult | FormulaError {
   const diceResults = rollDice(skill.dice, rng);
   const diceTotal = sumDiceResults(diceResults);
 
@@ -45,8 +47,13 @@ export function rollCombatSkill(
     character.equipmentBonuses
   );
 
+  const bonusResult = bonuses[skill.code];
+  if (isFormulaError(bonusResult)) {
+    return bonusResult;
+  }
+
   // A skill absent from the configuration contributes no bonus rather than NaN
-  const bonus = bonuses[skill.code] ?? 0;
+  const bonus = bonusResult ?? 0;
 
   return {
     skillCode: skill.code,

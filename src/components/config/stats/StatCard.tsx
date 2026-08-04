@@ -7,8 +7,8 @@
  */
 
 import { useMemo, useState } from 'react';
-import { evaluateFormula } from '../../../engine/formula/evaluator';
-import { parseFormula } from '../../../engine/formula/parser';
+import { asNumber } from '../../../engine/formula/errors';
+import { evaluateFormulaString } from '../../../engine/formula/evaluator';
 import { validateFormula } from '../../../engine/formula/validator';
 import type { Stat } from '../../../types';
 import { Button } from '../../ui/Button/Button';
@@ -38,17 +38,15 @@ export function StatCard({ stat, availableSkillCodes, onEdit, onDelete }: StatCa
     return validateFormula(stat.formula, new Set(availableSkillCodes));
   }, [stat.formula, availableSkillCodes]);
 
-  // Calculate preview value
+  // Calculate preview value. A formula that cannot produce a number yields an error value
+  // rather than throwing, and the preview simply shows nothing for it.
   const previewValue = useMemo(() => {
     if (!validation.isValid) return null;
 
-    try {
-      const ast = parseFormula(stat.formula);
-      const value = evaluateFormula(ast, { variables: sampleValues });
-      return Math.round(value * 100) / 100; // Round to 2 decimal places
-    } catch (_error) {
-      return null;
-    }
+    const value = evaluateFormulaString(stat.formula, { variables: sampleValues });
+    const number = asNumber(value);
+
+    return number === undefined ? null : Math.round(number * 100) / 100;
   }, [stat.formula, sampleValues, validation.isValid]);
 
   return (

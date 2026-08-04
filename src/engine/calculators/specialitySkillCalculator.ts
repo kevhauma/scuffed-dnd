@@ -4,14 +4,14 @@
  * Calculates total speciality skill levels including base level, formula bonus, equipment
  * bonuses, and focus stat bonus.
  *
- * **Validates: Requirements 3.6, 6.7, 9.3, 16.6**
+ * **Validates: Requirements 3.6, 6.7, 9.3, 16.6; Concept 00 §7**
  */
 
 import type { Character } from '../../types/character';
 import type { Configuration, SkillModifier } from '../../types/config';
-import type { FormulaContext } from '../../types/formula';
-import { evaluateFormula } from '../formula/evaluator';
-import { parseFormula } from '../formula/parser';
+import type { FormulaContext, FormulaResult } from '../../types/formula';
+import { isFormulaError, withSource } from '../formula/errors';
+import { evaluateFormulaString } from '../formula/evaluator';
 
 /**
  * Calculate total speciality skill levels
@@ -26,16 +26,15 @@ import { parseFormula } from '../formula/parser';
  * @param config - The game configuration containing speciality skill definitions
  * @param totalMainSkillLevels - Main skill levels with racial and equipment bonuses applied
  * @param equipmentBonuses - Bonuses from equipped items; only those targeting a speciality skill code are used
- * @returns Record of speciality skill code to total level
- * @throws Error if formula parsing or evaluation fails
+ * @returns Record of speciality skill code to total level or error
  */
 export function calculateSpecialitySkillLevels(
   character: Character,
   config: Configuration,
-  totalMainSkillLevels: Record<string, number>,
+  totalMainSkillLevels: Record<string, FormulaResult>,
   equipmentBonuses: SkillModifier[] = []
-): Record<string, number> {
-  const specialitySkillLevels: Record<string, number> = {};
+): Record<string, FormulaResult> {
+  const specialitySkillLevels: Record<string, FormulaResult> = {};
 
   // Create formula context from main skill levels
   const context: FormulaContext = {
@@ -47,15 +46,15 @@ export function calculateSpecialitySkillLevels(
     // Start with base level (default to 0 if not set)
     const baseLevel = character.specialitySkillBaseLevels[skill.code] || 0;
 
-    // Calculate bonus from formula
-    let bonus = 0;
-    try {
-      const ast = parseFormula(skill.bonusFormula);
-      bonus = evaluateFormula(ast, context);
-    } catch (error) {
-      throw new Error(
-        `Failed to calculate bonus for speciality skill "${skill.name}" (${skill.code}): ${error instanceof Error ? error.message : String(error)}`
-      );
+    // Calculate bonus from formula. A broken formula poisons this skill only (Concept 00 §7).
+    const bonus = evaluateFormulaString(skill.bonusFormula, context);
+    if (isFormulaError(bonus)) {
+      specialitySkillLevels[skill.code] = withSource(bonus, {
+        kind: 'speciality-skill',
+        id: skill.code,
+        name: skill.name,
+      });
+      continue;
     }
 
     // Add equipment bonuses targeting this speciality skill (Requirement 6.7)

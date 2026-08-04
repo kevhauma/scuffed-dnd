@@ -14,6 +14,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { calculateCharacter } from './engine/calculator';
+import { numberOr } from './engine/formula/errors';
 import { loadCharacters, loadConfiguration } from './services/storage';
 import { useCharacterStore } from './stores/characterStore';
 import { useConfigStore } from './stores/configStore';
@@ -205,7 +206,10 @@ describe('recalculation flows', () => {
       config
     );
 
-    expect(after.specialitySkillTotalLevels.STL - before.specialitySkillTotalLevels.STL).toBe(6);
+    expect(
+      numberOr(after.specialitySkillTotalLevels.STL, 0) -
+        numberOr(before.specialitySkillTotalLevels.STL, 0)
+    ).toBe(6);
   });
 
   it('should move a combat bonus when the skills it names change (Req 5.4)', () => {
@@ -219,7 +223,9 @@ describe('recalculation flows', () => {
       config
     );
 
-    expect(after.combatSkillBonuses.MEL - before.combatSkillBonuses.MEL).toBe(2);
+    expect(
+      numberOr(after.combatSkillBonuses.MEL, 0) - numberOr(before.combatSkillBonuses.MEL, 0)
+    ).toBe(2);
   });
 
   it('should combine multiple races additively through the whole chain (Req 8.3, 8.4)', () => {
@@ -229,8 +235,9 @@ describe('recalculation flows', () => {
     // Elf DEX +2, Human DEX +1 — and the extra point carries into Stealth, which reads DEX
     expect(oneRace.totalMainSkillLevels.DEX).toBe(6);
     expect(twoRaces.totalMainSkillLevels.DEX).toBe(7);
-    expect(twoRaces.specialitySkillTotalLevels.STL - oneRace.specialitySkillTotalLevels.STL).toBe(
-      1
-    );
+    expect(
+      numberOr(twoRaces.specialitySkillTotalLevels.STL, 0) -
+        numberOr(oneRace.specialitySkillTotalLevels.STL, 0)
+    ).toBe(1);
   });
 });

@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import type { Character } from '../types/character';
 import type { Configuration } from '../types/config';
 import { calculateCharacter, calculateCharacterStats } from './calculator';
+import { isFormulaError } from './formula/errors';
 
 describe('calculateCharacterStats', () => {
   it('should calculate stats with racial bonuses applied', () => {
@@ -489,14 +490,20 @@ describe('calculateCharacter', () => {
     expect(result.maxStatValues.health).toBe(150);
   });
 
+  // TICKET-FORM-05: these used to assert a throw that aborted the whole calculation. The
+  // contract is now an error value on the offending entry, with everything else still computed.
   it('should name the stat and the missing code when a stat formula references an undefined skill', () => {
     const config = createFixtureConfig({
       stats: [{ id: 'mana', name: 'Mana', description: '', formula: 'MAG * 5' }],
     });
 
-    expect(() => calculateCharacter(createFixtureCharacter(), config)).toThrow(
-      /Failed to calculate stat "Mana" \(mana\).*Undefined variable: MAG/
-    );
+    const result = calculateCharacter(createFixtureCharacter(), config);
+
+    expect(result.maxStatValues.mana).toMatchObject({
+      kind: 'undefined-variable',
+      message: 'Undefined variable: MAG',
+      source: { kind: 'stat', id: 'mana', name: 'Mana' },
+    });
   });
 
   it('should name the speciality skill when its formula references an undefined skill', () => {
@@ -506,9 +513,13 @@ describe('calculateCharacter', () => {
       ],
     });
 
-    expect(() => calculateCharacter(createFixtureCharacter(), config)).toThrow(
-      /speciality skill "Stealth" \(STL\).*Undefined variable: MAG/
-    );
+    const result = calculateCharacter(createFixtureCharacter(), config);
+
+    expect(result.specialitySkillTotalLevels.STL).toMatchObject({
+      kind: 'undefined-variable',
+      message: 'Undefined variable: MAG',
+      source: { kind: 'speciality-skill', id: 'STL', name: 'Stealth' },
+    });
   });
 
   it('should name the combat skill when its formula references an undefined skill', () => {
@@ -524,9 +535,60 @@ describe('calculateCharacter', () => {
       ],
     });
 
-    expect(() => calculateCharacter(createFixtureCharacter(), config)).toThrow(
-      /combat skill "Melee" \(MEL\).*Undefined variable: MAG/
-    );
+    const result = calculateCharacter(createFixtureCharacter(), config);
+
+    expect(result.combatSkillBonuses.MEL).toMatchObject({
+      kind: 'undefined-variable',
+      message: 'Undefined variable: MAG',
+      source: { kind: 'combat-skill', id: 'MEL', name: 'Melee' },
+    });
+  });
+
+  it('should compute every other value when one stat formula is broken (TICKET-FORM-05)', () => {
+    const config = createFixtureConfig({
+      stats: [
+        { id: 'health', name: 'Health', description: '', formula: 'MAG * 5' }, // broken
+        { id: 'evasion', name: 'Evasion', description: '', formula: 'DEX * 2' },
+      ],
+    });
+
+    const result = calculateCharacter(createFixtureCharacter(), config);
+
+    // The broken stat is the only casualty
+    expect(isFormulaError(result.maxStatValues.health)).toBe(true);
+
+    // …every other derived value is still a number
+    expect(result.maxStatValues.evasion).toBe(20); // DEX 10 * 2
+    expect(result.specialitySkillTotalLevels.STL).toBe(7); // base 2 + DEX 10 / 2
+    expect(result.specialitySkillTotalLevels.ARC).toBe(13); // base 1 + CON 12
+    expect(result.combatSkillBonuses.MEL).toBe(16); // STR 9 + STL 7
+    expect(result.totalMainSkillLevels).toEqual({ STR: 9, DEX: 10, CON: 12 });
+  });
+
+  it('should chain provenance from a broken speciality skill into the combat skill reading it', () => {
+    const config = createFixtureConfig({
+      specialitySkills: [
+        { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'MAG' },
+        { code: 'ARC', name: 'Arcana', description: '', maxBaseLevel: 10, bonusFormula: 'CON' },
+      ],
+    });
+
+    const result = calculateCharacter(createFixtureCharacter(), config);
+
+    // MEL is `STR + STL`, and STL is broken — so MEL's error names STL as the cause
+    expect(result.combatSkillBonuses.MEL).toMatchObject({
+      kind: 'upstream',
+      message: 'STL could not be calculated',
+      source: { kind: 'combat-skill', name: 'Melee' },
+      cause: {
+        message: 'Undefined variable: MAG',
+        source: { kind: 'speciality-skill', name: 'Stealth' },
+      },
+    });
+
+    // The unrelated speciality skill and the stats are untouched
+    expect(result.specialitySkillTotalLevels.ARC).toBe(13); // base 1 + CON 12
+    expect(result.maxStatValues.health).toBe(150); // STR 9 * 10 + CON 12 * 5
   });
 
   it('should agree with calculateCharacterStats, the wrapper over the same chain', () => {

@@ -13,11 +13,12 @@
 
 import { useNavigate } from '@tanstack/react-router';
 import { useMemo } from 'react';
-import { calculateCharacter } from '../../../engine/calculator';
+import { calculateCharacter, firstCalculationError } from '../../../engine/calculator';
 import { indexSkillModifiers } from '../../../engine/calculators/equipmentBonusCalculator';
 import { calculateRacialSkillModifiers } from '../../../engine/calculators/mainSkillCalculator';
 import { calculateCharacterLevel } from '../../../engine/characterSummary';
 import { formatDiceNotation } from '../../../engine/dice/diceSimulator';
+import { describeFormulaError, numberOr } from '../../../engine/formula/errors';
 import { useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
 import type { CalculatedCharacter, Character } from '../../../types/character';
@@ -119,12 +120,20 @@ interface CalculationOutcome {
 
 /**
  * Run the calculation engine, converting a formula failure into a message rather than a crash
+ *
+ * Since TICKET-FORM-05 the engine returns error **values** instead of throwing, so a broken
+ * formula would otherwise reach the sheet as a silent `0`. `firstCalculationError` finds it and
+ * the sheet keeps reporting the whole-sheet `formula-error` state until TICKET-FORM-06 renders a
+ * chip per value — visibly broken beats quietly wrong. The `try` still guards against a genuine
+ * engine bug.
  */
 function calculate(character: Character | null, config: Configuration | null): CalculationOutcome {
   if (!character || !config) return { calculated: null, error: null };
 
   try {
-    return { calculated: calculateCharacter(character, config), error: null };
+    const calculated = calculateCharacter(character, config);
+    const broken = firstCalculationError(calculated);
+    return { calculated, error: broken ? describeFormulaError(broken) : null };
   } catch (error) {
     return {
       calculated: null,
@@ -188,7 +197,7 @@ function buildView(
       base: character.specialitySkillBaseLevels[skill.code] ?? 0,
       equipment: equipmentBonuses[skill.code] ?? 0,
       focus: focusFor(skill.code),
-      total: calculated.specialitySkillTotalLevels[skill.code] ?? 0,
+      total: numberOr(calculated.specialitySkillTotalLevels[skill.code], 0),
       isFocusStat: character.focusStatCode === skill.code,
     })),
 
@@ -196,14 +205,14 @@ function buildView(
       id: stat.id,
       name: stat.name,
       current: character.currentStatValues[stat.id] ?? 0,
-      max: calculated.maxStatValues[stat.id] ?? 0,
+      max: numberOr(calculated.maxStatValues[stat.id], 0),
     })),
 
     combatSkills: config.combatSkills.map((skill) => ({
       code: skill.code,
       name: skill.name,
       diceNotation: formatDiceNotation(skill.dice),
-      bonus: calculated.combatSkillBonuses[skill.code] ?? 0,
+      bonus: numberOr(calculated.combatSkillBonuses[skill.code], 0),
     })),
   };
 }

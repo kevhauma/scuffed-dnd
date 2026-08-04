@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { FormulaContext } from '../../types/formula';
+import type { FormulaContext, FormulaResult } from '../../types/formula';
 import { evaluateFormula } from './evaluator';
 import { parseFormula } from './parser';
 
@@ -35,10 +35,13 @@ describe('Formula Evaluator', () => {
       expect(evaluateFormula(ast, context)).toBe(15);
     });
 
-    it('should throw error for undefined variable', () => {
+    it('should return an error value for undefined variable (contract changed by TICKET-FORM-05)', () => {
       const ast = parseFormula('STR');
       const context: FormulaContext = { variables: {} };
-      expect(() => evaluateFormula(ast, context)).toThrow('Undefined variable: STR');
+      expect(evaluateFormula(ast, context)).toMatchObject({
+        kind: 'undefined-variable',
+        message: 'Undefined variable: STR',
+      });
     });
 
     it('should handle multiple different variables', () => {
@@ -145,16 +148,19 @@ describe('Formula Evaluator', () => {
       expect(evaluateFormula(ast, context)).toBe(2.5);
     });
 
-    it('should throw error on division by zero', () => {
+    it('should return an error value on division by zero (contract changed by TICKET-FORM-05)', () => {
       const ast = parseFormula('10 / 0');
       const context: FormulaContext = { variables: {} };
-      expect(() => evaluateFormula(ast, context)).toThrow('Division by zero');
+      expect(evaluateFormula(ast, context)).toMatchObject({
+        kind: 'division-by-zero',
+        message: 'Division by zero',
+      });
     });
 
-    it('should throw error on division by zero variable', () => {
+    it('should return an error value on division by zero variable', () => {
       const ast = parseFormula('STR / DEX');
       const context: FormulaContext = { variables: { STR: 10, DEX: 0 } };
-      expect(() => evaluateFormula(ast, context)).toThrow('Division by zero');
+      expect(evaluateFormula(ast, context)).toMatchObject({ kind: 'division-by-zero' });
     });
   });
 
@@ -298,7 +304,7 @@ describe('Formula Evaluator', () => {
 describe('Function calls (TICKET-FORM-02)', () => {
   const empty: FormulaContext = { variables: {} };
 
-  const evaluate = (formula: string, context: FormulaContext = empty): number =>
+  const evaluate = (formula: string, context: FormulaContext = empty): FormulaResult =>
     evaluateFormula(parseFormula(formula), context);
 
   describe('round — half away from zero (Excel semantics)', () => {
@@ -401,22 +407,28 @@ describe('Function calls (TICKET-FORM-02)', () => {
     });
   });
 
-  describe('errors', () => {
-    it('throws on an unknown function', () => {
-      expect(() => evaluate('foo(1)')).toThrow('Unknown function: foo');
+  describe('errors (values since TICKET-FORM-05, previously throws)', () => {
+    it('reports an unknown function', () => {
+      expect(evaluate('foo(1)')).toMatchObject({
+        kind: 'unknown-function',
+        message: 'Unknown function: foo',
+      });
     });
 
-    it('throws on wrong arity', () => {
-      expect(() => evaluate('round(1, 2)')).toThrow();
-      expect(() => evaluate('clamp(1, 2)')).toThrow();
+    it('reports wrong arity', () => {
+      expect(evaluate('round(1, 2)')).toMatchObject({ kind: 'wrong-arity' });
+      expect(evaluate('clamp(1, 2)')).toMatchObject({ kind: 'wrong-arity' });
     });
 
-    it('still throws on division by zero inside an argument', () => {
-      expect(() => evaluate('round(1 / 0)')).toThrow('Division by zero');
+    it('propagates division by zero out of an argument', () => {
+      expect(evaluate('round(1 / 0)')).toMatchObject({ kind: 'division-by-zero' });
     });
 
-    it('still throws on an undefined variable inside an argument', () => {
-      expect(() => evaluate('round(XYZ)')).toThrow('Undefined variable: XYZ');
+    it('propagates an undefined variable out of an argument', () => {
+      expect(evaluate('round(XYZ)')).toMatchObject({
+        kind: 'undefined-variable',
+        message: 'Undefined variable: XYZ',
+      });
     });
   });
 });
@@ -437,7 +449,7 @@ describe('Namespaced references (TICKET-FORM-03)', () => {
     },
   };
 
-  const evaluate = (formula: string, ctx: FormulaContext = context): number =>
+  const evaluate = (formula: string, ctx: FormulaContext = context): FormulaResult =>
     evaluateFormula(parseFormula(formula), ctx);
 
   it('resolves each namespace', () => {
@@ -464,29 +476,48 @@ describe('Namespaced references (TICKET-FORM-03)', () => {
   });
 
   it('reports an unknown member distinctly from an undefined variable', () => {
-    expect(() => evaluate('stats.nope')).toThrow('Unknown member: stats.nope');
-    expect(() => evaluate('XYZ')).toThrow('Undefined variable: XYZ');
+    expect(evaluate('stats.nope')).toMatchObject({
+      kind: 'unknown-member',
+      message: 'Unknown member: stats.nope',
+    });
+    expect(evaluate('XYZ')).toMatchObject({
+      kind: 'undefined-variable',
+      message: 'Undefined variable: XYZ',
+    });
   });
 
   it('reports an unknown property on a known member', () => {
-    expect(() => evaluate('skills.healing.missing')).toThrow(
-      'Unknown member: skills.healing.missing'
-    );
+    expect(evaluate('skills.healing.missing')).toMatchObject({
+      kind: 'unknown-member',
+      message: 'Unknown member: skills.healing.missing',
+    });
   });
 
   it('reports an unknown namespace', () => {
-    expect(() => evaluate('nope.thing')).toThrow('Unknown namespace: nope');
+    expect(evaluate('nope.thing')).toMatchObject({
+      kind: 'unknown-namespace',
+      message: 'Unknown namespace: nope',
+    });
   });
 
   it('reports a missing namespaces map as an unknown namespace', () => {
-    expect(() => evaluate('stats.speed', { variables: {} })).toThrow('Unknown namespace: stats');
+    expect(evaluate('stats.speed', { variables: {} })).toMatchObject({
+      kind: 'unknown-namespace',
+      message: 'Unknown namespace: stats',
+    });
   });
 
   it('matches namespaces case-sensitively', () => {
-    expect(() => evaluate('STATS.speed')).toThrow('Unknown namespace: STATS');
+    expect(evaluate('STATS.speed')).toMatchObject({
+      kind: 'unknown-namespace',
+      message: 'Unknown namespace: STATS',
+    });
   });
 
   it('defers namespaced calls to TICKET-CRV-01 rather than silently returning a number', () => {
-    expect(() => evaluate('curve.cr(1)')).toThrow('TICKET-CRV-01');
+    expect(evaluate('curve.cr(1)')).toMatchObject({
+      kind: 'not-evaluable',
+      message: expect.stringContaining('TICKET-CRV-01'),
+    });
   });
 });

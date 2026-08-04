@@ -9,6 +9,8 @@
 
 import type { CalculatedCharacter, Character } from '../types/character';
 import type { Configuration } from '../types/config';
+import type { FormulaError, FormulaResult } from '../types/formula';
+import { isFormulaError } from './formula/errors';
 
 export * from './calculators/combatSkillCalculator';
 export * from './calculators/equipmentBonusCalculator';
@@ -45,10 +47,13 @@ import { calculateMaxStatValues } from './calculators/statCalculator';
  * Because skill codes are unique across the three kinds, each equipment bonus is claimed by
  * exactly one step and can never be counted twice (Requirement 13.2).
  *
+ * **This function always returns.** A stat or skill whose formula is broken gets an error value
+ * in its map entry naming what failed and on which entity; everything else is still calculated
+ * (Concept 00 §7). Read the maps with `numberOr` / `asNumber` from `engine/formula/errors.ts`.
+ *
  * @param character - The character to calculate
  * @param config - The game configuration the character was built on
- * @returns The character with every derived value populated
- * @throws Error naming the stat or skill whose formula failed, and why (Requirement 16.6)
+ * @returns The character with every derived value populated, errors included as values
  */
 export function calculateCharacter(
   character: Character,
@@ -97,6 +102,29 @@ export function calculateCharacter(
 }
 
 /**
+ * The first error value among a calculated character's derived maps, if any
+ *
+ * `calculateCharacter` no longer throws for a ruleset problem (TICKET-FORM-05), so any surface
+ * that used to rely on a `catch` to notice a broken formula must ask this instead — otherwise a
+ * broken value renders as a confident `0`, which is worse than the crash it replaced.
+ *
+ * Interim by design: TICKET-FORM-06 renders a chip per value, at which point callers show the
+ * per-entry error rather than one representative.
+ *
+ * @param calculated - A character from {@link calculateCharacter}
+ * @returns The first error found, or `undefined` when every derived value is a number
+ */
+export function firstCalculationError(calculated: CalculatedCharacter): FormulaError | undefined {
+  const entries: FormulaResult[] = [
+    ...Object.values(calculated.maxStatValues),
+    ...Object.values(calculated.specialitySkillTotalLevels),
+    ...Object.values(calculated.combatSkillBonuses),
+  ];
+
+  return entries.find(isFormulaError);
+}
+
+/**
  * Calculate all maximum stat values for a character
  *
  * Thin wrapper over {@link calculateCharacter} for callers that only need the stat values.
@@ -104,11 +132,11 @@ export function calculateCharacter(
  *
  * @param character - The character whose stats to calculate
  * @param config - The game configuration containing stat definitions and races
- * @returns Record of stat ID to maximum value
+ * @returns Record of stat ID to maximum value or error
  */
 export function calculateCharacterStats(
   character: Character,
   config: Configuration
-): Record<string, number> {
+): Record<string, FormulaResult> {
   return calculateCharacter(character, config).maxStatValues;
 }

@@ -402,7 +402,7 @@ describe('calculateSpecialitySkillLevels', () => {
     });
   });
 
-  it('should throw error for undefined variable in formula', () => {
+  it('should return an error value naming the skill for an undefined variable', () => {
     const character: Character = {
       id: '1',
       name: 'Test Character',
@@ -451,12 +451,15 @@ describe('calculateSpecialitySkillLevels', () => {
       STR: 10,
     };
 
-    expect(() => calculateSpecialitySkillLevels(character, config, totalMainSkillLevels)).toThrow(
-      /Failed to calculate bonus for speciality skill "Melee"/
-    );
+    expect(
+      calculateSpecialitySkillLevels(character, config, totalMainSkillLevels).MEL
+    ).toMatchObject({
+      kind: 'undefined-variable',
+      source: { kind: 'speciality-skill', name: 'Melee' },
+    });
   });
 
-  it('should throw error for invalid formula syntax', () => {
+  it('should return an error value naming the skill for invalid formula syntax', () => {
     const character: Character = {
       id: '1',
       name: 'Test Character',
@@ -505,9 +508,12 @@ describe('calculateSpecialitySkillLevels', () => {
       STR: 10,
     };
 
-    expect(() => calculateSpecialitySkillLevels(character, config, totalMainSkillLevels)).toThrow(
-      /Failed to calculate bonus for speciality skill "Melee"/
-    );
+    expect(
+      calculateSpecialitySkillLevels(character, config, totalMainSkillLevels).MEL
+    ).toMatchObject({
+      kind: 'syntax',
+      source: { kind: 'speciality-skill', name: 'Melee' },
+    });
   });
 
   describe('with equipment bonuses', () => {

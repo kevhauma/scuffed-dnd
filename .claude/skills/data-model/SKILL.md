@@ -51,7 +51,8 @@ Identity rules that the rest of the app depends on:
   `engine/formula/scoping.ts` (TICKET-FORM-04). The save-time guard refuses out-of-scope
   namespaces and unknown members, so a persisted formula's references are in scope — but it can
   still fail to *evaluate*, because no calculator supplies namespace resolvers until
-  CST-01/CRV-01/STAT-01. Callers of `calculateCharacter` all catch that.
+  CST-01/CRV-01/STAT-01. Since TICKET-FORM-05 that failure is an **error value on that one entry**,
+  not a throw.
 - **Deletion is reference-checked**: a skill/material/slot/category referenced elsewhere must not
   be deletable without warning the user — that's what `engine/validator.ts` and the panels'
   dependency checks exist for.
@@ -71,11 +72,23 @@ values, speciality totals, combat bonuses, and equipment bonuses are computed on
 wrapper over it for callers that only want the stat values. If you find yourself wanting to store a
 computed number on `Character`, the answer is a recalculation call at read time instead. The one deliberate
 exception is `currentStatValues` — the player's *current* HP/mana, which is state, not derivation
-(its maximum is derived; its current value is not). Because the maximum *is* derived,
+(its maximum is derived; its current value is not).
+
+**Since TICKET-FORM-05 the three formula-derived maps hold `FormulaResult` — a number *or* a
+`FormulaError`** (`maxStatValues`, `specialitySkillTotalLevels`, `combatSkillBonuses`;
+`totalMainSkillLevels` stays plain numbers, since nothing there comes from a user formula).
+`calculateCharacter` **always returns**: a broken formula poisons its own entry and nothing else
+(Concept 00 §7). Read entries with `numberOr(result, fallback)` or `asNumber(result)` from
+[engine/formula/errors.ts](../../../src/engine/formula/errors.ts) — never `?? 0`, which cannot
+tell an error from a missing key. Errors carry `source` (the owning stat/skill) and `cause` (the
+upstream error), so `describeFormulaError` can render a chain. **Never `numberOr` an error into a
+number the user then sees as authoritative** — surface it, or let the caller show the error.
+
+Because the maximum *is* derived,
 `updateCurrentStatValue(characterId, statId, value, config)` and its plural sibling both take the
 `Configuration` and clamp to `calculateCharacter().maxStatValues` inside the action (Req 14.3);
-negatives pass through (Req 14.4). A stat with no calculated maximum — an unknown id, or a ruleset
-whose formulas throw — is written unclamped. Don't clamp in a component; the rule lives in the
+negatives pass through (Req 14.4). A stat with no calculated maximum — an unknown id, or one whose
+formula produced an error — is written unclamped. Don't clamp in a component; the rule lives in the
 store so no caller can bypass it.
 
 The same holds for equipment: `equipItem(characterId, slotType, itemId, config)` and

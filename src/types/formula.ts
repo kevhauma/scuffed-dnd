@@ -88,23 +88,77 @@ export interface NamespacedCallNode {
 }
 
 /**
+ * What kind of data problem produced an error value (Concept 00 §7)
+ *
+ * Every one of these is a mistake in the *ruleset*, which the User can see and fix. Bugs in the
+ * engine itself are not on this list — those still throw.
+ */
+export type FormulaErrorKind =
+  | 'syntax'
+  | 'undefined-variable'
+  | 'unknown-function'
+  | 'wrong-arity'
+  | 'unknown-namespace'
+  | 'unknown-member'
+  | 'division-by-zero'
+  | 'not-evaluable'
+  /** This value could not be calculated because one it reads could not be (see `cause`) */
+  | 'upstream';
+
+/**
+ * The entity whose formula produced an error, for display and jump-to
+ */
+export interface FormulaErrorSource {
+  kind: 'stat' | 'speciality-skill' | 'combat-skill';
+  id: string;
+  name: string;
+}
+
+/**
+ * An error **value** — the result of a formula that could not produce a number
+ *
+ * Errors are values, not exceptions (Concept 00 §7): they propagate through arithmetic and
+ * across formulas, carrying `cause` so a broken value downstream can name what actually broke.
+ * There is deliberately no `iferror` — an error is meant to stay visible.
+ *
+ * `formulaError` is a brand so `isFormulaError` can tell an error from a number safely.
+ */
+export interface FormulaError {
+  readonly formulaError: true;
+  kind: FormulaErrorKind;
+  message: string;
+  /** The upstream error this one came from, if any */
+  cause?: FormulaError;
+  /** The entity whose formula failed, attached by the calculators */
+  source?: FormulaErrorSource;
+}
+
+/**
+ * What evaluating a formula produces: a number, or an error explaining why not
+ */
+export type FormulaResult = number | FormulaError;
+
+/**
  * Resolves members of one namespace (`stats`, `skills`, `const`, `curve`, …) during evaluation.
  *
  * Returns `undefined` for an unknown member/property — the evaluator turns that into an
- * "Unknown member" error, distinct from an undefined bare variable.
+ * "Unknown member" error, distinct from an undefined bare variable. A resolver may also return
+ * an error value, which propagates like any other.
  */
 export interface NamespaceResolver {
-  resolve(member: string, property?: string): number | undefined;
+  resolve(member: string, property?: string): FormulaResult | undefined;
 }
 
 /**
  * Formula context - provides variable values for evaluation
  *
  * `variables` is the legacy flat lookup for bare codes (deprecated — removed by
- * TICKET-STAT-01); `namespaces` carries the resolvers for dotted references.
+ * TICKET-STAT-01); `namespaces` carries the resolvers for dotted references. Values may be
+ * errors: reading one yields an `upstream` error naming it, which is how provenance chains
+ * from one formula to the next.
  */
 export interface FormulaContext {
-  variables: Record<string, number>; // skillCode -> value
+  variables: Record<string, FormulaResult>; // skillCode -> value or error
   namespaces?: Record<string, NamespaceResolver>;
 }
 
@@ -147,13 +201,4 @@ export interface CombatRollResult {
   bonus: number; // Calculated from formula
   total: number; // diceTotal + bonus
   timestamp: string;
-}
-
-/**
- * Formula evaluation error
- */
-export interface FormulaError {
-  message: string;
-  position?: number; // Character position in formula string
-  variable?: string; // Undefined variable if applicable
 }

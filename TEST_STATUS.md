@@ -1,17 +1,19 @@
 # Test Status
 
 _Last verified: 2026-08-04 (`npx vitest run`), after
-[TICKET-FORM-04](docs/v2.0_sheet_core/tickets/TICKET-FORM-04-namespace-scoping-and-cycle-detection.md)._
+[TICKET-FORM-05](docs/v2.0_sheet_core/tickets/TICKET-FORM-05-errors-as-values-engine.md)._
 
 ## Summary
 
-- **Total tests**: 762
-- **Passing**: 762 (100%)
+- **Total tests**: 790
+- **Passing**: 790 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
 Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's formula-engine tickets added
-+43 (FORM-02), +30 (FORM-03), and +29 (FORM-04), all appended, none edited.
++43 (FORM-02), +30 (FORM-03), +29 (FORM-04), and +28 (FORM-05). FORM-02/03/04 only appended;
+FORM-05 also **rewrote** ~14 assertions that asserted the throwing contract it replaced — see
+that ticket's implementation note 1.
 
 **The suite is green. The bar is "the suite passes", not "no new failures beyond a documented
 list".** Any failing test is a regression.
@@ -96,7 +98,7 @@ and are documented here so a future regression is distinguishable from this nois
 
 | File | Error |
 | --- | --- |
-| `src/engine/formula/evaluator.ts:54,65` | TS2339 — `operator` does not exist on type `never`; the switch has narrowed the AST union to nothing by these arms. These line numbers drift whenever the evaluator gains a node type (48,59 → 51,62 → 54,65 across FORM-02/03/04) — match on the message, not the line |
+| `src/engine/formula/evaluator.ts:62,75` | TS2339 — `operator` does not exist on type `never`; the switch has narrowed the AST union to nothing by these arms. These line numbers drift whenever the evaluator changes (48,59 → 51,62 → 54,65 → 62,75 across FORM-02/03/04/05) — **match on the message, not the line** |
 | `src/components/ui/Button/Button.test.tsx:68` | TS2339 — `.disabled` read off `HTMLElement` |
 | `src/services/importExport.test.ts:379` | TS2352 — `Blob`-shaped literal cast to `File` |
 

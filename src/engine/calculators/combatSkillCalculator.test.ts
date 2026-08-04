@@ -466,7 +466,7 @@ describe('calculateCombatSkillBonuses', () => {
     });
   });
 
-  it('should throw error for undefined variable in formula', () => {
+  it('should return an error value naming the skill for an undefined variable', () => {
     const config: Configuration = {
       id: 'config1',
       name: 'Test Config',
@@ -501,17 +501,20 @@ describe('calculateCombatSkillBonuses', () => {
     const specialitySkillLevels = {};
     const equipmentBonuses: SkillModifier[] = [];
 
-    expect(() =>
+    expect(
       calculateCombatSkillBonuses(
         config,
         totalMainSkillLevels,
         specialitySkillLevels,
         equipmentBonuses
-      )
-    ).toThrow(/Failed to calculate bonus for combat skill "Melee Attack"/);
+      ).MEL
+    ).toMatchObject({
+      kind: 'undefined-variable',
+      source: { kind: 'combat-skill', name: 'Melee Attack' },
+    });
   });
 
-  it('should throw error for invalid formula syntax', () => {
+  it('should return an error value naming the skill for invalid formula syntax', () => {
     const config: Configuration = {
       id: 'config1',
       name: 'Test Config',
@@ -546,14 +549,17 @@ describe('calculateCombatSkillBonuses', () => {
     const specialitySkillLevels = {};
     const equipmentBonuses: SkillModifier[] = [];
 
-    expect(() =>
+    expect(
       calculateCombatSkillBonuses(
         config,
         totalMainSkillLevels,
         specialitySkillLevels,
         equipmentBonuses
-      )
-    ).toThrow(/Failed to calculate bonus for combat skill "Melee Attack"/);
+      ).MEL
+    ).toMatchObject({
+      kind: 'syntax',
+      source: { kind: 'combat-skill', name: 'Melee Attack' },
+    });
   });
 
   it('should handle empty combat skills list', () => {

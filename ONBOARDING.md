@@ -89,7 +89,7 @@ yarn dev                              # dev server on http://localhost:3000
 Then verify your setup by running the checks the project lives by:
 
 ```bash
-yarn run test        # Vitest, single pass — expect all green (762 passing as of this writing)
+yarn run test        # Vitest, single pass — expect all green (790 passing as of this writing)
 npx tsc --noEmit     # expect exactly 4 known errors (documented in TEST_STATUS.md)
 yarn run check       # Biome lint + format + import sorting — expect zero findings
 ```

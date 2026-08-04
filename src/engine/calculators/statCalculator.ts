@@ -3,29 +3,31 @@
  *
  * Calculates maximum stat values from formulas.
  *
- * **Validates: Requirements 3.4, 3.6, 8.4**
+ * **Validates: Requirements 3.4, 3.6, 8.4, 16.6; Concept 00 §7**
  */
 
 import type { Stat } from '../../types/config';
-import type { FormulaContext } from '../../types/formula';
-import { evaluateFormula } from '../formula/evaluator';
-import { parseFormula } from '../formula/parser';
+import type { FormulaContext, FormulaResult } from '../../types/formula';
+import { isFormulaError, withSource } from '../formula/errors';
+import { evaluateFormulaString } from '../formula/evaluator';
 
 /**
  * Calculate maximum stat values from formulas
  *
  * Evaluates stat formulas using the character's total main skill levels (including racial bonuses).
  *
+ * A stat whose formula is broken gets an error **value** naming itself; every other stat is still
+ * calculated (Concept 00 §7). Nothing here throws for a ruleset problem.
+ *
  * @param stats - Array of Stat definitions from configuration
  * @param totalMainSkillLevels - Main skill levels with racial bonuses applied
- * @returns Record of stat ID to maximum value
- * @throws Error if formula parsing or evaluation fails
+ * @returns Record of stat ID to maximum value or error
  */
 export function calculateMaxStatValues(
   stats: Stat[],
-  totalMainSkillLevels: Record<string, number>
-): Record<string, number> {
-  const maxStatValues: Record<string, number> = {};
+  totalMainSkillLevels: Record<string, FormulaResult>
+): Record<string, FormulaResult> {
+  const maxStatValues: Record<string, FormulaResult> = {};
 
   // Create formula context from main skill levels
   const context: FormulaContext = {
@@ -34,15 +36,11 @@ export function calculateMaxStatValues(
 
   // Calculate each stat
   for (const stat of stats) {
-    try {
-      const ast = parseFormula(stat.formula);
-      const value = evaluateFormula(ast, context);
-      maxStatValues[stat.id] = value;
-    } catch (error) {
-      throw new Error(
-        `Failed to calculate stat "${stat.name}" (${stat.id}): ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
+    const value = evaluateFormulaString(stat.formula, context);
+
+    maxStatValues[stat.id] = isFormulaError(value)
+      ? withSource(value, { kind: 'stat', id: stat.id, name: stat.name })
+      : value;
   }
 
   return maxStatValues;

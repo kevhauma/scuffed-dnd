@@ -33,6 +33,7 @@ export function CharacterCreationWizard() {
     racialModifiers,
     allocation,
     preview,
+    previewError,
     toggleRace,
     setMainSkillLevel,
     setSpecialityBaseLevel,
@@ -126,6 +127,7 @@ export function CharacterCreationWizard() {
           characterName={values.name.trim()}
           raceNames={selectedRaceNames}
           preview={preview}
+          previewError={previewError}
         />
       )}
 

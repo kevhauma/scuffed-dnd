@@ -10,9 +10,11 @@
 
 import { create } from 'zustand';
 import { calculateCharacter } from '../engine/calculator';
+import { asNumber } from '../engine/formula/errors';
 import { loadCharacters, saveCharacters } from '../services/storage';
 import type { Character, CharacterCreationData, Inventory } from '../types/character';
 import type { Configuration } from '../types/config';
+import type { FormulaResult } from '../types/formula';
 
 /**
  * Character store state
@@ -79,7 +81,7 @@ function clampToMaxStatValues(
   values: Record<string, number>,
   config: Configuration
 ): Record<string, number> {
-  let maxStatValues: Record<string, number>;
+  let maxStatValues: Record<string, FormulaResult>;
   try {
     maxStatValues = calculateCharacter(character, config).maxStatValues;
   } catch {
@@ -88,7 +90,9 @@ function clampToMaxStatValues(
 
   const clamped: Record<string, number> = {};
   for (const [statId, value] of Object.entries(values)) {
-    const max = maxStatValues[statId];
+    // `asNumber` is undefined both when the stat has no maximum and when its formula is broken;
+    // either way there is no ceiling to clamp against, so the Player's value goes through.
+    const max = asNumber(maxStatValues[statId]);
     clamped[statId] = max === undefined ? value : Math.min(value, max);
   }
 
@@ -122,10 +126,16 @@ function createCharacterFromData(data: CharacterCreationData, config: Configurat
   };
 
   try {
-    return {
-      ...character,
-      currentStatValues: { ...calculateCharacter(character, config).maxStatValues },
-    };
+    // Seed only the stats that actually produced a number; a stat with a broken formula starts
+    // absent rather than at a made-up zero.
+    const maxStatValues = calculateCharacter(character, config).maxStatValues;
+    const seeded: Record<string, number> = {};
+    for (const [statId, result] of Object.entries(maxStatValues)) {
+      const max = asNumber(result);
+      if (max !== undefined) seeded[statId] = max;
+    }
+
+    return { ...character, currentStatValues: seeded };
   } catch {
     // A ruleset with a broken formula must not block character creation; the sheet will
     // surface the formula error where it can be acted on.

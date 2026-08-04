@@ -10,8 +10,9 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { calculateCharacter } from '../../../engine/calculator';
+import { calculateCharacter, firstCalculationError } from '../../../engine/calculator';
 import { calculateRacialSkillModifiers } from '../../../engine/calculators/mainSkillCalculator';
+import { describeFormulaError } from '../../../engine/formula/errors';
 import type { MainSkillAllocationResult } from '../../../engine/skillAllocation';
 import { validateMainSkillAllocation } from '../../../engine/skillAllocation';
 import { useCharacterStore } from '../../../stores/characterStore';
@@ -146,10 +147,23 @@ export function useCharacterCreation() {
     try {
       return calculateCharacter(draft, config);
     } catch {
-      // A ruleset whose formulas do not evaluate still lets the Player finish; the review step
-      // says the preview is unavailable rather than crashing the wizard.
+      // Only a genuine engine bug reaches here — ruleset problems come back as error values
+      // inside the result and are reported through `previewError` below.
       return null;
     }
+  })();
+
+  /**
+   * Why the preview cannot be trusted, or null when every derived value is a number
+   *
+   * Since TICKET-FORM-05 a broken formula no longer throws, so without this check the review
+   * step would render a confident `0` for it. The Player can still finish the wizard — they just
+   * get told the ruleset needs fixing first.
+   */
+  const previewError: string | null = (() => {
+    if (!preview) return null;
+    const broken = firstCalculationError(preview);
+    return broken ? describeFormulaError(broken) : null;
   })();
 
   /** Why the current step cannot be left, or null when it can */
@@ -201,6 +215,7 @@ export function useCharacterCreation() {
     racialModifiers,
     allocation,
     preview,
+    previewError,
     toggleRace,
     setMainSkillLevel,
     setSpecialityBaseLevel,

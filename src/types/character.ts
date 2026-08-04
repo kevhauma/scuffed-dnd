@@ -5,6 +5,7 @@
  */
 
 import type { SkillModifier } from './config';
+import type { FormulaResult } from './formula';
 
 /**
  * Character - player's in-game persona with stats, skills, and equipment
@@ -34,12 +35,21 @@ export interface Inventory {
 /**
  * Calculated character - extends Character with computed values
  * These values are not persisted, computed on demand from base character data
+ *
+ * The three formula-derived maps hold a `FormulaResult` per entry — a number, or an error value
+ * explaining why that one entry could not be calculated (Concept 00 §7). A broken formula never
+ * blanks the rest of the sheet. Read them with `numberOr(result, fallback)` where a number is
+ * structurally required, or `asNumber(result)` where absence matters (rendering an error chip,
+ * skipping a clamp); both live in `engine/formula/errors.ts`.
+ *
+ * `totalMainSkillLevels` is a plain number map: main skill levels are allocated and modified, not
+ * derived from user formulas, so there is nothing there that can fail.
  */
 export interface CalculatedCharacter extends Character {
   totalMainSkillLevels: Record<string, number>; // With racial bonuses
-  maxStatValues: Record<string, number>; // Calculated from formulas
-  specialitySkillTotalLevels: Record<string, number>; // Base + bonus
-  combatSkillBonuses: Record<string, number>; // Calculated from formulas
+  maxStatValues: Record<string, FormulaResult>; // Calculated from formulas
+  specialitySkillTotalLevels: Record<string, FormulaResult>; // Base + bonus
+  combatSkillBonuses: Record<string, FormulaResult>; // Calculated from formulas
   equipmentBonuses: SkillModifier[]; // From equipped items
 }
 

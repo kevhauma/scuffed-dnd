@@ -13,6 +13,7 @@
 import { useState } from 'react';
 import { rollCombatSkill } from '../../../engine/dice/combatRoll';
 import type { RandomSource } from '../../../engine/dice/diceSimulator';
+import { describeFormulaError, isFormulaError } from '../../../engine/formula/errors';
 import { useConfigStore } from '../../../stores/configStore';
 import { useUIStore } from '../../../stores/uiStore';
 import type { CalculatedCharacter } from '../../../types/character';
@@ -51,6 +52,13 @@ export function useCombatRoller(
 
     try {
       const result = rollCombatSkill(skill, calculated, config, rng);
+
+      // A bonus formula that does not evaluate comes back as an error value (TICKET-FORM-05):
+      // reported beside this skill, with no result and no history entry.
+      if (isFormulaError(result)) {
+        setErrors((current) => ({ ...current, [skillCode]: describeFormulaError(result) }));
+        return;
+      }
 
       setResults((current) => ({ ...current, [skillCode]: result }));
       // A successful roll clears any error standing against that skill

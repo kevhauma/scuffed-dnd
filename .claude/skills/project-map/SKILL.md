@@ -93,12 +93,18 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 - `formula/functions.ts` — the closed function library (`round`/`roundup`/`rounddown`/`floor`/
   `ceil`/`min`/`max`/`clamp`/`abs`), lowercase reserved names matched case-sensitively; `round` is
   Excel half-away-from-zero (TICKET-FORM-02).
-- `formula/evaluator.ts` — `evaluateFormula(ast, context)`. Context is
-  `{ variables: Record<code, number>; namespaces?: Record<string, NamespaceResolver> }` — the flat
-  map serves legacy bare codes, the resolvers serve dotted references. **No calculator builds a
-  `namespaces` map yet** (TICKET-FORM-03 defined the shape; CST-01/CRV-01/STAT-01 populate it), so
-  a saved namespaced formula currently throws `Unknown namespace: …` at calculation time.
-  Namespaced calls (`curve.cr(x)`) parse but throw until TICKET-CRV-01.
+- `formula/errors.ts` — **error values** (TICKET-FORM-05): `formulaError`, `isFormulaError`,
+  `asNumber`, `numberOr`, `withSource`, `describeFormulaError`, `rootCause`. Evaluation returns
+  `number | FormulaError` and never throws for a ruleset problem, so a broken formula poisons only
+  its own value. Use `numberOr`/`asNumber` to read a derived map — never `?? 0`.
+- `formula/evaluator.ts` — `evaluateFormula(ast, context)` and `evaluateFormulaString(src, context)`
+  (parse + evaluate, syntax errors included as values — **this is what calculators call**). Context is
+  `{ variables: Record<code, FormulaResult>; namespaces?: Record<string, NamespaceResolver> }` —
+  the flat map serves legacy bare codes, the resolvers serve dotted references. **No calculator
+  builds a `namespaces` map yet** (TICKET-FORM-03 defined the shape; CST-01/CRV-01/STAT-01 populate
+  it), so a saved namespaced formula evaluates to an `unknown-namespace` error value; namespaced
+  calls (`curve.cr(x)`) give a `not-evaluable` one until TICKET-CRV-01. Both are values, not
+  throws (TICKET-FORM-05).
 - `formula/scoping.ts` — **the reference-scope tables as data** (TICKET-FORM-04):
   `NAMESPACE_SCOPES` and `LEGACY_CODE_SCOPES` keyed by `FormulaOwner` (the attachment point),
   `KNOWN_NAMESPACES`, and `scopeFor(config, owner)`. A new attachment point is a **new row here**,

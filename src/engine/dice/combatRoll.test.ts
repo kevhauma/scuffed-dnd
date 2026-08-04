@@ -7,7 +7,9 @@
 import { describe, expect, it } from 'vitest';
 import type { CalculatedCharacter } from '../../types/character';
 import type { CombatSkill, Configuration } from '../../types/config';
+import type { CombatRollResult } from '../../types/formula';
 import { calculateCharacter } from '../calculator';
+import { isFormulaError } from '../formula/errors';
 import { rollCombatSkill } from './combatRoll';
 
 /** A deterministic stand-in for Math.random, cycling through the given values */
@@ -78,6 +80,18 @@ function createCharacter(config: Configuration): CalculatedCharacter {
 }
 
 describe('rollCombatSkill', () => {
+  /**
+   * Roll, asserting the bonus formula evaluated. `rollCombatSkill` returns a `FormulaError`
+   * instead of a result when it does not (TICKET-FORM-05); these cases all expect a real roll.
+   */
+  const rollOk = (...args: Parameters<typeof rollCombatSkill>): CombatRollResult => {
+    const rolled = rollCombatSkill(...args);
+    if (isFormulaError(rolled)) {
+      throw new Error(`expected a roll, got a formula error: ${rolled.message}`);
+    }
+    return rolled;
+  };
+
   it('should produce a total equal to the dice total plus the calculated bonus', () => {
     const config = createConfig();
     const character = createCharacter(config);
@@ -86,7 +100,7 @@ describe('rollCombatSkill', () => {
     expect(character.combatSkillBonuses.MEL).toBe(12);
 
     // 0 → the lowest face of each die: 1, 1 (d6) and 1 (d20)
-    const result = rollCombatSkill(melee, character, config, () => 0, '2024-05-05T00:00:00.000Z');
+    const result = rollOk(melee, character, config, () => 0, '2024-05-05T00:00:00.000Z');
 
     expect(result.diceResults).toEqual([
       { dieType: 'd6', rolls: [1, 1], total: 2 },
@@ -102,7 +116,7 @@ describe('rollCombatSkill', () => {
     const config = createConfig();
     const character = createCharacter(config);
 
-    const result = rollCombatSkill(melee, character, config, () => 0.5);
+    const result = rollOk(melee, character, config, () => 0.5);
 
     expect(result.bonus).toBe(character.combatSkillBonuses.MEL);
   });
@@ -147,7 +161,7 @@ describe('rollCombatSkill', () => {
     };
     const character = calculateCharacter(equipped, config);
 
-    const result = rollCombatSkill(melee, character, config, () => 0);
+    const result = rollOk(melee, character, config, () => 0);
 
     expect(result.bonus).toBe(17); // 12 + 5 from the equipped sword
   });
@@ -156,7 +170,7 @@ describe('rollCombatSkill', () => {
     const config = createConfig();
     const character = createCharacter(config);
 
-    const result = rollCombatSkill(unarmed, character, config, () => 0);
+    const result = rollOk(unarmed, character, config, () => 0);
 
     expect(result.diceResults).toEqual([]);
     expect(result.diceTotal).toBe(0);
@@ -169,17 +183,36 @@ describe('rollCombatSkill', () => {
     const config = createConfig({ combatSkills: [] });
     const character = createCharacter(config);
 
-    const result = rollCombatSkill(melee, character, config, () => 0);
+    const result = rollOk(melee, character, config, () => 0);
 
     expect(result.bonus).toBe(0);
     expect(result.total).toBe(result.diceTotal);
+  });
+
+  it('should return the error value when the bonus formula does not evaluate', () => {
+    // TICKET-FORM-05: rolling with a silent bonus of 0 would hide a broken ruleset, so the
+    // error is returned instead of a result and the caller reports it beside the skill.
+    const working = createConfig();
+    const character = createCharacter(working);
+    const broken = createConfig({
+      combatSkills: [{ ...melee, bonusFormula: 'NOPE' }],
+    });
+
+    const result = rollCombatSkill(melee, character, broken, () => 0);
+
+    expect(isFormulaError(result)).toBe(true);
+    expect(result).toMatchObject({
+      kind: 'undefined-variable',
+      message: 'Undefined variable: NOPE',
+      source: { kind: 'combat-skill', name: 'Melee' },
+    });
   });
 
   it('should carry the skill identity and a timestamp', () => {
     const config = createConfig();
     const character = createCharacter(config);
 
-    const result = rollCombatSkill(melee, character, config, () => 0);
+    const result = rollOk(melee, character, config, () => 0);
 
     expect(result.skillCode).toBe('MEL');
     expect(result.skillName).toBe('Melee');
@@ -192,8 +225,8 @@ describe('rollCombatSkill', () => {
     const seed = [0.1, 0.7, 0.42];
     const at = '2024-05-05T00:00:00.000Z';
 
-    expect(rollCombatSkill(melee, character, config, sequenceRng(seed), at)).toEqual(
-      rollCombatSkill(melee, character, config, sequenceRng(seed), at)
+    expect(rollOk(melee, character, config, sequenceRng(seed), at)).toEqual(
+      rollOk(melee, character, config, sequenceRng(seed), at)
     );
   });
 });

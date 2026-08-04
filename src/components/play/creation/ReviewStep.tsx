@@ -6,6 +6,7 @@
  * **Validates: Requirements 11.5, 13.1, 21.1-21.5**
  */
 
+import { numberOr } from '../../../engine/formula/errors';
 import type { CalculatedCharacter } from '../../../types/character';
 import type { Configuration } from '../../../types/config';
 import { Card } from '../../ui/Card/Card';
@@ -16,6 +17,8 @@ export interface ReviewStepProps {
   characterName: string;
   raceNames: string[];
   preview: CalculatedCharacter | null;
+  /** A formula in the ruleset that does not evaluate, described for display */
+  previewError: string | null;
 }
 
 /** One label/value row of the derived summary */
@@ -32,8 +35,16 @@ function SummaryRow({ label, value }: { label: string; value: number }) {
   );
 }
 
-export function ReviewStep({ config, characterName, raceNames, preview }: ReviewStepProps) {
-  if (!preview) {
+export function ReviewStep({
+  config,
+  characterName,
+  raceNames,
+  preview,
+  previewError,
+}: ReviewStepProps) {
+  // A broken formula must not be summarised as a confident zero, so the whole preview is
+  // withheld rather than partly wrong (per-value chips arrive with TICKET-FORM-06).
+  if (!preview || previewError) {
     return (
       <Card className="p-6">
         <Text variant="h4" as="h2" className="mb-2">
@@ -44,6 +55,11 @@ export function ReviewStep({ config, characterName, raceNames, preview }: Review
           evaluate. You can still create the character, but fix the ruleset in configuration mode
           before playing.
         </Text>
+        {previewError && (
+          <Text variant="body-small" as="p" className="mt-2 font-mono">
+            {previewError}
+          </Text>
+        )}
       </Card>
     );
   }
@@ -85,7 +101,7 @@ export function ReviewStep({ config, characterName, raceNames, preview }: Review
               <SummaryRow
                 key={stat.id}
                 label={stat.name}
-                value={preview.maxStatValues[stat.id] ?? 0}
+                value={numberOr(preview.maxStatValues[stat.id], 0)}
               />
             ))
           )}
@@ -100,7 +116,7 @@ export function ReviewStep({ config, characterName, raceNames, preview }: Review
               <SummaryRow
                 key={skill.code}
                 label={`${skill.name} (${skill.code})`}
-                value={preview.specialitySkillTotalLevels[skill.code] ?? 0}
+                value={numberOr(preview.specialitySkillTotalLevels[skill.code], 0)}
               />
             ))}
           </Card>
@@ -115,7 +131,7 @@ export function ReviewStep({ config, characterName, raceNames, preview }: Review
               <SummaryRow
                 key={skill.code}
                 label={`${skill.name} (${skill.code})`}
-                value={preview.combatSkillBonuses[skill.code] ?? 0}
+                value={numberOr(preview.combatSkillBonuses[skill.code], 0)}
               />
             ))}
           </Card>

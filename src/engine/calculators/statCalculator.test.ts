@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Stat } from '../../types/config';
+import { isFormulaError } from '../formula/errors';
 import { calculateMaxStatValues } from './statCalculator';
 
 describe('calculateMaxStatValues', () => {
@@ -113,7 +114,9 @@ describe('calculateMaxStatValues', () => {
     });
   });
 
-  it('should throw error for undefined variables in formula', () => {
+  // TICKET-FORM-05 changed the contract: a broken formula is an error **value** naming the
+  // stat, not a throw that takes the whole calculation with it.
+  it('should return an error value naming the stat for an undefined variable', () => {
     const stats: Stat[] = [
       {
         id: 'health',
@@ -123,16 +126,16 @@ describe('calculateMaxStatValues', () => {
       },
     ];
 
-    const mainSkillLevels = {
-      STR: 10,
-    };
+    const result = calculateMaxStatValues(stats, { STR: 10 });
 
-    expect(() => calculateMaxStatValues(stats, mainSkillLevels)).toThrow(
-      /Failed to calculate stat "Health"/
-    );
+    expect(result.health).toMatchObject({
+      kind: 'undefined-variable',
+      message: 'Undefined variable: MISSING',
+      source: { kind: 'stat', id: 'health', name: 'Health' },
+    });
   });
 
-  it('should throw error for invalid formula syntax', () => {
+  it('should return an error value naming the stat for invalid formula syntax', () => {
     const stats: Stat[] = [
       {
         id: 'health',
@@ -142,12 +145,23 @@ describe('calculateMaxStatValues', () => {
       },
     ];
 
-    const mainSkillLevels = {
-      STR: 10,
-    };
+    const result = calculateMaxStatValues(stats, { STR: 10 });
 
-    expect(() => calculateMaxStatValues(stats, mainSkillLevels)).toThrow(
-      /Failed to calculate stat "Health"/
-    );
+    expect(result.health).toMatchObject({
+      kind: 'syntax',
+      source: { kind: 'stat', name: 'Health' },
+    });
+  });
+
+  it('should calculate every other stat when one formula is broken', () => {
+    const stats: Stat[] = [
+      { id: 'health', name: 'Health', description: '', formula: 'MISSING * 5' },
+      { id: 'armour', name: 'Armour', description: '', formula: 'STR * 2' },
+    ];
+
+    const result = calculateMaxStatValues(stats, { STR: 10 });
+
+    expect(result.armour).toBe(20);
+    expect(isFormulaError(result.health)).toBe(true);
   });
 });

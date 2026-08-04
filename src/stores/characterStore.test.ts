@@ -145,6 +145,30 @@ describe('CharacterStore', () => {
       expect(character.currentStatValues).toEqual({});
       expect(useCharacterStore.getState().characters).toHaveLength(1);
     });
+
+    it('should seed the stats that calculate and leave out only the broken one', () => {
+      // TICKET-FORM-05: one broken formula no longer costs the Player every other stat's seed
+      const partlyBrokenConfig: Configuration = {
+        ...testConfig,
+        stats: [
+          { id: 'health', name: 'Health', description: '', formula: 'STR * 10' },
+          { id: 'mana', name: 'Mana', description: '', formula: 'WIS * 5' }, // WIS is undefined
+        ],
+      };
+      const creationData: CharacterCreationData = {
+        name: 'Half Broken',
+        raceIds: [],
+        mainSkillLevels: { STR: 4 },
+        specialitySkillBaseLevels: {},
+      };
+
+      const character = useCharacterStore
+        .getState()
+        .createCharacter(creationData, partlyBrokenConfig);
+
+      expect(character.currentStatValues).toEqual({ health: 40 });
+      expect(character.currentStatValues.mana).toBeUndefined();
+    });
   });
 
   describe('updateCharacter', () => {
