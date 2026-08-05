@@ -10,6 +10,7 @@
  */
 
 import type { Configuration } from '../../types/config';
+import { statMemberName } from './references';
 
 /**
  * Where a formula is attached. One row of the scoping tables below.
@@ -93,13 +94,18 @@ export interface FormulaScope {
 /**
  * The members each namespace currently provides, derived from the configuration
  *
+ * Members are **display spellings**, because that is the form a formula is written and validated
+ * in — `stats.max_health`, `skills.STL`. The stored form holds ids instead (TICKET-REF-01,
+ * `references.ts`), which is why renaming a stat or a code changes what validates here without
+ * changing what any formula points at.
+ *
  * `const` and `curve` are empty until TICKET-CST-01 and TICKET-CRV-01 add those entities — an
  * empty member set means every member of that namespace reports as unknown, which is the honest
  * answer while the entity does not exist.
  */
 function membersOf(config: Configuration): Record<FormulaNamespace, ReadonlySet<string>> {
   return {
-    stats: new Set(config.stats.map((stat) => stat.id)),
+    stats: new Set(config.stats.map(statMemberName)),
     skills: new Set(config.specialitySkills.map((skill) => skill.code)),
     const: new Set<string>(),
     curve: new Set<string>(),

@@ -137,6 +137,7 @@ describe('ConfigStore', () => {
 
     it('should add main skill', () => {
       const skill: MainSkill = {
+        id: 'STR',
         code: 'STR',
         name: 'Strength',
         description: 'Physical power',
@@ -153,6 +154,7 @@ describe('ConfigStore', () => {
 
     it('should update main skill', () => {
       const skill: MainSkill = {
+        id: 'STR',
         code: 'STR',
         name: 'Strength',
         description: 'Physical power',
@@ -171,6 +173,7 @@ describe('ConfigStore', () => {
 
     it('should delete main skill', () => {
       const skill: MainSkill = {
+        id: 'STR',
         code: 'STR',
         name: 'Strength',
         description: 'Physical power',
@@ -255,6 +258,7 @@ describe('ConfigStore', () => {
 
     it('should add speciality skill', () => {
       const skill: SpecialitySkill = {
+        id: 'MEL',
         code: 'MEL',
         name: 'Melee',
         description: 'Close combat',
@@ -272,6 +276,7 @@ describe('ConfigStore', () => {
 
     it('should update speciality skill', () => {
       const skill: SpecialitySkill = {
+        id: 'MEL',
         code: 'MEL',
         name: 'Melee',
         description: 'Close combat',
@@ -291,6 +296,7 @@ describe('ConfigStore', () => {
 
     it('should delete speciality skill', () => {
       const skill: SpecialitySkill = {
+        id: 'MEL',
         code: 'MEL',
         name: 'Melee',
         description: 'Close combat',
@@ -317,6 +323,7 @@ describe('ConfigStore', () => {
 
     it('should add combat skill', () => {
       const skill: CombatSkill = {
+        id: 'ATK',
         code: 'ATK',
         name: 'Attack',
         description: 'Basic attack',
@@ -334,6 +341,7 @@ describe('ConfigStore', () => {
 
     it('should update combat skill', () => {
       const skill: CombatSkill = {
+        id: 'ATK',
         code: 'ATK',
         name: 'Attack',
         description: 'Basic attack',
@@ -355,6 +363,7 @@ describe('ConfigStore', () => {
 
     it('should delete combat skill', () => {
       const skill: CombatSkill = {
+        id: 'ATK',
         code: 'ATK',
         name: 'Attack',
         description: 'Basic attack',
@@ -794,6 +803,7 @@ describe('ConfigStore', () => {
 
     it('should call saveConfiguration on every CRUD operation', () => {
       const skill: MainSkill = {
+        id: 'STR',
         code: 'STR',
         name: 'Strength',
         description: 'Physical power',
@@ -808,6 +818,75 @@ describe('ConfigStore', () => {
 
       useConfigStore.getState().deleteMainSkill('STR');
       expect(storage.saveConfiguration).toHaveBeenCalledTimes(3);
+    });
+  });
+  describe('Rename safety (TICKET-REF-01)', () => {
+    beforeEach(() => {
+      useConfigStore.getState().initializeConfig('Test');
+      useConfigStore.getState().addMainSkill({
+        id: 'id-str',
+        code: 'STR',
+        name: 'Strength',
+        description: '',
+        maxLevel: 20,
+      });
+      useConfigStore.getState().addStat({
+        id: 'id-hp',
+        name: 'Health',
+        description: '',
+        formula: 'STR * 10',
+      });
+      useConfigStore.getState().addSpecialitySkill({
+        id: 'id-stl',
+        code: 'STL',
+        name: 'Stealth',
+        description: '',
+        maxBaseLevel: 10,
+        bonusFormula: 'STR / 2',
+      });
+      useConfigStore.getState().addRace({
+        id: 'race1',
+        name: 'Dwarf',
+        description: '',
+        skillModifiers: [{ skillCode: 'STR', modifier: 2 }],
+      });
+      vi.clearAllMocks();
+    });
+
+    it('rewrites every formula naming a main skill whose code changes', () => {
+      useConfigStore.getState().updateMainSkill('STR', { code: 'STG', name: 'Might' });
+
+      const { config } = useConfigStore.getState();
+      expect(config?.stats[0].formula).toBe('STG * 10');
+      expect(config?.specialitySkills[0].bonusFormula).toBe('STG / 2');
+      expect(config?.races[0].skillModifiers[0].skillCode).toBe('STG');
+      expect(config?.mainSkills[0].id).toBe('id-str');
+    });
+
+    it('rewrites a formula naming a speciality skill whose code changes', () => {
+      useConfigStore.getState().updateStat('id-hp', { formula: 'skills.STL.level * 2' });
+      useConfigStore.getState().updateSpecialitySkill('STL', { code: 'SNK' });
+
+      expect(useConfigStore.getState().config?.stats[0].formula).toBe('skills.SNK.level * 2');
+    });
+
+    it('re-slugs a stat named in another formula when the stat is renamed', () => {
+      useConfigStore.getState().updateSpecialitySkill('STL', { bonusFormula: 'stats.health / 4' });
+      useConfigStore.getState().updateStat('id-hp', { name: 'Vitality' });
+
+      expect(useConfigStore.getState().config?.specialitySkills[0].bonusFormula).toBe(
+        'stats.vitality / 4'
+      );
+    });
+
+    it('leaves an edit that renames nothing untouched', () => {
+      const before = useConfigStore.getState().config;
+
+      useConfigStore.getState().updateMainSkill('STR', { maxLevel: 15 });
+
+      const after = useConfigStore.getState().config;
+      expect(after?.stats).toEqual(before?.stats);
+      expect(after?.specialitySkills).toEqual(before?.specialitySkills);
     });
   });
 });

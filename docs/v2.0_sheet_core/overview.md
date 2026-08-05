@@ -65,7 +65,7 @@ Formula engine (all additive, suite stays green):
 
 Identity and the two new config concepts:
 
-- [ ] [TICKET-REF-01](./tickets/TICKET-REF-01-stable-ids-and-rename-safety.md) — Stable ids and rename-safe formulas (Concept 00 §6) — the "every name configurable" decision; before the entity tickets
+- [x] [TICKET-REF-01](./tickets/TICKET-REF-01-stable-ids-and-rename-safety.md) — Stable ids and rename-safe formulas (Concept 00 §6) — the "every name configurable" decision; before the entity tickets *(browser criterion left open — the User skipped the live check for this run)*
 - [ ] [TICKET-REF-02](./tickets/TICKET-REF-02-guarded-deletes.md) — Guarded deletes with reference lists (Concept 00 §6) — needs REF-01's references and FORM-05's error values
 - [ ] [TICKET-CST-01](./tickets/TICKET-CST-01-constants-concept.md) — Constants entity and `const.*` (Concept 05) — SKL-02, RACE-02, RES-02, ARC-02 read these
 - [ ] [TICKET-CST-02](./tickets/TICKET-CST-02-constants-panel.md) — Constants panel (Concept 05) — UI for CST-01

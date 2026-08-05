@@ -27,15 +27,23 @@ const config: Configuration = {
   name: 'Test Config',
   version: '1.0',
   mainSkills: [
-    { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-    { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+    { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+    { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
   ],
   stats: [],
   specialitySkills: [
-    { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'DEX / 2' },
+    {
+      id: 'STL',
+      code: 'STL',
+      name: 'Stealth',
+      description: '',
+      maxBaseLevel: 10,
+      bonusFormula: 'DEX / 2',
+    },
   ],
   combatSkills: [
     {
+      id: 'MEL',
       code: 'MEL',
       name: 'Melee',
       description: '',

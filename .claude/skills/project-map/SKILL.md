@@ -87,9 +87,18 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 - `formula/parser.ts` — tokenizer + `FormulaParser` class → `parseFormula(src): FormulaAST`.
   Supports `+ - * /`, parentheses, unary negation, numeric literals, function calls
   `name(arg, …)`, dotted namespaced references (`stats.speed`, `skills.healing.level`,
-  `curve.cr(x)`), and bare variable refs (**deprecated**, removed by TICKET-STAT-01).
+  `curve.cr(x)`), bracketed id references (`[b1f0…]`, `stats.[b1f0…]` — the persisted form,
+  TICKET-REF-01), and bare variable refs (**deprecated**, removed by TICKET-STAT-01).
   Identifiers are `[A-Za-z][A-Za-z0-9_]*`. **Full grammar lives in the module JSDoc** — read it
-  there rather than restating it.
+  there rather than restating it. Also exports `tokenizeFormula(src)` — the lexer alone, for
+  rewriting reference tokens in place.
+- `formula/references.ts` — **the display↔stored translation** (TICKET-REF-01):
+  `buildReferenceIndex`, `toStoredFormula`/`toDisplayFormula`,
+  `toStoredConfiguration`/`toDisplayConfiguration`, `ensureReferenceIds`, `statMemberName`. A
+  formula is written and validated in *display* form (codes and name-slugs) and persisted in
+  *stored* form (ids), which is what makes a rename harmless. Only `services/storage.ts` and
+  `services/importExport.ts` cross that boundary; `configStore`'s `applyRenameSafely` uses the
+  same pair to make an edit rename-safe. The index is derived, never persisted.
 - `formula/functions.ts` — the closed function library (`round`/`roundup`/`rounddown`/`floor`/
   `ceil`/`min`/`max`/`clamp`/`abs`), lowercase reserved names matched case-sensitively; `round` is
   Excel half-away-from-zero (TICKET-FORM-02).
@@ -163,6 +172,9 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 `RollResult` extends it and adds `id`/`characterId`/`characterName`. Don't reintroduce a second one.
 
 ## Services (`src/services/`)
+
+Both service modules are the **reference-form boundary** (TICKET-REF-01): what they write holds
+id-resolved references, what they hand back holds the ruleset's current spellings.
 
 - `storage.ts` — LocalStorage keys `dnd_builder_config`, `dnd_builder_characters`,
   `dnd_builder_ui_state`; `saveConfiguration`/`loadConfiguration`/`saveCharacters`/`loadCharacters`/

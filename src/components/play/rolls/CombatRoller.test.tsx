@@ -38,11 +38,12 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+    mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
     stats: [{ id: 'health', name: 'Health', description: '', formula: 'STR * 10' }],
     specialitySkills: [],
     combatSkills: [
       {
+        id: 'MEL',
         code: 'MEL',
         name: 'Melee',
         description: '',
@@ -50,6 +51,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         bonusFormula: 'STR',
       },
       {
+        id: 'RNG',
         code: 'RNG',
         name: 'Ranged',
         description: '',
@@ -195,6 +197,7 @@ describe('useCombatRoller', () => {
       config: createConfig({
         combatSkills: [
           {
+            id: 'MEL',
             code: 'MEL',
             name: 'Melee',
             description: '',

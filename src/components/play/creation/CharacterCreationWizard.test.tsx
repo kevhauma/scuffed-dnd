@@ -32,15 +32,23 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     name: 'Test Config',
     version: '1.0',
     mainSkills: [
-      { code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 10 },
+      { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
+      { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 10 },
     ],
     stats: [{ id: 'health', name: 'Health', description: '', formula: 'STR * 10' }],
     specialitySkills: [
-      { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 5, bonusFormula: 'DEX / 2' },
+      {
+        id: 'STL',
+        code: 'STL',
+        name: 'Stealth',
+        description: '',
+        maxBaseLevel: 5,
+        bonusFormula: 'DEX / 2',
+      },
     ],
     combatSkills: [
       {
+        id: 'MEL',
         code: 'MEL',
         name: 'Melee',
         description: '',

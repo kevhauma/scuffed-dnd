@@ -4,9 +4,18 @@
  * Handles exporting Configuration as JSON files and importing/validating
  * Configuration from JSON files.
  *
- * **Validates: Requirements 1.4, 1.5, 1.6**
+ * Like `storage.ts`, this is a form boundary (TICKET-REF-01): an exported file carries
+ * **id-resolved** references so it survives renames on either side of the exchange, and an
+ * imported one comes back in **display form**.
+ *
+ * **Validates: Requirements 1.4, 1.5, 1.6; Concept 00 §6**
  */
 
+import {
+  ensureReferenceIds,
+  toDisplayConfiguration,
+  toStoredConfiguration,
+} from '../engine/formula/references';
 import type { Configuration } from '../types/config';
 
 /**
@@ -51,7 +60,7 @@ export interface ValidationResult {
  */
 export function exportConfiguration(config: Configuration): Blob {
   try {
-    const json = JSON.stringify(config, null, 2);
+    const json = JSON.stringify(toStoredConfiguration(config), null, 2);
     return new Blob([json], { type: 'application/json' });
   } catch (error) {
     throw new ImportExportError('Failed to export configuration', error);
@@ -110,6 +119,11 @@ function validateOptionalNonNegativeNumber(value: unknown, field: string): strin
  * Validate configuration structure
  *
  * Checks that the imported data has all required fields and correct types.
+ *
+ * One deliberate exemption: a skill's `id` is required by the type but **not** checked here, so
+ * files exported before TICKET-REF-01 still import — `ensureReferenceIds` mints the missing ones
+ * on the way through `importConfiguration`. TICKET-IO-03 replaces the whole leniency with an
+ * outright rejection of pre-v2 files.
  *
  * @param data Unknown data to validate
  * @returns Validation result with errors if any
@@ -273,7 +287,9 @@ export function importConfiguration(json: string): Configuration {
       throw new ValidationError('Configuration validation failed', validation.errors);
     }
 
-    return data as Configuration;
+    return toDisplayConfiguration(
+      ensureReferenceIds(data as Configuration, () => crypto.randomUUID())
+    );
   } catch (error) {
     if (error instanceof ValidationError) {
       throw error;

@@ -27,15 +27,23 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     name: 'Integration Ruleset',
     version: '1.0',
     mainSkills: [
-      { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+      { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
     ],
     stats: [{ id: 'health', name: 'Health', description: '', formula: 'STR * 10' }],
     specialitySkills: [
-      { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'DEX' },
+      {
+        id: 'STL',
+        code: 'STL',
+        name: 'Stealth',
+        description: '',
+        maxBaseLevel: 10,
+        bonusFormula: 'DEX',
+      },
     ],
     combatSkills: [
       {
+        id: 'MEL',
         code: 'MEL',
         name: 'Melee',
         description: '',
@@ -95,6 +103,7 @@ describe('persistence round trip', () => {
   it('should carry a configuration through the store, storage and back (Req 17.1, 17.3)', () => {
     useConfigStore.getState().initializeConfig('Round Trip');
     useConfigStore.getState().addMainSkill({
+      id: 'STR',
       code: 'STR',
       name: 'Strength',
       description: '',
@@ -239,5 +248,29 @@ describe('recalculation flows', () => {
       numberOr(twoRaces.specialitySkillTotalLevels.STL, 0) -
         numberOr(oneRace.specialitySkillTotalLevels.STL, 0)
     ).toBe(1);
+  });
+  it('keeps a character computing the same numbers after a skill is renamed (TICKET-REF-01)', () => {
+    const config = createConfig();
+    const character = createCharacter();
+    useConfigStore.getState().replaceConfig(config);
+    useCharacterStore.setState({ characters: [character], isLoaded: true });
+
+    const before = calculateCharacter(character, config);
+
+    // Exactly what the skill manager does on a save that changed the code
+    useConfigStore.getState().updateMainSkill('STR', { code: 'STG', name: 'Might' });
+    useCharacterStore.getState().renameSkillCode('STR', 'STG');
+
+    // Reload from real storage, so the assertion covers the persisted form too
+    const reloadedConfig = loadConfiguration() as Configuration;
+    const reloadedCharacter = loadCharacters()[0];
+    const after = calculateCharacter(reloadedCharacter, reloadedConfig);
+
+    expect(reloadedConfig.stats[0].formula).toBe('STG * 10');
+    expect(reloadedConfig.races[0].skillModifiers.map((m) => m.skillCode)).not.toContain('STR');
+    expect(after.totalMainSkillLevels.STG).toBe(before.totalMainSkillLevels.STR);
+    expect(after.maxStatValues).toEqual(before.maxStatValues);
+    expect(after.specialitySkillTotalLevels).toEqual(before.specialitySkillTotalLevels);
+    expect(after.combatSkillBonuses).toEqual(before.combatSkillBonuses);
   });
 });

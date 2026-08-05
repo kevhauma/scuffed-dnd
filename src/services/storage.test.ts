@@ -321,4 +321,59 @@ describe('Storage Service', () => {
       expect(size).toBeGreaterThan(0);
     });
   });
+  describe('reference form at the storage boundary (TICKET-REF-01)', () => {
+    const config: Configuration = {
+      id: 'test-config',
+      name: 'Test Config',
+      version: '1.0.0',
+      mainSkills: [{ id: 'id-str', code: 'STR', name: 'Strength', description: '', maxLevel: 10 }],
+      stats: [{ id: 'id-hp', name: 'Health', description: '', formula: 'STR * 10' }],
+      specialitySkills: [],
+      combatSkills: [],
+      materials: [],
+      materialCategories: [],
+      items: [],
+      equipmentSlots: [],
+      races: [],
+      currencyTiers: [],
+      focusStatBonusLevel: 0,
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+    };
+
+    it('writes formulas with references resolved to ids', () => {
+      saveConfiguration(config);
+
+      const raw = JSON.parse(localStorage.getItem('dnd_builder_config') as string);
+      expect(raw.stats[0].formula).toBe('[id-str] * 10');
+    });
+
+    it('hands back the display form on load', () => {
+      saveConfiguration(config);
+
+      expect(loadConfiguration()).toEqual(config);
+    });
+
+    it('spells a stored formula with the code the skill has now', () => {
+      saveConfiguration(config);
+
+      const raw = JSON.parse(localStorage.getItem('dnd_builder_config') as string);
+      raw.mainSkills[0].code = 'STG';
+      localStorage.setItem('dnd_builder_config', JSON.stringify(raw));
+
+      expect(loadConfiguration()?.stats[0].formula).toBe('STG * 10');
+    });
+
+    it('completes a configuration written before skills had ids', () => {
+      const legacy = {
+        ...config,
+        mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 10 }],
+      };
+      localStorage.setItem('dnd_builder_config', JSON.stringify(legacy));
+
+      const loaded = loadConfiguration();
+      expect(loaded?.mainSkills[0].id).toBeTruthy();
+      expect(loaded?.stats[0].formula).toBe('STR * 10');
+    });
+  });
 });

@@ -48,8 +48,9 @@ export * from './skills/main/MainSkillsPanel';
 // Hooks
 export * from './skills/main/useMainSkillManager';
 export * from './skills/shared/BaseSkillPanel';
-// Shared components
+// Shared components and helpers
 export * from './skills/shared/SkillFormFields';
+export * from './skills/shared/skillIdentity';
 export * from './skills/shared/useSkillDependencies';
 export * from './skills/speciality/SpecialitySkillCard';
 export * from './skills/speciality/SpecialitySkillFormDialog';

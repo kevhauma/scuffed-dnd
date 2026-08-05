@@ -35,9 +35,9 @@ describe('calculateCharacterStats', () => {
       name: 'Test Config',
       version: '1.0',
       mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-        { code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
+        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+        { id: 'CON', code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
       ],
       stats: [
         {
@@ -106,8 +106,8 @@ describe('calculateCharacterStats', () => {
       name: 'Test Config',
       version: '1.0',
       mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
       ],
       stats: [
         {
@@ -173,7 +173,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [
         {
           id: 'health',
@@ -215,20 +215,35 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
     name: 'Fixture Config',
     version: '1.0',
     mainSkills: [
-      { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-      { code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
+      { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+      { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      { id: 'CON', code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
     ],
     stats: [
       { id: 'health', name: 'Health', description: '', formula: 'STR * 10 + CON * 5' },
       { id: 'evasion', name: 'Evasion', description: '', formula: 'DEX * 2' },
     ],
     specialitySkills: [
-      { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'DEX / 2' },
-      { code: 'ARC', name: 'Arcana', description: '', maxBaseLevel: 10, bonusFormula: 'CON' },
+      {
+        id: 'STL',
+        code: 'STL',
+        name: 'Stealth',
+        description: '',
+        maxBaseLevel: 10,
+        bonusFormula: 'DEX / 2',
+      },
+      {
+        id: 'ARC',
+        code: 'ARC',
+        name: 'Arcana',
+        description: '',
+        maxBaseLevel: 10,
+        bonusFormula: 'CON',
+      },
     ],
     combatSkills: [
       {
+        id: 'MEL',
         code: 'MEL',
         name: 'Melee',
         description: '',
@@ -509,7 +524,14 @@ describe('calculateCharacter', () => {
   it('should name the speciality skill when its formula references an undefined skill', () => {
     const config = createFixtureConfig({
       specialitySkills: [
-        { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'MAG' },
+        {
+          id: 'STL',
+          code: 'STL',
+          name: 'Stealth',
+          description: '',
+          maxBaseLevel: 10,
+          bonusFormula: 'MAG',
+        },
       ],
     });
 
@@ -526,6 +548,7 @@ describe('calculateCharacter', () => {
     const config = createFixtureConfig({
       combatSkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee',
           description: '',
@@ -568,8 +591,22 @@ describe('calculateCharacter', () => {
   it('should chain provenance from a broken speciality skill into the combat skill reading it', () => {
     const config = createFixtureConfig({
       specialitySkills: [
-        { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'MAG' },
-        { code: 'ARC', name: 'Arcana', description: '', maxBaseLevel: 10, bonusFormula: 'CON' },
+        {
+          id: 'STL',
+          code: 'STL',
+          name: 'Stealth',
+          description: '',
+          maxBaseLevel: 10,
+          bonusFormula: 'MAG',
+        },
+        {
+          id: 'ARC',
+          code: 'ARC',
+          name: 'Arcana',
+          description: '',
+          maxBaseLevel: 10,
+          bonusFormula: 'CON',
+        },
       ],
     });
 
@@ -611,17 +648,25 @@ describe('calculateCharacter over an unallocated main skill (TICKET-CALC-02)', (
   const createConfigWithWisdom = (): Configuration =>
     createFixtureConfig({
       mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-        { code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
-        { code: 'WIS', name: 'Wisdom', description: '', maxLevel: 20 }, // newly added
+        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+        { id: 'CON', code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
+        { id: 'WIS', code: 'WIS', name: 'Wisdom', description: '', maxLevel: 20 }, // newly added
       ],
       stats: [{ id: 'insight', name: 'Insight', description: '', formula: 'WIS * 3' }],
       specialitySkills: [
-        { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'WIS' },
+        {
+          id: 'STL',
+          code: 'STL',
+          name: 'Stealth',
+          description: '',
+          maxBaseLevel: 10,
+          bonusFormula: 'WIS',
+        },
       ],
       combatSkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee',
           description: '',

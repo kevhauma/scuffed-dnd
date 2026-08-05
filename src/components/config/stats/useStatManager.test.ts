@@ -27,8 +27,8 @@ const config: Configuration = {
   name: 'Test Config',
   version: '1.0',
   mainSkills: [
-    { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-    { code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
+    { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+    { id: 'CON', code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
   ],
   stats: [{ id: 'health', name: 'Health', description: '', formula: 'STR * 10' }],
   specialitySkills: [],

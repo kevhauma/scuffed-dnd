@@ -56,8 +56,8 @@ describe('CharacterStore', () => {
       name: 'Test Config',
       version: '1.0',
       mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
       ],
       stats: [{ id: 'health', name: 'Health', description: '', formula: 'STR * 10' }],
       specialitySkills: [],
@@ -511,7 +511,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [
         { id: 'health', name: 'Health', description: '', formula: 'STR * 10' },
         { id: 'mana', name: 'Mana', description: '', formula: 'STR * 5' },
@@ -631,6 +631,56 @@ describe('CharacterStore', () => {
         expect(updated.currentStatValues.health).toBe(100);
         expect(updated.currentStatValues.mana).toBe(-5);
       });
+    });
+  });
+  describe('renameSkillCode (TICKET-REF-01)', () => {
+    beforeEach(() => {
+      useCharacterStore.setState({
+        characters: [
+          {
+            id: 'char1',
+            name: 'Test',
+            configurationId: 'config1',
+            raceIds: [],
+            mainSkillLevels: { STR: 6, DEX: 4 },
+            specialitySkillBaseLevels: { STL: 3 },
+            focusStatCode: 'STR',
+            currentStatValues: {},
+            inventory: { equippedItems: {}, miscItems: [] },
+            createdAt: '2024-01-01',
+            updatedAt: '2024-01-01',
+          },
+        ],
+        isLoaded: true,
+      });
+      vi.clearAllMocks();
+    });
+
+    it('moves the allocation, the base level and the focus stat onto the new code', () => {
+      useCharacterStore.getState().renameSkillCode('STR', 'STG');
+
+      const character = useCharacterStore.getState().characters[0];
+      expect(character.mainSkillLevels).toEqual({ DEX: 4, STG: 6 });
+      expect(character.focusStatCode).toBe('STG');
+      expect(storage.saveCharacters).toHaveBeenCalled();
+    });
+
+    it('moves a speciality base level too', () => {
+      useCharacterStore.getState().renameSkillCode('STL', 'SNK');
+
+      expect(useCharacterStore.getState().characters[0].specialitySkillBaseLevels).toEqual({
+        SNK: 3,
+      });
+    });
+
+    it('leaves characters and storage alone when nothing holds the code', () => {
+      useCharacterStore.getState().renameSkillCode('ZZZ', 'YYY');
+
+      expect(useCharacterStore.getState().characters[0].mainSkillLevels).toEqual({
+        STR: 6,
+        DEX: 4,
+      });
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
     });
   });
 });

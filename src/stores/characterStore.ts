@@ -31,6 +31,7 @@ interface CharacterState {
   updateCharacter: (id: string, updates: Partial<Character>) => void;
   deleteCharacter: (id: string) => void;
   getCharacter: (id: string) => Character | undefined;
+  renameSkillCode: (previousCode: string, nextCode: string) => void;
 
   // Inventory Management
   equipItem: (
@@ -199,6 +200,32 @@ function patchInventory(
   set({ characters: updated });
 }
 
+/** Whether a character has anything filed under a skill code */
+function holdsSkillCode(character: Character, code: string): boolean {
+  return (
+    code in character.mainSkillLevels ||
+    code in character.specialitySkillBaseLevels ||
+    character.focusStatCode === code
+  );
+}
+
+/**
+ * Move one key of a code-keyed map, leaving insertion order and every other entry alone
+ *
+ * A key already present under `nextCode` would be a duplicate code, which the configuration
+ * refuses; the rename still wins so the value follows the skill rather than being dropped.
+ */
+function rekey(
+  values: Record<string, number>,
+  previousCode: string,
+  nextCode: string
+): Record<string, number> {
+  if (!(previousCode in values)) return values;
+
+  const { [previousCode]: moved, ...rest } = values;
+  return { ...rest, [nextCode]: moved };
+}
+
 /**
  * Auto-save helper - saves characters and updates timestamp
  */
@@ -259,6 +286,35 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   getCharacter: (id: string) => {
     const { characters } = get();
     return characters.find((char) => char.id === id);
+  },
+
+  /**
+   * Follow a skill code rename through every character (TICKET-REF-01)
+   *
+   * A character's allocations are keyed by skill code, so a rename in the configuration would
+   * otherwise orphan them — the formula would read the new code as an unallocated 0 while the
+   * player's levels sat under a key nothing names. Re-keying here is the character-store half of
+   * the rename; the configuration half is `configStore`'s `applyRenameSafely`. TICKET-STAT-01
+   * replaces these code-keyed maps with id-keyed ones and this action retires with them.
+   *
+   * @param previousCode - The code the skill had
+   * @param nextCode - The code it has now
+   */
+  renameSkillCode: (previousCode: string, nextCode: string) => {
+    if (previousCode === nextCode) return;
+
+    const { characters } = get();
+    if (!characters.some((char) => holdsSkillCode(char, previousCode))) return;
+
+    const updated = autoSave(
+      characters.map((char) => ({
+        ...char,
+        mainSkillLevels: rekey(char.mainSkillLevels, previousCode, nextCode),
+        specialitySkillBaseLevels: rekey(char.specialitySkillBaseLevels, previousCode, nextCode),
+        ...(char.focusStatCode === previousCode ? { focusStatCode: nextCode } : {}),
+      }))
+    );
+    set({ characters: updated });
   },
 
   // Equip item to equipment slot

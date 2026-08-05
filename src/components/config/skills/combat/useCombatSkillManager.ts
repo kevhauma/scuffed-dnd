@@ -11,6 +11,7 @@ import { useForm } from 'react-hook-form';
 import { validateFormulaChange } from '../../../../engine/formula/formulaChange';
 import { useConfigStore } from '../../../../stores/configStore';
 import type { CombatSkill, DiceConfig } from '../../../../types';
+import { resolveSkillId, useSkillCodeRename } from '../shared/skillIdentity';
 import { useSkillDependencies } from '../shared/useSkillDependencies';
 
 interface SkillFormData {
@@ -33,6 +34,7 @@ export function useCombatSkillManager() {
   const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
 
   const { checkDependencies } = useSkillDependencies();
+  const applySkillCodeRename = useSkillCodeRename();
 
   const form = useForm<SkillFormData>({
     defaultValues: {
@@ -129,6 +131,7 @@ export function useCombatSkillManager() {
     }
 
     const skill: CombatSkill = {
+      id: resolveSkillId(currentSkills, editingSkill),
       code,
       name: data.name,
       description: data.description,
@@ -138,6 +141,7 @@ export function useCombatSkillManager() {
 
     if (editingSkill) {
       updateCombatSkill(editingSkill, skill);
+      applySkillCodeRename(editingSkill, code);
     } else {
       addCombatSkill(skill);
     }

@@ -33,7 +33,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 10 }],
+    mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 }],
     stats: [],
     specialitySkills: [],
     combatSkills: [],

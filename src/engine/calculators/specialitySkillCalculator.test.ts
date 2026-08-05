@@ -34,12 +34,13 @@ describe('calculateSpecialitySkillLevels', () => {
       name: 'Test Config',
       version: '1.0',
       mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
       ],
       stats: [],
       specialitySkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee',
           description: 'Close combat skill',
@@ -96,12 +97,13 @@ describe('calculateSpecialitySkillLevels', () => {
       name: 'Test Config',
       version: '1.0',
       mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
       ],
       stats: [],
       specialitySkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee',
           description: 'Close combat skill',
@@ -159,12 +161,13 @@ describe('calculateSpecialitySkillLevels', () => {
       name: 'Test Config',
       version: '1.0',
       mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
       ],
       stats: [],
       specialitySkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee',
           description: 'Close combat skill',
@@ -172,6 +175,7 @@ describe('calculateSpecialitySkillLevels', () => {
           bonusFormula: 'STR',
         },
         {
+          id: 'RNG',
           code: 'RNG',
           name: 'Ranged',
           description: 'Ranged combat skill',
@@ -224,10 +228,11 @@ describe('calculateSpecialitySkillLevels', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee',
           description: 'Close combat skill',
@@ -285,13 +290,14 @@ describe('calculateSpecialitySkillLevels', () => {
       name: 'Test Config',
       version: '1.0',
       mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-        { code: 'INT', name: 'Intelligence', description: '', maxLevel: 20 },
+        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+        { id: 'INT', code: 'INT', name: 'Intelligence', description: '', maxLevel: 20 },
       ],
       stats: [],
       specialitySkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee',
           description: 'Close combat skill',
@@ -299,6 +305,7 @@ describe('calculateSpecialitySkillLevels', () => {
           bonusFormula: 'STR',
         },
         {
+          id: 'RNG',
           code: 'RNG',
           name: 'Ranged',
           description: 'Ranged combat skill',
@@ -306,6 +313,7 @@ describe('calculateSpecialitySkillLevels', () => {
           bonusFormula: 'DEX',
         },
         {
+          id: 'MAG',
           code: 'MAG',
           name: 'Magic',
           description: 'Spellcasting skill',
@@ -364,12 +372,13 @@ describe('calculateSpecialitySkillLevels', () => {
       name: 'Test Config',
       version: '1.0',
       mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
       ],
       stats: [],
       specialitySkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee',
           description: 'Close combat skill',
@@ -424,10 +433,11 @@ describe('calculateSpecialitySkillLevels', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee',
           description: 'Close combat skill',
@@ -481,10 +491,11 @@ describe('calculateSpecialitySkillLevels', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee',
           description: 'Close combat skill',
@@ -535,12 +546,13 @@ describe('calculateSpecialitySkillLevels', () => {
       name: 'Test Config',
       version: '1.0',
       mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
       ],
       stats: [],
       specialitySkills: [
         {
+          id: 'STL',
           code: 'STL',
           name: 'Stealth',
           description: '',

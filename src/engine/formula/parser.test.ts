@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { parseFormula } from './parser';
+import { parseFormula, tokenizeFormula } from './parser';
 
 describe('Formula Parser', () => {
   describe('Number Literals', () => {
@@ -641,5 +641,55 @@ describe('Namespaced references (TICKET-FORM-03)', () => {
       type: 'variable',
       value: 'BONUS_DIVIDER',
     });
+  });
+});
+
+describe('Id references (TICKET-REF-01)', () => {
+  it('should parse a bracketed id as a bare variable, case intact', () => {
+    expect(parseFormula('[a1B2-c3]')).toEqual({ type: 'variable', value: 'a1B2-c3' });
+  });
+
+  it('should parse a bracketed id as a namespace member', () => {
+    expect(parseFormula('stats.[550e8400-e29b-41d4]')).toEqual({
+      type: 'namespaced_ref',
+      namespace: 'stats',
+      member: '550e8400-e29b-41d4',
+    });
+  });
+
+  it('should keep a property segment after a bracketed member', () => {
+    expect(parseFormula('skills.[id-stl].level')).toEqual({
+      type: 'namespaced_ref',
+      namespace: 'skills',
+      member: 'id-stl',
+      property: 'level',
+    });
+  });
+
+  it('should parse id references inside an expression', () => {
+    expect(parseFormula('[id-str] * 10')).toEqual({
+      type: 'binary_op',
+      operator: '*',
+      left: { type: 'variable', value: 'id-str' },
+      right: { type: 'number', value: 10 },
+    });
+  });
+
+  it('should reject an empty or unterminated id reference', () => {
+    expect(() => parseFormula('[]')).toThrow('Empty id reference');
+    expect(() => parseFormula('[abc')).toThrow('Unterminated id reference');
+  });
+});
+
+describe('tokenizeFormula (TICKET-REF-01)', () => {
+  it('reports each token with the span it occupies in the source', () => {
+    const tokens = tokenizeFormula(' STR + 2');
+
+    expect(tokens.map((t) => [t.type, t.value, t.position, t.end])).toEqual([
+      ['IDENTIFIER', 'STR', 1, 4],
+      ['PLUS', '+', 5, 6],
+      ['NUMBER', 2, 7, 8],
+      ['EOF', '', 8, 8],
+    ]);
   });
 });

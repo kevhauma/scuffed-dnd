@@ -9,10 +9,12 @@
  *   factor      := PLUS factor | MINUS factor | NUMBER | ref | LPAREN expression RPAREN
  *   ref         := IDENTIFIER LPAREN args RPAREN                        (function call)
  *                | IDENTIFIER DOT IDENTIFIER LPAREN args RPAREN         (namespaced call, e.g. curve.cr(x))
- *                | IDENTIFIER DOT IDENTIFIER (DOT IDENTIFIER)?          (namespaced reference)
- *                | IDENTIFIER                                           (bare variable — deprecated)
+ *                | IDENTIFIER DOT member (DOT IDENTIFIER)?              (namespaced reference)
+ *                | member                                               (bare variable — deprecated when an IDENTIFIER)
+ *   member      := IDENTIFIER | REF_ID
  *   args        := (expression (COMMA expression)*)?
  *   IDENTIFIER  := [A-Za-z][A-Za-z0-9_]*
+ *   REF_ID      := '[' [^\]]+ ']'
  *
  * An identifier directly followed by `(` always parses as a function call; its name is kept
  * exactly as written and checked case-sensitively against the closed library in
@@ -26,6 +28,12 @@
  * TICKET-CRV-01. A bare identifier is a legacy variable reference, normalized to uppercase —
  * **deprecated**, kept until TICKET-STAT-01 removes flat codes.
  *
+ * A bracketed segment (`[b1f0…]`, `stats.[b1f0…]`) is an **id reference** — the rename-safe form a
+ * formula is persisted in (TICKET-REF-01). Brackets accept any id text, so a `crypto.randomUUID()`
+ * survives the tokenizer's arithmetic characters, and case is preserved rather than uppercased
+ * because ids are matched exactly. Users never type this form: `engine/formula/references.ts`
+ * translates between it and the display form at the storage boundary.
+ *
  * **Validates: Requirements 16.1, 16.2, 16.3; Concepts 00 §5, 01, 02; spec §5.1, §5.3**
  */
 
@@ -37,6 +45,7 @@ import type { FormulaAST } from '../../types/formula';
 type TokenType =
   | 'NUMBER'
   | 'IDENTIFIER'
+  | 'REF_ID'
   | 'PLUS'
   | 'MINUS'
   | 'MULTIPLY'
@@ -49,12 +58,20 @@ type TokenType =
 
 /**
  * Token representation
+ *
+ * `position` and `end` are offsets into the formula source, so a caller holding the tokens can
+ * splice a token's text without re-deriving where it sat — that is how `references.ts` rewrites
+ * reference tokens while leaving the User's spacing untouched.
  */
-interface Token {
+export interface FormulaToken {
   type: TokenType;
   value: string | number;
   position: number;
+  /** Offset one past the token's last character */
+  end: number;
 }
+
+type Token = FormulaToken;
 
 /**
  * Tokenizer class - converts formula string into tokens
@@ -65,7 +82,9 @@ class Tokenizer {
   private currentChar: string | null;
 
   constructor(input: string) {
-    this.input = input.trim();
+    // Not trimmed: `skipWhitespace` already handles surrounding blanks, and keeping the raw string
+    // makes every token position an offset into the source the caller passed in.
+    this.input = input;
     this.position = 0;
     this.currentChar = this.input.length > 0 ? this.input[0] : null;
   }
@@ -103,6 +122,41 @@ class Tokenizer {
       type: 'NUMBER',
       value: parseFloat(numStr),
       position: startPos,
+      end: this.position,
+    };
+  }
+
+  /**
+   * Parse a bracketed id reference token — `[` … `]` with the id kept verbatim
+   *
+   * Ids are opaque (a `crypto.randomUUID()` contains hyphens, which are arithmetic elsewhere), so
+   * everything up to the closing bracket is taken as-is. An empty or unterminated bracket is a
+   * syntax error rather than a silently empty reference.
+   */
+  private parseReferenceId(): Token {
+    const startPos = this.position;
+    this.advance(); // consume '['
+
+    let idStr = '';
+    while (this.currentChar !== null && this.currentChar !== ']') {
+      idStr += this.currentChar;
+      this.advance();
+    }
+
+    if (this.currentChar === null) {
+      throw new Error(`Unterminated id reference at position ${startPos}`);
+    }
+    this.advance(); // consume ']'
+
+    if (idStr.length === 0) {
+      throw new Error(`Empty id reference at position ${startPos}`);
+    }
+
+    return {
+      type: 'REF_ID',
+      value: idStr,
+      position: startPos,
+      end: this.position,
     };
   }
 
@@ -127,6 +181,7 @@ class Tokenizer {
       type: 'IDENTIFIER',
       value: idStr,
       position: startPos,
+      end: this.position,
     };
   }
 
@@ -151,34 +206,40 @@ class Tokenizer {
         return this.parseIdentifier();
       }
 
+      // Bracketed id reference — the persisted, rename-safe form (TICKET-REF-01)
+      if (this.currentChar === '[') {
+        return this.parseReferenceId();
+      }
+
       // Operators and parentheses
       const char = this.currentChar;
       const pos = this.position;
       this.advance();
+      const end = this.position;
 
       switch (char) {
         case '+':
-          return { type: 'PLUS', value: '+', position: pos };
+          return { type: 'PLUS', value: '+', position: pos, end };
         case '-':
-          return { type: 'MINUS', value: '-', position: pos };
+          return { type: 'MINUS', value: '-', position: pos, end };
         case '*':
-          return { type: 'MULTIPLY', value: '*', position: pos };
+          return { type: 'MULTIPLY', value: '*', position: pos, end };
         case '/':
-          return { type: 'DIVIDE', value: '/', position: pos };
+          return { type: 'DIVIDE', value: '/', position: pos, end };
         case '(':
-          return { type: 'LPAREN', value: '(', position: pos };
+          return { type: 'LPAREN', value: '(', position: pos, end };
         case ')':
-          return { type: 'RPAREN', value: ')', position: pos };
+          return { type: 'RPAREN', value: ')', position: pos, end };
         case ',':
-          return { type: 'COMMA', value: ',', position: pos };
+          return { type: 'COMMA', value: ',', position: pos, end };
         case '.':
-          return { type: 'DOT', value: '.', position: pos };
+          return { type: 'DOT', value: '.', position: pos, end };
         default:
           throw new Error(`Unexpected character '${char}' at position ${pos}`);
       }
     }
 
-    return { type: 'EOF', value: '', position: this.position };
+    return { type: 'EOF', value: '', position: this.position, end: this.position };
   }
 }
 
@@ -263,6 +324,15 @@ export class FormulaParser {
       };
     }
 
+    // Bare id reference — the persisted form of a legacy bare code; kept case-exact
+    if (token.type === 'REF_ID') {
+      this.eat('REF_ID');
+      return {
+        type: 'variable',
+        value: token.value as string,
+      };
+    }
+
     // Parenthesized expression
     if (token.type === 'LPAREN') {
       this.eat('LPAREN');
@@ -281,11 +351,14 @@ export class FormulaParser {
    * Two segments make a namespaced reference (`stats.speed`), an argument list after the
    * member makes a namespaced call (`curve.cr(x)`), and a third segment is a property
    * access (`skills.healing.level`). Segments are kept exactly as written.
+   *
+   * The member may be a bracketed id (`stats.[b1f0…]`) — the persisted form of the same
+   * reference (TICKET-REF-01).
    */
   private namespacedReference(namespace: string): FormulaAST {
     this.eat('DOT');
     const memberToken = this.currentToken;
-    this.eat('IDENTIFIER');
+    this.eat(memberToken.type === 'REF_ID' ? 'REF_ID' : 'IDENTIFIER');
     const member = memberToken.value as string;
 
     if (this.currentToken.type === 'LPAREN') {
@@ -427,4 +500,30 @@ export class FormulaParser {
 export function parseFormula(formula: string): FormulaAST {
   const parser = new FormulaParser(formula);
   return parser.parse();
+}
+
+/**
+ * Tokenize a formula string without parsing it
+ *
+ * The lexical half on its own, for callers that rewrite reference tokens in place rather than
+ * interpreting the expression — `references.ts` is the one such caller. Working from tokens is
+ * what keeps a rewritten formula byte-identical outside the tokens it replaced, so the User's
+ * spacing and parentheses survive a rename.
+ *
+ * @param formula - Formula source text
+ * @returns Every token in source order, ending with `EOF`
+ * @throws Error on a character the tokenizer does not recognize
+ */
+export function tokenizeFormula(formula: string): FormulaToken[] {
+  const tokenizer = new Tokenizer(formula);
+  const tokens: FormulaToken[] = [];
+
+  let token = tokenizer.getNextToken();
+  while (token.type !== 'EOF') {
+    tokens.push(token);
+    token = tokenizer.getNextToken();
+  }
+  tokens.push(token);
+
+  return tokens;
 }

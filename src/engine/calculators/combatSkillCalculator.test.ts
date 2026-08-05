@@ -15,13 +15,14 @@ describe('calculateCombatSkillBonuses', () => {
       name: 'Test Config',
       version: '1.0',
       mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
       ],
       stats: [],
       specialitySkills: [],
       combatSkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee Attack',
           description: 'Close combat attack',
@@ -65,10 +66,11 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [
         {
+          id: 'SWD',
           code: 'SWD',
           name: 'Swordsmanship',
           description: 'Sword skill',
@@ -78,6 +80,7 @@ describe('calculateCombatSkillBonuses', () => {
       ],
       combatSkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee Attack',
           description: 'Close combat attack',
@@ -123,11 +126,12 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [],
       combatSkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee Attack',
           description: 'Close combat attack',
@@ -174,11 +178,12 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [],
       combatSkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee Attack',
           description: 'Close combat attack',
@@ -226,13 +231,14 @@ describe('calculateCombatSkillBonuses', () => {
       name: 'Test Config',
       version: '1.0',
       mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
       ],
       stats: [],
       specialitySkills: [],
       combatSkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee Attack',
           description: 'Close combat attack',
@@ -240,6 +246,7 @@ describe('calculateCombatSkillBonuses', () => {
           bonusFormula: 'STR',
         },
         {
+          id: 'RNG',
           code: 'RNG',
           name: 'Ranged Attack',
           description: 'Ranged combat attack',
@@ -289,11 +296,12 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [],
       combatSkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee Attack',
           description: 'Close combat attack',
@@ -337,14 +345,15 @@ describe('calculateCombatSkillBonuses', () => {
       name: 'Test Config',
       version: '1.0',
       mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-        { code: 'INT', name: 'Intelligence', description: '', maxLevel: 20 },
+        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+        { id: 'INT', code: 'INT', name: 'Intelligence', description: '', maxLevel: 20 },
       ],
       stats: [],
       specialitySkills: [],
       combatSkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee Attack',
           description: 'Close combat attack',
@@ -352,6 +361,7 @@ describe('calculateCombatSkillBonuses', () => {
           bonusFormula: 'STR + 2',
         },
         {
+          id: 'RNG',
           code: 'RNG',
           name: 'Ranged Attack',
           description: 'Ranged combat attack',
@@ -359,6 +369,7 @@ describe('calculateCombatSkillBonuses', () => {
           bonusFormula: 'DEX',
         },
         {
+          id: 'MAG',
           code: 'MAG',
           name: 'Magic Attack',
           description: 'Spell attack',
@@ -410,12 +421,13 @@ describe('calculateCombatSkillBonuses', () => {
       name: 'Test Config',
       version: '1.0',
       mainSkills: [
-        { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
       ],
       stats: [],
       specialitySkills: [
         {
+          id: 'SWD',
           code: 'SWD',
           name: 'Swordsmanship',
           description: 'Sword skill',
@@ -425,6 +437,7 @@ describe('calculateCombatSkillBonuses', () => {
       ],
       combatSkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee Attack',
           description: 'Close combat attack',
@@ -471,11 +484,12 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [],
       combatSkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee Attack',
           description: 'Close combat attack',
@@ -519,11 +533,12 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [],
       specialitySkills: [],
       combatSkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee Attack',
           description: 'Close combat attack',

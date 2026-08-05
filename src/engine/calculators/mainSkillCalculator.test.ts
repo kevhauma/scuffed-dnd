@@ -164,8 +164,8 @@ describe('calculateTotalMainSkillLevels', () => {
 
   describe('with equipment and focus options', () => {
     const mainSkills: MainSkill[] = [
-      { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+      { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
     ];
 
     const createCharacter = (overrides: Partial<Character> = {}): Character => ({
@@ -228,9 +228,9 @@ describe('calculateTotalMainSkillLevels', () => {
   describe('with the configured main skill namespace', () => {
     /** CON is configured but never allocated by `createCharacter` */
     const mainSkills: MainSkill[] = [
-      { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-      { code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
+      { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+      { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      { id: 'CON', code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
     ];
 
     const createCharacter = (overrides: Partial<Character> = {}): Character => ({

@@ -4,9 +4,19 @@
  * LocalStorage abstraction for persisting Configuration and Character data.
  * Handles JSON serialization/deserialization and storage quota errors.
  *
- * **Validates: Requirements 1.2, 17.1, 17.2, 17.3, 17.4, 17.5**
+ * This is the boundary where a configuration changes form (TICKET-REF-01): what is written holds
+ * **id-resolved** references, what is handed back holds the **display spellings** the ruleset
+ * currently uses. Everything above this layer — stores, engine, components — works in display
+ * form only, which is why nothing else had to learn about ids.
+ *
+ * **Validates: Requirements 1.2, 17.1, 17.2, 17.3, 17.4, 17.5; Concept 00 §6**
  */
 
+import {
+  ensureReferenceIds,
+  toDisplayConfiguration,
+  toStoredConfiguration,
+} from '../engine/formula/references';
 import type { Character } from '../types/character';
 import type { Configuration } from '../types/config';
 
@@ -52,7 +62,7 @@ export class StorageParseError extends StorageError {
  */
 export function saveConfiguration(config: Configuration): void {
   try {
-    const serialized = JSON.stringify(config);
+    const serialized = JSON.stringify(toStoredConfiguration(config));
     localStorage.setItem(STORAGE_KEYS.CONFIG, serialized);
   } catch (error) {
     if (error instanceof Error && error.name === 'QuotaExceededError') {
@@ -77,7 +87,7 @@ export function loadConfiguration(): Configuration | null {
     }
 
     const config = JSON.parse(serialized) as Configuration;
-    return config;
+    return toDisplayConfiguration(ensureReferenceIds(config, () => crypto.randomUUID()));
   } catch (error) {
     if (error instanceof SyntaxError) {
       throw new StorageParseError('Configuration data is corrupted', error);

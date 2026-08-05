@@ -25,12 +25,13 @@ describe('Import/Export Service', () => {
       name: 'Test Config',
       version: '1.0.0',
       mainSkills: [
-        { code: 'STR', name: 'Strength', description: 'Physical power', maxLevel: 10 },
-        { code: 'DEX', name: 'Dexterity', description: 'Agility', maxLevel: 10 },
+        { id: 'STR', code: 'STR', name: 'Strength', description: 'Physical power', maxLevel: 10 },
+        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: 'Agility', maxLevel: 10 },
       ],
       stats: [{ id: 'health', name: 'Health', description: 'Hit points', formula: 'STR * 10' }],
       specialitySkills: [
         {
+          id: 'MEL',
           code: 'MEL',
           name: 'Melee',
           description: 'Close combat',
@@ -40,6 +41,7 @@ describe('Import/Export Service', () => {
       ],
       combatSkills: [
         {
+          id: 'ATK',
           code: 'ATK',
           name: 'Attack',
           description: 'Basic attack',
@@ -67,7 +69,7 @@ describe('Import/Export Service', () => {
       expect(blob.type).toBe('application/json');
     });
 
-    it('should create valid JSON content', () => {
+    it('should create valid JSON content, with references resolved to ids (TICKET-REF-01)', () => {
       const blob = exportConfiguration(validConfig);
 
       // Read blob content using FileReader-like approach
@@ -75,8 +77,20 @@ describe('Import/Export Service', () => {
       return new Promise<void>((resolve) => {
         reader.onload = () => {
           const text = reader.result as string;
-          const parsed = JSON.parse(text);
-          expect(parsed).toEqual(validConfig);
+          const parsed = JSON.parse(text) as Configuration;
+
+          // Everything but the formulas is carried through untouched…
+          expect(parsed).toEqual({
+            ...validConfig,
+            stats: [{ ...validConfig.stats[0], formula: '[STR] * 10' }],
+            specialitySkills: [
+              { ...validConfig.specialitySkills[0], bonusFormula: '[STR] + [DEX]' },
+            ],
+            combatSkills: [{ ...validConfig.combatSkills[0], bonusFormula: '[STR] + [MEL]' }],
+          });
+
+          // …and importing the file spells them the way this ruleset spells them again
+          expect(importConfiguration(text)).toEqual(validConfig);
           resolve();
         };
         reader.readAsText(blob);

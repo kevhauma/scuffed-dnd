@@ -34,9 +34,13 @@ export interface Configuration {
 
 /**
  * Main skill - foundational skill with 3-letter code
+ *
+ * `id` is the identity (TICKET-REF-01): it never changes and is what a persisted formula stores.
+ * `code` is display data the User may rename at will — see `engine/formula/references.ts`.
  */
 export interface MainSkill {
-  code: string; // 3-letter unique identifier (e.g., "STR", "WIS", "CON")
+  id: string; // Stable identity — assigned on creation, never shown, never reused
+  code: string; // 3-letter code (e.g., "STR", "WIS", "CON") — renamable display data
   name: string;
   description: string;
   maxLevel: number;
@@ -54,9 +58,12 @@ export interface Stat {
 
 /**
  * Speciality skill - skill with base level and bonus from formula
+ *
+ * `id` is the identity, `code` renamable display data (TICKET-REF-01).
  */
 export interface SpecialitySkill {
-  code: string; // 3-letter unique identifier
+  id: string; // Stable identity — assigned on creation, never shown, never reused
+  code: string; // 3-letter code — renamable display data
   name: string;
   description: string;
   maxBaseLevel: number;
@@ -65,9 +72,12 @@ export interface SpecialitySkill {
 
 /**
  * Combat skill - skill used in combat with dice rolls and bonuses
+ *
+ * `id` is the identity, `code` renamable display data (TICKET-REF-01).
  */
 export interface CombatSkill {
-  code: string; // 3-letter unique identifier
+  id: string; // Stable identity — assigned on creation, never shown, never reused
+  code: string; // 3-letter code — renamable display data
   name: string;
   description: string;
   dice: DiceConfig;

@@ -19,6 +19,7 @@ function sequenceRng(values: number[]): () => number {
 }
 
 const melee: CombatSkill = {
+  id: 'MEL',
   code: 'MEL',
   name: 'Melee',
   description: '',
@@ -27,6 +28,7 @@ const melee: CombatSkill = {
 };
 
 const unarmed: CombatSkill = {
+  id: 'UNA',
   code: 'UNA',
   name: 'Unarmed',
   description: '',
@@ -40,12 +42,19 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     name: 'Test Config',
     version: '1.0',
     mainSkills: [
-      { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+      { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
     ],
     stats: [],
     specialitySkills: [
-      { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'DEX / 2' },
+      {
+        id: 'STL',
+        code: 'STL',
+        name: 'Stealth',
+        description: '',
+        maxBaseLevel: 10,
+        bonusFormula: 'DEX / 2',
+      },
     ],
     combatSkills: [melee, unarmed],
     materials: [],

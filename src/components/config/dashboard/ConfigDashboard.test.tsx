@@ -35,8 +35,8 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     name: 'Test Config',
     version: '1.0',
     mainSkills: [
-      { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+      { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
     ],
     stats: [{ id: 'health', name: 'Health', description: '', formula: 'STR * 10' }],
     specialitySkills: [],
@@ -122,8 +122,22 @@ describe('ConfigDashboard', () => {
     useConfigStore.setState({
       config: createConfig({
         specialitySkills: [
-          { code: 'AAA', name: 'A', description: '', maxBaseLevel: 5, bonusFormula: 'BBB' },
-          { code: 'BBB', name: 'B', description: '', maxBaseLevel: 5, bonusFormula: 'AAA' },
+          {
+            id: 'AAA',
+            code: 'AAA',
+            name: 'A',
+            description: '',
+            maxBaseLevel: 5,
+            bonusFormula: 'BBB',
+          },
+          {
+            id: 'BBB',
+            code: 'BBB',
+            name: 'B',
+            description: '',
+            maxBaseLevel: 5,
+            bonusFormula: 'AAA',
+          },
         ],
       }),
     });

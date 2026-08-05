@@ -11,6 +11,7 @@ import { useForm } from 'react-hook-form';
 import { validateFormulaChange } from '../../../../engine/formula/formulaChange';
 import { useConfigStore } from '../../../../stores/configStore';
 import type { DiceConfig, SpecialitySkill } from '../../../../types';
+import { resolveSkillId, useSkillCodeRename } from '../shared/skillIdentity';
 import { useSkillDependencies } from '../shared/useSkillDependencies';
 
 interface SkillFormData {
@@ -33,6 +34,7 @@ export function useSpecialitySkillManager() {
   const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
 
   const { checkDependencies } = useSkillDependencies();
+  const applySkillCodeRename = useSkillCodeRename();
 
   const form = useForm<SkillFormData>({
     defaultValues: {
@@ -127,6 +129,7 @@ export function useSpecialitySkillManager() {
     }
 
     const skill: SpecialitySkill = {
+      id: resolveSkillId(currentSkills, editingSkill),
       code,
       name: data.name,
       description: data.description,
@@ -136,6 +139,7 @@ export function useSpecialitySkillManager() {
 
     if (editingSkill) {
       updateSpecialitySkill(editingSkill, skill);
+      applySkillCodeRename(editingSkill, code);
     } else {
       addSpecialitySkill(skill);
     }

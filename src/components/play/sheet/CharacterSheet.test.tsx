@@ -36,18 +36,26 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     name: 'Test Config',
     version: '1.0',
     mainSkills: [
-      { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+      { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
     ],
     stats: [
       { id: 'health', name: 'Health', description: '', formula: 'STR * 10' },
       { id: 'mana', name: 'Mana', description: '', formula: 'DEX * 5' },
     ],
     specialitySkills: [
-      { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'DEX' },
+      {
+        id: 'STL',
+        code: 'STL',
+        name: 'Stealth',
+        description: '',
+        maxBaseLevel: 10,
+        bonusFormula: 'DEX',
+      },
     ],
     combatSkills: [
       {
+        id: 'MEL',
         code: 'MEL',
         name: 'Melee',
         description: '',
@@ -332,6 +340,7 @@ describe('CharacterSheet', () => {
         config: createConfig({
           specialitySkills: [
             {
+              id: 'STL',
               code: 'STL',
               name: 'Stealth',
               description: '',
@@ -363,6 +372,7 @@ describe('CharacterSheet', () => {
         config: createConfig({
           combatSkills: [
             {
+              id: 'MEL',
               code: 'MEL',
               name: 'Melee',
               description: '',
@@ -401,9 +411,9 @@ describe('CharacterSheet', () => {
       useConfigStore.setState({
         config: createConfig({
           mainSkills: [
-            { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-            { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-            { code: 'WIS', name: 'Wisdom', description: '', maxLevel: 20 }, // newly added
+            { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+            { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+            { id: 'WIS', code: 'WIS', name: 'Wisdom', description: '', maxLevel: 20 }, // newly added
           ],
           stats: [
             { id: 'health', name: 'Health', description: '', formula: 'STR * 10' },

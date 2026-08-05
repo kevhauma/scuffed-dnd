@@ -39,10 +39,24 @@ value; `setMainSkillPointBudget(undefined)` deletes the key rather than storing 
 
 Identity rules that the rest of the app depends on:
 
-- **Skills are keyed by a unique 3-letter `code`** (`STR`, `WIS`, `MEL`), not an id — main,
-  speciality, and combat skills all use it, and it is also the variable name a formula references.
-  Codes must be unique *across* skill kinds, since one formula namespace serves all of them.
-- **Everything else is keyed by `id`** (string), except `EquipmentSlot`, which is keyed by `type`.
+- **Every referenceable entity carries a stable `id`.** Since TICKET-REF-01 that includes main,
+  speciality and combat skills, whose `code` is now renamable display data rather than the
+  identity. The store actions still *address* a skill by code (`updateMainSkill('STR', …)`) —
+  that is a lookup argument, not the key. `EquipmentSlot` is still keyed by `type`.
+- **Codes must stay unique across skill kinds.** One formula namespace serves all three, and the
+  display form of a formula would be ambiguous otherwise. (TICKET-REF-01's to-be floated
+  downgrading this to a warning; it is deliberately *not* done — see that ticket's divergence
+  note.)
+- **A persisted formula is id-resolved.** What the User writes and what is stored are two forms
+  of the same expression: `STR + DEX` in display form, `[id-str] + [id-dex]` in stored form. The
+  translation lives in [engine/formula/references.ts](../../../src/engine/formula/references.ts)
+  and is applied at exactly two places — `services/storage.ts` and `services/importExport.ts`, so
+  everything above them (stores, engine, components) works in display form only. Same for the
+  `skillCode` on every race and material modifier. A rename is `toStoredConfiguration` → patch →
+  `toDisplayConfiguration`, which `configStore`'s `applyRenameSafely` does for you; the reference
+  index is **derived on every call and never persisted**.
+  A `stats.*` member is a slug of the stat's name (`Max Health` → `stats.max_health`) until
+  TICKET-STAT-01 gives stats a real code.
 - **Formulas are strings** on `Stat.formula`, `SpecialitySkill.bonusFormula`, and
   `CombatSkill.bonusFormula`. They are parsed by the formula engine, never `eval`'d, and a bare
   variable is only valid if it resolves to a configured skill code. Since TICKET-FORM-03 a formula

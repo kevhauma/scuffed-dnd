@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../../stores/configStore';
 import type { DiceConfig, MainSkill } from '../../../../types';
+import { resolveSkillId, useSkillCodeRename } from '../shared/skillIdentity';
 import { useSkillDependencies } from '../shared/useSkillDependencies';
 
 interface SkillFormData {
@@ -32,6 +33,7 @@ export function useMainSkillManager() {
   const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
 
   const { checkDependencies } = useSkillDependencies();
+  const applySkillCodeRename = useSkillCodeRename();
 
   const form = useForm<SkillFormData>({
     defaultValues: {
@@ -107,6 +109,7 @@ export function useMainSkillManager() {
 
   const handleSave = form.handleSubmit((data) => {
     const skill: MainSkill = {
+      id: resolveSkillId(currentSkills, editingSkill),
       code: data.code.toUpperCase(),
       name: data.name,
       description: data.description,
@@ -115,6 +118,7 @@ export function useMainSkillManager() {
 
     if (editingSkill) {
       updateMainSkill(editingSkill, skill);
+      applySkillCodeRename(editingSkill, skill.code);
     } else {
       addMainSkill(skill);
     }

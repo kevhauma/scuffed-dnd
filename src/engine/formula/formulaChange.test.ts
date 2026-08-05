@@ -14,16 +14,24 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     name: 'Test Config',
     version: '1.0',
     mainSkills: [
-      { code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      { code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-      { code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
+      { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+      { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      { id: 'CON', code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
     ],
     stats: [{ id: 'health', name: 'Health', description: '', formula: 'STR * 10' }],
     specialitySkills: [
-      { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'DEX / 2' },
+      {
+        id: 'STL',
+        code: 'STL',
+        name: 'Stealth',
+        description: '',
+        maxBaseLevel: 10,
+        bonusFormula: 'DEX / 2',
+      },
     ],
     combatSkills: [
       {
+        id: 'MEL',
         code: 'MEL',
         name: 'Melee',
         description: '',
@@ -62,8 +70,22 @@ describe('validateFormulaChange', () => {
     // reference each other. Saving an edit to either one must be refused.
     const config = createConfig({
       specialitySkills: [
-        { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'ACR' },
-        { code: 'ACR', name: 'Acrobatics', description: '', maxBaseLevel: 10, bonusFormula: 'DEX' },
+        {
+          id: 'STL',
+          code: 'STL',
+          name: 'Stealth',
+          description: '',
+          maxBaseLevel: 10,
+          bonusFormula: 'ACR',
+        },
+        {
+          id: 'ACR',
+          code: 'ACR',
+          name: 'Acrobatics',
+          description: '',
+          maxBaseLevel: 10,
+          bonusFormula: 'DEX',
+        },
       ],
       combatSkills: [],
     });
@@ -84,8 +106,22 @@ describe('validateFormulaChange', () => {
   it('should evaluate the post-save state, catching an edit that turns a valid formula circular', () => {
     const config = createConfig({
       specialitySkills: [
-        { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'ACR' },
-        { code: 'ACR', name: 'Acrobatics', description: '', maxBaseLevel: 10, bonusFormula: 'DEX' },
+        {
+          id: 'STL',
+          code: 'STL',
+          name: 'Stealth',
+          description: '',
+          maxBaseLevel: 10,
+          bonusFormula: 'ACR',
+        },
+        {
+          id: 'ACR',
+          code: 'ACR',
+          name: 'Acrobatics',
+          description: '',
+          maxBaseLevel: 10,
+          bonusFormula: 'DEX',
+        },
       ],
       combatSkills: [],
     });
@@ -311,8 +347,16 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
       // spellings have to land on one graph node for that to work.
       const config = createConfig({
         specialitySkills: [
-          { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'ACR' },
           {
+            id: 'STL',
+            code: 'STL',
+            name: 'Stealth',
+            description: '',
+            maxBaseLevel: 10,
+            bonusFormula: 'ACR',
+          },
+          {
+            id: 'ACR',
             code: 'ACR',
             name: 'Acrobatics',
             description: '',
@@ -374,8 +418,16 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
     it('still refuses a speciality skill naming another speciality code', () => {
       const config = createConfig({
         specialitySkills: [
-          { code: 'STL', name: 'Stealth', description: '', maxBaseLevel: 10, bonusFormula: 'DEX' },
           {
+            id: 'STL',
+            code: 'STL',
+            name: 'Stealth',
+            description: '',
+            maxBaseLevel: 10,
+            bonusFormula: 'DEX',
+          },
+          {
+            id: 'ACR',
             code: 'ACR',
             name: 'Acrobatics',
             description: '',

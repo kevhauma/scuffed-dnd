@@ -4,10 +4,11 @@
  * Zustand store for managing user-defined configuration data.
  * Implements CRUD operations for all config entities with auto-save to LocalStorage.
  *
- * **Validates: Requirements 1.1, 1.2, 1.3, 17.1, 17.3**
+ * **Validates: Requirements 1.1, 1.2, 1.3, 17.1, 17.3; Concept 00 §6**
  */
 
 import { create } from 'zustand';
+import { toDisplayConfiguration, toStoredConfiguration } from '../engine/formula/references';
 import { loadConfiguration, saveConfiguration } from '../services/storage';
 import type {
   CombatSkill,
@@ -119,6 +120,26 @@ function createEmptyConfiguration(name: string): Configuration {
 }
 
 /**
+ * Apply an edit that may rename something, without breaking what points at it
+ *
+ * References are resolved to ids first, so the patch lands on a configuration where nothing is
+ * identified by a spelling; translating back afterwards re-renders every formula, racial modifier
+ * and material bonus with whatever the entity is now called (Concept 00 §6). A patch that renames
+ * nothing round-trips to the same configuration, which is why the update actions can use this
+ * unconditionally rather than sniffing for a changed code.
+ *
+ * @param config - The configuration before the edit
+ * @param patch - The edit, applied to the id-resolved form
+ * @returns The edited configuration, back in display form
+ */
+function applyRenameSafely(
+  config: Configuration,
+  patch: (config: Configuration) => Configuration
+): Configuration {
+  return toDisplayConfiguration(patch(toStoredConfiguration(config)));
+}
+
+/**
  * Auto-save helper - saves config and updates timestamp
  */
 function autoSave(config: Configuration): Configuration {
@@ -187,12 +208,14 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const { config } = get();
     if (!config) return;
 
-    const updated = autoSave({
-      ...config,
-      mainSkills: config.mainSkills.map((skill) =>
-        skill.code === code ? { ...skill, ...updates } : skill
-      ),
-    });
+    const updated = autoSave(
+      applyRenameSafely(config, (current) => ({
+        ...current,
+        mainSkills: current.mainSkills.map((skill) =>
+          skill.code === code ? { ...skill, ...updates } : skill
+        ),
+      }))
+    );
     set({ config: updated });
   },
 
@@ -223,10 +246,12 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const { config } = get();
     if (!config) return;
 
-    const updated = autoSave({
-      ...config,
-      stats: config.stats.map((stat) => (stat.id === id ? { ...stat, ...updates } : stat)),
-    });
+    const updated = autoSave(
+      applyRenameSafely(config, (current) => ({
+        ...current,
+        stats: current.stats.map((stat) => (stat.id === id ? { ...stat, ...updates } : stat)),
+      }))
+    );
     set({ config: updated });
   },
 
@@ -257,12 +282,14 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const { config } = get();
     if (!config) return;
 
-    const updated = autoSave({
-      ...config,
-      specialitySkills: config.specialitySkills.map((skill) =>
-        skill.code === code ? { ...skill, ...updates } : skill
-      ),
-    });
+    const updated = autoSave(
+      applyRenameSafely(config, (current) => ({
+        ...current,
+        specialitySkills: current.specialitySkills.map((skill) =>
+          skill.code === code ? { ...skill, ...updates } : skill
+        ),
+      }))
+    );
     set({ config: updated });
   },
 
@@ -293,12 +320,14 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const { config } = get();
     if (!config) return;
 
-    const updated = autoSave({
-      ...config,
-      combatSkills: config.combatSkills.map((skill) =>
-        skill.code === code ? { ...skill, ...updates } : skill
-      ),
-    });
+    const updated = autoSave(
+      applyRenameSafely(config, (current) => ({
+        ...current,
+        combatSkills: current.combatSkills.map((skill) =>
+          skill.code === code ? { ...skill, ...updates } : skill
+        ),
+      }))
+    );
     set({ config: updated });
   },
 
