@@ -18,6 +18,7 @@ import type {
   SpecialitySkill,
   Stat,
 } from '../types/config';
+import { useCharacterStore } from './characterStore';
 import { useConfigStore } from './configStore';
 
 // Mock storage service
@@ -887,6 +888,85 @@ describe('ConfigStore', () => {
       const after = useConfigStore.getState().config;
       expect(after?.stats).toEqual(before?.stats);
       expect(after?.specialitySkills).toEqual(before?.specialitySkills);
+    });
+  });
+  describe('Guarded deletes (TICKET-REF-02)', () => {
+    beforeEach(() => {
+      useConfigStore.setState({
+        config: {
+          id: 'config1',
+          name: 'Test',
+          version: '1.0',
+          mainSkills: [
+            { id: 'id-str', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+          ],
+          stats: [{ id: 'id-hp', name: 'Health', description: '', formula: 'STR * 10' }],
+          specialitySkills: [],
+          combatSkills: [],
+          materials: [],
+          materialCategories: [],
+          items: [],
+          equipmentSlots: [],
+          races: [{ id: 'dwarf', name: 'Dwarf', description: '', skillModifiers: [] }],
+          currencyTiers: [],
+          focusStatBonusLevel: 0,
+          createdAt: '2024-01-01',
+          updatedAt: '2024-01-01',
+        },
+        isLoaded: true,
+      });
+      useCharacterStore.setState({ characters: [], isLoaded: true });
+      vi.clearAllMocks();
+    });
+
+    it('refuses a delete while something points at the entity, and says what', () => {
+      const references = useConfigStore.getState().deleteMainSkill('STR');
+
+      expect(references.map((reference) => reference.holderName)).toEqual(['Health']);
+      expect(useConfigStore.getState().config?.mainSkills).toHaveLength(1);
+      expect(storage.saveConfiguration).not.toHaveBeenCalled();
+    });
+
+    it('counts a character as a reference', () => {
+      useCharacterStore.setState({
+        characters: [
+          {
+            id: 'char1',
+            name: 'Aria',
+            configurationId: 'config1',
+            raceIds: ['dwarf'],
+            mainSkillLevels: {},
+            specialitySkillBaseLevels: {},
+            currentStatValues: {},
+            inventory: { equippedItems: {}, miscItems: [] },
+            createdAt: '2024-01-01',
+            updatedAt: '2024-01-01',
+          },
+        ],
+        isLoaded: true,
+      });
+
+      const references = useConfigStore.getState().deleteRace('dwarf');
+
+      expect(references.map((reference) => reference.holderKind)).toEqual(['Character']);
+      expect(useConfigStore.getState().config?.races).toHaveLength(1);
+    });
+
+    it('deletes an unreferenced entity cleanly and returns nothing', () => {
+      const references = useConfigStore.getState().deleteRace('dwarf');
+
+      expect(references).toEqual([]);
+      expect(useConfigStore.getState().config?.races).toHaveLength(0);
+      expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+
+    it('force deletes anyway, leaving the dependent formula as written', () => {
+      const references = useConfigStore.getState().deleteMainSkill('STR', { force: true });
+
+      expect(references).toEqual([]);
+      expect(useConfigStore.getState().config?.mainSkills).toHaveLength(0);
+      // The formula keeps its spelling, so the sheet can name what went missing
+      expect(useConfigStore.getState().config?.stats[0].formula).toBe('STR * 10');
     });
   });
 });

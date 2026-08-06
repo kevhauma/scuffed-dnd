@@ -14,8 +14,9 @@
 import type { ReactNode } from 'react';
 import { Button } from '../../../ui/Button/Button';
 import { Card } from '../../../ui/Card/Card';
-import { Dialog } from '../../../ui/Dialog/Dialog';
 import { Text } from '../../../ui/Text/Text';
+import { BlockedDeleteDialog } from '../../shared/BlockedDeleteDialog';
+import type { BlockedDelete } from '../../shared/useGuardedDelete';
 
 interface BaseSkillPanelProps<T> {
   title: string;
@@ -23,9 +24,10 @@ interface BaseSkillPanelProps<T> {
   addButtonText: string;
   emptyMessage: string;
   skills: T[];
-  deleteWarning: string | null;
+  /** A delete the store refused, or null — TICKET-REF-02 */
+  blocked: BlockedDelete | null;
   onAdd: () => void;
-  onCloseWarning: () => void;
+  onCloseBlocked: () => void;
   renderSkillCard: (skill: T) => ReactNode;
   renderFormDialog: () => ReactNode;
 }
@@ -36,9 +38,9 @@ export function BaseSkillPanel<T extends { code: string }>({
   addButtonText,
   emptyMessage,
   skills,
-  deleteWarning,
+  blocked,
   onAdd,
-  onCloseWarning,
+  onCloseBlocked,
   renderSkillCard,
   renderFormDialog,
 }: BaseSkillPanelProps<T>) {
@@ -77,19 +79,8 @@ export function BaseSkillPanel<T extends { code: string }>({
       {/* Form Dialog */}
       {renderFormDialog()}
 
-      {/* Delete Warning Dialog */}
-      <Dialog open={!!deleteWarning} onClose={onCloseWarning} title="Cannot Delete Skill">
-        <div className="space-y-4">
-          <Text variant="body" className="whitespace-pre-line">
-            {deleteWarning}
-          </Text>
-          <div className="flex justify-end">
-            <Button variant="primary" onClick={onCloseWarning}>
-              OK
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+      {/* Refused-delete dialog (TICKET-REF-02) */}
+      <BlockedDeleteDialog blocked={blocked} onClose={onCloseBlocked} />
     </div>
   );
 }

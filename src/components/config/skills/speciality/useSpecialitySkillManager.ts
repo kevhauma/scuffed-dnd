@@ -11,8 +11,8 @@ import { useForm } from 'react-hook-form';
 import { validateFormulaChange } from '../../../../engine/formula/formulaChange';
 import { useConfigStore } from '../../../../stores/configStore';
 import type { DiceConfig, SpecialitySkill } from '../../../../types';
+import { useGuardedDelete } from '../../shared/useGuardedDelete';
 import { resolveSkillId, useSkillCodeRename } from '../shared/skillIdentity';
-import { useSkillDependencies } from '../shared/useSkillDependencies';
 
 interface SkillFormData {
   code: string;
@@ -31,9 +31,7 @@ export function useSpecialitySkillManager() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSkill, setEditingSkill] = useState<string | null>(null);
-  const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
-
-  const { checkDependencies } = useSkillDependencies();
+  const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
   const applySkillCodeRename = useSkillCodeRename();
 
   const form = useForm<SkillFormData>({
@@ -100,14 +98,7 @@ export function useSpecialitySkillManager() {
   };
 
   const handleDelete = (code: string) => {
-    const dependencies = checkDependencies(code);
-
-    if (dependencies.length > 0) {
-      setDeleteWarning(`Cannot delete ${code}. It is referenced by:\n${dependencies.join('\n')}`);
-      return;
-    }
-
-    deleteSpecialitySkill(code);
+    attemptDelete(`Speciality skill ${code}`, (options) => deleteSpecialitySkill(code, options));
   };
 
   const handleSave = form.handleSubmit((data) => {
@@ -154,8 +145,8 @@ export function useSpecialitySkillManager() {
     isDialogOpen,
     setIsDialogOpen,
     editingSkill,
-    deleteWarning,
-    setDeleteWarning,
+    blocked,
+    dismissBlocked,
     form,
     validateCode,
     handleAdd,

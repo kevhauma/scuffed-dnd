@@ -9,6 +9,7 @@
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
+import { BlockedDeleteDialog } from '../shared/BlockedDeleteDialog';
 import { StatCard } from './StatCard';
 import { StatFormDialog } from './StatFormDialog';
 import { useStatManager } from './useStatManager';
@@ -26,6 +27,8 @@ export function StatsConfigPanel() {
     handleEdit,
     handleDelete,
     handleSave,
+    blocked,
+    dismissBlocked,
   } = useStatManager();
 
   if (!config) {
@@ -95,6 +98,7 @@ export function StatsConfigPanel() {
         onClose={() => setIsDialogOpen(false)}
         onSave={handleSave}
       />
+      <BlockedDeleteDialog blocked={blocked} onClose={dismissBlocked} />
     </div>
   );
 }

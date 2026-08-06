@@ -51,7 +51,7 @@ export function calculateRacialSkillModifiers(races: Race[]): Record<string, num
  *
  * Combines, in order:
  * 0. every configured main skill code, seeded to 0 (when `options.mainSkills` is given);
- * 1. the character's allocated levels;
+ * 1. the character's allocated levels, for codes the ruleset still defines;
  * 2. racial modifiers from every race the character has;
  * 3. equipment modifiers targeting a main skill code (Requirement 6.7, 13.3);
  * 4. the focus stat bonus, but only when the focus stat is a main skill (Requirement 9.3).
@@ -60,6 +60,12 @@ export function calculateRacialSkillModifiers(races: Race[]): Record<string, num
  * main skill namespace handed to the formula engine, so a code the ruleset defines but the
  * character never allocated must read as 0 rather than as an undefined variable. `Undefined
  * variable` is reserved for codes the configuration genuinely does not define.
+ *
+ * The converse holds since TICKET-REF-02: when `options.mainSkills` is given, **the ruleset alone
+ * decides what the namespace contains**. An allocation, racial modifier, equipment bonus or focus
+ * stat naming a code the configuration no longer defines contributes nothing, so a force-deleted
+ * skill reports as undefined rather than quietly answering with a leftover number. The data is
+ * left where it is — re-adding the skill brings it back.
  *
  * @param character - The character whose skills to calculate
  * @param races - Array of Race objects for the character's races
@@ -81,20 +87,39 @@ export function calculateTotalMainSkillLevels(
     seededLevels[skill.code] = 0;
   }
 
-  const totalLevels: Record<string, number> = { ...seededLevels, ...character.mainSkillLevels };
+  // …and the ruleset decides what the namespace contains, so an allocation left over from a
+  // deleted skill does not keep answering for it (TICKET-REF-02). A formula still naming that
+  // code reports `Undefined variable`, which is the honest answer, rather than reading the
+  // orphaned number as if nothing had happened. The allocation itself is left on the character:
+  // re-adding the skill brings it back.
+  const allocations = mainSkills
+    ? Object.fromEntries(
+        Object.entries(character.mainSkillLevels).filter(([code]) => code in seededLevels)
+      )
+    : character.mainSkillLevels;
 
-  // Apply racial bonuses additively
-  const racialModifiers = calculateRacialSkillModifiers(races);
-  for (const [skillCode, modifier] of Object.entries(racialModifiers)) {
-    totalLevels[skillCode] = (totalLevels[skillCode] || 0) + modifier;
-  }
+  const totalLevels: Record<string, number> = { ...seededLevels, ...allocations };
 
   // Skill codes are unique across main, speciality and combat skills, so filtering by the main
-  // skill namespace guarantees an equipment bonus is never applied to two kinds of skill.
+  // skill namespace guarantees an equipment or focus bonus is never applied to two kinds of skill.
   const isMainSkillCode = (skillCode: string): boolean =>
     mainSkills
       ? mainSkills.some((skill) => skill.code === skillCode)
       : skillCode in character.mainSkillLevels;
+
+  // A racial modifier only ever targets a main skill (`Race.skillModifiers`), so it needs no
+  // namespace test — only the ruleset check, which keeps a modifier on a deleted skill from
+  // putting that code back into the namespace (TICKET-REF-02). With no `mainSkills` to judge
+  // against, a modifier for an unallocated code still counts.
+  const isDefinedByRuleset = (skillCode: string): boolean =>
+    !mainSkills || mainSkills.some((skill) => skill.code === skillCode);
+
+  // Apply racial bonuses additively
+  const racialModifiers = calculateRacialSkillModifiers(races);
+  for (const [skillCode, modifier] of Object.entries(racialModifiers)) {
+    if (!isDefinedByRuleset(skillCode)) continue;
+    totalLevels[skillCode] = (totalLevels[skillCode] || 0) + modifier;
+  }
 
   // Apply equipment bonuses that target a main skill
   for (const bonus of equipmentBonuses) {

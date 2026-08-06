@@ -322,3 +322,71 @@ describe('calculateRacialSkillModifiers', () => {
     expect(calculateRacialSkillModifiers(races)).toEqual({ STR: 0, DEX: 2 });
   });
 });
+
+describe('a skill the ruleset no longer defines (TICKET-REF-02)', () => {
+  it('drops an orphaned allocation rather than letting it answer for a deleted skill', () => {
+    const character: Character = {
+      id: '1',
+      name: 'Test',
+      configurationId: 'config1',
+      raceIds: [],
+      mainSkillLevels: { STR: 5, GONE: 7 },
+      specialitySkillBaseLevels: {},
+      currentStatValues: {},
+      inventory: { equippedItems: {}, miscItems: [] },
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+    };
+
+    const totals = calculateTotalMainSkillLevels(character, [], {
+      mainSkills: [{ id: 'id-str', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+    });
+
+    expect(totals).toEqual({ STR: 5 });
+  });
+
+  it('keeps every allocation when no configuration is supplied to judge against', () => {
+    const character: Character = {
+      id: '1',
+      name: 'Test',
+      configurationId: 'config1',
+      raceIds: [],
+      mainSkillLevels: { STR: 5, GONE: 7 },
+      specialitySkillBaseLevels: {},
+      currentStatValues: {},
+      inventory: { equippedItems: {}, miscItems: [] },
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+    };
+
+    expect(calculateTotalMainSkillLevels(character, [])).toEqual({ STR: 5, GONE: 7 });
+  });
+  it('ignores a racial modifier for a skill the ruleset no longer defines', () => {
+    const character: Character = {
+      id: '1',
+      name: 'Test',
+      configurationId: 'config1',
+      raceIds: ['dwarf'],
+      mainSkillLevels: { DEX: 3 },
+      specialitySkillBaseLevels: {},
+      currentStatValues: {},
+      inventory: { equippedItems: {}, miscItems: [] },
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+    };
+    const races: Race[] = [
+      {
+        id: 'dwarf',
+        name: 'Dwarf',
+        description: '',
+        skillModifiers: [{ skillCode: 'STR', modifier: 2 }],
+      },
+    ];
+
+    const totals = calculateTotalMainSkillLevels(character, races, {
+      mainSkills: [{ id: 'id-dex', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 }],
+    });
+
+    expect(totals).toEqual({ DEX: 3 });
+  });
+});

@@ -21,8 +21,8 @@ export function CombatSkillsPanel() {
     isDialogOpen,
     setIsDialogOpen,
     editingSkill,
-    deleteWarning,
-    setDeleteWarning,
+    blocked,
+    dismissBlocked,
     form,
     validateCode,
     handleAdd,
@@ -48,9 +48,9 @@ export function CombatSkillsPanel() {
       addButtonText="Add Combat Skill"
       emptyMessage="No combat skills configured yet. Click 'Add' to create your first skill."
       skills={currentSkills}
-      deleteWarning={deleteWarning}
+      blocked={blocked}
       onAdd={handleAdd}
-      onCloseWarning={() => setDeleteWarning(null)}
+      onCloseBlocked={dismissBlocked}
       renderSkillCard={(skill) => (
         <CombatSkillCard skill={skill} onEdit={handleEdit} onDelete={handleDelete} />
       )}

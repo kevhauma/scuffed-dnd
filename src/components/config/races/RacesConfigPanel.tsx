@@ -9,6 +9,7 @@
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
+import { BlockedDeleteDialog } from '../shared/BlockedDeleteDialog';
 import { RaceCard } from './RaceCard';
 import { RaceFormDialog } from './RaceFormDialog';
 import { useRaceManager } from './useRaceManager';
@@ -26,6 +27,8 @@ export function RacesConfigPanel() {
     handleEdit,
     handleDelete,
     handleSave,
+    blocked,
+    dismissBlocked,
   } = useRaceManager();
 
   if (!config) {
@@ -95,6 +98,7 @@ export function RacesConfigPanel() {
         onClose={() => setIsDialogOpen(false)}
         onSave={handleSave}
       />
+      <BlockedDeleteDialog blocked={blocked} onClose={dismissBlocked} />
     </div>
   );
 }

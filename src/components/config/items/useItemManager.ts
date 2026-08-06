@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../stores/configStore';
 import type { EquipmentSlot, Item } from '../../../types';
+import { useGuardedDelete } from '../shared/useGuardedDelete';
 
 interface ItemFormData {
   name: string;
@@ -34,6 +35,8 @@ export function useItemManager() {
   const addEquipmentSlot = useConfigStore((state) => state.addEquipmentSlot);
   const updateEquipmentSlot = useConfigStore((state) => state.updateEquipmentSlot);
   const deleteEquipmentSlot = useConfigStore((state) => state.deleteEquipmentSlot);
+
+  const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
   const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
   const [isEquipmentSlotDialogOpen, setIsEquipmentSlotDialogOpen] = useState(false);
@@ -102,9 +105,8 @@ export function useItemManager() {
   };
 
   const handleDeleteItem = (id: string) => {
-    // Check if item is used in character inventories
-    // For now, just delete (character store integration will come later)
-    deleteItem(id);
+    const item = items.find((candidate) => candidate.id === id);
+    attemptDelete(`Item ${item?.name ?? id}`, (options) => deleteItem(id, options));
   };
 
   const handleSaveItem = itemForm.handleSubmit((data) => {
@@ -152,13 +154,7 @@ export function useItemManager() {
   };
 
   const handleDeleteEquipmentSlot = (type: string) => {
-    // Check if equipment slot is used by items
-    const isUsed = items.some((item) => item.equipmentSlotType === type);
-    if (isUsed) {
-      alert('Cannot delete equipment slot used by items. Remove from items first.');
-      return;
-    }
-    deleteEquipmentSlot(type);
+    attemptDelete(`Equipment slot ${type}`, (options) => deleteEquipmentSlot(type, options));
   };
 
   const handleSaveEquipmentSlot = equipmentSlotForm.handleSubmit((data) => {
@@ -178,6 +174,8 @@ export function useItemManager() {
   });
 
   return {
+    blocked,
+    dismissBlocked,
     config,
     items,
     filteredItems,

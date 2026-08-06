@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../stores/configStore';
 import type { EquipmentSlot } from '../../../types';
+import { useGuardedDelete } from '../shared/useGuardedDelete';
 
 interface EquipmentSlotFormData {
   type: string;
@@ -22,6 +23,8 @@ export function useEquipmentSlotManager() {
   const addEquipmentSlot = useConfigStore((state) => state.addEquipmentSlot);
   const updateEquipmentSlot = useConfigStore((state) => state.updateEquipmentSlot);
   const deleteEquipmentSlot = useConfigStore((state) => state.deleteEquipmentSlot);
+
+  const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSlotType, setEditingSlotType] = useState<string | null>(null);
@@ -60,21 +63,7 @@ export function useEquipmentSlotManager() {
   };
 
   const handleDelete = (type: string) => {
-    // Check if any items reference this equipment slot
-    const referencingItems = config?.items.filter((item) => item.equipmentSlotType === type) || [];
-
-    if (referencingItems.length > 0) {
-      const itemNames = referencingItems.map((item) => item.name).join(', ');
-      if (
-        !confirm(
-          `This equipment slot is used by ${referencingItems.length} item(s): ${itemNames}. Deleting it will remove the equipment slot assignment from these items. Continue?`
-        )
-      ) {
-        return;
-      }
-    }
-
-    deleteEquipmentSlot(type);
+    attemptDelete(`Equipment slot ${type}`, (options) => deleteEquipmentSlot(type, options));
   };
 
   const handleSave = form.handleSubmit((data) => {
@@ -94,6 +83,8 @@ export function useEquipmentSlotManager() {
   });
 
   return {
+    blocked,
+    dismissBlocked,
     config,
     equipmentSlots,
     isDialogOpen,

@@ -11,6 +11,7 @@ import { useForm } from 'react-hook-form';
 import { validateFormulaChange } from '../../../engine/formula/formulaChange';
 import { useConfigStore } from '../../../stores/configStore';
 import type { Stat } from '../../../types';
+import { useGuardedDelete } from '../shared/useGuardedDelete';
 
 interface StatFormData {
   name: string;
@@ -23,6 +24,8 @@ export function useStatManager() {
   const addStat = useConfigStore((state) => state.addStat);
   const updateStat = useConfigStore((state) => state.updateStat);
   const deleteStat = useConfigStore((state) => state.deleteStat);
+
+  const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStatId, setEditingStatId] = useState<string | null>(null);
@@ -62,7 +65,8 @@ export function useStatManager() {
   };
 
   const handleDelete = (id: string) => {
-    deleteStat(id);
+    const stat = config?.stats.find((candidate) => candidate.id === id);
+    attemptDelete(`Stat ${stat?.name ?? id}`, (options) => deleteStat(id, options));
   };
 
   const handleSave = form.handleSubmit((data) => {
@@ -100,6 +104,8 @@ export function useStatManager() {
   });
 
   return {
+    blocked,
+    dismissBlocked,
     config,
     currentStats,
     availableSkillCodes,

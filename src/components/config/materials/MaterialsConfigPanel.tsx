@@ -9,6 +9,7 @@
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
+import { BlockedDeleteDialog } from '../shared/BlockedDeleteDialog';
 import { MaterialCategoryCard } from './MaterialCategoryCard';
 import { MaterialCategoryFormDialog } from './MaterialCategoryFormDialog';
 import { MaterialFormDialog } from './MaterialFormDialog';
@@ -45,6 +46,8 @@ export function MaterialsConfigPanel() {
     handleEditLevel,
     handleDeleteLevel,
     handleSaveLevel,
+    blocked,
+    dismissBlocked,
   } = useMaterialManager();
 
   if (!config) {
@@ -150,6 +153,7 @@ export function MaterialsConfigPanel() {
         onClose={() => setIsLevelDialogOpen(false)}
         onSave={handleSaveLevel}
       />
+      <BlockedDeleteDialog blocked={blocked} onClose={dismissBlocked} />
     </div>
   );
 }

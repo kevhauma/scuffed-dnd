@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../stores/configStore';
 import type { Race, SkillModifier } from '../../../types';
+import { useGuardedDelete } from '../shared/useGuardedDelete';
 
 interface RaceFormData {
   name: string;
@@ -22,6 +23,8 @@ export function useRaceManager() {
   const addRace = useConfigStore((state) => state.addRace);
   const updateRace = useConfigStore((state) => state.updateRace);
   const deleteRace = useConfigStore((state) => state.deleteRace);
+
+  const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRaceId, setEditingRaceId] = useState<string | null>(null);
@@ -61,7 +64,8 @@ export function useRaceManager() {
   };
 
   const handleDelete = (id: string) => {
-    deleteRace(id);
+    const race = config?.races.find((candidate) => candidate.id === id);
+    attemptDelete(`Race ${race?.name ?? id}`, (options) => deleteRace(id, options));
   };
 
   const handleSave = form.handleSubmit((data) => {
@@ -82,6 +86,8 @@ export function useRaceManager() {
   });
 
   return {
+    blocked,
+    dismissBlocked,
     config,
     currentRaces,
     availableMainSkills,

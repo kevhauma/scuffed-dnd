@@ -4,10 +4,15 @@
  * Zustand store for managing user-defined configuration data.
  * Implements CRUD operations for all config entities with auto-save to LocalStorage.
  *
- * **Validates: Requirements 1.1, 1.2, 1.3, 17.1, 17.3; Concept 00 §6**
+ * Deletes are guarded here (TICKET-REF-02): an entity something still points at is refused, and
+ * the action hands the caller the reference list instead of a silent success.
+ *
+ * **Validates: Requirements 1.1, 1.2, 1.3, 2.5, 2.6, 17.1, 17.3; Concept 00 §6**
  */
 
 import { create } from 'zustand';
+import type { EntityReference, ReferenceTargetKind } from '../engine/dependencies';
+import { findReferences } from '../engine/dependencies';
 import { toDisplayConfiguration, toStoredConfiguration } from '../engine/formula/references';
 import { loadConfiguration, saveConfiguration } from '../services/storage';
 import type {
@@ -23,6 +28,18 @@ import type {
   SpecialitySkill,
   Stat,
 } from '../types/config';
+import { useCharacterStore } from './characterStore';
+
+/**
+ * How a delete should behave when something still points at the entity
+ *
+ * The default is to refuse. `force` is the User overriding that decision knowingly: the entity
+ * goes, and every formula naming it starts reporting an `undefined-variable` error value
+ * (Concept 00 §7) rather than quietly reading as zero.
+ */
+export interface DeleteOptions {
+  force?: boolean;
+}
 
 /**
  * Configuration store state
@@ -40,52 +57,52 @@ interface ConfigState {
   // Main Skills CRUD
   addMainSkill: (skill: MainSkill) => void;
   updateMainSkill: (code: string, updates: Partial<MainSkill>) => void;
-  deleteMainSkill: (code: string) => void;
+  deleteMainSkill: (code: string, options?: DeleteOptions) => EntityReference[];
 
   // Stats CRUD
   addStat: (stat: Stat) => void;
   updateStat: (id: string, updates: Partial<Stat>) => void;
-  deleteStat: (id: string) => void;
+  deleteStat: (id: string, options?: DeleteOptions) => EntityReference[];
 
   // Speciality Skills CRUD
   addSpecialitySkill: (skill: SpecialitySkill) => void;
   updateSpecialitySkill: (code: string, updates: Partial<SpecialitySkill>) => void;
-  deleteSpecialitySkill: (code: string) => void;
+  deleteSpecialitySkill: (code: string, options?: DeleteOptions) => EntityReference[];
 
   // Combat Skills CRUD
   addCombatSkill: (skill: CombatSkill) => void;
   updateCombatSkill: (code: string, updates: Partial<CombatSkill>) => void;
-  deleteCombatSkill: (code: string) => void;
+  deleteCombatSkill: (code: string, options?: DeleteOptions) => EntityReference[];
 
   // Material Categories CRUD
   addMaterialCategory: (category: MaterialCategory) => void;
   updateMaterialCategory: (id: string, updates: Partial<MaterialCategory>) => void;
-  deleteMaterialCategory: (id: string) => void;
+  deleteMaterialCategory: (id: string, options?: DeleteOptions) => EntityReference[];
 
   // Materials CRUD
   addMaterial: (material: Material) => void;
   updateMaterial: (id: string, updates: Partial<Material>) => void;
-  deleteMaterial: (id: string) => void;
+  deleteMaterial: (id: string, options?: DeleteOptions) => EntityReference[];
 
   // Items CRUD
   addItem: (item: Item) => void;
   updateItem: (id: string, updates: Partial<Item>) => void;
-  deleteItem: (id: string) => void;
+  deleteItem: (id: string, options?: DeleteOptions) => EntityReference[];
 
   // Equipment Slots CRUD
   addEquipmentSlot: (slot: EquipmentSlot) => void;
   updateEquipmentSlot: (type: string, updates: Partial<EquipmentSlot>) => void;
-  deleteEquipmentSlot: (type: string) => void;
+  deleteEquipmentSlot: (type: string, options?: DeleteOptions) => EntityReference[];
 
   // Races CRUD
   addRace: (race: Race) => void;
   updateRace: (id: string, updates: Partial<Race>) => void;
-  deleteRace: (id: string) => void;
+  deleteRace: (id: string, options?: DeleteOptions) => EntityReference[];
 
   // Currency Tiers CRUD
   addCurrencyTier: (tier: CurrencyTier) => void;
   updateCurrencyTier: (id: string, updates: Partial<CurrencyTier>) => void;
-  deleteCurrencyTier: (id: string) => void;
+  deleteCurrencyTier: (id: string, options?: DeleteOptions) => EntityReference[];
 
   // Focus Stat Configuration
   setFocusStatBonusLevel: (level: number) => void;
@@ -149,6 +166,52 @@ function autoSave(config: Configuration): Configuration {
   };
   saveConfiguration(updated);
   return updated;
+}
+
+/**
+ * Delete an entity only while nothing points at it (Concept 00 §6, TICKET-REF-02)
+ *
+ * The guard lives here rather than in the panels because an advisory check in the UI is a check
+ * that can be bypassed — every route into a delete goes through the action. Characters count as
+ * references, so the walker is given the character store's data; reading it here is what the
+ * ticket's "the walker reads both stores, actions call it" note asks for, and the dependency runs
+ * one way only (`characterStore` never reads this store).
+ *
+ * **It assumes the character store is hydrated**, which `RootLayout`'s `useAppHydration()` does
+ * once per page load before any configuration route renders — an un-hydrated store would report
+ * an empty character list and quietly weaken the guard's character half. When LocalStorage is
+ * unavailable the shell renders `StorageNotice` instead of the routes, so no delete can reach
+ * here in that state either.
+ *
+ * The removal is applied to the **display** form, so a formula naming the deleted entity keeps
+ * its spelling and reports `Undefined variable: STR` rather than a bare id.
+ *
+ * @param kind - Which entity kind is being deleted
+ * @param id - Its identifier — a code for skills, a type for equipment slots, an id otherwise
+ * @param options - `force` deletes anyway
+ * @param remove - Removes the entity from a configuration
+ * @returns The references that blocked the delete; **empty means the entity was deleted**
+ */
+function guardedDelete(
+  set: (partial: Partial<ConfigState>) => void,
+  get: () => ConfigState,
+  kind: ReferenceTargetKind,
+  id: string,
+  options: DeleteOptions | undefined,
+  remove: (config: Configuration) => Configuration
+): EntityReference[] {
+  const { config } = get();
+  if (!config) return [];
+
+  const characters = useCharacterStore.getState().characters;
+  const references = findReferences({ kind, id }, config, characters);
+
+  if (references.length > 0 && !options?.force) {
+    return references;
+  }
+
+  set({ config: autoSave(remove(config)) });
+  return [];
 }
 
 /**
@@ -219,16 +282,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ config: updated });
   },
 
-  deleteMainSkill: (code: string) => {
-    const { config } = get();
-    if (!config) return;
-
-    const updated = autoSave({
+  deleteMainSkill: (code: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'main-skill', code, options, (config) => ({
       ...config,
       mainSkills: config.mainSkills.filter((skill) => skill.code !== code),
-    });
-    set({ config: updated });
-  },
+    })),
 
   // Stats CRUD
   addStat: (stat: Stat) => {
@@ -255,16 +313,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ config: updated });
   },
 
-  deleteStat: (id: string) => {
-    const { config } = get();
-    if (!config) return;
-
-    const updated = autoSave({
+  deleteStat: (id: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'stat', id, options, (config) => ({
       ...config,
       stats: config.stats.filter((stat) => stat.id !== id),
-    });
-    set({ config: updated });
-  },
+    })),
 
   // Speciality Skills CRUD
   addSpecialitySkill: (skill: SpecialitySkill) => {
@@ -293,16 +346,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ config: updated });
   },
 
-  deleteSpecialitySkill: (code: string) => {
-    const { config } = get();
-    if (!config) return;
-
-    const updated = autoSave({
+  deleteSpecialitySkill: (code: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'speciality-skill', code, options, (config) => ({
       ...config,
       specialitySkills: config.specialitySkills.filter((skill) => skill.code !== code),
-    });
-    set({ config: updated });
-  },
+    })),
 
   // Combat Skills CRUD
   addCombatSkill: (skill: CombatSkill) => {
@@ -331,16 +379,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ config: updated });
   },
 
-  deleteCombatSkill: (code: string) => {
-    const { config } = get();
-    if (!config) return;
-
-    const updated = autoSave({
+  deleteCombatSkill: (code: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'combat-skill', code, options, (config) => ({
       ...config,
       combatSkills: config.combatSkills.filter((skill) => skill.code !== code),
-    });
-    set({ config: updated });
-  },
+    })),
 
   // Material Categories CRUD
   addMaterialCategory: (category: MaterialCategory) => {
@@ -367,16 +410,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ config: updated });
   },
 
-  deleteMaterialCategory: (id: string) => {
-    const { config } = get();
-    if (!config) return;
-
-    const updated = autoSave({
+  deleteMaterialCategory: (id: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'material-category', id, options, (config) => ({
       ...config,
       materialCategories: config.materialCategories.filter((category) => category.id !== id),
-    });
-    set({ config: updated });
-  },
+    })),
 
   // Materials CRUD
   addMaterial: (material: Material) => {
@@ -403,16 +441,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ config: updated });
   },
 
-  deleteMaterial: (id: string) => {
-    const { config } = get();
-    if (!config) return;
-
-    const updated = autoSave({
+  deleteMaterial: (id: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'material', id, options, (config) => ({
       ...config,
       materials: config.materials.filter((material) => material.id !== id),
-    });
-    set({ config: updated });
-  },
+    })),
 
   // Items CRUD
   addItem: (item: Item) => {
@@ -437,16 +470,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ config: updated });
   },
 
-  deleteItem: (id: string) => {
-    const { config } = get();
-    if (!config) return;
-
-    const updated = autoSave({
+  deleteItem: (id: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'item', id, options, (config) => ({
       ...config,
       items: config.items.filter((item) => item.id !== id),
-    });
-    set({ config: updated });
-  },
+    })),
 
   // Equipment Slots CRUD
   addEquipmentSlot: (slot: EquipmentSlot) => {
@@ -473,16 +501,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ config: updated });
   },
 
-  deleteEquipmentSlot: (type: string) => {
-    const { config } = get();
-    if (!config) return;
-
-    const updated = autoSave({
+  deleteEquipmentSlot: (type: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'equipment-slot', type, options, (config) => ({
       ...config,
       equipmentSlots: config.equipmentSlots.filter((slot) => slot.type !== type),
-    });
-    set({ config: updated });
-  },
+    })),
 
   // Races CRUD
   addRace: (race: Race) => {
@@ -507,16 +530,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ config: updated });
   },
 
-  deleteRace: (id: string) => {
-    const { config } = get();
-    if (!config) return;
-
-    const updated = autoSave({
+  deleteRace: (id: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'race', id, options, (config) => ({
       ...config,
       races: config.races.filter((race) => race.id !== id),
-    });
-    set({ config: updated });
-  },
+    })),
 
   // Currency Tiers CRUD
   addCurrencyTier: (tier: CurrencyTier) => {
@@ -543,16 +561,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ config: updated });
   },
 
-  deleteCurrencyTier: (id: string) => {
-    const { config } = get();
-    if (!config) return;
-
-    const updated = autoSave({
+  deleteCurrencyTier: (id: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'currency-tier', id, options, (config) => ({
       ...config,
       currencyTiers: config.currencyTiers.filter((tier) => tier.id !== id),
-    });
-    set({ config: updated });
-  },
+    })),
 
   // Focus Stat Configuration
   setFocusStatBonusLevel: (level: number) => {

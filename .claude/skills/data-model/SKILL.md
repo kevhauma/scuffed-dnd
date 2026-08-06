@@ -67,9 +67,16 @@ Identity rules that the rest of the app depends on:
   still fail to *evaluate*, because no calculator supplies namespace resolvers until
   CST-01/CRV-01/STAT-01. Since TICKET-FORM-05 that failure is an **error value on that one entry**,
   not a throw.
-- **Deletion is reference-checked**: a skill/material/slot/category referenced elsewhere must not
-  be deletable without warning the user — that's what `engine/validator.ts` and the panels'
-  dependency checks exist for.
+- **Deletion is reference-checked in the store action** (TICKET-REF-02). Every `deleteX` returns
+  `EntityReference[]`: non-empty means it refused and that is what points at the entity; empty
+  means it deleted. `{ force: true }` overrides. The walker is
+  [engine/dependencies.ts](../../../src/engine/dependencies.ts) — pure over `(target, config,
+  characters)`, so characters count as references (`raceIds`, inventories, allocations, current
+  stat values). Panels render the returned list via `config/shared/BlockedDeleteDialog`; **no
+  component derives references**. A forced delete leaves the dependents dangling on purpose:
+  the ruleset alone defines the main-skill namespace, so a formula naming the deleted code
+  reports `Undefined variable` rather than reading a leftover allocation as a number.
+  `engine/validator.ts` stays as the after-the-fact report for what an import brings in.
 
 ## Character (the play-mode data)
 

@@ -14,12 +14,13 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { calculateCharacter } from './engine/calculator';
-import { numberOr } from './engine/formula/errors';
+import { describeFormulaError, isFormulaError, numberOr } from './engine/formula/errors';
 import { loadCharacters, loadConfiguration } from './services/storage';
 import { useCharacterStore } from './stores/characterStore';
 import { useConfigStore } from './stores/configStore';
 import type { Character } from './types/character';
 import type { Configuration } from './types/config';
+import type { FormulaError } from './types/formula';
 
 function createConfig(overrides: Partial<Configuration> = {}): Configuration {
   return {
@@ -272,5 +273,29 @@ describe('recalculation flows', () => {
     expect(after.maxStatValues).toEqual(before.maxStatValues);
     expect(after.specialitySkillTotalLevels).toEqual(before.specialitySkillTotalLevels);
     expect(after.combatSkillBonuses).toEqual(before.combatSkillBonuses);
+  });
+  it('turns a force-deleted skill into error values, never silent zeros (TICKET-REF-02)', () => {
+    const config = createConfig();
+    const character = createCharacter();
+    useConfigStore.getState().replaceConfig(config);
+    useCharacterStore.setState({ characters: [character], isLoaded: true });
+
+    // Refused while the stat formula still names it
+    const blocked = useConfigStore.getState().deleteMainSkill('STR');
+    expect(blocked.map((reference) => reference.holderName)).toContain('Health');
+    expect(useConfigStore.getState().config?.mainSkills).toHaveLength(2);
+
+    // Forced through, the dependent values become errors rather than zeros
+    expect(useConfigStore.getState().deleteMainSkill('STR', { force: true })).toEqual([]);
+
+    const after = calculateCharacter(character, useConfigStore.getState().config as Configuration);
+    const health = after.maxStatValues.health;
+    expect(isFormulaError(health)).toBe(true);
+    expect(describeFormulaError(health as FormulaError)).toContain('Undefined variable: STR');
+
+    // The combat skill reading STR fails the same way, and nothing threw on the way here
+    expect(isFormulaError(after.combatSkillBonuses.MEL)).toBe(true);
+    // Everything that did not name it still computes
+    expect(numberOr(after.specialitySkillTotalLevels.STL, -1)).toBe(6);
   });
 });

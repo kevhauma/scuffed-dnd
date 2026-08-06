@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../stores/configStore';
 import type { CurrencyTier } from '../../../types';
+import { useGuardedDelete } from '../shared/useGuardedDelete';
 
 interface CurrencyFormData {
   name: string;
@@ -21,6 +22,8 @@ export function useCurrencyManager() {
   const addCurrencyTier = useConfigStore((state) => state.addCurrencyTier);
   const updateCurrencyTier = useConfigStore((state) => state.updateCurrencyTier);
   const deleteCurrencyTier = useConfigStore((state) => state.deleteCurrencyTier);
+
+  const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTierId, setEditingTierId] = useState<string | null>(null);
@@ -57,7 +60,10 @@ export function useCurrencyManager() {
   };
 
   const handleDelete = (id: string) => {
-    deleteCurrencyTier(id);
+    const tier = config?.currencyTiers.find((candidate) => candidate.id === id);
+    attemptDelete(`Currency tier ${tier?.name ?? id}`, (options) =>
+      deleteCurrencyTier(id, options)
+    );
   };
 
   const handleSave = form.handleSubmit((data) => {
@@ -105,6 +111,8 @@ export function useCurrencyManager() {
   };
 
   return {
+    blocked,
+    dismissBlocked,
     config,
     currentTiers,
     isDialogOpen,

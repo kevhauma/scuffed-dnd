@@ -132,7 +132,9 @@ describe('useSpecialitySkillManager', () => {
 
     act(() => result.current.handleDelete('STL'));
 
-    expect(result.current.deleteWarning).toContain('Combat Skill: Melee');
+    expect(
+      result.current.blocked?.references.map((r) => `${r.holderKind}: ${r.holderName}`)
+    ).toContain('Combat Skill: Melee');
     expect(useConfigStore.getState().config?.specialitySkills).toHaveLength(1);
   });
 
@@ -144,7 +146,7 @@ describe('useSpecialitySkillManager', () => {
 
     act(() => result.current.handleDelete('STL'));
 
-    expect(result.current.deleteWarning).toBeNull();
+    expect(result.current.blocked).toBeNull();
     expect(useConfigStore.getState().config?.specialitySkills).toHaveLength(0);
   });
 });

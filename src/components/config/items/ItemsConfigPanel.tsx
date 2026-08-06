@@ -10,6 +10,7 @@ import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
+import { BlockedDeleteDialog } from '../shared/BlockedDeleteDialog';
 import { EquipmentSlotFormDialog } from './EquipmentSlotFormDialog';
 import { ItemCard } from './ItemCard';
 import { ItemFormDialog } from './ItemFormDialog';
@@ -40,6 +41,8 @@ export function ItemsConfigPanel() {
     handleEditEquipmentSlot,
     handleDeleteEquipmentSlot,
     handleSaveEquipmentSlot,
+    blocked,
+    dismissBlocked,
   } = useItemManager();
 
   if (!config) {
@@ -206,6 +209,7 @@ export function ItemsConfigPanel() {
         onClose={() => setIsEquipmentSlotDialogOpen(false)}
         onSave={handleSaveEquipmentSlot}
       />
+      <BlockedDeleteDialog blocked={blocked} onClose={dismissBlocked} />
     </div>
   );
 }

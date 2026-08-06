@@ -1,0 +1,255 @@
+/**
+ * Reference Walker Tests
+ *
+ * One case per guarded-delete target kind: what points at it, and what does not.
+ *
+ * **Validates: Concept 00 §6; Requirements 2.5, 2.6, 18.1, 18.3**
+ */
+
+import { describe, expect, it } from 'vitest';
+import type { Character } from '../types/character';
+import type { Configuration } from '../types/config';
+import { findReferences } from './dependencies';
+
+function createConfig(overrides: Partial<Configuration> = {}): Configuration {
+  return {
+    id: 'config1',
+    name: 'Test Config',
+    version: '1.0',
+    mainSkills: [
+      { id: 'id-str', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+      { id: 'id-dex', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+    ],
+    stats: [{ id: 'id-hp', name: 'Health', description: '', formula: 'STR * 10' }],
+    specialitySkills: [
+      {
+        id: 'id-stl',
+        code: 'STL',
+        name: 'Stealth',
+        description: '',
+        maxBaseLevel: 10,
+        bonusFormula: 'DEX / 2',
+      },
+    ],
+    combatSkills: [
+      {
+        id: 'id-mel',
+        code: 'MEL',
+        name: 'Melee',
+        description: '',
+        dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
+        bonusFormula: 'STR + STL',
+      },
+    ],
+    materials: [
+      {
+        id: 'iron',
+        name: 'Iron',
+        description: '',
+        categoryId: 'metal',
+        levels: [
+          {
+            level: 1,
+            name: 'Iron',
+            bonuses: [{ skillCode: 'STR', modifier: 1 }],
+            value: { tierId: 'gold', amount: 5 },
+          },
+        ],
+      },
+    ],
+    materialCategories: [{ id: 'metal', name: 'Metal', description: '' }],
+    items: [
+      {
+        id: 'axe',
+        name: 'Axe',
+        description: '',
+        materialId: 'iron',
+        equipmentSlotType: 'main_hand',
+      },
+    ],
+    equipmentSlots: [{ type: 'main_hand', name: 'Main Hand', description: '' }],
+    races: [
+      {
+        id: 'dwarf',
+        name: 'Dwarf',
+        description: '',
+        skillModifiers: [{ skillCode: 'STR', modifier: 2 }],
+      },
+    ],
+    currencyTiers: [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 10 }],
+    focusStatBonusLevel: 0,
+    createdAt: '2024-01-01',
+    updatedAt: '2024-01-01',
+    ...overrides,
+  };
+}
+
+function createCharacter(overrides: Partial<Character> = {}): Character {
+  return {
+    id: 'char1',
+    name: 'Aria',
+    configurationId: 'config1',
+    raceIds: ['dwarf'],
+    mainSkillLevels: { STR: 5, DEX: 4 },
+    specialitySkillBaseLevels: { STL: 2 },
+    currentStatValues: { 'id-hp': 30 },
+    inventory: { equippedItems: { main_hand: 'axe' }, miscItems: [] },
+    createdAt: '2024-01-01',
+    updatedAt: '2024-01-01',
+    ...overrides,
+  };
+}
+
+/** The holder labels of a reference list, for terse assertions */
+function holders(references: ReturnType<typeof findReferences>): string[] {
+  return references.map((reference) => `${reference.holderKind}: ${reference.holderName}`);
+}
+
+describe('findReferences', () => {
+  describe('skills', () => {
+    it('finds a main skill in formulas, modifiers and characters', () => {
+      const found = findReferences({ kind: 'main-skill', id: 'STR' }, createConfig(), [
+        createCharacter(),
+      ]);
+
+      expect(holders(found)).toEqual([
+        'Stat: Health',
+        'Combat Skill: Melee',
+        'Race: Dwarf',
+        'Material: Iron',
+        'Character: Aria',
+      ]);
+    });
+
+    it('finds a speciality skill named by a combat skill formula', () => {
+      const found = findReferences({ kind: 'speciality-skill', id: 'STL' }, createConfig(), []);
+
+      expect(holders(found)).toEqual(['Combat Skill: Melee']);
+    });
+
+    it('does not count a code that merely appears inside a longer identifier', () => {
+      const config = createConfig({
+        stats: [{ id: 'id-hp', name: 'Health', description: '', formula: 'STRENGTH * 10' }],
+        combatSkills: [],
+        races: [],
+        materials: [],
+      });
+
+      expect(findReferences({ kind: 'main-skill', id: 'STR' }, config, [])).toEqual([]);
+    });
+
+    it('reports nothing for a combat skill nothing names', () => {
+      expect(findReferences({ kind: 'combat-skill', id: 'MEL' }, createConfig(), [])).toEqual([]);
+    });
+  });
+
+  describe('stats', () => {
+    it('finds a stat named by another formula through its display slug', () => {
+      const config = createConfig({
+        combatSkills: [
+          {
+            id: 'id-mel',
+            code: 'MEL',
+            name: 'Melee',
+            description: '',
+            dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
+            bonusFormula: 'stats.health / 10',
+          },
+        ],
+      });
+
+      expect(holders(findReferences({ kind: 'stat', id: 'id-hp' }, config, []))).toEqual([
+        'Combat Skill: Melee',
+      ]);
+    });
+
+    it('finds a stat a character has a current value for', () => {
+      const found = findReferences({ kind: 'stat', id: 'id-hp' }, createConfig(), [
+        createCharacter(),
+      ]);
+
+      expect(holders(found)).toEqual(['Character: Aria']);
+    });
+
+    it('does not count the stat’s own formula against it', () => {
+      const config = createConfig({
+        stats: [{ id: 'id-hp', name: 'Health', description: '', formula: 'stats.health' }],
+      });
+
+      expect(findReferences({ kind: 'stat', id: 'id-hp' }, config, [])).toEqual([]);
+    });
+  });
+
+  it('finds a race on a character', () => {
+    const found = findReferences({ kind: 'race', id: 'dwarf' }, createConfig(), [
+      createCharacter(),
+    ]);
+
+    expect(holders(found)).toEqual(['Character: Aria']);
+    expect(found[0].field).toBe('raceIds');
+  });
+
+  it('finds an item in an inventory, equipped or loose', () => {
+    const equipped = findReferences({ kind: 'item', id: 'axe' }, createConfig(), [
+      createCharacter(),
+    ]);
+    const loose = findReferences({ kind: 'item', id: 'axe' }, createConfig(), [
+      createCharacter({ inventory: { equippedItems: {}, miscItems: ['axe'] } }),
+    ]);
+
+    expect(holders(equipped)).toEqual(['Character: Aria']);
+    expect(holders(loose)).toEqual(['Character: Aria']);
+  });
+
+  it('finds a material on an item', () => {
+    expect(holders(findReferences({ kind: 'material', id: 'iron' }, createConfig(), []))).toEqual([
+      'Item: Axe',
+    ]);
+  });
+
+  it('finds a material category on a material', () => {
+    expect(
+      holders(findReferences({ kind: 'material-category', id: 'metal' }, createConfig(), []))
+    ).toEqual(['Material: Iron']);
+  });
+
+  it('finds an equipment slot on an item and in an inventory', () => {
+    const found = findReferences({ kind: 'equipment-slot', id: 'main_hand' }, createConfig(), [
+      createCharacter(),
+    ]);
+
+    expect(holders(found)).toEqual(['Item: Axe', 'Character: Aria']);
+  });
+
+  it('finds a currency tier on a material level value, keyed by the material that holds it', () => {
+    const found = findReferences({ kind: 'currency-tier', id: 'gold' }, createConfig(), []);
+
+    expect(holders(found)).toEqual(['Material: Iron — Iron']);
+    expect(found[0].field).toBe('levels[1].value.tierId');
+    expect(found[0].holderId).toBe('iron');
+  });
+
+  it('reports a skill formula holder by its stable id, not its code', () => {
+    const found = findReferences({ kind: 'main-skill', id: 'STR' }, createConfig(), []);
+    const combat = found.find((reference) => reference.holderKind === 'Combat Skill');
+
+    expect(combat?.holderId).toBe('id-mel');
+  });
+
+  it('reports nothing for an entity nothing points at', () => {
+    const bare = createConfig({
+      stats: [],
+      combatSkills: [],
+      races: [],
+      materials: [],
+      items: [],
+    });
+
+    expect(findReferences({ kind: 'main-skill', id: 'STR' }, bare, [])).toEqual([]);
+    expect(findReferences({ kind: 'currency-tier', id: 'gold' }, bare, [])).toEqual([]);
+  });
+
+  it('treats an absent character list as no characters', () => {
+    expect(findReferences({ kind: 'race', id: 'dwarf' }, createConfig())).toEqual([]);
+  });
+});

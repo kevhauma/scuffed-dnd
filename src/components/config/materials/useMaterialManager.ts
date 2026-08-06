@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../stores/configStore';
 import type { Material, MaterialCategory, MaterialLevel } from '../../../types';
+import { useGuardedDelete } from '../shared/useGuardedDelete';
 
 interface CategoryFormData {
   name: string;
@@ -37,6 +38,8 @@ export function useMaterialManager() {
   const addMaterial = useConfigStore((state) => state.addMaterial);
   const updateMaterial = useConfigStore((state) => state.updateMaterial);
   const deleteMaterial = useConfigStore((state) => state.deleteMaterial);
+
+  const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [isMaterialDialogOpen, setIsMaterialDialogOpen] = useState(false);
@@ -103,13 +106,10 @@ export function useMaterialManager() {
   };
 
   const handleDeleteCategory = (id: string) => {
-    // Check if category has materials
-    const hasMaterials = config?.materials.some((m) => m.categoryId === id);
-    if (hasMaterials) {
-      alert('Cannot delete category with materials. Delete materials first.');
-      return;
-    }
-    deleteMaterialCategory(id);
+    const category = categories.find((candidate) => candidate.id === id);
+    attemptDelete(`Material category ${category?.name ?? id}`, (options) =>
+      deleteMaterialCategory(id, options)
+    );
   };
 
   const handleSaveCategory = categoryForm.handleSubmit((data) => {
@@ -153,13 +153,8 @@ export function useMaterialManager() {
   };
 
   const handleDeleteMaterial = (id: string) => {
-    // Check if material is used by items
-    const isUsed = config?.items.some((item) => item.materialId === id);
-    if (isUsed) {
-      alert('Cannot delete material used by items. Remove from items first.');
-      return;
-    }
-    deleteMaterial(id);
+    const material = config?.materials.find((candidate) => candidate.id === id);
+    attemptDelete(`Material ${material?.name ?? id}`, (options) => deleteMaterial(id, options));
   };
 
   const handleSaveMaterial = materialForm.handleSubmit((data) => {
@@ -258,6 +253,8 @@ export function useMaterialManager() {
   });
 
   return {
+    blocked,
+    dismissBlocked,
     config,
     categories,
     availableSkillCodes,

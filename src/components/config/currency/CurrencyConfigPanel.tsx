@@ -9,6 +9,7 @@
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
+import { BlockedDeleteDialog } from '../shared/BlockedDeleteDialog';
 import { ConversionCalculator } from './ConversionCalculator';
 import { CurrencyFormDialog } from './CurrencyFormDialog';
 import { CurrencyTierCard } from './CurrencyTierCard';
@@ -28,6 +29,8 @@ export function CurrencyConfigPanel() {
     handleSave,
     handleMoveUp,
     handleMoveDown,
+    blocked,
+    dismissBlocked,
   } = useCurrencyManager();
 
   if (!config) {
@@ -101,6 +104,7 @@ export function CurrencyConfigPanel() {
         onClose={() => setIsDialogOpen(false)}
         onSave={handleSave}
       />
+      <BlockedDeleteDialog blocked={blocked} onClose={dismissBlocked} />
     </div>
   );
 }

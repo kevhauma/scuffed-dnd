@@ -145,8 +145,14 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   calculators by hand. `calculateCharacterStats()` remains as a thin documented wrapper returning
   just `.maxStatValues`. Each equipment bonus is claimed by exactly one step, since skill codes are
   unique across main/speciality/combat.
+- `dependencies.ts` — **the reference walker** (TICKET-REF-02): `findReferences(target, config,
+  characters)` → `EntityReference[]`, one case per guarded-delete `ReferenceTargetKind`. Pure over
+  both stores' data; `configStore`'s delete actions call it. Answers "what points at this?"; the
+  formula half goes through `validateFormula`, never substring matching.
 - `validator.ts` — `validateConfiguration(config): ValidationReport` (cross-entity referential
-  integrity: formula refs, equipment slot types, material categories, circular formulas).
+  integrity: formula refs, equipment slot types, material categories, circular formulas). It is
+  the *after the fact* report — `dependencies.ts` is the *before the fact* guard, and both stay:
+  the validator still catches what an import brings in.
 - `currency.ts` — `convertCurrency(value, toTierId, tiers)`, `normalizeCurrency(value, tiers)` (the
   highest tier where the amount is still ≥ 1 — what Req 10.4's "appropriate tier" means here) and
   `formatCurrency(value, tiers)`. Conversion is arithmetic over a configured rate, **not** a
@@ -210,8 +216,16 @@ import the engine to decide what to draw.
 - `XFormDialog.tsx` — add/edit form in a `Dialog`
 - `useXManager.ts` — the hook holding store selectors, `react-hook-form` state, and handlers
 
-`config/index.ts` re-exports all of it. `skills/shared/BaseSkillPanel.tsx` +
-`useSkillDependencies.ts` are shared across the three skill kinds.
+`config/index.ts` re-exports all of it. `skills/shared/` holds what the three skill kinds share:
+`BaseSkillPanel.tsx`, `SkillFormFields.tsx` and `skillIdentity.ts` (`resolveSkillId`,
+`useSkillCodeRename` — TICKET-REF-01).
+
+**`config/shared/` is cross-domain** (TICKET-REF-02): `useGuardedDelete` holds a delete the store
+refused, and `BlockedDeleteDialog` renders the reference list with a "Delete Anyway" force button.
+**Every config panel's delete goes through that pair** — a panel never derives references or
+decides whether a delete is safe; `configStore`'s delete actions return the reference list
+(empty = deleted) and take `{ force: true }`. The advisory `useSkillDependencies` hook and the
+`alert()`/`confirm()` guards it sat beside are gone.
 
 **`play/`** — barrelled by `play/index.ts`, mirroring `config/`'s domain-folder shape.
 `characters/` holds `CharacterList` + `CharacterCard` + `useCharacterListManager`.
