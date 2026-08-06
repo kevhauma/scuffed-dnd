@@ -73,7 +73,11 @@ export function calculateCharacter(
   });
 
   // 3. Maximum stat values from the stat formulas
-  const maxStatValues = calculateMaxStatValues(config.stats, totalMainSkillLevels);
+  const maxStatValues = calculateMaxStatValues(
+    config.stats,
+    totalMainSkillLevels,
+    config.constants
+  );
 
   // 4. Speciality skill totals — base + formula + equipment + focus
   const specialitySkillTotalLevels = calculateSpecialitySkillLevels(

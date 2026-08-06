@@ -6,8 +6,9 @@
  * **Validates: Requirements 3.4, 3.6, 8.4, 16.6; Concept 00 §7**
  */
 
-import type { Stat } from '../../types/config';
+import type { Constant, Stat } from '../../types/config';
 import type { FormulaContext, FormulaResult } from '../../types/formula';
+import { constantsNamespace } from '../formula/constants';
 import { isFormulaError, withSource } from '../formula/errors';
 import { evaluateFormulaString } from '../formula/evaluator';
 
@@ -21,17 +22,20 @@ import { evaluateFormulaString } from '../formula/evaluator';
  *
  * @param stats - Array of Stat definitions from configuration
  * @param totalMainSkillLevels - Main skill levels with racial bonuses applied
+ * @param constants - The ruleset's constants, backing `const.<name>` (TICKET-CST-01)
  * @returns Record of stat ID to maximum value or error
  */
 export function calculateMaxStatValues(
   stats: Stat[],
-  totalMainSkillLevels: Record<string, FormulaResult>
+  totalMainSkillLevels: Record<string, FormulaResult>,
+  constants: Constant[] = []
 ): Record<string, FormulaResult> {
   const maxStatValues: Record<string, FormulaResult> = {};
 
-  // Create formula context from main skill levels
+  // Main skill levels serve the legacy bare codes; the resolvers serve dotted references
   const context: FormulaContext = {
     variables: totalMainSkillLevels,
+    namespaces: { const: constantsNamespace(constants) },
   };
 
   // Calculate each stat

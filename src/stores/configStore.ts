@@ -18,6 +18,7 @@ import { loadConfiguration, saveConfiguration } from '../services/storage';
 import type {
   CombatSkill,
   Configuration,
+  Constant,
   CurrencyTier,
   EquipmentSlot,
   Item,
@@ -104,6 +105,11 @@ interface ConfigState {
   updateCurrencyTier: (id: string, updates: Partial<CurrencyTier>) => void;
   deleteCurrencyTier: (id: string, options?: DeleteOptions) => EntityReference[];
 
+  // Constants CRUD
+  addConstant: (constant: Constant) => void;
+  updateConstant: (id: string, updates: Partial<Constant>) => void;
+  deleteConstant: (id: string, options?: DeleteOptions) => EntityReference[];
+
   // Focus Stat Configuration
   setFocusStatBonusLevel: (level: number) => void;
 
@@ -112,9 +118,55 @@ interface ConfigState {
 }
 
 /**
- * Create empty configuration
+ * The constants a fresh ruleset starts with (Concept 05's seed table)
+ *
+ * Seeded rather than left empty because these are the levers the source sheet actually turns, and
+ * a constant is data, not behaviour: `points_per_level` is here before anything reads it
+ * (TICKET-RES-02 does), which is the point — the User can retune the ruleset before the feature
+ * that consumes the number exists.
  */
-function createEmptyConfiguration(name: string): Configuration {
+function createSeedConstants(): Constant[] {
+  return [
+    {
+      id: crypto.randomUUID(),
+      name: 'bonus_divider',
+      displayName: 'Bonus divider',
+      description:
+        'How many skill levels are worth one point of bonus. Lower makes skills matter more.',
+      value: 5,
+    },
+    {
+      id: crypto.randomUUID(),
+      name: 'apt_value',
+      displayName: 'APT value',
+      description:
+        'Speed needed per attack per turn. Lower gives everyone more attacks at the same Speed.',
+      value: 30,
+    },
+    {
+      id: crypto.randomUUID(),
+      name: 'points_per_level',
+      displayName: 'Points per level',
+      description: 'Skill points a character receives for each level gained.',
+      value: 3,
+      unit: 'points',
+    },
+    {
+      id: crypto.randomUUID(),
+      name: 'race_blend_divisor',
+      displayName: 'Race blend divisor',
+      description: 'What a blended base is divided by when a character has more than one race.',
+      value: 2,
+    },
+  ];
+}
+
+/**
+ * Create a fresh configuration
+ *
+ * Not "empty": a new ruleset arrives with Concept 05's seed constants already in it.
+ */
+function createFreshConfiguration(name: string): Configuration {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
@@ -130,6 +182,7 @@ function createEmptyConfiguration(name: string): Configuration {
     equipmentSlots: [],
     races: [],
     currencyTiers: [],
+    constants: createSeedConstants(),
     focusStatBonusLevel: 0,
     createdAt: now,
     updatedAt: now,
@@ -223,7 +276,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 
   // Initialize empty configuration
   initializeConfig: (name: string) => {
-    const config = createEmptyConfiguration(name);
+    const config = createFreshConfiguration(name);
     const saved = autoSave(config);
     set({ config: saved, isLoaded: true });
   },
@@ -565,6 +618,39 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     guardedDelete(set, get, 'currency-tier', id, options, (config) => ({
       ...config,
       currencyTiers: config.currencyTiers.filter((tier) => tier.id !== id),
+    })),
+
+  // Constants CRUD
+  addConstant: (constant: Constant) => {
+    const { config } = get();
+    if (!config) return;
+
+    const updated = autoSave({
+      ...config,
+      constants: [...(config.constants ?? []), constant],
+    });
+    set({ config: updated });
+  },
+
+  updateConstant: (id: string, updates: Partial<Constant>) => {
+    const { config } = get();
+    if (!config) return;
+
+    const updated = autoSave(
+      applyRenameSafely(config, (current) => ({
+        ...current,
+        constants: (current.constants ?? []).map((constant) =>
+          constant.id === id ? { ...constant, ...updates } : constant
+        ),
+      }))
+    );
+    set({ config: updated });
+  },
+
+  deleteConstant: (id: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'constant', id, options, (config) => ({
+      ...config,
+      constants: (config.constants ?? []).filter((constant) => constant.id !== id),
     })),
 
   // Focus Stat Configuration

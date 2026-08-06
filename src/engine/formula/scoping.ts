@@ -99,15 +99,15 @@ export interface FormulaScope {
  * `references.ts`), which is why renaming a stat or a code changes what validates here without
  * changing what any formula points at.
  *
- * `const` and `curve` are empty until TICKET-CST-01 and TICKET-CRV-01 add those entities — an
- * empty member set means every member of that namespace reports as unknown, which is the honest
- * answer while the entity does not exist.
+ * `curve` is empty until TICKET-CRV-01 adds that entity — an empty member set means every member
+ * of that namespace reports as unknown, which is the honest answer while the entity does not
+ * exist.
  */
 function membersOf(config: Configuration): Record<FormulaNamespace, ReadonlySet<string>> {
   return {
     stats: new Set(config.stats.map(statMemberName)),
     skills: new Set(config.specialitySkills.map((skill) => skill.code)),
-    const: new Set<string>(),
+    const: new Set((config.constants ?? []).map((constant) => constant.name)),
     curve: new Set<string>(),
   };
 }

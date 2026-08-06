@@ -7,10 +7,11 @@
  */
 
 import { useMemo, useState } from 'react';
+import { constantsNamespace } from '../../../engine/formula/constants';
 import { asNumber } from '../../../engine/formula/errors';
 import { evaluateFormulaString } from '../../../engine/formula/evaluator';
 import { validateFormula } from '../../../engine/formula/validator';
-import type { Stat } from '../../../types';
+import type { Constant, Stat } from '../../../types';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Input } from '../../ui/Input/Input';
@@ -19,11 +20,19 @@ import { Text } from '../../ui/Text/Text';
 interface StatCardProps {
   stat: Stat;
   availableSkillCodes: string[];
+  /** The ruleset's constants, so the preview resolves `const.*` the way the sheet does */
+  constants: Constant[];
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-export function StatCard({ stat, availableSkillCodes, onEdit, onDelete }: StatCardProps) {
+export function StatCard({
+  stat,
+  availableSkillCodes,
+  constants,
+  onEdit,
+  onDelete,
+}: StatCardProps) {
   // Sample input values for preview (default to 10 for each skill)
   const [sampleValues, setSampleValues] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
@@ -43,11 +52,15 @@ export function StatCard({ stat, availableSkillCodes, onEdit, onDelete }: StatCa
   const previewValue = useMemo(() => {
     if (!validation.isValid) return null;
 
-    const value = evaluateFormulaString(stat.formula, { variables: sampleValues });
+    const value = evaluateFormulaString(stat.formula, {
+      variables: sampleValues,
+      // The same resolver the sheet uses, so the preview and the real value never disagree
+      namespaces: { const: constantsNamespace(constants) },
+    });
     const number = asNumber(value);
 
     return number === undefined ? null : Math.round(number * 100) / 100;
-  }, [stat.formula, sampleValues, validation.isValid]);
+  }, [stat.formula, sampleValues, validation.isValid, constants]);
 
   return (
     <Card variant="bordered" className="p-4">

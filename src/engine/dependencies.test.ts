@@ -252,4 +252,59 @@ describe('findReferences', () => {
   it('treats an absent character list as no characters', () => {
     expect(findReferences({ kind: 'race', id: 'dwarf' }, createConfig())).toEqual([]);
   });
+  describe('constants (TICKET-CST-01)', () => {
+    const withConstant = () =>
+      createConfig({
+        constants: [
+          {
+            id: 'id-div',
+            name: 'bonus_divider',
+            displayName: 'Bonus divider',
+            description: 'Levels per point of bonus',
+            value: 5,
+          },
+        ],
+        stats: [
+          { id: 'id-hp', name: 'Health', description: '', formula: '10 / const.bonus_divider' },
+        ],
+      });
+
+    it('finds the formula naming a constant', () => {
+      expect(
+        holders(findReferences({ kind: 'constant', id: 'id-div' }, withConstant(), []))
+      ).toEqual(['Stat: Health']);
+    });
+
+    it('does not confuse a stat slug with a constant of the same name', () => {
+      // A stat named "Bonus divider" slugs to the same identifier the constant uses
+      const config = createConfig({
+        constants: [
+          {
+            id: 'id-div',
+            name: 'bonus_divider',
+            displayName: 'Bonus divider',
+            description: 'Levels per point of bonus',
+            value: 5,
+          },
+        ],
+        stats: [
+          { id: 'id-slug', name: 'Bonus divider', description: '', formula: '1' },
+          { id: 'id-hp', name: 'Health', description: '', formula: 'stats.bonus_divider * 2' },
+        ],
+      });
+
+      // The stat reference belongs to the stat, not the constant
+      expect(findReferences({ kind: 'constant', id: 'id-div' }, config, [])).toEqual([]);
+      expect(holders(findReferences({ kind: 'stat', id: 'id-slug' }, config, []))).toEqual([
+        'Stat: Health',
+      ]);
+    });
+
+    it('reports nothing for a constant nothing names', () => {
+      const config = withConstant();
+      config.stats = [];
+
+      expect(findReferences({ kind: 'constant', id: 'id-div' }, config, [])).toEqual([]);
+    });
+  });
 });

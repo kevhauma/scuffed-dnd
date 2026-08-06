@@ -5,8 +5,8 @@ _Last verified: 2026-08-04 (`npx vitest run`), after
 
 ## Summary
 
-- **Total tests**: 880
-- **Passing**: 880 (100%)
+- **Total tests**: 898
+- **Passing**: 898 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
@@ -101,7 +101,7 @@ and are documented here so a future regression is distinguishable from this nois
 | --- | --- |
 | `src/engine/formula/evaluator.ts:62,75` | TS2339 — `operator` does not exist on type `never`; the switch has narrowed the AST union to nothing by these arms. These line numbers drift whenever the evaluator changes (48,59 → 51,62 → 54,65 → 62,75 across FORM-02/03/04/05) — **match on the message, not the line** |
 | `src/components/ui/Button/Button.test.tsx:68` | TS2339 — `.disabled` read off `HTMLElement` |
-| `src/services/importExport.test.ts:393` | TS2352 — `Blob`-shaped literal cast to `File` |
+| `src/services/importExport.test.ts:399` | TS2352 — `Blob`-shaped literal cast to `File` |
 
 The `evaluator.ts` pair is the one worth a real look; the other two are test-typing noise.
 

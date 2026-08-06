@@ -32,13 +32,13 @@ import { tokenizeFormula } from './parser';
 /**
  * The reference spaces a token can be resolved in
  *
- * `bare` is the legacy flat code space shared by main, speciality and combat skills; the other
- * two are the namespaces whose members are configured entities. `const` and `curve` have no
- * entities yet (TICKET-CST-01, TICKET-CRV-01), so a reference into them stays verbatim.
+ * `bare` is the legacy flat code space shared by main, speciality and combat skills; the rest are
+ * the namespaces whose members are configured entities. `curve` has no entity yet
+ * (TICKET-CRV-01), so a reference into it stays verbatim.
  */
-type ReferenceSpace = 'bare' | 'skills' | 'stats';
+type ReferenceSpace = 'bare' | 'skills' | 'stats' | 'const';
 
-const REFERENCE_SPACES: readonly ReferenceSpace[] = ['bare', 'skills', 'stats'];
+const REFERENCE_SPACES: readonly ReferenceSpace[] = ['bare', 'skills', 'stats', 'const'];
 
 /**
  * Display spelling ↔ stable id, per reference space
@@ -121,6 +121,11 @@ export function buildReferenceIndex(config: Configuration): ReferenceIndex {
   for (const stat of config.stats) {
     if (!stat.id) continue;
     link(toId.stats, toDisplay.stats, statMemberName(stat), stat.id);
+  }
+
+  for (const constant of config.constants ?? []) {
+    if (!constant.id) continue;
+    link(toId.const, toDisplay.const, constant.name, constant.id);
   }
 
   return { toId, toDisplay };
@@ -210,7 +215,7 @@ function dottedReferenceAt(tokens: readonly FormulaToken[], index: number): Scan
 
 /** Whether a namespace has entities this index can resolve */
 function isReferenceSpace(namespace: string): namespace is ReferenceSpace {
-  return namespace === 'skills' || namespace === 'stats';
+  return namespace === 'skills' || namespace === 'stats' || namespace === 'const';
 }
 
 /**
@@ -384,5 +389,8 @@ export function ensureReferenceIds(config: Configuration, newId: () => string): 
     mainSkills: config.mainSkills.map(withId),
     specialitySkills: config.specialitySkills.map(withId),
     combatSkills: config.combatSkills.map(withId),
+    // Absent stays absent, the way `mainSkillPointBudget` does — a file predating TICKET-CST-01
+    // round-trips unchanged rather than growing an empty array on the way through.
+    ...(config.constants ? { constants: config.constants.map(withId) } : {}),
   };
 }

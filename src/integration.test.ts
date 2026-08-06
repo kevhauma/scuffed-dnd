@@ -298,4 +298,30 @@ describe('recalculation flows', () => {
     // Everything that did not name it still computes
     expect(numberOr(after.specialitySkillTotalLevels.STL, -1)).toBe(6);
   });
+  it('moves every dependent value when a constant is retuned (TICKET-CST-01)', () => {
+    const constant = {
+      id: 'id-apt',
+      name: 'apt_value',
+      displayName: 'APT value',
+      description: 'Speed per attack',
+      value: 30,
+    };
+    const config = createConfig({
+      constants: [constant],
+      stats: [
+        { id: 'health', name: 'Health', description: '', formula: 'STR * 10' },
+        { id: 'apt', name: 'APT', description: '', formula: 'max(1, round(60 / const.apt_value))' },
+      ],
+    });
+    const character = createCharacter();
+
+    expect(numberOr(calculateCharacter(character, config).maxStatValues.apt, -1)).toBe(2);
+
+    // Retuning the one number moves the derived value on the next read — nothing is stored
+    const retuned = { ...config, constants: [{ ...constant, value: 20 }] };
+    expect(numberOr(calculateCharacter(character, retuned).maxStatValues.apt, -1)).toBe(3);
+
+    // A stat naming no constant is untouched
+    expect(calculateCharacter(character, retuned).maxStatValues.health).toBe(50);
+  });
 });

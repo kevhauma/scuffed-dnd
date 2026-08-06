@@ -22,6 +22,14 @@ export interface Configuration {
   equipmentSlots: EquipmentSlot[];
   races: Race[];
   currencyTiers: CurrencyTier[];
+  /**
+   * Named tunable numbers, referenced from formulas as `const.<name>` (Concept 05).
+   *
+   * Optional so a configuration written before TICKET-CST-01 still loads. **Absent means none**
+   * and stays absent: readers write `config.constants ?? []`, and a file without the key
+   * round-trips without growing one — the same treatment `mainSkillPointBudget` gets.
+   */
+  constants?: Constant[];
   focusStatBonusLevel: number;
   /**
    * Points a Player may spend across all Main_Skills at character creation, one point per level.
@@ -172,6 +180,27 @@ export interface Race {
   name: string;
   description: string;
   skillModifiers: SkillModifier[]; // Only Main_Skills
+}
+
+/**
+ * Constant - a named tunable number a formula reaches as `const.<name>` (Concept 05)
+ *
+ * The point is that a balance lever is referenced once and edited once, instead of the same
+ * literal being buried in dozens of formula strings. `description` is required by the concept
+ * page's own rule: a constant nobody understands is worse than a literal.
+ *
+ * `value` is a plain number. The spec allows a constant to derive from other constants via a
+ * formula; that is deliberately not modelled yet — no seed needs it, and it brings a cycle-
+ * detection problem with it. When it arrives, `value` widens to `number | string` and joins the
+ * `formulaChange` guard.
+ */
+export interface Constant {
+  id: string; // Stable identity — what a persisted formula points at
+  name: string; // Identifier used in formulas (`bonus_divider`) — renamable display data
+  displayName: string;
+  description: string; // Required (Concept 05)
+  value: number;
+  unit?: string; // Display suffix, e.g. "points"
 }
 
 /**

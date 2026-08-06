@@ -969,4 +969,83 @@ describe('ConfigStore', () => {
       expect(useConfigStore.getState().config?.stats[0].formula).toBe('STR * 10');
     });
   });
+  describe('Constants (TICKET-CST-01)', () => {
+    beforeEach(() => {
+      useConfigStore.getState().initializeConfig('Test');
+      useCharacterStore.setState({ characters: [], isLoaded: true });
+      vi.clearAllMocks();
+    });
+
+    it('seeds a fresh configuration with the concept-page constants, each described', () => {
+      const constants = useConfigStore.getState().config?.constants ?? [];
+
+      expect(constants.map((constant) => constant.name).sort()).toEqual([
+        'apt_value',
+        'bonus_divider',
+        'points_per_level',
+        'race_blend_divisor',
+      ]);
+      expect(constants.map((constant) => constant.value)).toEqual([5, 30, 3, 2]);
+      expect(constants.every((constant) => constant.description.length > 0)).toBe(true);
+      expect(constants.every((constant) => Boolean(constant.id))).toBe(true);
+    });
+
+    it('adds, updates and deletes through the store, persisting each time', () => {
+      useConfigStore.getState().addConstant({
+        id: 'id-new',
+        name: 'crit_multiplier',
+        displayName: 'Crit multiplier',
+        description: 'Damage multiplier on a critical hit',
+        value: 2,
+      });
+      expect(storage.saveConfiguration).toHaveBeenCalledTimes(1);
+
+      useConfigStore.getState().updateConstant('id-new', { value: 3 });
+      const added = useConfigStore
+        .getState()
+        .config?.constants?.find((constant) => constant.id === 'id-new');
+      expect(added?.value).toBe(3);
+
+      expect(useConfigStore.getState().deleteConstant('id-new')).toEqual([]);
+      expect(useConfigStore.getState().config?.constants?.some((c) => c.id === 'id-new')).toBe(
+        false
+      );
+      expect(storage.saveConfiguration).toHaveBeenCalledTimes(3);
+    });
+
+    it('refuses to delete a constant a formula names, and says which', () => {
+      useConfigStore.getState().addStat({
+        id: 'id-hp',
+        name: 'Health',
+        description: '',
+        formula: '10 / const.bonus_divider',
+      });
+      const divider = useConfigStore
+        .getState()
+        .config?.constants?.find((constant) => constant.name === 'bonus_divider');
+
+      const references = useConfigStore.getState().deleteConstant(divider?.id as string);
+
+      expect(references.map((reference) => reference.holderName)).toEqual(['Health']);
+      expect(useConfigStore.getState().config?.constants?.some((c) => c.id === divider?.id)).toBe(
+        true
+      );
+    });
+
+    it('re-spells every formula naming a constant when its identifier is renamed', () => {
+      useConfigStore.getState().addStat({
+        id: 'id-hp',
+        name: 'Health',
+        description: '',
+        formula: '10 / const.bonus_divider',
+      });
+      const divider = useConfigStore
+        .getState()
+        .config?.constants?.find((constant) => constant.name === 'bonus_divider');
+
+      useConfigStore.getState().updateConstant(divider?.id as string, { name: 'bonus_scale' });
+
+      expect(useConfigStore.getState().config?.stats[0].formula).toBe('10 / const.bonus_scale');
+    });
+  });
 });

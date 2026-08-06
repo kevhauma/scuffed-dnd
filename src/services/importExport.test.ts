@@ -5,6 +5,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { toStoredConfiguration } from '../engine/formula/references';
 import type { Configuration } from '../types/config';
 import {
   downloadConfiguration,
@@ -15,6 +16,11 @@ import {
   ValidationError,
   validateConfiguration,
 } from './importExport';
+
+/** The JSON an export writes, without going through FileReader */
+function exportedText(config: Configuration): string {
+  return JSON.stringify(toStoredConfiguration(config), null, 2);
+}
 
 describe('Import/Export Service', () => {
   let validConfig: Configuration;
@@ -399,6 +405,59 @@ describe('Import/Export Service', () => {
       }) as File;
 
       await expect(importConfigurationFromFile(file)).rejects.toThrow(ImportExportError);
+    });
+  });
+  describe('constants round-trip (TICKET-CST-01)', () => {
+    const withConstants = (): Configuration => ({
+      ...validConfig,
+      constants: [
+        {
+          id: 'id-div',
+          name: 'bonus_divider',
+          displayName: 'Bonus divider',
+          description: 'Levels per point of bonus',
+          value: 5,
+        },
+      ],
+      stats: [
+        { id: 'health', name: 'Health', description: '', formula: '10 / const.bonus_divider' },
+      ],
+    });
+
+    it('survives export then import, formula and all', () => {
+      const config = withConstants();
+      const exported = exportedText(config);
+
+      // The persisted formula points at the constant's id…
+      expect((JSON.parse(exported) as Configuration).stats[0].formula).toBe('10 / const.[id-div]');
+      // …and comes back spelled by name, with the constant itself intact
+      expect(importConfiguration(exported)).toEqual(config);
+    });
+
+    it('accepts a file that predates the entity, leaving it absent', () => {
+      const { constants: _dropped, ...legacy } = withConstants();
+
+      expect(validateConfiguration(legacy).isValid).toBe(true);
+    });
+
+    it('rejects a constant with no description, a bad identifier, or a non-numeric value', () => {
+      const broken = {
+        ...withConstants(),
+        constants: [
+          { id: 'a', name: 'Bad Name', displayName: '', description: 'x', value: 1 },
+          { id: 'b', name: 'ok_name', displayName: '', description: '', value: 1 },
+          { id: 'c', name: 'also_ok', displayName: '', description: 'x', value: 'nope' },
+        ],
+      };
+
+      const result = validateConfiguration(broken);
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toEqual([
+        'constants[0].name must be a lowercase identifier',
+        'constants[1].description is required',
+        'constants[2].value must be a number',
+      ]);
     });
   });
 });

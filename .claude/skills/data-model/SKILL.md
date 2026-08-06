@@ -29,7 +29,7 @@ as part of the action. That is the equivalent of a repository layer here.
 One `Configuration` per browser: id, name, version, timestamps, `focusStatBonusLevel`, the optional
 `mainSkillPointBudget`, plus the entity arrays — `mainSkills`, `stats`, `specialitySkills`,
 `combatSkills`, `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
-`currencyTiers`.
+`currencyTiers`, and the optional `constants` (TICKET-CST-01).
 
 `mainSkillPointBudget?: number` is the worked example of an optional field done right, and the
 pattern to copy: **absent means unlimited**, so rulesets saved before it existed stay valid;
@@ -64,9 +64,9 @@ Identity rules that the rest of the app depends on:
   those a formula may use depends on its attachment point, per the tables in
   `engine/formula/scoping.ts` (TICKET-FORM-04). The save-time guard refuses out-of-scope
   namespaces and unknown members, so a persisted formula's references are in scope — but it can
-  still fail to *evaluate*, because no calculator supplies namespace resolvers until
-  CST-01/CRV-01/STAT-01. Since TICKET-FORM-05 that failure is an **error value on that one entry**,
-  not a throw.
+  still fail to *evaluate*: `const.*` resolves everywhere since TICKET-CST-01, but `stats.*`,
+  `skills.*` and `curve.*` wait on STAT-01 and CRV-01. Since TICKET-FORM-05 that failure is an
+  **error value on that one entry**, not a throw.
 - **Deletion is reference-checked in the store action** (TICKET-REF-02). Every `deleteX` returns
   `EntityReference[]`: non-empty means it refused and that is what points at the entity; empty
   means it deleted. `{ force: true }` overrides. The walker is

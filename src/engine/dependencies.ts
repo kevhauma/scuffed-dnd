@@ -19,15 +19,16 @@
 import type { Character } from '../types/character';
 import type { Configuration, MaterialLevel } from '../types/config';
 import { statMemberName } from './formula/references';
-import { dependencyKeysOf, validateFormula } from './formula/validator';
+import { validateFormula } from './formula/validator';
 
 /**
  * The kinds of entity a delete can target
  *
- * One row per guarded delete action. `constant` and `curve` join it with TICKET-CST-01 and
- * TICKET-CRV-01; they have no entities to point at yet.
+ * One row per guarded delete action. `curve` joins it with TICKET-CRV-01; it has no entity to
+ * point at yet.
  */
 export type ReferenceTargetKind =
+  | 'constant'
   | 'main-skill'
   | 'speciality-skill'
   | 'combat-skill'
@@ -66,14 +67,35 @@ export interface EntityReference {
   holderId: string;
 }
 
-/** Every identifier a formula names, bare or namespaced */
-function formulaKeys(formula: string): string[] {
-  return dependencyKeysOf(validateFormula(formula));
+/**
+ * Whether a formula names an entity, given how that kind of entity is spelled
+ *
+ * Namespace-aware on purpose: a stat slugged `bonus_divider` and a constant named
+ * `bonus_divider` are different things, and `dependencyKeysOf` flattens both to the bare member
+ * name. Matching `const.bonus_divider` against the constant and `stats.bonus_divider` against the
+ * stat is what keeps one from blocking the other's delete.
+ */
+type ReferenceMatcher = (formula: string) => boolean;
+
+/** A skill: named bare (`STR`) or through its namespace (`skills.STL`) */
+function namesSkill(code: string): ReferenceMatcher {
+  return (formula) => {
+    const result = validateFormula(formula);
+    return (
+      result.referencedVariables.includes(code) ||
+      result.namespacedReferences.some(
+        (reference) => reference.namespace === 'skills' && reference.member === code
+      )
+    );
+  };
 }
 
-/** Whether a formula names `key` as a reference rather than merely containing the text */
-function formulaNames(formula: string, key: string): boolean {
-  return formulaKeys(formula).includes(key);
+/** A namespace member and nothing else — `stats.max_health`, `const.bonus_divider` */
+function namesMember(namespace: string, member: string): ReferenceMatcher {
+  return (formula) =>
+    validateFormula(formula).namespacedReferences.some(
+      (reference) => reference.namespace === namespace && reference.member === member
+    );
 }
 
 /**
@@ -120,9 +142,13 @@ function formulaSources(config: Configuration): { reference: EntityReference; fo
  * `ownId` is the target's stable id, matched against `holderId`, so the exclusion survives a
  * rename (TICKET-REF-01) rather than depending on a spelling.
  */
-function formulaReferences(config: Configuration, key: string, ownId: string): EntityReference[] {
+function formulaReferences(
+  config: Configuration,
+  names: ReferenceMatcher,
+  ownId: string
+): EntityReference[] {
   return formulaSources(config)
-    .filter(({ reference, formula }) => reference.holderId !== ownId && formulaNames(formula, key))
+    .filter(({ reference, formula }) => reference.holderId !== ownId && names(formula))
     .map(({ reference }) => reference);
 }
 
@@ -194,7 +220,7 @@ function skillReferences(
   );
 
   return [
-    ...formulaReferences(config, code, own?.id ?? code),
+    ...formulaReferences(config, namesSkill(code), own?.id ?? code),
     ...modifierReferences(config, code),
     ...characterSkillReferences(characters, code),
   ];
@@ -207,7 +233,9 @@ function statReferences(
   id: string
 ): EntityReference[] {
   const stat = config.stats.find((candidate) => candidate.id === id);
-  const formulas = stat ? formulaReferences(config, statMemberName(stat), id) : [];
+  const formulas = stat
+    ? formulaReferences(config, namesMember('stats', statMemberName(stat)), id)
+    : [];
 
   const players = characters
     .filter((character) => id in character.currentStatValues)
@@ -285,6 +313,13 @@ export function findReferences(
 
     case 'stat':
       return statReferences(config, characters, target.id);
+
+    case 'constant': {
+      const constant = (config.constants ?? []).find((candidate) => candidate.id === target.id);
+      return constant
+        ? formulaReferences(config, namesMember('const', constant.name), target.id)
+        : [];
+    }
 
     case 'race':
       return characters

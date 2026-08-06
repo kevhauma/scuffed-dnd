@@ -109,16 +109,20 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 - `formula/evaluator.ts` — `evaluateFormula(ast, context)` and `evaluateFormulaString(src, context)`
   (parse + evaluate, syntax errors included as values — **this is what calculators call**). Context is
   `{ variables: Record<code, FormulaResult>; namespaces?: Record<string, NamespaceResolver> }` —
-  the flat map serves legacy bare codes, the resolvers serve dotted references. **No calculator
-  builds a `namespaces` map yet** (TICKET-FORM-03 defined the shape; CST-01/CRV-01/STAT-01 populate
-  it), so a saved namespaced formula evaluates to an `unknown-namespace` error value; namespaced
-  calls (`curve.cr(x)`) give a `not-evaluable` one until TICKET-CRV-01. Both are values, not
-  throws (TICKET-FORM-05).
+  the flat map serves legacy bare codes, the resolvers serve dotted references. **The three
+  formula-evaluating calculators supply `{ const: … }`** (TICKET-CST-01), so `const.*` resolves
+  everywhere; `stats.*` and `skills.*` still evaluate to an `unknown-namespace` error value until
+  STAT-01 wires them, and namespaced calls (`curve.cr(x)`) give a `not-evaluable` one until
+  TICKET-CRV-01. Both are values, not throws (TICKET-FORM-05).
+- `formula/constants.ts` — `constantsNamespace(constants)` → the `const.*` resolver
+  (TICKET-CST-01). **The first real `NamespaceResolver`, and the exemplar to copy** for CRV-01 and
+  STAT-01: resolution is by display name, the stored formula holds the id, and an unknown member
+  or a property access comes back as a distinct error value rather than a zero.
 - `formula/scoping.ts` — **the reference-scope tables as data** (TICKET-FORM-04):
   `NAMESPACE_SCOPES` and `LEGACY_CODE_SCOPES` keyed by `FormulaOwner` (the attachment point),
   `KNOWN_NAMESPACES`, and `scopeFor(config, owner)`. A new attachment point is a **new row here**,
   never a branch — there is no `switch` on owner kind in the engine, and a test enforces that
-  every owner has a row. `const`/`curve` are in scope but have no members until CST-01/CRV-01.
+  every owner has a row. `curve` is in scope but has no members until CRV-01.
 - `formula/validator.ts` — `validateFormula(formula, availableCodes?, scope?)`,
   `validateFormulaCollection`, `detectCircularDependencies`, `dependencyKeysOf`,
   `toFormulaDependency`, plus a private `walkFormula(ast, visit)` that is the single place knowing
