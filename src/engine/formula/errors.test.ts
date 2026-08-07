@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { FormulaContext } from '../../types/formula';
+import { curvesNamespace } from './curves';
 import {
   asNumber,
   describeFormulaError,
@@ -29,7 +30,17 @@ describe('error values per data-error kind (TICKET-FORM-05)', () => {
     { kind: 'unknown-namespace', formula: 'nope.thing' },
     { kind: 'unknown-member', formula: 'stats.nope', context: withStatsNamespace() },
     { kind: 'division-by-zero', formula: '1 / 0' },
-    { kind: 'not-evaluable', formula: 'curve.cr(1)' },
+    // A namespace whose members cannot be called at all (TICKET-CRV-01 made `curve` callable)
+    {
+      kind: 'not-evaluable',
+      formula: 'stats.speed(1)',
+      context: withStatsNamespace(),
+    },
+    {
+      kind: 'out-of-range',
+      formula: 'curve.growth(99)',
+      context: withCurveNamespace(),
+    },
   ];
 
   for (const { kind, formula, context } of cases) {
@@ -197,4 +208,27 @@ describe('accessors', () => {
 /** A context whose `stats` namespace resolves nothing, for the unknown-member case */
 function withStatsNamespace(): FormulaContext {
   return { variables: {}, namespaces: { stats: { resolve: () => undefined } } };
+}
+
+/** A one-curve context, so the out-of-range refusal has a real table to refuse against */
+function withCurveNamespace(): FormulaContext {
+  return {
+    variables: {},
+    namespaces: {
+      curve: curvesNamespace([
+        {
+          id: 'id-growth',
+          name: 'growth',
+          displayName: 'Growth',
+          description: '',
+          keyName: 'level',
+          columns: [{ id: 'col', name: 'value' }],
+          rows: [{ key: 1, values: [10] }],
+          interpolation: 'step',
+          outOfRange: 'error',
+          lookupDirection: 'forward',
+        },
+      ]),
+    },
+  };
 }

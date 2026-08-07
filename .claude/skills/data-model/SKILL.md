@@ -29,7 +29,8 @@ as part of the action. That is the equivalent of a repository layer here.
 One `Configuration` per browser: id, name, version, timestamps, `focusStatBonusLevel`, the optional
 `mainSkillPointBudget`, plus the entity arrays — `mainSkills`, `stats`, `specialitySkills`,
 `combatSkills`, `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
-`currencyTiers`, and the optional `constants` (TICKET-CST-01).
+`currencyTiers`, the optional `constants` (TICKET-CST-01), and the optional `curves`
+(TICKET-CRV-01).
 
 `mainSkillPointBudget?: number` is the worked example of an optional field done right, and the
 pattern to copy: **absent means unlimited**, so rulesets saved before it existed stay valid;
@@ -48,6 +49,11 @@ Identity rules that the rest of the app depends on:
   points at one constant's id while `constantsNamespace` reads the other's number. Enforced in two
   places, both required: `validateConfiguration()` for untrusted import, and `useConstantManager`'s
   save path for User input (TICKET-CST-02).
+- **A curve's `name` follows the same identifier rule as a constant's**, and its `rows` must
+  carry unique keys sorted ascending with one value per column — `engine/validator.ts` reports
+  each as an error, and a `step` curve with a gap wider than its average step as a warning
+  (TICKET-CRV-01). A curve's `name` is rename-safe like every other identifier; its **column
+  names are not** — a column is a property, and properties have never been id-resolved.
 - **Codes must stay unique across skill kinds.** One formula namespace serves all three, and the
   display form of a formula would be ambiguous otherwise. (TICKET-REF-01's to-be floated
   downgrading this to a warning; it is deliberately *not* done — see that ticket's divergence
@@ -65,13 +71,15 @@ Identity rules that the rest of the app depends on:
 - **Formulas are strings** on `Stat.formula`, `SpecialitySkill.bonusFormula`, and
   `CombatSkill.bonusFormula`. They are parsed by the formula engine, never `eval`'d, and a bare
   variable is only valid if it resolves to a configured skill code. Since TICKET-FORM-03 a formula
-  may also carry **dotted namespaced references** (`stats.speed`, `const.bonus_divider`); which of
-  those a formula may use depends on its attachment point, per the tables in
+  may also carry **dotted namespaced references** (`stats.speed`, `const.bonus_divider`) and
+  **namespaced calls** (`curve.xp_thresholds(x)`, `curve.point_buy.main_type(x)` — the third
+  segment selects a value column); which of those a formula may use depends on its attachment
+  point, per the tables in
   `engine/formula/scoping.ts` (TICKET-FORM-04). The save-time guard refuses out-of-scope
   namespaces and unknown members, so a persisted formula's references are in scope — but it can
-  still fail to *evaluate*: `const.*` resolves everywhere since TICKET-CST-01, but `stats.*`,
-  `skills.*` and `curve.*` wait on STAT-01 and CRV-01. Since TICKET-FORM-05 that failure is an
-  **error value on that one entry**, not a throw.
+  still fail to *evaluate*: `const.*` and `curve.*` resolve wherever they are in scope
+  (TICKET-CST-01, TICKET-CRV-01), but `stats.*` and `skills.*` wait on STAT-01. Since
+  TICKET-FORM-05 that failure is an **error value on that one entry**, not a throw.
 - **Deletion is reference-checked in the store action** (TICKET-REF-02). Every `deleteX` returns
   `EntityReference[]`: non-empty means it refused and that is what points at the entity; empty
   means it deleted. `{ force: true }` overrides. The walker is

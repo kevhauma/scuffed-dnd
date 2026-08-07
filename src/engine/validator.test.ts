@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { Configuration } from '../types/config';
+import type { Configuration, Curve } from '../types/config';
 import { validateConfiguration } from './validator';
 
 /**
@@ -725,6 +725,172 @@ describe('validateConfiguration', () => {
       const result = validateConfiguration(config);
 
       expect(result.errors.filter((e) => e.category === 'Formula Validation')).toEqual([]);
+    });
+  });
+
+  describe('curve tables (TICKET-CRV-01)', () => {
+    /** A sound curve, so each case states only what it breaks */
+    function withCurve(overrides: Partial<Curve> = {}): Configuration {
+      const config = createMinimalConfig();
+      config.curves = [
+        {
+          id: 'id-growth',
+          name: 'growth',
+          displayName: 'Growth',
+          description: '',
+          keyName: 'level',
+          columns: [{ id: 'col', name: 'value' }],
+          rows: [
+            { key: 1, values: [10] },
+            { key: 2, values: [20] },
+            { key: 3, values: [30] },
+          ],
+          interpolation: 'step',
+          outOfRange: 'clamp',
+          lookupDirection: 'forward',
+          ...overrides,
+        },
+      ];
+      return config;
+    }
+
+    function curveIssues(config: Configuration) {
+      const report = validateConfiguration(config);
+      return {
+        errors: report.errors.filter((issue) => issue.category === 'Curve Validation'),
+        warnings: report.warnings.filter((issue) => issue.category === 'Curve Validation'),
+      };
+    }
+
+    it('accepts a sound table', () => {
+      const { errors, warnings } = curveIssues(withCurve());
+
+      expect(errors).toEqual([]);
+      expect(warnings).toEqual([]);
+    });
+
+    it('reports a duplicate key, naming the key column', () => {
+      const { errors } = curveIssues(
+        withCurve({
+          rows: [
+            { key: 1, values: [10] },
+            { key: 1, values: [20] },
+          ],
+        })
+      );
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0].message).toContain('more than one row for level 1');
+      expect(errors[0].entityId).toBe('id-growth');
+    });
+
+    it('reports rows that are not sorted by key', () => {
+      const { errors } = curveIssues(
+        withCurve({
+          rows: [
+            { key: 3, values: [30] },
+            { key: 1, values: [10] },
+          ],
+        })
+      );
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0].message).toContain('not sorted');
+    });
+
+    it('reports a row with the wrong number of values', () => {
+      const { errors } = curveIssues(withCurve({ rows: [{ key: 1, values: [10, 20] }] }));
+
+      expect(errors.map((issue) => issue.message)).toEqual([
+        expect.stringContaining('2 value(s) for 1 column(s)'),
+      ]);
+    });
+
+    it('reports a curve with no value columns', () => {
+      const { errors } = curveIssues(withCurve({ columns: [], rows: [] }));
+
+      expect(errors.map((issue) => issue.message)).toEqual([
+        expect.stringContaining('no value columns'),
+      ]);
+    });
+
+    it('warns about a gap that silently collapses a wide band onto one value', () => {
+      const { errors, warnings } = curveIssues(
+        withCurve({
+          rows: [
+            { key: 1, values: [10] },
+            { key: 2, values: [20] },
+            { key: 90, values: [30] },
+          ],
+        })
+      );
+
+      // A warning, not an error — the challenge-rating table is deliberately this shape
+      expect(errors).toEqual([]);
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0].message).toContain('jumps from 2 to 90');
+    });
+
+    it('reports a reverse curve whose value column doubles back', () => {
+      const { errors } = curveIssues(
+        withCurve({
+          lookupDirection: 'reverse',
+          rows: [
+            { key: 1, values: [500] },
+            { key: 2, values: [100] },
+            { key: 3, values: [900] },
+          ],
+        })
+      );
+
+      // A reverse lookup over a column that decreases has two equally correct answers
+      expect(errors).toHaveLength(1);
+      expect(errors[0].message).toContain('must not decrease');
+      expect(errors[0].message).toContain('drops from 500 to 100');
+    });
+
+    it('accepts a reverse curve whose value column ascends', () => {
+      const { errors } = curveIssues(
+        withCurve({
+          lookupDirection: 'reverse',
+          rows: [
+            { key: 1, values: [0] },
+            { key: 2, values: [300] },
+            { key: 3, values: [900] },
+          ],
+        })
+      );
+
+      expect(errors).toEqual([]);
+    });
+
+    it('leaves a forward curve free to decrease — only the read axis has to ascend', () => {
+      const { errors } = curveIssues(
+        withCurve({
+          rows: [
+            { key: 1, values: [30] },
+            { key: 2, values: [20] },
+            { key: 3, values: [10] },
+          ],
+        })
+      );
+
+      expect(errors).toEqual([]);
+    });
+
+    it('does not warn about gaps when the curve interpolates', () => {
+      const { warnings } = curveIssues(
+        withCurve({
+          interpolation: 'linear',
+          rows: [
+            { key: 1, values: [10] },
+            { key: 2, values: [20] },
+            { key: 90, values: [30] },
+          ],
+        })
+      );
+
+      expect(warnings).toEqual([]);
     });
   });
 });

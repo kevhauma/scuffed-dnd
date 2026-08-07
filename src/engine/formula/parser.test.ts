@@ -585,6 +585,38 @@ describe('Namespaced references (TICKET-FORM-03)', () => {
     });
   });
 
+  it('should parse a namespaced call that selects a column (TICKET-CRV-01)', () => {
+    const ast = parseFormula('curve.point_buy.main_type(3)');
+    expect(ast).toEqual({
+      type: 'namespaced_call',
+      namespace: 'curve',
+      member: 'point_buy',
+      property: 'main_type',
+      args: [{ type: 'number', value: 3 }],
+    });
+  });
+
+  it('should still parse three segments without parentheses as a property access', () => {
+    const ast = parseFormula('skills.healing.level');
+    expect(ast).toEqual({
+      type: 'namespaced_ref',
+      namespace: 'skills',
+      member: 'healing',
+      property: 'level',
+    });
+  });
+
+  it('should parse a column-selecting call on a persisted id reference', () => {
+    const ast = parseFormula('curve.[id-pb].main_type(3)');
+    expect(ast).toEqual({
+      type: 'namespaced_call',
+      namespace: 'curve',
+      member: 'id-pb',
+      property: 'main_type',
+      args: [{ type: 'number', value: 3 }],
+    });
+  });
+
   it('should parse expression arguments in a namespaced call', () => {
     const ast = parseFormula('curve.cr(stats.total + 1)');
     expect(ast).toEqual({

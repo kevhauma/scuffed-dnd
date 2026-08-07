@@ -10,9 +10,9 @@
 import type { Character } from '../../types/character';
 import type { Configuration, SkillModifier } from '../../types/config';
 import type { FormulaContext, FormulaResult } from '../../types/formula';
-import { constantsNamespace } from '../formula/constants';
 import { isFormulaError, withSource } from '../formula/errors';
 import { evaluateFormulaString } from '../formula/evaluator';
+import { namespacesFor } from '../formula/namespaces';
 
 /**
  * Calculate total speciality skill levels
@@ -40,7 +40,7 @@ export function calculateSpecialitySkillLevels(
   // Main skill levels serve the legacy bare codes; the resolvers serve dotted references
   const context: FormulaContext = {
     variables: totalMainSkillLevels,
-    namespaces: { const: constantsNamespace(config.constants) },
+    namespaces: namespacesFor(config, 'speciality-skill'),
   };
 
   // Calculate each speciality skill

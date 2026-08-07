@@ -8,7 +8,9 @@
  *   term        := factor ((MULTIPLY | DIVIDE) factor)*
  *   factor      := PLUS factor | MINUS factor | NUMBER | ref | LPAREN expression RPAREN
  *   ref         := IDENTIFIER LPAREN args RPAREN                        (function call)
- *                | IDENTIFIER DOT IDENTIFIER LPAREN args RPAREN         (namespaced call, e.g. curve.cr(x))
+ *                | IDENTIFIER DOT member (DOT IDENTIFIER)? LPAREN args RPAREN
+ *                                                                      (namespaced call, e.g. curve.cr(x),
+ *                                                                       curve.point_buy.main_type(9))
  *                | IDENTIFIER DOT member (DOT IDENTIFIER)?              (namespaced reference)
  *                | member                                               (bare variable — deprecated when an IDENTIFIER)
  *   member      := IDENTIFIER | REF_ID
@@ -24,8 +26,10 @@
  *
  * Dotted references (`stats.speed`, `skills.healing.level`, `const.bonus_divider`) keep every
  * segment exactly as written — namespaces are lowercase and resolved case-sensitively at
- * evaluation time. A namespaced call (`curve.cr(x)`) parses but does not evaluate until
- * TICKET-CRV-01. A bare identifier is a legacy variable reference, normalized to uppercase —
+ * evaluation time. A namespaced call (`curve.cr(x)`) evaluates through the namespace's resolver;
+ * a third segment before the parentheses selects which output it produces, which is how a
+ * multi-column curve is read (`curve.point_buy.main_type(9)` — TICKET-CRV-01).
+ * A bare identifier is a legacy variable reference, normalized to uppercase —
  * **deprecated**, kept until TICKET-STAT-01 removes flat codes.
  *
  * A bracketed segment (`[b1f0…]`, `stats.[b1f0…]`) is an **id reference** — the rename-safe form a
@@ -346,14 +350,16 @@ export class FormulaParser {
 
   /**
    * Parse a dotted reference after its namespace segment:
-   * DOT IDENTIFIER (LPAREN args RPAREN | DOT IDENTIFIER)?
+   * DOT member (LPAREN args RPAREN | DOT IDENTIFIER (LPAREN args RPAREN)?)?
    *
-   * Two segments make a namespaced reference (`stats.speed`), an argument list after the
-   * member makes a namespaced call (`curve.cr(x)`), and a third segment is a property
-   * access (`skills.healing.level`). Segments are kept exactly as written.
+   * Two segments make a namespaced reference (`stats.speed`), an argument list makes a
+   * namespaced call (`curve.cr(x)`), and a third segment is a property — of a reference
+   * (`skills.healing.level`) or of a call, where it selects which output the call produces
+   * (`curve.point_buy.main_type(9)` reads the `main_type` column). Segments are kept exactly
+   * as written.
    *
-   * The member may be a bracketed id (`stats.[b1f0…]`) — the persisted form of the same
-   * reference (TICKET-REF-01).
+   * The member may be a bracketed id (`stats.[b1f0…]`, `curve.[7c22…](x)`) — the persisted form
+   * of the same reference (TICKET-REF-01).
    */
   private namespacedReference(namespace: string): FormulaAST {
     this.eat('DOT');
@@ -374,11 +380,26 @@ export class FormulaParser {
       this.eat('DOT');
       const propertyToken = this.currentToken;
       this.eat('IDENTIFIER');
+      const property = propertyToken.value as string;
+
+      // Widened deliberately: control-flow analysis still has `this.currentToken` narrowed to the
+      // DOT that opened this branch, and the two `eat`s above are what moved it on.
+      const afterProperty: Token = this.currentToken;
+      if (afterProperty.type === 'LPAREN') {
+        return {
+          type: 'namespaced_call',
+          namespace,
+          member,
+          property,
+          args: this.callArguments(),
+        };
+      }
+
       return {
         type: 'namespaced_ref',
         namespace,
         member,
-        property: propertyToken.value as string,
+        property,
       };
     }
 

@@ -33,12 +33,14 @@ import { tokenizeFormula } from './parser';
  * The reference spaces a token can be resolved in
  *
  * `bare` is the legacy flat code space shared by main, speciality and combat skills; the rest are
- * the namespaces whose members are configured entities. `curve` has no entity yet
- * (TICKET-CRV-01), so a reference into it stays verbatim.
+ * the namespaces whose members are configured entities. A curve is named by a **call**
+ * (`curve.cr(x)`), but the token being rewritten sits in the same place a member always does, so
+ * the scan needs no special case for it. A curve's *column* is a third segment and, like every
+ * property, is not id-resolved (TICKET-CRV-01).
  */
-type ReferenceSpace = 'bare' | 'skills' | 'stats' | 'const';
+type ReferenceSpace = 'bare' | 'skills' | 'stats' | 'const' | 'curve';
 
-const REFERENCE_SPACES: readonly ReferenceSpace[] = ['bare', 'skills', 'stats', 'const'];
+const REFERENCE_SPACES: readonly ReferenceSpace[] = ['bare', 'skills', 'stats', 'const', 'curve'];
 
 /**
  * Display spelling ↔ stable id, per reference space
@@ -128,6 +130,11 @@ export function buildReferenceIndex(config: Configuration): ReferenceIndex {
     link(toId.const, toDisplay.const, constant.name, constant.id);
   }
 
+  for (const curve of config.curves ?? []) {
+    if (!curve.id) continue;
+    link(toId.curve, toDisplay.curve, curve.name, curve.id);
+  }
+
   return { toId, toDisplay };
 }
 
@@ -190,15 +197,14 @@ function referenceAt(tokens: readonly FormulaToken[], index: number): ScanStep {
 /**
  * Classify a dotted reference whose namespace segment sits at `index`
  *
- * The member is the reference; a third segment is a property and never one. A namespaced call
- * (`curve.cr(x)`) names a curve rather than an entity this index knows, so it yields no site
- * while still stepping past its member.
+ * The member is the reference; a third segment is a property and never one. That holds for a
+ * namespaced call too — `curve.cr(x)` and `curve.point_buy.main_type(9)` both name the curve at
+ * the member position, and the column, like any property, stays as written.
  */
 function dottedReferenceAt(tokens: readonly FormulaToken[], index: number): ScanStep {
   const namespace = tokens[index].value as string;
   const member = tokens[index + 2];
   const isMember = member?.type === 'IDENTIFIER' || member?.type === 'REF_ID';
-  const isCall = tokens[index + 3]?.type === 'LPAREN';
 
   // Step over `namespace . member`, plus a property segment when one follows
   let next = index + (isMember ? 3 : 2);
@@ -206,7 +212,7 @@ function dottedReferenceAt(tokens: readonly FormulaToken[], index: number): Scan
     next += 2;
   }
 
-  if (!isMember || isCall || !isReferenceSpace(namespace)) {
+  if (!isMember || !isReferenceSpace(namespace)) {
     return { next };
   }
 
@@ -215,7 +221,12 @@ function dottedReferenceAt(tokens: readonly FormulaToken[], index: number): Scan
 
 /** Whether a namespace has entities this index can resolve */
 function isReferenceSpace(namespace: string): namespace is ReferenceSpace {
-  return namespace === 'skills' || namespace === 'stats' || namespace === 'const';
+  return (
+    namespace === 'skills' ||
+    namespace === 'stats' ||
+    namespace === 'const' ||
+    namespace === 'curve'
+  );
 }
 
 /**
@@ -392,5 +403,13 @@ export function ensureReferenceIds(config: Configuration, newId: () => string): 
     // Absent stays absent, the way `mainSkillPointBudget` does — a file predating TICKET-CST-01
     // round-trips unchanged rather than growing an empty array on the way through.
     ...(config.constants ? { constants: config.constants.map(withId) } : {}),
+    ...(config.curves
+      ? {
+          curves: config.curves.map((curve) => ({
+            ...withId(curve),
+            columns: curve.columns.map(withId),
+          })),
+        }
+      : {}),
   };
 }

@@ -30,6 +30,14 @@ export interface Configuration {
    * round-trips without growing one — the same treatment `mainSkillPointBudget` gets.
    */
   constants?: Constant[];
+  /**
+   * Named lookup tables, called from formulas as `curve.<name>(x)` (Concept 06).
+   *
+   * Optional for the same reason `constants` is: absent means none and stays absent, so a
+   * ruleset written before TICKET-CRV-01 round-trips without growing an empty array. Readers
+   * write `config.curves ?? []`.
+   */
+  curves?: Curve[];
   focusStatBonusLevel: number;
   /**
    * Points a Player may spend across all Main_Skills at character creation, one point per level.
@@ -201,6 +209,79 @@ export interface Constant {
   description: string; // Required (Concept 05)
   value: number;
   unit?: string; // Display suffix, e.g. "points"
+}
+
+/**
+ * How a curve reads a key that falls between two rows (Concept 06)
+ *
+ * `step` holds the last row at or below the input — the threshold reading, which is what makes
+ * "you stay level 4 until you cross 3,000 XP" fall out of the table rather than out of a rule.
+ * `linear` interpolates between the two rows either side.
+ */
+export type CurveInterpolation = 'step' | 'linear';
+
+/**
+ * What a curve does with an input beyond its first or last row (Concept 06)
+ *
+ * `error` is the concept page's recommended default: silent clamping is how a level-50 character
+ * ends up with a level-15 stat gain and nobody notices.
+ */
+export type CurveOutOfRange = 'clamp' | 'extrapolate' | 'error';
+
+/**
+ * Which axis a curve is read along (Concept 06)
+ *
+ * `forward` is key → value. `reverse` answers the opposite question — "given this value, which
+ * key?" — and exists because some tables are naturally *written* one way and *read* the other:
+ * you author "level 5 requires 3,000 XP" and ask "given 3,412 XP, what level am I?".
+ */
+export type CurveLookupDirection = 'forward' | 'reverse';
+
+/**
+ * One output column of a curve
+ *
+ * `id` is the identity, `name` the identifier a formula spells as `curve.<curve>.<column>(x)`.
+ * A single-column curve is called without one.
+ */
+export interface CurveColumn {
+  id: string; // Stable identity
+  name: string; // Identifier used in formulas — renamable display data
+}
+
+/**
+ * One row of a curve: an input key and one value per column
+ *
+ * `values` is positional against `columns`. TICKET-CRV-02 adds generators, where a cell is either
+ * generated or a deliberate override; that arrives as an **additional** field beside `values`
+ * (which cells were overridden), so nothing here has to change shape for it.
+ */
+export interface CurveRow {
+  key: number;
+  values: number[];
+}
+
+/**
+ * Curve - a named lookup table a formula calls as `curve.<name>(x)` (Concept 06)
+ *
+ * The point is that a progression is *data* — a table you can see and tune — rather than a chain
+ * of nested conditionals buried in a formula string. Point-buy, XP thresholds and challenge
+ * rating are all the same shape.
+ *
+ * `id` is the identity and `name` renamable display data, as everywhere else (TICKET-REF-01).
+ */
+export interface Curve {
+  id: string; // Stable identity — what a persisted formula points at
+  name: string; // Identifier used in formulas (`xp_thresholds`) — renamable display data
+  displayName: string;
+  description: string;
+  /** What the input axis is called, for the editor's key column header */
+  keyName: string;
+  columns: CurveColumn[];
+  /** Ascending by `key`, with no duplicates — `engine/validator.ts` reports either */
+  rows: CurveRow[];
+  interpolation: CurveInterpolation;
+  outOfRange: CurveOutOfRange;
+  lookupDirection: CurveLookupDirection;
 }
 
 /**

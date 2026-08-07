@@ -69,7 +69,7 @@ Identity and the two new config concepts:
 - [x] [TICKET-REF-02](./tickets/TICKET-REF-02-guarded-deletes.md) — Guarded deletes with reference lists (Concept 00 §6) — needs REF-01's references and FORM-05's error values *(browser criterion left open — the User skipped the live check for this run)*
 - [x] [TICKET-CST-01](./tickets/TICKET-CST-01-constants-concept.md) — Constants entity and `const.*` (Concept 05) — SKL-02, RACE-02, RES-02, ARC-02 read these
 - [x] [TICKET-CST-02](./tickets/TICKET-CST-02-constants-panel.md) — Constants panel (Concept 05) — UI for CST-01; closes CST-01's implementation note 4, the identifier rule now enforced for User input as well as for import *(browser criterion left open — the User skipped the live check for this run)*
-- [ ] [TICKET-CRV-01](./tickets/TICKET-CRV-01-curve-entity-and-lookup.md) — Curve entity and lookup engine (Concept 06) — RES-01 (reverse) and ARC-02 (multi-column) consume it
+- [x] [TICKET-CRV-01](./tickets/TICKET-CRV-01-curve-entity-and-lookup.md) — Curve entity and lookup engine (Concept 06) — RES-01 (reverse) and ARC-02 (multi-column) consume it. **Carries a syntax divergence**: the multi-column call is `curve.name.column(x)`, not the to-be's `curve.name(x, column)`, which the grammar cannot express — see the ticket's implementation note 1. Pure engine, so no browser criterion
 - [ ] [TICKET-CRV-02](./tickets/TICKET-CRV-02-curve-generators-and-overrides.md) — Curve generators with preserved overrides (Concepts 06, 00 §1.1) — the generate-and-overlay machinery
 - [ ] [TICKET-CRV-03](./tickets/TICKET-CRV-03-curves-panel-and-seeds.md) — Curves panel and the `point_buy` / `xp_thresholds` seeds (Concept 06) — UI + seeds for CRV-01/02
 

@@ -7,11 +7,12 @@
  */
 
 import { useMemo, useState } from 'react';
-import { constantsNamespace } from '../../../engine/formula/constants';
 import { asNumber } from '../../../engine/formula/errors';
 import { evaluateFormulaString } from '../../../engine/formula/evaluator';
+import type { NamespaceSource } from '../../../engine/formula/namespaces';
+import { namespacesFor } from '../../../engine/formula/namespaces';
 import { validateFormula } from '../../../engine/formula/validator';
-import type { Constant, Stat } from '../../../types';
+import type { Stat } from '../../../types';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Input } from '../../ui/Input/Input';
@@ -20,8 +21,8 @@ import { Text } from '../../ui/Text/Text';
 interface StatCardProps {
   stat: Stat;
   availableSkillCodes: string[];
-  /** The ruleset's constants, so the preview resolves `const.*` the way the sheet does */
-  constants: Constant[];
+  /** The ruleset, so the preview resolves `const.*` and `curve.*(x)` the way the sheet does */
+  namespaceSource: NamespaceSource;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
@@ -29,7 +30,7 @@ interface StatCardProps {
 export function StatCard({
   stat,
   availableSkillCodes,
-  constants,
+  namespaceSource,
   onEdit,
   onDelete,
 }: StatCardProps) {
@@ -54,13 +55,13 @@ export function StatCard({
 
     const value = evaluateFormulaString(stat.formula, {
       variables: sampleValues,
-      // The same resolver the sheet uses, so the preview and the real value never disagree
-      namespaces: { const: constantsNamespace(constants) },
+      // The same resolvers the sheet uses, so the preview and the real value never disagree
+      namespaces: namespacesFor(namespaceSource, 'stat'),
     });
     const number = asNumber(value);
 
     return number === undefined ? null : Math.round(number * 100) / 100;
-  }, [stat.formula, sampleValues, validation.isValid, constants]);
+  }, [stat.formula, sampleValues, validation.isValid, namespaceSource]);
 
   return (
     <Card variant="bordered" className="p-4">

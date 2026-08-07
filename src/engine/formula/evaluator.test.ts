@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { FormulaContext, FormulaResult } from '../../types/formula';
-import { evaluateFormula } from './evaluator';
+import type { FormulaContext, FormulaResult, NamespaceResolver } from '../../types/formula';
+import { evaluateFormula, evaluateFormulaString } from './evaluator';
 import { parseFormula } from './parser';
 
 describe('Formula Evaluator', () => {
@@ -514,10 +514,25 @@ describe('Namespaced references (TICKET-FORM-03)', () => {
     });
   });
 
-  it('defers namespaced calls to TICKET-CRV-01 rather than silently returning a number', () => {
+  it('reports a call into a namespace that is not in the context', () => {
     expect(evaluate('curve.cr(1)')).toMatchObject({
-      kind: 'not-evaluable',
-      message: expect.stringContaining('TICKET-CRV-01'),
+      kind: 'unknown-namespace',
+      message: 'Unknown namespace: curve',
+    });
+  });
+
+  it('hands a call to the namespace resolver, arguments already evaluated (TICKET-CRV-01)', () => {
+    const doubler: NamespaceResolver = {
+      resolve: () => undefined,
+      call: (member, args) => (member === 'twice' ? args[0] * 2 : undefined),
+    };
+
+    const context: FormulaContext = { variables: { STR: 4 }, namespaces: { fn: doubler } };
+
+    expect(evaluateFormulaString('fn.twice(STR + 1)', context)).toBe(10);
+    expect(evaluateFormulaString('fn.nope(1)', context)).toMatchObject({
+      kind: 'unknown-member',
+      message: 'Unknown member: fn.nope',
     });
   });
 });

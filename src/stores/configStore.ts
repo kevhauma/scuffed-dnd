@@ -20,6 +20,7 @@ import type {
   Configuration,
   Constant,
   CurrencyTier,
+  Curve,
   EquipmentSlot,
   Item,
   MainSkill,
@@ -109,6 +110,11 @@ interface ConfigState {
   addConstant: (constant: Constant) => void;
   updateConstant: (id: string, updates: Partial<Constant>) => void;
   deleteConstant: (id: string, options?: DeleteOptions) => EntityReference[];
+
+  // Curves CRUD
+  addCurve: (curve: Curve) => void;
+  updateCurve: (id: string, updates: Partial<Curve>) => void;
+  deleteCurve: (id: string, options?: DeleteOptions) => EntityReference[];
 
   // Focus Stat Configuration
   setFocusStatBonusLevel: (level: number) => void;
@@ -651,6 +657,39 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     guardedDelete(set, get, 'constant', id, options, (config) => ({
       ...config,
       constants: (config.constants ?? []).filter((constant) => constant.id !== id),
+    })),
+
+  // Curves CRUD
+  addCurve: (curve: Curve) => {
+    const { config } = get();
+    if (!config) return;
+
+    const updated = autoSave({
+      ...config,
+      curves: [...(config.curves ?? []), curve],
+    });
+    set({ config: updated });
+  },
+
+  updateCurve: (id: string, updates: Partial<Curve>) => {
+    const { config } = get();
+    if (!config) return;
+
+    const updated = autoSave(
+      applyRenameSafely(config, (current) => ({
+        ...current,
+        curves: (current.curves ?? []).map((curve) =>
+          curve.id === id ? { ...curve, ...updates } : curve
+        ),
+      }))
+    );
+    set({ config: updated });
+  },
+
+  deleteCurve: (id: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'curve', id, options, (config) => ({
+      ...config,
+      curves: (config.curves ?? []).filter((curve) => curve.id !== id),
     })),
 
   // Focus Stat Configuration

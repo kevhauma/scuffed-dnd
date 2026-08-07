@@ -110,15 +110,24 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 - `formula/evaluator.ts` — `evaluateFormula(ast, context)` and `evaluateFormulaString(src, context)`
   (parse + evaluate, syntax errors included as values — **this is what calculators call**). Context is
   `{ variables: Record<code, FormulaResult>; namespaces?: Record<string, NamespaceResolver> }` —
-  the flat map serves legacy bare codes, the resolvers serve dotted references. **The three
-  formula-evaluating calculators supply `{ const: … }`** (TICKET-CST-01), so `const.*` resolves
-  everywhere; `stats.*` and `skills.*` still evaluate to an `unknown-namespace` error value until
-  STAT-01 wires them, and namespaced calls (`curve.cr(x)`) give a `not-evaluable` one until
-  TICKET-CRV-01. Both are values, not throws (TICKET-FORM-05).
+  the flat map serves legacy bare codes, the resolvers serve dotted references. **Callers build
+  that map with `namespacesFor(config, owner)`** (TICKET-CRV-01) rather than by hand, so
+  `const.*` and `curve.*(x)` resolve wherever `scoping.ts` allows them; `stats.*` and `skills.*`
+  still evaluate to an `unknown-namespace` error value until STAT-01 wires them — a value, not a
+  throw (TICKET-FORM-05).
 - `formula/constants.ts` — `constantsNamespace(constants)` → the `const.*` resolver
-  (TICKET-CST-01). **The first real `NamespaceResolver`, and the exemplar to copy** for CRV-01 and
-  STAT-01: resolution is by display name, the stored formula holds the id, and an unknown member
-  or a property access comes back as a distinct error value rather than a zero.
+  (TICKET-CST-01). **The exemplar `NamespaceResolver` to copy** for STAT-01: resolution is by
+  display name, the stored formula holds the id, and an unknown member or a property access comes
+  back as a distinct error value rather than a zero.
+- `formula/curves.ts` — `lookupCurve(curve, input, column?)` and `curvesNamespace(curves)` → the
+  `curve.*(x)` resolver (TICKET-CRV-01). The **callable** resolver exemplar: `NamespaceResolver`
+  has an optional `call(member, args, property)`, and a curve is callable-only (reading one
+  without parentheses is its own error). Every lookup mode reduces to `(input, output)` pairs, so
+  `reverse` is `step` over the inverted table rather than a second code path.
+- `formula/namespaces.ts` — `namespacesFor(source, owner)`: the resolvers a formula at that
+  attachment point may use, driven by `scoping.ts`'s table so what a formula *may* reference and
+  what it *can* resolve cannot drift apart. Every evaluation site calls this — three calculators
+  and `StatCard`'s preview.
 - `formula/scoping.ts` — **the reference-scope tables as data** (TICKET-FORM-04):
   `NAMESPACE_SCOPES` and `LEGACY_CODE_SCOPES` keyed by `FormulaOwner` (the attachment point),
   `KNOWN_NAMESPACES`, and `scopeFor(config, owner)`. A new attachment point is a **new row here**,

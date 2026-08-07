@@ -9,6 +9,7 @@ import * as storage from '../services/storage';
 import type {
   CombatSkill,
   CurrencyTier,
+  Curve,
   EquipmentSlot,
   Item,
   MainSkill,
@@ -1046,6 +1047,99 @@ describe('ConfigStore', () => {
       useConfigStore.getState().updateConstant(divider?.id as string, { name: 'bonus_scale' });
 
       expect(useConfigStore.getState().config?.stats[0].formula).toBe('10 / const.bonus_scale');
+    });
+  });
+
+  describe('Curves (TICKET-CRV-01)', () => {
+    const curve: Curve = {
+      id: 'id-xp',
+      name: 'xp_thresholds',
+      displayName: 'XP thresholds',
+      description: 'Cumulative XP required per level',
+      keyName: 'level',
+      columns: [{ id: 'col-xp', name: 'xp_required' }],
+      rows: [
+        { key: 1, values: [0] },
+        { key: 2, values: [300] },
+      ],
+      interpolation: 'step',
+      outOfRange: 'extrapolate',
+      lookupDirection: 'reverse',
+    };
+
+    beforeEach(() => {
+      useConfigStore.getState().initializeConfig('Test');
+      useCharacterStore.setState({ characters: [], isLoaded: true });
+      vi.clearAllMocks();
+    });
+
+    it('starts with no curves — a fresh ruleset seeds none', () => {
+      expect(useConfigStore.getState().config?.curves).toBeUndefined();
+    });
+
+    it('adds, updates and deletes through the store, persisting each time', () => {
+      useConfigStore.getState().addCurve(curve);
+      expect(storage.saveConfiguration).toHaveBeenCalledTimes(1);
+      expect(useConfigStore.getState().config?.curves).toHaveLength(1);
+
+      useConfigStore.getState().updateCurve('id-xp', { interpolation: 'linear' });
+      expect(useConfigStore.getState().config?.curves?.[0].interpolation).toBe('linear');
+
+      expect(useConfigStore.getState().deleteCurve('id-xp')).toEqual([]);
+      expect(useConfigStore.getState().config?.curves).toEqual([]);
+      expect(storage.saveConfiguration).toHaveBeenCalledTimes(3);
+    });
+
+    it('refuses to delete a curve a formula calls, and says which', () => {
+      useConfigStore.getState().addCurve(curve);
+      useConfigStore.getState().addStat({
+        id: 'id-level',
+        name: 'Level',
+        description: '',
+        formula: 'curve.xp_thresholds(STR)',
+      });
+
+      const references = useConfigStore.getState().deleteCurve('id-xp');
+
+      expect(references.map((reference) => reference.holderName)).toEqual(['Level']);
+      expect(useConfigStore.getState().config?.curves).toHaveLength(1);
+    });
+
+    it('re-spells every formula calling a curve when its identifier is renamed', () => {
+      useConfigStore.getState().addCurve(curve);
+      useConfigStore.getState().addStat({
+        id: 'id-level',
+        name: 'Level',
+        description: '',
+        formula: 'curve.xp_thresholds(STR)',
+      });
+
+      useConfigStore.getState().updateCurve('id-xp', { name: 'level_table' });
+
+      expect(useConfigStore.getState().config?.stats[0].formula).toBe('curve.level_table(STR)');
+    });
+
+    it('keeps the column segment when it re-spells a call that names one', () => {
+      useConfigStore.getState().addCurve({
+        ...curve,
+        columns: [
+          { id: 'col-a', name: 'low' },
+          { id: 'col-b', name: 'high' },
+        ],
+        rows: [{ key: 1, values: [0, 1] }],
+      });
+      useConfigStore.getState().addStat({
+        id: 'id-level',
+        name: 'Level',
+        description: '',
+        formula: 'curve.xp_thresholds.high(STR)',
+      });
+
+      useConfigStore.getState().updateCurve('id-xp', { name: 'level_table' });
+
+      expect(useConfigStore.getState().config?.stats[0].formula).toBe(
+        'curve.level_table.high(STR)'
+      );
     });
   });
 });

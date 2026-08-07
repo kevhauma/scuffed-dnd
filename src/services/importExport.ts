@@ -115,6 +115,100 @@ function validateOptionalNonNegativeNumber(value: unknown, field: string): strin
   return null;
 }
 
+/** What a name a formula spells must look like — shared by constants and curve columns */
+const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/;
+
+/** The enum values a curve's three modes accept (Concept 06) */
+const CURVE_MODES = {
+  interpolation: ['step', 'linear'],
+  outOfRange: ['clamp', 'extrapolate', 'error'],
+  lookupDirection: ['forward', 'reverse'],
+} as const;
+
+/**
+ * Shape errors for one curve of an imported configuration
+ *
+ * Structure only — that the fields exist and hold the right kinds of thing. Whether the *rows*
+ * make a readable table (sorted, unique keys, the right number of values) is
+ * `engine/validator.ts`'s report, because a curve can be structurally fine and still be a table
+ * nobody can look anything up in.
+ *
+ * @param curve - One element of `config.curves`
+ * @param index - Its position, for the message
+ * @param seenNames - Names already used, mutated as each is accepted
+ * @returns The errors found, empty when the shape is sound
+ */
+function curveShapeErrors(
+  curve: Record<string, unknown>,
+  index: number,
+  seenNames: Set<string>
+): string[] {
+  const errors: string[] = [];
+
+  if (typeof curve.name !== 'string' || !IDENTIFIER_PATTERN.test(curve.name)) {
+    errors.push(`curves[${index}].name must be a lowercase identifier`);
+  } else if (seenNames.has(curve.name)) {
+    // A duplicate splits identity from behaviour: a stored formula points at one curve's id
+    // while the resolver reads the other's table (the `constants` rule, same reason)
+    errors.push(`curves[${index}].name must be unique`);
+  } else {
+    seenNames.add(curve.name);
+  }
+
+  if (typeof curve.displayName !== 'string') {
+    errors.push(`curves[${index}].displayName must be a string`);
+  }
+
+  // Both are required by the type, so a file missing either imports and then renders a report
+  // reading `…has more than one row for undefined 3`
+  if (typeof curve.description !== 'string') {
+    errors.push(`curves[${index}].description must be a string`);
+  }
+  if (typeof curve.keyName !== 'string' || curve.keyName.length === 0) {
+    errors.push(`curves[${index}].keyName is required`);
+  }
+
+  for (const [field, allowed] of Object.entries(CURVE_MODES)) {
+    if (!(allowed as readonly string[]).includes(curve[field] as string)) {
+      errors.push(`curves[${index}].${field} must be one of: ${allowed.join(', ')}`);
+    }
+  }
+
+  if (!Array.isArray(curve.columns) || curve.columns.length === 0) {
+    errors.push(`curves[${index}].columns must be a non-empty array`);
+  } else if (
+    curve.columns.some((column: unknown) => {
+      if (!column || typeof column !== 'object') return true;
+      // A column name is a formula segment now — `curve.point_buy.main_type(3)` — so a column
+      // called `Main Type` would be unreachable from any formula and unnameable in an error
+      const name = (column as Record<string, unknown>).name;
+      return typeof name !== 'string' || !IDENTIFIER_PATTERN.test(name);
+    })
+  ) {
+    errors.push(`curves[${index}].columns entries must each have a lowercase identifier name`);
+  }
+
+  const columnCount = Array.isArray(curve.columns) ? curve.columns.length : 0;
+  if (!Array.isArray(curve.rows)) {
+    errors.push(`curves[${index}].rows must be an array`);
+  } else if (
+    curve.rows.some((row: unknown) => {
+      if (!row || typeof row !== 'object') return true;
+      const candidate = row as Record<string, unknown>;
+      return (
+        typeof candidate.key !== 'number' ||
+        !Array.isArray(candidate.values) ||
+        candidate.values.length !== columnCount ||
+        candidate.values.some((value: unknown) => typeof value !== 'number')
+      );
+    })
+  ) {
+    errors.push(`curves[${index}].rows entries must have a numeric key and one value per column`);
+  }
+
+  return errors;
+}
+
 /**
  * Validate configuration structure
  *
@@ -253,7 +347,7 @@ export function validateConfiguration(data: unknown): ValidationResult {
           return;
         }
         const c = constant as Record<string, unknown>;
-        if (typeof c.name !== 'string' || !/^[a-z][a-z0-9_]*$/.test(c.name)) {
+        if (typeof c.name !== 'string' || !IDENTIFIER_PATTERN.test(c.name)) {
           errors.push(`constants[${index}].name must be a lowercase identifier`);
         } else if (seenNames.has(c.name)) {
           // A duplicate splits identity from value: the stored formula points at one constant's
@@ -272,6 +366,24 @@ export function validateConfiguration(data: unknown): ValidationResult {
         if (typeof c.value !== 'number') {
           errors.push(`constants[${index}].value must be a number`);
         }
+      });
+    }
+  }
+
+  // Validate curves structure — absent is valid, so files predating TICKET-CRV-01 still import.
+  // The row *contents* (sorted, unique keys) are `engine/validator.ts`'s job: a ruleset that
+  // imports with a badly ordered curve is reportable, not unreadable.
+  if (config.curves !== undefined) {
+    if (!Array.isArray(config.curves)) {
+      errors.push("Field 'curves' must be an array when present");
+    } else {
+      const seenNames = new Set<string>();
+      config.curves.forEach((curve: unknown, index: number) => {
+        if (!curve || typeof curve !== 'object') {
+          errors.push(`curves[${index}] must be an object`);
+          return;
+        }
+        errors.push(...curveShapeErrors(curve as Record<string, unknown>, index, seenNames));
       });
     }
   }

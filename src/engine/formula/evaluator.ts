@@ -14,8 +14,9 @@
  * Bugs in the *engine* still throw: an unknown AST node type or operator means the parser and
  * evaluator disagree, and no ruleset edit can cause it.
  *
- * Namespaced calls (`curve.cr(x)`) evaluate to a `not-evaluable` error until TICKET-CRV-01 lands
- * curve lookup.
+ * Namespaced calls (`curve.cr(x)`) go through the namespace resolver's optional `call`, so the
+ * evaluator stays ignorant of what a curve is — it evaluates the arguments, propagates the first
+ * error among them, and hands over numbers.
  *
  * **Validates: Requirements 16.1, 16.6, 3.4, 4.4, 5.4; Concepts 00 §5, 00 §7, 01, 02; spec §5.1, §5.3, §5.5**
  */
@@ -83,10 +84,7 @@ export function evaluateFormula(ast: FormulaAST, context: FormulaContext): Formu
       return evaluateNamespacedRef(ast.namespace, ast.member, context, ast.property);
 
     case 'namespaced_call':
-      return formulaError(
-        'not-evaluable',
-        `${ast.namespace}.${ast.member}(…) cannot be evaluated yet — curve lookups arrive with TICKET-CRV-01`
-      );
+      return evaluateNamespacedCall(ast.namespace, ast.member, ast.args, context, ast.property);
 
     default: {
       // TypeScript exhaustiveness check
@@ -155,6 +153,43 @@ function evaluateCall(name: string, args: FormulaAST[], context: FormulaContext)
   }
 
   return fn.apply(values);
+}
+
+/**
+ * Call a namespace member, propagating the first errored argument
+ *
+ * A namespace with no `call` has no callable members at all, which is a different mistake from
+ * naming one that does not exist — `const.bonus_divider(2)` is worth its own message.
+ */
+function evaluateNamespacedCall(
+  namespace: string,
+  member: string,
+  args: FormulaAST[],
+  context: FormulaContext,
+  property?: string
+): FormulaResult {
+  const resolver = context.namespaces?.[namespace];
+  if (!resolver) {
+    return formulaError('unknown-namespace', `Unknown namespace: ${namespace}`);
+  }
+
+  if (!resolver.call) {
+    return formulaError('not-evaluable', `${namespace}.${member} is not callable`);
+  }
+
+  const values: number[] = [];
+  for (const arg of args) {
+    const value = evaluateFormula(arg, context);
+    if (isFormulaError(value)) return value;
+    values.push(value);
+  }
+
+  // Returned as-is when it is an error: unlike a reference, a call that fails failed *here*, so
+  // there is no upstream to name and wrapping it would only bury the message the User needs.
+  const result = resolver.call(member, values, property);
+  return result === undefined
+    ? formulaError('unknown-member', `Unknown member: ${namespace}.${member}`)
+    : result;
 }
 
 /**

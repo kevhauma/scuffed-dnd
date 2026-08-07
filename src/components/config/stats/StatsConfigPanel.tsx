@@ -82,7 +82,7 @@ export function StatsConfigPanel() {
               key={stat.id}
               stat={stat}
               availableSkillCodes={availableSkillCodes}
-              constants={config.constants ?? []}
+              namespaceSource={config}
               onEdit={handleEdit}
               onDelete={handleDelete}
             />

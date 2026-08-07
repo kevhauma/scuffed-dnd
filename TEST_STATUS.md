@@ -1,17 +1,18 @@
 # Test Status
 
-_Last verified: 2026-08-04 (`npx vitest run`), after
-[TICKET-FORM-06](docs/v2.0_sheet_core/tickets/TICKET-FORM-06-error-chips-on-the-sheet.md)._
+_Last verified: 2026-08-07 (`npx vitest run`), after
+[TICKET-CRV-01](docs/v2.0_sheet_core/tickets/TICKET-CRV-01-curve-entity-and-lookup.md)._
 
 ## Summary
 
-- **Total tests**: 898
-- **Passing**: 898 (100%)
+- **Total tests**: 981
+- **Passing**: 981 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's formula-engine tickets added
-+43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), and +11 (FORM-06). FORM-02/03/04 only
+Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's tickets added
++43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), +11 (FORM-06), +7 (CALC-02),
++11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02) and +64 (CRV-01). FORM-02/03/04 only
 appended. FORM-05 also **rewrote** ~14 assertions that asserted the throwing contract it replaced,
 and FORM-06 replaced one sheet test that asserted the whole-sheet error page it removed — see
 those tickets' implementation notes.
@@ -99,7 +100,7 @@ and are documented here so a future regression is distinguishable from this nois
 
 | File | Error |
 | --- | --- |
-| `src/engine/formula/evaluator.ts:62,75` | TS2339 — `operator` does not exist on type `never`; the switch has narrowed the AST union to nothing by these arms. These line numbers drift whenever the evaluator changes (48,59 → 51,62 → 54,65 → 62,75 across FORM-02/03/04/05) — **match on the message, not the line** |
+| `src/engine/formula/evaluator.ts:63,76` | TS2339 — `operator` does not exist on type `never`; the switch has narrowed the AST union to nothing by these arms. These line numbers drift whenever the evaluator changes (48,59 → 51,62 → 54,65 → 62,75 → 63,76 across FORM-02/03/04/05 and CRV-01) — **match on the message, not the line** |
 | `src/components/ui/Button/Button.test.tsx:68` | TS2339 — `.disabled` read off `HTMLElement` |
 | `src/services/importExport.test.ts:399` | TS2352 — `Blob`-shaped literal cast to `File` |
 

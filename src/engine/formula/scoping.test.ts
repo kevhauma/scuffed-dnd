@@ -103,10 +103,37 @@ describe('scopeFor', () => {
     expect(scope.namespaces.stats).toBeDefined();
   });
 
-  it('provides const and curve with no members until their entities exist', () => {
+  it('provides const and curve with no members when the ruleset has neither', () => {
     const scope = scopeFor(createConfig(), 'stat');
     expect(scope.namespaces.const?.size).toBe(0);
     expect(scope.namespaces.curve?.size).toBe(0);
+  });
+
+  it('publishes each curve by name (TICKET-CRV-01)', () => {
+    const scope = scopeFor(
+      createConfig({
+        curves: [
+          {
+            id: 'id-xp',
+            name: 'xp_thresholds',
+            displayName: 'XP thresholds',
+            description: '',
+            keyName: 'level',
+            columns: [{ id: 'col', name: 'xp_required' }],
+            rows: [{ key: 1, values: [0] }],
+            interpolation: 'step',
+            outOfRange: 'error',
+            lookupDirection: 'reverse',
+          },
+        ],
+      }),
+      'stat'
+    );
+
+    // The *column* is a third segment rather than a member, so it is not published here —
+    // which column a call names is checked at evaluation, where the curve itself is in hand
+    expect(scope.namespaces.curve?.has('xp_thresholds')).toBe(true);
+    expect(scope.namespaces.curve?.has('xp_required')).toBe(false);
   });
 
   it('tracks the configuration rather than a snapshot', () => {

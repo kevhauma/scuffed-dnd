@@ -7,11 +7,12 @@
  * - Material categories referenced by materials exist
  * - No circular dependencies in formulas
  * - Currency tier references are valid
+ * - Curve tables are readable — unique, sorted keys with a value per column (Concept 06)
  *
- * **Validates: Requirements 18.1, 18.2, 18.3, 18.4, 18.5**
+ * **Validates: Requirements 18.1, 18.2, 18.3, 18.4, 18.5; Concept 06**
  */
 
-import type { Configuration } from '../types/config';
+import type { Configuration, Curve } from '../types/config';
 import { scopeFor } from './formula/scoping';
 import type { FormulaDependency } from './formula/validator';
 import {
@@ -304,10 +305,146 @@ export function validateConfiguration(config: Configuration): ValidationReport {
     }
   }
 
+  // Validate curve tables (Concept 06)
+  for (const curve of config.curves ?? []) {
+    errors.push(...curveTableErrors(curve));
+    warnings.push(...curveTableWarnings(curve));
+  }
+
   return {
     isValid: errors.length === 0,
     errors,
     warnings,
     timestamp: new Date().toISOString(),
   };
+}
+
+/**
+ * Row problems that make a curve unreadable (Concept 06's validation rules)
+ *
+ * Duplicate and unsorted keys are errors rather than warnings because a lookup cannot be
+ * well-defined over either: two rows claiming the same key disagree about the answer, and an
+ * unsorted table is one somebody edited by hand and expected to be read in order.
+ *
+ * @param curve - The curve to check
+ * @returns One issue per problem found
+ */
+function curveTableErrors(curve: Curve): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const entity = { entityType: 'Curve', entityId: curve.id, entityName: curve.displayName };
+
+  if (curve.columns.length === 0) {
+    issues.push({
+      severity: 'error',
+      category: 'Curve Validation',
+      message: `Curve "${curve.displayName}" has no value columns`,
+      ...entity,
+    });
+  }
+
+  const seenKeys = new Set<number>();
+  for (const [index, row] of curve.rows.entries()) {
+    if (seenKeys.has(row.key)) {
+      issues.push({
+        severity: 'error',
+        category: 'Curve Validation',
+        message: `Curve "${curve.displayName}" has more than one row for ${curve.keyName} ${row.key}`,
+        ...entity,
+      });
+    }
+    seenKeys.add(row.key);
+
+    if (index > 0 && row.key < curve.rows[index - 1].key) {
+      issues.push({
+        severity: 'error',
+        category: 'Curve Validation',
+        message: `Curve "${curve.displayName}" rows are not sorted by ${curve.keyName}: ${row.key} follows ${curve.rows[index - 1].key}`,
+        ...entity,
+      });
+    }
+
+    if (row.values.length !== curve.columns.length) {
+      issues.push({
+        severity: 'error',
+        category: 'Curve Validation',
+        message: `Curve "${curve.displayName}" row ${row.key} has ${row.values.length} value(s) for ${curve.columns.length} column(s)`,
+        ...entity,
+      });
+    }
+  }
+
+  issues.push(...reverseColumnErrors(curve, entity));
+
+  return issues;
+}
+
+/**
+ * Value columns a reverse lookup could not read in order
+ *
+ * A reverse curve is read along its *value* column — "given 3,412 XP, what level?" — so that
+ * column has to ascend for the question to have one answer. A column that doubles back makes two
+ * keys equally correct, and the engine has to pick one; naming it here is what stops the User
+ * from ever meeting that arbitrary choice.
+ *
+ * @param curve - The curve to check; only `reverse` ones have this constraint
+ * @param entity - The entity fields shared by every issue about this curve
+ * @returns One issue per column that decreases
+ */
+function reverseColumnErrors(
+  curve: Curve,
+  entity: Pick<ValidationIssue, 'entityType' | 'entityId' | 'entityName'>
+): ValidationIssue[] {
+  if (curve.lookupDirection !== 'reverse') return [];
+
+  return curve.columns.flatMap((column, columnIndex) => {
+    const values = curve.rows.map((row) => row.values[columnIndex]);
+    const dropsAt = values.findIndex(
+      (value, index) => index > 0 && typeof value === 'number' && value < values[index - 1]
+    );
+
+    return dropsAt === -1
+      ? []
+      : [
+          {
+            severity: 'error' as const,
+            category: 'Curve Validation',
+            message: `Curve "${curve.displayName}" is read in reverse, so column "${column.name}" must not decrease — it drops from ${values[dropsAt - 1]} to ${values[dropsAt]}`,
+            ...entity,
+          },
+        ];
+  });
+}
+
+/**
+ * Row problems worth flagging but not refusing
+ *
+ * Concept 06's gap rule, as written there: with `step` interpolation, a gap wider than the average
+ * step means a wide band of inputs silently collapses onto one output. That is sometimes
+ * deliberate — the challenge rating table is exactly that shape — so it is a warning the User
+ * confirms, not an error.
+ *
+ * @param curve - The curve to check
+ * @returns One issue per unusually wide gap
+ */
+function curveTableWarnings(curve: Curve): ValidationIssue[] {
+  if (curve.interpolation !== 'step' || curve.rows.length < 3) return [];
+
+  const gaps = curve.rows.slice(1).map((row, index) => row.key - curve.rows[index].key);
+  const averageGap = gaps.reduce((total, gap) => total + gap, 0) / gaps.length;
+  if (averageGap <= 0) return [];
+
+  return gaps.flatMap((gap, index) =>
+    gap > averageGap
+      ? [
+          {
+            severity: 'warning' as const,
+            category: 'Curve Validation',
+            message: `Curve "${curve.displayName}" jumps from ${curve.rows[index].key} to ${curve.rows[index + 1].key}, so every ${curve.keyName} between them reads the same value`,
+            entityType: 'Curve',
+            entityId: curve.id,
+            entityName: curve.displayName,
+          },
+        ]
+      : []
+  );
 }

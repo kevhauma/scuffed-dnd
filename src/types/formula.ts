@@ -78,12 +78,18 @@ export interface NamespacedRefNode {
 }
 
 /**
- * Namespaced call node — `curve.cr(x)` (parse-only until TICKET-CRV-01 lands evaluation)
+ * Namespaced call node — `curve.cr(x)`, `curve.point_buy.main_type(x)`
+ *
+ * `property` selects *which* output the call produces — a curve's value column. It is a third
+ * segment rather than a second argument because an argument is an expression, and a bare
+ * identifier in an expression is already a variable reference: the grammar could not tell a
+ * column name from a skill code (TICKET-CRV-01, divergence note).
  */
 export interface NamespacedCallNode {
   type: 'namespaced_call';
   namespace: string;
   member: string;
+  property?: string;
   args: FormulaAST[];
 }
 
@@ -101,6 +107,8 @@ export type FormulaErrorKind =
   | 'unknown-namespace'
   | 'unknown-member'
   | 'division-by-zero'
+  /** A curve was asked for a key outside its table and is configured to refuse (Concept 06) */
+  | 'out-of-range'
   | 'not-evaluable'
   /** This value could not be calculated because one it reads could not be (see `cause`) */
   | 'upstream';
@@ -144,9 +152,22 @@ export type FormulaResult = number | FormulaError;
  * Returns `undefined` for an unknown member/property — the evaluator turns that into an
  * "Unknown member" error, distinct from an undefined bare variable. A resolver may also return
  * an error value, which propagates like any other.
+ *
+ * `call` backs the call form (`curve.xp_thresholds(x)`). A resolver without it has no callable
+ * members, which the evaluator reports as such rather than as an unknown member — `const.x(1)`
+ * is a different mistake from `const.nope`.
  */
 export interface NamespaceResolver {
   resolve(member: string, property?: string): FormulaResult | undefined;
+  /**
+   * Call a member with already-evaluated arguments.
+   *
+   * @param member - The member named before the parentheses
+   * @param args - Evaluated arguments; errors are propagated by the evaluator, never passed here
+   * @param property - The third segment, when one was written (a curve's value column)
+   * @returns The result, or `undefined` when the member does not exist
+   */
+  call?(member: string, args: number[], property?: string): FormulaResult | undefined;
 }
 
 /**

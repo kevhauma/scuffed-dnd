@@ -460,4 +460,98 @@ describe('Import/Export Service', () => {
       ]);
     });
   });
+
+  describe('curves round-trip (TICKET-CRV-01)', () => {
+    const withCurves = (): Configuration => ({
+      ...validConfig,
+      curves: [
+        {
+          id: 'id-xp',
+          name: 'xp_thresholds',
+          displayName: 'XP thresholds',
+          description: 'Cumulative XP per level',
+          keyName: 'level',
+          columns: [{ id: 'col-xp', name: 'xp_required' }],
+          rows: [
+            { key: 1, values: [0] },
+            { key: 2, values: [300] },
+          ],
+          interpolation: 'step',
+          outOfRange: 'extrapolate',
+          lookupDirection: 'reverse',
+        },
+      ],
+      stats: [
+        { id: 'health', name: 'Health', description: '', formula: 'curve.xp_thresholds(10)' },
+      ],
+    });
+
+    it('survives export then import, call and all', () => {
+      const config = withCurves();
+      const exported = exportedText(config);
+
+      // The persisted formula points at the curve's id…
+      expect((JSON.parse(exported) as Configuration).stats[0].formula).toBe('curve.[id-xp](10)');
+      // …and comes back spelled by name, with the table intact
+      expect(importConfiguration(exported)).toEqual(config);
+    });
+
+    it('accepts a file that predates the entity, leaving it absent', () => {
+      const { curves: _dropped, ...legacy } = withCurves();
+
+      expect(validateConfiguration(legacy).isValid).toBe(true);
+    });
+
+    it('rejects a curve with a bad identifier, an unknown mode, or a mis-sized row', () => {
+      const [sound] = withCurves().curves ?? [];
+      const broken = {
+        ...withCurves(),
+        curves: [
+          { ...sound, id: 'a', name: 'Bad Name' },
+          { ...sound, id: 'b', name: 'ok_name', interpolation: 'wobbly' },
+          { ...sound, id: 'c', name: 'also_ok', rows: [{ key: 1, values: [0, 9] }] },
+          { ...sound, id: 'd', name: 'third_ok', columns: [] },
+        ],
+      };
+
+      const result = validateConfiguration(broken);
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toEqual([
+        'curves[0].name must be a lowercase identifier',
+        'curves[1].interpolation must be one of: step, linear',
+        'curves[2].rows entries must have a numeric key and one value per column',
+        'curves[3].columns must be a non-empty array',
+        'curves[3].rows entries must have a numeric key and one value per column',
+      ]);
+    });
+
+    it('rejects a curve missing a required text field, or a column not spelled as an identifier', () => {
+      const [sound] = withCurves().curves ?? [];
+      const { keyName: _dropped, ...noKeyName } = sound;
+
+      const result = validateConfiguration({
+        ...withCurves(),
+        curves: [
+          noKeyName,
+          { ...sound, id: 'b', name: 'ok_name', columns: [{ id: 'c', name: 'Main Type' }] },
+        ],
+      });
+
+      expect(result.errors).toEqual([
+        'curves[0].keyName is required',
+        'curves[1].columns entries must each have a lowercase identifier name',
+      ]);
+    });
+
+    it('rejects two curves claiming the same name', () => {
+      const [sound] = withCurves().curves ?? [];
+      const result = validateConfiguration({
+        ...withCurves(),
+        curves: [sound, { ...sound, id: 'other' }],
+      });
+
+      expect(result.errors).toContain('curves[1].name must be unique');
+    });
+  });
 });

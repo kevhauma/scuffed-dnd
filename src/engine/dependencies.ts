@@ -24,11 +24,11 @@ import { validateFormula } from './formula/validator';
 /**
  * The kinds of entity a delete can target
  *
- * One row per guarded delete action. `curve` joins it with TICKET-CRV-01; it has no entity to
- * point at yet.
+ * One row per guarded delete action.
  */
 export type ReferenceTargetKind =
   | 'constant'
+  | 'curve'
   | 'main-skill'
   | 'speciality-skill'
   | 'combat-skill'
@@ -319,6 +319,13 @@ export function findReferences(
       return constant
         ? formulaReferences(config, namesMember('const', constant.name), target.id)
         : [];
+    }
+
+    case 'curve': {
+      const curve = (config.curves ?? []).find((candidate) => candidate.id === target.id);
+      // A call contributes a namespaced reference like any other, so the same matcher finds
+      // `curve.cr(x)` and `curve.point_buy.main_type(9)` alike (TICKET-CRV-01)
+      return curve ? formulaReferences(config, namesMember('curve', curve.name), target.id) : [];
     }
 
     case 'race':

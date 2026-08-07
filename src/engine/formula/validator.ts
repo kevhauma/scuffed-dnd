@@ -120,7 +120,11 @@ function extractNamespacedReferences(ast: FormulaAST): NamespacedReference[] {
         ...(node.property === undefined ? {} : { property: node.property }),
       });
     } else if (node.type === 'namespaced_call') {
-      references.push({ namespace: node.namespace, member: node.member });
+      references.push({
+        namespace: node.namespace,
+        member: node.member,
+        ...(node.property === undefined ? {} : { property: node.property }),
+      });
     }
   });
 
