@@ -16,7 +16,7 @@ import { validateConfiguration } from '../../../engine/validator';
 import { useConfigStore } from '../../../stores/configStore';
 import { useUIStore } from '../../../stores/uiStore';
 
-/** The seven configuration areas, in the order the dashboard lists them — reached via `sections` */
+/** The eight configuration areas, in the order the dashboard lists them — reached via `sections` */
 const CONFIG_SECTIONS = [
   { to: '/config/skills', label: 'Skills', description: 'Main, speciality, and combat skills' },
   {
@@ -28,6 +28,11 @@ const CONFIG_SECTIONS = [
   { to: '/config/items', label: 'Items', description: 'Items and equipment slots' },
   { to: '/config/races', label: 'Races', description: 'Races and their skill modifiers' },
   { to: '/config/currency', label: 'Currency', description: 'Currency tiers and conversion rates' },
+  {
+    to: '/config/constants',
+    label: 'Constants',
+    description: 'Named numbers your formulas share',
+  },
   { to: '/config/focus', label: 'Focus Stat', description: 'Bonus level granted by a focus stat' },
 ] as const;
 

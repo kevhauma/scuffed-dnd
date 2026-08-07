@@ -1,7 +1,7 @@
 /**
  * Config Dashboard
  *
- * Configuration mode's entry point: the ruleset's validation status, the seven areas to configure,
+ * Configuration mode's entry point: the ruleset's validation status, the eight areas to configure,
  * and the action that produces a full validation report. Layout and composition only — the
  * decisions live in `useConfigDashboard`.
  *

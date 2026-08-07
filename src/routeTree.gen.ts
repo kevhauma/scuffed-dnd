@@ -20,6 +20,7 @@ import { Route as ConfigMaterialsRouteImport } from './routes/config/materials'
 import { Route as ConfigItemsRouteImport } from './routes/config/items'
 import { Route as ConfigFocusRouteImport } from './routes/config/focus'
 import { Route as ConfigCurrencyRouteImport } from './routes/config/currency'
+import { Route as ConfigConstantsRouteImport } from './routes/config/constants'
 import { Route as PlayCharacterIdRouteImport } from './routes/play/character.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -77,6 +78,11 @@ const ConfigCurrencyRoute = ConfigCurrencyRouteImport.update({
   path: '/config/currency',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConfigConstantsRoute = ConfigConstantsRouteImport.update({
+  id: '/config/constants',
+  path: '/config/constants',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlayCharacterIdRoute = PlayCharacterIdRouteImport.update({
   id: '/play/character/$id',
   path: '/play/character/$id',
@@ -85,6 +91,7 @@ const PlayCharacterIdRoute = PlayCharacterIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/config/constants': typeof ConfigConstantsRoute
   '/config/currency': typeof ConfigCurrencyRoute
   '/config/focus': typeof ConfigFocusRoute
   '/config/items': typeof ConfigItemsRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/config/constants': typeof ConfigConstantsRoute
   '/config/currency': typeof ConfigCurrencyRoute
   '/config/focus': typeof ConfigFocusRoute
   '/config/items': typeof ConfigItemsRoute
@@ -114,6 +122,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/config/constants': typeof ConfigConstantsRoute
   '/config/currency': typeof ConfigCurrencyRoute
   '/config/focus': typeof ConfigFocusRoute
   '/config/items': typeof ConfigItemsRoute
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/config/constants'
     | '/config/currency'
     | '/config/focus'
     | '/config/items'
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/config/constants'
     | '/config/currency'
     | '/config/focus'
     | '/config/items'
@@ -158,6 +169,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/config/constants'
     | '/config/currency'
     | '/config/focus'
     | '/config/items'
@@ -173,6 +185,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ConfigConstantsRoute: typeof ConfigConstantsRoute
   ConfigCurrencyRoute: typeof ConfigCurrencyRoute
   ConfigFocusRoute: typeof ConfigFocusRoute
   ConfigItemsRoute: typeof ConfigItemsRoute
@@ -265,6 +278,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfigCurrencyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/config/constants': {
+      id: '/config/constants'
+      path: '/config/constants'
+      fullPath: '/config/constants'
+      preLoaderRoute: typeof ConfigConstantsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/play/character/$id': {
       id: '/play/character/$id'
       path: '/play/character/$id'
@@ -277,6 +297,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ConfigConstantsRoute: ConfigConstantsRoute,
   ConfigCurrencyRoute: ConfigCurrencyRoute,
   ConfigFocusRoute: ConfigFocusRoute,
   ConfigItemsRoute: ConfigItemsRoute,

@@ -43,6 +43,11 @@ Identity rules that the rest of the app depends on:
   speciality and combat skills, whose `code` is now renamable display data rather than the
   identity. The store actions still *address* a skill by code (`updateMainSkill('STR', …)`) —
   that is a lookup argument, not the key. `EquipmentSlot` is still keyed by `type`.
+- **A constant's `name` is a lowercase identifier (`^[a-z][a-z0-9_]*$`) and unique.** It is what a
+  formula spells as `const.<name>`, and a duplicate splits identity from value — the stored formula
+  points at one constant's id while `constantsNamespace` reads the other's number. Enforced in two
+  places, both required: `validateConfiguration()` for untrusted import, and `useConstantManager`'s
+  save path for User input (TICKET-CST-02).
 - **Codes must stay unique across skill kinds.** One formula namespace serves all three, and the
   display form of a formula would be ambiguous otherwise. (TICKET-REF-01's to-be floated
   downgrading this to a warning; it is deliberately *not* done — see that ticket's divergence
@@ -73,7 +78,10 @@ Identity rules that the rest of the app depends on:
   [engine/dependencies.ts](../../../src/engine/dependencies.ts) — pure over `(target, config,
   characters)`, so characters count as references (`raceIds`, inventories, allocations, current
   stat values). Panels render the returned list via `config/shared/BlockedDeleteDialog`; **no
-  component derives references**. A forced delete leaves the dependents dangling on purpose:
+  component derives references to decide whether a delete is safe** — that judgement is the store
+  action's. Calling `findReferences` for *display* is fine and TICKET-CST-02 does it:
+  `useConstantManager` builds a usage index so each constant's card can show its blast radius.
+  A forced delete leaves the dependents dangling on purpose:
   the ruleset alone defines the main-skill namespace, so a formula naming the deleted code
   reports `Undefined variable` rather than reading a leftover allocation as a number.
   `engine/validator.ts` stays as the after-the-fact report for what an import brings in.

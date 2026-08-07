@@ -22,6 +22,7 @@ const CONFIG_NAV = [
   { to: '/config/items', label: 'Items' },
   { to: '/config/races', label: 'Races' },
   { to: '/config/currency', label: 'Currency' },
+  { to: '/config/constants', label: 'Constants' },
   { to: '/config/focus', label: 'Focus Stat' },
 ] as const;
 

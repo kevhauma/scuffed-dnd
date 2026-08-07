@@ -36,13 +36,14 @@ rather than a read-only config UI).
 | Route | File | State |
 |---|---|---|
 | `/` | `routes/index.tsx` | landing page, feature overview |
-| `/config` | `routes/config/index.tsx` | `ConfigDashboard` (components/config/dashboard/) — validation status, the "Validate Configuration" action, the `ConfigTransferPanel` (rename/export/import), and a card index of the seven sections below |
+| `/config` | `routes/config/index.tsx` | `ConfigDashboard` (components/config/dashboard/) — validation status, the "Validate Configuration" action, the `ConfigTransferPanel` (rename/export/import), and a card index of the eight sections below |
 | `/config/skills` | `routes/config/skills.tsx` | `MainSkillsPanel` + `SpecialitySkillsPanel` + `CombatSkillsPanel` |
 | `/config/stats` | `routes/config/stats.tsx` | `StatsConfigPanel` |
 | `/config/materials` | `routes/config/materials.tsx` | `MaterialsConfigPanel` |
 | `/config/items` | `routes/config/items.tsx` | `ItemsConfigPanel` + `EquipmentSlotsConfigPanel` |
 | `/config/races` | `routes/config/races.tsx` | `RacesConfigPanel` |
 | `/config/currency` | `routes/config/currency.tsx` | `CurrencyConfigPanel` (which renders `ConversionCalculator` once tiers exist) |
+| `/config/constants` | `routes/config/constants.tsx` | `ConstantsConfigPanel` — named tunables (`const.*`), each card listing the formulas that name it |
 | `/config/focus` | `routes/config/focus.tsx` | `FocusStatConfig` |
 | `/play` | `routes/play/index.tsx` | `CharacterList` — the play-mode entry point |
 | `/play/create` | `routes/play/create.tsx` | `CharacterCreationWizard` — the four-step wizard |
@@ -73,7 +74,7 @@ calls the storage service; components and hooks never persist directly.
 
 | Store | Owns | Persists to |
 |---|---|---|
-| `useConfigStore` | the single `Configuration` — main/speciality/combat skills, stats, materials + categories, items, equipment slots, races, currency tiers, focus-stat bonus level. CRUD action per entity (`addX`/`updateX`/`deleteX`) | `saveConfiguration()` on every mutation |
+| `useConfigStore` | the single `Configuration` — main/speciality/combat skills, stats, materials + categories, items, equipment slots, races, currency tiers, constants, focus-stat bonus level. CRUD action per entity (`addX`/`updateX`/`deleteX`) | `saveConfiguration()` on every mutation |
 | `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`) and `updateCurrentStatValue(s)` | `saveCharacters()` on every mutation |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history | not persisted |
 
@@ -213,7 +214,7 @@ import the engine to decide what to draw.
 
 **`config/` — configuration-mode features**, one folder per domain
 (`skills/{main,speciality,combat,shared}`, `stats/`, `materials/`, `items/`, `races/`,
-`currency/`, `focus/`). Each domain repeats the same four-part shape:
+`currency/`, `constants/`, `focus/`). Each domain repeats the same four-part shape:
 
 - `XConfigPanel.tsx` — layout + composition only
 - `XCard.tsx` — one row/entity

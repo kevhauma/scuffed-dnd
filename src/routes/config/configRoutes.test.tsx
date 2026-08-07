@@ -41,6 +41,9 @@ vi.mock('../../components/config/races/RacesConfigPanel', () => ({
 vi.mock('../../components/config/currency/CurrencyConfigPanel', () => ({
   CurrencyConfigPanel: () => <div data-testid="currency-config-panel" />,
 }));
+vi.mock('../../components/config/constants/ConstantsConfigPanel', () => ({
+  ConstantsConfigPanel: () => <div data-testid="constants-config-panel" />,
+}));
 vi.mock('../../components/config/focus/FocusStatConfig', () => ({
   FocusStatConfig: () => <div data-testid="focus-stat-config" />,
 }));
@@ -56,6 +59,7 @@ vi.mock('../../services/storage', () => ({
 
 import { loadConfiguration } from '../../services/storage';
 import { useConfigStore } from '../../stores/configStore';
+import { ConstantsConfig } from './constants';
 import { CurrencyConfig } from './currency';
 import { FocusConfig } from './focus';
 import { ConfigIndex } from './index';
@@ -105,6 +109,12 @@ describe('configuration routes', () => {
     expect(screen.getByTestId('currency-config-panel')).toBeDefined();
   });
 
+  it('/config/constants renders the constants panel', () => {
+    render(<ConstantsConfig />);
+
+    expect(screen.getByTestId('constants-config-panel')).toBeDefined();
+  });
+
   it('/config/focus renders the focus stat configuration', () => {
     render(<FocusConfig />);
 
@@ -119,6 +129,7 @@ describe('configuration routes', () => {
       ItemsConfig,
       RacesConfig,
       CurrencyConfig,
+      ConstantsConfig,
       FocusConfig,
     ]) {
       const { container, unmount } = render(<Page />);
