@@ -1119,6 +1119,68 @@ describe('ConfigStore', () => {
       expect(useConfigStore.getState().config?.stats[0].formula).toBe('curve.level_table(STR)');
     });
 
+    it('regenerates a curve through the store, persisting the result (TICKET-CRV-02)', () => {
+      useConfigStore.getState().addCurve({
+        ...curve,
+        columns: [{ id: 'col-xp', name: 'xp_required', generator: 'const.points_per_level * key' }],
+        rows: [
+          { key: 1, values: [0] },
+          { key: 2, values: [0], overridden: [true] },
+        ],
+      });
+      vi.clearAllMocks();
+
+      const report = useConfigStore.getState().regenerateCurve('id-xp');
+
+      // `points_per_level` is a seeded constant worth 3, so row 1 becomes 3 and row 2 is kept
+      expect(report).toEqual({ written: 1, kept: 1, errors: [] });
+      expect(
+        useConfigStore.getState().config?.curves?.[0].rows.map((row) => row.values[0])
+      ).toEqual([3, 0]);
+      expect(storage.saveConfiguration).toHaveBeenCalledTimes(1);
+    });
+
+    it('re-spells a generator when a constant it names is renamed (TICKET-CRV-02)', () => {
+      useConfigStore.getState().addCurve({
+        ...curve,
+        columns: [{ id: 'col-xp', name: 'xp_required', generator: 'key * const.points_per_level' }],
+      });
+      const perLevel = useConfigStore
+        .getState()
+        .config?.constants?.find((constant) => constant.name === 'points_per_level');
+
+      useConfigStore.getState().updateConstant(perLevel?.id as string, { name: 'xp_step' });
+
+      // A generator is a persisted formula, so it is id-resolved like every other (TICKET-REF-01)
+      expect(useConfigStore.getState().config?.curves?.[0].columns[0].generator).toBe(
+        'key * const.xp_step'
+      );
+    });
+
+    it('refuses to delete a constant a generator names, and says which', () => {
+      useConfigStore.getState().addCurve({
+        ...curve,
+        columns: [{ id: 'col-xp', name: 'xp_required', generator: 'key * const.points_per_level' }],
+      });
+      const perLevel = useConfigStore
+        .getState()
+        .config?.constants?.find((constant) => constant.name === 'points_per_level');
+
+      const references = useConfigStore.getState().deleteConstant(perLevel?.id as string);
+
+      expect(references.map((reference) => reference.field)).toEqual(['generator']);
+      expect(useConfigStore.getState().config?.constants?.some((c) => c.id === perLevel?.id)).toBe(
+        true
+      );
+    });
+
+    it('reports nothing and writes nothing for a curve that is not there', () => {
+      const report = useConfigStore.getState().regenerateCurve('missing');
+
+      expect(report).toEqual({ written: 0, kept: 0, errors: [] });
+      expect(storage.saveConfiguration).not.toHaveBeenCalled();
+    });
+
     it('keeps the column segment when it re-spells a call that names one', () => {
       useConfigStore.getState().addCurve({
         ...curve,

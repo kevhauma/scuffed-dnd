@@ -306,5 +306,30 @@ describe('findReferences', () => {
 
       expect(findReferences({ kind: 'constant', id: 'id-div' }, config, [])).toEqual([]);
     });
+
+    it('finds a constant named only from a curve generator (TICKET-CRV-02)', () => {
+      // A generator is user-authored formula text, so it guards a delete like any other formula
+      const config = withConstant();
+      config.stats = [];
+      config.curves = [
+        {
+          id: 'id-xp',
+          name: 'xp_thresholds',
+          displayName: 'XP thresholds',
+          description: '',
+          keyName: 'level',
+          columns: [{ id: 'col-xp', name: 'xp_required', generator: 'key * const.bonus_divider' }],
+          rows: [{ key: 1, values: [0] }],
+          interpolation: 'step',
+          outOfRange: 'clamp',
+          lookupDirection: 'forward',
+        },
+      ];
+
+      const references = findReferences({ kind: 'constant', id: 'id-div' }, config, []);
+
+      expect(holders(references)).toEqual(['Curve Column: XP thresholds · xp_required']);
+      expect(references[0].field).toBe('generator');
+    });
   });
 });

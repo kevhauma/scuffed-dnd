@@ -16,10 +16,9 @@ import { statMemberName } from './references';
  * Where a formula is attached. One row of the scoping tables below.
  *
  * This milestone's slice of the Concept 00 §5 context table — the attachment points that exist
- * today. Later tickets add rows (constants-as-formulas, curve generators, roll inputs); they do
- * not add branches.
+ * today. Later tickets add rows (constants-as-formulas, roll inputs); they do not add branches.
  */
-export type FormulaOwner = 'stat' | 'speciality-skill' | 'combat-skill';
+export type FormulaOwner = 'stat' | 'speciality-skill' | 'combat-skill' | 'curve-generator';
 
 /**
  * Every namespace the engine knows about, regardless of context.
@@ -66,6 +65,10 @@ export const NAMESPACE_SCOPES: Record<FormulaOwner, readonly FormulaNamespace[]>
   'speciality-skill': ['stats', 'const'],
   // Roll input, on its way to becoming a roll definition (TICKET-ROLL-05)
   'combat-skill': ['stats', 'skills', 'const', 'curve'],
+  // A curve column's generator (Concept 06): the row's key and the ruleset's tunables, nothing
+  // else. Deliberately not `curve` — a table generated from another table is a cycle waiting to
+  // happen, and no seed needs it (TICKET-CRV-02).
+  'curve-generator': ['const'],
 };
 
 /**
@@ -79,6 +82,22 @@ const LEGACY_CODE_SCOPES: Record<FormulaOwner, readonly ('main' | 'speciality')[
   stat: ['main'],
   'speciality-skill': ['main'],
   'combat-skill': ['main', 'speciality'],
+  // A generator sees no skill at all — it fills a table, not a character (TICKET-CRV-02)
+  'curve-generator': [],
+};
+
+/**
+ * Bare names an attachment point supplies itself, rather than drawing from the configuration
+ *
+ * A curve generator runs once per row with that row's key bound, which the User writes as `key`
+ * and the parser normalises to `KEY` like any other bare identifier. Kept as a table row so it
+ * stays the same kind of thing as every other scope rule.
+ */
+const CONTEXT_CODES: Record<FormulaOwner, readonly string[]> = {
+  stat: [],
+  'speciality-skill': [],
+  'combat-skill': [],
+  'curve-generator': ['KEY'],
 };
 
 /**
@@ -122,7 +141,7 @@ function membersOf(config: Configuration): Record<FormulaNamespace, ReadonlySet<
 export function scopeFor(config: Configuration, owner: FormulaOwner): FormulaScope {
   const members = membersOf(config);
 
-  const codes = new Set<string>();
+  const codes = new Set<string>(CONTEXT_CODES[owner]);
   for (const source of LEGACY_CODE_SCOPES[owner]) {
     const collection = source === 'main' ? config.mainSkills : config.specialitySkills;
     for (const entry of collection) {

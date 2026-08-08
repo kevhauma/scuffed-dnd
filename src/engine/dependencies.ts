@@ -133,6 +133,21 @@ function formulaSources(config: Configuration): { reference: EntityReference; fo
       },
       formula: skill.bonusFormula,
     })),
+    // A curve column's generator is user-authored formula text like any other (TICKET-CRV-02),
+    // so a constant named only from one still blocks that constant's delete
+    ...(config.curves ?? []).flatMap((curve) =>
+      curve.columns
+        .filter((column) => column.generator !== undefined)
+        .map((column) => ({
+          reference: {
+            holderKind: 'Curve Column',
+            holderName: `${curve.displayName} · ${column.name}`,
+            field: 'generator',
+            holderId: column.id,
+          },
+          formula: column.generator as string,
+        }))
+    ),
   ];
 }
 

@@ -46,6 +46,7 @@ describe('formula scoping tables', () => {
   it('declares a namespace row for every attachment point', () => {
     expect(Object.keys(NAMESPACE_SCOPES).sort()).toEqual([
       'combat-skill',
+      'curve-generator',
       'speciality-skill',
       'stat',
     ]);
@@ -107,6 +108,24 @@ describe('scopeFor', () => {
     const scope = scopeFor(createConfig(), 'stat');
     expect(scope.namespaces.const?.size).toBe(0);
     expect(scope.namespaces.curve?.size).toBe(0);
+  });
+
+  it('gives a curve generator the row key and the constants, and nothing else (TICKET-CRV-02)', () => {
+    const scope = scopeFor(
+      createConfig({
+        mainSkills: [{ id: 'str', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      }),
+      'curve-generator'
+    );
+
+    // `key` as the User writes it; the parser normalises bare identifiers to uppercase
+    expect(scope.codes.has('KEY')).toBe(true);
+    // A generator fills a table, not a character, so no skill is in scope
+    expect(scope.codes.has('STR')).toBe(false);
+    expect(scope.namespaces.const).toBeDefined();
+    // Deliberately absent: a table generated from another table is a cycle waiting to happen
+    expect(scope.namespaces.curve).toBeUndefined();
+    expect(scope.namespaces.stats).toBeUndefined();
   });
 
   it('publishes each curve by name (TICKET-CRV-01)', () => {

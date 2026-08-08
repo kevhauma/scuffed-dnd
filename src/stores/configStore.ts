@@ -11,6 +11,8 @@
  */
 
 import { create } from 'zustand';
+import type { RegenerationReport } from '../engine/curveGenerator';
+import { regenerateCurve as regenerateCurveTable } from '../engine/curveGenerator';
 import type { EntityReference, ReferenceTargetKind } from '../engine/dependencies';
 import { findReferences } from '../engine/dependencies';
 import { toDisplayConfiguration, toStoredConfiguration } from '../engine/formula/references';
@@ -115,6 +117,8 @@ interface ConfigState {
   addCurve: (curve: Curve) => void;
   updateCurve: (id: string, updates: Partial<Curve>) => void;
   deleteCurve: (id: string, options?: DeleteOptions) => EntityReference[];
+  /** Refill a curve's generated cells, keeping every override (TICKET-CRV-02) */
+  regenerateCurve: (id: string) => RegenerationReport;
 
   // Focus Stat Configuration
   setFocusStatBonusLevel: (level: number) => void;
@@ -691,6 +695,28 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       ...config,
       curves: (config.curves ?? []).filter((curve) => curve.id !== id),
     })),
+
+  regenerateCurve: (id: string) => {
+    const empty: RegenerationReport = { written: 0, kept: 0, errors: [] };
+
+    const { config } = get();
+    const curve = (config?.curves ?? []).find((candidate) => candidate.id === id);
+    if (!config || !curve) return empty;
+
+    // The engine decides what the table becomes and reports what it did; the store's job is to
+    // put the result somewhere and persist it
+    const { curve: regenerated, report } = regenerateCurveTable(curve, config);
+
+    const updated = autoSave({
+      ...config,
+      curves: (config.curves ?? []).map((candidate) =>
+        candidate.id === id ? regenerated : candidate
+      ),
+    });
+    set({ config: updated });
+
+    return report;
+  },
 
   // Focus Stat Configuration
   setFocusStatBonusLevel: (level: number) => {

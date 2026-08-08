@@ -13,6 +13,7 @@
  */
 
 import type { Configuration, Curve } from '../types/config';
+import type { FormulaScope } from './formula/scoping';
 import { scopeFor } from './formula/scoping';
 import type { FormulaDependency } from './formula/validator';
 import {
@@ -305,9 +306,11 @@ export function validateConfiguration(config: Configuration): ValidationReport {
     }
   }
 
-  // Validate curve tables (Concept 06)
+  // Validate curve tables (Concept 06). Generators are formulas like any other, so they are
+  // judged against their own row of the scoping table.
+  const generatorScope = scopeFor(config, 'curve-generator');
   for (const curve of config.curves ?? []) {
-    errors.push(...curveTableErrors(curve));
+    errors.push(...curveTableErrors(curve, generatorScope));
     warnings.push(...curveTableWarnings(curve));
   }
 
@@ -327,9 +330,10 @@ export function validateConfiguration(config: Configuration): ValidationReport {
  * unsorted table is one somebody edited by hand and expected to be read in order.
  *
  * @param curve - The curve to check
+ * @param generatorScope - What a generator formula on this ruleset may reference
  * @returns One issue per problem found
  */
-function curveTableErrors(curve: Curve): ValidationIssue[] {
+function curveTableErrors(curve: Curve, generatorScope: FormulaScope): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const entity = { entityType: 'Curve', entityId: curve.id, entityName: curve.displayName };
 
@@ -374,8 +378,43 @@ function curveTableErrors(curve: Curve): ValidationIssue[] {
   }
 
   issues.push(...reverseColumnErrors(curve, entity));
+  issues.push(...generatorErrors(curve, generatorScope, entity));
 
   return issues;
+}
+
+/**
+ * Generator formulas that would not produce a number (TICKET-CRV-02)
+ *
+ * Checked against the `curve-generator` row of the scoping table, the same way every other
+ * formula in the ruleset is checked against its own attachment point — a generator sees the
+ * row's `key` and `const.*`, and nothing else.
+ *
+ * @param curve - The curve whose columns to check
+ * @param scope - The `curve-generator` scope for this configuration
+ * @param entity - The entity fields shared by every issue about this curve
+ * @returns One issue per column whose generator does not validate
+ */
+function generatorErrors(
+  curve: Curve,
+  scope: FormulaScope,
+  entity: Pick<ValidationIssue, 'entityType' | 'entityId' | 'entityName'>
+): ValidationIssue[] {
+  return curve.columns.flatMap((column) => {
+    if (column.generator === undefined) return [];
+
+    const result = validateFormula(column.generator, scope.codes, scope);
+    return result.isValid
+      ? []
+      : [
+          {
+            severity: 'error' as const,
+            category: 'Curve Validation',
+            message: `Curve "${curve.displayName}" column "${column.name}" generator: ${result.errors.join(', ')}`,
+            ...entity,
+          },
+        ];
+  });
 }
 
 /**

@@ -1,18 +1,18 @@
 # Test Status
 
 _Last verified: 2026-08-07 (`npx vitest run`), after
-[TICKET-CRV-01](docs/v2.0_sheet_core/tickets/TICKET-CRV-01-curve-entity-and-lookup.md)._
+[TICKET-CRV-02](docs/v2.0_sheet_core/tickets/TICKET-CRV-02-curve-generators-and-overrides.md)._
 
 ## Summary
 
-- **Total tests**: 981
-- **Passing**: 981 (100%)
+- **Total tests**: 1013
+- **Passing**: 1013 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
 Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's tickets added
 +43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), +11 (FORM-06), +7 (CALC-02),
-+11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02) and +64 (CRV-01). FORM-02/03/04 only
++11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02), +64 (CRV-01) and +32 (CRV-02). FORM-02/03/04 only
 appended. FORM-05 also **rewrote** ~14 assertions that asserted the throwing contract it replaced,
 and FORM-06 replaced one sheet test that asserted the whole-sheet error page it removed — see
 those tickets' implementation notes.

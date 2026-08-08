@@ -167,6 +167,12 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   integrity: formula refs, equipment slot types, material categories, circular formulas). It is
   the *after the fact* report — `dependencies.ts` is the *before the fact* guard, and both stay:
   the validator still catches what an import brings in.
+- `curveGenerator.ts` — **generate, overlay overrides, show both** (TICKET-CRV-02):
+  `regenerateCurve(curve, source)` → `{ curve, report }`, plus `setCurveCell` and
+  `clearCurveOverride`. A column may carry a `generator` formula evaluated per row with the row's
+  key bound as `key`; a cell flagged `overridden` is kept and counted rather than refilled, which
+  is what stops a regeneration from quietly rebalancing the ruleset. Pure — `configStore`'s
+  `regenerateCurve(id)` action is what persists the result.
 - `currency.ts` — `convertCurrency(value, toTierId, tiers)`, `normalizeCurrency(value, tiers)` (the
   highest tier where the amount is still ≥ 1 — what Req 10.4's "appropriate tier" means here) and
   `formatCurrency(value, tiers)`. Conversion is arithmetic over a configured rate, **not** a

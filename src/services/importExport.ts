@@ -186,6 +186,15 @@ function curveShapeErrors(
     })
   ) {
     errors.push(`curves[${index}].columns entries must each have a lowercase identifier name`);
+  } else if (
+    curve.columns.some((column: unknown) => {
+      const generator = (column as Record<string, unknown>).generator;
+      return generator !== undefined && typeof generator !== 'string';
+    })
+  ) {
+    // Absent is valid — a hand-entered column has no generator (TICKET-CRV-02). Whether a present
+    // one *evaluates* is `engine/validator.ts`'s report, like every other formula.
+    errors.push(`curves[${index}].columns generators must be strings when present`);
   }
 
   const columnCount = Array.isArray(curve.columns) ? curve.columns.length : 0;
@@ -204,6 +213,24 @@ function curveShapeErrors(
     })
   ) {
     errors.push(`curves[${index}].rows entries must have a numeric key and one value per column`);
+  } else if (
+    curve.rows.some((row: unknown) => {
+      // Absent is valid and means "nothing overridden", which is how a curve written before
+      // TICKET-CRV-02 loads unchanged
+      const flags = (row as Record<string, unknown>).overridden;
+      return (
+        flags !== undefined &&
+        (!Array.isArray(flags) ||
+          // Shorter is sanctioned — a missing flag reads as false. Longer flags a cell that does
+          // not exist, and `withCell` would silently drop it.
+          flags.length > columnCount ||
+          flags.some((flag: unknown) => typeof flag !== 'boolean'))
+      );
+    })
+  ) {
+    errors.push(
+      `curves[${index}].rows overridden must be an array of booleans, one per column at most`
+    );
   }
 
   return errors;

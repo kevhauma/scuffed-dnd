@@ -72,6 +72,7 @@ Identity and the two new config concepts:
 - [x] [TICKET-CRV-01](./tickets/TICKET-CRV-01-curve-entity-and-lookup.md) — Curve entity and lookup engine (Concept 06) — RES-01 (reverse) and ARC-02 (multi-column) consume it. **Carries a syntax divergence**: the multi-column call is `curve.name.column(x)`, not the to-be's `curve.name(x, column)`, which the grammar cannot express — see the ticket's implementation note 1. Pure engine, so no browser criterion
 - [ ] [TICKET-CRV-02](./tickets/TICKET-CRV-02-curve-generators-and-overrides.md) — Curve generators with preserved overrides (Concepts 06, 00 §1.1) — the generate-and-overlay machinery
 - [ ] [TICKET-CRV-03](./tickets/TICKET-CRV-03-curves-panel-and-seeds.md) — Curves panel and the `point_buy` / `xp_thresholds` seeds (Concept 06) — UI + seeds for CRV-01/02
+- [ ] [TICKET-FORM-07](./tickets/TICKET-FORM-07-exponentiation.md) — Exponentiation in the formula engine (Concept 06, spec §5.3) — **carries a decision**: `^` operator or `pow()` function. Raised by TICKET-CRV-02, which found that Concept 06's own XP generator cannot be written: the engine's arithmetic is `+ - * /` and nothing else, so every progression is a straight line. Independent of the curve UI, but **RES-01 wants it** — a curve-derived level is only interesting once the curve can curve
 
 The schema rework:
 

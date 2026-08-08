@@ -33,7 +33,8 @@ The UI for CRV-01/CRV-02 plus the two seed curves the rest of the milestone cons
 ## Acceptance criteria
 
 - [ ] Grid CRUD (rows, cells, settings) persists through store actions; component tests cover editing and the override highlight.
-- [ ] Regenerate in the panel shows the kept-overrides report; guarded delete via REF-02.
+- [ ] Regenerate in the panel shows the kept-overrides report; guarded delete via REF-02. The report's `errors` carry `{ key, column, error }` (TICKET-CRV-02), so a failing cell is highlighted from the address rather than by parsing a message.
+- [ ] **Adding or removing a column splices `rows[].values` and `rows[].overridden` together.** Both are positional against `columns` and `updateCurve` replaces wholesale, so a caller that rewrites `columns` alone shifts every override flag onto the wrong cell. CRV-02 states the invariant and nothing yet enforces it; this is the ticket that makes column editing reachable.
 - [ ] The `point_buy` seed reproduces `main = 0.75 × (points + 1)` for every generated row and the 15-point row exactly (also a DX-04 fixture later).
 - [ ] Panel follows the domain shape, `ui/` primitives, theme tokens only; export/import round-trips both seeds.
 - [ ] The form enforces, for User input, the two rules TICKET-CRV-01 could only enforce at the import boundary: a curve's `name` and each column's `name` are lowercase identifiers, and curve names are unique. A duplicate splits identity (`curve.[id]`) from behaviour (the other curve's table) — the same argument as [TICKET-CST-02](./TICKET-CST-02-constants-panel.md)'s, which closed the equivalent gap for constants.

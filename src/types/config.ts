@@ -246,18 +246,30 @@ export type CurveLookupDirection = 'forward' | 'reverse';
 export interface CurveColumn {
   id: string; // Stable identity
   name: string; // Identifier used in formulas — renamable display data
+  /**
+   * Formula filling this column, evaluated once per row (Concept 06, TICKET-CRV-02).
+   *
+   * The row's key is in scope as `key`, alongside `const.*`. Absent means the column is
+   * hand-entered — regeneration leaves it alone entirely, which is not the same as a generator
+   * that happens to produce the stored numbers.
+   */
+  generator?: string;
 }
 
 /**
  * One row of a curve: an input key and one value per column
  *
- * `values` is positional against `columns`. TICKET-CRV-02 adds generators, where a cell is either
- * generated or a deliberate override; that arrives as an **additional** field beside `values`
- * (which cells were overridden), so nothing here has to change shape for it.
+ * `values` is positional against `columns`, and so is `overridden` — one addressing rule per row,
+ * so adding or removing a column splices both arrays the same way.
+ *
+ * `overridden[i]` means "this cell was hand-tuned; regeneration must not touch it" (Concept 00
+ * §1.1). Absent, or shorter than `values`, reads as `false` — which is what makes the field
+ * additive: every curve written before TICKET-CRV-02 loads as fully generated.
  */
 export interface CurveRow {
   key: number;
   values: number[];
+  overridden?: boolean[];
 }
 
 /**

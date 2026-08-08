@@ -323,6 +323,21 @@ function translateConfiguration(
       ...skill,
       bonusFormula: translateFormula(skill.bonusFormula, index),
     })),
+    // A curve column's generator is a persisted formula too (TICKET-CRV-02), so renaming a
+    // constant re-spells it like every other. `key` survives untouched — it is not an entity, so
+    // the index has nothing to resolve it to.
+    ...(config.curves
+      ? {
+          curves: config.curves.map((curve) => ({
+            ...curve,
+            columns: curve.columns.map((column) =>
+              column.generator === undefined
+                ? column
+                : { ...column, generator: translateFormula(column.generator, index) }
+            ),
+          })),
+        }
+      : {}),
     races: config.races.map((race) => ({
       ...race,
       skillModifiers: race.skillModifiers.map((modifier) => ({

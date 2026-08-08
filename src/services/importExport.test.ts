@@ -544,6 +544,86 @@ describe('Import/Export Service', () => {
       ]);
     });
 
+    it('round-trips a generated column and its override flags (TICKET-CRV-02)', () => {
+      const [sound] = withCurves().curves ?? [];
+      const config: Configuration = {
+        ...withCurves(),
+        curves: [
+          {
+            ...sound,
+            columns: [{ ...sound.columns[0], generator: 'key * 100' }],
+            rows: [
+              { key: 1, values: [0] },
+              { key: 2, values: [42], overridden: [true] },
+            ],
+          },
+        ],
+      };
+
+      expect(validateConfiguration(config).isValid).toBe(true);
+      expect(importConfiguration(exportedText(config))).toEqual(config);
+    });
+
+    it('rejects a non-string generator or a non-boolean override flag', () => {
+      const [sound] = withCurves().curves ?? [];
+      const result = validateConfiguration({
+        ...withCurves(),
+        curves: [
+          { ...sound, columns: [{ ...sound.columns[0], generator: 42 }] },
+          {
+            ...sound,
+            id: 'b',
+            name: 'ok_name',
+            rows: [{ key: 1, values: [0], overridden: ['yes'] }],
+          },
+        ],
+      });
+
+      expect(result.errors).toEqual([
+        'curves[0].columns generators must be strings when present',
+        'curves[1].rows overridden must be an array of booleans, one per column at most',
+      ]);
+    });
+
+    it('rejects an override flag for a column that does not exist', () => {
+      const [sound] = withCurves().curves ?? [];
+      const result = validateConfiguration({
+        ...withCurves(),
+        // One column, two flags — the extra one would be silently dropped
+        curves: [{ ...sound, rows: [{ key: 1, values: [0], overridden: [true, true] }] }],
+      });
+
+      expect(result.errors).toContain(
+        'curves[0].rows overridden must be an array of booleans, one per column at most'
+      );
+    });
+
+    it('id-resolves a generator so it survives a rename on either side (TICKET-CRV-02)', () => {
+      const [sound] = withCurves().curves ?? [];
+      const config: Configuration = {
+        ...withCurves(),
+        constants: [
+          {
+            id: 'id-step',
+            name: 'xp_step',
+            displayName: 'XP step',
+            description: 'XP per level',
+            value: 300,
+          },
+        ],
+        curves: [
+          { ...sound, columns: [{ ...sound.columns[0], generator: 'key * const.xp_step' }] },
+        ],
+      };
+
+      const exported = exportedText(config);
+
+      expect((JSON.parse(exported) as Configuration).curves?.[0].columns[0].generator).toBe(
+        'key * const.[id-step]'
+      );
+      expect(importConfiguration(exported)).toEqual(config);
+    });
+
     it('rejects two curves claiming the same name', () => {
       const [sound] = withCurves().curves ?? [];
       const result = validateConfiguration({

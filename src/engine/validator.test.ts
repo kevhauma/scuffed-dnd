@@ -878,6 +878,44 @@ describe('validateConfiguration', () => {
       expect(errors).toEqual([]);
     });
 
+    it('reports a generator formula that would not produce a number (TICKET-CRV-02)', () => {
+      const { errors } = curveIssues(
+        withCurve({ columns: [{ id: 'col', name: 'value', generator: 'const.nope * key' }] })
+      );
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0].message).toContain('column "value" generator');
+      expect(errors[0].message).toContain('const.nope');
+    });
+
+    it('accepts a generator naming the row key and a configured constant', () => {
+      const config = withCurve({
+        columns: [{ id: 'col', name: 'value', generator: 'const.step * (key + 1)' }],
+      });
+      config.constants = [
+        {
+          id: 'id-step',
+          name: 'step',
+          displayName: 'Step',
+          description: 'Growth per level',
+          value: 5,
+        },
+      ];
+
+      expect(curveIssues(config).errors).toEqual([]);
+    });
+
+    it('refuses a generator reaching for a skill code, which a table cannot see', () => {
+      const config = withCurve({
+        columns: [{ id: 'col', name: 'value', generator: 'STR * 2' }],
+      });
+      config.mainSkills = [
+        { id: 'str', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+      ];
+
+      expect(curveIssues(config).errors[0].message).toContain('Undefined variable: STR');
+    });
+
     it('does not warn about gaps when the curve interpolates', () => {
       const { warnings } = curveIssues(
         withCurve({

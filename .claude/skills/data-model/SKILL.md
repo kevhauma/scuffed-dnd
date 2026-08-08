@@ -49,11 +49,20 @@ Identity rules that the rest of the app depends on:
   points at one constant's id while `constantsNamespace` reads the other's number. Enforced in two
   places, both required: `validateConfiguration()` for untrusted import, and `useConstantManager`'s
   save path for User input (TICKET-CST-02).
-- **A curve's `name` follows the same identifier rule as a constant's**, and its `rows` must
-  carry unique keys sorted ascending with one value per column — `engine/validator.ts` reports
-  each as an error, and a `step` curve with a gap wider than its average step as a warning
-  (TICKET-CRV-01). A curve's `name` is rename-safe like every other identifier; its **column
-  names are not** — a column is a property, and properties have never been id-resolved.
+- **A curve's `name` follows the same identifier rule as a constant's**, and so does each of its
+  **column names**, which are formula segments (`curve.point_buy.main_type(3)`). Its `rows` must
+  carry unique keys sorted ascending with one value per column, and a `reverse` curve's value
+  column must not decrease — `engine/validator.ts` reports each as an error, and a `step` curve
+  with a gap wider than its average step as a warning (TICKET-CRV-01). A curve's `name` is
+  rename-safe like every other identifier; its **column names are not** — a column is a property,
+  and properties have never been id-resolved.
+- **A curve column may be generated.** `CurveColumn.generator` is a formula evaluated once per row
+  with the key bound as `key` (plus `const.*` — its own `curve-generator` row in
+  `engine/formula/scoping.ts`), and `CurveRow.overridden` is a positional flag array marking cells
+  a User hand-tuned. Both are optional and absent means the pre-TICKET-CRV-02 state: no generator
+  = hand-entered column, no flags = nothing overridden. `engine/curveGenerator.ts` owns the
+  regenerate/edit/clear semantics; an all-`false` flag array is normalised back to absent so a
+  curve round-trips unchanged.
 - **Codes must stay unique across skill kinds.** One formula namespace serves all three, and the
   display form of a formula would be ambiguous otherwise. (TICKET-REF-01's to-be floated
   downgrading this to a warning; it is deliberately *not* done — see that ticket's divergence
