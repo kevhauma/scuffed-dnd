@@ -1,18 +1,19 @@
 # Test Status
 
-_Last verified: 2026-08-07 (`npx vitest run`), after
-[TICKET-CRV-02](docs/v2.0_sheet_core/tickets/TICKET-CRV-02-curve-generators-and-overrides.md)._
+_Last verified: 2026-08-08 (`npx vitest run`), after
+[TICKET-FORM-07](docs/v2.0_sheet_core/tickets/TICKET-FORM-07-exponentiation.md)._
 
 ## Summary
 
-- **Total tests**: 1013
-- **Passing**: 1013 (100%)
+- **Total tests**: 1040
+- **Passing**: 1040 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
 Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's tickets added
 +43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), +11 (FORM-06), +7 (CALC-02),
-+11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02), +64 (CRV-01) and +32 (CRV-02). FORM-02/03/04 only
++11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02), +64 (CRV-01),
++32 (CRV-02) and +27 (FORM-07). FORM-02/03/04 only
 appended. FORM-05 also **rewrote** ~14 assertions that asserted the throwing contract it replaced,
 and FORM-06 replaced one sheet test that asserted the whole-sheet error page it removed — see
 those tickets' implementation notes.
@@ -20,7 +21,7 @@ those tickets' implementation notes.
 **The suite is green. The bar is "the suite passes", not "no new failures beyond a documented
 list".** Any failing test is a regression.
 
-`npx tsc --noEmit` is **not** clean — see [Typecheck](#typecheck-9-pre-existing-errors) below.
+`npx tsc --noEmit` is **not** clean — see [Typecheck](#typecheck-2-known-errors) below.
 
 ## The React 19 hooks-dispatcher failure — resolved
 
@@ -93,18 +94,23 @@ One FormulaEditor test was **removed, not fixed**: it drove `value` by rerender 
 value changes leave its `error` stale. That is a genuine component bug, tracked separately — the
 fix touches a base primitive used by three form dialogs and needs its own browser check.
 
-## Typecheck: 4 known errors
+## Typecheck: 2 known errors
 
-`npx tsc --noEmit` exits non-zero with 4 errors. **None are new.** They predate the ticket workflow
-and are documented here so a future regression is distinguishable from this noise:
+`npx tsc --noEmit` exits non-zero with 2 errors. **Neither is new.** They predate the ticket
+workflow and are documented here so a future regression is distinguishable from this noise:
 
 | File | Error |
 | --- | --- |
-| `src/engine/formula/evaluator.ts:63,76` | TS2339 — `operator` does not exist on type `never`; the switch has narrowed the AST union to nothing by these arms. These line numbers drift whenever the evaluator changes (48,59 → 51,62 → 54,65 → 62,75 → 63,76 across FORM-02/03/04/05 and CRV-01) — **match on the message, not the line** |
 | `src/components/ui/Button/Button.test.tsx:68` | TS2339 — `.disabled` read off `HTMLElement` |
 | `src/services/importExport.test.ts:399` | TS2352 — `Blob`-shaped literal cast to `File` |
 
-The `evaluator.ts` pair is the one worth a real look; the other two are test-typing noise.
+Both are test-typing noise. The two `evaluator.ts` errors that stood beside them for five tickets
+are **gone as of TICKET-FORM-07**: `operator` does not exist on type `never` was the switch
+narrowing `ast` itself to nothing in its `default` arm, and adding the `^` operator meant
+rewriting that switch anyway. Taking the operator as a *parameter* (`applyBinary`, `applyUnary`)
+narrows the parameter instead, so `const _exhaustive: never = operator` compiles — the same
+exhaustiveness idiom `dependencies.ts` and `curves.ts` already use. The check got stronger, not
+weaker: an unhandled operator is now a compile error rather than a runtime throw.
 
 **Was 9 until TICKET-DX-02**, which cleared five as a side effect of fixing the matching lint
 errors: the two dead `BaseSkillPanel` props, the unused `React` and `FormulaAST` imports, and the

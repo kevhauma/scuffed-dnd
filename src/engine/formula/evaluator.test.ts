@@ -2,8 +2,10 @@
  * Formula Evaluator Tests
  */
 
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import type { FormulaContext, FormulaResult, NamespaceResolver } from '../../types/formula';
+import { isFormulaError } from './errors';
 import { evaluateFormula, evaluateFormulaString } from './evaluator';
 import { parseFormula } from './parser';
 
@@ -534,5 +536,122 @@ describe('Namespaced references (TICKET-FORM-03)', () => {
       kind: 'unknown-member',
       message: 'Unknown member: fn.nope',
     });
+  });
+});
+
+describe('Exponentiation (TICKET-FORM-07)', () => {
+  const empty: FormulaContext = { variables: {} };
+
+  function evaluatePower(formula: string, context: FormulaContext = empty) {
+    return evaluateFormulaString(formula, context);
+  }
+
+  it('should raise a number to a power', () => {
+    expect(evaluatePower('2 ^ 10')).toBe(1024);
+    expect(evaluatePower('9 ^ 0.5')).toBe(3);
+    expect(evaluatePower('2 ^ -2')).toBe(0.25);
+    expect(evaluatePower('5 ^ 0')).toBe(1);
+  });
+
+  it('should evaluate the associativity the parser gives it', () => {
+    expect(evaluatePower('2 ^ 3 ^ 2')).toBe(512);
+    expect(evaluatePower('(2 ^ 3) ^ 2')).toBe(64);
+  });
+
+  it('should evaluate the precedence the parser gives it', () => {
+    expect(evaluatePower('2 * 3 ^ 2')).toBe(18);
+    expect(evaluatePower('1 + 2 ^ 3')).toBe(9);
+    // Excel's reading of unary minus — the ticket's decision note
+    expect(evaluatePower('-2 ^ 2')).toBe(4);
+  });
+
+  it('should refuse a negative base under a fractional power', () => {
+    const result = evaluatePower('-8 ^ 0.5');
+
+    expect(isFormulaError(result)).toBe(true);
+    if (!isFormulaError(result)) return;
+    expect(result.kind).toBe('not-evaluable');
+    expect(result.message).toContain('no real value');
+  });
+
+  it('should refuse zero under a negative power as the division by zero it is', () => {
+    const result = evaluatePower('0 ^ -1');
+
+    expect(isFormulaError(result)).toBe(true);
+    if (!isFormulaError(result)) return;
+    expect(result.kind).toBe('division-by-zero');
+  });
+
+  it('should refuse a result too large to represent', () => {
+    const result = evaluatePower('10 ^ 400');
+
+    expect(isFormulaError(result)).toBe(true);
+    if (!isFormulaError(result)) return;
+    expect(result.kind).toBe('not-evaluable');
+    expect(result.message).toContain('too large');
+  });
+
+  it('should let a refusal propagate through the rest of the expression', () => {
+    // Never a NaN or an Infinity reaching a character sheet (Concept 00 §7)
+    const result = evaluatePower('0 ^ -1 + 5');
+
+    expect(isFormulaError(result)).toBe(true);
+  });
+
+  it('should propagate an errored operand without computing', () => {
+    const result = evaluatePower('STR ^ 2');
+
+    expect(isFormulaError(result)).toBe(true);
+    if (isFormulaError(result)) expect(result.kind).toBe('undefined-variable');
+  });
+});
+
+describe('no arithmetic result escapes as NaN or Infinity (TICKET-FORM-07)', () => {
+  const empty: FormulaContext = { variables: {} };
+
+  /** The overflow cases that live one operator past the `^` guard */
+  const escapes = [
+    '10 ^ 200 * 10 ^ 200',
+    '10 ^ 200 * 10 ^ 200 - 10 ^ 200 * 10 ^ 200',
+    '10 ^ 200 * 10 ^ 200 * 0',
+    '10 ^ 200 * 10 ^ 200 + 1',
+    '10 ^ 200 / (10 ^ -200)',
+    'round(10 ^ 200 * 10 ^ 200)',
+  ];
+
+  for (const formula of escapes) {
+    it(`should refuse \`${formula}\` rather than answering with a non-number`, () => {
+      const result = evaluateFormulaString(formula, empty);
+
+      expect(isFormulaError(result)).toBe(true);
+    });
+  }
+
+  it('should hold the invariant for any expression the grammar can build', () => {
+    // The property the example cases above are instances of: whatever arithmetic a User writes,
+    // the answer is a number they can use or an error they can read — never NaN, never Infinity.
+    const operand = fc.oneof(
+      fc.double({ min: -1e12, max: 1e12, noNaN: true }),
+      fc.constantFrom(0, 1, -1, 1e308, -1e308, 1e-308)
+    );
+    const operator = fc.constantFrom('+', '-', '*', '/', '^');
+
+    const expression: fc.Arbitrary<string> = fc.letrec<{ node: string }>((tie) => ({
+      node: fc.oneof(
+        { depthSize: 'small' },
+        operand.map((value) => `(${value})`),
+        fc.tuple(tie('node'), operator, tie('node')).map(([l, op, r]) => `(${l} ${op} ${r})`)
+      ),
+    })).node;
+
+    fc.assert(
+      fc.property(expression, (formula) => {
+        const result = evaluateFormulaString(formula, empty);
+
+        if (isFormulaError(result)) return true;
+        return Number.isFinite(result);
+      }),
+      { numRuns: 500 }
+    );
   });
 });

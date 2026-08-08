@@ -166,6 +166,13 @@ describe('toStoredFormula / toDisplayFormula', () => {
     expect(toStoredFormula('const.bonus_divider', index)).toBe('const.bonus_divider');
   });
 
+  it('resolves references either side of a power operator (TICKET-FORM-07)', () => {
+    // `^` is not identifier-shaped, so the scan steps over it — but only once the tokenizer
+    // knows it, which it did not before this operator existed
+    expect(toStoredFormula('STR ^ 2 + DEX', index)).toBe('[id-str] ^ 2 + [id-dex]');
+    expect(toDisplayFormula('[id-str] ^ 2 + [id-dex]', index)).toBe('STR ^ 2 + DEX');
+  });
+
   it('keeps an unparseable formula rather than mangling it', () => {
     expect(toStoredFormula('STR + #', index)).toBe('STR + #');
   });

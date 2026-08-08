@@ -725,3 +725,86 @@ describe('tokenizeFormula (TICKET-REF-01)', () => {
     ]);
   });
 });
+
+describe('Exponentiation (TICKET-FORM-07)', () => {
+  it('should parse a power as a binary operation', () => {
+    expect(parseFormula('2 ^ 3')).toEqual({
+      type: 'binary_op',
+      operator: '^',
+      left: { type: 'number', value: 2 },
+      right: { type: 'number', value: 3 },
+    });
+  });
+
+  it('should bind tighter than multiplication', () => {
+    // 2 * (3 ^ 2), not (2 * 3) ^ 2
+    expect(parseFormula('2 * 3 ^ 2')).toEqual({
+      type: 'binary_op',
+      operator: '*',
+      left: { type: 'number', value: 2 },
+      right: {
+        type: 'binary_op',
+        operator: '^',
+        left: { type: 'number', value: 3 },
+        right: { type: 'number', value: 2 },
+      },
+    });
+  });
+
+  it('should bind tighter than addition', () => {
+    expect(parseFormula('1 + 2 ^ 3')).toMatchObject({
+      operator: '+',
+      right: { operator: '^' },
+    });
+  });
+
+  it('should be right-associative', () => {
+    // 2 ^ (3 ^ 2) = 512, not (2 ^ 3) ^ 2 = 64
+    expect(parseFormula('2 ^ 3 ^ 2')).toEqual({
+      type: 'binary_op',
+      operator: '^',
+      left: { type: 'number', value: 2 },
+      right: {
+        type: 'binary_op',
+        operator: '^',
+        left: { type: 'number', value: 3 },
+        right: { type: 'number', value: 2 },
+      },
+    });
+  });
+
+  it('should let unary minus bind tighter, as a spreadsheet does', () => {
+    // (-2) ^ 2, which is Excel's reading — see the ticket's decision note
+    expect(parseFormula('-2 ^ 2')).toEqual({
+      type: 'binary_op',
+      operator: '^',
+      left: { type: 'unary_op', operator: 'negate', operand: { type: 'number', value: 2 } },
+      right: { type: 'number', value: 2 },
+    });
+  });
+
+  it('should accept a negative exponent', () => {
+    expect(parseFormula('2 ^ -3')).toEqual({
+      type: 'binary_op',
+      operator: '^',
+      left: { type: 'number', value: 2 },
+      right: { type: 'unary_op', operator: 'negate', operand: { type: 'number', value: 3 } },
+    });
+  });
+
+  it('should take references and calls as operands', () => {
+    expect(parseFormula('const.base ^ STR')).toMatchObject({
+      operator: '^',
+      left: { type: 'namespaced_ref', namespace: 'const', member: 'base' },
+      right: { type: 'variable', value: 'STR' },
+    });
+  });
+
+  it('should let parentheses override the associativity', () => {
+    expect(parseFormula('(2 ^ 3) ^ 2')).toMatchObject({
+      operator: '^',
+      left: { operator: '^' },
+      right: { type: 'number', value: 2 },
+    });
+  });
+});

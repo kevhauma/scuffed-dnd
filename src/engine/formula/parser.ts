@@ -5,7 +5,8 @@
  *
  * Grammar:
  *   expression  := term ((PLUS | MINUS) term)*
- *   term        := factor ((MULTIPLY | DIVIDE) factor)*
+ *   term        := power ((MULTIPLY | DIVIDE) power)*
+ *   power       := factor (POWER power)?                                (right-associative)
  *   factor      := PLUS factor | MINUS factor | NUMBER | ref | LPAREN expression RPAREN
  *   ref         := IDENTIFIER LPAREN args RPAREN                        (function call)
  *                | IDENTIFIER DOT member (DOT IDENTIFIER)? LPAREN args RPAREN
@@ -54,6 +55,7 @@ type TokenType =
   | 'MINUS'
   | 'MULTIPLY'
   | 'DIVIDE'
+  | 'POWER'
   | 'LPAREN'
   | 'RPAREN'
   | 'COMMA'
@@ -230,6 +232,8 @@ class Tokenizer {
           return { type: 'MULTIPLY', value: '*', position: pos, end };
         case '/':
           return { type: 'DIVIDE', value: '/', position: pos, end };
+        case '^':
+          return { type: 'POWER', value: '^', position: pos, end };
         case '(':
           return { type: 'LPAREN', value: '(', position: pos, end };
         case ')':
@@ -436,7 +440,7 @@ export class FormulaParser {
    * Parse term: factor ((MULTIPLY | DIVIDE) factor)*
    */
   private term(): FormulaAST {
-    let node = this.factor();
+    let node = this.power();
 
     while (this.currentToken.type === 'MULTIPLY' || this.currentToken.type === 'DIVIDE') {
       const token = this.currentToken;
@@ -447,7 +451,7 @@ export class FormulaParser {
           type: 'binary_op',
           operator: '*',
           left: node,
-          right: this.factor(),
+          right: this.power(),
         };
       } else if (token.type === 'DIVIDE') {
         this.eat('DIVIDE');
@@ -455,12 +459,42 @@ export class FormulaParser {
           type: 'binary_op',
           operator: '/',
           left: node,
-          right: this.factor(),
+          right: this.power(),
         };
       }
     }
 
     return node;
+  }
+
+  /**
+   * Parse power: factor (POWER power)?
+   *
+   * **Right-associative** — the recursion is on the right, so `2 ^ 3 ^ 2` is `2 ^ (3 ^ 2)` = 512.
+   * That is the mathematical reading and what most programming languages do. **Excel disagrees**
+   * and would answer 64; the divergence is deliberate, because chained exponentiation is
+   * vanishingly rare in a ruleset and the maths convention is the less surprising default.
+   *
+   * Its operand is `factor`, which is where unary minus lives, so **unary binds tighter**:
+   * `-2 ^ 2` is `(-2) ^ 2` = 4. Here the sheet *does* win — that is Excel and Google Sheets
+   * behaviour rather than the mathematical convention, and it is the case a User actually hits
+   * when transcribing. The two choices therefore follow different authorities on purpose; see
+   * TICKET-FORM-07's decision note.
+   */
+  private power(): FormulaAST {
+    const base = this.factor();
+
+    if (this.currentToken.type !== 'POWER') {
+      return base;
+    }
+
+    this.eat('POWER');
+    return {
+      type: 'binary_op',
+      operator: '^',
+      left: base,
+      right: this.power(),
+    };
   }
 
   /**

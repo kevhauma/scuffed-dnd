@@ -33,11 +33,14 @@ export interface VariableNode {
 }
 
 /**
- * Binary operation node (+, -, *, /)
+ * Binary operation node (+, -, *, /, ^)
+ *
+ * `^` is right-associative and binds tighter than `*` but looser than unary minus — the grammar
+ * in `engine/formula/parser.ts` is the authority, and TICKET-FORM-07 records why.
  */
 export interface BinaryOpNode {
   type: 'binary_op';
-  operator: '+' | '-' | '*' | '/';
+  operator: '+' | '-' | '*' | '/' | '^';
   left: FormulaAST;
   right: FormulaAST;
 }

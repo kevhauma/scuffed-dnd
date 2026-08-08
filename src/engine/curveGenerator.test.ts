@@ -184,6 +184,80 @@ describe('regenerateCurve', () => {
   });
 });
 
+describe("Concept 06's XP generator (TICKET-FORM-07)", () => {
+  /**
+   * The page's own generator, spelled with the name the row context actually binds
+   *
+   * Concept 06 writes it `… * level ^ …` using the key column's name; the engine binds the key as
+   * `key`, so that is what a generator names. TICKET-CRV-03's editor is where the two could be
+   * reconciled by binding the key column's name as well.
+   */
+  function xpThresholds(): Curve {
+    return {
+      id: 'curve-xp',
+      name: 'xp_thresholds',
+      displayName: 'XP thresholds',
+      description: 'Cumulative XP required per level',
+      keyName: 'level',
+      columns: [
+        {
+          id: 'c-xp',
+          name: 'xp_required',
+          generator: 'round(const.xp_base * key ^ const.xp_exponent)',
+        },
+      ],
+      rows: [1, 2, 3, 4, 5].map((key) => ({ key, values: [0] })),
+      interpolation: 'step',
+      outOfRange: 'extrapolate',
+      lookupDirection: 'reverse',
+    };
+  }
+
+  const shape: Constant[] = [
+    {
+      id: 'id-base',
+      name: 'xp_base',
+      displayName: 'XP base',
+      description: 'XP required at level 1 of the curve',
+      value: 100,
+    },
+    {
+      id: 'id-exp',
+      name: 'xp_exponent',
+      displayName: 'XP exponent',
+      description: 'How steeply the requirement climbs',
+      value: 2,
+    },
+  ];
+
+  it('should fill the column, so a progression can curve rather than only slope', () => {
+    const { curve, report } = regenerateCurve(xpThresholds(), { constants: shape });
+
+    expect(curve.rows.map((row) => row.values[0])).toEqual([100, 400, 900, 1600, 2500]);
+    expect(report).toEqual({ written: 5, kept: 0, errors: [] });
+  });
+
+  it('should reshape the whole table from one constant, which is the point', () => {
+    const flatter = shape.map((constant) =>
+      constant.name === 'xp_exponent' ? { ...constant, value: 1.5 } : constant
+    );
+
+    const { curve } = regenerateCurve(xpThresholds(), { constants: flatter });
+
+    expect(curve.rows.map((row) => row.values[0])).toEqual([100, 283, 520, 800, 1118]);
+  });
+
+  it('should keep a hand-tuned early game while the generator produces the rest', () => {
+    const tuned = xpThresholds();
+    tuned.rows[1] = { key: 2, values: [300], overridden: [true] };
+
+    const { curve, report } = regenerateCurve(tuned, { constants: shape });
+
+    expect(curve.rows.map((row) => row.values[0])).toEqual([100, 300, 900, 1600, 2500]);
+    expect(report.kept).toBe(1);
+  });
+});
+
 describe('setCurveCell', () => {
   it('should flag a hand edit to a generated cell as an override', () => {
     const edited = setCurveCell(pointBuy(), 1, 'main_type', 42);

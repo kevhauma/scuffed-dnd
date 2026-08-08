@@ -155,7 +155,7 @@ Two LocalStorage keys hold everything: `dnd_builder_config` (one `Configuration`
 
 Every piece of User-authored math flows through `src/engine/formula/`:
 `parseFormula` (string → AST) → `validateFormula` (syntax, referenced variables) →
-`evaluateFormula` (AST + variables → number). It supports `+ - * /`, parentheses, unary
+`evaluateFormula` (AST + variables → number). It supports `+ - * / ^`, parentheses, unary
 negation, numbers, and 3-letter skill-code variables. When a formula is about to be *saved*,
 `validateFormulaChange(config, change)` additionally checks for circular dependencies and
 undefined codes, and refuses the save with a user-facing message.

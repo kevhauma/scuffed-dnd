@@ -71,7 +71,9 @@ export function FormulaEditor({
     validate(newValue);
 
     // Get the last word being typed
-    const words = newValue.split(/[\s+\-*/()]/);
+    // `^` belongs here with the other operators (TICKET-FORM-07): without it `STR^D` is one
+    // word, and suggestions stop appearing after a tightly-typed power
+    const words = newValue.split(/[\s+\-*/^()]/);
     const lastWord = words[words.length - 1].toUpperCase();
 
     if (lastWord.length > 0 && lastWord.length < 3) {
@@ -86,7 +88,7 @@ export function FormulaEditor({
 
   const handleSuggestionClick = (suggestion: string) => {
     // Replace the last partial word with the suggestion
-    const words = value.split(/(\s+|[+\-*/()])/);
+    const words = value.split(/(\s+|[+\-*/^()])/);
     words[words.length - 1] = suggestion;
     onChange(words.join(''));
     setShowSuggestions(false);

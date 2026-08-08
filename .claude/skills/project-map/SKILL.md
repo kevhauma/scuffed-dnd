@@ -86,8 +86,10 @@ list — it changes more often than this table.
 Pure functions, no React, no storage. Every user-authored number in the app resolves here.
 
 - `formula/parser.ts` — tokenizer + `FormulaParser` class → `parseFormula(src): FormulaAST`.
-  Supports `+ - * /`, parentheses, unary negation, numeric literals, function calls
-  `name(arg, …)`, dotted namespaced references (`stats.speed`, `skills.healing.level`,
+  Supports `+ - * / ^` (`^` binds tighter than `*` and looser than unary minus, so `-2 ^ 2` is 4
+  as in Excel; it is **right**-associative, so `2 ^ 3 ^ 2` is 512, where Excel would say 64 —
+  a deliberate split, TICKET-FORM-07), parentheses, unary negation, numeric literals,
+  function calls `name(arg, …)`, dotted namespaced references (`stats.speed`, `skills.healing.level`,
   `curve.cr(x)`), bracketed id references (`[b1f0…]`, `stats.[b1f0…]` — the persisted form,
   TICKET-REF-01), and bare variable refs (**deprecated**, removed by TICKET-STAT-01).
   Identifiers are `[A-Za-z][A-Za-z0-9_]*`. **Full grammar lives in the module JSDoc** — read it
