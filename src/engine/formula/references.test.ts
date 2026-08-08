@@ -240,6 +240,111 @@ describe('the rename test (Concept 00 §6)', () => {
     expect(renamed.combatSkills[0].bonusFormula).toBe('stats.vitality / 10');
   });
 
+  it('re-spells a curve column when the column is renamed (TICKET-CRV-03)', () => {
+    const config = createConfig({
+      curves: [
+        {
+          id: 'id-pb',
+          name: 'point_buy',
+          displayName: 'Point buy',
+          description: '',
+          keyName: 'points',
+          columns: [
+            { id: 'id-col-non', name: 'non' },
+            { id: 'id-col-main', name: 'main' },
+          ],
+          rows: [{ key: 0, values: [0, 0.75] }],
+          interpolation: 'step',
+          outOfRange: 'error',
+          lookupDirection: 'forward',
+        },
+      ],
+      stats: [
+        { id: 'id-hp', name: 'Max Health', description: '', formula: 'curve.point_buy.main(STR)' },
+      ],
+    });
+
+    const renamed = rename(config, (current) => ({
+      ...current,
+      curves: (current.curves ?? []).map((curve) => ({
+        ...curve,
+        columns: curve.columns.map((column) =>
+          column.id === 'id-col-main' ? { ...column, name: 'main_type' } : column
+        ),
+      })),
+    }));
+
+    expect(renamed.stats[0].formula).toBe('curve.point_buy.main_type(STR)');
+  });
+
+  it('leaves a column spelled by name in an older stored formula alone', () => {
+    // Formulas persisted before TICKET-CRV-03 hold the column as plain text. Nothing resolves it,
+    // so it stays as written and still reads the right column — which is the one property every
+    // existing ruleset depends on.
+    const config = createConfig({
+      curves: [
+        {
+          id: 'id-pb',
+          name: 'point_buy',
+          displayName: 'Point buy',
+          description: '',
+          keyName: 'points',
+          columns: [
+            { id: 'id-col-non', name: 'non' },
+            { id: 'id-col-main', name: 'main' },
+          ],
+          rows: [{ key: 0, values: [0, 0.75] }],
+          interpolation: 'step',
+          outOfRange: 'error',
+          lookupDirection: 'forward',
+        },
+      ],
+    });
+    const index = buildReferenceIndex(config);
+
+    expect(toDisplayFormula('curve.[id-pb].main(1)', index)).toBe('curve.point_buy.main(1)');
+    expect(toStoredFormula('curve.point_buy.main(1)', index)).toBe(
+      'curve.[id-pb].[id-col-main](1)'
+    );
+  });
+
+  it('keeps two curves’ identically named columns apart', () => {
+    // Column spellings are only unique within a curve, so the stored form has to be scoped by
+    // the owning curve — otherwise renaming one `main` re-spells the other one too
+    const curve = (id: string, name: string, columnId: string) => ({
+      id,
+      name,
+      displayName: name,
+      description: '',
+      keyName: 'points',
+      columns: [{ id: columnId, name: 'main' }],
+      rows: [{ key: 0, values: [1] }],
+      interpolation: 'step' as const,
+      outOfRange: 'error' as const,
+      lookupDirection: 'forward' as const,
+    });
+
+    const config = createConfig({
+      curves: [curve('id-a', 'alpha', 'id-col-a'), curve('id-b', 'beta', 'id-col-b')],
+      stats: [
+        { id: 'id-1', name: 'One', description: '', formula: 'curve.alpha.main(1)' },
+        { id: 'id-2', name: 'Two', description: '', formula: 'curve.beta.main(1)' },
+      ],
+    });
+
+    const renamed = rename(config, (current) => ({
+      ...current,
+      curves: (current.curves ?? []).map((candidate) =>
+        candidate.id === 'id-a'
+          ? { ...candidate, columns: [{ id: 'id-col-a', name: 'primary' }] }
+          : candidate
+      ),
+    }));
+
+    expect(renamed.stats[0].formula).toBe('curve.alpha.primary(1)');
+    expect(renamed.stats[1].formula).toBe('curve.beta.main(1)');
+  });
+
   it('carries racial and material bonuses through a rename too', () => {
     const config = createConfig({
       races: [

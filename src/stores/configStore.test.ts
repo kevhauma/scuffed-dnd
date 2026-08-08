@@ -5,9 +5,12 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { toStoredConfiguration } from '../engine/formula/references';
+import { importConfiguration, validateConfiguration } from '../services/importExport';
 import * as storage from '../services/storage';
 import type {
   CombatSkill,
+  Configuration,
   CurrencyTier,
   Curve,
   EquipmentSlot,
@@ -1051,10 +1054,15 @@ describe('ConfigStore', () => {
   });
 
   describe('Curves (TICKET-CRV-01)', () => {
+    /**
+     * The fixture is named `xp_table`, not `xp_thresholds`: TICKET-CRV-03 seeds a curve by that
+     * name, and two curves sharing one identifier is exactly the ambiguity `references.ts`
+     * refuses to resolve.
+     */
     const curve: Curve = {
       id: 'id-xp',
-      name: 'xp_thresholds',
-      displayName: 'XP thresholds',
+      name: 'xp_table',
+      displayName: 'XP table',
       description: 'Cumulative XP required per level',
       keyName: 'level',
       columns: [{ id: 'col-xp', name: 'xp_required' }],
@@ -1067,26 +1075,29 @@ describe('ConfigStore', () => {
       lookupDirection: 'reverse',
     };
 
+    /** The fixture curve as the store currently holds it */
+    const stored = () =>
+      useConfigStore.getState().config?.curves?.find((candidate) => candidate.id === 'id-xp');
+
+    /** How many curves a fresh ruleset arrives with (TICKET-CRV-03) */
+    const SEEDED = 2;
+
     beforeEach(() => {
       useConfigStore.getState().initializeConfig('Test');
       useCharacterStore.setState({ characters: [], isLoaded: true });
       vi.clearAllMocks();
     });
 
-    it('starts with no curves — a fresh ruleset seeds none', () => {
-      expect(useConfigStore.getState().config?.curves).toBeUndefined();
-    });
-
     it('adds, updates and deletes through the store, persisting each time', () => {
       useConfigStore.getState().addCurve(curve);
       expect(storage.saveConfiguration).toHaveBeenCalledTimes(1);
-      expect(useConfigStore.getState().config?.curves).toHaveLength(1);
+      expect(useConfigStore.getState().config?.curves).toHaveLength(SEEDED + 1);
 
       useConfigStore.getState().updateCurve('id-xp', { interpolation: 'linear' });
-      expect(useConfigStore.getState().config?.curves?.[0].interpolation).toBe('linear');
+      expect(stored()?.interpolation).toBe('linear');
 
       expect(useConfigStore.getState().deleteCurve('id-xp')).toEqual([]);
-      expect(useConfigStore.getState().config?.curves).toEqual([]);
+      expect(stored()).toBeUndefined();
       expect(storage.saveConfiguration).toHaveBeenCalledTimes(3);
     });
 
@@ -1096,13 +1107,13 @@ describe('ConfigStore', () => {
         id: 'id-level',
         name: 'Level',
         description: '',
-        formula: 'curve.xp_thresholds(STR)',
+        formula: 'curve.xp_table(STR)',
       });
 
       const references = useConfigStore.getState().deleteCurve('id-xp');
 
       expect(references.map((reference) => reference.holderName)).toEqual(['Level']);
-      expect(useConfigStore.getState().config?.curves).toHaveLength(1);
+      expect(stored()).toBeDefined();
     });
 
     it('re-spells every formula calling a curve when its identifier is renamed', () => {
@@ -1111,7 +1122,7 @@ describe('ConfigStore', () => {
         id: 'id-level',
         name: 'Level',
         description: '',
-        formula: 'curve.xp_thresholds(STR)',
+        formula: 'curve.xp_table(STR)',
       });
 
       useConfigStore.getState().updateCurve('id-xp', { name: 'level_table' });
@@ -1135,7 +1146,10 @@ describe('ConfigStore', () => {
       // `points_per_level` is a seeded constant worth 3, so row 1 becomes 3 and row 2 is kept
       expect(report).toEqual({ written: 1, kept: 1, errors: [] });
       expect(
-        useConfigStore.getState().config?.curves?.[0].rows.map((row) => row.values[0])
+        useConfigStore
+          .getState()
+          .config?.curves?.find((c) => c.id === 'id-xp')
+          ?.rows.map((row) => row.values[0])
       ).toEqual([3, 0]);
       expect(storage.saveConfiguration).toHaveBeenCalledTimes(1);
     });
@@ -1152,9 +1166,10 @@ describe('ConfigStore', () => {
       useConfigStore.getState().updateConstant(perLevel?.id as string, { name: 'xp_step' });
 
       // A generator is a persisted formula, so it is id-resolved like every other (TICKET-REF-01)
-      expect(useConfigStore.getState().config?.curves?.[0].columns[0].generator).toBe(
-        'key * const.xp_step'
-      );
+      expect(
+        useConfigStore.getState().config?.curves?.find((c) => c.id === 'id-xp')?.columns[0]
+          .generator
+      ).toBe('key * const.xp_step');
     });
 
     it('refuses to delete a constant a generator names, and says which', () => {
@@ -1194,7 +1209,7 @@ describe('ConfigStore', () => {
         id: 'id-level',
         name: 'Level',
         description: '',
-        formula: 'curve.xp_thresholds.high(STR)',
+        formula: 'curve.xp_table.high(STR)',
       });
 
       useConfigStore.getState().updateCurve('id-xp', { name: 'level_table' });
@@ -1202,6 +1217,185 @@ describe('ConfigStore', () => {
       expect(useConfigStore.getState().config?.stats[0].formula).toBe(
         'curve.level_table.high(STR)'
       );
+    });
+
+    it('re-spells every formula reading a column when the column is renamed (TICKET-CRV-03)', () => {
+      useConfigStore.getState().addCurve({
+        ...curve,
+        columns: [
+          { id: 'col-a', name: 'low' },
+          { id: 'col-b', name: 'high' },
+        ],
+        rows: [{ key: 1, values: [0, 1] }],
+      });
+      useConfigStore.getState().addStat({
+        id: 'id-level',
+        name: 'Level',
+        description: '',
+        formula: 'curve.xp_table.high(STR)',
+      });
+
+      useConfigStore.getState().updateCurve('id-xp', {
+        columns: [
+          { id: 'col-a', name: 'low' },
+          { id: 'col-b', name: 'highest' },
+        ],
+      });
+
+      expect(useConfigStore.getState().config?.stats[0].formula).toBe(
+        'curve.xp_table.highest(STR)'
+      );
+    });
+  });
+
+  describe('Seed curves (TICKET-CRV-03)', () => {
+    beforeEach(() => {
+      useConfigStore.getState().initializeConfig('Test');
+      vi.clearAllMocks();
+    });
+
+    const seed = (name: string) =>
+      useConfigStore.getState().config?.curves?.find((curve) => curve.name === name);
+
+    it('seeds point_buy and xp_thresholds into a fresh ruleset', () => {
+      expect(useConfigStore.getState().config?.curves?.map((curve) => curve.name)).toEqual([
+        'point_buy',
+        'xp_thresholds',
+      ]);
+    });
+
+    it('reproduces main = 0.75 × (points + 1) on every point_buy row', () => {
+      const curve = seed('point_buy');
+      const mainIndex = curve?.columns.findIndex((column) => column.name === 'main') ?? -1;
+
+      expect(curve?.columns[mainIndex].generator).toBe('0.75 * (key + 1)');
+      for (const row of curve?.rows ?? []) {
+        expect(row.values[mainIndex]).toBeCloseTo(0.75 * (row.key + 1), 10);
+      }
+    });
+
+    it('carries the concept page’s 15-point row exactly', () => {
+      // 5 / 7 / 12 — the row the point-buy table is anchored on (Concept 06)
+      expect(seed('point_buy')?.rows.find((row) => row.key === 15)?.values).toEqual([5, 7, 12]);
+    });
+
+    it('keeps the sheet’s 9-point sub-type anomaly rather than rounding it away', () => {
+      // Concept 06 is explicit that this needs a decision, not a silent fix
+      expect(seed('point_buy')?.rows.find((row) => row.key === 9)?.values[1]).toBe(4.642857142857);
+    });
+
+    it('seeds xp_thresholds as a shape, not as invented numbers', () => {
+      const curve = seed('xp_thresholds');
+
+      expect(curve?.keyName).toBe('level');
+      expect(curve?.columns.map((column) => column.name)).toEqual(['xp_required']);
+      expect(curve?.lookupDirection).toBe('reverse');
+      expect(curve?.interpolation).toBe('step');
+      expect(curve?.outOfRange).toBe('extrapolate');
+      expect(curve?.rows).toEqual([{ key: 1, values: [0] }]);
+    });
+
+    it('exports and re-imports both seeds unchanged', () => {
+      const config = useConfigStore.getState().config as Configuration;
+
+      // The persisted form is id-resolved, so this proves the seeds survive the boundary they
+      // will actually cross — a shared ruleset file (TICKET-CRV-03)
+      const exported = JSON.stringify(toStoredConfiguration(config), null, 2);
+
+      expect(validateConfiguration(config).isValid).toBe(true);
+      expect(importConfiguration(exported)).toEqual(config);
+    });
+
+    it('regenerates the point_buy seed to the same numbers it shipped with', () => {
+      const curve = seed('point_buy');
+      const before = curve?.rows.map((row) => [...row.values]);
+
+      useConfigStore.getState().regenerateCurve(curve?.id as string);
+
+      expect(seed('point_buy')?.rows.map((row) => row.values)).toEqual(before);
+    });
+  });
+
+  describe('Curve grid editing (TICKET-CRV-03)', () => {
+    const curveId = () =>
+      useConfigStore.getState().config?.curves?.find((curve) => curve.name === 'point_buy')
+        ?.id as string;
+
+    const pointBuy = () =>
+      useConfigStore.getState().config?.curves?.find((curve) => curve.name === 'point_buy');
+
+    beforeEach(() => {
+      useConfigStore.getState().initializeConfig('Test');
+      vi.clearAllMocks();
+    });
+
+    it('adds a column and gives every row a cell for it', () => {
+      useConfigStore.getState().addCurveColumn(curveId(), { id: 'col-hyper', name: 'hyper' });
+
+      expect(pointBuy()?.columns.map((column) => column.name)).toEqual([
+        'non',
+        'sub',
+        'main',
+        'hyper',
+      ]);
+      for (const row of pointBuy()?.rows ?? []) {
+        expect(row.values).toHaveLength(4);
+      }
+      expect(storage.saveConfiguration).toHaveBeenCalledTimes(1);
+    });
+
+    it('removes a column without shifting the surviving override flags', () => {
+      const id = curveId();
+      // Flag `main` at 3 points, then remove the column to its left
+      useConfigStore.getState().setCurveCell(id, 3, 'main', 99);
+      useConfigStore.getState().deleteCurveColumn(id, pointBuy()?.columns[0].id as string);
+
+      const row = pointBuy()?.rows.find((candidate) => candidate.key === 3);
+      expect(pointBuy()?.columns.map((column) => column.name)).toEqual(['sub', 'main']);
+      expect(row?.values).toEqual([2, 99]);
+      expect(row?.overridden).toEqual([false, true]);
+    });
+
+    it('adds and removes rows in key order', () => {
+      const id = curveId();
+
+      useConfigStore.getState().addCurveRow(id, 16);
+      expect(pointBuy()?.rows.at(-1)).toEqual({ key: 16, values: [0, 0, 0] });
+
+      useConfigStore.getState().deleteCurveRow(id, 16);
+      expect(pointBuy()?.rows.some((row) => row.key === 16)).toBe(false);
+    });
+
+    it('flags a generated cell the User types into, and unflags it on clear', () => {
+      const id = curveId();
+
+      useConfigStore.getState().setCurveCell(id, 2, 'main', 5);
+      expect(pointBuy()?.rows.find((row) => row.key === 2)?.overridden).toEqual([
+        false,
+        false,
+        true,
+      ]);
+
+      useConfigStore.getState().clearCurveOverride(id, 2, 'main');
+      const row = pointBuy()?.rows.find((candidate) => candidate.key === 2);
+      expect(row?.values[2]).toBeCloseTo(2.25, 10);
+      expect(row?.overridden).toBeUndefined();
+    });
+
+    it('keeps an override through a regeneration', () => {
+      const id = curveId();
+      useConfigStore.getState().setCurveCell(id, 2, 'main', 5);
+
+      const report = useConfigStore.getState().regenerateCurve(id);
+
+      expect(report.kept).toBe(1);
+      expect(pointBuy()?.rows.find((row) => row.key === 2)?.values[2]).toBe(5);
+    });
+
+    it('writes nothing for a curve that is not there', () => {
+      useConfigStore.getState().addCurveRow('missing', 1);
+
+      expect(storage.saveConfiguration).not.toHaveBeenCalled();
     });
   });
 });

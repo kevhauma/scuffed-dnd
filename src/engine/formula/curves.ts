@@ -19,8 +19,8 @@
  *
  * Resolution is by **name**, like `constants.ts`: the in-memory formula holds the display
  * spelling and the persisted one holds the curve's id, so renaming a curve re-spells every
- * formula naming it (TICKET-REF-01). Column names are **not** id-resolved yet — see the ticket's
- * implementation notes.
+ * formula naming it (TICKET-REF-01). A column resolves the same way — by name here, by id in the
+ * persisted form (TICKET-CRV-03) — which is why this reads `column.name` and never an id.
  *
  * **Validates: Concept 06; spec §5.1, §5.5, §7**
  */

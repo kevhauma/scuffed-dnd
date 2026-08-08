@@ -35,12 +35,30 @@ import { tokenizeFormula } from './parser';
  * `bare` is the legacy flat code space shared by main, speciality and combat skills; the rest are
  * the namespaces whose members are configured entities. A curve is named by a **call**
  * (`curve.cr(x)`), but the token being rewritten sits in the same place a member always does, so
- * the scan needs no special case for it. A curve's *column* is a third segment and, like every
- * property, is not id-resolved (TICKET-CRV-01).
+ * the scan needs no special case for it.
+ *
+ * `curveColumn` is the one space that is *not* a namespace. A curve's column sits in the property
+ * segment — `curve.point_buy.main(9)` — where every other property (`skills.STL.level`) is a
+ * fixed field rather than something the User named. A column is named, so it is renamable, so it
+ * has to be id-resolved like everything else (TICKET-CRV-03, closing what TICKET-CRV-01 left
+ * open). Its spellings are only unique **within one curve**, so its `toId` keys are qualified by
+ * the owning curve's id; `toDisplay` needs no qualifier, because a column id is unique outright.
  */
-type ReferenceSpace = 'bare' | 'skills' | 'stats' | 'const' | 'curve';
+type ReferenceSpace = 'bare' | 'skills' | 'stats' | 'const' | 'curve' | 'curveColumn';
 
-const REFERENCE_SPACES: readonly ReferenceSpace[] = ['bare', 'skills', 'stats', 'const', 'curve'];
+const REFERENCE_SPACES: readonly ReferenceSpace[] = [
+  'bare',
+  'skills',
+  'stats',
+  'const',
+  'curve',
+  'curveColumn',
+];
+
+/** How a column's display spelling is keyed in `toId.curveColumn` — unique per curve, not globally */
+function columnKey(curveId: string, columnName: string): string {
+  return `${curveId}.${columnName}`;
+}
 
 /**
  * Display spelling ↔ stable id, per reference space
@@ -133,6 +151,19 @@ export function buildReferenceIndex(config: Configuration): ReferenceIndex {
   for (const curve of config.curves ?? []) {
     if (!curve.id) continue;
     link(toId.curve, toDisplay.curve, curve.name, curve.id);
+
+    // Not `link`: the two directions use different spellings here. Writing the stored form needs
+    // the curve-qualified key, because `main` alone does not say which curve's; writing the
+    // display form needs the bare column name, because that is what goes back in the formula.
+    for (const column of curve.columns) {
+      if (!column.id) continue;
+
+      const key = columnKey(curve.id, column.name);
+      if (toId.curveColumn.has(key) || toDisplay.curveColumn.has(column.id)) continue;
+
+      toId.curveColumn.set(key, column.id);
+      toDisplay.curveColumn.set(column.id, column.name);
+    }
   }
 
   return { toId, toDisplay };
@@ -142,11 +173,19 @@ export function buildReferenceIndex(config: Configuration): ReferenceIndex {
 interface ReferenceSite {
   token: FormulaToken;
   space: ReferenceSpace;
+  /**
+   * The token this one is scoped to, for a space whose spellings are only locally unique.
+   *
+   * A curve column carries the curve token; nothing else has an owner, because nothing else
+   * resolves relative to another entity.
+   */
+  owner?: FormulaToken;
 }
 
 /** What the scan found at one position, and where it resumes */
 interface ScanStep {
-  site?: ReferenceSite;
+  /** In source order — a dotted curve call contributes both its curve and its column */
+  sites: ReferenceSite[];
   next: number;
 }
 
@@ -162,7 +201,7 @@ function findReferenceSites(tokens: readonly FormulaToken[]): ReferenceSite[] {
   let index = 0;
   while (index < tokens.length && tokens[index].type !== 'EOF') {
     const step = referenceAt(tokens, index);
-    if (step.site) sites.push(step.site);
+    sites.push(...step.sites);
     index = step.next;
   }
 
@@ -180,26 +219,27 @@ function referenceAt(tokens: readonly FormulaToken[], index: number): ScanStep {
   const token = tokens[index];
 
   if (token.type !== 'IDENTIFIER' && token.type !== 'REF_ID') {
-    return { next: index + 1 };
+    return { sites: [], next: index + 1 };
   }
 
   if (token.type === 'IDENTIFIER' && tokens[index + 1]?.type === 'LPAREN') {
-    return { next: index + 1 };
+    return { sites: [], next: index + 1 };
   }
 
   if (token.type === 'IDENTIFIER' && tokens[index + 1]?.type === 'DOT') {
     return dottedReferenceAt(tokens, index);
   }
 
-  return { site: { token, space: 'bare' }, next: index + 1 };
+  return { sites: [{ token, space: 'bare' }], next: index + 1 };
 }
 
 /**
  * Classify a dotted reference whose namespace segment sits at `index`
  *
- * The member is the reference; a third segment is a property and never one. That holds for a
- * namespaced call too — `curve.cr(x)` and `curve.point_buy.main_type(9)` both name the curve at
- * the member position, and the column, like any property, stays as written.
+ * The member is always the reference — `curve.cr(x)` and `curve.point_buy.main_type(9)` both
+ * name the curve there. A third segment is a property, and a property names an entity in exactly
+ * one case: a curve's column, which the User named and can rename. Every other property
+ * (`skills.STL.level`) is a fixed field and stays as written.
  */
 function dottedReferenceAt(tokens: readonly FormulaToken[], index: number): ScanStep {
   const namespace = tokens[index].value as string;
@@ -208,15 +248,26 @@ function dottedReferenceAt(tokens: readonly FormulaToken[], index: number): Scan
 
   // Step over `namespace . member`, plus a property segment when one follows
   let next = index + (isMember ? 3 : 2);
-  if (tokens[next]?.type === 'DOT' && tokens[next + 1]?.type === 'IDENTIFIER') {
+  let property: FormulaToken | undefined;
+  const propertyToken = tokens[next + 1];
+  if (
+    tokens[next]?.type === 'DOT' &&
+    (propertyToken?.type === 'IDENTIFIER' || propertyToken?.type === 'REF_ID')
+  ) {
+    property = propertyToken;
     next += 2;
   }
 
   if (!isMember || !isReferenceSpace(namespace)) {
-    return { next };
+    return { sites: [], next };
   }
 
-  return { site: { token: member, space: namespace }, next };
+  const sites: ReferenceSite[] = [{ token: member, space: namespace }];
+  if (namespace === 'curve' && property) {
+    sites.push({ token: property, space: 'curveColumn', owner: member });
+  }
+
+  return { sites, next };
 }
 
 /** Whether a namespace has entities this index can resolve */
@@ -238,7 +289,7 @@ function isReferenceSpace(namespace: string): namespace is ReferenceSpace {
  */
 function rewriteReferences(
   formula: string,
-  rewrite: (token: FormulaToken, space: ReferenceSpace) => string | null
+  rewrite: (token: FormulaToken, space: ReferenceSpace, owner?: FormulaToken) => string | null
 ): string {
   let tokens: readonly FormulaToken[];
   try {
@@ -253,7 +304,7 @@ function rewriteReferences(
   let cursor = 0;
 
   for (const site of findReferenceSites(tokens)) {
-    const replacement = rewrite(site.token, site.space);
+    const replacement = rewrite(site.token, site.space, site.owner);
     if (replacement === null) continue;
 
     result += formula.slice(cursor, site.token.position) + replacement;
@@ -271,14 +322,42 @@ function rewriteReferences(
  * @returns The stored form; unresolvable references keep their display spelling
  */
 export function toStoredFormula(formula: string, index: ReferenceIndex): string {
-  return rewriteReferences(formula, (token, space) => {
+  return rewriteReferences(formula, (token, space, owner) => {
     // Already stored — a formula translated twice must not change
     if (token.type === 'REF_ID') return null;
 
-    const spelling = space === 'bare' ? (token.value as string).toUpperCase() : String(token.value);
+    const spelling =
+      space === 'bare'
+        ? (token.value as string).toUpperCase()
+        : space === 'curveColumn'
+          ? curveColumnSpelling(token, owner, index)
+          : String(token.value);
+    if (spelling === undefined) return null;
+
     const id = index.toId[space].get(spelling);
     return id === undefined ? null : `[${id}]`;
   });
+}
+
+/**
+ * The `toId.curveColumn` key for a column token, or nothing when its curve does not resolve
+ *
+ * A column is only identifiable through the curve that owns it: two curves may both have a
+ * `main`. The owner token is whichever form it is in at this point in the formula — a display
+ * name in text the User wrote, or an id in a formula already half-translated.
+ */
+function curveColumnSpelling(
+  token: FormulaToken,
+  owner: FormulaToken | undefined,
+  index: ReferenceIndex
+): string | undefined {
+  if (!owner) return undefined;
+
+  const curveId =
+    owner.type === 'REF_ID' ? (owner.value as string) : index.toId.curve.get(String(owner.value));
+  if (curveId === undefined) return undefined;
+
+  return columnKey(curveId, String(token.value));
 }
 
 /**

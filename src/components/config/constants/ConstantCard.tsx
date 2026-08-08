@@ -16,6 +16,7 @@ import type { Constant } from '../../../types';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
+import { UsageList } from '../shared/UsageList';
 
 interface ConstantCardProps {
   constant: Constant;
@@ -64,26 +65,7 @@ export function ConstantCard({ constant, usages, onEdit, onDelete }: ConstantCar
       </Text>
 
       <div className="pt-3 border-t border-stone-200">
-        <Text variant="body-small-secondary" className="mb-1">
-          Used by:
-        </Text>
-
-        {usages.length === 0 ? (
-          <Text variant="muted" as="p">
-            No formula names this constant yet.
-          </Text>
-        ) : (
-          <ul className="flex flex-col gap-1 pl-4 list-disc">
-            {usages.map((usage) => (
-              <li key={`${usage.holderKind}-${usage.holderId}-${usage.field}`}>
-                <Text variant="body-small" as="span">
-                  {usage.holderKind}: {usage.holderName}{' '}
-                  <span className="font-mono text-ink-600">({usage.field})</span>
-                </Text>
-              </li>
-            ))}
-          </ul>
-        )}
+        <UsageList usages={usages} emptyMessage="No formula names this constant yet." />
       </div>
     </Card>
   );

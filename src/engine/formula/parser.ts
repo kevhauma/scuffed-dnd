@@ -9,10 +9,10 @@
  *   power       := factor (POWER power)?                                (right-associative)
  *   factor      := PLUS factor | MINUS factor | NUMBER | ref | LPAREN expression RPAREN
  *   ref         := IDENTIFIER LPAREN args RPAREN                        (function call)
- *                | IDENTIFIER DOT member (DOT IDENTIFIER)? LPAREN args RPAREN
+ *                | IDENTIFIER DOT member (DOT member)? LPAREN args RPAREN
  *                                                                      (namespaced call, e.g. curve.cr(x),
  *                                                                       curve.point_buy.main_type(9))
- *                | IDENTIFIER DOT member (DOT IDENTIFIER)?              (namespaced reference)
+ *                | IDENTIFIER DOT member (DOT member)?                  (namespaced reference)
  *                | member                                               (bare variable — deprecated when an IDENTIFIER)
  *   member      := IDENTIFIER | REF_ID
  *   args        := (expression (COMMA expression)*)?
@@ -363,7 +363,9 @@ export class FormulaParser {
    * as written.
    *
    * The member may be a bracketed id (`stats.[b1f0…]`, `curve.[7c22…](x)`) — the persisted form
-   * of the same reference (TICKET-REF-01).
+   * of the same reference (TICKET-REF-01). So may the property: a curve's column is the one
+   * property that names a configured entity rather than a fixed field, so it persists as an id
+   * too and renaming a column re-spells every formula reading it (TICKET-CRV-03).
    */
   private namespacedReference(namespace: string): FormulaAST {
     this.eat('DOT');
@@ -383,7 +385,7 @@ export class FormulaParser {
     if (this.currentToken.type === 'DOT') {
       this.eat('DOT');
       const propertyToken = this.currentToken;
-      this.eat('IDENTIFIER');
+      this.eat(propertyToken.type === 'REF_ID' ? 'REF_ID' : 'IDENTIFIER');
       const property = propertyToken.value as string;
 
       // Widened deliberately: control-flow analysis still has `this.currentToken` narrowed to the

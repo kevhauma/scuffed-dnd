@@ -29,6 +29,7 @@ import { validateFormula } from './formula/validator';
 export type ReferenceTargetKind =
   | 'constant'
   | 'curve'
+  | 'curve-column'
   | 'main-skill'
   | 'speciality-skill'
   | 'combat-skill'
@@ -88,6 +89,28 @@ function namesSkill(code: string): ReferenceMatcher {
       )
     );
   };
+}
+
+/**
+ * A curve's value column — the property segment of `curve.point_buy.main(9)`
+ *
+ * A column became a referenceable entity when it became renamable (TICKET-CRV-03), so removing
+ * one has to be guarded like every other delete. A curve with exactly one column may be called
+ * without naming it, so for that curve a bare `curve.xp_thresholds(x)` counts too: it reads that
+ * column, and removing it would break the call just the same.
+ */
+function namesColumn(
+  curveName: string,
+  columnName: string,
+  isOnlyColumn: boolean
+): ReferenceMatcher {
+  return (formula) =>
+    validateFormula(formula).namespacedReferences.some(
+      (reference) =>
+        reference.namespace === 'curve' &&
+        reference.member === curveName &&
+        (reference.property === columnName || (isOnlyColumn && reference.property === undefined))
+    );
 }
 
 /** A namespace member and nothing else — `stats.max_health`, `const.bonus_divider` */
@@ -341,6 +364,20 @@ export function findReferences(
       // A call contributes a namespaced reference like any other, so the same matcher finds
       // `curve.cr(x)` and `curve.point_buy.main_type(9)` alike (TICKET-CRV-01)
       return curve ? formulaReferences(config, namesMember('curve', curve.name), target.id) : [];
+    }
+
+    case 'curve-column': {
+      const owner = (config.curves ?? []).find((candidate) =>
+        candidate.columns.some((column) => column.id === target.id)
+      );
+      const column = owner?.columns.find((candidate) => candidate.id === target.id);
+      if (!owner || !column) return [];
+
+      return formulaReferences(
+        config,
+        namesColumn(owner.name, column.name, owner.columns.length === 1),
+        target.id
+      );
     }
 
     case 'race':

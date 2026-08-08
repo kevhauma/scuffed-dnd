@@ -11,7 +11,7 @@
  * rebalance the game: an overridden cell is kept and counted, and the report says how many.
  *
  * Pure functions over `(curve, …) → curve`. Nothing here persists — the store action does that,
- * and the editor visuals for the flag arrive with TICKET-CRV-03.
+ * and `components/config/curves/CurveGrid.tsx` is where the flag becomes visible (TICKET-CRV-03).
  *
  * **Validates: Concept 06; Concept 00 §1.1; spec §5.6, §7**
  */
@@ -186,6 +186,29 @@ export function setCurveCell(curve: Curve, key: number, columnName: string, valu
     rows: curve.rows.map((row) =>
       row.key === key ? withCell(row, columnIndex, value, isGenerated) : row
     ),
+  };
+}
+
+/**
+ * Flag every cell of one column as hand-tuned
+ *
+ * What "add a generator to a column that did not have one" has to do first (TICKET-CRV-03). Every
+ * value already in that column was typed by somebody; without the flags, the next regeneration
+ * would overwrite the lot, which is the exact silent rebalance this module exists to prevent.
+ * Concept 06 says the same thing about importing the sheet: bring the column in as-is with the
+ * cells flagged, then decide which ones to hand back to the pattern.
+ *
+ * @param curve - The curve being edited
+ * @param columnId - Which column, by its stable id
+ * @returns The curve with that column's cells flagged; unchanged if the column does not exist
+ */
+export function flagColumnAsOverridden(curve: Curve, columnId: string): Curve {
+  const columnIndex = curve.columns.findIndex((column) => column.id === columnId);
+  if (columnIndex === -1) return curve;
+
+  return {
+    ...curve,
+    rows: curve.rows.map((row) => withCell(row, columnIndex, row.values[columnIndex] ?? 0, true)),
   };
 }
 

@@ -53,16 +53,26 @@ Identity rules that the rest of the app depends on:
   **column names**, which are formula segments (`curve.point_buy.main_type(3)`). Its `rows` must
   carry unique keys sorted ascending with one value per column, and a `reverse` curve's value
   column must not decrease — `engine/validator.ts` reports each as an error, and a `step` curve
-  with a gap wider than its average step as a warning (TICKET-CRV-01). A curve's `name` is
-  rename-safe like every other identifier; its **column names are not** — a column is a property,
-  and properties have never been id-resolved.
+  with a gap wider than its average step as a warning (TICKET-CRV-01). Both rules are enforced in
+  two places: `validateConfiguration()` for import and `useCurveManager`'s save paths for User
+  input (TICKET-CRV-03). **A column name is rename-safe too** — the one property segment that is
+  id-resolved, because it is the one the User named. `references.ts` keys it by
+  `curveId + columnName` (spellings are unique only within a curve) and the stored form is
+  `curve.[curveId].[columnId](x)`; a column is a `curve-column` delete target, so removing one a
+  formula reads is refused like any other guarded delete.
 - **A curve column may be generated.** `CurveColumn.generator` is a formula evaluated once per row
   with the key bound as `key` (plus `const.*` — its own `curve-generator` row in
   `engine/formula/scoping.ts`), and `CurveRow.overridden` is a positional flag array marking cells
   a User hand-tuned. Both are optional and absent means the pre-TICKET-CRV-02 state: no generator
   = hand-entered column, no flags = nothing overridden. `engine/curveGenerator.ts` owns the
   regenerate/edit/clear semantics; an all-`false` flag array is normalised back to absent so a
-  curve round-trips unchanged.
+  curve round-trips unchanged. **`columns`, `rows[].values` and `rows[].overridden` are three
+  arrays on one index** — structural edits go through `engine/curveTable.ts` (and the store's
+  `addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`), never through a
+  hand-assembled `updateCurve` patch.
+- **A fresh ruleset seeds two curves** (TICKET-CRV-03): `point_buy` (`non`/`sub` hand-entered
+  from Concept 06, including its `4.642857142857` anomaly; `main` generated `0.75 * (key + 1)`)
+  and `xp_thresholds` (shape only — reverse/step/extrapolate, one row, real numbers still open).
 - **Codes must stay unique across skill kinds.** One formula namespace serves all three, and the
   display form of a formula would be ambiguous otherwise. (TICKET-REF-01's to-be floated
   downgrading this to a warning; it is deliberately *not* done — see that ticket's divergence

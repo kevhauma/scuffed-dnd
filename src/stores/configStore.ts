@@ -12,7 +12,17 @@
 
 import { create } from 'zustand';
 import type { RegenerationReport } from '../engine/curveGenerator';
-import { regenerateCurve as regenerateCurveTable } from '../engine/curveGenerator';
+import {
+  clearCurveOverride as clearCurveOverrideCell,
+  regenerateCurve as regenerateCurveTable,
+  setCurveCell as setCurveCellValue,
+} from '../engine/curveGenerator';
+import {
+  addCurveColumn as addColumnToCurve,
+  addCurveRow as addRowToCurve,
+  removeCurveColumn,
+  removeCurveRow,
+} from '../engine/curveTable';
 import type { EntityReference, ReferenceTargetKind } from '../engine/dependencies';
 import { findReferences } from '../engine/dependencies';
 import { toDisplayConfiguration, toStoredConfiguration } from '../engine/formula/references';
@@ -23,6 +33,7 @@ import type {
   Constant,
   CurrencyTier,
   Curve,
+  CurveColumn,
   EquipmentSlot,
   Item,
   MainSkill,
@@ -120,6 +131,31 @@ interface ConfigState {
   /** Refill a curve's generated cells, keeping every override (TICKET-CRV-02) */
   regenerateCurve: (id: string) => RegenerationReport;
 
+  /**
+   * Curve grid editing (TICKET-CRV-03)
+   *
+   * Separate actions rather than `updateCurve` calls because `columns`, `rows[].values` and
+   * `rows[].overridden` are three arrays addressed by one index: a caller that patches `columns`
+   * alone moves every override flag onto the wrong cell. Routing the structural edits through
+   * `engine/curveTable.ts` is what makes that unrepresentable rather than merely documented.
+   */
+  addCurveColumn: (curveId: string, column: CurveColumn) => void;
+  /**
+   * Guarded like every other delete: a column is a referenceable entity now that it is renamable,
+   * so a formula reading `curve.point_buy.main(x)` refuses the removal of `main`.
+   */
+  deleteCurveColumn: (
+    curveId: string,
+    columnId: string,
+    options?: DeleteOptions
+  ) => EntityReference[];
+  addCurveRow: (curveId: string, key: number) => void;
+  deleteCurveRow: (curveId: string, key: number) => void;
+  /** Type a number into a cell — which is what makes a generated cell an override */
+  setCurveCell: (curveId: string, key: number, columnName: string, value: number) => void;
+  /** Drop a cell's override, putting the generated value back */
+  clearCurveOverride: (curveId: string, key: number, columnName: string) => void;
+
   // Focus Stat Configuration
   setFocusStatBonusLevel: (level: number) => void;
 
@@ -172,9 +208,94 @@ function createSeedConstants(): Constant[] {
 }
 
 /**
+ * The `non` and `sub` point-buy columns, as the source sheet actually holds them
+ *
+ * Hand-authored, not generated: Concept 06 measured them as "near-linear with rounding" and no
+ * clean formula was confirmed, so inventing one here would replace the User's ruleset with our
+ * guess at it. The `4.642857142857` at 9 points comes across too. It is almost certainly an
+ * accident — every neighbour is an integer — but the concept page is explicit that it needs a
+ * decision rather than a silent rounding, and a number nobody can see cannot be decided about.
+ */
+const POINT_BUY_HAND_ROWS: readonly (readonly [key: number, non: number, sub: number])[] = [
+  [0, 0, 0],
+  [1, 1, 1],
+  [2, 1, 1],
+  [3, 1, 2],
+  [4, 2, 2],
+  [5, 2, 3],
+  [6, 2, 3],
+  [7, 3, 4],
+  [8, 3, 4],
+  [9, 3, 4.642857142857],
+  [10, 4, 5],
+  [11, 4, 5],
+  [12, 4, 6],
+  [13, 4, 6],
+  [14, 5, 7],
+  [15, 5, 7],
+];
+
+/**
+ * The curves a fresh ruleset starts with (Concept 06's seed tables)
+ *
+ * Two, for the same reason the constants are seeded: they are the tables the rest of the
+ * milestone reads, and a table is easier to retune than to author.
+ *
+ * **`point_buy`** is the confirmed one. Its `main` column is `0.75 × (points + 1)` exactly, so it
+ * ships as a **generator** rather than as sixteen literals — which is what makes Concept 06's
+ * "flatten the archetype advantage" a one-field edit. The cells it ships with come from running
+ * that generator through the formula engine, not from arithmetic written a second time here: one
+ * progression, one source of truth, and retuning the string cannot leave the shipped table
+ * disagreeing with it.
+ *
+ * **`xp_thresholds`** is the shape only. Its numbers are Concept 06's open question #8 — the
+ * single most campaign-defining lever in the ruleset — so it arrives with one row (level 1 costs
+ * nothing) and waits for the User, rather than pretending a made-up progression is a default.
+ */
+function createSeedCurves(): Curve[] {
+  const pointBuy: Curve = {
+    id: crypto.randomUUID(),
+    name: 'point_buy',
+    displayName: 'Point buy',
+    description:
+      'What a point spent on a stat is worth, by how much the archetype favours that stat.',
+    keyName: 'points',
+    columns: [
+      { id: crypto.randomUUID(), name: 'non' },
+      { id: crypto.randomUUID(), name: 'sub' },
+      { id: crypto.randomUUID(), name: 'main', generator: '0.75 * (key + 1)' },
+    ],
+    // The generated column starts empty and is filled by its own generator, below
+    rows: POINT_BUY_HAND_ROWS.map(([key, non, sub]) => ({ key, values: [non, sub, 0] })),
+    interpolation: 'step',
+    outOfRange: 'error',
+    lookupDirection: 'forward',
+  };
+
+  return [
+    regenerateCurveTable(pointBuy).curve,
+    {
+      id: crypto.randomUUID(),
+      name: 'xp_thresholds',
+      displayName: 'XP thresholds',
+      description:
+        'Total experience needed for each level. Read backwards: given the XP, which level. ' +
+        'Placeholder — set your own thresholds before anyone levels.',
+      keyName: 'level',
+      columns: [{ id: crypto.randomUUID(), name: 'xp_required' }],
+      rows: [{ key: 1, values: [0] }],
+      interpolation: 'step',
+      outOfRange: 'extrapolate',
+      lookupDirection: 'reverse',
+    },
+  ];
+}
+
+/**
  * Create a fresh configuration
  *
- * Not "empty": a new ruleset arrives with Concept 05's seed constants already in it.
+ * Not "empty": a new ruleset arrives with Concept 05's seed constants and Concept 06's seed
+ * curves already in it.
  */
 function createFreshConfiguration(name: string): Configuration {
   const now = new Date().toISOString();
@@ -193,6 +314,7 @@ function createFreshConfiguration(name: string): Configuration {
     races: [],
     currencyTiers: [],
     constants: createSeedConstants(),
+    curves: createSeedCurves(),
     focusStatBonusLevel: 0,
     createdAt: now,
     updatedAt: now,
@@ -275,6 +397,42 @@ function guardedDelete(
 
   set({ config: autoSave(remove(config)) });
   return [];
+}
+
+/**
+ * Apply one engine edit to one curve and persist the result
+ *
+ * The shared body of the six grid actions (TICKET-CRV-03). The engine decides what the table
+ * becomes; the store's job is to put it somewhere and save. An edit that does not apply — a key
+ * already taken, a column that isn't there — comes back as the same curve and still saves, which
+ * is a no-op write rather than a wrong one.
+ *
+ * Deliberately **not** rename-safe: none of these edits changes a spelling. Renaming a column
+ * goes through `updateCurve`, which is, so the two paths stay separate.
+ *
+ * @param curveId - Which curve
+ * @param edit - The engine function to apply, given the curve and the ruleset around it
+ */
+function editCurve(
+  set: (partial: Partial<ConfigState>) => void,
+  get: () => ConfigState,
+  curveId: string,
+  edit: (curve: Curve, config: Configuration) => Curve
+): void {
+  const { config } = get();
+  if (!config) return;
+
+  const curve = (config.curves ?? []).find((candidate) => candidate.id === curveId);
+  if (!curve) return;
+
+  const edited = edit(curve, config);
+  const updated = autoSave({
+    ...config,
+    curves: (config.curves ?? []).map((candidate) =>
+      candidate.id === curveId ? edited : candidate
+    ),
+  });
+  set({ config: updated });
 }
 
 /**
@@ -695,6 +853,31 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       ...config,
       curves: (config.curves ?? []).filter((curve) => curve.id !== id),
     })),
+
+  addCurveColumn: (curveId: string, column: CurveColumn) =>
+    editCurve(set, get, curveId, (curve) => addColumnToCurve(curve, column)),
+
+  deleteCurveColumn: (curveId: string, columnId: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'curve-column', columnId, options, (config) => ({
+      ...config,
+      curves: (config.curves ?? []).map((curve) =>
+        curve.id === curveId ? removeCurveColumn(curve, columnId) : curve
+      ),
+    })),
+
+  addCurveRow: (curveId: string, key: number) =>
+    editCurve(set, get, curveId, (curve) => addRowToCurve(curve, key)),
+
+  deleteCurveRow: (curveId: string, key: number) =>
+    editCurve(set, get, curveId, (curve) => removeCurveRow(curve, key)),
+
+  setCurveCell: (curveId: string, key: number, columnName: string, value: number) =>
+    editCurve(set, get, curveId, (curve) => setCurveCellValue(curve, key, columnName, value)),
+
+  clearCurveOverride: (curveId: string, key: number, columnName: string) =>
+    editCurve(set, get, curveId, (curve, config) =>
+      clearCurveOverrideCell(curve, key, columnName, config)
+    ),
 
   regenerateCurve: (id: string) => {
     const empty: RegenerationReport = { written: 0, kept: 0, errors: [] };

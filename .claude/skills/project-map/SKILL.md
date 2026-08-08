@@ -36,7 +36,7 @@ rather than a read-only config UI).
 | Route | File | State |
 |---|---|---|
 | `/` | `routes/index.tsx` | landing page, feature overview |
-| `/config` | `routes/config/index.tsx` | `ConfigDashboard` (components/config/dashboard/) — validation status, the "Validate Configuration" action, the `ConfigTransferPanel` (rename/export/import), and a card index of the eight sections below |
+| `/config` | `routes/config/index.tsx` | `ConfigDashboard` (components/config/dashboard/) — validation status, the "Validate Configuration" action, the `ConfigTransferPanel` (rename/export/import), and a card index of the nine sections below |
 | `/config/skills` | `routes/config/skills.tsx` | `MainSkillsPanel` + `SpecialitySkillsPanel` + `CombatSkillsPanel` |
 | `/config/stats` | `routes/config/stats.tsx` | `StatsConfigPanel` |
 | `/config/materials` | `routes/config/materials.tsx` | `MaterialsConfigPanel` |
@@ -44,6 +44,7 @@ rather than a read-only config UI).
 | `/config/races` | `routes/config/races.tsx` | `RacesConfigPanel` |
 | `/config/currency` | `routes/config/currency.tsx` | `CurrencyConfigPanel` (which renders `ConversionCalculator` once tiers exist) |
 | `/config/constants` | `routes/config/constants.tsx` | `ConstantsConfigPanel` — named tunables (`const.*`), each card listing the formulas that name it |
+| `/config/curves` | `routes/config/curves.tsx` | `CurvesConfigPanel` — progressions as editable tables (`curve.*(x)`), with per-cell override highlighting and a regenerate action (TICKET-CRV-03) |
 | `/config/focus` | `routes/config/focus.tsx` | `FocusStatConfig` |
 | `/play` | `routes/play/index.tsx` | `CharacterList` — the play-mode entry point |
 | `/play/create` | `routes/play/create.tsx` | `CharacterCreationWizard` — the four-step wizard |
@@ -74,7 +75,7 @@ calls the storage service; components and hooks never persist directly.
 
 | Store | Owns | Persists to |
 |---|---|---|
-| `useConfigStore` | the single `Configuration` — main/speciality/combat skills, stats, materials + categories, items, equipment slots, races, currency tiers, constants, focus-stat bonus level. CRUD action per entity (`addX`/`updateX`/`deleteX`) | `saveConfiguration()` on every mutation |
+| `useConfigStore` | the single `Configuration` — main/speciality/combat skills, stats, materials + categories, items, equipment slots, races, currency tiers, constants, curves, focus-stat bonus level. CRUD action per entity (`addX`/`updateX`/`deleteX`), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`) and `updateCurrentStatValue(s)` | `saveCharacters()` on every mutation |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history | not persisted |
 
@@ -134,7 +135,8 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   `NAMESPACE_SCOPES` and `LEGACY_CODE_SCOPES` keyed by `FormulaOwner` (the attachment point),
   `KNOWN_NAMESPACES`, and `scopeFor(config, owner)`. A new attachment point is a **new row here**,
   never a branch — there is no `switch` on owner kind in the engine, and a test enforces that
-  every owner has a row. `curve` is in scope but has no members until CRV-01.
+  every owner has a row. `curve`'s members are the ruleset's curve names (TICKET-CRV-01); a
+  column is a property segment, checked at evaluation rather than here.
 - `formula/validator.ts` — `validateFormula(formula, availableCodes?, scope?)`,
   `validateFormulaCollection`, `detectCircularDependencies`, `dependencyKeysOf`,
   `toFormulaDependency`, plus a private `walkFormula(ast, visit)` that is the single place knowing
@@ -174,7 +176,13 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   `clearCurveOverride`. A column may carry a `generator` formula evaluated per row with the row's
   key bound as `key`; a cell flagged `overridden` is kept and counted rather than refilled, which
   is what stops a regeneration from quietly rebalancing the ruleset. Pure — `configStore`'s
-  `regenerateCurve(id)` action is what persists the result.
+  `regenerateCurve(id)` action is what persists the result. `flagColumnAsOverridden(curve,
+  columnId)` is what "give a hand-entered column a generator" calls first, so the numbers already
+  in it are kept rather than overwritten on the next regeneration.
+- `curveTable.ts` — a curve's **structure**: `addCurveColumn` / `removeCurveColumn` /
+  `addCurveRow` / `removeCurveRow` (TICKET-CRV-03). They exist because `columns`, `rows[].values`
+  and `rows[].overridden` are three arrays on one index; splicing one alone moves every override
+  flag onto the wrong cell. The store's column and row actions are the only callers.
 - `currency.ts` — `convertCurrency(value, toTierId, tiers)`, `normalizeCurrency(value, tiers)` (the
   highest tier where the amount is still ≥ 1 — what Req 10.4's "appropriate tier" means here) and
   `formatCurrency(value, tiers)`. Conversion is arithmetic over a configured rate, **not** a
@@ -231,7 +239,7 @@ import the engine to decide what to draw.
 
 **`config/` — configuration-mode features**, one folder per domain
 (`skills/{main,speciality,combat,shared}`, `stats/`, `materials/`, `items/`, `races/`,
-`currency/`, `constants/`, `focus/`). Each domain repeats the same four-part shape:
+`currency/`, `constants/`, `curves/`, `focus/`). Each domain repeats the same four-part shape:
 
 - `XConfigPanel.tsx` — layout + composition only
 - `XCard.tsx` — one row/entity

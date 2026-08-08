@@ -332,4 +332,69 @@ describe('findReferences', () => {
       expect(references[0].field).toBe('generator');
     });
   });
+
+  describe('curve columns (TICKET-CRV-03)', () => {
+    /** A two-column curve, one column read by a stat formula */
+    const withColumns = () =>
+      createConfig({
+        curves: [
+          {
+            id: 'id-pb',
+            name: 'point_buy',
+            displayName: 'Point buy',
+            description: '',
+            keyName: 'points',
+            columns: [
+              { id: 'col-non', name: 'non' },
+              { id: 'col-main', name: 'main' },
+            ],
+            rows: [{ key: 0, values: [0, 0.75] }],
+            interpolation: 'step',
+            outOfRange: 'error',
+            lookupDirection: 'forward',
+          },
+        ],
+        stats: [
+          { id: 'id-gain', name: 'Gain', description: '', formula: 'curve.point_buy.main(1)' },
+        ],
+      });
+
+    it('finds the formula reading a column, and only that column', () => {
+      const config = withColumns();
+
+      expect(holders(findReferences({ kind: 'curve-column', id: 'col-main' }, config, []))).toEqual(
+        ['Stat: Gain']
+      );
+      expect(findReferences({ kind: 'curve-column', id: 'col-non' }, config, [])).toEqual([]);
+    });
+
+    it('counts an unqualified call against a single-column curve’s only column', () => {
+      // `curve.xp(x)` reads that column — removing it would break the call just the same
+      const config = createConfig({
+        curves: [
+          {
+            id: 'id-xp',
+            name: 'xp',
+            displayName: 'XP',
+            description: '',
+            keyName: 'level',
+            columns: [{ id: 'col-only', name: 'xp_required' }],
+            rows: [{ key: 1, values: [0] }],
+            interpolation: 'step',
+            outOfRange: 'clamp',
+            lookupDirection: 'forward',
+          },
+        ],
+        stats: [{ id: 'id-lvl', name: 'Level', description: '', formula: 'curve.xp(1)' }],
+      });
+
+      expect(holders(findReferences({ kind: 'curve-column', id: 'col-only' }, config, []))).toEqual(
+        ['Stat: Level']
+      );
+    });
+
+    it('reports nothing for a column id no curve has', () => {
+      expect(findReferences({ kind: 'curve-column', id: 'gone' }, withColumns(), [])).toEqual([]);
+    });
+  });
 });
