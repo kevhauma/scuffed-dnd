@@ -260,9 +260,11 @@ covered without editing the test.
 
 `ErrorChip` (TICKET-FORM-06) is the standard stand-in for a value that could not be calculated.
 It takes plain `label`/`detail` strings, never a `FormulaError` — the caller turns an error into
-words with `describeFormulaError`. On the character sheet the interpreting happens once in
-`useCharacterSheet`, which hands sections a `DerivedValue` (`{ value, error }`) so they never
-import the engine to decide what to draw.
+words with `describeFormulaError`. That interpreting happens once, in
+**`play/derivedValue.ts`** (`DerivedValue` = `{ value, error }`, `toDerivedValue(result)` —
+TICKET-STAT-03), so both the sheet and the creation wizard hand their components a rendered
+value and neither imports the engine to decide what to draw. Use it rather than reading a
+`FormulaResult` in a component.
 
 **`config/` — configuration-mode features**, one folder per domain
 (`skills/{speciality,combat,shared}`, `stats/`, `materials/`, `items/`, `races/`,
@@ -290,18 +292,22 @@ decides whether a delete is safe; `configStore`'s delete actions return the refe
 `alert()`/`confirm()` guards it sat beside are gone.
 
 **`play/`** — barrelled by `play/index.ts`, mirroring `config/`'s domain-folder shape.
+`shared/` is play mode's cross-domain folder, the counterpart to `config/shared/`: `derivedValue.ts`
+(above) and `SkillBreakdownRow.tsx`, the "total plus its labelled contributions" row that both the
+sheet and the wizard's derived-stat preview render — reuse it rather than re-deriving a breakdown
+layout.
 `characters/` holds `CharacterList` + `CharacterCard` + `useCharacterListManager`.
 `creation/` holds the four-step wizard: `CharacterCreationWizard` dispatches on a step index and
 the four step components (`IdentityStep`, `SkillAllocationStep`, `FocusStatStep`, `ReviewStep`)
 are pure props — all state, validation and the submit live in `useCharacterCreation`. That is the
-multi-step pattern to copy.
+multi-step pattern to copy. `SkillAllocationStep` takes points for the **invested** stats only and
+previews the derived ones read-only off the same `calculateCharacter` result the review step uses.
 `sheet/` holds the character sheet: `CharacterSheet` (composition + the four dead-end notices) and
 `useCharacterSheet` (status resolution, the one `calculateCharacter` call, and the stat handler),
-with `SheetHeader`, `RacialModifiersSection`, `StatsSection` (a `StatEditor` per **resource**, a
-`SkillBreakdownRow` for every other stat, plus the stat total), `SpecialitySkillsSection` and
+with `SheetHeader`, `RacialModifiersSection`, `StatsSection` (one `SkillBreakdownRow` per stat in
+`order`, **plus** a `StatEditor` for each `isResource` stat — the breakdown row owns the value and
+its error chip, the editor owns the current value; TICKET-STAT-03), `SpecialitySkillsSection` and
 `CombatSkillsSection` as pure props.
-`SkillBreakdownRow` is the shared "total plus its labelled contributions" row — reuse it rather
-than re-deriving a breakdown layout.
 `inventory/` holds `InventoryPanel` (mounted by the sheet, taking only a `characterId`) with
 `EquipmentSlotRow`, `MiscItemRow` and `useInventoryManager`. Equipping needs no recalculation call:
 `calculateCharacter` reads `inventory.equippedItems` at render time.

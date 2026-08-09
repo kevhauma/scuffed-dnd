@@ -27,7 +27,9 @@ export function CharacterCreationWizard() {
     canGoNext,
     canGoBack,
     isLastStep,
+    stats,
     investableStats,
+    derivedStatPreviews,
     specialitySkills,
     races,
     racialModifiers,
@@ -101,6 +103,7 @@ export function CharacterCreationWizard() {
       {stepIndex === 1 && (
         <SkillAllocationStep
           investableStats={investableStats}
+          derivedStatPreviews={derivedStatPreviews}
           specialitySkills={specialitySkills}
           investedStatPoints={values.investedStatPoints}
           specialitySkillBaseLevels={values.specialitySkillBaseLevels}
@@ -124,6 +127,7 @@ export function CharacterCreationWizard() {
       {stepIndex === 3 && (
         <ReviewStep
           config={config}
+          stats={stats}
           characterName={values.name.trim()}
           raceNames={selectedRaceNames}
           preview={preview}

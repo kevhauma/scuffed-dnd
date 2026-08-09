@@ -45,9 +45,17 @@ rather than leaving it present-and-empty — a User who clears a bound gets an u
 a phantom one. Copy that when an update action can clear an optional field.
 
 **`Stat.order` is written by `reorderStats(orderedIds)`, never by hand.** It rewrites the stored
-array *and* renumbers `order` from each position, so `config.stats.map(…)` displays in the User's
-order without every reader remembering to sort — and the two can never disagree. Reordering
-changes no value; references are by id (Concept 01).
+array *and* renumbers `order` from each position, so the two can never disagree for anything the
+store wrote. Reordering changes no value; references are by id (Concept 01).
+
+**Nothing outside the store guarantees that, though**, so the display hooks sort defensively:
+`useStatManager`, `useCharacterSheet` and `useCharacterCreation` each read
+`[...stats].sort((a, b) => a.order - b.order)` and hand the result down (TICKET-STAT-03). An
+imported JSON file only has to satisfy the shape check — `order` must be a number, not a number
+agreeing with its array position — so `order` is the field that decides, and a hand-edited export
+displays the way it reads rather than the way it happens to be stored. **Sort in the hook, never in
+a component**: the two consumers of the ordered list (`SkillAllocationStep`, `ReviewStep`) take it
+as a prop.
 
 **`schemaVersion` is the clean break** (TICKET-STAT-01, TICKET-IO-03). v1 files have no such key,
 which is exactly how they are recognised. The number itself lives in

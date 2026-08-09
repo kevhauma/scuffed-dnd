@@ -10,7 +10,7 @@
 
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
-import { SkillBreakdownRow } from './SkillBreakdownRow';
+import { SkillBreakdownRow } from '../shared/SkillBreakdownRow';
 import type { SpecialitySkillBreakdown } from './useCharacterSheet';
 
 export interface SpecialitySkillsSectionProps {

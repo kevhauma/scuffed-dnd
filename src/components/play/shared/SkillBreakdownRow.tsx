@@ -10,7 +10,7 @@
 
 import { ErrorChip } from '../../ui/ErrorChip/ErrorChip';
 import { Text } from '../../ui/Text/Text';
-import type { DerivedValue } from './useCharacterSheet';
+import type { DerivedValue } from './derivedValue';
 
 /** One named contribution to a skill's total */
 export interface SkillContribution {

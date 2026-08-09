@@ -9,16 +9,19 @@
  * enforced in the store action, not here — this component reports the requested value and renders
  * whatever came back.
  *
+ * Since TICKET-STAT-03 a resource is preceded on the sheet by its own `SkillBreakdownRow`, which
+ * carries the maximum and, when the formula behind it fails, the FORM-06 chip explaining why. So
+ * this row states the maximum in words rather than chipping the same error a second line down.
+ *
  * **Validates: Requirements 14.1, 14.2, 16.6, 21.1-21.5**
  */
 
 import { useId, useState } from 'react';
 import { Button } from '../../ui/Button/Button';
-import { ErrorChip } from '../../ui/ErrorChip/ErrorChip';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
-import type { DerivedValue } from './useCharacterSheet';
+import type { DerivedValue } from '../shared/derivedValue';
 
 export interface StatEditorProps {
   name: string;
@@ -81,13 +84,9 @@ export function StatEditor({ name, current, max, onChange }: StatEditorProps) {
         +
       </Button>
 
-      {max.error !== null ? (
-        <ErrorChip label="max unavailable" detail={max.error} />
-      ) : (
-        <Text variant="body-small-secondary" as="span">
-          of {max.value} max
-        </Text>
-      )}
+      <Text variant="body-small-secondary" as="span">
+        {max.error !== null ? 'maximum unavailable' : `of ${max.value} max`}
+      </Text>
     </div>
   );
 }

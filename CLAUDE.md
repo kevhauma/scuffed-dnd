@@ -27,7 +27,7 @@ Verification before declaring any change done: `npx vitest run` + `npx tsc --noE
 so and skip it if unavailable in the session, don't skip it silently), plus a live browser check
 for UI-visible changes.
 
-**The test suite is green — 1094 passing, 0 failing, 0 skipped.** Any failing or newly-skipped test
+**The test suite is green — 1210 passing, 0 failing, 0 skipped.** Any failing or newly-skipped test
 is a regression. **`yarn run check` is clean** as of TICKET-DX-02 — zero lint errors, zero
 formatting drift — and a pre-commit hook keeps it that way, so any finding it reports is yours.
 `npx tsc --noEmit` still has **2** known errors, enumerated in [TEST_STATUS.md](TEST_STATUS.md),

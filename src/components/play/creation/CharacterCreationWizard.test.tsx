@@ -4,7 +4,7 @@
  * **Validates: Requirements 11.1-11.6, 21.1-21.5**
  */
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Configuration } from '../../../types/config';
 
@@ -105,6 +105,19 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     updatedAt: '2024-01-01',
     ...overrides,
   };
+}
+
+/**
+ * The row a stat is rendered in, found by its visible label
+ *
+ * Same idiom as `CharacterSheet.test.tsx` — the separator border identifies the row, since the
+ * derived preview now renders the sheet's own `SkillBreakdownRow`.
+ */
+function rowFor(label: string | RegExp): HTMLElement {
+  const cell = screen.getByText(label);
+  const row = cell.closest('div.border-b');
+  if (!row) throw new Error(`No row found for ${label}`);
+  return row as HTMLElement;
 }
 
 const next = () => fireEvent.click(screen.getByRole('button', { name: 'Next' }));
@@ -211,6 +224,85 @@ describe('CharacterCreationWizard', () => {
     expect(screen.getByText(/4 of 12 points spent · 8 remaining/)).toBeDefined();
   });
 
+  describe('the allocation step on unified stats (TICKET-STAT-03)', () => {
+    it('should offer an input for an invested stat and none for a derived one', () => {
+      render(<CharacterCreationWizard />);
+      toSkillsStep();
+
+      expect(screen.getByLabelText(/Strength \(STR\)/)).toBeDefined();
+      expect(screen.getByLabelText(/Dexterity \(DEX\)/)).toBeDefined();
+
+      // Health is `STR * 10`, so points put into it would be discarded by the calculator
+      expect(screen.queryByLabelText(/Health \(HEA\)/)).toBeNull();
+      expect(screen.getByRole('heading', { name: 'Derived Stats' })).toBeDefined();
+      expect(screen.getByText('Health (HEA)')).toBeDefined();
+    });
+
+    it("should move a derived stat's preview as points are allocated", () => {
+      render(<CharacterCreationWizard />);
+      toSkillsStep();
+
+      expect(within(rowFor('Health (HEA)')).getByText('0')).toBeDefined();
+
+      fireEvent.change(screen.getByLabelText(/Strength \(STR\)/), { target: { value: '5' } });
+
+      // Straight off the composed preview — the step evaluates nothing itself
+      expect(within(rowFor('Health (HEA)')).getByText('50')).toBeDefined();
+    });
+
+    it('should list the invested stats in the order the ruleset arranges them', () => {
+      useConfigStore.setState({
+        config: createConfig({
+          stats: createConfig().stats.map((stat) => ({
+            ...stat,
+            order: stat.id === 'DEX' ? 0 : 1,
+          })),
+        }),
+        isLoaded: true,
+      });
+
+      render(<CharacterCreationWizard />);
+      toSkillsStep();
+
+      const labels = screen
+        .getAllByText(/^(Strength|Dexterity) \((STR|DEX)\)$/)
+        .map((node) => node.textContent);
+
+      expect(labels).toEqual(['Dexterity (DEX)', 'Strength (STR)']);
+    });
+
+    it('should say so rather than show 0 when the whole calculation fails', () => {
+      // `calculateCharacter` throwing is an engine bug or a malformed ruleset, not an ordinary
+      // formula mistake — but it must not reach the Player as a confident `Health 0` while they
+      // allocate against it. A ruleset with no `races` array at all makes the engine throw.
+      useConfigStore.setState({
+        config: createConfig({ races: undefined as unknown as Configuration['races'] }),
+        isLoaded: true,
+      });
+
+      render(<CharacterCreationWizard />);
+      toSkillsStep();
+
+      const health = rowFor('Health (HEA)');
+      expect(within(health).queryByText('0')).toBeNull();
+      expect(within(health).getByRole('img', { name: /cannot be calculated/ })).toBeDefined();
+    });
+
+    it('should hide the derived card entirely when the ruleset has no derived stat', () => {
+      useConfigStore.setState({
+        config: createConfig({
+          stats: createConfig().stats.filter((stat) => stat.formula === undefined),
+        }),
+        isLoaded: true,
+      });
+
+      render(<CharacterCreationWizard />);
+      toSkillsStep();
+
+      expect(screen.queryByRole('heading', { name: 'Derived Stats' })).toBeNull();
+    });
+  });
+
   it('should offer a focus stat from both main and speciality skills, stating the bonus', () => {
     render(<CharacterCreationWizard />);
 
@@ -309,6 +401,13 @@ describe('CharacterCreationWizard', () => {
     });
     // Empty inventory — slots come from the configuration, not from the character (Req 11.6)
     expect(characters[0].inventory).toEqual({ equippedItems: {}, miscItems: [] });
+
+    // …and the result is a v2 character: points keyed by stat *id*, resources seeded to their
+    // calculated maximum, and nothing left of the v1 main-skill map (TICKET-STAT-01, STAT-03)
+    expect(Object.keys(characters[0].investedStatPoints)).toEqual(['STR']);
+    // STR is 5 invested + 3 from the focus bonus, and health is `STR * 10`
+    expect(characters[0].currentResourceValues).toEqual({ health: 80 });
+    expect(characters[0]).not.toHaveProperty('mainSkillLevels');
 
     expect(navigate).toHaveBeenCalledWith({
       to: '/play/character/$id',

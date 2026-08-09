@@ -22,11 +22,23 @@ import type {
   Character,
   CharacterCreationData,
 } from '../../../types/character';
+import type { Stat } from '../../../types/config';
+import type { DerivedValue } from '../shared/derivedValue';
+import { toDerivedValue } from '../shared/derivedValue';
 
 /**
  * The wizard's steps, in order — exposed to callers as the hook's `steps`
  */
-const CREATION_STEPS = ['Identity', 'Skills', 'Focus', 'Review'] as const;
+const CREATION_STEPS = ['Identity', 'Stats', 'Focus', 'Review'] as const;
+
+/**
+ * One derived stat as the allocation step shows it: the stat, and the value it currently computes
+ * to — or the error standing in for it, so a broken ruleset chips one row rather than the step
+ */
+export interface DerivedStatPreview {
+  stat: Stat;
+  value: DerivedValue;
+}
 
 /**
  * The form's shape — `CharacterCreationData` with the optional focus code always present as a
@@ -86,8 +98,12 @@ export function useCharacterCreation() {
   // Watching keeps every step's view in sync with values entered on the others
   const values = form.watch();
 
+  /** Every stat in the order the User arranged them in the stats panel (TICKET-STAT-03) */
+  const stats = [...(config?.stats ?? [])].sort((a, b) => a.order - b.order);
+
   // Only invested stats take points; a derived one computes its own value (TICKET-STAT-01)
-  const investableStats = (config?.stats ?? []).filter((stat) => stat.formula === undefined);
+  const investableStats = stats.filter((stat) => stat.formula === undefined);
+  const derivedStats = stats.filter((stat) => stat.formula !== undefined);
   const specialitySkills = config?.specialitySkills ?? [];
   const races = config?.races ?? [];
 
@@ -168,6 +184,24 @@ export function useCharacterCreation() {
     return broken ? describeFormulaError(broken) : null;
   })();
 
+  /**
+   * The derived stats as the allocation step shows them — read-only, and moving as points do
+   *
+   * Read straight off the same composed preview the review step uses, so the number a Player
+   * watches while allocating is the number they end up with (TICKET-STAT-03).
+   *
+   * A **null** preview means `calculateCharacter` threw, which is the one case
+   * `toDerivedValue(undefined)`'s "absence reads as 0" would get wrong: nothing is absent, the
+   * whole calculation failed. Each row says so instead of showing a confident zero — the same
+   * reasoning `previewError` applies to the review step.
+   */
+  const derivedStatPreviews: DerivedStatPreview[] = derivedStats.map((stat) => ({
+    stat,
+    value: preview
+      ? toDerivedValue(preview.statValues[stat.id])
+      : { value: null, error: 'The derived values cannot be calculated for this ruleset.' },
+  }));
+
   /** Why the current step cannot be left, or null when it can */
   const stepErrorsByStep: Record<number, string | null> = {
     0: creationData.name === '' ? 'Give your character a name before continuing.' : null,
@@ -211,7 +245,9 @@ export function useCharacterCreation() {
     canGoNext,
     canGoBack,
     isLastStep: stepIndex === CREATION_STEPS.length - 1,
+    stats,
     investableStats,
+    derivedStatPreviews,
     specialitySkills,
     races,
     racialModifiers,

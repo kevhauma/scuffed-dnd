@@ -1,12 +1,15 @@
 /**
- * Creation Step 2 — Skills
+ * Creation Step 2 — Stats
  *
- * Allocates a level per main skill within the configured point budget, showing each skill's
- * racial modifier separately from the allocated base, and the base level per speciality skill.
+ * Allocates points across the ruleset's **invested** stats within the configured budget, showing
+ * each stat's racial modifier separately from the points spent, and the base level per speciality
+ * skill. A **derived** stat takes no points, so it previews read-only and moves as the invested
+ * ones do — that split is Concept 01's, wired here by TICKET-STAT-03.
  *
- * The budget arithmetic comes from `validateStatAllocation`; nothing is re-summed here.
+ * The budget arithmetic comes from `validateStatAllocation` and every derived number from
+ * `calculateCharacter`; nothing is summed or evaluated here.
  *
- * **Validates: Requirements 11.3, 8.4, 21.1-21.5**
+ * **Validates: Concept 01; Requirements 11.3, 8.4, 16.6, 21.1-21.5**
  */
 
 import type { StatAllocationResult } from '../../../engine/skillAllocation';
@@ -15,9 +18,13 @@ import { Card } from '../../ui/Card/Card';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
+import { SkillBreakdownRow } from '../shared/SkillBreakdownRow';
+import type { DerivedStatPreview } from './useCharacterCreation';
 
 export interface SkillAllocationStepProps {
   investableStats: Stat[];
+  /** The stats a formula decides — shown, never edited */
+  derivedStatPreviews: DerivedStatPreview[];
   specialitySkills: SpecialitySkill[];
   investedStatPoints: Record<string, number>;
   specialitySkillBaseLevels: Record<string, number>;
@@ -35,6 +42,7 @@ function toLevel(value: string): number {
 
 export function SkillAllocationStep({
   investableStats,
+  derivedStatPreviews,
   specialitySkills,
   investedStatPoints,
   specialitySkillBaseLevels,
@@ -48,7 +56,7 @@ export function SkillAllocationStep({
       <Card className="p-6">
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
           <Text variant="h4" as="h2">
-            Main Skills
+            Stats
           </Text>
           {allocation && allocation.pointBudget !== null && (
             <Text variant={allocation.isOverBudget ? 'error' : 'body-small-secondary'} as="p">
@@ -104,6 +112,29 @@ export function SkillAllocationStep({
           </div>
         )}
       </Card>
+
+      {derivedStatPreviews.length > 0 && (
+        <Card className="p-6">
+          <Text variant="h4" as="h2" className="mb-1">
+            Derived Stats
+          </Text>
+          <Text variant="body-small-secondary" className="mb-3">
+            Calculated from the points above — they take no allocation of their own.
+          </Text>
+
+          {derivedStatPreviews.map(({ stat, value }) => (
+            // The sheet's row, so a derived stat reads the same in both places. It takes no
+            // points, so there are no contributions to break out — just the value or its chip.
+            <SkillBreakdownRow
+              key={stat.id}
+              name={stat.name}
+              code={stat.abbreviation}
+              total={value}
+              contributions={[]}
+            />
+          ))}
+        </Card>
+      )}
 
       {specialitySkills.length > 0 && (
         <Card className="p-6">

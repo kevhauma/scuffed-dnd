@@ -18,12 +18,12 @@ import { indexSkillModifiers } from '../../../engine/calculators/equipmentBonusC
 import { calculateRacialSkillModifiers } from '../../../engine/calculators/statCalculator';
 import { calculateCharacterLevel } from '../../../engine/characterSummary';
 import { formatDiceNotation } from '../../../engine/dice/diceSimulator';
-import { describeFormulaError, isFormulaError } from '../../../engine/formula/errors';
 import { useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
 import type { CalculatedCharacter, Character } from '../../../types/character';
 import type { Configuration } from '../../../types/config';
-import type { FormulaResult } from '../../../types/formula';
+import type { DerivedValue } from '../shared/derivedValue';
+import { toDerivedValue } from '../shared/derivedValue';
 
 /**
  * Why the sheet cannot be drawn, or `ready` when it can
@@ -47,14 +47,6 @@ type CharacterSheetStatus =
    * `calculateCharacter` reaches this state now.
    */
   | 'formula-error';
-
-/**
- * A derived number for display: the value, or the error that stands in for it
- *
- * The hook interprets `FormulaResult` once, here, so the sections stay presentational and never
- * import the engine to decide what to draw.
- */
-export type DerivedValue = { value: number; error: null } | { value: null; error: string };
 
 /**
  * A speciality skill's contributions, kept apart rather than pre-summed (Requirement 13.4)
@@ -85,6 +77,8 @@ export interface StatBreakdown {
   name: string;
   abbreviation: string;
   isResource: boolean;
+  /** Whether the value comes from a formula rather than from points the Player spent */
+  isDerived: boolean;
   /** Points the Player put into it — always 0 for a derived stat */
   invested: number;
   /** Combined modifier from every race the character has (Requirement 8.5) */
@@ -133,18 +127,6 @@ const EMPTY_VIEW: CharacterSheetView = {
 interface CalculationOutcome {
   calculated: CalculatedCharacter | null;
   error: string | null;
-}
-
-/**
- * Turn one engine result into something a section can render
- *
- * A missing entry (a stat the engine produced nothing for) reads as 0 rather than an error —
- * that is absence, not breakage.
- */
-function derived(result: FormulaResult | undefined): DerivedValue {
-  if (result === undefined) return { value: 0, error: null };
-  if (isFormulaError(result)) return { value: null, error: describeFormulaError(result) };
-  return { value: result, error: null };
 }
 
 /**
@@ -211,24 +193,27 @@ function buildView(
       base: character.specialitySkillBaseLevels[skill.code] ?? 0,
       equipment: equipmentBonuses[skill.code] ?? 0,
       focus: focusFor(skill.code),
-      total: derived(calculated.specialitySkillTotalLevels[skill.code]),
+      total: toDerivedValue(calculated.specialitySkillTotalLevels[skill.code]),
       isFocusStat: character.focusStatCode === skill.code,
     })),
 
-    // One row per stat, invested or derived (TICKET-STAT-01). `current` is meaningful only for a
-    // resource; for everything else it mirrors the value, which is what the sheet shows.
-    stats: config.stats.map((stat) => ({
-      id: stat.id,
-      name: stat.name,
-      abbreviation: stat.abbreviation,
-      isResource: stat.isResource,
-      invested: character.investedStatPoints[stat.id] ?? 0,
-      racial: racialModifiers[stat.abbreviation] ?? 0,
-      equipment: equipmentBonuses[stat.abbreviation] ?? 0,
-      focus: focusFor(stat.abbreviation),
-      current: character.currentResourceValues[stat.id] ?? 0,
-      max: derived(calculated.statValues[stat.id]),
-    })),
+    // One row per stat, invested or derived (TICKET-STAT-01), in the order the User arranged them
+    // in the stats panel (TICKET-STAT-03). `current` is meaningful only for a resource.
+    stats: [...config.stats]
+      .sort((a, b) => a.order - b.order)
+      .map((stat) => ({
+        id: stat.id,
+        name: stat.name,
+        abbreviation: stat.abbreviation,
+        isResource: stat.isResource,
+        isDerived: stat.formula !== undefined,
+        invested: character.investedStatPoints[stat.id] ?? 0,
+        racial: racialModifiers[stat.abbreviation] ?? 0,
+        equipment: equipmentBonuses[stat.abbreviation] ?? 0,
+        focus: focusFor(stat.abbreviation),
+        current: character.currentResourceValues[stat.id] ?? 0,
+        max: toDerivedValue(calculated.statValues[stat.id]),
+      })),
 
     statTotal: calculated.statTotal,
 
@@ -236,7 +221,7 @@ function buildView(
       code: skill.code,
       name: skill.name,
       diceNotation: formatDiceNotation(skill.dice),
-      bonus: derived(calculated.combatSkillBonuses[skill.code]),
+      bonus: toDerivedValue(calculated.combatSkillBonuses[skill.code]),
     })),
   };
 }

@@ -290,6 +290,79 @@ describe('CharacterSheet', () => {
     expect(useCharacterStore.getState().characters[0].currentResourceValues.health).toBe(59);
   });
 
+  describe('the unified stats grid (TICKET-STAT-03)', () => {
+    it('should list every stat in the order the ruleset arranges them', () => {
+      useConfigStore.setState({
+        config: createConfig({
+          stats: createConfig().stats.map((stat, index) => ({
+            ...stat,
+            // Reverse the panel ordering: mana, health, DEX, STR
+            order: 10 - index,
+          })),
+        }),
+        isLoaded: true,
+      });
+
+      render(<CharacterSheet characterId="char1" />);
+
+      const names = screen
+        .getAllByText(/^(Strength|Dexterity|Health|Mana) \((STR|DEX|HEA|MAN)\)$/)
+        .map((node) => node.textContent);
+
+      expect(names).toEqual(['Mana (MAN)', 'Health (HEA)', 'Dexterity (DEX)', 'Strength (STR)']);
+    });
+
+    it('should give a derived stat a breakdown row carrying the calculated value', () => {
+      render(<CharacterSheet characterId="char1" />);
+
+      // Health is `STR * 10` over an invested STR of 6 — the row shows the engine's number and
+      // does not claim the Player invested anything in it
+      const health = rowFor(/Health \(HEA\)/);
+      expect(within(health).getByText('60')).toBeDefined();
+      expect(within(health).queryByText(/^invested/)).toBeNull();
+    });
+
+    describe('resource gating', () => {
+      it('should give a resource stat editable current-value controls', () => {
+        render(<CharacterSheet characterId="char1" />);
+
+        for (const resource of ['Health', 'Mana']) {
+          expect(screen.getByLabelText(resource)).toBeDefined();
+          expect(screen.getByLabelText(`Increase ${resource}`)).toBeDefined();
+          expect(screen.getByLabelText(`Decrease ${resource}`)).toBeDefined();
+        }
+      });
+
+      it('should give a non-resource stat no current-value controls at all', () => {
+        render(<CharacterSheet characterId="char1" />);
+
+        // Strength and Dexterity are invested stats: they have a value, not a pool to spend
+        for (const stat of ['Strength', 'Dexterity']) {
+          expect(screen.queryByLabelText(stat)).toBeNull();
+          expect(screen.queryByLabelText(`Increase ${stat}`)).toBeNull();
+          expect(screen.queryByLabelText(`Decrease ${stat}`)).toBeNull();
+        }
+      });
+
+      it('should stop offering current-value controls when a stat stops being a resource', () => {
+        useConfigStore.setState({
+          config: createConfig({
+            stats: createConfig().stats.map((stat) =>
+              stat.id === 'mana' ? { ...stat, isResource: false } : stat
+            ),
+          }),
+          isLoaded: true,
+        });
+
+        render(<CharacterSheet characterId="char1" />);
+
+        // …but the stat itself is still on the sheet, with its calculated value
+        expect(screen.queryByLabelText('Mana')).toBeNull();
+        expect(within(rowFor(/Mana \(MAN\)/)).getByText('30')).toBeDefined();
+      });
+    });
+  });
+
   it('should navigate back to the character list', () => {
     render(<CharacterSheet characterId="char1" />);
 
@@ -383,6 +456,17 @@ describe('CharacterSheet', () => {
 
       expect(chips).toHaveLength(1);
       expect(chips[0].getAttribute('aria-label')).toContain('Stat "Health"');
+    });
+
+    it("should state a resource's missing maximum in words rather than chip it twice", () => {
+      // The breakdown row above the editor already carries the chip with the full provenance
+      // chain, so the editor says it plainly instead (TICKET-STAT-03)
+      renderWithBrokenStat();
+
+      expect(within(rowFor('Health')).getByText('maximum unavailable')).toBeDefined();
+      expect(
+        within(rowFor('Health')).queryByRole('img', { name: /Undefined variable/ })
+      ).toBeNull();
     });
 
     it('should chip a broken speciality total and the combat skill that reads it', () => {

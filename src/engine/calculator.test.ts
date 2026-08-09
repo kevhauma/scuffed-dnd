@@ -948,3 +948,60 @@ describe('calculateCharacter over an unallocated main skill (TICKET-CALC-02)', (
     });
   });
 });
+
+/**
+ * The abbreviation bridge — scaffolding, not a design
+ *
+ * A speciality skill's `bonusFormula` and a combat skill's are still written in the **flat**
+ * variable space, so `(STR + DEX) / 2` reaches stats by their `abbreviation`. That space is a
+ * carry-across from v1, where `MainSkill` was the invested atom; TICKET-STAT-01 kept it pointed at
+ * stat abbreviations rather than redesigning both skill kinds in the same change.
+ *
+ * It is temporary, and these tests exist to fail loudly when it is removed:
+ *
+ * - **TICKET-SKL-02** replaces `SpecialitySkill` with the weighted Skill entity, which names its
+ *   stats through `stats.*` rather than through the flat space;
+ * - **TICKET-ROLL-06** replaces `CombatSkill` with roll definitions, which do the same.
+ *
+ * When either lands, delete the half of this block it retires — do not "fix" it by re-adding the
+ * flat spelling. When both have landed, the whole block goes, and with it `statVariables`.
+ */
+describe('the flat abbreviation bridge (retired by TICKET-SKL-02 and TICKET-ROLL-06)', () => {
+  it('should let a speciality formula reach a stat by its abbreviation', () => {
+    // TICKET-SKL-02 retires this: the Skill entity weights `stats.*` instead
+    const result = calculateCharacter(createFixtureCharacter(), createFixtureConfig());
+
+    // STL is `base 2 + DEX / 2`, and DEX composes to 10
+    expect(result.specialitySkillTotalLevels.STL).toBe(7);
+  });
+
+  it('should let a combat formula reach a stat by its abbreviation', () => {
+    // TICKET-ROLL-06 retires this: a roll definition names `stats.*` instead
+    const result = calculateCharacter(createFixtureCharacter(), createFixtureConfig());
+
+    // MEL is `STR + STL`, and STR composes to 9
+    expect(result.combatSkillBonuses.MEL).toBe(16);
+  });
+
+  it('should lose the reference when the abbreviation is renamed without the formula', () => {
+    // The bridge is spelled, not stored: `statVariables` rebuilds it from the current
+    // abbreviations at calculation time. So renaming a stat and leaving the old spelling in a
+    // formula is an undefined variable rather than a stale number — which is exactly why
+    // TICKET-REF-01 rewrites the formulas on rename, and why moving both skill kinds onto
+    // `stats.*` removes the class of problem rather than managing it.
+    const config = createFixtureConfig();
+    const renamed: Configuration = {
+      ...config,
+      stats: config.stats.map((stat) =>
+        stat.id === 'DEX' ? { ...stat, abbreviation: 'AGI' } : stat
+      ),
+    };
+
+    const stale = calculateCharacter(createFixtureCharacter(), renamed);
+
+    expect(stale.specialitySkillTotalLevels.STL).toMatchObject({
+      kind: 'undefined-variable',
+      message: 'Undefined variable: DEX',
+    });
+  });
+});

@@ -8,12 +8,14 @@
 
 import { numberOr } from '../../../engine/formula/errors';
 import type { CalculatedCharacter } from '../../../types/character';
-import type { Configuration } from '../../../types/config';
+import type { Configuration, Stat } from '../../../types/config';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 
 export interface ReviewStepProps {
   config: Configuration;
+  /** The ruleset's stats in display order — decided by the hook, not re-derived here */
+  stats: Stat[];
   characterName: string;
   raceNames: string[];
   preview: CalculatedCharacter | null;
@@ -37,6 +39,7 @@ function SummaryRow({ label, value }: { label: string; value: number }) {
 
 export function ReviewStep({
   config,
+  stats,
   characterName,
   raceNames,
   preview,
@@ -81,10 +84,10 @@ export function ReviewStep({
           <Text variant="h5" as="h3" className="mb-3">
             Stats
           </Text>
-          {config.stats.length === 0 ? (
+          {stats.length === 0 ? (
             <Text variant="body-small-secondary">No stats configured.</Text>
           ) : (
-            config.stats.map((stat) => (
+            stats.map((stat) => (
               <SummaryRow
                 key={stat.id}
                 label={`${stat.name} (${stat.abbreviation})`}
