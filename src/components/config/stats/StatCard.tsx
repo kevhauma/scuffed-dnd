@@ -1,33 +1,25 @@
 /**
  * Stat Card Component
  *
- * One stat as the panel lists it: what kind it is, what bounds it, its formula if it has one, and
- * a sample-value preview of that formula. Carries the reorder controls too, so a keyboard reaches
- * the ordering the drag handle offers a mouse (TICKET-STAT-02).
+ * One stat as the panel lists it: what kind it is, what bounds it, and its formula if it has one.
+ * Carries the reorder controls too, so a keyboard reaches the ordering the drag handle offers a
+ * mouse (TICKET-STAT-02).
  *
- * The preview here is the interim one — TICKET-FORM-08's `FormulaPreview` replaces it, and this
- * card's sample-value block retires with it.
+ * It **evaluates nothing** (TICKET-FORM-08). A card showed a sample-value preview of the saved
+ * formula, which was the preview on the wrong side of the edit — the question is what a formula
+ * does *while you are writing it*. `FormulaPreview` answers that in the dialog, and one preview in
+ * one place is what stops two copies of the wiring drifting apart.
  *
- * **Validates: Concept 01; Requirements 3.1, 3.2, 21.1-21.5**
+ * **Validates: Concept 01; Requirements 3.1, 21.1-21.5**
  */
 
-import { useMemo, useState } from 'react';
-import { asNumber } from '../../../engine/formula/errors';
-import { evaluateFormulaString } from '../../../engine/formula/evaluator';
-import type { NamespaceSource } from '../../../engine/formula/namespaces';
-import { namespacesFor } from '../../../engine/formula/namespaces';
-import { validateFormula } from '../../../engine/formula/validator';
 import type { Stat } from '../../../types';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
-import { Input } from '../../ui/Input/Input';
 import { Text } from '../../ui/Text/Text';
 
 export interface StatCardProps {
   stat: Stat;
-  availableSkillCodes: string[];
-  /** The ruleset, so the preview resolves `const.*` and `curve.*(x)` the way the sheet does */
-  namespaceSource: NamespaceSource;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   /** Move this stat one place up or down — the keyboard half of reordering (TICKET-STAT-02) */
@@ -61,47 +53,12 @@ function statBadges(stat: Stat): string[] {
 
 export function StatCard({
   stat,
-  availableSkillCodes,
-  namespaceSource,
   onEdit,
   onDelete,
   onMove,
   canMoveUp,
   canMoveDown,
 }: StatCardProps) {
-  // Sample input values for preview (default to 10 for each skill)
-  const [sampleValues, setSampleValues] = useState<Record<string, number>>(() => {
-    const initial: Record<string, number> = {};
-    availableSkillCodes.forEach((code) => {
-      initial[code] = 10;
-    });
-    return initial;
-  });
-
-  // Validate formula. An invested stat has none, which is not a broken formula — an empty string
-  // *is* one to the validator, so the absent case never reaches it (TICKET-STAT-01)
-  const validation = useMemo(() => {
-    if (stat.formula === undefined) {
-      return { isValid: true, errors: [], referencedVariables: [], namespacedReferences: [] };
-    }
-    return validateFormula(stat.formula, new Set(availableSkillCodes));
-  }, [stat.formula, availableSkillCodes]);
-
-  // Calculate preview value. A formula that cannot produce a number yields an error value
-  // rather than throwing, and the preview simply shows nothing for it.
-  const previewValue = useMemo(() => {
-    if (!validation.isValid || stat.formula === undefined) return null;
-
-    const value = evaluateFormulaString(stat.formula, {
-      variables: sampleValues,
-      // The same resolvers the sheet uses, so the preview and the real value never disagree
-      namespaces: namespacesFor(namespaceSource, 'stat'),
-    });
-    const number = asNumber(value);
-
-    return number === undefined ? null : Math.round(number * 100) / 100;
-  }, [stat.formula, sampleValues, validation.isValid, namespaceSource]);
-
   return (
     <Card variant="bordered" className="p-4">
       <div className="flex justify-between items-start mb-3">
@@ -171,54 +128,6 @@ export function StatCard({
           </Text>
         )}
       </div>
-
-      {/* Validation Errors */}
-      {!validation.isValid && (
-        <div className="mb-3 p-2 bg-crimson/10 border border-crimson rounded">
-          <Text variant="body-small" className="text-crimson">
-            {validation.errors.join(', ')}
-          </Text>
-        </div>
-      )}
-
-      {/* Preview Section */}
-      {validation.isValid && validation.referencedVariables.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-stone-200">
-          <Text variant="body-small-secondary" className="mb-2">
-            Preview with sample values:
-          </Text>
-
-          {/* Sample Input Controls */}
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            {validation.referencedVariables.map((code) => (
-              <div key={code} className="flex items-center gap-2">
-                <Text variant="body-small" className="w-12">
-                  {code}:
-                </Text>
-                <Input
-                  type="number"
-                  value={sampleValues[code] || 0}
-                  onChange={(e) =>
-                    setSampleValues((prev) => ({
-                      ...prev,
-                      [code]: Number(e.target.value) || 0,
-                    }))
-                  }
-                  className="flex-1 text-sm"
-                />
-              </div>
-            ))}
-          </div>
-
-          {/* Calculated Result */}
-          <div className="flex justify-between items-center p-2 bg-forest/10 border border-forest rounded">
-            <Text variant="body-small-secondary">Calculated Value:</Text>
-            <Text variant="body" className="font-semibold text-forest">
-              {previewValue !== null ? previewValue : 'Error'}
-            </Text>
-          </div>
-        </div>
-      )}
     </Card>
   );
 }

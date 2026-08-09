@@ -55,27 +55,53 @@ takes it to the rest.
 
 ## Acceptance criteria
 
-- [ ] `FormulaPreview` lives in `components/config/shared/`, composes `ui/` primitives (`Input`,
-      `Text`, `Card`) and owns its own layout; no raw `<input>`/`<table>` controls, no base
-      component gains a margin. Theme tokens only.
-- [ ] Sample values are supplied to the evaluator as **both** `variables` and `statValues` on the
+- [x] `FormulaPreview` lives in `components/config/shared/`, composes `ui/` primitives (`Input`,
+      `Label`, `Text`, `Card`) and owns its own layout; no raw `<input>`/`<table>` controls, no base
+      component gains a margin. Theme tokens only. (`src/components/config/shared/FormulaPreview.tsx`,
+      barrelled in that folder's `index.ts`; `yarn run check` clean and the conventions review
+      confirmed the base-component contract holds.)
+- [x] Sample values are supplied to the evaluator as **both** `variables` and `statValues` on the
       `NamespaceSource`, so a formula written `STR` and one written `stats.strenght` preview from
-      the same box rather than disagreeing.
-- [ ] The ladder rows are 1, 2, 3, 4, 5, 10, 15, 20, 50 with every referenced variable at that
+      the same box rather than disagreeing. (`evaluateAt` in `FormulaPreview.tsx` maps each
+      abbreviation to its stat id; `FormulaPreview.test.tsx` → "should read a dotted stat reference
+      from the same box as its bare abbreviation" — `STR + stats.strength` renders **one**
+      spinbutton, and setting it to 7 gives 14.)
+- [x] The ladder rows are 1, 2, 3, 4, 5, 10, 15, 20, 50 with every referenced variable at that
       level; a formula with no variables (`const.apt_value * 2`) shows its constant result and no
-      ladder.
-- [ ] All arithmetic goes through `evaluateFormulaString`; a value that is not a number renders as
-      the validator's message or a dash, never `NaN`, never a silent `0`.
-- [ ] `StatFormDialog` shows the preview as the User types, and it survives an unparseable
+      ladder. (`FormulaPreview.test.tsx` → "should walk the nine ladder levels…" asserts all nine
+      pairs for `STR * 0.2 + CHA * 0.1`, and "should show a constant-only formula as one result
+      with no ladder" asserts 60 with no ladder and no boxes.)
+- [x] All arithmetic goes through `evaluateFormulaString`; a value that is not a number renders as
+      the validator's message or a dash, never `NaN`, never a silent `0`. (`formatResult` is the
+      only formatter and it goes through `asNumber`; `FormulaPreview.test.tsx` → "should show a
+      dash rather than NaN…" (`STR / 0`) and "should name an undefined variable rather than
+      pretending it is zero".)
+- [x] `StatFormDialog` shows the preview as the User types, and it survives an unparseable
       intermediate state (`STR *`) without unmounting the field or losing focus.
-- [ ] `StatCard` no longer evaluates anything — the engine imports and `sampleValues` state are
-      gone from it, and its test no longer asserts a calculated value.
-- [ ] Unit tests cover: the ladder's nine rows for `STR * 0.2 + CHA * 0.1`; a changed sample value
+      (`StatsConfigPanel.test.tsx` → "should preview the formula as the User types it
+      (TICKET-FORM-08)" and "should survive an unparseable intermediate state without losing the
+      field" — the second asserts `document.activeElement` is still the formula field across
+      `STR *` and then reads 30 for `STR * 3`.)
+- [x] `StatCard` no longer evaluates anything — the engine imports and `sampleValues` state are
+      gone from it, and its test no longer asserts a calculated value. (`StatCard.tsx` imports only
+      `Stat` and three `ui/` primitives now; `StatCard.test.tsx` → "should compute nothing — the
+      formula is shown, not evaluated (TICKET-FORM-08)" locks it shut.)
+- [x] Unit tests cover: the ladder's nine rows for `STR * 0.2 + CHA * 0.1`; a changed sample value
       changing the single result; an invalid formula showing the error and no numbers; a
       no-variable formula rendering without a ladder; `const.*` resolving from the configuration.
-- [ ] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions` skill.
+      (All five in `FormulaPreview.test.tsx`, 12 tests total — plus empty/whitespace rendering
+      nothing at all, and the ladder holding steady when a sample box changes.)
+- [x] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions` skill.
+      (1183 passing / 0 failing / 0 skipped, tsc at the documented 2-error baseline, `yarn run
+      check` clean. `fallow review`: no unused exports. conventions-reviewer's findings applied —
+      the `21.1-21.7` traceability trimmed to `21.1-21.5`, `previewInputs`' JSDoc corrected to its
+      real signature, the redundant `aria-label` dropped so the `Label`/`useId` association is the
+      accessible name, `StatCard`'s stale `3.2` citation dropped, and `useStatManager` now takes
+      its available codes from `scopeFor` so the editor and the preview cannot drift — see
+      implementation notes 1 and 2 for the two it raised that were kept as-is.)
 - [ ] Verified live in the browser: open a stat's edit dialog, type `STR * 0.2 + CHA * 0.1`, set
-      STR and CHA, and read both the single result and the nine ladder rows.
+      STR and CHA, and read both the single result and the nine ladder rows. — **not run**: the
+      User asked for no browser verification on this run. Left open rather than ticked.
 
 ## Notes
 
@@ -95,3 +121,26 @@ takes it to the rest.
 - Curve generators reference `key` rather than stat codes, and the `stats` namespace has no
   resolver without `statValues`. Both are TICKET-FORM-09's problem; keep `FormulaPreview` taking a
   `FormulaOwner` and a `NamespaceSource` so that ticket is a wiring change, not a rewrite.
+
+## Implementation notes
+
+1. **`FormulaPreview` takes a `Configuration`, not a `NamespaceSource`** — a divergence from the
+   last note above, and TICKET-FORM-09 should plan against this shape. Two things need more than
+   a `NamespaceSource`: `scopeFor(config, owner)` requires the whole ruleset to build its member
+   sets, and mapping a dotted `stats.strength` back to the `STR` box requires `config.stats`. The
+   `NamespaceSource` is still what reaches the engine — it is assembled inside the component,
+   `{ ...config, statValues }` — so FORM-09 remains a wiring change: pass a different `owner`, get
+   a differently scoped preview. What FORM-09 will have to add is `key` for `curve-generator`,
+   which is a context code rather than a namespace and has no home in either prop today.
+2. **The dialog shows a parse error twice**, once from `FormulaEditor`'s own inline message and
+   once from the preview. Left as-is: silencing the editor's half means changing a base primitive
+   three other dialogs share, which is FORM-09's territory rather than this ticket's. The two can
+   no longer *disagree* about bare codes — `useStatManager` now feeds the editor the same
+   `scopeFor` set the preview validates against — but the editor still has no `FormulaScope`, so
+   `const.typo` is silent there and reported here. That gap closes when FORM-09 gives the editor
+   a scope.
+3. **The ladder does not react to the sample boxes**, by design: the boxes answer "what does this
+   give for *my* character", the ladder answers "what shape is this formula". Asserted, so nobody
+   later "fixes" it — `FormulaPreview.test.tsx` → "should leave the ladder alone when a sample
+   value changes".
+4. **Sheet-import fragment: nothing to land.** Authoring UI only; no persisted shape changed.

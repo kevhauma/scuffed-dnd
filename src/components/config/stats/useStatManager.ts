@@ -25,6 +25,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { validateFormulaChange } from '../../../engine/formula/formulaChange';
+import { scopeFor } from '../../../engine/formula/scoping';
 import { useConfigStore } from '../../../stores/configStore';
 import type { Stat, StatRounding } from '../../../types';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
@@ -107,9 +108,13 @@ export function useStatManager() {
   // Sorted here as well as in the store's `reorderStats`, so an imported ruleset whose `order`
   // values disagree with its array order still lists the way the User arranged it
   const currentStats = [...(config?.stats ?? [])].sort((a, b) => a.order - b.order);
-  // What a derived stat's formula may name in the flat space — stat abbreviations, now that
-  // stats are the invested atom (TICKET-STAT-01)
-  const availableSkillCodes = currentStats.map((stat) => stat.abbreviation.toUpperCase());
+  // What a derived stat's formula may name in the flat space. Taken from `scopeFor` rather than
+  // mapped by hand so the editor's completions and `FormulaPreview`'s validation read the same
+  // table — today they would agree either way, but a new row in `LEGACY_CODE_SCOPES` should not
+  // be able to make them disagree (TICKET-FORM-08).
+  const availableSkillCodes = config
+    ? Array.from(scopeFor(config, 'stat').codes)
+    : ([] as string[]);
 
   const handleAdd = () => {
     setEditingStatId(null);

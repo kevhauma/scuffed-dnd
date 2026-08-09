@@ -277,6 +277,11 @@ import the engine to decide what to draw.
 `BaseSkillPanel.tsx`, `SkillFormFields.tsx` and `skillIdentity.ts` (`resolveSkillId`,
 `useSkillCodeRename` — TICKET-REF-01).
 
+**`config/shared/` also holds `FormulaPreview`** (TICKET-FORM-08) — the one preview for any
+User-authored formula field: editable sample values plus a fixed 1–50 level ladder, taking the
+formula, its `FormulaOwner` and the `Configuration` so it scopes and resolves exactly as the saved
+formula will. Every formula field renders it; never a bare `FormulaEditor` (CLAUDE.md).
+
 **`config/shared/` is cross-domain** (TICKET-REF-02): `useGuardedDelete` holds a delete the store
 refused, and `BlockedDeleteDialog` renders the reference list with a "Delete Anyway" force button.
 **Every config panel's delete goes through that pair** — a panel never derives references or

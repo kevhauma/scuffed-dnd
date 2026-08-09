@@ -5,21 +5,16 @@
  * model's own rule rather than from a stored flag — so these assert that a card can never say
  * "Invested" about a stat the engine treats as derived (Concept 01, TICKET-STAT-02).
  *
+ * The card **evaluates nothing** since TICKET-FORM-08; the last test here is what keeps it that
+ * way. Previewing a formula is the dialog's job now.
+ *
  * **Validates: Concept 01; Requirements 3.1, 3.2**
  */
 
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { Configuration, Stat } from '../../../types/config';
+import type { Stat } from '../../../types/config';
 import { StatCard } from './StatCard';
-
-const namespaceSource = {
-  stats: [],
-  specialitySkills: [],
-  combatSkills: [],
-  constants: [],
-  curves: [],
-} as unknown as Configuration;
 
 const baseStat: Stat = {
   id: 'str-id',
@@ -37,8 +32,6 @@ function renderCard(stat: Partial<Stat> = {}, props: Partial<Parameters<typeof S
   render(
     <StatCard
       stat={{ ...baseStat, ...stat }}
-      availableSkillCodes={['STR']}
-      namespaceSource={namespaceSource}
       onEdit={vi.fn()}
       onDelete={vi.fn()}
       onMove={onMove}
@@ -104,5 +97,15 @@ describe('StatCard', () => {
       'disabled',
       true
     );
+  });
+
+  it('should compute nothing — the formula is shown, not evaluated (TICKET-FORM-08)', () => {
+    renderCard({ formula: 'STR * 10' });
+
+    // The card would once have rendered "100" beside a sample box; the preview lives in the
+    // dialog now, and one preview in one place is what stops the two wirings drifting
+    expect(screen.getByText('STR * 10')).toBeDefined();
+    expect(screen.queryByRole('spinbutton')).toBeNull();
+    expect(screen.queryByText('100')).toBeNull();
   });
 });

@@ -100,6 +100,17 @@ function openAddDialogWith(name: string, abbreviation: string) {
 }
 
 /**
+ * The preview's single "at these values" number
+ *
+ * Read off that row rather than by text: the ladder repeats plenty of the same numbers, both as
+ * level labels and as results.
+ */
+function previewResult(): string {
+  const row = dialog().getByText('At these values').parentElement as HTMLElement;
+  return within(row).getAllByText(/./)[1]?.textContent ?? '';
+}
+
+/**
  * The stat names in the order the panel lists them
  *
  * Read off the move buttons rather than the headings: one exists per stat card and nowhere else,
@@ -270,6 +281,44 @@ describe('StatsConfigPanel', () => {
           useConfigStore.getState().config?.stats.some((stat) => stat.abbreviation === 'STA')
         ).toBe(true)
       );
+    });
+
+    it('should preview the formula as the User types it (TICKET-FORM-08)', () => {
+      render(<StatsConfigPanel />);
+
+      openAddDialogWith('Vitality', 'VIT');
+      const formulaField = dialog().getByPlaceholderText(/STR \* 10/);
+
+      // Nothing to preview yet
+      expect(dialog().queryByText('Preview')).toBeNull();
+
+      fireEvent.change(formulaField, { target: { value: 'STR * 2' } });
+
+      expect(dialog().getByText('Preview')).toBeDefined();
+      // 10 * 2, at the default sample value
+      expect(dialog().getByLabelText('STR')).toHaveProperty('value', '10');
+      expect(previewResult()).toBe('20');
+    });
+
+    it('should survive an unparseable intermediate state without losing the field', () => {
+      render(<StatsConfigPanel />);
+
+      openAddDialogWith('Vitality', 'VIT');
+      const formulaField = dialog().getByPlaceholderText(/STR \* 10/);
+      formulaField.focus();
+
+      fireEvent.change(formulaField, { target: { value: 'STR *' } });
+
+      // Typing a formula goes through half-written states; the field must not unmount under the
+      // User's cursor when it does
+      expect(document.activeElement).toBe(formulaField);
+      expect(dialog().getByText('Preview')).toBeDefined();
+      expect(dialog().queryByLabelText('STR')).toBeNull();
+
+      fireEvent.change(formulaField, { target: { value: 'STR * 3' } });
+
+      expect(document.activeElement).toBe(formulaField);
+      expect(previewResult()).toBe('30');
     });
 
     it('should drop the ceiling warning once the resource has a maximum', () => {

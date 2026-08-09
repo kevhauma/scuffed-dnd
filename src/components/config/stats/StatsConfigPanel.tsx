@@ -97,8 +97,6 @@ export function StatsConfigPanel() {
               <div key={stat.id} {...drag} className={isDragging ? 'opacity-50' : ''}>
                 <StatCard
                   stat={stat}
-                  availableSkillCodes={availableSkillCodes}
-                  namespaceSource={config}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   onMove={handleMove}
@@ -119,6 +117,7 @@ export function StatsConfigPanel() {
         isEditing={!!editingStatId}
         form={form}
         availableSkillCodes={availableSkillCodes}
+        config={config}
         isDerived={isDerived}
         warnings={warnings}
         onClose={() => setIsDialogOpen(false)}

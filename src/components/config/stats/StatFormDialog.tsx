@@ -14,6 +14,7 @@
 
 import { useId } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
+import type { Configuration } from '../../../types/config';
 import { Button } from '../../ui/Button/Button';
 import { Checkbox } from '../../ui/Checkbox/Checkbox';
 import { Dialog } from '../../ui/Dialog/Dialog';
@@ -22,6 +23,7 @@ import { FormulaEditor } from '../../ui/FormulaEditor/FormulaEditor';
 import { Label } from '../../ui/Label/Label';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
+import { FormulaPreview } from '../shared/FormulaPreview';
 import type { StatFormData } from './useStatManager';
 import { ROUNDING_OPTIONS } from './useStatManager';
 
@@ -30,6 +32,8 @@ export interface StatFormDialogProps {
   isEditing: boolean;
   form: UseFormReturn<StatFormData>;
   availableSkillCodes: string[];
+  /** The ruleset, so the preview scopes and resolves the way the saved formula will */
+  config: Configuration;
   /** True while the formula field holds something — the stat is derived rather than invested */
   isDerived: boolean;
   /** Non-blocking notes about the combination being edited; the save still goes through */
@@ -43,6 +47,7 @@ export function StatFormDialog({
   isEditing,
   form,
   availableSkillCodes,
+  config,
   isDerived,
   warnings,
   onClose,
@@ -133,6 +138,10 @@ export function StatFormDialog({
             {errors.formula.message}
           </Text>
         )}
+
+        {/* Live, and scoped exactly as the saved formula will be — so what the User reads here is
+            what the sheet will compute (TICKET-FORM-08) */}
+        <FormulaPreview formula={formulaValue} owner="stat" config={config} />
 
         {/* Which of the two kinds of stat this is — said, not switched */}
         <div className="p-3 bg-parchment-100 border border-stone-200 rounded">
