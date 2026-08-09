@@ -9,10 +9,12 @@ import { toStoredConfiguration } from '../engine/formula/references';
 import type { Configuration } from '../types/config';
 import {
   downloadConfiguration,
+  downloadStoredBackup,
   exportConfiguration,
   ImportExportError,
   importConfiguration,
   importConfigurationFromFile,
+  SchemaVersionError,
   ValidationError,
   validateConfiguration,
 } from './importExport';
@@ -194,6 +196,67 @@ describe('Import/Export Service', () => {
     });
   });
 
+  describe('downloadStoredBackup (TICKET-IO-03)', () => {
+    /** The blob handed to the browser, so the file's actual bytes can be read back */
+    let downloaded: Blob | null;
+
+    beforeEach(() => {
+      downloaded = null;
+      localStorage.clear();
+      global.URL.createObjectURL = vi.fn((blob: Blob) => {
+        downloaded = blob;
+        return 'blob:mock-url';
+      });
+      global.URL.revokeObjectURL = vi.fn();
+      vi.spyOn(document.body, 'appendChild').mockImplementation((node) => node);
+      vi.spyOn(document.body, 'removeChild').mockImplementation((node) => node);
+    });
+
+    it('writes both stored blobs into one file, byte for byte', async () => {
+      // Deliberately ugly spacing — a re-serialised backup would lose it
+      localStorage.setItem('dnd_builder_config', '{ "id":"old",  "name" : "Old Ruleset" }');
+      localStorage.setItem('dnd_builder_characters', '[ {"id":"aria"} ]');
+
+      downloadStoredBackup();
+
+      const text = await downloaded?.text();
+      expect(text).toContain('{ "id":"old",  "name" : "Old Ruleset" }');
+      expect(text).toContain('[ {"id":"aria"} ]');
+      // And it is still a file anything can read
+      expect(JSON.parse(text ?? '').dnd_builder_config).toEqual({ id: 'old', name: 'Old Ruleset' });
+    });
+
+    it('names the file with a timestamp unless told otherwise', () => {
+      const createElementSpy = vi.spyOn(document, 'createElement');
+
+      downloadStoredBackup();
+
+      const link = createElementSpy.mock.results[0]?.value as HTMLAnchorElement;
+      expect(link.download).toMatch(/^dnd_builder_backup_\d+\.json$/);
+    });
+
+    it('writes an absent key as null rather than as an empty value', async () => {
+      localStorage.setItem('dnd_builder_config', '{"id":"old"}');
+
+      downloadStoredBackup();
+
+      const parsed = JSON.parse((await downloaded?.text()) ?? '');
+      expect(parsed.dnd_builder_characters).toBeNull();
+    });
+
+    it('still produces a readable file when a stored blob is corrupt', async () => {
+      // Reachable: the refusal branch validates the configuration and never parses the characters
+      localStorage.setItem('dnd_builder_config', '{"id":"old"}');
+      localStorage.setItem('dnd_builder_characters', '[ {broken');
+
+      downloadStoredBackup();
+
+      const parsed = JSON.parse((await downloaded?.text()) ?? '');
+      // Carried out intact as a string — the one file the User is told to keep must parse
+      expect(parsed.dnd_builder_characters).toBe('[ {broken');
+    });
+  });
+
   describe('validateConfiguration', () => {
     it('should validate correct configuration', () => {
       const result = validateConfiguration(validConfig);
@@ -335,6 +398,71 @@ describe('Import/Export Service', () => {
           expect(error.errors.length).toBeGreaterThan(0);
         }
       }
+    });
+  });
+
+  describe('the clean break on imported files (TICKET-IO-03)', () => {
+    /** A file as v1 exported it: main skills, no `schemaVersion` */
+    const v1File = JSON.stringify({
+      id: 'old',
+      name: 'Old Ruleset',
+      version: '1.0.0',
+      mainSkills: [{ id: 'id-str', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      stats: [{ id: 'id-hp', name: 'Health', description: '', formula: 'STR * 10' }],
+      specialitySkills: [],
+      combatSkills: [],
+      materials: [],
+      materialCategories: [],
+      items: [],
+      equipmentSlots: [],
+      races: [],
+      currencyTiers: [],
+      focusStatBonusLevel: 0,
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+    });
+
+    it('refuses a v1 file with a version message, not a field-by-field report', () => {
+      expect(() => importConfiguration(v1File)).toThrow(SchemaVersionError);
+      expect(() => importConfiguration(v1File)).toThrow(/older version of the app/);
+
+      // Not a ValidationError: "this is from the old app" and "this is malformed" are different
+      // problems, and thirty missing-field complaints would read as a corrupt export
+      expect(() => importConfiguration(v1File)).not.toThrow(ValidationError);
+    });
+
+    it('reports what the file claimed to be', () => {
+      try {
+        importConfiguration(v1File);
+        expect.fail('Should have thrown SchemaVersionError');
+      } catch (error) {
+        expect(error).toBeInstanceOf(SchemaVersionError);
+        if (error instanceof SchemaVersionError) {
+          expect(error.foundVersion).toBeUndefined();
+        }
+      }
+    });
+
+    it('keeps the generic rejection generic: a corrupt file is still an invalid-JSON error', () => {
+      expect(() => importConfiguration('{ not json at all')).toThrow('Invalid JSON format');
+      expect(() => importConfiguration('{ not json at all')).not.toThrow(SchemaVersionError);
+    });
+
+    it('applies a current file', () => {
+      expect(importConfiguration(JSON.stringify(validConfig))).toEqual(validConfig);
+    });
+
+    it('refuses a future shape by the same gate', () => {
+      const future = JSON.stringify({ ...validConfig, schemaVersion: 3 });
+
+      expect(() => importConfiguration(future)).toThrow(SchemaVersionError);
+    });
+
+    it('exports the version it imports, so the round-trip survives the gate', async () => {
+      const exported = await exportConfiguration(validConfig).text();
+
+      expect(JSON.parse(exported).schemaVersion).toBe(2);
+      expect(importConfiguration(exported)).toEqual(validConfig);
     });
   });
 

@@ -26,7 +26,7 @@ import {
 import type { EntityReference, ReferenceTargetKind } from '../engine/dependencies';
 import { findReferences } from '../engine/dependencies';
 import { toDisplayConfiguration, toStoredConfiguration } from '../engine/formula/references';
-import { loadConfiguration, saveConfiguration } from '../services/storage';
+import { clearAllData, loadConfiguration, saveConfiguration } from '../services/storage';
 import type {
   CombatSkill,
   Configuration,
@@ -42,6 +42,7 @@ import type {
   SpecialitySkill,
   Stat,
 } from '../types/config';
+import { SUPPORTED_SCHEMA_VERSION } from '../types/config';
 import { useCharacterStore } from './characterStore';
 
 /**
@@ -67,6 +68,14 @@ interface ConfigState {
   loadConfig: () => void;
   replaceConfig: (config: Configuration) => void;
   renameConfig: (name: string) => void;
+  /**
+   * Throw away everything LocalStorage holds and start from nothing (TICKET-IO-03)
+   *
+   * The **only** path that clears the keys. Data this build cannot open is refused on load and
+   * left exactly where it is; it goes away when — and only when — the User confirms this, having
+   * been offered a backup first.
+   */
+  discardStoredData: () => void;
 
   // Stats CRUD
   addStat: (stat: Stat) => void;
@@ -297,7 +306,7 @@ function createFreshConfiguration(name: string): Configuration {
     id: crypto.randomUUID(),
     name,
     version: '1.0.0',
-    schemaVersion: 2,
+    schemaVersion: SUPPORTED_SCHEMA_VERSION,
     stats: [],
     specialitySkills: [],
     combatSkills: [],
@@ -459,6 +468,14 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   replaceConfig: (config: Configuration) => {
     const saved = autoSave(config);
     set({ config: saved, isLoaded: true });
+  },
+
+  discardStoredData: () => {
+    clearAllData();
+    // Loaded, and what was loaded is nothing — which is what lets the dashboard offer a fresh
+    // ruleset rather than sitting on a spinner
+    set({ config: null, isLoaded: true });
+    useCharacterStore.getState().resetCharacters();
   },
 
   /** Rename the current configuration; the export filename derives from this */

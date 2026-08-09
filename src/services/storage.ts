@@ -18,7 +18,7 @@ import {
   toStoredConfiguration,
 } from '../engine/formula/references';
 import type { Character } from '../types/character';
-import type { Configuration } from '../types/config';
+import { type Configuration, SUPPORTED_SCHEMA_VERSION } from '../types/config';
 
 // LocalStorage keys
 const STORAGE_KEYS = {
@@ -77,9 +77,11 @@ export function saveConfiguration(config: Configuration): void {
  *
  * Thrown rather than converted: v1's focus stat, spend-derived level and speciality base levels
  * have no faithful mapping into the v2 shape, so a silent conversion would invent a ruleset
- * nobody authored. TICKET-IO-03 turns this into the notice the User actually sees; this exists so
- * that until it does, a v1 browser gets a named refusal rather than a `TypeError` from the first
- * field that isn't there.
+ * nobody authored.
+ *
+ * It is a *refusal*, never a removal — the keys are still there afterwards. `useAppHydration`
+ * turns this into the notice the User sees (TICKET-IO-03), and only their confirmed start-fresh
+ * reaches `clearAllData`.
  */
 export class StorageSchemaError extends StorageError {
   constructor(message: string) {
@@ -88,8 +90,40 @@ export class StorageSchemaError extends StorageError {
   }
 }
 
-/** The persisted shape this build reads; anything else is refused rather than converted */
-const SUPPORTED_SCHEMA_VERSION = 2;
+/** What the User is told when their browser holds a ruleset from before the unified stat model */
+const INCOMPATIBLE_DATA_MESSAGE =
+  'This browser holds a ruleset saved by an older version of the app. Its stats, skills and ' +
+  'characters have no faithful place in the current model, so it has not been loaded — and ' +
+  'nothing has been deleted. Download a backup, then start fresh when you are ready.';
+
+/**
+ * Both stored blobs exactly as LocalStorage holds them
+ *
+ * Strings, not parsed objects: this is what the backup download writes, and re-serialising a
+ * parsed object would hand the User a file that is *equivalent to* what they had rather than
+ * *what they had*.
+ */
+export interface StoredSnapshot {
+  /** The raw `dnd_builder_config` string, or null when the key is absent */
+  config: string | null;
+  /** The raw `dnd_builder_characters` string, or null when the key is absent */
+  characters: string | null;
+}
+
+/**
+ * Read both stored blobs without parsing, validating or converting anything
+ *
+ * The one read that works on data this build cannot open, which is the whole point: the refusal
+ * path needs to hand the User their bytes back.
+ *
+ * @returns The two raw strings, either of which may be absent
+ */
+export function readStoredSnapshot(): StoredSnapshot {
+  return {
+    config: localStorage.getItem(STORAGE_KEYS.CONFIG),
+    characters: localStorage.getItem(STORAGE_KEYS.CHARACTERS),
+  };
+}
 
 /**
  * Load configuration from LocalStorage
@@ -108,10 +142,7 @@ export function loadConfiguration(): Configuration | null {
 
     const config = JSON.parse(serialized) as Configuration;
     if (config.schemaVersion !== SUPPORTED_SCHEMA_VERSION) {
-      throw new StorageSchemaError(
-        'This saved ruleset was written by an older version of the app and cannot be opened. ' +
-          'Export it from that version, or start a new ruleset.'
-      );
+      throw new StorageSchemaError(INCOMPATIBLE_DATA_MESSAGE);
     }
 
     return toDisplayConfiguration(ensureReferenceIds(config, () => crypto.randomUUID()));

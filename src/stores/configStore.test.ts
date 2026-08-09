@@ -28,6 +28,7 @@ import { useConfigStore } from './configStore';
 vi.mock('../services/storage', () => ({
   saveConfiguration: vi.fn(),
   loadConfiguration: vi.fn(),
+  clearAllData: vi.fn(),
 }));
 
 describe('ConfigStore', () => {
@@ -129,6 +130,35 @@ describe('ConfigStore', () => {
 
       expect(useConfigStore.getState().config).toBeNull();
       expect(storage.saveConfiguration).not.toHaveBeenCalled();
+    });
+
+    describe('discardStoredData (TICKET-IO-03)', () => {
+      it('should clear both keys and empty both stores', () => {
+        useConfigStore.getState().initializeConfig('To Be Discarded');
+        useCharacterStore.setState({
+          characters: [{ id: 'aria' }] as never,
+          isLoaded: true,
+        });
+        vi.clearAllMocks();
+
+        useConfigStore.getState().discardStoredData();
+
+        expect(storage.clearAllData).toHaveBeenCalledTimes(1);
+        expect(useConfigStore.getState().config).toBeNull();
+        expect(useConfigStore.getState().isLoaded).toBe(true);
+        expect(useCharacterStore.getState().characters).toEqual([]);
+        expect(useCharacterStore.getState().isLoaded).toBe(true);
+      });
+
+      it('should not write a replacement over what it cleared', () => {
+        useConfigStore.getState().initializeConfig('To Be Discarded');
+        vi.clearAllMocks();
+
+        useConfigStore.getState().discardStoredData();
+
+        // Start-fresh means *nothing*, not a fresh default — the dashboard offers that next
+        expect(storage.saveConfiguration).not.toHaveBeenCalled();
+      });
     });
   });
 

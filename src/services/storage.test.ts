@@ -13,6 +13,7 @@ import {
   isStorageAvailable,
   loadCharacters,
   loadConfiguration,
+  readStoredSnapshot,
   StorageError,
   StorageParseError,
   StorageQuotaError,
@@ -372,6 +373,40 @@ describe('Storage Service', () => {
       );
 
       expect(loadCharacters().map((character) => character.id)).toEqual(['new']);
+    });
+
+    it('leaves the refused ruleset byte-identical in storage (TICKET-IO-03)', () => {
+      const raw = JSON.stringify(v1Config);
+      localStorage.setItem('dnd_builder_config', raw);
+
+      expect(() => loadConfiguration()).toThrow(StorageSchemaError);
+
+      // Refused, not removed — the User has not decided anything yet
+      expect(localStorage.getItem('dnd_builder_config')).toBe(raw);
+    });
+  });
+
+  describe('readStoredSnapshot (TICKET-IO-03)', () => {
+    it('hands back both blobs exactly as stored, without parsing them', () => {
+      // Deliberately ugly spacing: a snapshot that came back re-serialised would lose it
+      const rawConfig = '{ "id":"old",  "name" : "Old Ruleset" }';
+      const rawCharacters = '[ {"id":"aria"} ]';
+      localStorage.setItem('dnd_builder_config', rawConfig);
+      localStorage.setItem('dnd_builder_characters', rawCharacters);
+
+      expect(readStoredSnapshot()).toEqual({ config: rawConfig, characters: rawCharacters });
+    });
+
+    it('reports an absent key as null rather than as an empty string', () => {
+      expect(readStoredSnapshot()).toEqual({ config: null, characters: null });
+    });
+
+    it('reads data no other function in this module can open', () => {
+      // The whole point: the backup path works on exactly the bytes `loadConfiguration` refused
+      localStorage.setItem('dnd_builder_config', '{"id":"old","version":"1.0.0"}');
+
+      expect(() => loadConfiguration()).toThrow(StorageSchemaError);
+      expect(readStoredSnapshot().config).toBe('{"id":"old","version":"1.0.0"}');
     });
   });
 

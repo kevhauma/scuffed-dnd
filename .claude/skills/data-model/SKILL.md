@@ -39,11 +39,25 @@ pattern to copy: **absent means unlimited**, so rulesets saved before it existed
 value; `setMainSkillPointBudget(undefined)` deletes the key rather than storing `undefined`; and
 `validateStatAllocation()` in `src/engine/skillAllocation.ts` reads it as `null` = no limit.
 
-**`schemaVersion` is the clean break** (TICKET-STAT-01). v1 files have no such key, which is
-exactly how they are recognised: `loadConfiguration()` throws `StorageSchemaError` rather than
-converting, and `loadCharacters()` drops any character with no `investedStatPoints`. v1's focus
-stat, spend-derived level and speciality base levels have no faithful mapping into v2, so a
-conversion would invent a ruleset nobody authored. TICKET-IO-03 owns the notice the User sees.
+**`schemaVersion` is the clean break** (TICKET-STAT-01, TICKET-IO-03). v1 files have no such key,
+which is exactly how they are recognised. The number itself lives in
+[types/config.ts](../../../src/types/config.ts) as `SUPPORTED_SCHEMA_VERSION` — not in either
+service, so both gate on the same value and `createFreshConfiguration` writes it rather than a
+literal. v1's focus stat, spend-derived level and speciality base levels have no faithful mapping
+into v2, so a conversion would invent a ruleset nobody authored.
+
+The refusal has three surfaces, and they behave differently on purpose:
+
+| Path | What happens |
+|---|---|
+| **Load** (`loadConfiguration()`) | throws `StorageSchemaError`; **nothing is loaded and nothing is deleted**. `useAppHydration` turns it into `incompatibleData`, and `RootLayout` renders `IncompatibleDataNotice` *instead of* the routes — so no route can mint a fresh ruleset and save it over the old data. |
+| **Backup** | `downloadStoredBackup()` in `importExport.ts` reads `readStoredSnapshot()` and splices both raw strings into one envelope by concatenation, so the file's bytes are the stored bytes; a blob that does not parse is embedded as a JSON string instead. |
+| **Start fresh** | `useConfigStore.discardStoredData()` — the **only** path that calls `clearAllData()`. It clears both keys, empties both stores, and writes no replacement. |
+| **Import** (`importConfiguration()`) | throws `SchemaVersionError` *before* `validateConfiguration()` runs, so a v1 file gets one version sentence rather than a field-by-field report. |
+
+`loadCharacters()` separately drops any character with no `investedStatPoints`. **Known gap**: that
+filter is silent when `loadConfiguration()` did not throw — a v1 characters key beside an absent or
+v2 config gets no notice and no backup offer (TICKET-IO-03 implementation note 5).
 
 **`Stat` is the one numeric axis** (Concept 01, TICKET-STAT-01) — `MainSkill` is gone. Flags say
 what a stat does: no `formula` means **invested**; `isResource` additionally means the value is a
@@ -202,9 +216,10 @@ concern, so:
   (read old shape → transform → return new shape) plus a test that feeds it the old shape.
   Bumping `Configuration.version` alone changes nothing — nothing reads it yet; if you start
   relying on it, wire it into the load path in the same change.
-- **Import/export is a public boundary.** `importExport.ts`'s `validateConfiguration()` inspects
-  untrusted JSON before it is applied; any new required field must be added to that check, or a
-  file exported by an older build will be accepted and then break at render time.
+- **Import/export is a public boundary.** `importConfiguration()` gates on `schemaVersion` first
+  (`SchemaVersionError`), then `validateConfiguration()` inspects untrusted JSON before it is
+  applied; any new required field must be added to that check, or a file exported by an older
+  build will be accepted and then break at render time.
   Import validates **twice**, and the two are not interchangeable: `importExport.ts` checks
   *structure* and refuses to apply a file that fails, while `engine/validator.ts` checks
   *references* (formula codes, slot types, categories, cycles) and only reports — a

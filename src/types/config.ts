@@ -6,6 +6,15 @@
  */
 
 /**
+ * The persisted shape this build reads
+ *
+ * Lives with the type rather than in either service so that `storage.ts` and `importExport.ts`
+ * gate on the same number without one importing the other — and so a test that mocks one service
+ * cannot change what the other considers current.
+ */
+export const SUPPORTED_SCHEMA_VERSION = 2;
+
+/**
  * Main configuration object containing all user-defined game rules
  */
 export interface Configuration {

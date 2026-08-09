@@ -4,13 +4,33 @@
  * Restores the saved configuration and characters from LocalStorage once per page load,
  * independent of which route the user landed on. Mounted by the root layout only.
  *
- * **Validates: Requirements 17.3, 17.4, 17.5**
+ * Three load branches (TICKET-IO-03): current data loads, **recognisably older data is refused
+ * and left alone**, and unparseable data keeps the existing corrupt-data message. Only the middle
+ * one has options attached, because it is the only one where the User still has something worth
+ * keeping.
+ *
+ * **Validates: Requirements 17.3, 17.4, 17.5; v2.0 decision "Clean break on persisted data"**
  */
 
-import { useEffect, useState } from 'react';
-import { isStorageAvailable } from '../../services/storage';
+import { useCallback, useEffect, useState } from 'react';
+import { downloadStoredBackup } from '../../services/importExport';
+import { isStorageAvailable, StorageSchemaError } from '../../services/storage';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useConfigStore } from '../../stores/configStore';
+
+/**
+ * The refusal branch, with the two things the User can do about it
+ *
+ * Present means **nothing was loaded and nothing was deleted** — the keys are still there.
+ */
+export interface IncompatibleStoredData {
+  /** What was found, in the User's terms */
+  message: string;
+  /** Download the stored bytes exactly as they are */
+  downloadBackup: () => void;
+  /** Clear the keys and start from nothing — the caller confirms first */
+  startFresh: () => void;
+}
 
 /**
  * What the root layout needs to know about hydration
@@ -22,6 +42,8 @@ export interface AppHydration {
   isHydrated: boolean;
   /** Message for a storage failure the user has to know about, otherwise null */
   storageError: string | null;
+  /** Set when the stored data predates the current shape; null otherwise */
+  incompatibleData: IncompatibleStoredData | null;
 }
 
 /**
@@ -33,17 +55,22 @@ export interface AppHydration {
  * Storage availability is probed before anything is read, so a browser with LocalStorage
  * disabled reports it once rather than throwing at the first read or write (Requirement 17.5).
  *
+ * The characters follow the configuration's verdict — `loadConfig` throws before `loadCharacters`
+ * is reached, so a refused ruleset never leaves a half-loaded app behind it.
+ *
  * @returns Storage availability, hydration progress, and any error worth showing the user
  */
 export function useAppHydration(): AppHydration {
   const configIsLoaded = useConfigStore((state) => state.isLoaded);
   const loadConfig = useConfigStore((state) => state.loadConfig);
+  const discardStoredData = useConfigStore((state) => state.discardStoredData);
   const charactersAreLoaded = useCharacterStore((state) => state.isLoaded);
   const loadCharacters = useCharacterStore((state) => state.loadCharacters);
 
   // null while unprobed — probing happens in an effect so the check never runs during render
   const [storageAvailable, setStorageAvailable] = useState<boolean | null>(null);
   const [storageError, setStorageError] = useState<string | null>(null);
+  const [incompatibleMessage, setIncompatibleMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setStorageAvailable(isStorageAvailable());
@@ -57,6 +84,12 @@ export function useAppHydration(): AppHydration {
       if (!configIsLoaded) loadConfig();
       if (!charactersAreLoaded) loadCharacters();
     } catch (error) {
+      if (error instanceof StorageSchemaError) {
+        // Refused, not failed: the data is still there and the User decides what happens to it
+        setIncompatibleMessage(error.message);
+        return;
+      }
+
       // Stored JSON can be corrupted; surface it instead of crashing every route
       setStorageError(
         error instanceof Error
@@ -66,6 +99,15 @@ export function useAppHydration(): AppHydration {
     }
   }, [storageAvailable, configIsLoaded, charactersAreLoaded, loadConfig, loadCharacters]);
 
+  // Reading and assembling the file is the service's job; this only decides when
+  const downloadBackup = useCallback(() => downloadStoredBackup(), []);
+
+  const startFresh = useCallback(() => {
+    // Persistence — including the deletion — belongs to the store action
+    discardStoredData();
+    setIncompatibleMessage(null);
+  }, [discardStoredData]);
+
   return {
     storageAvailable: storageAvailable !== false,
     isHydrated: configIsLoaded && charactersAreLoaded,
@@ -73,5 +115,8 @@ export function useAppHydration(): AppHydration {
       storageAvailable === false
         ? 'Browser storage is unavailable, so nothing can be loaded or saved. Enable cookies and site data for this page, or leave private browsing, then reload.'
         : storageError,
+    incompatibleData: incompatibleMessage
+      ? { message: incompatibleMessage, downloadBackup, startFresh }
+      : null,
   };
 }

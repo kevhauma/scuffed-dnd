@@ -11,6 +11,7 @@ import { createRootRoute, HeadContent, Outlet, Scripts } from '@tanstack/react-r
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 
 import { AppShell } from '../components/shared/AppShell';
+import { IncompatibleDataNotice } from '../components/shared/IncompatibleDataNotice';
 import { StorageNotice } from '../components/shared/StorageNotice';
 import { useAppHydration } from '../components/shared/useAppHydration';
 
@@ -68,18 +69,34 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 
 export function RootLayout() {
   // The single hydration point for the whole app — every route renders inside this layout
-  const { storageAvailable, storageError } = useAppHydration();
+  const { storageAvailable, storageError, incompatibleData } = useAppHydration();
+
+  if (!storageAvailable) {
+    return (
+      <AppShell>
+        <StorageNotice message={storageError ?? ''} />
+      </AppShell>
+    );
+  }
+
+  // Instead of the routes, not alongside them: no route can render — and so no route can save a
+  // fresh ruleset — while data the User has not decided about is still in LocalStorage
+  if (incompatibleData) {
+    return (
+      <AppShell>
+        <IncompatibleDataNotice
+          message={incompatibleData.message}
+          onBackup={incompatibleData.downloadBackup}
+          onStartFresh={incompatibleData.startFresh}
+        />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
-      {storageAvailable ? (
-        <>
-          {storageError && <StorageNotice message={storageError} />}
-          <Outlet />
-        </>
-      ) : (
-        <StorageNotice message={storageError ?? ''} />
-      )}
+      {storageError && <StorageNotice message={storageError} />}
+      <Outlet />
     </AppShell>
   );
 }

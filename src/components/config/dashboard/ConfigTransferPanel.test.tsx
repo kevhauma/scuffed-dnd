@@ -146,7 +146,14 @@ describe('ConfigTransferPanel', () => {
   it('should reject a structurally invalid file and list every reason', async () => {
     render(<ConfigTransferPanel />);
 
-    choose(jsonFile('partial.json', JSON.stringify({ id: 'x', name: 'Half a ruleset' })));
+    // `schemaVersion` is present so the file gets past the version gate (TICKET-IO-03) and is
+    // judged on its structure, which is what this test is about
+    choose(
+      jsonFile(
+        'partial.json',
+        JSON.stringify({ id: 'x', name: 'Half a ruleset', schemaVersion: 2 })
+      )
+    );
     confirmImport();
 
     await waitFor(() => {
@@ -154,6 +161,43 @@ describe('ConfigTransferPanel', () => {
     });
     // Every missing field is reported, not just the first
     expect(screen.getAllByRole('listitem').length).toBeGreaterThan(1);
+    expect(useConfigStore.getState().config?.name).toBe('Test Config');
+  });
+
+  it('should refuse a file from the old app with one version message (TICKET-IO-03)', async () => {
+    render(<ConfigTransferPanel />);
+
+    // A v1 export: main skills, no `schemaVersion`
+    choose(
+      jsonFile(
+        'v1.json',
+        JSON.stringify({
+          id: 'old',
+          name: 'Old Ruleset',
+          version: '1.0.0',
+          mainSkills: [{ id: 'id-str', code: 'STR', name: 'Strength' }],
+          stats: [],
+          specialitySkills: [],
+          combatSkills: [],
+          materials: [],
+          materialCategories: [],
+          items: [],
+          equipmentSlots: [],
+          races: [],
+          currencyTiers: [],
+          focusStatBonusLevel: 0,
+          createdAt: '2024-01-01',
+          updatedAt: '2024-01-01',
+        })
+      )
+    );
+    confirmImport();
+
+    await waitFor(() => {
+      expect(screen.getByText(/older version of the app/)).toBeDefined();
+    });
+    // One reason, not a field-by-field report that would read as a corrupt export
+    expect(screen.getAllByRole('listitem').length).toBe(1);
     expect(useConfigStore.getState().config?.name).toBe('Test Config');
   });
 

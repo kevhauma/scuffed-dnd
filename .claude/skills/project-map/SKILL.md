@@ -25,9 +25,12 @@ this map is the index.
 File-based via TanStack Router; `src/routeTree.gen.ts` is **generated — never edit it**.
 `src/router.tsx` creates the router, `src/routes/__root.tsx` is the shell (nav + mode switcher).
 `RootLayout` there is **the app's only hydration point** — it calls `useAppHydration()`
-(`components/shared/`), which restores both persisted stores once per page load and renders
-`StorageNotice` instead of the `<Outlet />` when LocalStorage is unavailable. Route components
-never call `loadConfig`/`loadCharacters` themselves. It renders everything inside
+(`components/shared/`), which restores both persisted stores once per page load. It renders
+**instead of** the `<Outlet />` in two cases: `StorageNotice` when LocalStorage is unavailable,
+and `IncompatibleDataNotice` when the stored data predates the current `schemaVersion`
+(TICKET-IO-03) — the second replaces the routes so nothing downstream can save a fresh ruleset
+over data the User has not agreed to lose. Route components never call
+`loadConfig`/`loadCharacters` themselves. It renders everything inside
 **`AppShell`** (`components/shared/`), which owns the medieval frame, the mode switcher, and the
 per-mode navigation; `useAppMode` keeps `useUIStore.mode` in step with the route and **redirects
 `/config/*` to `/play` while in play mode** (Req 19.6 — see TICKET-NAV-01 for why a redirect
@@ -76,6 +79,7 @@ calls the storage service; components and hooks never persist directly.
 | Store | Owns | Persists to |
 |---|---|---|
 | `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), speciality and combat skills, materials + categories, items, equipment slots, races, currency tiers, constants, curves, focus-stat bonus level. CRUD action per entity (`addX`/`updateX`/`deleteX`), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
+| `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
 | `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`) and `updateCurrentStatValue(s)` | `saveCharacters()` on every mutation |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history | not persisted |
 
@@ -225,10 +229,14 @@ id-resolved references, what they hand back holds the ruleset's current spelling
 
 - `storage.ts` — LocalStorage keys `dnd_builder_config`, `dnd_builder_characters`,
   `dnd_builder_ui_state`; `saveConfiguration`/`loadConfiguration`/`saveCharacters`/`loadCharacters`/
-  `clearAllData`/`isStorageAvailable`/`getStorageSize`, plus the `StorageError` /
-  `StorageQuotaError` / `StorageParseError` classes. See the **data-model** skill.
-- `importExport.ts` — `exportConfiguration` (Blob), `downloadConfiguration`, `validateConfiguration`
-  (shape check on untrusted JSON, returns `ValidationResult`), `importConfiguration`.
+  `clearAllData`/`isStorageAvailable`/`getStorageSize`, plus `readStoredSnapshot()` — the one read
+  that works on data this build cannot open (TICKET-IO-03) — and the `StorageError` /
+  `StorageQuotaError` / `StorageParseError` / `StorageSchemaError` classes.
+  See the **data-model** skill.
+- `importExport.ts` — `exportConfiguration` (Blob), `downloadConfiguration`,
+  `downloadStoredBackup` (the raw-bytes backup behind `IncompatibleDataNotice`),
+  `validateConfiguration` (shape check on untrusted JSON, returns `ValidationResult`),
+  `importConfiguration`, plus the `ValidationError` / `SchemaVersionError` classes.
   Note the name collision: this `validateConfiguration` checks *imported JSON shape*;
   `engine/validator.ts`'s checks *referential integrity of a loaded config*.
 
@@ -301,7 +309,9 @@ Randomness is injectable via `useCombatRoller(id, calculated, { rng })` — neve
 **`shared/`** — cross-mode components and hooks, barrelled by `shared/index.ts`:
 `AppShell.tsx` (the medieval frame + mode switcher + per-mode nav), `useAppMode.ts` (route↔mode
 sync and the play-mode config lock), `useAppHydration.ts` (the app-wide LocalStorage restore,
-called only by `RootLayout`) and `StorageNotice.tsx` (the storage-unavailable message it drives).
+called only by `RootLayout`), `StorageNotice.tsx` (the storage-unavailable message it drives) and
+`IncompatibleDataNotice.tsx` (the pre-v2-data refusal, with the backup offer and the two-step
+start-fresh — TICKET-IO-03).
 
 `components/Header.tsx` sits at the root of `components/`, outside the three folders.
 

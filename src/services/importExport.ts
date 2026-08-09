@@ -17,6 +17,8 @@ import {
   toStoredConfiguration,
 } from '../engine/formula/references';
 import type { Configuration } from '../types/config';
+import { SUPPORTED_SCHEMA_VERSION } from '../types/config';
+import { readStoredSnapshot } from './storage';
 
 /**
  * Import/Export error types
@@ -38,6 +40,25 @@ export class ValidationError extends ImportExportError {
   ) {
     super(message);
     this.name = 'ValidationError';
+  }
+}
+
+/**
+ * A file written against a persisted shape this build does not read (TICKET-IO-03)
+ *
+ * Deliberately **not** a `ValidationError`: "this file is from the old app" and "this file is
+ * malformed" are different problems with different answers, and a User handed a list of thirty
+ * missing-field complaints would reasonably conclude their export was corrupt. Thrown before
+ * validation runs, so nothing else is reported about a file that was never going to apply.
+ */
+export class SchemaVersionError extends ImportExportError {
+  constructor(
+    message: string,
+    /** What the file said it was, or undefined when it said nothing */
+    public readonly foundVersion?: unknown
+  ) {
+    super(message);
+    this.name = 'SchemaVersionError';
   }
 }
 
@@ -68,6 +89,73 @@ export function exportConfiguration(config: Configuration): Blob {
 }
 
 /**
+ * Hand a blob to the browser as a download
+ *
+ * The DOM half of every export, kept in one place so the backup path (TICKET-IO-03) does not
+ * grow a second copy of the anchor dance. Module-private: callers ask for a *download of
+ * something*, not for a blob to be handed to the browser.
+ *
+ * @param blob What to download
+ * @param filename What to call it
+ */
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = filename;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Splice one stored blob into the backup envelope without re-serialising it
+ *
+ * A stored value that parses goes in **verbatim**, so the User's bytes are the file's bytes; one
+ * that does not is embedded as a JSON string, so a corrupt blob is carried out intact instead of
+ * producing a backup file that will not parse. The corrupt case is reachable: the refusal branch
+ * validates the configuration and never looks at the characters.
+ *
+ * @param raw - The stored string, or null when the key is absent
+ * @returns A JSON fragment safe to splice into the envelope
+ */
+function embedStoredBlob(raw: string | null): string {
+  if (raw === null) return 'null';
+  try {
+    JSON.parse(raw);
+    return raw;
+  } catch {
+    return JSON.stringify(raw);
+  }
+}
+
+/**
+ * Download everything LocalStorage holds, exactly as it holds it (TICKET-IO-03)
+ *
+ * The backup offered alongside the refusal notice, and the only export that works on data this
+ * build cannot open — which is why it goes nowhere near `Configuration`. Assembled by
+ * concatenation rather than by `JSON.stringify` on purpose: a round-trip through a parse would
+ * hand the User something *equivalent to* what they had, which is not what a backup is for.
+ *
+ * @param filename Optional custom filename (defaults to a timestamped backup name)
+ */
+export function downloadStoredBackup(filename?: string): void {
+  const snapshot = readStoredSnapshot();
+  const contents =
+    `{"dnd_builder_config":${embedStoredBlob(snapshot.config)},` +
+    `"dnd_builder_characters":${embedStoredBlob(snapshot.characters)}}`;
+
+  downloadBlob(
+    new Blob([contents], { type: 'application/json' }),
+    filename ?? `dnd_builder_backup_${Date.now()}.json`
+  );
+}
+
+/**
  * Download configuration as JSON file
  *
  * Triggers a browser download of the configuration as a JSON file.
@@ -77,19 +165,8 @@ export function exportConfiguration(config: Configuration): Blob {
  */
 export function downloadConfiguration(config: Configuration, filename?: string): void {
   try {
-    const blob = exportConfiguration(config);
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-
     const defaultFilename = `${config.name.replace(/\s+/g, '_')}_${Date.now()}.json`;
-    link.href = url;
-    link.download = filename || defaultFilename;
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    URL.revokeObjectURL(url);
+    downloadBlob(exportConfiguration(config), filename || defaultFilename);
   } catch (error) {
     throw new ImportExportError('Failed to download configuration', error);
   }
@@ -241,10 +318,13 @@ function curveShapeErrors(
  *
  * Checks that the imported data has all required fields and correct types.
  *
+ * The **version** is not checked here — `importConfiguration` gates on it first (TICKET-IO-03), so
+ * by the time this runs the file has already claimed to be the current shape and every error it
+ * reports is a real structural one.
+ *
  * One deliberate exemption: a skill's `id` is required by the type but **not** checked here, so
  * files exported before TICKET-REF-01 still import — `ensureReferenceIds` mints the missing ones
- * on the way through `importConfiguration`. TICKET-IO-03 replaces the whole leniency with an
- * outright rejection of pre-v2 files.
+ * on the way through `importConfiguration`.
  *
  * @param data Unknown data to validate
  * @returns Validation result with errors if any
@@ -451,14 +531,31 @@ export function validateConfiguration(data: unknown): ValidationResult {
  *
  * Parses and validates JSON string, returning a Configuration object.
  *
+ * The version gate runs **before** validation and before anything is applied: a file from the
+ * old app is refused whole, with its own message, rather than reported field by field
+ * (TICKET-IO-03).
+ *
  * @param json JSON string to parse
  * @returns Parsed and validated Configuration
+ * @throws {SchemaVersionError} If the file was written against another persisted shape
  * @throws {ValidationError} If validation fails
  * @throws {ImportExportError} If parsing fails
  */
 export function importConfiguration(json: string): Configuration {
   try {
     const data = JSON.parse(json);
+
+    const found = (data as Record<string, unknown> | null)?.schemaVersion;
+    if (found !== SUPPORTED_SCHEMA_VERSION) {
+      throw new SchemaVersionError(
+        'This file was exported by an older version of the app and cannot be imported. Its ' +
+          'stats, skills and characters have no faithful place in the current model. Keep the ' +
+          'file — nothing here has changed — and rebuild the ruleset, or export it again from a ' +
+          'build that understands it.',
+        found
+      );
+    }
+
     const validation = validateConfiguration(data);
 
     if (!validation.isValid) {
@@ -469,7 +566,7 @@ export function importConfiguration(json: string): Configuration {
       ensureReferenceIds(data as Configuration, () => crypto.randomUUID())
     );
   } catch (error) {
-    if (error instanceof ValidationError) {
+    if (error instanceof ValidationError || error instanceof SchemaVersionError) {
       throw error;
     }
     if (error instanceof SyntaxError) {

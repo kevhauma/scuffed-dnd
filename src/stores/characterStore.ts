@@ -25,6 +25,14 @@ interface CharacterState {
 
   // Initialization
   loadCharacters: () => void;
+  /**
+   * Forget every loaded character without writing anything (TICKET-IO-03)
+   *
+   * Half of the start-fresh path: `configStore.discardStoredData` clears the keys and calls this
+   * so the in-memory list matches the now-empty storage. It persists nothing itself — the keys
+   * are already gone by the time it runs.
+   */
+  resetCharacters: () => void;
 
   // Character CRUD
   createCharacter: (data: CharacterCreationData, config: Configuration) => Character;
@@ -265,6 +273,10 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   loadCharacters: () => {
     const characters = loadCharacters();
     set({ characters, isLoaded: true });
+  },
+
+  resetCharacters: () => {
+    set({ characters: [], isLoaded: true });
   },
 
   // Create new character

@@ -41,6 +41,7 @@ const hydration = (overrides: Partial<AppHydration> = {}): AppHydration => ({
   storageAvailable: true,
   isHydrated: true,
   storageError: null,
+  incompatibleData: null,
   ...overrides,
 });
 
@@ -78,5 +79,23 @@ describe('RootLayout', () => {
 
     expect(screen.getByText(/Saved data could not be read/)).toBeDefined();
     expect(screen.getByTestId('outlet')).toBeDefined();
+  });
+
+  it('should replace the routed content when the stored data cannot be opened', () => {
+    vi.mocked(useAppHydration).mockReturnValue(
+      hydration({
+        incompatibleData: {
+          message: 'This browser holds a ruleset saved by an older version of the app.',
+          downloadBackup: vi.fn(),
+          startFresh: vi.fn(),
+        },
+      })
+    );
+
+    render(<RootLayout />);
+
+    expect(screen.getByText('Saved Data Cannot Be Opened')).toBeDefined();
+    // No route renders, so nothing downstream can create a ruleset and save it over the old one
+    expect(screen.queryByTestId('outlet')).toBeNull();
   });
 });
