@@ -32,7 +32,7 @@ describe('Import/Export Service', () => {
       id: 'test-config',
       name: 'Test Config',
       version: '1.0.0',
-      schemaVersion: 2,
+      schemaVersion: 3,
       stats: [
         {
           id: 'STR',
@@ -265,6 +265,42 @@ describe('Import/Export Service', () => {
       expect(result.errors).toHaveLength(0);
     });
 
+    describe('race stat blocks (TICKET-RACE-01)', () => {
+      const withRaces = (races: unknown) => validateConfiguration({ ...validConfig, races });
+
+      it('should accept a block keyed by stat id, and an empty one', () => {
+        const result = withRaces([
+          { id: 'elf', name: 'Elf', description: '', statValues: { 'id-str': 12 } },
+          { id: 'empty', name: 'Empty', description: '', statValues: {} },
+        ]);
+
+        expect(result).toEqual({ isValid: true, errors: [] });
+      });
+
+      it('should reject a race that still carries v1 modifiers', () => {
+        const result = withRaces([{ id: 'elf', name: 'Elf', description: '', skillModifiers: [] }]);
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain('races[0].statValues must be an object keyed by stat id');
+      });
+
+      it('should reject a non-numeric entry rather than coercing it', () => {
+        const result = withRaces([
+          { id: 'elf', name: 'Elf', description: '', statValues: { 'id-str': '12' } },
+        ]);
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain('races[0].statValues.id-str must be a finite number');
+      });
+
+      it('should reject an array in place of the block, which JSON makes easy to confuse', () => {
+        const result = withRaces([{ id: 'elf', name: 'Elf', description: '', statValues: [] }]);
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain('races[0].statValues must be an object keyed by stat id');
+      });
+    });
+
     it('should reject non-object data', () => {
       const result = validateConfiguration('not an object');
 
@@ -453,16 +489,62 @@ describe('Import/Export Service', () => {
     });
 
     it('refuses a future shape by the same gate', () => {
-      const future = JSON.stringify({ ...validConfig, schemaVersion: 3 });
+      const future = JSON.stringify({ ...validConfig, schemaVersion: 4 });
 
       expect(() => importConfiguration(future)).toThrow(SchemaVersionError);
+    });
+
+    it('refuses a stale in-milestone shape by the same gate (TICKET-RACE-01)', () => {
+      // v2 was the unified-stat shape, before a race became a stat block. It is not a "future"
+      // file and not a v1 file — it is a shape this build genuinely cannot read, and the version
+      // gate is what turns that into a notice instead of a crash on a field that moved.
+      const staleV2 = JSON.stringify({
+        ...validConfig,
+        schemaVersion: 2,
+        races: [{ id: 'elf', name: 'Elf', description: '', skillModifiers: [] }],
+      });
+
+      expect(() => importConfiguration(staleV2)).toThrow(SchemaVersionError);
+      expect(() => importConfiguration(staleV2)).not.toThrow(ValidationError);
     });
 
     it('exports the version it imports, so the round-trip survives the gate', async () => {
       const exported = await exportConfiguration(validConfig).text();
 
-      expect(JSON.parse(exported).schemaVersion).toBe(2);
+      expect(JSON.parse(exported).schemaVersion).toBe(3);
       expect(importConfiguration(exported)).toEqual(validConfig);
+    });
+  });
+
+  describe('race stat block round-trip (TICKET-RACE-01)', () => {
+    const roundTrip = async (config: Configuration): Promise<Configuration> =>
+      importConfiguration(await exportConfiguration(config).text());
+
+    it('should survive export then import unchanged', async () => {
+      const withRaces: Configuration = {
+        ...validConfig,
+        races: [
+          { id: 'dwarf', name: 'Dwarf', description: 'Stout', statValues: { 'id-str': 14 } },
+          { id: 'empty', name: 'Empty', description: '', statValues: {} },
+        ],
+      };
+
+      const imported = await roundTrip(withRaces);
+
+      expect(imported.races).toEqual(withRaces.races);
+    });
+
+    it('should keep the block spelled in stat ids on the wire, not in abbreviations', async () => {
+      // The export is the reference-form boundary: a formula comes back as ids, and a stat block
+      // was already ids — so it passes through untranslated, and a rename cannot orphan it
+      const withRaces: Configuration = {
+        ...validConfig,
+        races: [{ id: 'dwarf', name: 'Dwarf', description: '', statValues: { 'id-str': 14 } }],
+      };
+
+      const raw = JSON.parse(await exportConfiguration(withRaces).text());
+
+      expect(raw.races[0].statValues).toEqual({ 'id-str': 14 });
     });
   });
 

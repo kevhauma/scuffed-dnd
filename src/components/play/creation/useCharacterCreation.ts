@@ -11,7 +11,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { calculateCharacter, firstCalculationError } from '../../../engine/calculator';
-import { calculateRacialSkillModifiers } from '../../../engine/calculators/statCalculator';
+import { calculateRaceStatBases } from '../../../engine/calculators/statCalculator';
 import { describeFormulaError } from '../../../engine/formula/errors';
 import type { StatAllocationResult } from '../../../engine/skillAllocation';
 import { validateStatAllocation } from '../../../engine/skillAllocation';
@@ -109,8 +109,8 @@ export function useCharacterCreation() {
 
   const selectedRaces = races.filter((race) => values.raceIds.includes(race.id));
 
-  /** Racial contribution per stat abbreviation, shown separately from the invested points */
-  const racialModifiers = calculateRacialSkillModifiers(selectedRaces);
+  /** What the chosen races supply, per stat id — shown separately from the invested points */
+  const raceBases = calculateRaceStatBases(selectedRaces);
 
   /** Points spent, remaining, and any per-skill breach — from the engine, never re-summed here */
   const allocation: StatAllocationResult | null = config
@@ -250,7 +250,7 @@ export function useCharacterCreation() {
     derivedStatPreviews,
     specialitySkills,
     races,
-    racialModifiers,
+    raceBases,
     allocation,
     preview,
     previewError,

@@ -385,7 +385,9 @@ export function toDisplayFormula(formula: string, index: ReferenceIndex): string
  *
  * The index is built once from `config`, so both directions read the spellings that configuration
  * currently has. Reference-carrying fields are the three formula strings plus the `skillCode` of
- * every race and material modifier, which point at a skill by the same flat code a formula uses.
+ * every material bonus, which points at a skill by the same flat code a formula uses. A race's
+ * stat block is *not* one of them — it is keyed by stat id, so there is nothing to re-spell
+ * (TICKET-RACE-01).
  */
 function translateConfiguration(
   config: Configuration,
@@ -426,13 +428,9 @@ function translateConfiguration(
           })),
         }
       : {}),
-    races: config.races.map((race) => ({
-      ...race,
-      skillModifiers: race.skillModifiers.map((modifier) => ({
-        ...modifier,
-        skillCode: translateCode(modifier.skillCode, index),
-      })),
-    })),
+    // `races` is deliberately absent: since TICKET-RACE-01 a race is a stat block keyed by stat
+    // **id**, so its display and stored forms are the same thing and translating it would only
+    // create a way for the two to disagree.
     materials: config.materials.map((material) => ({
       ...material,
       levels: material.levels.map((level) => ({
@@ -446,7 +444,7 @@ function translateConfiguration(
   };
 }
 
-/** A `skillCode` field written as an id, so a rename cannot orphan a racial or material bonus */
+/** A `skillCode` field written as an id, so a rename cannot orphan a material bonus */
 function codeToStored(code: string, index: ReferenceIndex): string {
   if (code.startsWith('[')) return code;
   const id = index.toId.bare.get(code.toUpperCase());

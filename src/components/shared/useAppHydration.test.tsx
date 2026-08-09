@@ -48,7 +48,7 @@ const storedConfig = {
   id: 'config1',
   name: 'Stored Config',
   version: '1.0',
-  schemaVersion: 2,
+  schemaVersion: 3,
   stats: [],
   specialitySkills: [],
   combatSkills: [],

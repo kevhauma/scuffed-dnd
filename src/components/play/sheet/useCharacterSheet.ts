@@ -5,7 +5,7 @@
  * exposes everything the sheet renders plus the handlers that change it. The sections render; this
  * decides.
  *
- * Every derived number here comes from `calculateCharacter` / `calculateRacialSkillModifiers` /
+ * Every derived number here comes from `calculateCharacter` / `calculateRaceStatBases` /
  * `indexSkillModifiers` — the sheet does no arithmetic of its own.
  *
  * **Validates: Requirements 8.5, 9.3, 13.4, 14.1, 14.2, 14.5, 16.6, 21.1-21.5**
@@ -15,7 +15,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { calculateCharacter } from '../../../engine/calculator';
 import { indexSkillModifiers } from '../../../engine/calculators/equipmentBonusCalculator';
-import { calculateRacialSkillModifiers } from '../../../engine/calculators/statCalculator';
+import { calculateRaceStatBases } from '../../../engine/calculators/statCalculator';
 import { calculateCharacterLevel } from '../../../engine/characterSummary';
 import { formatDiceNotation } from '../../../engine/dice/diceSimulator';
 import { useCharacterStore } from '../../../stores/characterStore';
@@ -69,8 +69,8 @@ export interface SpecialitySkillBreakdown {
  * A stat's contributions, kept apart rather than pre-summed (Requirement 13.4)
  *
  * One shape for all three kinds of stat (TICKET-STAT-01). A derived stat has no invested points
- * and its `max` can carry an error; an invested one cannot fail but can still take racial and
- * equipment modifiers. `current` is only meaningful when `isResource`.
+ * and its `max` can carry an error; an invested one cannot fail but can still take a race stat
+ * block and equipment modifiers. `current` is only meaningful when `isResource`.
  */
 export interface StatBreakdown {
   id: string;
@@ -81,8 +81,8 @@ export interface StatBreakdown {
   isDerived: boolean;
   /** Points the Player put into it — always 0 for a derived stat */
   invested: number;
-  /** Combined modifier from every race the character has (Requirement 8.5) */
-  racial: number;
+  /** What the character's races supply for this stat, combined (Requirement 8.5) */
+  race: number;
   /** Combined modifier from equipped items targeting this stat */
   equipment: number;
   /** The configured focus bonus, non-zero only on the character's focus stat */
@@ -91,6 +91,19 @@ export interface StatBreakdown {
   current: number;
   /** The engine's composed value — the maximum, for a resource */
   max: DerivedValue;
+}
+
+/**
+ * What one stat gets from the character's races, ready to render
+ *
+ * The engine keys a race's stat block by stat **id** (TICKET-RACE-01), which is not something to
+ * show a Player, so the hook pairs each entry with its abbreviation here rather than making the
+ * section look it up.
+ */
+export interface RaceContribution {
+  statId: string;
+  abbreviation: string;
+  value: number;
 }
 
 /**
@@ -106,7 +119,7 @@ export interface CombatSkillBreakdown {
 /** Everything the sheet's sections render, or empty when there is no sheet to draw */
 interface CharacterSheetView {
   raceNames: string[];
-  racialModifiers: Record<string, number>;
+  raceContributions: RaceContribution[];
   specialitySkills: SpecialitySkillBreakdown[];
   stats: StatBreakdown[];
   /** Sum of the stats flagged as counting toward the character's total */
@@ -116,7 +129,7 @@ interface CharacterSheetView {
 
 const EMPTY_VIEW: CharacterSheetView = {
   raceNames: [],
-  racialModifiers: {},
+  raceContributions: [],
   specialitySkills: [],
   stats: [],
   statTotal: 0,
@@ -176,8 +189,10 @@ function buildView(
   calculated: CalculatedCharacter
 ): CharacterSheetView {
   const races = config.races.filter((race) => character.raceIds.includes(race.id));
-  const racialModifiers = calculateRacialSkillModifiers(races);
+  const raceBases = calculateRaceStatBases(races);
   const equipmentBonuses = indexSkillModifiers(calculated.equipmentBonuses);
+
+  const orderedStats = [...config.stats].sort((a, b) => a.order - b.order);
 
   /** The configured bonus, but only on the skill the character actually spent its focus on */
   const focusFor = (skillCode: string): number =>
@@ -185,7 +200,16 @@ function buildView(
 
   return {
     raceNames: races.map((race) => race.name),
-    racialModifiers,
+
+    // A stat the races say nothing about is left out rather than shown as 0 — the section is
+    // "what your lineage gives you", and a zero is not something it gave you
+    raceContributions: orderedStats
+      .filter((stat) => (raceBases[stat.id] ?? 0) !== 0)
+      .map((stat) => ({
+        statId: stat.id,
+        abbreviation: stat.abbreviation,
+        value: raceBases[stat.id] as number,
+      })),
 
     specialitySkills: config.specialitySkills.map((skill) => ({
       code: skill.code,
@@ -199,21 +223,19 @@ function buildView(
 
     // One row per stat, invested or derived (TICKET-STAT-01), in the order the User arranged them
     // in the stats panel (TICKET-STAT-03). `current` is meaningful only for a resource.
-    stats: [...config.stats]
-      .sort((a, b) => a.order - b.order)
-      .map((stat) => ({
-        id: stat.id,
-        name: stat.name,
-        abbreviation: stat.abbreviation,
-        isResource: stat.isResource,
-        isDerived: stat.formula !== undefined,
-        invested: character.investedStatPoints[stat.id] ?? 0,
-        racial: racialModifiers[stat.abbreviation] ?? 0,
-        equipment: equipmentBonuses[stat.abbreviation] ?? 0,
-        focus: focusFor(stat.abbreviation),
-        current: character.currentResourceValues[stat.id] ?? 0,
-        max: toDerivedValue(calculated.statValues[stat.id]),
-      })),
+    stats: orderedStats.map((stat) => ({
+      id: stat.id,
+      name: stat.name,
+      abbreviation: stat.abbreviation,
+      isResource: stat.isResource,
+      isDerived: stat.formula !== undefined,
+      invested: character.investedStatPoints[stat.id] ?? 0,
+      race: raceBases[stat.id] ?? 0,
+      equipment: equipmentBonuses[stat.abbreviation] ?? 0,
+      focus: focusFor(stat.abbreviation),
+      current: character.currentResourceValues[stat.id] ?? 0,
+      max: toDerivedValue(calculated.statValues[stat.id]),
+    })),
 
     statTotal: calculated.statTotal,
 

@@ -18,7 +18,7 @@ describe('FocusStatConfig', () => {
     id: 'test-config',
     name: 'Test Config',
     version: '1.0.0',
-    schemaVersion: 2,
+    schemaVersion: 3,
     stats: [],
     specialitySkills: [],
     combatSkills: [],

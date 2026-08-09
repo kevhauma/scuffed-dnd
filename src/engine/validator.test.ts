@@ -32,7 +32,7 @@ function createMinimalConfig(): Configuration {
     id: 'test-config',
     name: 'Test Configuration',
     version: '1.0.0',
-    schemaVersion: 2,
+    schemaVersion: 3,
     stats: [
       stat('STR', 'Strength', 'STR'),
       stat('DEX', 'Dexterity', 'DEX'),
@@ -225,10 +225,7 @@ describe('validateConfiguration', () => {
           id: 'dwarf',
           name: 'Dwarf',
           description: '',
-          skillModifiers: [
-            { skillCode: 'STR', modifier: 2 },
-            { skillCode: 'WIS', modifier: -1 },
-          ],
+          statValues: { STR: 2, WIS: -1 },
         },
       ];
 
@@ -614,14 +611,14 @@ describe('validateConfiguration', () => {
       expect(result.errors[0].message).toContain('nonexistent');
     });
 
-    it('should detect invalid main skill reference in race', () => {
+    it('should detect a race stat block naming a stat id the ruleset does not define', () => {
       const config = createMinimalConfig();
       config.races = [
         {
           id: 'elf',
           name: 'Elf',
           description: '',
-          skillModifiers: [{ skillCode: 'INVALID', modifier: 2 }],
+          statValues: { INVALID: 2 },
         },
       ];
 
@@ -631,6 +628,15 @@ describe('validateConfiguration', () => {
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0].message).toContain('Elf');
       expect(result.errors[0].message).toContain('INVALID');
+    });
+
+    it('should accept a race stat block that names only some of the stats', () => {
+      // The absent-reads-0 rule is not a validation hole: saying nothing about a stat is a valid
+      // block, and only a key naming a *non-existent* stat is an error (TICKET-RACE-01)
+      const config = createMinimalConfig();
+      config.races = [{ id: 'elf', name: 'Elf', description: '', statValues: {} }];
+
+      expect(validateConfiguration(config).errors).toEqual([]);
     });
   });
 

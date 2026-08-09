@@ -35,7 +35,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 2,
+    schemaVersion: 3,
     stats: [
       {
         id: 'STR',
@@ -109,13 +109,13 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         id: 'elf',
         name: 'Elf',
         description: '',
-        skillModifiers: [{ skillCode: 'DEX', modifier: 2 }],
+        statValues: { DEX: 2 },
       },
       {
         id: 'human',
         name: 'Human',
         description: '',
-        skillModifiers: [{ skillCode: 'DEX', modifier: 1 }],
+        statValues: { DEX: 1 },
       },
     ],
     currencyTiers: [],
@@ -169,30 +169,30 @@ describe('CharacterSheet', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Aria' })).toBeDefined();
     expect(screen.getByText(/Level 10 · Elf · focus: STL/)).toBeDefined();
 
-    for (const section of ['Racial Modifiers', 'Stats', 'Speciality Skills', 'Combat Skills']) {
+    for (const section of ['Race Stat Block', 'Stats', 'Speciality Skills', 'Combat Skills']) {
       expect(screen.getByRole('heading', { name: section })).toBeDefined();
     }
   });
 
-  it('should combine racial modifiers additively across multiple races', () => {
-    // Elf gives DEX +2, Human gives DEX +1 (Requirement 8.5, 8.3, 8.4)
+  it('should combine race stat blocks additively across multiple races', () => {
+    // Elf's block gives DEX 2, Human's gives DEX 1 — combined 3 until RACE-02's blend (Requirement 8.5, 8.3, 8.4)
     useCharacterStore.setState({
       characters: [createCharacter({ raceIds: ['elf', 'human'] })],
     });
 
     render(<CharacterSheet characterId="char1" />);
 
-    expect(screen.getByText('DEX +3')).toBeDefined();
-    expect(within(rowFor(/Dexterity \(DEX\)/)).getByText('racial +3')).toBeDefined();
+    expect(screen.getByText('DEX 3')).toBeDefined();
+    expect(within(rowFor(/Dexterity \(DEX\)/)).getByText('race +3')).toBeDefined();
   });
 
   it("should show a stat's contributions separately from its total", () => {
     render(<CharacterSheet characterId="char1" />);
 
     const dexterity = rowFor(/Dexterity \(DEX\)/);
-    // Allocated and racial are shown apart (Requirement 13.4), not folded into the total
+    // Allocated and race are shown apart (Requirement 13.4), not folded into the total
     expect(within(dexterity).getByText('invested +4')).toBeDefined();
-    expect(within(dexterity).getByText('racial +2')).toBeDefined();
+    expect(within(dexterity).getByText('race +2')).toBeDefined();
     expect(within(dexterity).getByText('6')).toBeDefined();
   });
 

@@ -26,7 +26,7 @@ as part of the action. That is the equivalent of a repository layer here.
 
 ## Configuration (the ruleset)
 
-One `Configuration` per browser: id, name, version, **`schemaVersion: 2`**, timestamps,
+One `Configuration` per browser: id, name, version, **`schemaVersion: 3`**, timestamps,
 `focusStatBonusLevel`, the optional
 `mainSkillPointBudget`, plus the entity arrays — `stats`, `specialitySkills`,
 `combatSkills`, `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
@@ -57,12 +57,39 @@ displays the way it reads rather than the way it happens to be stored. **Sort in
 a component**: the two consumers of the ordered list (`SkillAllocationStep`, `ReviewStep`) take it
 as a prop.
 
+**`Race` is a stat block, not a bag of bonuses** (TICKET-RACE-01):
+`{ id, name, description, statValues: Record<statId, number> }`, holding the **absolute** value a
+member of that race has, like the sheet's creature rows. Two rules follow, and both are load-bearing:
+
+- **Keyed by stat *id*, not abbreviation.** So a stat block needs no display↔stored translation at
+  all — `references.ts` has no `races` branch, and a rename passes straight through it. The
+  guarded-delete walker matches it by id too (`raceStatBlockReferences` in `dependencies.ts`),
+  which is what a *material* bonus, still keyed by `skillCode`, cannot do.
+- **A stat absent from the record reads 0.** Adding a stat to the ruleset therefore costs nothing:
+  every existing race is already defined over it. Keep that when reading a block —
+  `race.statValues[stat.id] ?? 0`, never a bare index — and let the editor be the thing that
+  writes a complete block (`useRaceManager`'s `handleSave` normalises against the ruleset as it
+  stands at save time).
+
+Races still combine **additively** into the same slot the old modifiers used, so RACE-01 moved no
+character's numbers. TICKET-RACE-02 is what makes them the composition's `base` term and replaces
+the sum with the sheet's 1–2 race blend.
+
 **`schemaVersion` is the clean break** (TICKET-STAT-01, TICKET-IO-03). v1 files have no such key,
 which is exactly how they are recognised. The number itself lives in
 [types/config.ts](../../../src/types/config.ts) as `SUPPORTED_SCHEMA_VERSION` — not in either
 service, so both gate on the same value and `createFreshConfiguration` writes it rather than a
 literal. v1's focus stat, spend-derived level and speciality base levels have no faithful mapping
 into v2, so a conversion would invent a ruleset nobody authored.
+
+**Bump it on every reshape for the rest of the v2.0 milestone** (User decision, 2026-08-09,
+recorded on TICKET-RACE-01). The persisted shape is not stable until v2.0 lands, so a ticket that
+changes an entity's shape raises `SUPPORTED_SCHEMA_VERSION` in the same commit — otherwise stored
+data from a day earlier crashes on the field that moved instead of meeting IO-03's notice. It is
+one line plus a `schemaVersion: N` sweep over the test fixtures and `scripts/build-sheet-import.mjs`.
+There is deliberately **no migration path**: the ruleset is regenerable from
+[`docs/imports/`](../../../docs/imports/README.md), and the notice offers a backup before anything
+is cleared.
 
 The refusal has three surfaces, and they behave differently on purpose:
 

@@ -2,7 +2,7 @@
   "id": "ducklets-sheet-import",
   "name": "Ducklets (sheet import)",
   "version": "2.0.0",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "focusStatBonusLevel": 0,
   "createdAt": "2026-08-09T00:00:00.000Z",
   "updatedAt": "2026-08-09T00:00:00.000Z",
@@ -11577,394 +11577,151 @@
       "id": "race-human",
       "name": "human",
       "description": "Stat block from the sheet's Creature stats tab (column B); six-core total 60.",
-      "skillModifiers": [
-        {
-          "skillCode": "STR",
-          "modifier": 10
-        },
-        {
-          "skillCode": "DEX",
-          "modifier": 10
-        },
-        {
-          "skillCode": "CON",
-          "modifier": 10
-        },
-        {
-          "skillCode": "INT",
-          "modifier": 10
-        },
-        {
-          "skillCode": "WIS",
-          "modifier": 10
-        },
-        {
-          "skillCode": "CHA",
-          "modifier": 10
-        },
-        {
-          "skillCode": "HP",
-          "modifier": 5
-        },
-        {
-          "skillCode": "MANA",
-          "modifier": 100
-        },
-        {
-          "skillCode": "SPEED",
-          "modifier": 20
-        }
-      ]
+      "statValues": {
+        "stat-strenght": 10,
+        "stat-dex": 10,
+        "stat-con": 10,
+        "stat-int": 10,
+        "stat-wis": 10,
+        "stat-char": 10,
+        "stat-health": 5,
+        "stat-mana": 100,
+        "stat-speed": 20
+      }
     },
     {
       "id": "race-elf",
       "name": "elf",
       "description": "Stat block from the sheet's Creature stats tab (column C); six-core total 64.",
-      "skillModifiers": [
-        {
-          "skillCode": "STR",
-          "modifier": 9
-        },
-        {
-          "skillCode": "DEX",
-          "modifier": 12
-        },
-        {
-          "skillCode": "CON",
-          "modifier": 12
-        },
-        {
-          "skillCode": "INT",
-          "modifier": 10
-        },
-        {
-          "skillCode": "WIS",
-          "modifier": 12
-        },
-        {
-          "skillCode": "CHA",
-          "modifier": 9
-        },
-        {
-          "skillCode": "HP",
-          "modifier": 7
-        },
-        {
-          "skillCode": "MANA",
-          "modifier": 200
-        },
-        {
-          "skillCode": "SPEED",
-          "modifier": 25
-        }
-      ]
+      "statValues": {
+        "stat-strenght": 9,
+        "stat-dex": 12,
+        "stat-con": 12,
+        "stat-int": 10,
+        "stat-wis": 12,
+        "stat-char": 9,
+        "stat-health": 7,
+        "stat-mana": 200,
+        "stat-speed": 25
+      }
     },
     {
       "id": "race-hamster",
       "name": "Hamster",
       "description": "Stat block from the sheet's Creature stats tab (column D); six-core total 20.",
-      "skillModifiers": [
-        {
-          "skillCode": "STR",
-          "modifier": 1
-        },
-        {
-          "skillCode": "DEX",
-          "modifier": 1
-        },
-        {
-          "skillCode": "CON",
-          "modifier": 1
-        },
-        {
-          "skillCode": "INT",
-          "modifier": 1
-        },
-        {
-          "skillCode": "WIS",
-          "modifier": 1
-        },
-        {
-          "skillCode": "CHA",
-          "modifier": 15
-        },
-        {
-          "skillCode": "HP",
-          "modifier": 1
-        },
-        {
-          "skillCode": "MANA",
-          "modifier": 500
-        },
-        {
-          "skillCode": "SPEED",
-          "modifier": 20
-        }
-      ]
+      "statValues": {
+        "stat-strenght": 1,
+        "stat-dex": 1,
+        "stat-con": 1,
+        "stat-int": 1,
+        "stat-wis": 1,
+        "stat-char": 15,
+        "stat-health": 1,
+        "stat-mana": 500,
+        "stat-speed": 20
+      }
     },
     {
       "id": "race-dwarf",
       "name": "dwarf",
       "description": "Stat block from the sheet's Creature stats tab (column E); six-core total 60.",
-      "skillModifiers": [
-        {
-          "skillCode": "STR",
-          "modifier": 14
-        },
-        {
-          "skillCode": "DEX",
-          "modifier": 3
-        },
-        {
-          "skillCode": "CON",
-          "modifier": 15
-        },
-        {
-          "skillCode": "INT",
-          "modifier": 10
-        },
-        {
-          "skillCode": "WIS",
-          "modifier": 8
-        },
-        {
-          "skillCode": "CHA",
-          "modifier": 10
-        },
-        {
-          "skillCode": "HP",
-          "modifier": 8
-        },
-        {
-          "skillCode": "MANA",
-          "modifier": 130
-        },
-        {
-          "skillCode": "SPEED",
-          "modifier": 15
-        }
-      ]
+      "statValues": {
+        "stat-strenght": 14,
+        "stat-dex": 3,
+        "stat-con": 15,
+        "stat-int": 10,
+        "stat-wis": 8,
+        "stat-char": 10,
+        "stat-health": 8,
+        "stat-mana": 130,
+        "stat-speed": 15
+      }
     },
     {
       "id": "race-raccoon",
       "name": "Raccoon",
       "description": "Stat block from the sheet's Creature stats tab (column F); six-core total 59.",
-      "skillModifiers": [
-        {
-          "skillCode": "STR",
-          "modifier": 7
-        },
-        {
-          "skillCode": "DEX",
-          "modifier": 16
-        },
-        {
-          "skillCode": "CON",
-          "modifier": 7
-        },
-        {
-          "skillCode": "INT",
-          "modifier": 7
-        },
-        {
-          "skillCode": "WIS",
-          "modifier": 7
-        },
-        {
-          "skillCode": "CHA",
-          "modifier": 15
-        },
-        {
-          "skillCode": "HP",
-          "modifier": 5
-        },
-        {
-          "skillCode": "MANA",
-          "modifier": 70
-        },
-        {
-          "skillCode": "SPEED",
-          "modifier": 30
-        }
-      ]
+      "statValues": {
+        "stat-strenght": 7,
+        "stat-dex": 16,
+        "stat-con": 7,
+        "stat-int": 7,
+        "stat-wis": 7,
+        "stat-char": 15,
+        "stat-health": 5,
+        "stat-mana": 70,
+        "stat-speed": 30
+      }
     },
     {
       "id": "race-demon",
       "name": "Demon",
       "description": "Stat block from the sheet's Creature stats tab (column G); six-core total 90.",
-      "skillModifiers": [
-        {
-          "skillCode": "STR",
-          "modifier": 15
-        },
-        {
-          "skillCode": "DEX",
-          "modifier": 15
-        },
-        {
-          "skillCode": "CON",
-          "modifier": 15
-        },
-        {
-          "skillCode": "INT",
-          "modifier": 15
-        },
-        {
-          "skillCode": "WIS",
-          "modifier": 15
-        },
-        {
-          "skillCode": "CHA",
-          "modifier": 15
-        },
-        {
-          "skillCode": "HP",
-          "modifier": 15
-        },
-        {
-          "skillCode": "MANA",
-          "modifier": 1000
-        },
-        {
-          "skillCode": "SPEED",
-          "modifier": 40
-        }
-      ]
+      "statValues": {
+        "stat-strenght": 15,
+        "stat-dex": 15,
+        "stat-con": 15,
+        "stat-int": 15,
+        "stat-wis": 15,
+        "stat-char": 15,
+        "stat-health": 15,
+        "stat-mana": 1000,
+        "stat-speed": 40
+      }
     },
     {
       "id": "race-demur",
       "name": "Demur",
       "description": "Stat block from the sheet's Creature stats tab (column H); six-core total 66.",
-      "skillModifiers": [
-        {
-          "skillCode": "STR",
-          "modifier": 11
-        },
-        {
-          "skillCode": "DEX",
-          "modifier": 11
-        },
-        {
-          "skillCode": "CON",
-          "modifier": 11
-        },
-        {
-          "skillCode": "INT",
-          "modifier": 11
-        },
-        {
-          "skillCode": "WIS",
-          "modifier": 11
-        },
-        {
-          "skillCode": "CHA",
-          "modifier": 11
-        },
-        {
-          "skillCode": "HP",
-          "modifier": 6
-        },
-        {
-          "skillCode": "MANA",
-          "modifier": 200
-        },
-        {
-          "skillCode": "SPEED",
-          "modifier": 20
-        }
-      ]
+      "statValues": {
+        "stat-strenght": 11,
+        "stat-dex": 11,
+        "stat-con": 11,
+        "stat-int": 11,
+        "stat-wis": 11,
+        "stat-char": 11,
+        "stat-health": 6,
+        "stat-mana": 200,
+        "stat-speed": 20
+      }
     },
     {
       "id": "race-empty",
       "name": "Empty",
       "description": "Stat block from the sheet's Creature stats tab (column I); six-core total 0.",
-      "skillModifiers": []
+      "statValues": {}
     },
     {
       "id": "race-monolith",
       "name": "Monolith",
       "description": "Stat block from the sheet's Creature stats tab (column J); six-core total 1800.",
-      "skillModifiers": [
-        {
-          "skillCode": "STR",
-          "modifier": 300
-        },
-        {
-          "skillCode": "DEX",
-          "modifier": 300
-        },
-        {
-          "skillCode": "CON",
-          "modifier": 300
-        },
-        {
-          "skillCode": "INT",
-          "modifier": 300
-        },
-        {
-          "skillCode": "WIS",
-          "modifier": 300
-        },
-        {
-          "skillCode": "CHA",
-          "modifier": 300
-        },
-        {
-          "skillCode": "HP",
-          "modifier": 3000
-        },
-        {
-          "skillCode": "MANA",
-          "modifier": 3000
-        },
-        {
-          "skillCode": "SPEED",
-          "modifier": 20
-        }
-      ]
+      "statValues": {
+        "stat-strenght": 300,
+        "stat-dex": 300,
+        "stat-con": 300,
+        "stat-int": 300,
+        "stat-wis": 300,
+        "stat-char": 300,
+        "stat-health": 3000,
+        "stat-mana": 3000,
+        "stat-speed": 20
+      }
     },
     {
       "id": "race-gods",
       "name": "Gods",
       "description": "Stat block from the sheet's Creature stats tab (column K); six-core total 1920.",
-      "skillModifiers": [
-        {
-          "skillCode": "STR",
-          "modifier": 320
-        },
-        {
-          "skillCode": "DEX",
-          "modifier": 320
-        },
-        {
-          "skillCode": "CON",
-          "modifier": 320
-        },
-        {
-          "skillCode": "INT",
-          "modifier": 320
-        },
-        {
-          "skillCode": "WIS",
-          "modifier": 320
-        },
-        {
-          "skillCode": "CHA",
-          "modifier": 320
-        },
-        {
-          "skillCode": "HP",
-          "modifier": 3200
-        },
-        {
-          "skillCode": "MANA",
-          "modifier": 3200
-        },
-        {
-          "skillCode": "SPEED",
-          "modifier": 40
-        }
-      ]
+      "statValues": {
+        "stat-strenght": 320,
+        "stat-dex": 320,
+        "stat-con": 320,
+        "stat-int": 320,
+        "stat-wis": 320,
+        "stat-char": 320,
+        "stat-health": 3200,
+        "stat-mana": 3200,
+        "stat-speed": 40
+      }
     }
   ],
   "currencyTiers": [

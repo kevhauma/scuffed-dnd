@@ -175,11 +175,11 @@ describe('calculateStatValues', () => {
         id: 'dwarf',
         name: 'Dwarf',
         description: '',
-        skillModifiers: [{ skillCode: 'STR', modifier: 2 }],
+        statValues: { str: 2 },
       },
     ];
 
-    it('should add racial modifiers and equipment bonuses to an invested stat', () => {
+    it('should add a race stat block and equipment bonuses to an invested stat', () => {
       const stats = [stat({ id: 'str', name: 'Strength', abbreviation: 'STR' })];
 
       const values = calculateStatValues(stats, character({ investedStatPoints: { str: 5 } }), {
@@ -188,6 +188,34 @@ describe('calculateStatValues', () => {
       });
 
       expect(values.str).toBe(10);
+    });
+
+    it('should read a stat the race block says nothing about as 0 (TICKET-RACE-01)', () => {
+      // Adding a stat to the ruleset must not invalidate every existing race: a block that has
+      // no entry for it contributes nothing, rather than making the stat unresolvable
+      const stats = [
+        stat({ id: 'str', name: 'Strength', abbreviation: 'STR' }),
+        stat({ id: 'wis', name: 'Wisdom', abbreviation: 'WIS' }),
+      ];
+
+      const values = calculateStatValues(stats, character({ investedStatPoints: { wis: 3 } }), {
+        races, // dwarf's block names `str` only
+      });
+
+      expect(values.wis).toBe(3);
+      expect(values.str).toBe(2);
+    });
+
+    it('should ignore a race block entry naming a stat the ruleset no longer defines', () => {
+      // The converse (TICKET-REF-02): the ruleset alone decides what exists, so a dangling entry
+      // contributes nothing rather than answering for a deleted stat
+      const stats = [stat({ id: 'str', name: 'Strength', abbreviation: 'STR' })];
+
+      const values = calculateStatValues(stats, character(), {
+        races: [{ id: 'ghost', name: 'Ghost', description: '', statValues: { str: 1, gone: 99 } }],
+      });
+
+      expect(values).toEqual({ str: 1 });
     });
 
     it('should move a derived stat when the stat it reads gains equipment', () => {

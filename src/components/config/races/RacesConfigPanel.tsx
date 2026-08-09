@@ -1,9 +1,11 @@
 /**
  * Races Configuration Panel
  *
- * Manages races with skill modifiers and total modifier preview.
+ * Manages races as **stat blocks** — absolute values per stat, like the sheet's creature rows
+ * (Concept 04, TICKET-RACE-01). The ruleset's stats decide what a block contains, so a race
+ * cannot be edited before there are stats to be made of.
  *
- * **Validates: Requirements 8.1, 8.2, 8.5, 21.1-21.5**
+ * **Validates: Concept 04; Requirements 8.1, 8.2, 8.5, 21.1-21.5**
  */
 
 import { Button } from '../../ui/Button/Button';
@@ -50,9 +52,7 @@ export function RacesConfigPanel() {
             <Text variant="h4" as="h2" className="mb-2">
               Races
             </Text>
-            <Text variant="body-secondary">
-              Character lineages with skill bonuses and penalties
-            </Text>
+            <Text variant="body-secondary">Character lineages, as a stat block per race</Text>
           </div>
           <Button variant="primary" onClick={handleAdd}>
             Add Race
@@ -62,7 +62,7 @@ export function RacesConfigPanel() {
         {availableStats.length === 0 && (
           <div className="mt-4 p-4 bg-amber/10 border border-amber rounded">
             <Text variant="body-small" className="text-ink-700">
-              No main skills configured yet. Add main skills first to assign racial modifiers.
+              No stats configured yet. A race is a stat block, so add stats first.
             </Text>
           </div>
         )}

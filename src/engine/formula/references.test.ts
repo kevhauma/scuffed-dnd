@@ -26,7 +26,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 2,
+    schemaVersion: 3,
     stats: [
       {
         id: 'id-str',
@@ -443,14 +443,18 @@ describe('the rename test (Concept 00 §6)', () => {
     expect(formulaFor('id-2')).toBe('curve.beta.main(1)');
   });
 
-  it('carries racial and material bonuses through a rename too', () => {
+  it('carries material bonuses through a rename, and leaves a race stat block untouched', () => {
+    // Two different answers to the same problem, deliberately. A material bonus names a stat by
+    // its `skillCode` spelling, so a rename has to re-spell it. A race's stat block is keyed by
+    // stat **id** since TICKET-RACE-01, so there is nothing to re-spell — and a translation pass
+    // over it would be a way for display and stored form to disagree, not a safety net.
     const config = createConfig({
       races: [
         {
           id: 'race1',
           name: 'Dwarf',
           description: '',
-          skillModifiers: [{ skillCode: 'STR', modifier: 2 }],
+          statValues: { 'id-str': 2 },
         },
       ],
       materials: [
@@ -478,13 +482,13 @@ describe('the rename test (Concept 00 §6)', () => {
       ),
     }));
 
-    expect(renamed.races[0].skillModifiers[0].skillCode).toBe('STG');
     expect(renamed.materials[0].levels[0].bonuses[0].skillCode).toBe('STG');
+    expect(renamed.races[0].statValues).toEqual({ 'id-str': 2 });
   });
 
   it('leaves a link-shaped reference alone — it already points at an id', () => {
     const config = createConfig({
-      races: [{ id: 'race1', name: 'Dwarf', description: '', skillModifiers: [] }],
+      races: [{ id: 'race1', name: 'Dwarf', description: '', statValues: {} }],
       items: [{ id: 'item1', name: 'Axe', description: '', materialId: 'mat1' }],
     });
 

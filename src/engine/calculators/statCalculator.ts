@@ -4,7 +4,7 @@
  * The composition calculator (Concept 01, TICKET-STAT-01). One function answers "what is this
  * stat worth on this character", for all three kinds of stat, because there is one kind of stat:
  *
- * - **invested** — `race base + invested points + racial modifiers + equipment`;
+ * - **invested** — `race stat block + invested points + equipment`;
  * - **resource** — the same sum, read as a *maximum* the character spends against;
  * - **derived** — its `formula`, evaluated over `stats.*` / `const.*` / `curve.*`.
  *
@@ -15,8 +15,8 @@
  * carried across from main skills. Every stat in `config.stats` is seeded before anything is
  * applied, so a stat nobody has invested in reads 0 rather than reaching a formula as an
  * undefined variable. The converse holds too (TICKET-REF-02): the ruleset alone decides what
- * exists, so an allocation, racial modifier or equipment bonus naming a stat the configuration no
- * longer defines contributes nothing rather than answering for a deleted stat.
+ * exists, so an allocation, race stat block entry or equipment bonus naming a stat the
+ * configuration no longer defines contributes nothing rather than answering for a deleted stat.
  *
  * **Validates: Concept 01; Concept 00 §7; Requirements 3.4, 3.6, 8.4, 16.6**
  */
@@ -31,7 +31,7 @@ import { namespacesFor } from '../formula/namespaces';
 
 /** What the composition needs beyond the stats themselves */
 export interface StatCompositionOptions {
-  /** The character's races, for their skill modifiers */
+  /** The character's races, for their stat blocks */
   races?: Race[];
   /** Aggregated bonuses from equipped items; only those naming a stat abbreviation are applied */
   equipmentBonuses?: SkillModifier[];
@@ -42,27 +42,28 @@ export interface StatCompositionOptions {
 }
 
 /**
- * Sum the skill modifiers granted by a set of races
+ * Combine the stat blocks of a set of races
  *
  * Kept separate from the totals so the UI can show the racial contribution on its own
- * (Requirement 8.4, 13.4) without recovering it from a difference. Keyed by whatever the modifier
- * names — a stat abbreviation, since TICKET-STAT-01's bridge.
+ * (Requirement 8.4, 13.4) without recovering it from a difference. Keyed by **stat id** since
+ * TICKET-RACE-01 made a race a stat block; a stat absent from a block contributes nothing.
  *
  * @param races - The character's races
- * @returns Record of abbreviation to combined racial modifier
+ * @returns Record of stat id to the combined value the races supply
  */
-export function calculateRacialSkillModifiers(races: Race[]): Record<string, number> {
-  const racialModifiers: Record<string, number> = {};
+export function calculateRaceStatBases(races: Race[]): Record<string, number> {
+  const bases: Record<string, number> = {};
 
-  // Multiple races combine additively — TICKET-RACE-02 replaces this with a blended base
+  // Still additive, which is v1's rule rather than the sheet's: TICKET-RACE-02 replaces this with
+  // `roundup((a + b) / const.race_blend_divisor)` over exactly 1–2 races. Kept as-is here so
+  // RACE-01 changes the *shape* without moving a single character's numbers.
   for (const race of races) {
-    for (const modifier of race.skillModifiers) {
-      racialModifiers[modifier.skillCode] =
-        (racialModifiers[modifier.skillCode] || 0) + modifier.modifier;
+    for (const [statId, value] of Object.entries(race.statValues)) {
+      bases[statId] = (bases[statId] ?? 0) + value;
     }
   }
 
-  return racialModifiers;
+  return bases;
 }
 
 /** Clamp to the stat's bounds, then round the way it asks to be rounded */
@@ -86,21 +87,21 @@ function finish(value: number, stat: Stat): number {
 /**
  * The invested side of the composition, before clamping
  *
- * The race base term is 0: Concept 04's stat blocks arrive with TICKET-RACE-01/02, and inventing
- * a base here would mean two places to change when they do. Racial *modifiers* still apply —
- * they are a different idea, and dropping them mid-milestone would silently unbalance every
- * existing character.
+ * The dedicated race `base` term is still 0. TICKET-RACE-01 turned a race into a stat block, but
+ * its values keep arriving through the same additive slot the old modifiers used — TICKET-RACE-02
+ * is what moves them into `base` and replaces the sum with the sheet's 1–2 race blend. Landing the
+ * shape without moving the arithmetic is what keeps that a separate, checkable change.
  */
 function investedValue(
   stat: Stat,
   character: Character,
-  racialModifiers: Record<string, number>,
+  raceBases: Record<string, number>,
   equipmentBonuses: SkillModifier[],
   focusStatBonusLevel: number
 ): number {
-  const base = 0; // TICKET-RACE-02 wires the race stat block in here
+  const base = 0; // TICKET-RACE-02 moves `race` into here, blended rather than summed
   const invested = character.investedStatPoints[stat.id] ?? 0; // 1:1 until TICKET-ARC-02 routes it through a curve
-  const racial = racialModifiers[stat.abbreviation] ?? 0;
+  const race = raceBases[stat.id] ?? 0;
 
   const equipment = equipmentBonuses
     .filter((bonus) => bonus.skillCode === stat.abbreviation)
@@ -108,7 +109,7 @@ function investedValue(
 
   const focus = character.focusStatCode === stat.abbreviation ? focusStatBonusLevel : 0;
 
-  return base + invested + racial + equipment + focus;
+  return base + invested + race + equipment + focus;
 }
 
 /**
@@ -133,7 +134,7 @@ export function calculateStatValues(
 ): Record<string, FormulaResult> {
   const { races = [], equipmentBonuses = [], focusStatBonusLevel = 0, source = {} } = options;
 
-  const racialModifiers = calculateRacialSkillModifiers(races);
+  const raceBases = calculateRaceStatBases(races);
   const values: Record<string, FormulaResult> = {};
 
   // Seed the invested stats — they depend on nothing, so they are done in one pass
@@ -141,7 +142,7 @@ export function calculateStatValues(
   for (const stat of stats) {
     if (stat.formula === undefined) {
       values[stat.id] = finish(
-        investedValue(stat, character, racialModifiers, equipmentBonuses, focusStatBonusLevel),
+        investedValue(stat, character, raceBases, equipmentBonuses, focusStatBonusLevel),
         stat
       );
     } else {

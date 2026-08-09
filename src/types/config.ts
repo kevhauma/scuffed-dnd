@@ -12,7 +12,7 @@
  * gate on the same number without one importing the other — and so a test that mocks one service
  * cannot change what the other considers current.
  */
-export const SUPPORTED_SCHEMA_VERSION = 2;
+export const SUPPORTED_SCHEMA_VERSION = 3;
 
 /**
  * Main configuration object containing all user-defined game rules
@@ -24,12 +24,18 @@ export interface Configuration {
   /**
    * Which persisted shape this is (TICKET-STAT-01).
    *
-   * `2` is the unified-stat shape. v1 files have no `schemaVersion` at all, which is exactly how
-   * they are recognised and refused — the two shapes have no faithful mapping between them
-   * (a v1 character's focus stat, spend-derived level and speciality base levels have nowhere to
-   * go), so they are rejected with a notice rather than converted. TICKET-IO-03 owns that UX.
+   * `2` was the unified-stat shape; `3` adds TICKET-RACE-01's race stat blocks. v1 files have no
+   * `schemaVersion` at all, which is exactly how they are recognised and refused — the shapes have
+   * no faithful mapping between them (a v1 character's focus stat, spend-derived level and
+   * speciality base levels have nowhere to go), so they are rejected with a notice rather than
+   * converted. TICKET-IO-03 owns that UX and the notice covers every mismatch, not just v1.
+   *
+   * **The v2.0 milestone bumps this on every reshape**, by the User's decision (2026-08-09): the
+   * persisted shape is not stable until the milestone lands, and a build that cannot read stored
+   * data must say so through IO-03's notice rather than crash on a field that moved. Expect
+   * further bumps from MAT-01, SKL-02, RES-01, ARC-01 and ROLL-05.
    */
-  schemaVersion: 2;
+  schemaVersion: 3;
   stats: Stat[];
   specialitySkills: SpecialitySkill[];
   combatSkills: CombatSkill[];
@@ -231,13 +237,26 @@ export interface EquipmentSlot {
 }
 
 /**
- * Race - character lineage providing skill bonuses/penalties
+ * Race — a **stat block**: what a member of this lineage is (Concept 04, playable subset)
+ *
+ * v1 stored deltas over skill codes, which is not what the source sheet holds: its creature tab
+ * gives every race an absolute value per stat (dwarf: Str 14, Dex 3, Con 15). The two agreed only
+ * because a stat's default base is 0, so "modifier 10" and "base 10" were the same number —
+ * an agreement that breaks the moment two races are picked, which is TICKET-RACE-02's blend.
+ *
+ * Keyed by **stat id**, not by abbreviation: a race's block is a set of references to stats, and
+ * references are by id (TICKET-REF-01), so renaming a stat cannot orphan one — and unlike
+ * `skillModifiers`, the shape needs no display↔stored translation at all.
+ *
+ * **A stat absent from the record reads 0.** Adding a stat to the ruleset therefore costs nothing:
+ * every existing race is already defined over it, at zero, rather than being invalid until edited.
  */
 export interface Race {
   id: string;
   name: string;
   description: string;
-  skillModifiers: SkillModifier[]; // Only Main_Skills
+  /** Absolute value this race supplies per stat id; absent means 0 */
+  statValues: Record<string, number>;
 }
 
 /**

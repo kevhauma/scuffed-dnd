@@ -16,7 +16,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 2,
+    schemaVersion: 3,
     stats: [
       {
         id: 'id-str',
@@ -102,7 +102,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         id: 'dwarf',
         name: 'Dwarf',
         description: '',
-        skillModifiers: [{ skillCode: 'STR', modifier: 2 }],
+        statValues: { 'id-str': 2 },
       },
     ],
     currencyTiers: [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 10 }],
@@ -148,6 +148,24 @@ describe('findReferences', () => {
         'Material: Iron',
         'Character: Aria',
       ]);
+    });
+
+    it('does not count a zero in a race stat block as a reference (TICKET-RACE-01)', () => {
+      // A block may cover every configured stat — absent and 0 mean the same thing — so keying
+      // the guard off the presence of the key would make every race point at every stat and
+      // refuse every stat delete. A guard that always fires tells the User nothing.
+      const config = createConfig({
+        races: [
+          { id: 'dwarf', name: 'Dwarf', description: '', statValues: { 'id-str': 0, 'id-dex': 2 } },
+        ],
+      });
+
+      expect(holders(findReferences({ kind: 'stat', id: 'id-str' }, config, []))).not.toContain(
+        'Race: Dwarf'
+      );
+      expect(holders(findReferences({ kind: 'stat', id: 'id-dex' }, config, []))).toContain(
+        'Race: Dwarf'
+      );
     });
 
     it('finds a speciality skill named by a combat skill formula', () => {

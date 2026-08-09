@@ -85,7 +85,7 @@ The schema rework:
 
 Mechanics on the new core:
 
-- [ ] [TICKET-RACE-01](./tickets/TICKET-RACE-01-race-stat-blocks.md) — Races as stat blocks (Concept 04 subset) — shape + editor
+- [x] [TICKET-RACE-01](./tickets/TICKET-RACE-01-race-stat-blocks.md) — Races as stat blocks (Concept 04 subset) — shape + editor. `Race.statValues` is keyed by **stat id**, so unlike `skillModifiers` it needs no display↔stored translation at all and the race branch left `references.ts` entirely. **Raised a decision the rest of the milestone inherits**: `SUPPORTED_SCHEMA_VERSION` is bumped on *every* reshape from here (2 → 3 here), so stale in-milestone data meets IO-03's notice instead of crashing on a field that moved — see implementation note 1. Left for RACE-02: whether a *derived* stat should get a row in the block editor at all (note 5)
 - [ ] [TICKET-RACE-02](./tickets/TICKET-RACE-02-blended-bases-and-cardinality.md) — Blended bases, 1–2 races (Concepts 04, 05) — wires the base term; fixes additive stacking
 - [ ] [TICKET-MAT-01](./tickets/TICKET-MAT-01-modifiers-target-stats.md) — Material modifiers target stats (Concept 09) — shape + dialog
 - [ ] [TICKET-MAT-02](./tickets/TICKET-MAT-02-equipment-bonuses-on-stats.md) — Equipment bonuses land on stats (Concepts 01, 09) — completes the composition; "+50 Mana" works

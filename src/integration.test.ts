@@ -27,7 +27,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Integration Ruleset',
     version: '1.0',
-    schemaVersion: 2,
+    schemaVersion: 3,
     stats: [
       {
         id: 'STR',
@@ -90,13 +90,13 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         id: 'elf',
         name: 'Elf',
         description: '',
-        skillModifiers: [{ skillCode: 'DEX', modifier: 2 }],
+        statValues: { DEX: 2 },
       },
       {
         id: 'human',
         name: 'Human',
         description: '',
-        skillModifiers: [{ skillCode: 'DEX', modifier: 1 }],
+        statValues: { DEX: 1 },
       },
     ],
     currencyTiers: [],
@@ -304,7 +304,8 @@ describe('recalculation flows', () => {
     const after = calculateCharacter(reloadedCharacter, reloadedConfig);
 
     expect(reloadedConfig.stats.find((candidate) => candidate.formula)?.formula).toBe('STG * 10');
-    expect(reloadedConfig.races[0].skillModifiers.map((m) => m.skillCode)).not.toContain('STR');
+    // A race's stat block holds stat ids, so a rename passes straight through it (TICKET-RACE-01)
+    expect(Object.keys(reloadedConfig.races[0].statValues)).toEqual(['DEX']);
     expect(after.statValues).toEqual(before.statValues);
     expect(after.specialitySkillTotalLevels).toEqual(before.specialitySkillTotalLevels);
     expect(after.combatSkillBonuses).toEqual(before.combatSkillBonuses);

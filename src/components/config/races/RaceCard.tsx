@@ -1,9 +1,11 @@
 /**
  * Race Card Component
  *
- * Displays a race with its skill modifiers and total modifier preview.
+ * One race's stat block, plus the total the sheet checks against (Concept 04, Concept 01's
+ * six-core total). Every configured stat gets a cell, at 0 when the race says nothing about it,
+ * so two races read as comparable blocks rather than as two differently-shaped lists.
  *
- * **Validates: Requirements 8.1, 8.2, 21.1-21.5**
+ * **Validates: Concept 04; Requirements 8.1, 8.2, 21.1-21.5**
  */
 
 import { useMemo } from 'react';
@@ -14,25 +16,26 @@ import { Text } from '../../ui/Text/Text';
 
 interface RaceCardProps {
   race: Race;
+  /** The ruleset's stats, in display order */
   availableStats: Stat[];
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
 export function RaceCard({ race, availableStats, onEdit, onDelete }: RaceCardProps) {
-  // Calculate total modifiers
-  const totalModifiers = useMemo(() => {
-    const positive = race.skillModifiers.filter((m) => m.modifier > 0).length;
-    const negative = race.skillModifiers.filter((m) => m.modifier < 0).length;
-    const sum = race.skillModifiers.reduce((acc, m) => acc + m.modifier, 0);
-    return { positive, negative, sum };
-  }, [race.skillModifiers]);
-
-  // Get skill name from code
-  const getSkillName = (code: string) => {
-    const skill = availableStats.find((s) => s.abbreviation === code);
-    return skill ? skill.name : code;
-  };
+  /**
+   * The block's total, and the total over just the stats the ruleset counts
+   *
+   * `countsTowardTotal` is the six-core rule Concept 01 confirms — it is what makes "human 60,
+   * elf 64" checkable against the sheet rather than a number only this app agrees with.
+   */
+  const totals = useMemo(() => {
+    const all = availableStats.reduce((sum, stat) => sum + (race.statValues[stat.id] ?? 0), 0);
+    const counted = availableStats
+      .filter((stat) => stat.countsTowardTotal)
+      .reduce((sum, stat) => sum + (race.statValues[stat.id] ?? 0), 0);
+    return { all, counted };
+  }, [race.statValues, availableStats]);
 
   return (
     <Card variant="bordered" className="p-4">
@@ -57,35 +60,24 @@ export function RaceCard({ race, availableStats, onEdit, onDelete }: RaceCardPro
         </div>
       </div>
 
-      {/* Skill Modifiers */}
-      {race.skillModifiers.length === 0 ? (
+      {availableStats.length === 0 ? (
         <div className="p-3 bg-parchment-100 rounded">
-          <Text variant="body-small-secondary">No skill modifiers configured</Text>
+          <Text variant="body-small-secondary">This ruleset defines no stats.</Text>
         </div>
       ) : (
         <div className="space-y-2">
           <Text variant="body-small-secondary" className="mb-2">
-            Skill Modifiers:
+            Stat Block:
           </Text>
           <div className="grid grid-cols-2 gap-2">
-            {race.skillModifiers.map((modifier) => (
+            {availableStats.map((stat) => (
               <div
-                key={modifier.skillCode}
+                key={stat.id}
                 className="flex justify-between items-center p-2 bg-parchment-100 rounded"
               >
-                <Text variant="body-small">{getSkillName(modifier.skillCode)}</Text>
-                <Text
-                  variant="body-small"
-                  className={`font-semibold ${
-                    modifier.modifier > 0
-                      ? 'text-forest'
-                      : modifier.modifier < 0
-                        ? 'text-crimson'
-                        : 'text-ink-700'
-                  }`}
-                >
-                  {modifier.modifier > 0 ? '+' : ''}
-                  {modifier.modifier}
+                <Text variant="body-small">{stat.name}</Text>
+                <Text variant="body-small" className="font-semibold text-ink-700">
+                  {race.statValues[stat.id] ?? 0}
                 </Text>
               </div>
             ))}
@@ -93,39 +85,19 @@ export function RaceCard({ race, availableStats, onEdit, onDelete }: RaceCardPro
         </div>
       )}
 
-      {/* Total Modifiers Preview */}
-      {race.skillModifiers.length > 0 && (
+      {availableStats.length > 0 && (
         <div className="mt-4 pt-4 border-t border-stone-200">
-          <Text variant="body-small-secondary" className="mb-2">
-            Total Modifiers:
-          </Text>
           <div className="flex gap-4">
             <div className="flex items-center gap-2">
-              <Text variant="body-small-secondary">Bonuses:</Text>
+              <Text variant="body-small-secondary">Counted total:</Text>
               <Text variant="body-small" className="font-semibold text-forest">
-                {totalModifiers.positive}
+                {totals.counted}
               </Text>
             </div>
             <div className="flex items-center gap-2">
-              <Text variant="body-small-secondary">Penalties:</Text>
-              <Text variant="body-small" className="font-semibold text-crimson">
-                {totalModifiers.negative}
-              </Text>
-            </div>
-            <div className="flex items-center gap-2">
-              <Text variant="body-small-secondary">Net:</Text>
-              <Text
-                variant="body-small"
-                className={`font-semibold ${
-                  totalModifiers.sum > 0
-                    ? 'text-forest'
-                    : totalModifiers.sum < 0
-                      ? 'text-crimson'
-                      : 'text-ink-700'
-                }`}
-              >
-                {totalModifiers.sum > 0 ? '+' : ''}
-                {totalModifiers.sum}
+              <Text variant="body-small-secondary">All stats:</Text>
+              <Text variant="body-small" className="font-semibold text-ink-700">
+                {totals.all}
               </Text>
             </div>
           </div>

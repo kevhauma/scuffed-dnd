@@ -34,7 +34,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 2,
+      schemaVersion: 3,
       stats: [
         {
           id: 'STR',
@@ -100,10 +100,7 @@ describe('calculateCharacterStats', () => {
           id: 'elf',
           name: 'Elf',
           description: 'Agile forest dwellers',
-          skillModifiers: [
-            { skillCode: 'DEX', modifier: 2 }, // DEX becomes 10
-            { skillCode: 'STR', modifier: -1 }, // STR becomes 9
-          ],
+          statValues: { DEX: 2, STR: -1 },
         },
       ],
       currencyTiers: [],
@@ -144,7 +141,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 2,
+      schemaVersion: 3,
       stats: [
         {
           id: 'STR',
@@ -189,16 +186,13 @@ describe('calculateCharacterStats', () => {
           id: 'elf',
           name: 'Elf',
           description: 'Agile forest dwellers',
-          skillModifiers: [
-            { skillCode: 'DEX', modifier: 2 },
-            { skillCode: 'STR', modifier: -1 },
-          ],
+          statValues: { DEX: 2, STR: -1 },
         },
         {
           id: 'human',
           name: 'Human',
           description: 'Versatile and adaptable',
-          skillModifiers: [{ skillCode: 'STR', modifier: 1 }],
+          statValues: { STR: 1 },
         },
       ],
       currencyTiers: [],
@@ -236,7 +230,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 2,
+      schemaVersion: 3,
       stats: [
         {
           id: 'STR',
@@ -293,7 +287,7 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
     id: 'config1',
     name: 'Fixture Config',
     version: '1.0',
-    schemaVersion: 2,
+    schemaVersion: 3,
     stats: [
       {
         id: 'STR',
@@ -460,16 +454,13 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
         id: 'elf',
         name: 'Elf',
         description: '',
-        skillModifiers: [
-          { skillCode: 'DEX', modifier: 2 },
-          { skillCode: 'STR', modifier: -1 },
-        ],
+        statValues: { DEX: 2, STR: -1 },
       },
       {
         id: 'human',
         name: 'Human',
         description: '',
-        skillModifiers: [{ skillCode: 'STR', modifier: 1 }],
+        statValues: { STR: 1 },
       },
     ],
     currencyTiers: [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 10 }],

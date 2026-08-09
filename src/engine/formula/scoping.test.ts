@@ -13,7 +13,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 2,
+    schemaVersion: 3,
     stats: [
       {
         id: 'STR',

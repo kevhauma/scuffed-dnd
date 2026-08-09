@@ -164,10 +164,11 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   `calculateStatValues` resolves in passes and reports a cycle as error values.
 - `calculators/statCalculator.ts` — **the composition calculator** (TICKET-STAT-01):
   `calculateStatValues(stats, character, options)` answers "what is this stat worth" for all three
-  kinds — invested (`race base + points + racial + equipment`), resource (the same sum, read as a
+  kinds — invested (`race stat block + points + equipment`), resource (the same sum, read as a
   maximum) and derived (its formula) — then clamps to `min`/`max` and rounds. Plus
   `calculateStatTotal`, `statVariables` (the flat map keyed by abbreviation, for the downstream
-  formulas) and `calculateRacialSkillModifiers` (the racial contribution on its own, for display).
+  formulas) and `calculateRaceStatBases` (the races' combined stat block on its own, keyed by stat
+  **id**, for display — TICKET-RACE-01; still additive across races until RACE-02's blend).
 - `calculators/specialitySkillCalculator.ts` — `calculateSpecialitySkillLevels` (base + formula bonus + equipment + focus bonus).
 - `calculators/combatSkillCalculator.ts` — `calculateCombatSkillBonuses` (formula + equipment bonuses).
 - `calculators/equipmentBonusCalculator.ts` — `calculateEquipmentBonuses` (aggregates equipped items' material bonuses) and `indexSkillModifiers(modifiers)` → `Record<skillCode, number>` (any `SkillModifier[]` as a per-code lookup, for showing a skill's equipment contribution on its own).
@@ -304,7 +305,8 @@ multi-step pattern to copy. `SkillAllocationStep` takes points for the **investe
 previews the derived ones read-only off the same `calculateCharacter` result the review step uses.
 `sheet/` holds the character sheet: `CharacterSheet` (composition + the four dead-end notices) and
 `useCharacterSheet` (status resolution, the one `calculateCharacter` call, and the stat handler),
-with `SheetHeader`, `RacialModifiersSection`, `StatsSection` (one `SkillBreakdownRow` per stat in
+with `SheetHeader`, `RaceStatBlockSection` (the races' combined block, stated in absolutes —
+TICKET-RACE-01), `StatsSection` (one `SkillBreakdownRow` per stat in
 `order`, **plus** a `StatEditor` for each `isResource` stat — the breakdown row owns the value and
 its error chip, the editor owns the current value; TICKET-STAT-03), `SpecialitySkillsSection` and
 `CombatSkillsSection` as pure props.

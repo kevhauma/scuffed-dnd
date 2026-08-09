@@ -28,7 +28,8 @@ export interface SkillAllocationStepProps {
   specialitySkills: SpecialitySkill[];
   investedStatPoints: Record<string, number>;
   specialitySkillBaseLevels: Record<string, number>;
-  racialModifiers: Record<string, number>;
+  /** What the chosen races supply, per stat id (TICKET-RACE-01) */
+  raceBases: Record<string, number>;
   allocation: StatAllocationResult | null;
   onChangeInvestedStatPoints: (statId: string, points: number) => void;
   onChangeSpecialityBaseLevel: (code: string, level: number) => void;
@@ -46,7 +47,7 @@ export function SkillAllocationStep({
   specialitySkills,
   investedStatPoints,
   specialitySkillBaseLevels,
-  racialModifiers,
+  raceBases,
   allocation,
   onChangeInvestedStatPoints,
   onChangeSpecialityBaseLevel,
@@ -77,7 +78,7 @@ export function SkillAllocationStep({
           <div className="space-y-3">
             {investableStats.map((stat) => {
               const allocated = investedStatPoints[stat.id] ?? 0;
-              const racial = racialModifiers[stat.abbreviation] ?? 0;
+              const racial = raceBases[stat.id] ?? 0;
 
               return (
                 <div key={stat.id} className="flex flex-wrap items-center gap-3">

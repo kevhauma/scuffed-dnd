@@ -1,31 +1,38 @@
 /**
  * Race Form Dialog
  *
- * Form for adding/editing races with skill modifier editor.
+ * A race's **stat block**: one row per configured stat, holding the absolute value a member of
+ * this race has (Concept 04). Every stat is present with a default of 0, so adding a stat to the
+ * ruleset grows every race's block rather than leaving the race half-defined — the concept page's
+ * editing scenario, wired by TICKET-RACE-01.
  *
- * **Validates: Requirements 8.1, 8.2, 21.1-21.5**
+ * There is no add/remove control any more, because the ruleset's stats decide what a block
+ * contains: a race cannot have an opinion about a stat that does not exist, and cannot decline to
+ * have one about a stat that does.
+ *
+ * **Validates: Concept 04; Requirements 8.1, 8.2, 21.1-21.5**
  */
 
-import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import type { SkillModifier, Stat } from '../../../types';
+import type { Stat } from '../../../types';
 import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
 import { Input } from '../../ui/Input/Input';
-import { Select } from '../../ui/Select/Select';
+import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
 
 interface RaceFormData {
   name: string;
   description: string;
-  skillModifiers: SkillModifier[];
+  statValues: Record<string, number>;
 }
 
 interface RaceFormDialogProps {
   isOpen: boolean;
   isEditing: boolean;
   form: UseFormReturn<RaceFormData>;
+  /** The ruleset's stats, in display order — the block has exactly these rows */
   availableStats: Stat[];
   onClose: () => void;
   onSave: () => void;
@@ -42,47 +49,7 @@ export function RaceFormDialog({
   const {
     register,
     formState: { errors },
-    watch,
-    setValue,
   } = form;
-  const skillModifiers = watch('skillModifiers');
-
-  const [selectedSkillCode, setSelectedSkillCode] = useState('');
-  const [modifierValue, setModifierValue] = useState(0);
-
-  // Get available skills that haven't been added yet
-  const availableSkills = availableStats.filter(
-    (stat) => !skillModifiers.some((m) => m.skillCode === stat.abbreviation)
-  );
-
-  const handleAddModifier = () => {
-    if (!selectedSkillCode) return;
-
-    const newModifiers = [
-      ...skillModifiers,
-      { skillCode: selectedSkillCode, modifier: modifierValue },
-    ];
-    setValue('skillModifiers', newModifiers);
-    setSelectedSkillCode('');
-    setModifierValue(0);
-  };
-
-  const handleRemoveModifier = (index: number) => {
-    const newModifiers = skillModifiers.filter((_, i) => i !== index);
-    setValue('skillModifiers', newModifiers);
-  };
-
-  const handleUpdateModifier = (index: number, newValue: number) => {
-    const newModifiers = [...skillModifiers];
-    newModifiers[index] = { ...newModifiers[index], modifier: newValue };
-    setValue('skillModifiers', newModifiers);
-  };
-
-  // Get skill name from code
-  const getSkillName = (code: string) => {
-    const skill = availableStats.find((s) => s.abbreviation === code);
-    return skill ? skill.name : code;
-  };
 
   return (
     <Dialog open={isOpen} onClose={onClose} title={`${isEditing ? 'Edit' : 'Add'} Race`}>
@@ -101,92 +68,39 @@ export function RaceFormDialog({
           {...register('description')}
         />
 
-        {/* Skill Modifiers Section */}
         <div className="space-y-3">
           <Text variant="body-small" className="font-semibold">
-            Skill Modifiers
+            Stat Block
+          </Text>
+          <Text variant="body-small-secondary">
+            What a member of this race has, before anything they invest.
           </Text>
 
-          {/* Add Modifier Controls */}
-          {availableSkills.length > 0 && (
-            <div className="p-3 bg-parchment-100 rounded space-y-2">
-              <Text variant="body-small-secondary">Add Modifier:</Text>
-              <div className="flex gap-2">
-                <Select
-                  value={selectedSkillCode}
-                  onChange={(e) => setSelectedSkillCode(e.target.value)}
-                  options={[
-                    { value: '', label: 'Select skill...' },
-                    ...availableSkills.map((stat) => ({
-                      value: stat.abbreviation,
-                      label: `${stat.name} (${stat.abbreviation})`,
-                    })),
-                  ]}
-                  className="flex-1"
-                />
-                <Input
-                  type="number"
-                  value={modifierValue}
-                  onChange={(e) => setModifierValue(Number(e.target.value))}
-                  placeholder="±0"
-                  className="w-24"
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleAddModifier}
-                  disabled={!selectedSkillCode}
-                >
-                  Add
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Current Modifiers List */}
-          {skillModifiers.length === 0 ? (
-            <div className="p-3 bg-parchment-50 rounded">
+          {availableStats.length === 0 ? (
+            <div className="p-3 bg-parchment-100 rounded">
               <Text variant="body-small-secondary">
-                No skill modifiers added yet. Add modifiers to define racial bonuses and penalties.
+                This ruleset defines no stats yet, so there is nothing for a race to be made of.
               </Text>
             </div>
           ) : (
             <div className="space-y-2">
-              {skillModifiers.map((modifier, index) => (
-                <div
-                  key={modifier.skillCode}
-                  className="flex items-center gap-2 p-2 bg-parchment-50 rounded"
-                >
-                  <Text variant="body-small" className="flex-1">
-                    {getSkillName(modifier.skillCode)}
-                  </Text>
+              {availableStats.map((stat) => (
+                <div key={stat.id} className="flex items-center gap-2 p-2 bg-parchment-50 rounded">
+                  <Label htmlFor={`race-stat-${stat.id}`} className="flex-1">
+                    {stat.name} ({stat.abbreviation})
+                  </Label>
                   <Input
+                    id={`race-stat-${stat.id}`}
                     type="number"
-                    value={modifier.modifier}
-                    onChange={(e) => handleUpdateModifier(index, Number(e.target.value))}
                     className="w-24"
+                    {...register(`statValues.${stat.id}` as const, { valueAsNumber: true })}
                   />
-                  <Button
-                    type="button"
-                    variant="danger"
-                    onClick={() => handleRemoveModifier(index)}
-                    className="text-sm px-2 py-1"
-                  >
-                    Remove
-                  </Button>
                 </div>
               ))}
             </div>
           )}
-
-          {availableSkills.length === 0 && skillModifiers.length > 0 && (
-            <Text variant="body-small-secondary" className="text-center">
-              All available main skills have modifiers assigned.
-            </Text>
-          )}
         </div>
 
-        {/* Actions */}
         <div className="flex justify-end gap-3 mt-6">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel

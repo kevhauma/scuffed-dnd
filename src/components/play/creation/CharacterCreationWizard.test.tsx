@@ -31,7 +31,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 2,
+    schemaVersion: 3,
     stats: [
       {
         id: 'STR',
@@ -94,9 +94,9 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         id: 'elf',
         name: 'Elf',
         description: '',
-        skillModifiers: [{ skillCode: 'DEX', modifier: 2 }],
+        statValues: { DEX: 2 },
       },
-      { id: 'human', name: 'Human', description: '', skillModifiers: [] },
+      { id: 'human', name: 'Human', description: '', statValues: {} },
     ],
     currencyTiers: [],
     focusStatBonusLevel: 3,

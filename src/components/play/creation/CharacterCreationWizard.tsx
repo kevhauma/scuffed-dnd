@@ -32,7 +32,7 @@ export function CharacterCreationWizard() {
     derivedStatPreviews,
     specialitySkills,
     races,
-    racialModifiers,
+    raceBases,
     allocation,
     preview,
     previewError,
@@ -107,7 +107,7 @@ export function CharacterCreationWizard() {
           specialitySkills={specialitySkills}
           investedStatPoints={values.investedStatPoints}
           specialitySkillBaseLevels={values.specialitySkillBaseLevels}
-          racialModifiers={racialModifiers}
+          raceBases={raceBases}
           allocation={allocation}
           onChangeInvestedStatPoints={setInvestedStatPoints}
           onChangeSpecialityBaseLevel={setSpecialityBaseLevel}

@@ -66,7 +66,7 @@ describe('ConfigStore', () => {
         id: 'test-id',
         name: 'Loaded Config',
         version: '1.0.0',
-        schemaVersion: 2,
+        schemaVersion: 3,
         stats: [],
         specialitySkills: [],
         combatSkills: [],
@@ -677,7 +677,7 @@ describe('ConfigStore', () => {
         id: 'human',
         name: 'Human',
         description: 'Versatile race',
-        skillModifiers: [{ skillCode: 'STR', modifier: 1 }],
+        statValues: { STR: 1 },
       };
 
       useConfigStore.getState().addRace(race);
@@ -693,7 +693,7 @@ describe('ConfigStore', () => {
         id: 'human',
         name: 'Human',
         description: 'Versatile race',
-        skillModifiers: [],
+        statValues: {},
       };
 
       useConfigStore.getState().addRace(race);
@@ -711,7 +711,7 @@ describe('ConfigStore', () => {
         id: 'human',
         name: 'Human',
         description: 'Versatile race',
-        skillModifiers: [],
+        statValues: {},
       };
 
       useConfigStore.getState().addRace(race);
@@ -909,7 +909,7 @@ describe('ConfigStore', () => {
         id: 'race1',
         name: 'Dwarf',
         description: '',
-        skillModifiers: [{ skillCode: 'STR', modifier: 2 }],
+        statValues: { 'id-str': 2 },
       });
       vi.clearAllMocks();
     });
@@ -920,7 +920,9 @@ describe('ConfigStore', () => {
       const { config } = useConfigStore.getState();
       expect(config?.stats.find((candidate) => candidate.formula)?.formula).toBe('STG * 10');
       expect(config?.specialitySkills[0].bonusFormula).toBe('STG / 2');
-      expect(config?.races[0].skillModifiers[0].skillCode).toBe('STG');
+      // …and needs to rewrite nothing at all in a race's stat block, which is keyed by stat id
+      // and so was never spelled in the first place (TICKET-RACE-01)
+      expect(config?.races[0].statValues).toEqual({ 'id-str': 2 });
       expect(config?.stats[0].id).toBe('id-str');
     });
 
@@ -962,7 +964,7 @@ describe('ConfigStore', () => {
           id: 'config1',
           name: 'Test',
           version: '1.0',
-          schemaVersion: 2,
+          schemaVersion: 3,
           stats: [
             {
               id: 'id-str',
@@ -992,7 +994,7 @@ describe('ConfigStore', () => {
           materialCategories: [],
           items: [],
           equipmentSlots: [],
-          races: [{ id: 'dwarf', name: 'Dwarf', description: '', skillModifiers: [] }],
+          races: [{ id: 'dwarf', name: 'Dwarf', description: '', statValues: {} }],
           currencyTiers: [],
           focusStatBonusLevel: 0,
           createdAt: '2024-01-01',

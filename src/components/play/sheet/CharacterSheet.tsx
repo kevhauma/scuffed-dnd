@@ -15,7 +15,7 @@ import { InventoryPanel } from '../inventory/InventoryPanel';
 import { RollHistoryPanel } from '../rolls/RollHistoryPanel';
 import { useCombatRoller } from '../rolls/useCombatRoller';
 import { CombatSkillsSection } from './CombatSkillsSection';
-import { RacialModifiersSection } from './RacialModifiersSection';
+import { RaceStatBlockSection } from './RaceStatBlockSection';
 import { SheetHeader } from './SheetHeader';
 import { SpecialitySkillsSection } from './SpecialitySkillsSection';
 import { StatsSection } from './StatsSection';
@@ -62,7 +62,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     formulaError,
     raceNames,
     level,
-    racialModifiers,
+    raceContributions,
     specialitySkills,
     stats,
     statTotal,
@@ -137,7 +137,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
         onBack={handleBack}
       />
 
-      <RacialModifiersSection raceNames={raceNames} racialModifiers={racialModifiers} />
+      <RaceStatBlockSection raceNames={raceNames} raceContributions={raceContributions} />
 
       <StatsSection stats={stats} statTotal={statTotal} onChangeStatValue={handleChangeStatValue} />
 

@@ -48,7 +48,7 @@ export function StatsSection({ stats, statTotal, onChangeStatValue }: StatsSecti
                 // an invested one shows the zero, so "spent nothing" reads apart from "no such
                 // contribution"
                 { label: 'invested', value: stat.invested, alwaysShow: !stat.isDerived },
-                { label: 'racial', value: stat.racial },
+                { label: 'race', value: stat.race },
                 { label: 'equipment', value: stat.equipment },
                 { label: 'focus', value: stat.focus },
               ]}

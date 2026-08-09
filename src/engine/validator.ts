@@ -243,14 +243,16 @@ export function validateConfiguration(config: Configuration): ValidationReport {
     }
   }
 
-  // Validate race skill modifiers
+  // Validate race stat blocks — keyed by stat id since TICKET-RACE-01, so a dangling key is a
+  // stat that was deleted rather than one that was renamed
+  const statIds = new Set(config.stats.map((stat) => stat.id));
   for (const race of config.races) {
-    for (const modifier of race.skillModifiers) {
-      if (!statAbbreviations.has(modifier.skillCode)) {
+    for (const statId of Object.keys(race.statValues)) {
+      if (!statIds.has(statId)) {
         errors.push({
           severity: 'error',
           category: 'Reference Validation',
-          message: `Race "${race.name}" references non-existent stat: ${modifier.skillCode}`,
+          message: `Race "${race.name}" references non-existent stat: ${statId}`,
           entityType: 'race',
           entityId: race.id,
           entityName: race.name,

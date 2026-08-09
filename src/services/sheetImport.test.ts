@@ -78,10 +78,10 @@ describe('the merged ruleset', () => {
     expect(validateConfiguration(JSON.parse(committed))).toEqual({ isValid: true, errors: [] });
   });
 
-  it('imports as a v2 configuration with the sheet in it', () => {
+  it('imports at the current schema version, with the sheet in it', () => {
     const config = importConfiguration(committed);
 
-    expect(config.schemaVersion).toBe(2);
+    expect(config.schemaVersion).toBe(3);
     expect(config.stats.map((stat) => stat.abbreviation)).toContain('APT');
     expect(config.specialitySkills).toHaveLength(48);
     expect(config.curves?.find((curve) => curve.name === 'point_buy')?.rows).toHaveLength(51);
@@ -92,16 +92,16 @@ describe('the confirmed derivations survive the round trip', () => {
   const config = importConfiguration(readFileSync(join(IMPORTS_DIR, OUTPUT_FILE), 'utf-8'));
 
   it('keeps the six-core-only stat totals (Concept 01)', () => {
-    const core = new Set(
-      config.stats.filter((stat) => stat.countsTowardTotal).map((stat) => stat.abbreviation)
-    );
-    const total = (race: string) =>
-      config.races
-        .find((candidate) => candidate.name === race)
-        ?.skillModifiers.filter((modifier) => core.has(modifier.skillCode))
-        .reduce((sum, modifier) => sum + modifier.modifier, 0);
+    // A race is a stat block keyed by stat id since TICKET-RACE-01, so the six-core total is a
+    // sum over the counted stats rather than a filter over a modifier list
+    const core = config.stats.filter((stat) => stat.countsTowardTotal);
+    const total = (race: string) => {
+      const block = config.races.find((candidate) => candidate.name === race)?.statValues;
+      if (!block) return undefined;
+      return core.reduce((sum, stat) => sum + (block[stat.id] ?? 0), 0);
+    };
 
-    expect(core.size).toBe(6);
+    expect(core).toHaveLength(6);
     expect(total('human')).toBe(60);
     expect(total('elf')).toBe(64);
     expect(total('dwarf')).toBe(60);

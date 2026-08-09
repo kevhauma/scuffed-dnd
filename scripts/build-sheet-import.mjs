@@ -103,7 +103,7 @@ export function buildConfiguration(entries) {
     id: 'ducklets-sheet-import',
     name: 'Ducklets (sheet import)',
     version: '2.0.0',
-    schemaVersion: 2,
+    schemaVersion: 3,
     focusStatBonusLevel: 0,
     createdAt: EXPORTED_AT,
     updatedAt: EXPORTED_AT,

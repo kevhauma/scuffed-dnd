@@ -205,18 +205,9 @@ function materialLevels(
   );
 }
 
-/** Races and material levels whose modifiers name a skill code */
-function modifierReferences(config: Configuration, code: string): EntityReference[] {
-  const races = config.races
-    .filter((race) => race.skillModifiers.some((modifier) => modifier.skillCode === code))
-    .map((race) => ({
-      holderKind: 'Race',
-      holderName: race.name,
-      field: 'skillModifiers',
-      holderId: race.id,
-    }));
-
-  const materials = config.materials
+/** Material levels whose bonuses name a skill code */
+function materialBonusReferences(config: Configuration, code: string): EntityReference[] {
+  return config.materials
     .filter((material) =>
       material.levels.some((level) => level.bonuses.some((bonus) => bonus.skillCode === code))
     )
@@ -226,8 +217,28 @@ function modifierReferences(config: Configuration, code: string): EntityReferenc
       field: 'levels[].bonuses',
       holderId: material.id,
     }));
+}
 
-  return [...races, ...materials];
+/**
+ * Races whose stat block gives a stat a non-zero value
+ *
+ * By **id** since TICKET-RACE-01, unlike the material bonuses beside it, so this half of the guard
+ * cannot be defeated by a rename — the stat block holds the identity, not a spelling.
+ *
+ * **Presence of the key is not a reference.** A block covering every configured stat is a normal
+ * shape (the editor writes one, and absent reads 0 anyway), so keying off `statId in statValues`
+ * would make every race point at every stat and refuse every stat delete — a guard that always
+ * fires tells the User nothing. A zero contributes nothing, so it points at nothing.
+ */
+function raceStatBlockReferences(config: Configuration, statId: string): EntityReference[] {
+  return config.races
+    .filter((race) => (race.statValues[statId] ?? 0) !== 0)
+    .map((race) => ({
+      holderKind: 'Race',
+      holderName: race.name,
+      field: 'statValues',
+      holderId: race.id,
+    }));
 }
 
 /** Characters holding anything under a skill code */
@@ -258,7 +269,7 @@ function skillReferences(
 
   return [
     ...formulaReferences(config, namesSkill(code), own?.id ?? code),
-    ...modifierReferences(config, code),
+    ...materialBonusReferences(config, code),
     ...characterSkillReferences(characters, code),
   ];
 }
@@ -284,8 +295,12 @@ function statReferences(
       )
     : [];
 
-  // Races and materials still target a stat by abbreviation (TICKET-STAT-01's bridge)
-  const modifiers = stat ? modifierReferences(config, stat.abbreviation) : [];
+  // Materials still target a stat by abbreviation (TICKET-STAT-01's bridge); a race's stat block
+  // names it by id, so that half is looked up directly and needs no `stat` to spell it
+  const modifiers = [
+    ...raceStatBlockReferences(config, id),
+    ...(stat ? materialBonusReferences(config, stat.abbreviation) : []),
+  ];
 
   const players = characters
     .filter(

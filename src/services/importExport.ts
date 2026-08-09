@@ -422,6 +422,34 @@ export function validateConfiguration(data: unknown): ValidationResult {
     });
   }
 
+  // Validate race stat blocks (TICKET-RACE-01). A race is `{ id, name, description, statValues }`
+  // where `statValues` maps stat **id** to an absolute number — an absent stat reads 0, so the
+  // record may be empty, but a present entry has to be a real number rather than a string.
+  if (Array.isArray(config.races)) {
+    config.races.forEach((race: unknown, index: number) => {
+      if (!race || typeof race !== 'object') {
+        errors.push(`races[${index}] must be an object`);
+        return;
+      }
+      const r = race as Record<string, unknown>;
+      if (typeof r.id !== 'string') {
+        errors.push(`races[${index}].id must be a string`);
+      }
+      if (typeof r.name !== 'string') {
+        errors.push(`races[${index}].name must be a string`);
+      }
+      if (!r.statValues || typeof r.statValues !== 'object' || Array.isArray(r.statValues)) {
+        errors.push(`races[${index}].statValues must be an object keyed by stat id`);
+        return;
+      }
+      for (const [statId, value] of Object.entries(r.statValues as Record<string, unknown>)) {
+        if (typeof value !== 'number' || !Number.isFinite(value)) {
+          errors.push(`races[${index}].statValues.${statId} must be a finite number`);
+        }
+      }
+    });
+  }
+
   // Validate speciality skills structure
   if (Array.isArray(config.specialitySkills)) {
     config.specialitySkills.forEach((skill: unknown, index: number) => {
