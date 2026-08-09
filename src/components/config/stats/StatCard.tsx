@@ -43,15 +43,19 @@ export function StatCard({
     return initial;
   });
 
-  // Validate formula
+  // Validate formula. An invested stat has none, which is not a broken formula — an empty string
+  // *is* one to the validator, so the absent case never reaches it (TICKET-STAT-01)
   const validation = useMemo(() => {
+    if (stat.formula === undefined) {
+      return { isValid: true, errors: [], referencedVariables: [], namespacedReferences: [] };
+    }
     return validateFormula(stat.formula, new Set(availableSkillCodes));
   }, [stat.formula, availableSkillCodes]);
 
   // Calculate preview value. A formula that cannot produce a number yields an error value
   // rather than throwing, and the preview simply shows nothing for it.
   const previewValue = useMemo(() => {
-    if (!validation.isValid) return null;
+    if (!validation.isValid || stat.formula === undefined) return null;
 
     const value = evaluateFormulaString(stat.formula, {
       variables: sampleValues,
@@ -86,14 +90,20 @@ export function StatCard({
         </div>
       </div>
 
-      {/* Formula Display */}
+      {/* Formula Display — absent means the stat is invested rather than derived */}
       <div className="mb-3">
         <Text variant="body-small-secondary" className="mb-1">
           Formula:
         </Text>
-        <Text variant="body-small" className="font-mono bg-parchment-100 px-2 py-1 rounded">
-          {stat.formula}
-        </Text>
+        {stat.formula === undefined ? (
+          <Text variant="muted" as="p">
+            Invested — its value is the points put into it, plus race and equipment.
+          </Text>
+        ) : (
+          <Text variant="body-small" className="font-mono bg-parchment-100 px-2 py-1 rounded">
+            {stat.formula}
+          </Text>
+        )}
       </div>
 
       {/* Validation Errors */}

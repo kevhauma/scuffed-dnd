@@ -26,8 +26,9 @@ as part of the action. That is the equivalent of a repository layer here.
 
 ## Configuration (the ruleset)
 
-One `Configuration` per browser: id, name, version, timestamps, `focusStatBonusLevel`, the optional
-`mainSkillPointBudget`, plus the entity arrays — `mainSkills`, `stats`, `specialitySkills`,
+One `Configuration` per browser: id, name, version, **`schemaVersion: 2`**, timestamps,
+`focusStatBonusLevel`, the optional
+`mainSkillPointBudget`, plus the entity arrays — `stats`, `specialitySkills`,
 `combatSkills`, `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
 `currencyTiers`, the optional `constants` (TICKET-CST-01), and the optional `curves`
 (TICKET-CRV-01).
@@ -36,14 +37,33 @@ One `Configuration` per browser: id, name, version, timestamps, `focusStatBonusL
 pattern to copy: **absent means unlimited**, so rulesets saved before it existed stay valid;
 `validateConfiguration()` in `importExport.ts` accepts `undefined` and only type-checks a present
 value; `setMainSkillPointBudget(undefined)` deletes the key rather than storing `undefined`; and
-`validateMainSkillAllocation()` in `src/engine/skillAllocation.ts` reads it as `null` = no limit.
+`validateStatAllocation()` in `src/engine/skillAllocation.ts` reads it as `null` = no limit.
+
+**`schemaVersion` is the clean break** (TICKET-STAT-01). v1 files have no such key, which is
+exactly how they are recognised: `loadConfiguration()` throws `StorageSchemaError` rather than
+converting, and `loadCharacters()` drops any character with no `investedStatPoints`. v1's focus
+stat, spend-derived level and speciality base levels have no faithful mapping into v2, so a
+conversion would invent a ruleset nobody authored. TICKET-IO-03 owns the notice the User sees.
+
+**`Stat` is the one numeric axis** (Concept 01, TICKET-STAT-01) — `MainSkill` is gone. Flags say
+what a stat does: no `formula` means **invested**; `isResource` additionally means the value is a
+*maximum* the character spends against; a `formula` makes it **derived** and it accepts no
+investment. It also carries `abbreviation`, `order`, `countsTowardTotal`, optional `min`/`max`,
+and `rounding` (`none` | `nearest` | `up` | `down`, applied after the clamp).
 
 Identity rules that the rest of the app depends on:
 
-- **Every referenceable entity carries a stable `id`.** Since TICKET-REF-01 that includes main,
-  speciality and combat skills, whose `code` is now renamable display data rather than the
-  identity. The store actions still *address* a skill by code (`updateMainSkill('STR', …)`) —
-  that is a lookup argument, not the key. `EquipmentSlot` is still keyed by `type`.
+- **Every referenceable entity carries a stable `id`.** Since TICKET-REF-01 that includes stats
+  and the two skill kinds, whose `abbreviation` / `code` is renamable display data rather than the
+  identity. The skill store actions still *address* a skill by code (`updateCombatSkill('MEL', …)`)
+  — that is a lookup argument, not the key; `updateStat` takes the id. `EquipmentSlot` is still
+  keyed by `type`.
+- **A stat's `abbreviation` is an uppercase identifier and unique across the one flat formula
+  space** it shares with the speciality and combat codes (TICKET-STAT-01). Enforced in both places
+  the rule needs: `validateConfiguration()` for import, `useStatManager`'s save path for User
+  input. Renaming one is safe — the stored formula holds the stat's id — and `useStatManager`
+  carries the character half through `useSkillCodeRename`, because `focusStatCode` is keyed by the
+  spelling until TICKET-ARC-03 retires it.
 - **A constant's `name` is a lowercase identifier (`^[a-z][a-z0-9_]*$`) and unique.** It is what a
   formula spells as `const.<name>`, and a duplicate splits identity from value — the stored formula
   points at one constant's id while `constantsNamespace` reads the other's number. Enforced in two
@@ -115,32 +135,40 @@ Identity rules that the rest of the app depends on:
 
 ## Character (the play-mode data)
 
-`Character` stores only what the player chose: `raceIds`, `mainSkillLevels`,
-`specialitySkillBaseLevels`, `focusStatCode`, `currentStatValues`, and an `Inventory`
+`Character` stores only what the player chose: `raceIds`, `investedStatPoints` (**keyed by stat
+id**, so a rename cannot orphan an allocation),
+`specialitySkillBaseLevels`, `focusStatCode`, `currentResourceValues`, and an `Inventory`
 (`equippedItems: Record<slotType, itemId>` + `miscItems: itemId[]`). It carries
 `configurationId` so a character is always read against the ruleset it was built on.
 
-**Derived values are never persisted.** Total main-skill levels (with racial bonuses), max stat
-values, speciality totals, combat bonuses, and equipment bonuses are computed on demand from
+**Derived values are never persisted.** Composed stat values, the stat total, speciality totals,
+combat bonuses, and equipment bonuses are computed on demand from
 `src/engine/`. `calculateCharacter(character, config)` in
 [calculator.ts](../../../src/engine/calculator.ts) is the single entry point that produces a
 `CalculatedCharacter` with all five derived fields populated; `calculateCharacterStats()` is a thin
 wrapper over it for callers that only want the stat values. If you find yourself wanting to store a
 computed number on `Character`, the answer is a recalculation call at read time instead. The one deliberate
-exception is `currentStatValues` — the player's *current* HP/mana, which is state, not derivation
-(its maximum is derived; its current value is not).
+exception is `currentResourceValues` — the player's *current* HP/mana, which is state, not
+derivation (its maximum is derived; its current value is not). **Only `isResource` stats appear
+there**, and the store action enforces it: a stat you cannot spend has no current distinct from
+its value, which is what v1 got wrong by giving every stat one.
 
-**Since TICKET-CALC-02, every *configured* code has a value; absence is not a state.**
-`calculateTotalMainSkillLevels` seeds every code in `config.mainSkills` to 0 before applying
-allocations, racial modifiers, equipment and the focus bonus, so `totalMainSkillLevels` is the
-configured namespace in full and a main skill the character never allocated reads as `0` rather
-than as an undefined variable in every formula naming it. `Undefined variable` is reserved for
-codes the configuration genuinely does not define. Seed in the calculator — never default in a
-component or back-fill `Character.mainSkillLevels` on save.
+**Since TICKET-CALC-02, every *configured* stat has a value; absence is not a state.**
+`calculateStatValues` seeds every stat in `config.stats` before applying investment, racial
+modifiers, equipment and the focus bonus, so `statValues` is the configured namespace in full and
+a stat the character never invested in reads as `0` rather than as an undefined variable in every
+formula naming it. `Undefined variable` is reserved for stats the configuration genuinely does not
+define. Seed in the calculator — never default in a component or back-fill
+`Character.investedStatPoints` on save.
 
-**Since TICKET-FORM-05 the three formula-derived maps hold `FormulaResult` — a number *or* a
-`FormulaError`** (`maxStatValues`, `specialitySkillTotalLevels`, `combatSkillBonuses`;
-`totalMainSkillLevels` stays plain numbers, since nothing there comes from a user formula).
+**Derived stats resolve in passes**, because one may read another (`stats.apt` over `stats.speed`).
+When a pass resolves nothing new, what is left is a cycle and each stat in it gets its own error
+value — the composition terminates rather than reporting a cycle the validator is what properly
+names.
+
+**Since TICKET-FORM-05 the formula-derived maps hold `FormulaResult` — a number *or* a
+`FormulaError`** (`statValues`, `specialitySkillTotalLevels`, `combatSkillBonuses`; `statTotal` is
+a plain number, and a stat that failed contributes nothing to it rather than poisoning it).
 `calculateCharacter` **always returns**: a broken formula poisons its own entry and nothing else
 (Concept 00 §7). Read entries with `numberOr(result, fallback)` or `asNumber(result)` from
 [engine/formula/errors.ts](../../../src/engine/formula/errors.ts) — never `?? 0`, which cannot
@@ -150,7 +178,7 @@ number the user then sees as authoritative** — surface it, or let the caller s
 
 Because the maximum *is* derived,
 `updateCurrentStatValue(characterId, statId, value, config)` and its plural sibling both take the
-`Configuration` and clamp to `calculateCharacter().maxStatValues` inside the action (Req 14.3);
+`Configuration` and clamp to `calculateCharacter().statValues` inside the action (Req 14.3);
 negatives pass through (Req 14.4). A stat with no calculated maximum — an unknown id, or one whose
 formula produced an error — is written unclamped. Don't clamp in a component; the rule lives in the
 store so no caller can bypass it.
@@ -193,9 +221,9 @@ concern, so:
 1. **Config edit** — panel hook calls a `useConfigStore` action → state patched → `saveConfiguration()`.
 2. **Character edit** — component calls a `useCharacterStore` action → state patched → `saveCharacters()`.
    `createCharacter(data, config)` takes the whole `Configuration`, not just its id: it seeds
-   `currentStatValues` to the calculated maxima so a new character starts at full health. That is
-   the one place a derived number is written onto a `Character`, and it is player state from then
-   on — see the `currentStatValues` exception above.
+   `currentResourceValues` to the calculated maxima — resources only — so a new character starts
+   at full health. That is the one place a derived number is written onto a `Character`, and it is
+   player state from then on — see the `currentResourceValues` exception above.
 3. **Anything displayed as a number** — component reads `calculateCharacter(character, config)`;
    the engine parses the relevant formulas and returns the `CalculatedCharacter`.
 4. **Equipment change** — inventory action updates `Inventory` → next `calculateCharacter()` call

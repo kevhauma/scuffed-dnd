@@ -15,10 +15,25 @@ export interface Character {
   name: string;
   configurationId: string;
   raceIds: string[];
-  mainSkillLevels: Record<string, number>; // skillCode -> level
-  focusStatCode?: string; // Main or Speciality skill code
+  /**
+   * Points the Player has put into each stat, keyed by **stat id** (TICKET-STAT-01).
+   *
+   * Keyed by id rather than by a spelling, so renaming a stat cannot orphan an allocation — the
+   * same reason a formula stores ids. A derived stat never appears here; an invested stat the
+   * Player has not touched reads 0 through the calculator rather than being absent, which is
+   * TICKET-CALC-02's invariant carried across.
+   */
+  investedStatPoints: Record<string, number>; // statId -> points invested
+  focusStatCode?: string; // Stat abbreviation or speciality skill code — retired by TICKET-ARC-03
   specialitySkillBaseLevels: Record<string, number>; // skillCode -> base level
-  currentStatValues: Record<string, number>; // statId -> current value
+  /**
+   * Where each **resource** stat currently stands against its maximum, keyed by stat id.
+   *
+   * Only `isResource` stats appear: a stat you cannot spend has no "current" distinct from its
+   * value, and v1 gave every stat one. This is the one sanctioned piece of derived-looking state
+   * that is genuinely stored — it is player state, not a derivation.
+   */
+  currentResourceValues: Record<string, number>; // statId -> current value
   inventory: Inventory;
   createdAt: string;
   updatedAt: string;
@@ -42,12 +57,16 @@ export interface Inventory {
  * structurally required, or `asNumber(result)` where absence matters (rendering an error chip,
  * skipping a clamp); both live in `engine/formula/errors.ts`.
  *
- * `totalMainSkillLevels` is a plain number map: main skill levels are allocated and modified, not
- * derived from user formulas, so there is nothing there that can fail.
+ * `statValues` replaced v1's `totalMainSkillLevels` + `maxStatValues` when the two entities
+ * became one (TICKET-STAT-01). It is one map because there is one concept: the composed value of
+ * every configured stat, keyed by stat id. For a **resource** stat that number is the maximum,
+ * which `currentResourceValues` is measured against; for every other stat it is just the value.
+ * It holds `FormulaResult` rather than `number` because a derived stat's formula can fail.
  */
 export interface CalculatedCharacter extends Character {
-  totalMainSkillLevels: Record<string, number>; // With racial bonuses
-  maxStatValues: Record<string, FormulaResult>; // Calculated from formulas
+  statValues: Record<string, FormulaResult>; // statId -> composed value (the max, for resources)
+  /** Sum of the `countsTowardTotal` stats — stats that failed to compute contribute nothing */
+  statTotal: number;
   specialitySkillTotalLevels: Record<string, FormulaResult>; // Base + bonus
   combatSkillBonuses: Record<string, FormulaResult>; // Calculated from formulas
   equipmentBonuses: SkillModifier[]; // From equipped items
@@ -59,7 +78,7 @@ export interface CalculatedCharacter extends Character {
 export interface CharacterCreationData {
   name: string;
   raceIds: string[];
-  mainSkillLevels: Record<string, number>;
+  investedStatPoints: Record<string, number>;
   focusStatCode?: string;
   specialitySkillBaseLevels: Record<string, number>;
 }
@@ -71,6 +90,6 @@ export interface CharacterSummary {
   id: string;
   name: string;
   raceIds: string[];
-  level: number; // Derived from total main skill levels
+  level: number; // Derived from invested stat points — TICKET-RES-01 inverts this to derive from XP
   createdAt: string;
 }

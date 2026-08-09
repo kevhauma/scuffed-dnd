@@ -15,7 +15,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { calculateCharacter } from '../../../engine/calculator';
 import { indexSkillModifiers } from '../../../engine/calculators/equipmentBonusCalculator';
-import { calculateRacialSkillModifiers } from '../../../engine/calculators/mainSkillCalculator';
+import { calculateRacialSkillModifiers } from '../../../engine/calculators/statCalculator';
 import { calculateCharacterLevel } from '../../../engine/characterSummary';
 import { formatDiceNotation } from '../../../engine/dice/diceSimulator';
 import { describeFormulaError, isFormulaError } from '../../../engine/formula/errors';
@@ -57,49 +57,45 @@ type CharacterSheetStatus =
 export type DerivedValue = { value: number; error: null } | { value: null; error: string };
 
 /**
- * A main skill's contributions, kept apart rather than pre-summed (Requirement 13.4)
- */
-export interface MainSkillBreakdown {
-  code: string;
-  name: string;
-  /** The level the Player allocated at creation */
-  allocated: number;
-  /** Combined modifier from every race the character has (Requirement 8.5) */
-  racial: number;
-  /** Combined modifier from equipped items targeting this skill */
-  equipment: number;
-  /** The configured focus bonus, non-zero only on the character's focus skill */
-  focus: number;
-  /**
-   * The engine's total — not the sum of the fields above, which is why they are shown apart.
-   *
-   * Carried as a `DerivedValue` for uniformity with the other breakdowns, though a main skill's
-   * level is allocated and modified rather than formula-derived, so its `error` is always null.
-   */
-  total: DerivedValue;
-  isFocusStat: boolean;
-}
-
-/**
- * A speciality skill's base level and total, with its equipment contribution broken out
+ * A speciality skill's contributions, kept apart rather than pre-summed (Requirement 13.4)
  */
 export interface SpecialitySkillBreakdown {
   code: string;
   name: string;
+  /** The base level the Player allocated at creation */
   base: number;
+  /** Combined modifier from equipped items targeting this skill */
   equipment: number;
+  /** The configured focus bonus, non-zero only on the character's focus skill */
   focus: number;
+  /** The engine's total — base plus the bonus formula, which can fail */
   total: DerivedValue;
   isFocusStat: boolean;
 }
 
 /**
- * A stat's current and maximum value (Requirement 14.1)
+ * A stat's contributions, kept apart rather than pre-summed (Requirement 13.4)
+ *
+ * One shape for all three kinds of stat (TICKET-STAT-01). A derived stat has no invested points
+ * and its `max` can carry an error; an invested one cannot fail but can still take racial and
+ * equipment modifiers. `current` is only meaningful when `isResource`.
  */
 export interface StatBreakdown {
   id: string;
   name: string;
+  abbreviation: string;
+  isResource: boolean;
+  /** Points the Player put into it — always 0 for a derived stat */
+  invested: number;
+  /** Combined modifier from every race the character has (Requirement 8.5) */
+  racial: number;
+  /** Combined modifier from equipped items targeting this stat */
+  equipment: number;
+  /** The configured focus bonus, non-zero only on the character's focus stat */
+  focus: number;
+  /** Where a resource currently stands; 0 for anything else */
   current: number;
+  /** The engine's composed value — the maximum, for a resource */
   max: DerivedValue;
 }
 
@@ -117,18 +113,19 @@ export interface CombatSkillBreakdown {
 interface CharacterSheetView {
   raceNames: string[];
   racialModifiers: Record<string, number>;
-  mainSkills: MainSkillBreakdown[];
   specialitySkills: SpecialitySkillBreakdown[];
   stats: StatBreakdown[];
+  /** Sum of the stats flagged as counting toward the character's total */
+  statTotal: number;
   combatSkills: CombatSkillBreakdown[];
 }
 
 const EMPTY_VIEW: CharacterSheetView = {
   raceNames: [],
   racialModifiers: {},
-  mainSkills: [],
   specialitySkills: [],
   stats: [],
+  statTotal: 0,
   combatSkills: [],
 };
 
@@ -208,17 +205,6 @@ function buildView(
     raceNames: races.map((race) => race.name),
     racialModifiers,
 
-    mainSkills: config.mainSkills.map((skill) => ({
-      code: skill.code,
-      name: skill.name,
-      allocated: character.mainSkillLevels[skill.code] ?? 0,
-      racial: racialModifiers[skill.code] ?? 0,
-      equipment: equipmentBonuses[skill.code] ?? 0,
-      focus: focusFor(skill.code),
-      total: { value: calculated.totalMainSkillLevels[skill.code] ?? 0, error: null },
-      isFocusStat: character.focusStatCode === skill.code,
-    })),
-
     specialitySkills: config.specialitySkills.map((skill) => ({
       code: skill.code,
       name: skill.name,
@@ -229,12 +215,22 @@ function buildView(
       isFocusStat: character.focusStatCode === skill.code,
     })),
 
+    // One row per stat, invested or derived (TICKET-STAT-01). `current` is meaningful only for a
+    // resource; for everything else it mirrors the value, which is what the sheet shows.
     stats: config.stats.map((stat) => ({
       id: stat.id,
       name: stat.name,
-      current: character.currentStatValues[stat.id] ?? 0,
-      max: derived(calculated.maxStatValues[stat.id]),
+      abbreviation: stat.abbreviation,
+      isResource: stat.isResource,
+      invested: character.investedStatPoints[stat.id] ?? 0,
+      racial: racialModifiers[stat.abbreviation] ?? 0,
+      equipment: equipmentBonuses[stat.abbreviation] ?? 0,
+      focus: focusFor(stat.abbreviation),
+      current: character.currentResourceValues[stat.id] ?? 0,
+      max: derived(calculated.statValues[stat.id]),
     })),
+
+    statTotal: calculated.statTotal,
 
     combatSkills: config.combatSkills.map((skill) => ({
       code: skill.code,

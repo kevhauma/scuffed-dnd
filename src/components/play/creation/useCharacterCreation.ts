@@ -11,10 +11,10 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { calculateCharacter, firstCalculationError } from '../../../engine/calculator';
-import { calculateRacialSkillModifiers } from '../../../engine/calculators/mainSkillCalculator';
+import { calculateRacialSkillModifiers } from '../../../engine/calculators/statCalculator';
 import { describeFormulaError } from '../../../engine/formula/errors';
-import type { MainSkillAllocationResult } from '../../../engine/skillAllocation';
-import { validateMainSkillAllocation } from '../../../engine/skillAllocation';
+import type { StatAllocationResult } from '../../../engine/skillAllocation';
+import { validateStatAllocation } from '../../../engine/skillAllocation';
 import { useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
 import type {
@@ -35,7 +35,7 @@ const CREATION_STEPS = ['Identity', 'Skills', 'Focus', 'Review'] as const;
 export interface CharacterCreationFormData {
   name: string;
   raceIds: string[];
-  mainSkillLevels: Record<string, number>;
+  investedStatPoints: Record<string, number>;
   specialitySkillBaseLevels: Record<string, number>;
   focusStatCode: string;
 }
@@ -45,7 +45,7 @@ export interface CharacterCreationFormData {
  *
  * Reads the engine's verdict; it does no arithmetic of its own.
  */
-function allocationStepError(allocation: MainSkillAllocationResult | null): string | null {
+function allocationStepError(allocation: StatAllocationResult | null): string | null {
   if (!allocation || allocation.isValid) {
     return null;
   }
@@ -60,8 +60,9 @@ function allocationStepError(allocation: MainSkillAllocationResult | null): stri
     return 'Adjust the allocation before continuing.';
   }
 
-  const bound = breach.reason === 'negative-level' ? 'below 0' : `above ${breach.maxLevel}`;
-  return `${breach.skillName} cannot go ${bound}.`;
+  return breach.reason === 'negative-points'
+    ? `${breach.statName} cannot go below 0.`
+    : `${breach.statName} is derived from a formula, so it takes no points.`;
 }
 
 export function useCharacterCreation() {
@@ -76,7 +77,7 @@ export function useCharacterCreation() {
     defaultValues: {
       name: '',
       raceIds: [],
-      mainSkillLevels: {},
+      investedStatPoints: {},
       specialitySkillBaseLevels: {},
       focusStatCode: '',
     },
@@ -85,18 +86,19 @@ export function useCharacterCreation() {
   // Watching keeps every step's view in sync with values entered on the others
   const values = form.watch();
 
-  const mainSkills = config?.mainSkills ?? [];
+  // Only invested stats take points; a derived one computes its own value (TICKET-STAT-01)
+  const investableStats = (config?.stats ?? []).filter((stat) => stat.formula === undefined);
   const specialitySkills = config?.specialitySkills ?? [];
   const races = config?.races ?? [];
 
   const selectedRaces = races.filter((race) => values.raceIds.includes(race.id));
 
-  /** Racial contribution per skill code, shown separately from the allocated base level */
+  /** Racial contribution per stat abbreviation, shown separately from the invested points */
   const racialModifiers = calculateRacialSkillModifiers(selectedRaces);
 
   /** Points spent, remaining, and any per-skill breach — from the engine, never re-summed here */
-  const allocation: MainSkillAllocationResult | null = config
-    ? validateMainSkillAllocation(values.mainSkillLevels, config)
+  const allocation: StatAllocationResult | null = config
+    ? validateStatAllocation(values.investedStatPoints, config)
     : null;
 
   const toggleRace = (raceId: string) => {
@@ -106,8 +108,8 @@ export function useCharacterCreation() {
     form.setValue('raceIds', next);
   };
 
-  const setMainSkillLevel = (code: string, level: number) => {
-    form.setValue('mainSkillLevels', { ...values.mainSkillLevels, [code]: level });
+  const setInvestedStatPoints = (statId: string, points: number) => {
+    form.setValue('investedStatPoints', { ...values.investedStatPoints, [statId]: points });
   };
 
   const setSpecialityBaseLevel = (code: string, level: number) => {
@@ -125,7 +127,7 @@ export function useCharacterCreation() {
   const creationData: CharacterCreationData = {
     name: values.name.trim(),
     raceIds: values.raceIds,
-    mainSkillLevels: values.mainSkillLevels,
+    investedStatPoints: values.investedStatPoints,
     specialitySkillBaseLevels: values.specialitySkillBaseLevels,
     focusStatCode: values.focusStatCode || undefined,
   };
@@ -138,7 +140,7 @@ export function useCharacterCreation() {
     const draft: Character = {
       id: 'preview',
       configurationId: config.id,
-      currentStatValues: {},
+      currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '',
       updatedAt: '',
@@ -209,7 +211,7 @@ export function useCharacterCreation() {
     canGoNext,
     canGoBack,
     isLastStep: stepIndex === CREATION_STEPS.length - 1,
-    mainSkills,
+    investableStats,
     specialitySkills,
     races,
     racialModifiers,
@@ -217,7 +219,7 @@ export function useCharacterCreation() {
     preview,
     previewError,
     toggleRace,
-    setMainSkillLevel,
+    setInvestedStatPoints,
     setSpecialityBaseLevel,
     setFocusStatCode,
     handleNext,

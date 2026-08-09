@@ -47,7 +47,7 @@ export function useSpecialitySkillManager() {
 
   const currentSkills = config?.specialitySkills || [];
 
-  const availableSkillCodes = config ? config.mainSkills.map((s) => s.code) : [];
+  const availableSkillCodes = config ? config.stats.map((s) => s.abbreviation.toUpperCase()) : [];
 
   const validateCode = (code: string): string | true => {
     if (!config) return 'No configuration loaded';
@@ -56,7 +56,7 @@ export function useSpecialitySkillManager() {
     if (!/^[A-Z]{3}$/.test(code)) return 'Code must be 3 uppercase letters';
 
     const allCodes = [
-      ...config.mainSkills.map((s) => s.code),
+      ...config.stats.map((s) => s.abbreviation.toUpperCase()),
       ...config.specialitySkills.map((s) => s.code),
       ...config.combatSkills.map((s) => s.code),
     ];

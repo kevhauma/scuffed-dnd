@@ -14,11 +14,29 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'DEX',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
       ],
-      stats: [],
       specialitySkills: [],
       combatSkills: [
         {
@@ -66,8 +84,19 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
-      stats: [],
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+      ],
       specialitySkills: [
         {
           id: 'SWD',
@@ -126,8 +155,19 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
-      stats: [],
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+      ],
       specialitySkills: [],
       combatSkills: [
         {
@@ -178,8 +218,19 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
-      stats: [],
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+      ],
       specialitySkills: [],
       combatSkills: [
         {
@@ -230,11 +281,29 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'DEX',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
       ],
-      stats: [],
       specialitySkills: [],
       combatSkills: [
         {
@@ -296,8 +365,19 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
-      stats: [],
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+      ],
       specialitySkills: [],
       combatSkills: [
         {
@@ -344,12 +424,39 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-        { id: 'INT', code: 'INT', name: 'Intelligence', description: '', maxLevel: 20 },
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'DEX',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'INT',
+          name: 'Intelligence',
+          abbreviation: 'INT',
+          description: '',
+          order: 2,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
       ],
-      stats: [],
       specialitySkills: [],
       combatSkills: [
         {
@@ -420,11 +527,29 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'DEX',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
       ],
-      stats: [],
       specialitySkills: [
         {
           id: 'SWD',
@@ -484,8 +609,19 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
-      stats: [],
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+      ],
       specialitySkills: [],
       combatSkills: [
         {
@@ -533,8 +669,19 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
-      stats: [],
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+      ],
       specialitySkills: [],
       combatSkills: [
         {
@@ -582,7 +729,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [],
+      schemaVersion: 2,
       stats: [],
       specialitySkills: [],
       combatSkills: [], // No combat skills

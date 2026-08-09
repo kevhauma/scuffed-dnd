@@ -26,11 +26,29 @@ const config: Configuration = {
   id: 'config1',
   name: 'Test Config',
   version: '1.0',
-  mainSkills: [
-    { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-    { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+  schemaVersion: 2,
+  stats: [
+    {
+      id: 'STR',
+      name: 'Strength',
+      abbreviation: 'STR',
+      description: '',
+      order: 0,
+      countsTowardTotal: true,
+      isResource: false,
+      rounding: 'none',
+    },
+    {
+      id: 'DEX',
+      name: 'Dexterity',
+      abbreviation: 'DEX',
+      description: '',
+      order: 1,
+      countsTowardTotal: true,
+      isResource: false,
+      rounding: 'none',
+    },
   ],
-  stats: [],
   specialitySkills: [
     {
       id: 'STL',

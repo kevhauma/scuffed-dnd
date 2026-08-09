@@ -26,11 +26,40 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    mainSkills: [
-      { id: 'id-str', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      { id: 'id-dex', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+    schemaVersion: 2,
+    stats: [
+      {
+        id: 'id-str',
+        name: 'Strength',
+        abbreviation: 'STR',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'id-dex',
+        name: 'Dexterity',
+        abbreviation: 'DEX',
+        description: '',
+        order: 1,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'id-hp',
+        name: 'Max Health',
+        abbreviation: 'MAX',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+        formula: 'STR * 10',
+      },
     ],
-    stats: [{ id: 'id-hp', name: 'Max Health', description: '', formula: 'STR * 10' }],
     specialitySkills: [
       {
         id: 'id-stl',
@@ -70,9 +99,9 @@ function createCharacter(): Character {
     name: 'Test',
     configurationId: 'config1',
     raceIds: [],
-    mainSkillLevels: { STR: 6, DEX: 4 },
+    investedStatPoints: { STR: 6, DEX: 4 },
     specialitySkillBaseLevels: { STL: 3 },
-    currentStatValues: {},
+    currentResourceValues: {},
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
@@ -117,8 +146,28 @@ describe('buildReferenceIndex', () => {
   it('gives an ambiguous spelling to the first claimant only', () => {
     const config = createConfig({
       stats: [
-        { id: 'id-a', name: 'Health', description: '', formula: '1' },
-        { id: 'id-b', name: 'health', description: '', formula: '2' },
+        {
+          id: 'id-a',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: '1',
+        },
+        {
+          id: 'id-b',
+          name: 'health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: '2',
+        },
       ],
     });
     const index = buildReferenceIndex(config);
@@ -185,8 +234,8 @@ describe('the rename test (Concept 00 §6)', () => {
 
     const renamed = rename(createConfig(), (config) => ({
       ...config,
-      mainSkills: config.mainSkills.map((skill) =>
-        skill.id === 'id-str' ? { ...skill, code: 'STG', name: 'Might' } : skill
+      stats: config.stats.map((stat) =>
+        stat.id === 'id-str' ? { ...stat, abbreviation: 'STG', name: 'Might' } : stat
       ),
     }));
 
@@ -194,19 +243,31 @@ describe('the rename test (Concept 00 §6)', () => {
     // rename (`characterStore.renameSkillCode`). That half is applied here so this test isolates
     // the formula half; `integration.test.ts` exercises both together.
     const after = calculateCharacter(
-      { ...character, mainSkillLevels: { STG: 6, DEX: 4 } },
+      { ...character, investedStatPoints: { STG: 6, DEX: 4 } },
       renamed
     );
 
-    expect(renamed.stats[0].formula).toBe('STG * 10');
+    expect(renamed.stats.find((candidate) => candidate.formula)?.formula).toBe('STG * 10');
     expect(renamed.combatSkills[0].bonusFormula).toBe('STG + STL');
-    expect(after.maxStatValues).toEqual(before.maxStatValues);
+    expect(after.statValues).toEqual(before.statValues);
     expect(after.combatSkillBonuses).toEqual(before.combatSkillBonuses);
   });
 
   it('re-spells a speciality skill named through both syntaxes', () => {
     const config = createConfig({
-      stats: [{ id: 'id-hp', name: 'Max Health', description: '', formula: 'skills.STL.level' }],
+      stats: [
+        {
+          id: 'id-hp',
+          name: 'Max Health',
+          abbreviation: 'MAX',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'skills.STL.level',
+        },
+      ],
     });
 
     const renamed = rename(config, (current) => ({
@@ -214,7 +275,7 @@ describe('the rename test (Concept 00 §6)', () => {
       specialitySkills: current.specialitySkills.map((skill) => ({ ...skill, code: 'SNK' })),
     }));
 
-    expect(renamed.stats[0].formula).toBe('skills.SNK.level');
+    expect(renamed.stats.find((candidate) => candidate.formula)?.formula).toBe('skills.SNK.level');
     expect(renamed.combatSkills[0].bonusFormula).toBe('STR + SNK');
   });
 
@@ -234,7 +295,9 @@ describe('the rename test (Concept 00 §6)', () => {
 
     const renamed = rename(config, (current) => ({
       ...current,
-      stats: current.stats.map((stat) => ({ ...stat, name: 'Vitality' })),
+      stats: current.stats.map((stat) =>
+        stat.id === 'id-hp' ? { ...stat, name: 'Vitality' } : stat
+      ),
     }));
 
     expect(renamed.combatSkills[0].bonusFormula).toBe('stats.vitality / 10');
@@ -260,7 +323,17 @@ describe('the rename test (Concept 00 §6)', () => {
         },
       ],
       stats: [
-        { id: 'id-hp', name: 'Max Health', description: '', formula: 'curve.point_buy.main(STR)' },
+        {
+          id: 'id-hp',
+          name: 'Max Health',
+          abbreviation: 'MAX',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'curve.point_buy.main(STR)',
+        },
       ],
     });
 
@@ -274,7 +347,9 @@ describe('the rename test (Concept 00 §6)', () => {
       })),
     }));
 
-    expect(renamed.stats[0].formula).toBe('curve.point_buy.main_type(STR)');
+    expect(renamed.stats.find((candidate) => candidate.formula)?.formula).toBe(
+      'curve.point_buy.main_type(STR)'
+    );
   });
 
   it('leaves a column spelled by name in an older stored formula alone', () => {
@@ -327,8 +402,28 @@ describe('the rename test (Concept 00 §6)', () => {
     const config = createConfig({
       curves: [curve('id-a', 'alpha', 'id-col-a'), curve('id-b', 'beta', 'id-col-b')],
       stats: [
-        { id: 'id-1', name: 'One', description: '', formula: 'curve.alpha.main(1)' },
-        { id: 'id-2', name: 'Two', description: '', formula: 'curve.beta.main(1)' },
+        {
+          id: 'id-1',
+          name: 'One',
+          abbreviation: 'ONE',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'curve.alpha.main(1)',
+        },
+        {
+          id: 'id-2',
+          name: 'Two',
+          abbreviation: 'TWO',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'curve.beta.main(1)',
+        },
       ],
     });
 
@@ -341,8 +436,11 @@ describe('the rename test (Concept 00 §6)', () => {
       ),
     }));
 
-    expect(renamed.stats[0].formula).toBe('curve.alpha.primary(1)');
-    expect(renamed.stats[1].formula).toBe('curve.beta.main(1)');
+    const formulaFor = (id: string) =>
+      renamed.stats.find((candidate) => candidate.id === id)?.formula;
+
+    expect(formulaFor('id-1')).toBe('curve.alpha.primary(1)');
+    expect(formulaFor('id-2')).toBe('curve.beta.main(1)');
   });
 
   it('carries racial and material bonuses through a rename too', () => {
@@ -375,8 +473,8 @@ describe('the rename test (Concept 00 §6)', () => {
 
     const renamed = rename(config, (current) => ({
       ...current,
-      mainSkills: current.mainSkills.map((skill) =>
-        skill.id === 'id-str' ? { ...skill, code: 'STG' } : skill
+      stats: current.stats.map((stat) =>
+        stat.id === 'id-str' ? { ...stat, abbreviation: 'STG' } : stat
       ),
     }));
 
@@ -405,7 +503,7 @@ describe('toStoredConfiguration / toDisplayConfiguration', () => {
     const config = createConfig();
     const stored = toStoredConfiguration(config);
 
-    expect(stored.stats[0].formula).toBe('[id-str] * 10');
+    expect(stored.stats.find((candidate) => candidate.formula)?.formula).toBe('[id-str] * 10');
     expect(toDisplayConfiguration(JSON.parse(JSON.stringify(stored)) as Configuration)).toEqual(
       config
     );
@@ -415,26 +513,28 @@ describe('toStoredConfiguration / toDisplayConfiguration', () => {
     const stored = toStoredConfiguration(createConfig());
     const withNewCode = {
       ...stored,
-      mainSkills: stored.mainSkills.map((skill) =>
-        skill.id === 'id-str' ? { ...skill, code: 'STG' } : skill
+      stats: stored.stats.map((stat) =>
+        stat.id === 'id-str' ? { ...stat, abbreviation: 'STG' } : stat
       ),
     };
 
-    expect(toDisplayConfiguration(withNewCode).stats[0].formula).toBe('STG * 10');
+    expect(
+      toDisplayConfiguration(withNewCode).stats.find((candidate) => candidate.formula)?.formula
+    ).toBe('STG * 10');
   });
 });
 
 describe('ensureReferenceIds', () => {
-  it('mints an id for a skill that predates them and leaves the rest alone', () => {
+  it('mints an id for an entity that predates them and leaves the rest alone', () => {
     const config = createConfig();
     const legacy = {
       ...config,
-      mainSkills: config.mainSkills.map(({ id: _dropped, ...rest }) => rest),
+      stats: config.stats.map(({ id: _dropped, ...rest }) => rest),
     } as Configuration;
 
     const completed = ensureReferenceIds(legacy, () => 'minted');
 
-    expect(completed.mainSkills.every((skill) => Boolean(skill.id))).toBe(true);
+    expect(completed.stats.every((stat) => Boolean(stat.id))).toBe(true);
     expect(completed.specialitySkills[0].id).toBe('id-stl');
   });
 });

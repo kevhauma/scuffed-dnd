@@ -26,11 +26,40 @@ const config: Configuration = {
   id: 'config1',
   name: 'Test Config',
   version: '1.0',
-  mainSkills: [
-    { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-    { id: 'CON', code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
+  schemaVersion: 2,
+  stats: [
+    {
+      id: 'STR',
+      name: 'Strength',
+      abbreviation: 'STR',
+      description: '',
+      order: 0,
+      countsTowardTotal: true,
+      isResource: false,
+      rounding: 'none',
+    },
+    {
+      id: 'CON',
+      name: 'Constitution',
+      abbreviation: 'CON',
+      description: '',
+      order: 1,
+      countsTowardTotal: true,
+      isResource: false,
+      rounding: 'none',
+    },
+    {
+      id: 'health',
+      name: 'Health',
+      abbreviation: 'HEA',
+      description: '',
+      order: 0,
+      countsTowardTotal: true,
+      isResource: true,
+      rounding: 'none',
+      formula: 'STR * 10',
+    },
   ],
-  stats: [{ id: 'health', name: 'Health', description: '', formula: 'STR * 10' }],
   specialitySkills: [],
   combatSkills: [],
   materials: [],
@@ -58,10 +87,15 @@ function renderStatManager() {
 
 async function submit(
   result: { current: ReturnType<typeof useStatManager> },
-  values: { name: string; formula: string }
+  values: { name: string; formula: string; abbreviation?: string }
 ) {
   await act(async () => {
     result.current.form.setValue('name', values.name);
+    // An abbreviation is a formula spelling now, so every save needs one (TICKET-STAT-01)
+    result.current.form.setValue(
+      'abbreviation',
+      values.abbreviation ?? values.name.slice(0, 3).toUpperCase()
+    );
     result.current.form.setValue('description', '');
     result.current.form.setValue('formula', values.formula);
   });
@@ -81,7 +115,7 @@ describe('useStatManager', () => {
     await submit(result, { name: 'Mana', formula: 'WIS * 5' });
 
     expect(result.current.form.formState.errors.formula?.message).toContain('WIS');
-    expect(useConfigStore.getState().config?.stats).toHaveLength(1);
+    expect(useConfigStore.getState().config?.stats.filter((stat) => stat.formula)).toHaveLength(1);
     expect(result.current.isDialogOpen).toBe(false); // dialog was never opened in this test
   });
 
@@ -92,8 +126,8 @@ describe('useStatManager', () => {
     await submit(result, { name: 'Vitality', formula: 'STR * 2 + CON' });
 
     const stats = useConfigStore.getState().config?.stats ?? [];
-    expect(stats).toHaveLength(2);
-    expect(stats[1]).toMatchObject({ name: 'Vitality', formula: 'STR * 2 + CON' });
+    expect(stats.filter((stat) => stat.formula)).toHaveLength(2);
+    expect(stats.at(-1)).toMatchObject({ name: 'Vitality', formula: 'STR * 2 + CON' });
     expect(result.current.form.formState.errors.formula).toBeUndefined();
     expect(result.current.isDialogOpen).toBe(false);
   });
@@ -107,7 +141,9 @@ describe('useStatManager', () => {
     await submit(result, { name: 'Health', formula: 'STR * WIS' });
 
     expect(result.current.isDialogOpen).toBe(true);
-    expect(useConfigStore.getState().config?.stats[0].formula).toBe('STR * 10');
+    expect(
+      useConfigStore.getState().config?.stats.find((candidate) => candidate.formula)?.formula
+    ).toBe('STR * 10');
   });
 
   it('should refuse an unparseable formula', async () => {
@@ -117,6 +153,6 @@ describe('useStatManager', () => {
     await submit(result, { name: 'Broken', formula: 'STR * * 2' });
 
     expect(result.current.form.formState.errors.formula).toBeDefined();
-    expect(useConfigStore.getState().config?.stats).toHaveLength(1);
+    expect(useConfigStore.getState().config?.stats.filter((stat) => stat.formula)).toHaveLength(1);
   });
 });

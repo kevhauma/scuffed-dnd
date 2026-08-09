@@ -15,7 +15,6 @@ import type {
   Curve,
   EquipmentSlot,
   Item,
-  MainSkill,
   Material,
   MaterialCategory,
   Race,
@@ -48,7 +47,6 @@ describe('ConfigStore', () => {
       expect(isLoaded).toBe(true);
       expect(config).toBeDefined();
       expect(config?.name).toBe('Test Config');
-      expect(config?.mainSkills).toEqual([]);
       expect(config?.stats).toEqual([]);
       expect(config?.specialitySkills).toEqual([]);
       expect(config?.combatSkills).toEqual([]);
@@ -67,7 +65,7 @@ describe('ConfigStore', () => {
         id: 'test-id',
         name: 'Loaded Config',
         version: '1.0.0',
-        mainSkills: [],
+        schemaVersion: 2,
         stats: [],
         specialitySkills: [],
         combatSkills: [],
@@ -80,7 +78,7 @@ describe('ConfigStore', () => {
         focusStatBonusLevel: 5,
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
-      };
+      } as Configuration;
 
       vi.mocked(storage.loadConfiguration).mockReturnValue(mockConfig);
 
@@ -134,68 +132,6 @@ describe('ConfigStore', () => {
     });
   });
 
-  describe('Main Skills CRUD', () => {
-    beforeEach(() => {
-      useConfigStore.getState().initializeConfig('Test');
-      vi.clearAllMocks();
-    });
-
-    it('should add main skill', () => {
-      const skill: MainSkill = {
-        id: 'STR',
-        code: 'STR',
-        name: 'Strength',
-        description: 'Physical power',
-        maxLevel: 10,
-      };
-
-      useConfigStore.getState().addMainSkill(skill);
-
-      const { config } = useConfigStore.getState();
-      expect(config?.mainSkills).toHaveLength(1);
-      expect(config?.mainSkills[0]).toEqual(skill);
-      expect(storage.saveConfiguration).toHaveBeenCalled();
-    });
-
-    it('should update main skill', () => {
-      const skill: MainSkill = {
-        id: 'STR',
-        code: 'STR',
-        name: 'Strength',
-        description: 'Physical power',
-        maxLevel: 10,
-      };
-
-      useConfigStore.getState().addMainSkill(skill);
-      vi.clearAllMocks();
-
-      useConfigStore.getState().updateMainSkill('STR', { maxLevel: 20 });
-
-      const { config } = useConfigStore.getState();
-      expect(config?.mainSkills[0].maxLevel).toBe(20);
-      expect(storage.saveConfiguration).toHaveBeenCalled();
-    });
-
-    it('should delete main skill', () => {
-      const skill: MainSkill = {
-        id: 'STR',
-        code: 'STR',
-        name: 'Strength',
-        description: 'Physical power',
-        maxLevel: 10,
-      };
-
-      useConfigStore.getState().addMainSkill(skill);
-      vi.clearAllMocks();
-
-      useConfigStore.getState().deleteMainSkill('STR');
-
-      const { config } = useConfigStore.getState();
-      expect(config?.mainSkills).toHaveLength(0);
-      expect(storage.saveConfiguration).toHaveBeenCalled();
-    });
-  });
-
   describe('Stats CRUD', () => {
     beforeEach(() => {
       useConfigStore.getState().initializeConfig('Test');
@@ -206,7 +142,12 @@ describe('ConfigStore', () => {
       const stat: Stat = {
         id: 'health',
         name: 'Health',
+        abbreviation: 'HEA',
         description: 'Hit points',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: true,
+        rounding: 'none',
         formula: 'STR * 10',
       };
 
@@ -222,7 +163,12 @@ describe('ConfigStore', () => {
       const stat: Stat = {
         id: 'health',
         name: 'Health',
+        abbreviation: 'HEA',
         description: 'Hit points',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: true,
+        rounding: 'none',
         formula: 'STR * 10',
       };
 
@@ -232,7 +178,7 @@ describe('ConfigStore', () => {
       useConfigStore.getState().updateStat('health', { formula: 'STR * 20' });
 
       const { config } = useConfigStore.getState();
-      expect(config?.stats[0].formula).toBe('STR * 20');
+      expect(config?.stats.find((candidate) => candidate.formula)?.formula).toBe('STR * 20');
       expect(storage.saveConfiguration).toHaveBeenCalled();
     });
 
@@ -240,7 +186,12 @@ describe('ConfigStore', () => {
       const stat: Stat = {
         id: 'health',
         name: 'Health',
+        abbreviation: 'HEA',
         description: 'Hit points',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: true,
+        rounding: 'none',
         formula: 'STR * 10',
       };
 
@@ -807,38 +758,49 @@ describe('ConfigStore', () => {
     });
 
     it('should call saveConfiguration on every CRUD operation', () => {
-      const skill: MainSkill = {
-        id: 'STR',
-        code: 'STR',
+      const stat: Stat = {
+        id: 'str',
         name: 'Strength',
+        abbreviation: 'STR',
         description: 'Physical power',
-        maxLevel: 10,
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
       };
 
-      useConfigStore.getState().addMainSkill(skill);
+      useConfigStore.getState().addStat(stat);
       expect(storage.saveConfiguration).toHaveBeenCalledTimes(1);
 
-      useConfigStore.getState().updateMainSkill('STR', { maxLevel: 20 });
+      useConfigStore.getState().updateStat('str', { name: 'Might' });
       expect(storage.saveConfiguration).toHaveBeenCalledTimes(2);
 
-      useConfigStore.getState().deleteMainSkill('STR');
+      useConfigStore.getState().deleteStat('str');
       expect(storage.saveConfiguration).toHaveBeenCalledTimes(3);
     });
   });
   describe('Rename safety (TICKET-REF-01)', () => {
     beforeEach(() => {
       useConfigStore.getState().initializeConfig('Test');
-      useConfigStore.getState().addMainSkill({
+      useConfigStore.getState().addStat({
         id: 'id-str',
-        code: 'STR',
         name: 'Strength',
+        abbreviation: 'STR',
         description: '',
-        maxLevel: 20,
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
       });
       useConfigStore.getState().addStat({
         id: 'id-hp',
         name: 'Health',
+        abbreviation: 'HEA',
         description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
         formula: 'STR * 10',
       });
       useConfigStore.getState().addSpecialitySkill({
@@ -858,21 +820,23 @@ describe('ConfigStore', () => {
       vi.clearAllMocks();
     });
 
-    it('rewrites every formula naming a main skill whose code changes', () => {
-      useConfigStore.getState().updateMainSkill('STR', { code: 'STG', name: 'Might' });
+    it('rewrites every formula naming a stat whose abbreviation changes', () => {
+      useConfigStore.getState().updateStat('id-str', { abbreviation: 'STG', name: 'Might' });
 
       const { config } = useConfigStore.getState();
-      expect(config?.stats[0].formula).toBe('STG * 10');
+      expect(config?.stats.find((candidate) => candidate.formula)?.formula).toBe('STG * 10');
       expect(config?.specialitySkills[0].bonusFormula).toBe('STG / 2');
       expect(config?.races[0].skillModifiers[0].skillCode).toBe('STG');
-      expect(config?.mainSkills[0].id).toBe('id-str');
+      expect(config?.stats[0].id).toBe('id-str');
     });
 
     it('rewrites a formula naming a speciality skill whose code changes', () => {
       useConfigStore.getState().updateStat('id-hp', { formula: 'skills.STL.level * 2' });
       useConfigStore.getState().updateSpecialitySkill('STL', { code: 'SNK' });
 
-      expect(useConfigStore.getState().config?.stats[0].formula).toBe('skills.SNK.level * 2');
+      expect(
+        useConfigStore.getState().config?.stats.find((candidate) => candidate.formula)?.formula
+      ).toBe('skills.SNK.level * 2');
     });
 
     it('re-slugs a stat named in another formula when the stat is renamed', () => {
@@ -887,10 +851,13 @@ describe('ConfigStore', () => {
     it('leaves an edit that renames nothing untouched', () => {
       const before = useConfigStore.getState().config;
 
-      useConfigStore.getState().updateMainSkill('STR', { maxLevel: 15 });
+      useConfigStore.getState().updateStat('id-str', { description: 'Raw power' });
 
       const after = useConfigStore.getState().config;
-      expect(after?.stats).toEqual(before?.stats);
+      // Nothing was re-spelled, so every formula in the ruleset comes back byte-identical
+      expect(after?.stats.map((stat) => stat.formula)).toEqual(
+        before?.stats.map((stat) => stat.formula)
+      );
       expect(after?.specialitySkills).toEqual(before?.specialitySkills);
     });
   });
@@ -901,10 +868,30 @@ describe('ConfigStore', () => {
           id: 'config1',
           name: 'Test',
           version: '1.0',
-          mainSkills: [
-            { id: 'id-str', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
+          schemaVersion: 2,
+          stats: [
+            {
+              id: 'id-str',
+              name: 'Strength',
+              abbreviation: 'STR',
+              description: '',
+              order: 0,
+              countsTowardTotal: true,
+              isResource: false,
+              rounding: 'none',
+            },
+            {
+              id: 'id-hp',
+              name: 'Health',
+              abbreviation: 'HEA',
+              description: '',
+              order: 0,
+              countsTowardTotal: true,
+              isResource: false,
+              rounding: 'none',
+              formula: 'STR * 10',
+            },
           ],
-          stats: [{ id: 'id-hp', name: 'Health', description: '', formula: 'STR * 10' }],
           specialitySkills: [],
           combatSkills: [],
           materials: [],
@@ -924,10 +911,10 @@ describe('ConfigStore', () => {
     });
 
     it('refuses a delete while something points at the entity, and says what', () => {
-      const references = useConfigStore.getState().deleteMainSkill('STR');
+      const references = useConfigStore.getState().deleteStat('id-str');
 
       expect(references.map((reference) => reference.holderName)).toEqual(['Health']);
-      expect(useConfigStore.getState().config?.mainSkills).toHaveLength(1);
+      expect(useConfigStore.getState().config?.stats).toHaveLength(2);
       expect(storage.saveConfiguration).not.toHaveBeenCalled();
     });
 
@@ -939,9 +926,9 @@ describe('ConfigStore', () => {
             name: 'Aria',
             configurationId: 'config1',
             raceIds: ['dwarf'],
-            mainSkillLevels: {},
+            investedStatPoints: {},
             specialitySkillBaseLevels: {},
-            currentStatValues: {},
+            currentResourceValues: {},
             inventory: { equippedItems: {}, miscItems: [] },
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01',
@@ -965,12 +952,14 @@ describe('ConfigStore', () => {
     });
 
     it('force deletes anyway, leaving the dependent formula as written', () => {
-      const references = useConfigStore.getState().deleteMainSkill('STR', { force: true });
+      const references = useConfigStore.getState().deleteStat('id-str', { force: true });
 
       expect(references).toEqual([]);
-      expect(useConfigStore.getState().config?.mainSkills).toHaveLength(0);
+      expect(useConfigStore.getState().config?.stats).toHaveLength(1);
       // The formula keeps its spelling, so the sheet can name what went missing
-      expect(useConfigStore.getState().config?.stats[0].formula).toBe('STR * 10');
+      expect(
+        useConfigStore.getState().config?.stats.find((candidate) => candidate.formula)?.formula
+      ).toBe('STR * 10');
     });
   });
   describe('Constants (TICKET-CST-01)', () => {
@@ -1021,7 +1010,12 @@ describe('ConfigStore', () => {
       useConfigStore.getState().addStat({
         id: 'id-hp',
         name: 'Health',
+        abbreviation: 'HEA',
         description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
         formula: '10 / const.bonus_divider',
       });
       const divider = useConfigStore
@@ -1040,7 +1034,12 @@ describe('ConfigStore', () => {
       useConfigStore.getState().addStat({
         id: 'id-hp',
         name: 'Health',
+        abbreviation: 'HEA',
         description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
         formula: '10 / const.bonus_divider',
       });
       const divider = useConfigStore
@@ -1049,7 +1048,9 @@ describe('ConfigStore', () => {
 
       useConfigStore.getState().updateConstant(divider?.id as string, { name: 'bonus_scale' });
 
-      expect(useConfigStore.getState().config?.stats[0].formula).toBe('10 / const.bonus_scale');
+      expect(
+        useConfigStore.getState().config?.stats.find((candidate) => candidate.formula)?.formula
+      ).toBe('10 / const.bonus_scale');
     });
   });
 
@@ -1106,7 +1107,12 @@ describe('ConfigStore', () => {
       useConfigStore.getState().addStat({
         id: 'id-level',
         name: 'Level',
+        abbreviation: 'LEV',
         description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
         formula: 'curve.xp_table(STR)',
       });
 
@@ -1121,13 +1127,20 @@ describe('ConfigStore', () => {
       useConfigStore.getState().addStat({
         id: 'id-level',
         name: 'Level',
+        abbreviation: 'LEV',
         description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
         formula: 'curve.xp_table(STR)',
       });
 
       useConfigStore.getState().updateCurve('id-xp', { name: 'level_table' });
 
-      expect(useConfigStore.getState().config?.stats[0].formula).toBe('curve.level_table(STR)');
+      expect(
+        useConfigStore.getState().config?.stats.find((candidate) => candidate.formula)?.formula
+      ).toBe('curve.level_table(STR)');
     });
 
     it('regenerates a curve through the store, persisting the result (TICKET-CRV-02)', () => {
@@ -1208,15 +1221,20 @@ describe('ConfigStore', () => {
       useConfigStore.getState().addStat({
         id: 'id-level',
         name: 'Level',
+        abbreviation: 'LEV',
         description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
         formula: 'curve.xp_table.high(STR)',
       });
 
       useConfigStore.getState().updateCurve('id-xp', { name: 'level_table' });
 
-      expect(useConfigStore.getState().config?.stats[0].formula).toBe(
-        'curve.level_table.high(STR)'
-      );
+      expect(
+        useConfigStore.getState().config?.stats.find((candidate) => candidate.formula)?.formula
+      ).toBe('curve.level_table.high(STR)');
     });
 
     it('re-spells every formula reading a column when the column is renamed (TICKET-CRV-03)', () => {
@@ -1231,7 +1249,12 @@ describe('ConfigStore', () => {
       useConfigStore.getState().addStat({
         id: 'id-level',
         name: 'Level',
+        abbreviation: 'LEV',
         description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
         formula: 'curve.xp_table.high(STR)',
       });
 
@@ -1242,9 +1265,9 @@ describe('ConfigStore', () => {
         ],
       });
 
-      expect(useConfigStore.getState().config?.stats[0].formula).toBe(
-        'curve.xp_table.highest(STR)'
-      );
+      expect(
+        useConfigStore.getState().config?.stats.find((candidate) => candidate.formula)?.formula
+      ).toBe('curve.xp_table.highest(STR)');
     });
   });
 

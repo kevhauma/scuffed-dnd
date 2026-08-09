@@ -13,12 +13,50 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    mainSkills: [
-      { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-      { id: 'CON', code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
+    schemaVersion: 2,
+    stats: [
+      {
+        id: 'STR',
+        name: 'Strength',
+        abbreviation: 'STR',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'DEX',
+        name: 'Dexterity',
+        abbreviation: 'DEX',
+        description: '',
+        order: 1,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'CON',
+        name: 'Constitution',
+        abbreviation: 'CON',
+        description: '',
+        order: 2,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'health',
+        name: 'Health',
+        abbreviation: 'HEA',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: true,
+        rounding: 'none',
+        formula: 'STR * 10',
+      },
     ],
-    stats: [{ id: 'health', name: 'Health', description: '', formula: 'STR * 10' }],
     specialitySkills: [
       {
         id: 'STL',
@@ -323,8 +361,28 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
     it('blocks a two-formula cycle written in namespaced syntax, naming the path', () => {
       const config = createConfig({
         stats: [
-          { id: 'health', name: 'Health', description: '', formula: 'stats.armour + 1' },
-          { id: 'armour', name: 'Armour', description: '', formula: 'STR * 2' },
+          {
+            id: 'health',
+            name: 'Health',
+            abbreviation: 'HEA',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: true,
+            rounding: 'none',
+            formula: 'stats.armour + 1',
+          },
+          {
+            id: 'armour',
+            name: 'Armour',
+            abbreviation: 'ARM',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: false,
+            rounding: 'none',
+            formula: 'STR * 2',
+          },
         ],
       });
 

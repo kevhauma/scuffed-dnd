@@ -16,11 +16,40 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    mainSkills: [
-      { id: 'id-str', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      { id: 'id-dex', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+    schemaVersion: 2,
+    stats: [
+      {
+        id: 'id-str',
+        name: 'Strength',
+        abbreviation: 'STR',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'id-dex',
+        name: 'Dexterity',
+        abbreviation: 'DEX',
+        description: '',
+        order: 1,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'id-hp',
+        name: 'Health',
+        abbreviation: 'HEA',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+        formula: 'STR * 10',
+      },
     ],
-    stats: [{ id: 'id-hp', name: 'Health', description: '', formula: 'STR * 10' }],
     specialitySkills: [
       {
         id: 'id-stl',
@@ -90,9 +119,9 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     name: 'Aria',
     configurationId: 'config1',
     raceIds: ['dwarf'],
-    mainSkillLevels: { STR: 5, DEX: 4 },
+    investedStatPoints: { 'id-str': 5, 'id-dex': 4 },
     specialitySkillBaseLevels: { STL: 2 },
-    currentStatValues: { 'id-hp': 30 },
+    currentResourceValues: { 'id-hp': 30 },
     inventory: { equippedItems: { main_hand: 'axe' }, miscItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
@@ -107,8 +136,8 @@ function holders(references: ReturnType<typeof findReferences>): string[] {
 
 describe('findReferences', () => {
   describe('skills', () => {
-    it('finds a main skill in formulas, modifiers and characters', () => {
-      const found = findReferences({ kind: 'main-skill', id: 'STR' }, createConfig(), [
+    it('finds a stat in formulas, modifiers and characters', () => {
+      const found = findReferences({ kind: 'stat', id: 'id-str' }, createConfig(), [
         createCharacter(),
       ]);
 
@@ -129,13 +158,25 @@ describe('findReferences', () => {
 
     it('does not count a code that merely appears inside a longer identifier', () => {
       const config = createConfig({
-        stats: [{ id: 'id-hp', name: 'Health', description: '', formula: 'STRENGTH * 10' }],
+        stats: [
+          {
+            id: 'id-hp',
+            name: 'Health',
+            abbreviation: 'HEA',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: false,
+            rounding: 'none',
+            formula: 'STRENGTH * 10',
+          },
+        ],
         combatSkills: [],
         races: [],
         materials: [],
       });
 
-      expect(findReferences({ kind: 'main-skill', id: 'STR' }, config, [])).toEqual([]);
+      expect(findReferences({ kind: 'stat', id: 'id-str' }, config, [])).toEqual([]);
     });
 
     it('reports nothing for a combat skill nothing names', () => {
@@ -173,7 +214,19 @@ describe('findReferences', () => {
 
     it('does not count the stat’s own formula against it', () => {
       const config = createConfig({
-        stats: [{ id: 'id-hp', name: 'Health', description: '', formula: 'stats.health' }],
+        stats: [
+          {
+            id: 'id-hp',
+            name: 'Health',
+            abbreviation: 'HEA',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: false,
+            rounding: 'none',
+            formula: 'stats.health',
+          },
+        ],
       });
 
       expect(findReferences({ kind: 'stat', id: 'id-hp' }, config, [])).toEqual([]);
@@ -230,7 +283,7 @@ describe('findReferences', () => {
   });
 
   it('reports a skill formula holder by its stable id, not its code', () => {
-    const found = findReferences({ kind: 'main-skill', id: 'STR' }, createConfig(), []);
+    const found = findReferences({ kind: 'stat', id: 'id-str' }, createConfig(), []);
     const combat = found.find((reference) => reference.holderKind === 'Combat Skill');
 
     expect(combat?.holderId).toBe('id-mel');
@@ -245,7 +298,7 @@ describe('findReferences', () => {
       items: [],
     });
 
-    expect(findReferences({ kind: 'main-skill', id: 'STR' }, bare, [])).toEqual([]);
+    expect(findReferences({ kind: 'stat', id: 'id-str' }, bare, [])).toEqual([]);
     expect(findReferences({ kind: 'currency-tier', id: 'gold' }, bare, [])).toEqual([]);
   });
 
@@ -265,7 +318,17 @@ describe('findReferences', () => {
           },
         ],
         stats: [
-          { id: 'id-hp', name: 'Health', description: '', formula: '10 / const.bonus_divider' },
+          {
+            id: 'id-hp',
+            name: 'Health',
+            abbreviation: 'HEA',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: false,
+            rounding: 'none',
+            formula: '10 / const.bonus_divider',
+          },
         ],
       });
 
@@ -288,8 +351,28 @@ describe('findReferences', () => {
           },
         ],
         stats: [
-          { id: 'id-slug', name: 'Bonus divider', description: '', formula: '1' },
-          { id: 'id-hp', name: 'Health', description: '', formula: 'stats.bonus_divider * 2' },
+          {
+            id: 'id-slug',
+            name: 'Bonus divider',
+            abbreviation: 'BON',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: false,
+            rounding: 'none',
+            formula: '1',
+          },
+          {
+            id: 'id-hp',
+            name: 'Health',
+            abbreviation: 'HEA',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: false,
+            rounding: 'none',
+            formula: 'stats.bonus_divider * 2',
+          },
         ],
       });
 
@@ -355,7 +438,17 @@ describe('findReferences', () => {
           },
         ],
         stats: [
-          { id: 'id-gain', name: 'Gain', description: '', formula: 'curve.point_buy.main(1)' },
+          {
+            id: 'id-gain',
+            name: 'Gain',
+            abbreviation: 'GAI',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: false,
+            rounding: 'none',
+            formula: 'curve.point_buy.main(1)',
+          },
         ],
       });
 
@@ -385,7 +478,19 @@ describe('findReferences', () => {
             lookupDirection: 'forward',
           },
         ],
-        stats: [{ id: 'id-lvl', name: 'Level', description: '', formula: 'curve.xp(1)' }],
+        stats: [
+          {
+            id: 'id-lvl',
+            name: 'Level',
+            abbreviation: 'LEV',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: false,
+            rounding: 'none',
+            formula: 'curve.xp(1)',
+          },
+        ],
       });
 
       expect(holders(findReferences({ kind: 'curve-column', id: 'col-only' }, config, []))).toEqual(

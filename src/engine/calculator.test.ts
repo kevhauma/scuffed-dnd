@@ -18,13 +18,13 @@ describe('calculateCharacterStats', () => {
       name: 'Test Character',
       configurationId: 'config1',
       raceIds: ['elf'],
-      mainSkillLevels: {
+      investedStatPoints: {
         STR: 10,
         DEX: 8,
         CON: 12,
       },
       specialitySkillBaseLevels: {},
-      currentStatValues: {},
+      currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
@@ -34,22 +34,58 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-        { id: 'CON', code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
-      ],
+      schemaVersion: 2,
       stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'DEX',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'CON',
+          name: 'Constitution',
+          abbreviation: 'CON',
+          description: '',
+          order: 2,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
         {
           id: 'health',
           name: 'Health',
+          abbreviation: 'HEA',
           description: 'Hit points',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: true,
+          rounding: 'none',
           formula: 'STR * 10 + CON * 5',
         },
         {
           id: 'evasion',
           name: 'Evasion',
+          abbreviation: 'EVA',
           description: 'Dodge chance',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
           formula: 'DEX * 2',
         },
       ],
@@ -79,6 +115,9 @@ describe('calculateCharacterStats', () => {
     const result = calculateCharacterStats(character, config);
 
     expect(result).toEqual({
+      STR: 9, // 10 - 1 (elf)
+      DEX: 10, // 8 + 2 (elf)
+      CON: 12,
       health: 150, // (10 - 1) * 10 + 12 * 5 = 9 * 10 + 60 = 90 + 60
       evasion: 20, // (8 + 2) * 2 = 10 * 2
     });
@@ -90,12 +129,12 @@ describe('calculateCharacterStats', () => {
       name: 'Test Character',
       configurationId: 'config1',
       raceIds: ['elf', 'human'],
-      mainSkillLevels: {
+      investedStatPoints: {
         STR: 10,
         DEX: 8,
       },
       specialitySkillBaseLevels: {},
-      currentStatValues: {},
+      currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
@@ -105,15 +144,37 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-      ],
+      schemaVersion: 2,
       stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'DEX',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
         {
           id: 'power',
           name: 'Power',
+          abbreviation: 'POW',
           description: 'Physical power',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
           formula: 'STR + DEX',
         },
       ],
@@ -149,6 +210,8 @@ describe('calculateCharacterStats', () => {
     const result = calculateCharacterStats(character, config);
 
     expect(result).toEqual({
+      STR: 10, // 10 - 1 (elf) + 1 (human)
+      DEX: 10, // 8 + 2 (elf)
       power: 20, // (10 - 1 + 1) + (8 + 2) = 10 + 10
     });
   });
@@ -159,11 +222,11 @@ describe('calculateCharacterStats', () => {
       name: 'Test Character',
       configurationId: 'config1',
       raceIds: [],
-      mainSkillLevels: {
+      investedStatPoints: {
         STR: 10,
       },
       specialitySkillBaseLevels: {},
-      currentStatValues: {},
+      currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
@@ -173,12 +236,27 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      schemaVersion: 2,
       stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
         {
           id: 'health',
           name: 'Health',
+          abbreviation: 'HEA',
           description: 'Hit points',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: true,
+          rounding: 'none',
           formula: 'STR * 10',
         },
       ],
@@ -198,6 +276,7 @@ describe('calculateCharacterStats', () => {
     const result = calculateCharacterStats(character, config);
 
     expect(result).toEqual({
+      STR: 10,
       health: 100, // 10 * 10
     });
   });
@@ -214,14 +293,60 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
     id: 'config1',
     name: 'Fixture Config',
     version: '1.0',
-    mainSkills: [
-      { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-      { id: 'CON', code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
-    ],
+    schemaVersion: 2,
     stats: [
-      { id: 'health', name: 'Health', description: '', formula: 'STR * 10 + CON * 5' },
-      { id: 'evasion', name: 'Evasion', description: '', formula: 'DEX * 2' },
+      {
+        id: 'STR',
+        name: 'Strength',
+        abbreviation: 'STR',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'DEX',
+        name: 'Dexterity',
+        abbreviation: 'DEX',
+        description: '',
+        order: 1,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'CON',
+        name: 'Constitution',
+        abbreviation: 'CON',
+        description: '',
+        order: 2,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'health',
+        name: 'Health',
+        abbreviation: 'HEA',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: true,
+        rounding: 'none',
+        formula: 'STR * 10 + CON * 5',
+      },
+      {
+        id: 'evasion',
+        name: 'Evasion',
+        abbreviation: 'EVA',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+        formula: 'DEX * 2',
+      },
     ],
     specialitySkills: [
       {
@@ -361,9 +486,9 @@ function createFixtureCharacter(overrides: Partial<Character> = {}): Character {
     name: 'Fixture Character',
     configurationId: 'config1',
     raceIds: ['elf'],
-    mainSkillLevels: { STR: 10, DEX: 8, CON: 12 },
+    investedStatPoints: { STR: 10, DEX: 8, CON: 12 },
     specialitySkillBaseLevels: { STL: 2, ARC: 1 },
-    currentStatValues: { health: 40 },
+    currentResourceValues: { health: 40 },
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
@@ -378,14 +503,12 @@ describe('calculateCharacter', () => {
     // Base character data is carried through
     expect(result.id).toBe('char1');
     expect(result.name).toBe('Fixture Character');
-    expect(result.mainSkillLevels).toEqual({ STR: 10, DEX: 8, CON: 12 });
-    expect(result.currentStatValues).toEqual({ health: 40 });
+    expect(result.investedStatPoints).toEqual({ STR: 10, DEX: 8, CON: 12 });
+    expect(result.currentResourceValues).toEqual({ health: 40 });
 
     // Every derived field is populated
     // STR 10 - 1 (elf) = 9, DEX 8 + 2 (elf) = 10, CON 12
-    expect(result.totalMainSkillLevels).toEqual({ STR: 9, DEX: 10, CON: 12 });
-    // health = 9 * 10 + 12 * 5, evasion = 10 * 2
-    expect(result.maxStatValues).toEqual({ health: 150, evasion: 20 });
+    expect(result.statValues).toEqual({ STR: 9, DEX: 10, CON: 12, health: 150, evasion: 20 });
     // STL = 2 + (10 / 2), ARC = 1 + 12
     expect(result.specialitySkillTotalLevels).toEqual({ STL: 7, ARC: 13 });
     // MEL = STR 9 + STL 7
@@ -403,9 +526,9 @@ describe('calculateCharacter', () => {
 
     expect(result.equipmentBonuses).toEqual([{ skillCode: 'STR', modifier: 2 }]);
     // STR 9 + 2 from the steel sword
-    expect(result.totalMainSkillLevels.STR).toBe(11);
+    expect(result.statValues.STR).toBe(11);
     // health follows the raised STR: 11 * 10 + 12 * 5
-    expect(result.maxStatValues.health).toBe(170);
+    expect(result.statValues.health).toBe(170);
     // and so does the combat formula: STR 11 + STL 7
     expect(result.combatSkillBonuses.MEL).toBe(18);
   });
@@ -422,7 +545,7 @@ describe('calculateCharacter', () => {
     // The other speciality skill is untouched
     expect(result.specialitySkillTotalLevels.ARC).toBe(13);
     // Main skills are untouched by a speciality-targeted bonus
-    expect(result.totalMainSkillLevels).toEqual({ STR: 9, DEX: 10, CON: 12 });
+    expect(result.statValues).toEqual({ STR: 9, DEX: 10, CON: 12, health: 150, evasion: 20 });
   });
 
   it('should count an equipment bonus to a combat skill exactly once', () => {
@@ -435,7 +558,7 @@ describe('calculateCharacter', () => {
     // MEL = STR 9 + STL 7 + equipment 5 — not 9 + 7 + 5 + 5
     expect(result.combatSkillBonuses.MEL).toBe(21);
     // The combat-targeted bonus never leaks into main or speciality skills
-    expect(result.totalMainSkillLevels).toEqual({ STR: 9, DEX: 10, CON: 12 });
+    expect(result.statValues).toEqual({ STR: 9, DEX: 10, CON: 12, health: 150, evasion: 20 });
     expect(result.specialitySkillTotalLevels).toEqual({ STL: 7, ARC: 13 });
   });
 
@@ -452,15 +575,15 @@ describe('calculateCharacter', () => {
       }),
       config
     );
-    expect(equipped.maxStatValues.health).not.toBe(baseline.maxStatValues.health);
+    expect(equipped.statValues.health).not.toBe(baseline.statValues.health);
 
     const unequipped = calculateCharacter(
       createFixtureCharacter({ inventory: { equippedItems: {}, miscItems: ['item-sword'] } }),
       config
     );
 
-    expect(unequipped.totalMainSkillLevels).toEqual(baseline.totalMainSkillLevels);
-    expect(unequipped.maxStatValues).toEqual(baseline.maxStatValues);
+    expect(unequipped.statValues).toEqual(baseline.statValues);
+    expect(unequipped.statValues).toEqual(baseline.statValues);
     expect(unequipped.specialitySkillTotalLevels).toEqual(baseline.specialitySkillTotalLevels);
     expect(unequipped.combatSkillBonuses).toEqual(baseline.combatSkillBonuses);
     expect(unequipped.equipmentBonuses).toEqual([]);
@@ -472,10 +595,10 @@ describe('calculateCharacter', () => {
     const result = calculateCharacter(character, createFixtureConfig());
 
     // STR 10 - 1 (elf) + 1 (human) = 10, DEX 8 + 2 (elf) = 10
-    expect(result.totalMainSkillLevels).toEqual({ STR: 10, DEX: 10, CON: 12 });
+    expect(result.statValues).toEqual({ STR: 10, DEX: 10, CON: 12, health: 160, evasion: 20 });
     // The allocated base is still available alongside the total, so the racial part is displayable
-    expect(result.mainSkillLevels).toEqual({ STR: 10, DEX: 8, CON: 12 });
-    expect(result.totalMainSkillLevels.DEX - result.mainSkillLevels.DEX).toBe(2);
+    expect(result.investedStatPoints).toEqual({ STR: 10, DEX: 8, CON: 12 });
+    expect(Number(result.statValues.DEX) - result.investedStatPoints.DEX).toBe(2);
   });
 
   it('should apply the focus stat bonus to a main skill and to nothing else', () => {
@@ -484,10 +607,10 @@ describe('calculateCharacter', () => {
     const result = calculateCharacter(character, createFixtureConfig());
 
     // STR 9 + focus 3
-    expect(result.totalMainSkillLevels.STR).toBe(12);
-    expect(result.totalMainSkillLevels.DEX).toBe(10);
+    expect(result.statValues.STR).toBe(12);
+    expect(result.statValues.DEX).toBe(10);
     // health follows: 12 * 10 + 12 * 5
-    expect(result.maxStatValues.health).toBe(180);
+    expect(result.statValues.health).toBe(180);
     // Speciality skills do not also receive the focus bonus
     expect(result.specialitySkillTotalLevels).toEqual({ STL: 7, ARC: 13 });
   });
@@ -501,20 +624,32 @@ describe('calculateCharacter', () => {
     expect(result.specialitySkillTotalLevels.STL).toBe(10);
     expect(result.specialitySkillTotalLevels.ARC).toBe(13);
     // Main skills are untouched
-    expect(result.totalMainSkillLevels).toEqual({ STR: 9, DEX: 10, CON: 12 });
-    expect(result.maxStatValues.health).toBe(150);
+    expect(result.statValues).toEqual({ STR: 9, DEX: 10, CON: 12, health: 150, evasion: 20 });
+    expect(result.statValues.health).toBe(150);
   });
 
   // TICKET-FORM-05: these used to assert a throw that aborted the whole calculation. The
   // contract is now an error value on the offending entry, with everything else still computed.
   it('should name the stat and the missing code when a stat formula references an undefined skill', () => {
     const config = createFixtureConfig({
-      stats: [{ id: 'mana', name: 'Mana', description: '', formula: 'MAG * 5' }],
+      stats: [
+        {
+          id: 'mana',
+          name: 'Mana',
+          abbreviation: 'MAN',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'MAG * 5',
+        },
+      ],
     });
 
     const result = calculateCharacter(createFixtureCharacter(), config);
 
-    expect(result.maxStatValues.mana).toMatchObject({
+    expect(result.statValues.mana).toMatchObject({
       kind: 'undefined-variable',
       message: 'Undefined variable: MAG',
       source: { kind: 'stat', id: 'mana', name: 'Mana' },
@@ -570,22 +705,71 @@ describe('calculateCharacter', () => {
   it('should compute every other value when one stat formula is broken (TICKET-FORM-05)', () => {
     const config = createFixtureConfig({
       stats: [
-        { id: 'health', name: 'Health', description: '', formula: 'MAG * 5' }, // broken
-        { id: 'evasion', name: 'Evasion', description: '', formula: 'DEX * 2' },
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'DEX',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'CON',
+          name: 'Constitution',
+          abbreviation: 'CON',
+          description: '',
+          order: 2,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'health',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: true,
+          rounding: 'none',
+          formula: 'MAG * 5',
+        }, // broken
+        {
+          id: 'evasion',
+          name: 'Evasion',
+          abbreviation: 'EVA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'DEX * 2',
+        },
       ],
     });
 
     const result = calculateCharacter(createFixtureCharacter(), config);
 
     // The broken stat is the only casualty
-    expect(isFormulaError(result.maxStatValues.health)).toBe(true);
+    expect(isFormulaError(result.statValues.health)).toBe(true);
 
     // …every other derived value is still a number
-    expect(result.maxStatValues.evasion).toBe(20); // DEX 10 * 2
+    expect(result.statValues.evasion).toBe(20); // DEX 10 * 2
     expect(result.specialitySkillTotalLevels.STL).toBe(7); // base 2 + DEX 10 / 2
     expect(result.specialitySkillTotalLevels.ARC).toBe(13); // base 1 + CON 12
     expect(result.combatSkillBonuses.MEL).toBe(16); // STR 9 + STL 7
-    expect(result.totalMainSkillLevels).toEqual({ STR: 9, DEX: 10, CON: 12 });
   });
 
   it('should chain provenance from a broken speciality skill into the combat skill reading it', () => {
@@ -625,7 +809,7 @@ describe('calculateCharacter', () => {
 
     // The unrelated speciality skill and the stats are untouched
     expect(result.specialitySkillTotalLevels.ARC).toBe(13); // base 1 + CON 12
-    expect(result.maxStatValues.health).toBe(150); // STR 9 * 10 + CON 12 * 5
+    expect(result.statValues.health).toBe(150); // STR 9 * 10 + CON 12 * 5
   });
 
   it('should agree with calculateCharacterStats, the wrapper over the same chain', () => {
@@ -635,7 +819,7 @@ describe('calculateCharacter', () => {
     const config = createFixtureConfig();
 
     expect(calculateCharacterStats(character, config)).toEqual(
-      calculateCharacter(character, config).maxStatValues
+      calculateCharacter(character, config).statValues
     );
   });
 });
@@ -647,13 +831,59 @@ describe('calculateCharacter over an unallocated main skill (TICKET-CALC-02)', (
    */
   const createConfigWithWisdom = (): Configuration =>
     createFixtureConfig({
-      mainSkills: [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-        { id: 'CON', code: 'CON', name: 'Constitution', description: '', maxLevel: 20 },
-        { id: 'WIS', code: 'WIS', name: 'Wisdom', description: '', maxLevel: 20 }, // newly added
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'DEX',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'CON',
+          name: 'Constitution',
+          abbreviation: 'CON',
+          description: '',
+          order: 2,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'WIS',
+          name: 'Wisdom',
+          abbreviation: 'WIS',
+          description: '',
+          order: 3,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'insight',
+          name: 'Insight',
+          abbreviation: 'INS',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'WIS * 3',
+        },
       ],
-      stats: [{ id: 'insight', name: 'Insight', description: '', formula: 'WIS * 3' }],
       specialitySkills: [
         {
           id: 'STL',
@@ -679,8 +909,8 @@ describe('calculateCharacter over an unallocated main skill (TICKET-CALC-02)', (
   it('should return numbers throughout when stat, speciality and combat formulas read it', () => {
     const result = calculateCharacter(createFixtureCharacter(), createConfigWithWisdom());
 
-    expect(result.totalMainSkillLevels.WIS).toBe(0);
-    expect(result.maxStatValues.insight).toBe(0); // WIS 0 * 3
+    expect(result.statValues.WIS).toBe(0);
+    expect(result.statValues.insight).toBe(0); // WIS 0 * 3
     expect(result.specialitySkillTotalLevels.STL).toBe(2); // base 2 + WIS 0
     expect(result.combatSkillBonuses.MEL).toBe(9); // STR 9 (10 - 1 elf) + WIS 0
     expect(firstCalculationError(result)).toBeUndefined();
@@ -693,12 +923,25 @@ describe('calculateCharacter over an unallocated main skill (TICKET-CALC-02)', (
       // MAG is in no namespace — unlike WIS, there is nothing to seed it from
       {
         ...config,
-        stats: [...config.stats, { id: 'mana', name: 'Mana', description: '', formula: 'MAG * 5' }],
+        stats: [
+          ...config.stats,
+          {
+            id: 'mana',
+            name: 'Mana',
+            abbreviation: 'MAN',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: false,
+            rounding: 'none',
+            formula: 'MAG * 5',
+          },
+        ],
       }
     );
 
-    expect(result.maxStatValues.insight).toBe(0);
-    expect(result.maxStatValues.mana).toMatchObject({
+    expect(result.statValues.insight).toBe(0);
+    expect(result.statValues.mana).toMatchObject({
       kind: 'undefined-variable',
       message: 'Undefined variable: MAG',
       source: { kind: 'stat', id: 'mana', name: 'Mana' },

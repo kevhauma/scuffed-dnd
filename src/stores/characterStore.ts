@@ -82,9 +82,9 @@ function clampToMaxStatValues(
   values: Record<string, number>,
   config: Configuration
 ): Record<string, number> {
-  let maxStatValues: Record<string, FormulaResult>;
+  let statValues: Record<string, FormulaResult>;
   try {
-    maxStatValues = calculateCharacter(character, config).maxStatValues;
+    statValues = calculateCharacter(character, config).statValues;
   } catch {
     return values;
   }
@@ -93,7 +93,7 @@ function clampToMaxStatValues(
   for (const [statId, value] of Object.entries(values)) {
     // `asNumber` is undefined both when the stat has no maximum and when its formula is broken;
     // either way there is no ceiling to clamp against, so the Player's value goes through.
-    const max = asNumber(maxStatValues[statId]);
+    const max = asNumber(statValues[statId]);
     clamped[statId] = max === undefined ? value : Math.min(value, max);
   }
 
@@ -103,9 +103,13 @@ function clampToMaxStatValues(
 /**
  * Create character from creation data
  *
- * A new character starts at full: `currentStatValues` is seeded to the calculated maxima, since a
- * Player expects a fresh character to be at full health rather than at zero. Seeding happens here,
- * where the rest of the character shape is assembled, rather than in the creation wizard.
+ * A new character starts at full: `currentResourceValues` is seeded to the calculated maxima,
+ * since a Player expects a fresh character to be at full health rather than at zero. Seeding
+ * happens here, where the rest of the character shape is assembled, rather than in the wizard.
+ *
+ * **Only `isResource` stats are seeded** (TICKET-STAT-01). v1 gave every stat a current value,
+ * which is what made "current Strength" a thing the app believed in; a stat you cannot spend has
+ * no current distinct from its value.
  */
 function createCharacterFromData(data: CharacterCreationData, config: Configuration): Character {
   const now = new Date().toISOString();
@@ -114,10 +118,10 @@ function createCharacterFromData(data: CharacterCreationData, config: Configurat
     name: data.name,
     configurationId: config.id,
     raceIds: data.raceIds,
-    mainSkillLevels: data.mainSkillLevels,
+    investedStatPoints: data.investedStatPoints,
     focusStatCode: data.focusStatCode,
     specialitySkillBaseLevels: data.specialitySkillBaseLevels,
-    currentStatValues: {},
+    currentResourceValues: {},
     inventory: {
       equippedItems: {},
       miscItems: [],
@@ -127,16 +131,21 @@ function createCharacterFromData(data: CharacterCreationData, config: Configurat
   };
 
   try {
-    // Seed only the stats that actually produced a number; a stat with a broken formula starts
-    // absent rather than at a made-up zero.
-    const maxStatValues = calculateCharacter(character, config).maxStatValues;
+    // Seed only the resource stats that actually produced a number; a stat with a broken formula
+    // starts absent rather than at a made-up zero.
+    const statValues = calculateCharacter(character, config).statValues;
+    const resourceIds = new Set(
+      config.stats.filter((stat) => stat.isResource).map((stat) => stat.id)
+    );
+
     const seeded: Record<string, number> = {};
-    for (const [statId, result] of Object.entries(maxStatValues)) {
+    for (const [statId, result] of Object.entries(statValues)) {
+      if (!resourceIds.has(statId)) continue;
       const max = asNumber(result);
       if (max !== undefined) seeded[statId] = max;
     }
 
-    return { ...character, currentStatValues: seeded };
+    return { ...character, currentResourceValues: seeded };
   } catch {
     // A ruleset with a broken formula must not block character creation; the sheet will
     // surface the formula error where it can be acted on.
@@ -200,13 +209,14 @@ function patchInventory(
   set({ characters: updated });
 }
 
-/** Whether a character has anything filed under a skill code */
+/**
+ * Whether a character has anything filed under a skill code
+ *
+ * Stat investment is keyed by **id** since TICKET-STAT-01, so renaming a stat cannot orphan it
+ * and this only has to cover the two spellings that are still keys.
+ */
 function holdsSkillCode(character: Character, code: string): boolean {
-  return (
-    code in character.mainSkillLevels ||
-    code in character.specialitySkillBaseLevels ||
-    character.focusStatCode === code
-  );
+  return code in character.specialitySkillBaseLevels || character.focusStatCode === code;
 }
 
 /**
@@ -309,7 +319,6 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     const updated = autoSave(
       characters.map((char) => ({
         ...char,
-        mainSkillLevels: rekey(char.mainSkillLevels, previousCode, nextCode),
         specialitySkillBaseLevels: rekey(char.specialitySkillBaseLevels, previousCode, nextCode),
         ...(char.focusStatCode === previousCode ? { focusStatCode: nextCode } : {}),
       }))
@@ -411,11 +420,20 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
       characters.map((char) => {
         if (char.id !== characterId) return char;
 
+        // Only a resource has a current value distinct from its composed one, so ids for
+        // anything else are dropped here rather than trusted from the caller (TICKET-STAT-01)
+        const resourceIds = new Set(
+          config.stats.filter((stat) => stat.isResource).map((stat) => stat.id)
+        );
+        const resourceValues = Object.fromEntries(
+          Object.entries(values).filter(([statId]) => resourceIds.has(statId))
+        );
+
         return updateTimestamp({
           ...char,
-          currentStatValues: {
-            ...char.currentStatValues,
-            ...clampToMaxStatValues(char, values, config),
+          currentResourceValues: {
+            ...char.currentResourceValues,
+            ...clampToMaxStatValues(char, resourceValues, config),
           },
         });
       })

@@ -28,8 +28,30 @@ const config: Configuration = {
   id: 'config1',
   name: 'Test Config',
   version: '1.0',
-  mainSkills: [{ id: 'str-id', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
-  stats: [{ id: 'bonus', name: 'Bonus', description: '', formula: 'STR / const.bonus_divider' }],
+  schemaVersion: 2,
+  stats: [
+    {
+      id: 'str-id',
+      name: 'Strength',
+      abbreviation: 'STR',
+      description: '',
+      order: 0,
+      countsTowardTotal: true,
+      isResource: false,
+      rounding: 'none',
+    },
+    {
+      id: 'bonus',
+      name: 'Bonus',
+      abbreviation: 'BON',
+      description: '',
+      order: 0,
+      countsTowardTotal: true,
+      isResource: false,
+      rounding: 'none',
+      formula: 'STR / const.bonus_divider',
+    },
+  ],
   specialitySkills: [],
   combatSkills: [],
   materials: [],
@@ -173,7 +195,9 @@ describe('useConstantManager', () => {
 
     // TICKET-REF-01: the id is the identity, the spelling is display data
     expect(constants().find((constant) => constant.id === 'div-id')?.name).toBe('bonus_scale');
-    expect(useConfigStore.getState().config?.stats[0].formula).toBe('STR / const.bonus_scale');
+    expect(
+      useConfigStore.getState().config?.stats.find((candidate) => candidate.formula)?.formula
+    ).toBe('STR / const.bonus_scale');
   });
 
   it('should refuse an identifier a formula could not spell, and keep the dialog open', async () => {

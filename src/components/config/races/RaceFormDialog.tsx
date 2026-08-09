@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import type { MainSkill, SkillModifier } from '../../../types';
+import type { SkillModifier, Stat } from '../../../types';
 import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
@@ -26,7 +26,7 @@ interface RaceFormDialogProps {
   isOpen: boolean;
   isEditing: boolean;
   form: UseFormReturn<RaceFormData>;
-  availableMainSkills: MainSkill[];
+  availableStats: Stat[];
   onClose: () => void;
   onSave: () => void;
 }
@@ -35,7 +35,7 @@ export function RaceFormDialog({
   isOpen,
   isEditing,
   form,
-  availableMainSkills,
+  availableStats,
   onClose,
   onSave,
 }: RaceFormDialogProps) {
@@ -51,8 +51,8 @@ export function RaceFormDialog({
   const [modifierValue, setModifierValue] = useState(0);
 
   // Get available skills that haven't been added yet
-  const availableSkills = availableMainSkills.filter(
-    (skill) => !skillModifiers.some((m) => m.skillCode === skill.code)
+  const availableSkills = availableStats.filter(
+    (stat) => !skillModifiers.some((m) => m.skillCode === stat.abbreviation)
   );
 
   const handleAddModifier = () => {
@@ -80,7 +80,7 @@ export function RaceFormDialog({
 
   // Get skill name from code
   const getSkillName = (code: string) => {
-    const skill = availableMainSkills.find((s) => s.code === code);
+    const skill = availableStats.find((s) => s.abbreviation === code);
     return skill ? skill.name : code;
   };
 
@@ -117,9 +117,9 @@ export function RaceFormDialog({
                   onChange={(e) => setSelectedSkillCode(e.target.value)}
                   options={[
                     { value: '', label: 'Select skill...' },
-                    ...availableSkills.map((skill) => ({
-                      value: skill.code,
-                      label: `${skill.name} (${skill.code})`,
+                    ...availableSkills.map((stat) => ({
+                      value: stat.abbreviation,
+                      label: `${stat.name} (${stat.abbreviation})`,
                     })),
                   ]}
                   className="flex-1"

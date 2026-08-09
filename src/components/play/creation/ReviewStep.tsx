@@ -79,19 +79,6 @@ export function ReviewStep({
       <div className="grid gap-4 sm:grid-cols-2">
         <Card className="p-6">
           <Text variant="h5" as="h3" className="mb-3">
-            Main Skills
-          </Text>
-          {config.mainSkills.map((skill) => (
-            <SummaryRow
-              key={skill.code}
-              label={`${skill.name} (${skill.code})`}
-              value={preview.totalMainSkillLevels[skill.code] ?? 0}
-            />
-          ))}
-        </Card>
-
-        <Card className="p-6">
-          <Text variant="h5" as="h3" className="mb-3">
             Stats
           </Text>
           {config.stats.length === 0 ? (
@@ -100,11 +87,18 @@ export function ReviewStep({
             config.stats.map((stat) => (
               <SummaryRow
                 key={stat.id}
-                label={stat.name}
-                value={numberOr(preview.maxStatValues[stat.id], 0)}
+                label={`${stat.name} (${stat.abbreviation})`}
+                value={numberOr(preview.statValues[stat.id], 0)}
               />
             ))
           )}
+        </Card>
+
+        <Card className="p-6">
+          <Text variant="h5" as="h3" className="mb-3">
+            Total
+          </Text>
+          <SummaryRow label="Stat total" value={preview.statTotal} />
         </Card>
 
         {config.specialitySkills.length > 0 && (

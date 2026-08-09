@@ -73,9 +73,29 @@ export function saveConfiguration(config: Configuration): void {
 }
 
 /**
+ * A stored ruleset written before the unified stat model (TICKET-STAT-01)
+ *
+ * Thrown rather than converted: v1's focus stat, spend-derived level and speciality base levels
+ * have no faithful mapping into the v2 shape, so a silent conversion would invent a ruleset
+ * nobody authored. TICKET-IO-03 turns this into the notice the User actually sees; this exists so
+ * that until it does, a v1 browser gets a named refusal rather than a `TypeError` from the first
+ * field that isn't there.
+ */
+export class StorageSchemaError extends StorageError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'StorageSchemaError';
+  }
+}
+
+/** The persisted shape this build reads; anything else is refused rather than converted */
+const SUPPORTED_SCHEMA_VERSION = 2;
+
+/**
  * Load configuration from LocalStorage
  *
  * @returns Configuration object or null if not found
+ * @throws {StorageSchemaError} When the stored ruleset predates the unified stat model
  * @throws {StorageParseError} When stored data is invalid JSON
  * @throws {StorageError} When retrieval fails
  */
@@ -87,8 +107,18 @@ export function loadConfiguration(): Configuration | null {
     }
 
     const config = JSON.parse(serialized) as Configuration;
+    if (config.schemaVersion !== SUPPORTED_SCHEMA_VERSION) {
+      throw new StorageSchemaError(
+        'This saved ruleset was written by an older version of the app and cannot be opened. ' +
+          'Export it from that version, or start a new ruleset.'
+      );
+    }
+
     return toDisplayConfiguration(ensureReferenceIds(config, () => crypto.randomUUID()));
   } catch (error) {
+    if (error instanceof StorageSchemaError) {
+      throw error;
+    }
     if (error instanceof SyntaxError) {
       throw new StorageParseError('Configuration data is corrupted', error);
     }
@@ -129,7 +159,16 @@ export function loadCharacters(): Character[] {
     }
 
     const characters = JSON.parse(serialized) as Character[];
-    return Array.isArray(characters) ? characters : [];
+    if (!Array.isArray(characters)) return [];
+
+    // A character written before TICKET-STAT-01 has no `investedStatPoints` at all, and every
+    // read of it would be a crash rather than a number. Dropped rather than converted, for the
+    // same reason the configuration is refused: v1 allocations have nowhere faithful to go.
+    return characters.filter(
+      (character) =>
+        character?.investedStatPoints !== undefined &&
+        character?.currentResourceValues !== undefined
+    );
   } catch (error) {
     if (error instanceof SyntaxError) {
       throw new StorageParseError('Character data is corrupted', error);

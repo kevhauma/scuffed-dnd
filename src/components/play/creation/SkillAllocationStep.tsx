@@ -4,26 +4,26 @@
  * Allocates a level per main skill within the configured point budget, showing each skill's
  * racial modifier separately from the allocated base, and the base level per speciality skill.
  *
- * The budget arithmetic comes from `validateMainSkillAllocation`; nothing is re-summed here.
+ * The budget arithmetic comes from `validateStatAllocation`; nothing is re-summed here.
  *
  * **Validates: Requirements 11.3, 8.4, 21.1-21.5**
  */
 
-import type { MainSkillAllocationResult } from '../../../engine/skillAllocation';
-import type { MainSkill, SpecialitySkill } from '../../../types/config';
+import type { StatAllocationResult } from '../../../engine/skillAllocation';
+import type { SpecialitySkill, Stat } from '../../../types/config';
 import { Card } from '../../ui/Card/Card';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
 
 export interface SkillAllocationStepProps {
-  mainSkills: MainSkill[];
+  investableStats: Stat[];
   specialitySkills: SpecialitySkill[];
-  mainSkillLevels: Record<string, number>;
+  investedStatPoints: Record<string, number>;
   specialitySkillBaseLevels: Record<string, number>;
   racialModifiers: Record<string, number>;
-  allocation: MainSkillAllocationResult | null;
-  onChangeMainSkillLevel: (code: string, level: number) => void;
+  allocation: StatAllocationResult | null;
+  onChangeInvestedStatPoints: (statId: string, points: number) => void;
   onChangeSpecialityBaseLevel: (code: string, level: number) => void;
 }
 
@@ -34,13 +34,13 @@ function toLevel(value: string): number {
 }
 
 export function SkillAllocationStep({
-  mainSkills,
+  investableStats,
   specialitySkills,
-  mainSkillLevels,
+  investedStatPoints,
   specialitySkillBaseLevels,
   racialModifiers,
   allocation,
-  onChangeMainSkillLevel,
+  onChangeInvestedStatPoints,
   onChangeSpecialityBaseLevel,
 }: SkillAllocationStepProps) {
   return (
@@ -63,33 +63,31 @@ export function SkillAllocationStep({
           )}
         </div>
 
-        {mainSkills.length === 0 ? (
-          <Text variant="body-small-secondary">This ruleset defines no main skills.</Text>
+        {investableStats.length === 0 ? (
+          <Text variant="body-small-secondary">This ruleset defines no invested stats.</Text>
         ) : (
           <div className="space-y-3">
-            {mainSkills.map((skill) => {
-              const allocated = mainSkillLevels[skill.code] ?? 0;
-              const racial = racialModifiers[skill.code] ?? 0;
+            {investableStats.map((stat) => {
+              const allocated = investedStatPoints[stat.id] ?? 0;
+              const racial = racialModifiers[stat.abbreviation] ?? 0;
 
               return (
-                <div key={skill.code} className="flex flex-wrap items-center gap-3">
-                  <Label htmlFor={`main-${skill.code}`} className="w-40 shrink-0">
-                    {skill.name} ({skill.code})
+                <div key={stat.id} className="flex flex-wrap items-center gap-3">
+                  <Label htmlFor={`stat-${stat.id}`} className="w-40 shrink-0">
+                    {stat.name} ({stat.abbreviation})
                   </Label>
                   <Input
-                    id={`main-${skill.code}`}
+                    id={`stat-${stat.id}`}
                     type="number"
                     min="0"
-                    max={skill.maxLevel}
                     value={allocated}
                     onChange={(event) =>
-                      onChangeMainSkillLevel(skill.code, toLevel(event.target.value))
+                      onChangeInvestedStatPoints(stat.id, toLevel(event.target.value))
                     }
-                    error={allocated > skill.maxLevel || allocated < 0}
+                    error={allocated < 0}
                     className="w-24"
                   />
                   <Text variant="body-small-secondary" as="span">
-                    max {skill.maxLevel}
                     {racial !== 0 && (
                       <>
                         {' · '}

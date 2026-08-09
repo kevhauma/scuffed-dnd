@@ -16,14 +16,14 @@ describe('calculateSpecialitySkillLevels', () => {
       name: 'Test Character',
       configurationId: 'config1',
       raceIds: [],
-      mainSkillLevels: {
+      investedStatPoints: {
         STR: 10,
         DEX: 8,
       },
       specialitySkillBaseLevels: {
         MEL: 5, // Melee base level
       },
-      currentStatValues: {},
+      currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
@@ -33,11 +33,29 @@ describe('calculateSpecialitySkillLevels', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'DEX',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
       ],
-      stats: [],
       specialitySkills: [
         {
           id: 'MEL',
@@ -78,7 +96,7 @@ describe('calculateSpecialitySkillLevels', () => {
       name: 'Test Character',
       configurationId: 'config1',
       raceIds: [],
-      mainSkillLevels: {
+      investedStatPoints: {
         STR: 10,
         DEX: 8,
       },
@@ -86,7 +104,7 @@ describe('calculateSpecialitySkillLevels', () => {
         MEL: 5,
       },
       focusStatCode: 'MEL', // MEL is the focus stat
-      currentStatValues: {},
+      currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
@@ -96,11 +114,29 @@ describe('calculateSpecialitySkillLevels', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'DEX',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
       ],
-      stats: [],
       specialitySkills: [
         {
           id: 'MEL',
@@ -141,7 +177,7 @@ describe('calculateSpecialitySkillLevels', () => {
       name: 'Test Character',
       configurationId: 'config1',
       raceIds: [],
-      mainSkillLevels: {
+      investedStatPoints: {
         STR: 10,
         DEX: 8,
       },
@@ -150,7 +186,7 @@ describe('calculateSpecialitySkillLevels', () => {
         RNG: 3,
       },
       focusStatCode: 'RNG', // RNG is the focus stat, not MEL
-      currentStatValues: {},
+      currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
@@ -160,11 +196,29 @@ describe('calculateSpecialitySkillLevels', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'DEX',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
       ],
-      stats: [],
       specialitySkills: [
         {
           id: 'MEL',
@@ -214,11 +268,11 @@ describe('calculateSpecialitySkillLevels', () => {
       name: 'Test Character',
       configurationId: 'config1',
       raceIds: [],
-      mainSkillLevels: {
+      investedStatPoints: {
         STR: 10,
       },
       specialitySkillBaseLevels: {}, // No base levels set
-      currentStatValues: {},
+      currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
@@ -228,8 +282,19 @@ describe('calculateSpecialitySkillLevels', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
-      stats: [],
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+      ],
       specialitySkills: [
         {
           id: 'MEL',
@@ -269,7 +334,7 @@ describe('calculateSpecialitySkillLevels', () => {
       name: 'Test Character',
       configurationId: 'config1',
       raceIds: [],
-      mainSkillLevels: {
+      investedStatPoints: {
         STR: 10,
         DEX: 8,
         INT: 12,
@@ -279,7 +344,7 @@ describe('calculateSpecialitySkillLevels', () => {
         RNG: 3,
         MAG: 7,
       },
-      currentStatValues: {},
+      currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
@@ -289,12 +354,39 @@ describe('calculateSpecialitySkillLevels', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-        { id: 'INT', code: 'INT', name: 'Intelligence', description: '', maxLevel: 20 },
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'DEX',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'INT',
+          name: 'Intelligence',
+          abbreviation: 'INT',
+          description: '',
+          order: 2,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
       ],
-      stats: [],
       specialitySkills: [
         {
           id: 'MEL',
@@ -354,14 +446,14 @@ describe('calculateSpecialitySkillLevels', () => {
       name: 'Test Character',
       configurationId: 'config1',
       raceIds: [],
-      mainSkillLevels: {
+      investedStatPoints: {
         STR: 10,
         DEX: 8,
       },
       specialitySkillBaseLevels: {
         MEL: 5,
       },
-      currentStatValues: {},
+      currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
@@ -371,11 +463,29 @@ describe('calculateSpecialitySkillLevels', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'DEX',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
       ],
-      stats: [],
       specialitySkills: [
         {
           id: 'MEL',
@@ -417,13 +527,13 @@ describe('calculateSpecialitySkillLevels', () => {
       name: 'Test Character',
       configurationId: 'config1',
       raceIds: [],
-      mainSkillLevels: {
+      investedStatPoints: {
         STR: 10,
       },
       specialitySkillBaseLevels: {
         MEL: 5,
       },
-      currentStatValues: {},
+      currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
@@ -433,8 +543,19 @@ describe('calculateSpecialitySkillLevels', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
-      stats: [],
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+      ],
       specialitySkills: [
         {
           id: 'MEL',
@@ -475,13 +596,13 @@ describe('calculateSpecialitySkillLevels', () => {
       name: 'Test Character',
       configurationId: 'config1',
       raceIds: [],
-      mainSkillLevels: {
+      investedStatPoints: {
         STR: 10,
       },
       specialitySkillBaseLevels: {
         MEL: 5,
       },
-      currentStatValues: {},
+      currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
@@ -491,8 +612,19 @@ describe('calculateSpecialitySkillLevels', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
-      stats: [],
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+      ],
       specialitySkills: [
         {
           id: 'MEL',
@@ -533,9 +665,9 @@ describe('calculateSpecialitySkillLevels', () => {
       name: 'Test Character',
       configurationId: 'config1',
       raceIds: [],
-      mainSkillLevels: { STR: 10, DEX: 8 },
+      investedStatPoints: { STR: 10, DEX: 8 },
       specialitySkillBaseLevels: { STL: 5 },
-      currentStatValues: {},
+      currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
@@ -545,11 +677,29 @@ describe('calculateSpecialitySkillLevels', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'DEX',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
       ],
-      stats: [],
       specialitySkills: [
         {
           id: 'STL',

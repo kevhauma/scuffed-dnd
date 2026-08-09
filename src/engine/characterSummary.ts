@@ -21,7 +21,7 @@ import type { Character, CharacterSummary } from '../types/character';
  * @returns The character's level, `0` for an unallocated character
  */
 export function calculateCharacterLevel(character: Character): number {
-  return Object.values(character.mainSkillLevels).reduce((sum, level) => sum + level, 0);
+  return Object.values(character.investedStatPoints).reduce((sum, points) => sum + points, 0);
 }
 
 /**

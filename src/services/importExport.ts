@@ -282,7 +282,6 @@ export function validateConfiguration(data: unknown): ValidationResult {
 
   // Required array fields
   const requiredArrays = [
-    'mainSkills',
     'stats',
     'specialitySkills',
     'combatSkills',
@@ -300,27 +299,8 @@ export function validateConfiguration(data: unknown): ValidationResult {
     }
   }
 
-  // Validate main skills structure
-  if (Array.isArray(config.mainSkills)) {
-    config.mainSkills.forEach((skill: unknown, index: number) => {
-      if (!skill || typeof skill !== 'object') {
-        errors.push(`mainSkills[${index}] must be an object`);
-        return;
-      }
-      const s = skill as Record<string, unknown>;
-      if (typeof s.code !== 'string' || s.code.length !== 3) {
-        errors.push(`mainSkills[${index}].code must be a 3-letter string`);
-      }
-      if (typeof s.name !== 'string') {
-        errors.push(`mainSkills[${index}].name must be a string`);
-      }
-      if (typeof s.maxLevel !== 'number') {
-        errors.push(`mainSkills[${index}].maxLevel must be a number`);
-      }
-    });
-  }
-
   // Validate stats structure
+  const seenAbbreviations = new Set<string>();
   if (Array.isArray(config.stats)) {
     config.stats.forEach((stat: unknown, index: number) => {
       if (!stat || typeof stat !== 'object') {
@@ -334,8 +314,30 @@ export function validateConfiguration(data: unknown): ValidationResult {
       if (typeof s.name !== 'string') {
         errors.push(`stats[${index}].name must be a string`);
       }
-      if (typeof s.formula !== 'string') {
-        errors.push(`stats[${index}].formula must be a string`);
+      // An abbreviation is a formula spelling in the flat space shared with the skill codes
+      // (TICKET-STAT-01), so it has to be identifier-shaped and unique against every one of them
+      if (typeof s.abbreviation !== 'string' || !/^[A-Z][A-Z0-9_]*$/.test(s.abbreviation)) {
+        errors.push(`stats[${index}].abbreviation must be an uppercase identifier`);
+      } else if (seenAbbreviations.has(s.abbreviation)) {
+        errors.push(`stats[${index}].abbreviation must be unique`);
+      } else {
+        seenAbbreviations.add(s.abbreviation);
+      }
+      if (typeof s.order !== 'number') {
+        errors.push(`stats[${index}].order must be a number`);
+      }
+      if (typeof s.countsTowardTotal !== 'boolean') {
+        errors.push(`stats[${index}].countsTowardTotal must be a boolean`);
+      }
+      if (typeof s.isResource !== 'boolean') {
+        errors.push(`stats[${index}].isResource must be a boolean`);
+      }
+      // Absent is the invested case; present makes the stat derived
+      if (s.formula !== undefined && typeof s.formula !== 'string') {
+        errors.push(`stats[${index}].formula must be a string when present`);
+      }
+      if (!['none', 'nearest', 'up', 'down'].includes(s.rounding as string)) {
+        errors.push(`stats[${index}].rounding must be one of: none, nearest, up, down`);
       }
     });
   }

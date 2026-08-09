@@ -8,7 +8,6 @@
 
 import { createFileRoute } from '@tanstack/react-router';
 import { CombatSkillsPanel } from '../../components/config/skills/combat/CombatSkillsPanel';
-import { MainSkillsPanel } from '../../components/config/skills/main/MainSkillsPanel';
 import { SpecialitySkillsPanel } from '../../components/config/skills/speciality/SpecialitySkillsPanel';
 
 export const Route = createFileRoute('/config/skills')({
@@ -19,7 +18,6 @@ export const Route = createFileRoute('/config/skills')({
 export function SkillsConfig() {
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8">
-      <MainSkillsPanel />
       <SpecialitySkillsPanel />
       <CombatSkillsPanel />
     </div>

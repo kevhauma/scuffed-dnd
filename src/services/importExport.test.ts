@@ -30,11 +30,40 @@ describe('Import/Export Service', () => {
       id: 'test-config',
       name: 'Test Config',
       version: '1.0.0',
-      mainSkills: [
-        { id: 'STR', code: 'STR', name: 'Strength', description: 'Physical power', maxLevel: 10 },
-        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: 'Agility', maxLevel: 10 },
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: 'Physical power',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'DEX',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: 'Agility',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'health',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: 'Hit points',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: true,
+          rounding: 'none',
+          formula: 'STR * 10',
+        },
       ],
-      stats: [{ id: 'health', name: 'Health', description: 'Hit points', formula: 'STR * 10' }],
       specialitySkills: [
         {
           id: 'MEL',
@@ -88,7 +117,9 @@ describe('Import/Export Service', () => {
           // Everything but the formulas is carried through untouched…
           expect(parsed).toEqual({
             ...validConfig,
-            stats: [{ ...validConfig.stats[0], formula: '[STR] * 10' }],
+            stats: validConfig.stats.map((stat) =>
+              stat.formula ? { ...stat, formula: '[STR] * 10' } : stat
+            ),
             specialitySkills: [
               { ...validConfig.specialitySkills[0], bonusFormula: '[STR] + [DEX]' },
             ],
@@ -202,33 +233,31 @@ describe('Import/Export Service', () => {
     });
 
     it('should validate required array fields', () => {
-      const invalid = { ...validConfig, mainSkills: 'not an array' };
+      const invalid = { ...validConfig, stats: 'not an array' };
       const result = validateConfiguration(invalid);
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e) => e.includes('mainSkills'))).toBe(true);
-    });
-
-    it('should validate main skill structure', () => {
-      const invalid = {
-        ...validConfig,
-        mainSkills: [{ code: 'TOOLONG', name: 'Invalid', maxLevel: 10 }],
-      };
-      const result = validateConfiguration(invalid);
-
-      expect(result.isValid).toBe(false);
-      expect(result.errors.some((e) => e.includes('3-letter'))).toBe(true);
+      expect(result.errors.some((e) => e.includes('stats'))).toBe(true);
     });
 
     it('should validate stat structure', () => {
+      // Missing everything the unified stat requires (TICKET-STAT-01) — a formula is *not*
+      // among them, since an invested stat has none
       const invalid = {
         ...validConfig,
-        stats: [{ id: 'test', name: 'Test' }], // Missing formula
+        stats: [{ id: 'test', name: 'Test' }],
       };
       const result = validateConfiguration(invalid);
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e) => e.includes('formula'))).toBe(true);
+      expect(result.errors.some((e) => e.includes('abbreviation'))).toBe(true);
+      expect(result.errors.some((e) => e.includes('rounding'))).toBe(true);
+    });
+
+    it('should accept a stat with no formula — that is what makes it invested', () => {
+      const result = validateConfiguration(validConfig);
+
+      expect(result.isValid).toBe(true);
     });
 
     it('should validate speciality skill structure', () => {
@@ -420,7 +449,17 @@ describe('Import/Export Service', () => {
         },
       ],
       stats: [
-        { id: 'health', name: 'Health', description: '', formula: '10 / const.bonus_divider' },
+        {
+          id: 'health',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: true,
+          rounding: 'none',
+          formula: '10 / const.bonus_divider',
+        },
       ],
     });
 
@@ -429,7 +468,10 @@ describe('Import/Export Service', () => {
       const exported = exportedText(config);
 
       // The persisted formula points at the constant's id…
-      expect((JSON.parse(exported) as Configuration).stats[0].formula).toBe('10 / const.[id-div]');
+      expect(
+        (JSON.parse(exported) as Configuration).stats.find((candidate) => candidate.formula)
+          ?.formula
+      ).toBe('10 / const.[id-div]');
       // …and comes back spelled by name, with the constant itself intact
       expect(importConfiguration(exported)).toEqual(config);
     });
@@ -482,7 +524,17 @@ describe('Import/Export Service', () => {
         },
       ],
       stats: [
-        { id: 'health', name: 'Health', description: '', formula: 'curve.xp_thresholds(10)' },
+        {
+          id: 'health',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: true,
+          rounding: 'none',
+          formula: 'curve.xp_thresholds(10)',
+        },
       ],
     });
 
@@ -491,7 +543,10 @@ describe('Import/Export Service', () => {
       const exported = exportedText(config);
 
       // The persisted formula points at the curve's id…
-      expect((JSON.parse(exported) as Configuration).stats[0].formula).toBe('curve.[id-xp](10)');
+      expect(
+        (JSON.parse(exported) as Configuration).stats.find((candidate) => candidate.formula)
+          ?.formula
+      ).toBe('curve.[id-xp](10)');
       // …and comes back spelled by name, with the table intact
       expect(importConfiguration(exported)).toEqual(config);
     });

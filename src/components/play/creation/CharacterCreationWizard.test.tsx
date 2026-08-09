@@ -31,11 +31,40 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    mainSkills: [
-      { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 10 },
+    schemaVersion: 2,
+    stats: [
+      {
+        id: 'STR',
+        name: 'Strength',
+        abbreviation: 'STR',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'DEX',
+        name: 'Dexterity',
+        abbreviation: 'DEX',
+        description: '',
+        order: 1,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'health',
+        name: 'Health',
+        abbreviation: 'HEA',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: true,
+        rounding: 'none',
+        formula: 'STR * 10',
+      },
     ],
-    stats: [{ id: 'health', name: 'Health', description: '', formula: 'STR * 10' }],
     specialitySkills: [
       {
         id: 'STL',
@@ -149,13 +178,15 @@ describe('CharacterCreationWizard', () => {
     expect(screen.getByText(/total 5/)).toBeDefined();
   });
 
-  it('should block progress when a skill exceeds its max level', () => {
+  it('should block progress on a negative allocation', () => {
+    // Replaces the old per-skill max-level rule, which retired with `MainSkill` — the unified
+    // stat clamps its *value*, not what may be invested in it (TICKET-STAT-01)
     render(<CharacterCreationWizard />);
 
     toSkillsStep();
-    fireEvent.change(screen.getByLabelText(/Strength \(STR\)/), { target: { value: '11' } });
+    fireEvent.change(screen.getByLabelText(/Strength \(STR\)/), { target: { value: '-1' } });
 
-    expect(screen.getByText(/Strength cannot go above 10/)).toBeDefined();
+    expect(screen.getByText(/Strength cannot go below 0/)).toBeDefined();
     expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', true);
   });
 
@@ -212,9 +243,9 @@ describe('CharacterCreationWizard', () => {
         name: 'Aria',
         configurationId: 'config1',
         raceIds: ['elf'],
-        mainSkillLevels: { STR: 5, DEX: 0 },
+        investedStatPoints: { STR: 5, DEX: 0 },
         specialitySkillBaseLevels: { STL: 1 },
-        currentStatValues: {},
+        currentResourceValues: {},
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '',
         updatedAt: '',
@@ -226,12 +257,12 @@ describe('CharacterCreationWizard', () => {
     const rowValue = (label: string) => screen.getByText(label).parentElement?.textContent ?? '';
 
     expect(screen.getByText('Aria')).toBeDefined();
-    expect(rowValue('Health')).toBe(`Health${expected.maxStatValues.health}`);
+    expect(rowValue('Health (HEA)')).toBe(`Health (HEA)${expected.statValues.health}`);
     expect(rowValue('Stealth (STL)')).toBe(
       `Stealth (STL)${expected.specialitySkillTotalLevels.STL}`
     );
     expect(rowValue('Melee (MEL)')).toBe(`Melee (MEL)${expected.combatSkillBonuses.MEL}`);
-    expect(rowValue('Dexterity (DEX)')).toBe(`Dexterity (DEX)${expected.totalMainSkillLevels.DEX}`);
+    expect(rowValue('Dexterity (DEX)')).toBe(`Dexterity (DEX)${expected.statValues.DEX}`);
   });
 
   it('should preview numbers on review before anything is allocated (TICKET-CALC-02)', () => {
@@ -250,7 +281,7 @@ describe('CharacterCreationWizard', () => {
     const rowValue = (label: string) => screen.getByText(label).parentElement?.textContent ?? '';
 
     expect(rowValue('Strength (STR)')).toBe('Strength (STR)0');
-    expect(rowValue('Health')).toBe('Health0'); // STR 0 * 10
+    expect(rowValue('Health (HEA)')).toBe('Health (HEA)0'); // STR 0 * 10
     expect(rowValue('Melee (MEL)')).toBe('Melee (MEL)0'); // STR 0 + STL 0
   });
 
@@ -272,7 +303,7 @@ describe('CharacterCreationWizard', () => {
     expect(characters[0]).toMatchObject({
       name: 'Aria',
       raceIds: ['elf'],
-      mainSkillLevels: { STR: 5 },
+      investedStatPoints: { STR: 5 },
       focusStatCode: 'STR',
       configurationId: 'config1',
     });

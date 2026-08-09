@@ -51,9 +51,11 @@ function dependenciesAfterChange(
   const replacedId = change.previousId ?? change.id;
 
   const dependencies: FormulaDependency[] = [
+    // An invested stat has no formula, so it is no edge in the dependency graph (TICKET-STAT-01)
     ...config.stats
+      .filter((stat) => stat.formula !== undefined)
       .filter((stat) => !(change.owner === 'stat' && stat.id === replacedId))
-      .map((stat) => toFormulaDependency(stat.id, stat.formula)),
+      .map((stat) => toFormulaDependency(stat.id, stat.formula as string)),
     ...config.specialitySkills
       .filter((skill) => !(change.owner === 'speciality-skill' && skill.code === replacedId))
       .map((skill) => toFormulaDependency(skill.code, skill.bonusFormula)),

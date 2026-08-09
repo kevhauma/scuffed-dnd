@@ -30,7 +30,6 @@ export type ReferenceTargetKind =
   | 'constant'
   | 'curve'
   | 'curve-column'
-  | 'main-skill'
   | 'speciality-skill'
   | 'combat-skill'
   | 'stat'
@@ -129,15 +128,18 @@ function namesMember(namespace: string, member: string): ReferenceMatcher {
  */
 function formulaSources(config: Configuration): { reference: EntityReference; formula: string }[] {
   return [
-    ...config.stats.map((stat) => ({
-      reference: {
-        holderKind: 'Stat',
-        holderName: stat.name,
-        field: 'formula',
-        holderId: stat.id,
-      },
-      formula: stat.formula,
-    })),
+    // Only derived stats carry a formula; an invested one names nothing (TICKET-STAT-01)
+    ...config.stats
+      .filter((stat) => stat.formula !== undefined)
+      .map((stat) => ({
+        reference: {
+          holderKind: 'Stat',
+          holderName: stat.name,
+          field: 'formula',
+          holderId: stat.id,
+        },
+        formula: stat.formula as string,
+      })),
     ...config.specialitySkills.map((skill) => ({
       reference: {
         holderKind: 'Speciality Skill',
@@ -232,10 +234,7 @@ function modifierReferences(config: Configuration, code: string): EntityReferenc
 function characterSkillReferences(characters: Character[], code: string): EntityReference[] {
   return characters
     .filter(
-      (character) =>
-        code in character.mainSkillLevels ||
-        code in character.specialitySkillBaseLevels ||
-        character.focusStatCode === code
+      (character) => code in character.specialitySkillBaseLevels || character.focusStatCode === code
     )
     .map((character) => ({
       holderKind: 'Character',
@@ -271,20 +270,35 @@ function statReferences(
   id: string
 ): EntityReference[] {
   const stat = config.stats.find((candidate) => candidate.id === id);
+
+  // A stat is spelled two ways since TICKET-STAT-01 — `STR` in the flat space and
+  // `stats.strength` in the dotted one — and a delete has to be guarded against both, or the
+  // half the walker does not know about becomes an undefined variable without warning.
   const formulas = stat
-    ? formulaReferences(config, namesMember('stats', statMemberName(stat)), id)
+    ? formulaReferences(
+        config,
+        (formula) =>
+          namesMember('stats', statMemberName(stat))(formula) ||
+          namesSkill(stat.abbreviation.toUpperCase())(formula),
+        id
+      )
     : [];
 
+  // Races and materials still target a stat by abbreviation (TICKET-STAT-01's bridge)
+  const modifiers = stat ? modifierReferences(config, stat.abbreviation) : [];
+
   const players = characters
-    .filter((character) => id in character.currentStatValues)
+    .filter(
+      (character) => id in character.currentResourceValues || id in character.investedStatPoints
+    )
     .map((character) => ({
       holderKind: 'Character',
       holderName: character.name,
-      field: 'currentStatValues',
+      field: 'stat values',
       holderId: character.id,
     }));
 
-  return [...formulas, ...players];
+  return [...formulas, ...modifiers, ...players];
 }
 
 /** Everything pointing at an item */
@@ -344,7 +358,6 @@ export function findReferences(
   characters: Character[] = []
 ): EntityReference[] {
   switch (target.kind) {
-    case 'main-skill':
     case 'speciality-skill':
     case 'combat-skill':
       return skillReferences(config, characters, target.id);

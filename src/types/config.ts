@@ -12,7 +12,15 @@ export interface Configuration {
   id: string;
   name: string;
   version: string;
-  mainSkills: MainSkill[];
+  /**
+   * Which persisted shape this is (TICKET-STAT-01).
+   *
+   * `2` is the unified-stat shape. v1 files have no `schemaVersion` at all, which is exactly how
+   * they are recognised and refused — the two shapes have no faithful mapping between them
+   * (a v1 character's focus stat, spend-derived level and speciality base levels have nowhere to
+   * go), so they are rejected with a notice rather than converted. TICKET-IO-03 owns that UX.
+   */
+  schemaVersion: 2;
   stats: Stat[];
   specialitySkills: SpecialitySkill[];
   combatSkills: CombatSkill[];
@@ -49,27 +57,55 @@ export interface Configuration {
 }
 
 /**
- * Main skill - foundational skill with 3-letter code
+ * How a stat's composed value is rounded, after clamping (Concept 01)
  *
- * `id` is the identity (TICKET-REF-01): it never changes and is what a persisted formula stores.
- * `code` is display data the User may rename at will — see `engine/formula/references.ts`.
+ * `none` keeps the fraction, which is what a stat feeding another formula usually wants;
+ * the rest are the three directions a displayed number is taken in.
  */
-export interface MainSkill {
-  id: string; // Stable identity — assigned on creation, never shown, never reused
-  code: string; // 3-letter code (e.g., "STR", "WIS", "CON") — renamable display data
-  name: string;
-  description: string;
-  maxLevel: number;
-}
+export type StatRounding = 'none' | 'nearest' | 'up' | 'down';
 
 /**
- * Stat - derived numeric value calculated from main skills using formulas
+ * Stat — the one numeric axis a ruleset is built from (Concept 01)
+ *
+ * v1 split this in two: `MainSkill` was the thing you invested in, `Stat` the thing derived by
+ * formula, and nothing could be both. The source sheet has nine stats where Mana is *invested and
+ * tracked*, which that split cannot express. So there is one entity now, and the flags say what
+ * each stat does:
+ *
+ * - **invested** — no `formula`; its value is what the Player put into it (plus race and
+ *   equipment). Strength.
+ * - **resource** — invested *and* `isResource`, so the composed value is a **maximum** and the
+ *   character carries a current value against it. Mana.
+ * - **derived** — has a `formula`, so it accepts no investment; its value is computed. APT.
+ *
+ * `id` is the identity (TICKET-REF-01) and everything else is renamable display data.
+ * `abbreviation` is the flat spelling a formula uses (`STR + DEX`); `stats.<name-slug>` reaches
+ * the same stat by the dotted route.
  */
 export interface Stat {
-  id: string;
+  id: string; // Stable identity — assigned on creation, never shown, never reused
   name: string;
+  /** Short spelling used in the flat formula space — `STR`. Renamable display data. */
+  abbreviation: string;
   description: string;
-  formula: string; // e.g., "STR * 10 + CON * 5"
+  /** Display order on the sheet and in the panels; ties fall back to definition order */
+  order: number;
+  /** Whether this stat is part of `statTotal` — the sheet's "how big is this character" number */
+  countsTowardTotal: boolean;
+  /** Whether the composed value is a **maximum** the character spends against (Mana, Health) */
+  isResource: boolean;
+  /**
+   * Makes the stat **derived**: its value is this expression rather than anything invested.
+   *
+   * Absent means invested. Present means the stat accepts no points — the two are mutually
+   * exclusive by construction rather than by a separate flag that could disagree.
+   */
+  formula?: string;
+  /** Floor for the composed value, applied before rounding */
+  min?: number;
+  /** Ceiling for the composed value, applied before rounding */
+  max?: number;
+  rounding: StatRounding;
 }
 
 /**
@@ -135,9 +171,14 @@ export interface MaterialLevel {
 
 /**
  * Skill modifier - bonus or penalty to a skill
+ *
+ * `skillCode` holds a **stat abbreviation** since TICKET-STAT-01 — the flat space it always
+ * pointed into is now populated by stats rather than by main skills. That is the "abbreviation
+ * bridge" the ticket names: it keeps races and materials working through the schema change
+ * without redesigning them, and TICKET-RACE-01 / TICKET-MAT-01 replace it with a stat **id**.
  */
 export interface SkillModifier {
-  skillCode: string; // References Main/Speciality/Combat skill code
+  skillCode: string; // References a stat abbreviation (or a speciality/combat skill code)
   modifier: number; // Positive for bonus, negative for penalty
 }
 

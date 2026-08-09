@@ -34,11 +34,40 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    mainSkills: [
-      { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+    schemaVersion: 2,
+    stats: [
+      {
+        id: 'STR',
+        name: 'Strength',
+        abbreviation: 'STR',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'DEX',
+        name: 'Dexterity',
+        abbreviation: 'DEX',
+        description: '',
+        order: 1,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'health',
+        name: 'Health',
+        abbreviation: 'HEA',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: true,
+        rounding: 'none',
+        formula: 'STR * 10',
+      },
     ],
-    stats: [{ id: 'health', name: 'Health', description: '', formula: 'STR * 10' }],
     specialitySkills: [],
     combatSkills: [],
     materials: [],
@@ -75,7 +104,19 @@ describe('ConfigDashboard', () => {
   it('should show an error count for an invalid configuration without being asked', () => {
     useConfigStore.setState({
       config: createConfig({
-        stats: [{ id: 'health', name: 'Health', description: '', formula: 'NOPE * 10' }],
+        stats: [
+          {
+            id: 'health',
+            name: 'Health',
+            abbreviation: 'HEA',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: true,
+            rounding: 'none',
+            formula: 'NOPE * 10',
+          },
+        ],
       }),
     });
 
@@ -107,7 +148,19 @@ describe('ConfigDashboard', () => {
   it('should report a formula reference to a skill that does not exist', () => {
     useConfigStore.setState({
       config: createConfig({
-        stats: [{ id: 'health', name: 'Health', description: '', formula: 'WIS * 10' }],
+        stats: [
+          {
+            id: 'health',
+            name: 'Health',
+            abbreviation: 'HEA',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: true,
+            rounding: 'none',
+            formula: 'WIS * 10',
+          },
+        ],
       }),
     });
 

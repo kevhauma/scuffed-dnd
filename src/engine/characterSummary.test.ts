@@ -14,9 +14,9 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     name: 'Test Character',
     configurationId: 'config1',
     raceIds: ['elf'],
-    mainSkillLevels: { STR: 4, DEX: 3, CON: 2 },
+    investedStatPoints: { STR: 4, DEX: 3, CON: 2 },
     specialitySkillBaseLevels: {},
-    currentStatValues: {},
+    currentResourceValues: {},
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-02',
@@ -30,7 +30,7 @@ describe('calculateCharacterLevel', () => {
   });
 
   it('should be zero for a character with nothing allocated', () => {
-    expect(calculateCharacterLevel(createCharacter({ mainSkillLevels: {} }))).toBe(0);
+    expect(calculateCharacterLevel(createCharacter({ investedStatPoints: {} }))).toBe(0);
   });
 
   it('should count allocation only, ignoring races and equipment', () => {

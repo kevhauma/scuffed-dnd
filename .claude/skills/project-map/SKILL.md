@@ -37,8 +37,8 @@ rather than a read-only config UI).
 |---|---|---|
 | `/` | `routes/index.tsx` | landing page, feature overview |
 | `/config` | `routes/config/index.tsx` | `ConfigDashboard` (components/config/dashboard/) — validation status, the "Validate Configuration" action, the `ConfigTransferPanel` (rename/export/import), and a card index of the nine sections below |
-| `/config/skills` | `routes/config/skills.tsx` | `MainSkillsPanel` + `SpecialitySkillsPanel` + `CombatSkillsPanel` |
-| `/config/stats` | `routes/config/stats.tsx` | `StatsConfigPanel` |
+| `/config/skills` | `routes/config/skills.tsx` | `SpecialitySkillsPanel` + `CombatSkillsPanel` (main skills merged into stats — TICKET-STAT-01) |
+| `/config/stats` | `routes/config/stats.tsx` | `StatsConfigPanel` — the unified Stat: invested, resource and derived alike, plus `StatPointBudget` |
 | `/config/materials` | `routes/config/materials.tsx` | `MaterialsConfigPanel` |
 | `/config/items` | `routes/config/items.tsx` | `ItemsConfigPanel` + `EquipmentSlotsConfigPanel` |
 | `/config/races` | `routes/config/races.tsx` | `RacesConfigPanel` |
@@ -75,7 +75,7 @@ calls the storage service; components and hooks never persist directly.
 
 | Store | Owns | Persists to |
 |---|---|---|
-| `useConfigStore` | the single `Configuration` — main/speciality/combat skills, stats, materials + categories, items, equipment slots, races, currency tiers, constants, curves, focus-stat bonus level. CRUD action per entity (`addX`/`updateX`/`deleteX`), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
+| `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), speciality and combat skills, materials + categories, items, equipment slots, races, currency tiers, constants, curves, focus-stat bonus level. CRUD action per entity (`addX`/`updateX`/`deleteX`), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`) and `updateCurrentStatValue(s)` | `saveCharacters()` on every mutation |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history | not persisted |
 
@@ -92,7 +92,8 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   a deliberate split, TICKET-FORM-07), parentheses, unary negation, numeric literals,
   function calls `name(arg, …)`, dotted namespaced references (`stats.speed`, `skills.healing.level`,
   `curve.cr(x)`), bracketed id references (`[b1f0…]`, `stats.[b1f0…]` — the persisted form,
-  TICKET-REF-01), and bare variable refs (**deprecated**, removed by TICKET-STAT-01).
+  TICKET-REF-01), and bare variable refs (**deprecated** — the flat space now holds stat
+  abbreviations plus speciality and combat codes; TICKET-SKL-02/ROLL-05 move the last callers off it).
   Identifiers are `[A-Za-z][A-Za-z0-9_]*`. **Full grammar lives in the module JSDoc** — read it
   there rather than restating it. Also exports `tokenizeFormula(src)` — the lexer alone, for
   rewriting reference tokens in place.
@@ -115,13 +116,19 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   `{ variables: Record<code, FormulaResult>; namespaces?: Record<string, NamespaceResolver> }` —
   the flat map serves legacy bare codes, the resolvers serve dotted references. **Callers build
   that map with `namespacesFor(config, owner)`** (TICKET-CRV-01) rather than by hand, so
-  `const.*` and `curve.*(x)` resolve wherever `scoping.ts` allows them; `stats.*` and `skills.*`
-  still evaluate to an `unknown-namespace` error value until STAT-01 wires them — a value, not a
-  throw (TICKET-FORM-05).
+  `const.*`, `curve.*(x)` and `stats.*` resolve wherever `scoping.ts` allows them. `stats.*` needs
+  composed values passed in (`{ stats, statValues }`), since a stat's worth is a property of a
+  character rather than of the ruleset; without them the namespace is simply absent. `skills.*`
+  still evaluates to an `unknown-namespace` error value until TICKET-SKL-02 wires it — a value,
+  not a throw (TICKET-FORM-05).
 - `formula/constants.ts` — `constantsNamespace(constants)` → the `const.*` resolver
-  (TICKET-CST-01). **The exemplar `NamespaceResolver` to copy** for STAT-01: resolution is by
+  (TICKET-CST-01). **The exemplar `NamespaceResolver` to copy**: resolution is by
   display name, the stored formula holds the id, and an unknown member or a property access comes
   back as a distinct error value rather than a zero.
+- `formula/stats.ts` — `statsNamespace(stats, values)` → the `stats.*` resolver (TICKET-STAT-01).
+  Resolution is by the stat's **name slug**, not its abbreviation; a stat with no value *yet* comes
+  back as a `not-evaluable` error rather than as absent, which is what lets the composition decide
+  whether another pass is worth running.
 - `formula/curves.ts` — `lookupCurve(curve, input, column?)` and `curvesNamespace(curves)` → the
   `curve.*(x)` resolver (TICKET-CRV-01). The **callable** resolver exemplar: `NamespaceResolver`
   has an optional `call(member, args, property)`, and a curve is callable-only (reading one
@@ -148,21 +155,24 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   three formula-owning `useXManager` hooks call before writing to the store. It validates the
   configuration *as it would be after the save* (syntax → cycles → undefined codes) and reuses the
   validator's detector rather than adding a second one. Reference scope per kind lives here:
-  stats and speciality skills may name main skill codes, combat skills may also name speciality
-  codes — which makes the graph a DAG and means a multi-formula cycle can only arrive by import.
-- `calculators/mainSkillCalculator.ts` — `calculateTotalMainSkillLevels` (base + racial + equipment
-  + focus, the last three via an options argument) and `calculateRacialSkillModifiers` (the racial
-  contribution on its own, for display).
-- `calculators/statCalculator.ts` — `calculateMaxStatValues` (stat formulas over total main skills).
+  stats and speciality skills may name stat abbreviations, combat skills may also name speciality
+  codes. A stat may now name another stat, so that graph is no longer a DAG by construction —
+  `calculateStatValues` resolves in passes and reports a cycle as error values.
+- `calculators/statCalculator.ts` — **the composition calculator** (TICKET-STAT-01):
+  `calculateStatValues(stats, character, options)` answers "what is this stat worth" for all three
+  kinds — invested (`race base + points + racial + equipment`), resource (the same sum, read as a
+  maximum) and derived (its formula) — then clamps to `min`/`max` and rounds. Plus
+  `calculateStatTotal`, `statVariables` (the flat map keyed by abbreviation, for the downstream
+  formulas) and `calculateRacialSkillModifiers` (the racial contribution on its own, for display).
 - `calculators/specialitySkillCalculator.ts` — `calculateSpecialitySkillLevels` (base + formula bonus + equipment + focus bonus).
 - `calculators/combatSkillCalculator.ts` — `calculateCombatSkillBonuses` (formula + equipment bonuses).
 - `calculators/equipmentBonusCalculator.ts` — `calculateEquipmentBonuses` (aggregates equipped items' material bonuses) and `indexSkillModifiers(modifiers)` → `Record<skillCode, number>` (any `SkillModifier[]` as a per-code lookup, for showing a skill's equipment contribution on its own).
 - `calculator.ts` — re-exports the calculators, plus **`calculateCharacter(character, config):
-  CalculatedCharacter`**, the single composed entry point (equipment → main skills → stats →
-  speciality → combat, in that order). Call it for any derived number; don't compose the
-  calculators by hand. `calculateCharacterStats()` remains as a thin documented wrapper returning
-  just `.maxStatValues`. Each equipment bonus is claimed by exactly one step, since skill codes are
-  unique across main/speciality/combat.
+  CalculatedCharacter`**, the single composed entry point (equipment → stats → speciality →
+  combat, in that order). Call it for any derived number; don't compose the calculators by hand.
+  `calculateCharacterStats()` remains as a thin documented wrapper returning just `.statValues`.
+  Each equipment bonus is claimed by exactly one step, since a stat abbreviation is unique against
+  the speciality and combat code spaces.
 - `dependencies.ts` — **the reference walker** (TICKET-REF-02): `findReferences(target, config,
   characters)` → `EntityReference[]`, one case per guarded-delete `ReferenceTargetKind`. Pure over
   both stores' data; `configStore`'s delete actions call it. Answers "what points at this?"; the
@@ -189,10 +199,11 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   user-authored expression, so it does not go through the formula engine. Unknown tiers and
   non-positive rates degrade rather than producing `NaN`/`Infinity`.
 - `characterSummary.ts` — `calculateCharacterLevel(character)` and `toCharacterSummary(character)`.
-  **The single definition of "level"**: the sum of allocated `mainSkillLevels`, deliberately
+  **The single definition of "level"**: the sum of `investedStatPoints`, deliberately
   excluding racial/equipment/focus modifiers. Every screen showing a level reads it from here.
-- `skillAllocation.ts` — `validateMainSkillAllocation(levels, config)` → points spent/remaining,
-  per-skill violations, verdict. The single global point pool (`Configuration.mainSkillPointBudget`,
+- `skillAllocation.ts` — `validateStatAllocation(investedStatPoints, config)` → points
+  spent/remaining, per-stat violations (`negative-points`, `derived-stat`), verdict. Keyed by stat
+  id. The single global point pool (`Configuration.mainSkillPointBudget`,
   absent = unlimited). The creation wizard reads this; it never re-sums levels itself.
 
 - `dice/diceSimulator.ts` — `rollDice(diceConfig, rng?)` → `DiceRollResult[]` (one entry per die
@@ -238,7 +249,7 @@ words with `describeFormulaError`. On the character sheet the interpreting happe
 import the engine to decide what to draw.
 
 **`config/` — configuration-mode features**, one folder per domain
-(`skills/{main,speciality,combat,shared}`, `stats/`, `materials/`, `items/`, `races/`,
+(`skills/{speciality,combat,shared}`, `stats/`, `materials/`, `items/`, `races/`,
 `currency/`, `constants/`, `curves/`, `focus/`). Each domain repeats the same four-part shape:
 
 - `XConfigPanel.tsx` — layout + composition only
@@ -265,8 +276,9 @@ are pure props — all state, validation and the submit live in `useCharacterCre
 multi-step pattern to copy.
 `sheet/` holds the character sheet: `CharacterSheet` (composition + the four dead-end notices) and
 `useCharacterSheet` (status resolution, the one `calculateCharacter` call, and the stat handler),
-with `SheetHeader`, `RacialModifiersSection`, `MainSkillsSection`, `StatsSection` (rendering a
-`StatEditor` per stat), `SpecialitySkillsSection` and `CombatSkillsSection` as pure props.
+with `SheetHeader`, `RacialModifiersSection`, `StatsSection` (a `StatEditor` per **resource**, a
+`SkillBreakdownRow` for every other stat, plus the stat total), `SpecialitySkillsSection` and
+`CombatSkillsSection` as pure props.
 `SkillBreakdownRow` is the shared "total plus its labelled contributions" row — reuse it rather
 than re-deriving a breakdown layout.
 `inventory/` holds `InventoryPanel` (mounted by the sheet, taking only a `characterId`) with

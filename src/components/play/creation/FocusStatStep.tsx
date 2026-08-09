@@ -7,14 +7,14 @@
  */
 
 import { useId } from 'react';
-import type { MainSkill, SpecialitySkill } from '../../../types/config';
+import type { SpecialitySkill, Stat } from '../../../types/config';
 import { Card } from '../../ui/Card/Card';
 import { Label } from '../../ui/Label/Label';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
 
 export interface FocusStatStepProps {
-  mainSkills: MainSkill[];
+  stats: Stat[];
   specialitySkills: SpecialitySkill[];
   focusStatBonusLevel: number;
   focusStatCode: string;
@@ -22,7 +22,7 @@ export interface FocusStatStepProps {
 }
 
 export function FocusStatStep({
-  mainSkills,
+  stats,
   specialitySkills,
   focusStatBonusLevel,
   focusStatCode,
@@ -30,9 +30,9 @@ export function FocusStatStep({
 }: FocusStatStepProps) {
   const selectId = useId();
   const options = [
-    ...mainSkills.map((skill) => ({
-      value: skill.code,
-      label: `${skill.name} (${skill.code}) — main skill`,
+    ...stats.map((stat) => ({
+      value: stat.abbreviation,
+      label: `${stat.name} (${stat.abbreviation}) — stat`,
     })),
     ...specialitySkills.map((skill) => ({
       value: skill.code,

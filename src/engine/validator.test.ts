@@ -6,16 +6,38 @@ import { describe, expect, it } from 'vitest';
 import type { Configuration, Curve } from '../types/config';
 import { validateConfiguration } from './validator';
 
+/** A stat with the boring fields filled in */
+function stat(id: string, name: string, abbreviation: string, formula?: string) {
+  return {
+    id,
+    name,
+    abbreviation,
+    description: '',
+    order: 0,
+    countsTowardTotal: true,
+    isResource: false,
+    rounding: 'none' as const,
+    ...(formula ? { formula } : {}),
+  };
+}
+
 /**
  * Helper to create a minimal valid configuration
+ *
+ * It carries the three invested stats the formula fixtures below name (TICKET-STAT-01 merged
+ * `MainSkill` into `Stat`, so the codes a formula spells now come from here).
  */
 function createMinimalConfig(): Configuration {
   return {
     id: 'test-config',
     name: 'Test Configuration',
     version: '1.0.0',
-    mainSkills: [],
-    stats: [],
+    schemaVersion: 2,
+    stats: [
+      stat('STR', 'Strength', 'STR'),
+      stat('DEX', 'Dexterity', 'DEX'),
+      stat('CON', 'Constitution', 'CON'),
+    ],
     specialitySkills: [],
     combatSkills: [],
     materials: [],
@@ -42,11 +64,39 @@ describe('validateConfiguration', () => {
 
     it('should validate a configuration with valid stat formulas', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-        { id: 'CON', code: 'CON', name: 'Constitution', description: '', maxLevel: 10 },
+      config.stats = [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'CON',
+          name: 'Constitution',
+          abbreviation: 'CON',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'hp',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'STR * 10 + CON * 5',
+        },
       ];
-      config.stats = [{ id: 'hp', name: 'Health', description: '', formula: 'STR * 10 + CON * 5' }];
 
       const result = validateConfiguration(config);
 
@@ -56,10 +106,6 @@ describe('validateConfiguration', () => {
 
     it('should validate speciality skills with valid formulas', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 10 },
-      ];
       config.specialitySkills = [
         {
           id: 'MEL',
@@ -79,9 +125,6 @@ describe('validateConfiguration', () => {
 
     it('should validate combat skills referencing main and speciality skills', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
       config.specialitySkills = [
         {
           id: 'MEL',
@@ -111,9 +154,6 @@ describe('validateConfiguration', () => {
 
     it('should validate materials with valid category and skill references', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
       config.materialCategories = [{ id: 'metals', name: 'Metals', description: '' }];
       config.currencyTiers = [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 1 }];
       config.materials = [
@@ -177,12 +217,9 @@ describe('validateConfiguration', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should validate races with valid main skill references', () => {
+    it('should validate races with valid stat references', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-        { id: 'WIS', code: 'WIS', name: 'Wisdom', description: '', maxLevel: 10 },
-      ];
+      config.stats = [...config.stats, stat('WIS', 'Wisdom', 'WIS')];
       config.races = [
         {
           id: 'dwarf',
@@ -205,10 +242,7 @@ describe('validateConfiguration', () => {
   describe('Formula validation errors', () => {
     it('should detect undefined variable in stat formula', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
-      config.stats = [{ id: 'hp', name: 'Health', description: '', formula: 'STR + UNDEFINED' }];
+      config.stats = [...config.stats, stat('hp', 'Health', 'HEA', 'STR + UNDEFINED')];
 
       const result = validateConfiguration(config);
 
@@ -221,9 +255,6 @@ describe('validateConfiguration', () => {
 
     it('should detect undefined variable in speciality skill formula', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
       config.specialitySkills = [
         {
           id: 'MEL',
@@ -245,9 +276,6 @@ describe('validateConfiguration', () => {
 
     it('should detect undefined variable in combat skill formula', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
       config.combatSkills = [
         {
           id: 'SWD',
@@ -269,10 +297,49 @@ describe('validateConfiguration', () => {
 
     it('should detect syntax errors in formulas', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
+      config.stats = [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'hp',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'STR + * 10',
+        },
       ];
-      config.stats = [{ id: 'hp', name: 'Health', description: '', formula: 'STR + * 10' }];
 
       const result = validateConfiguration(config);
 
@@ -283,7 +350,19 @@ describe('validateConfiguration', () => {
 
     it('should detect empty formulas', () => {
       const config = createMinimalConfig();
-      config.stats = [{ id: 'hp', name: 'Health', description: '', formula: '' }];
+      config.stats = [
+        {
+          id: 'hp',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: '',
+        },
+      ];
 
       const result = validateConfiguration(config);
 
@@ -296,13 +375,32 @@ describe('validateConfiguration', () => {
   describe('Circular dependency detection', () => {
     it('should detect circular dependency between stats', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
       // This creates a circular dependency if stats could reference each other
       // In the current design, stats only reference main skills, so this won't create a cycle
       // But we test the validator's capability
-      config.stats = [{ id: 'hp', name: 'Health', description: '', formula: 'STR' }];
+      config.stats = [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'hp',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'STR',
+        },
+      ];
 
       const result = validateConfiguration(config);
 
@@ -312,9 +410,6 @@ describe('validateConfiguration', () => {
 
     it('should detect circular dependency in speciality skills', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
       // Speciality skills can't reference each other in current design
       // They only reference main skills
       config.specialitySkills = [
@@ -335,9 +430,6 @@ describe('validateConfiguration', () => {
 
     it('should detect circular dependency between combat and speciality skills', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
       config.specialitySkills = [
         {
           id: 'MEL',
@@ -545,9 +637,6 @@ describe('validateConfiguration', () => {
   describe('Uniqueness validation', () => {
     it('should detect duplicate skill codes across skill types', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-      ];
       config.specialitySkills = [
         {
           id: 'STR',
@@ -569,12 +658,9 @@ describe('validateConfiguration', () => {
       expect(result.errors[0].message).toContain('Strike');
     });
 
-    it('should detect duplicate codes within same skill type', () => {
+    it('should detect two stats sharing one abbreviation', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 10 },
-        { id: 'STR', code: 'STR', name: 'Strong', description: '', maxLevel: 10 },
-      ];
+      config.stats = [...config.stats, stat('str2', 'Strong', 'STR')];
 
       const result = validateConfiguration(config);
 
@@ -618,8 +704,78 @@ describe('validateConfiguration', () => {
     it('should report all errors in a configuration', () => {
       const config = createMinimalConfig();
       config.stats = [
-        { id: 'hp', name: 'Health', description: '', formula: 'INVALID1' },
-        { id: 'mp', name: 'Mana', description: '', formula: 'INVALID2' },
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'STR',
+          name: 'Strong',
+          abbreviation: 'STR',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'hp',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'INVALID1',
+        },
+        {
+          id: 'mp',
+          name: 'Mana',
+          abbreviation: 'MAN',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'INVALID2',
+        },
       ];
       config.items = [
         {
@@ -654,7 +810,19 @@ describe('validateConfiguration', () => {
 
     it('should include entity information in errors', () => {
       const config = createMinimalConfig();
-      config.stats = [{ id: 'hp', name: 'Health', description: '', formula: 'INVALID' }];
+      config.stats = [
+        {
+          id: 'hp',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'INVALID',
+        },
+      ];
 
       const result = validateConfiguration(config);
 
@@ -669,7 +837,19 @@ describe('validateConfiguration', () => {
     // way. Both read `scopeFor`; if this file ever hardcodes the rule again, these fail.
     it('reports an unknown namespace in an imported stat formula', () => {
       const config = createMinimalConfig();
-      config.stats = [{ id: 'hp', name: 'Health', description: '', formula: 'wibble.thing' }];
+      config.stats = [
+        {
+          id: 'hp',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'wibble.thing',
+        },
+      ];
 
       const result = validateConfiguration(config);
 
@@ -678,7 +858,19 @@ describe('validateConfiguration', () => {
 
     it('reports an unknown member in an imported stat formula', () => {
       const config = createMinimalConfig();
-      config.stats = [{ id: 'hp', name: 'Health', description: '', formula: 'stats.bogus' }];
+      config.stats = [
+        {
+          id: 'hp',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'stats.bogus',
+        },
+      ];
 
       const result = validateConfiguration(config);
 
@@ -689,9 +881,6 @@ describe('validateConfiguration', () => {
 
     it('reports a namespace that is out of scope for a speciality skill', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      ];
       config.specialitySkills = [
         {
           id: 'STL',
@@ -712,14 +901,51 @@ describe('validateConfiguration', () => {
 
     it('accepts an in-scope namespaced reference', () => {
       const config = createMinimalConfig();
-      config.mainSkills = [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      ];
       // A stat is written by its display spelling — a slug of its name — not by its id, which
       // only the stored form carries (TICKET-REF-01).
       config.stats = [
-        { id: 'hp', name: 'Health', description: '', formula: 'STR * 10' },
-        { id: 'armour', name: 'Armour', description: '', formula: 'stats.health / 2' },
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'hp',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'STR * 10',
+        },
+        {
+          id: 'armour',
+          name: 'Armour',
+          abbreviation: 'ARM',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'stats.health / 2',
+        },
       ];
 
       const result = validateConfiguration(config);
@@ -909,10 +1135,6 @@ describe('validateConfiguration', () => {
       const config = withCurve({
         columns: [{ id: 'col', name: 'value', generator: 'STR * 2' }],
       });
-      config.mainSkills = [
-        { id: 'str', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      ];
-
       expect(curveIssues(config).errors[0].message).toContain('Undefined variable: STR');
     });
 

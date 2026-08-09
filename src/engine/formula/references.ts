@@ -25,7 +25,7 @@
  * **Validates: Concept 00 §6; spec §3.2**
  */
 
-import type { Configuration, MainSkill, Stat } from '../../types/config';
+import type { Configuration, Stat } from '../../types/config';
 import type { FormulaToken } from './parser';
 import { tokenizeFormula } from './parser';
 
@@ -126,9 +126,15 @@ export function buildReferenceIndex(config: Configuration): ReferenceIndex {
     toDisplay[space] = new Map();
   }
 
-  // One flat space for every skill kind — codes are unique across all three (CLAUDE.md), which
-  // is what lets a bare code resolve without knowing which collection it came from.
-  for (const skill of [...config.mainSkills, ...config.specialitySkills, ...config.combatSkills]) {
+  // One flat space shared by stat abbreviations and the two skill code spaces — all three are
+  // unique against each other (CLAUDE.md), which is what lets a bare spelling resolve without
+  // knowing which collection it came from. Stats took over the main-skill half in TICKET-STAT-01.
+  for (const stat of config.stats) {
+    if (!stat.id) continue;
+    link(toId.bare, toDisplay.bare, stat.abbreviation.toUpperCase(), stat.id);
+  }
+
+  for (const skill of [...config.specialitySkills, ...config.combatSkills]) {
     if (!skill.id) continue;
     link(toId.bare, toDisplay.bare, skill.code.toUpperCase(), skill.id);
   }
@@ -390,10 +396,13 @@ function translateConfiguration(
 
   return {
     ...config,
-    stats: config.stats.map((stat) => ({
-      ...stat,
-      formula: translateFormula(stat.formula, index),
-    })),
+    // A stat without a formula is invested rather than derived — there is nothing to translate,
+    // and writing `formula: undefined` would put the key back on the way through JSON
+    stats: config.stats.map((stat) =>
+      stat.formula === undefined
+        ? stat
+        : { ...stat, formula: translateFormula(stat.formula, index) }
+    ),
     specialitySkills: config.specialitySkills.map((skill) => ({
       ...skill,
       bonusFormula: translateFormula(skill.bonusFormula, index),
@@ -486,12 +495,12 @@ export function toDisplayConfiguration(config: Configuration): Configuration {
  * @returns A configuration where every skill has one
  */
 export function ensureReferenceIds(config: Configuration, newId: () => string): Configuration {
-  const withId = <T extends Pick<MainSkill, 'id'>>(entity: T): T =>
+  const withId = <T extends { id?: string }>(entity: T): T =>
     entity.id ? entity : { ...entity, id: newId() };
 
   return {
     ...config,
-    mainSkills: config.mainSkills.map(withId),
+    stats: config.stats.map(withId),
     specialitySkills: config.specialitySkills.map(withId),
     combatSkills: config.combatSkills.map(withId),
     // Absent stays absent, the way `mainSkillPointBudget` does — a file predating TICKET-CST-01

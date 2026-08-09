@@ -75,13 +75,14 @@ export const NAMESPACE_SCOPES: Record<FormulaOwner, readonly FormulaNamespace[]>
  * Which legacy bare-code collections each attachment point may name
  *
  * Preserves the v1.0 rules exactly (Requirements 3.2, 4.3, 5.4) until TICKET-STAT-01 retires
- * bare codes: stats and speciality skills see main skill codes, combat skills also see
- * speciality codes.
+ * bare codes: stats and speciality skills see stat abbreviations, combat skills also see
+ * speciality codes. `stat` sees the abbreviations so a derived stat can be written either way —
+ * `STR * 10` or `stats.strength * 10` — which is what the source sheet's formulas look like.
  */
-const LEGACY_CODE_SCOPES: Record<FormulaOwner, readonly ('main' | 'speciality')[]> = {
-  stat: ['main'],
-  'speciality-skill': ['main'],
-  'combat-skill': ['main', 'speciality'],
+const LEGACY_CODE_SCOPES: Record<FormulaOwner, readonly ('stat' | 'speciality')[]> = {
+  stat: ['stat'],
+  'speciality-skill': ['stat'],
+  'combat-skill': ['stat', 'speciality'],
   // A generator sees no skill at all — it fills a table, not a character (TICKET-CRV-02)
   'curve-generator': [],
 };
@@ -143,9 +144,10 @@ export function scopeFor(config: Configuration, owner: FormulaOwner): FormulaSco
 
   const codes = new Set<string>(CONTEXT_CODES[owner]);
   for (const source of LEGACY_CODE_SCOPES[owner]) {
-    const collection = source === 'main' ? config.mainSkills : config.specialitySkills;
-    for (const entry of collection) {
-      codes.add(entry.code);
+    if (source === 'stat') {
+      for (const stat of config.stats) codes.add(stat.abbreviation.toUpperCase());
+    } else {
+      for (const skill of config.specialitySkills) codes.add(skill.code);
     }
   }
 

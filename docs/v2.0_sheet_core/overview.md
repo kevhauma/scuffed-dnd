@@ -76,7 +76,7 @@ Identity and the two new config concepts:
 
 The schema rework:
 
-- [ ] [TICKET-STAT-01](./tickets/TICKET-STAT-01-unified-stat-model-and-engine.md) — The unified Stat model and engine (Concepts 01, 00) — **the centrepiece**; merges `MainSkill` + `Stat`, new character shape, composition calculator
+- [x] [TICKET-STAT-01](./tickets/TICKET-STAT-01-unified-stat-model-and-engine.md) — The unified Stat model and engine (Concepts 01, 00) — **the centrepiece**; merges `MainSkill` + `Stat`, new character shape, composition calculator. The flat formula space now holds **stat abbreviations**, which is what let `MainSkill` be deleted without redesigning races, materials and both skill kinds in the same ticket; `Configuration.schemaVersion: 2` is in and `storage.ts` refuses v1 by name, leaving IO-03 the notice rather than the detection
 - [ ] [TICKET-IO-03](./tickets/TICKET-IO-03-v2-shape-clean-break.md) — Clean break: reject v1 data with a clear notice (decision above) — immediately after STAT-01 so nothing misloads old data
 - [ ] [TICKET-STAT-02](./tickets/TICKET-STAT-02-unified-stats-panel.md) — Unified stats configuration panel (Concept 01) — the real editor replacing STAT-01's mechanical patches
 - [ ] [TICKET-STAT-03](./tickets/TICKET-STAT-03-wizard-and-sheet-on-unified-stats.md) — Wizard and sheet on unified stats (Concept 01) — play surfaces; resource gating of current values

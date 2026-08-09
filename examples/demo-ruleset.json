@@ -2,66 +2,9 @@
   "id": "demo-ruleset-0001",
   "name": "Emberfall Demo Ruleset",
   "version": "1.0.0",
+  "schemaVersion": 2,
   "focusStatBonusLevel": 2,
   "mainSkillPointBudget": 20,
-  "mainSkills": [
-    {
-      "code": "STR",
-      "name": "Strength",
-      "description": "Raw physical power. Governs melee blows and how much you can haul.",
-      "maxLevel": 10
-    },
-    {
-      "code": "DEX",
-      "name": "Dexterity",
-      "description": "Agility, reflexes, and precision with ranged weapons.",
-      "maxLevel": 10
-    },
-    {
-      "code": "CON",
-      "name": "Constitution",
-      "description": "Toughness and endurance. The backbone of health and stamina.",
-      "maxLevel": 10
-    },
-    {
-      "code": "INT",
-      "name": "Intellect",
-      "description": "Reasoning and arcane aptitude. Fuels mana and spellcraft.",
-      "maxLevel": 10
-    },
-    {
-      "code": "WIS",
-      "name": "Wisdom",
-      "description": "Perception, intuition, and force of will.",
-      "maxLevel": 10
-    },
-    {
-      "code": "CHA",
-      "name": "Charisma",
-      "description": "Presence and persuasiveness in speech and song.",
-      "maxLevel": 10
-    }
-  ],
-  "stats": [
-    {
-      "id": "stat-health",
-      "name": "Health",
-      "description": "Hit points. Reach zero and you fall.",
-      "formula": "CON * 10 + STR * 2"
-    },
-    {
-      "id": "stat-mana",
-      "name": "Mana",
-      "description": "Arcane reserves spent on spells.",
-      "formula": "INT * 8 + WIS * 4"
-    },
-    {
-      "id": "stat-stamina",
-      "name": "Stamina",
-      "description": "Energy for sprinting, climbing, and heavy swings.",
-      "formula": "(CON + DEX) * 5"
-    }
-  ],
   "specialitySkills": [
     {
       "code": "STL",
@@ -104,21 +47,42 @@
       "code": "MEL",
       "name": "Melee Strike",
       "description": "A close-quarters weapon attack.",
-      "dice": { "d4": 0, "d6": 0, "d8": 1, "d10": 0, "d12": 0, "d20": 0 },
+      "dice": {
+        "d4": 0,
+        "d6": 0,
+        "d8": 1,
+        "d10": 0,
+        "d12": 0,
+        "d20": 0
+      },
       "bonusFormula": "STR + ATH / 2"
     },
     {
       "code": "RNG",
       "name": "Ranged Shot",
       "description": "A bow or thrown-weapon attack from distance.",
-      "dice": { "d4": 0, "d6": 2, "d8": 0, "d10": 0, "d12": 0, "d20": 0 },
+      "dice": {
+        "d4": 0,
+        "d6": 2,
+        "d8": 0,
+        "d10": 0,
+        "d12": 0,
+        "d20": 0
+      },
       "bonusFormula": "DEX + SUR / 2"
     },
     {
       "code": "ARC",
       "name": "Arcane Bolt",
       "description": "A crackling missile of raw magic.",
-      "dice": { "d4": 0, "d6": 0, "d8": 0, "d10": 1, "d12": 0, "d20": 0 },
+      "dice": {
+        "d4": 0,
+        "d6": 0,
+        "d8": 0,
+        "d10": 1,
+        "d12": 0,
+        "d20": 0
+      },
       "bonusFormula": "INT + LOR / 2"
     }
   ],
@@ -149,23 +113,48 @@
         {
           "level": 1,
           "name": "Iron",
-          "bonuses": [{ "skillCode": "MEL", "modifier": 1 }],
-          "value": { "tierId": "tier-silver", "amount": 20 }
+          "bonuses": [
+            {
+              "skillCode": "MEL",
+              "modifier": 1
+            }
+          ],
+          "value": {
+            "tierId": "tier-silver",
+            "amount": 20
+          }
         },
         {
           "level": 2,
           "name": "Steel",
-          "bonuses": [{ "skillCode": "MEL", "modifier": 2 }],
-          "value": { "tierId": "tier-gold", "amount": 5 }
+          "bonuses": [
+            {
+              "skillCode": "MEL",
+              "modifier": 2
+            }
+          ],
+          "value": {
+            "tierId": "tier-gold",
+            "amount": 5
+          }
         },
         {
           "level": 3,
           "name": "Mithril",
           "bonuses": [
-            { "skillCode": "MEL", "modifier": 4 },
-            { "skillCode": "STL", "modifier": 1 }
+            {
+              "skillCode": "MEL",
+              "modifier": 4
+            },
+            {
+              "skillCode": "STL",
+              "modifier": 1
+            }
           ],
-          "value": { "tierId": "tier-gold", "amount": 50 }
+          "value": {
+            "tierId": "tier-gold",
+            "amount": 50
+          }
         }
       ]
     },
@@ -178,23 +167,48 @@
         {
           "level": 1,
           "name": "Rawhide",
-          "bonuses": [{ "skillCode": "STL", "modifier": 1 }],
-          "value": { "tierId": "tier-copper", "amount": 50 }
+          "bonuses": [
+            {
+              "skillCode": "STL",
+              "modifier": 1
+            }
+          ],
+          "value": {
+            "tierId": "tier-copper",
+            "amount": 50
+          }
         },
         {
           "level": 2,
           "name": "Boiled Leather",
-          "bonuses": [{ "skillCode": "STL", "modifier": 2 }],
-          "value": { "tierId": "tier-silver", "amount": 15 }
+          "bonuses": [
+            {
+              "skillCode": "STL",
+              "modifier": 2
+            }
+          ],
+          "value": {
+            "tierId": "tier-silver",
+            "amount": 15
+          }
         },
         {
           "level": 3,
           "name": "Drakescale",
           "bonuses": [
-            { "skillCode": "STL", "modifier": 2 },
-            { "skillCode": "RNG", "modifier": 1 }
+            {
+              "skillCode": "STL",
+              "modifier": 2
+            },
+            {
+              "skillCode": "RNG",
+              "modifier": 1
+            }
           ],
-          "value": { "tierId": "tier-gold", "amount": 8 }
+          "value": {
+            "tierId": "tier-gold",
+            "amount": 8
+          }
         }
       ]
     },
@@ -207,23 +221,48 @@
         {
           "level": 1,
           "name": "Pine",
-          "bonuses": [{ "skillCode": "RNG", "modifier": 1 }],
-          "value": { "tierId": "tier-copper", "amount": 30 }
+          "bonuses": [
+            {
+              "skillCode": "RNG",
+              "modifier": 1
+            }
+          ],
+          "value": {
+            "tierId": "tier-copper",
+            "amount": 30
+          }
         },
         {
           "level": 2,
           "name": "Oak",
-          "bonuses": [{ "skillCode": "RNG", "modifier": 2 }],
-          "value": { "tierId": "tier-silver", "amount": 10 }
+          "bonuses": [
+            {
+              "skillCode": "RNG",
+              "modifier": 2
+            }
+          ],
+          "value": {
+            "tierId": "tier-silver",
+            "amount": 10
+          }
         },
         {
           "level": 3,
           "name": "Ironwood",
           "bonuses": [
-            { "skillCode": "RNG", "modifier": 3 },
-            { "skillCode": "MEL", "modifier": 1 }
+            {
+              "skillCode": "RNG",
+              "modifier": 3
+            },
+            {
+              "skillCode": "MEL",
+              "modifier": 1
+            }
           ],
-          "value": { "tierId": "tier-gold", "amount": 4 }
+          "value": {
+            "tierId": "tier-gold",
+            "amount": 4
+          }
         }
       ]
     }
@@ -326,16 +365,30 @@
       "id": "race-human",
       "name": "Human",
       "description": "Adaptable and ambitious, at home anywhere.",
-      "skillModifiers": [{ "skillCode": "CHA", "modifier": 1 }]
+      "skillModifiers": [
+        {
+          "skillCode": "CHA",
+          "modifier": 1
+        }
+      ]
     },
     {
       "id": "race-dwarf",
       "name": "Dwarf",
       "description": "Stout mountain folk, tough as the stone they mine.",
       "skillModifiers": [
-        { "skillCode": "CON", "modifier": 2 },
-        { "skillCode": "STR", "modifier": 1 },
-        { "skillCode": "DEX", "modifier": -1 }
+        {
+          "skillCode": "CON",
+          "modifier": 2
+        },
+        {
+          "skillCode": "STR",
+          "modifier": 1
+        },
+        {
+          "skillCode": "DEX",
+          "modifier": -1
+        }
       ]
     },
     {
@@ -343,9 +396,18 @@
       "name": "Elf",
       "description": "Graceful and long-lived, with keen minds and keener eyes.",
       "skillModifiers": [
-        { "skillCode": "DEX", "modifier": 2 },
-        { "skillCode": "INT", "modifier": 1 },
-        { "skillCode": "CON", "modifier": -1 }
+        {
+          "skillCode": "DEX",
+          "modifier": 2
+        },
+        {
+          "skillCode": "INT",
+          "modifier": 1
+        },
+        {
+          "skillCode": "CON",
+          "modifier": -1
+        }
       ]
     },
     {
@@ -353,9 +415,18 @@
       "name": "Orc",
       "description": "Fierce warriors bred for the front line.",
       "skillModifiers": [
-        { "skillCode": "STR", "modifier": 2 },
-        { "skillCode": "CON", "modifier": 1 },
-        { "skillCode": "INT", "modifier": -1 }
+        {
+          "skillCode": "STR",
+          "modifier": 2
+        },
+        {
+          "skillCode": "CON",
+          "modifier": 1
+        },
+        {
+          "skillCode": "INT",
+          "modifier": -1
+        }
       ]
     }
   ],
@@ -380,5 +451,100 @@
     }
   ],
   "createdAt": "2026-08-02T12:00:00.000Z",
-  "updatedAt": "2026-08-02T12:00:00.000Z"
+  "updatedAt": "2026-08-02T12:00:00.000Z",
+  "stats": [
+    {
+      "id": "stat-strength",
+      "name": "Strength",
+      "abbreviation": "STR",
+      "description": "Raw physical power. Governs melee blows and how much you can haul.",
+      "order": 0,
+      "countsTowardTotal": true,
+      "isResource": false,
+      "rounding": "none"
+    },
+    {
+      "id": "stat-dexterity",
+      "name": "Dexterity",
+      "abbreviation": "DEX",
+      "description": "Agility, reflexes, and precision with ranged weapons.",
+      "order": 1,
+      "countsTowardTotal": true,
+      "isResource": false,
+      "rounding": "none"
+    },
+    {
+      "id": "stat-constitution",
+      "name": "Constitution",
+      "abbreviation": "CON",
+      "description": "Toughness and endurance. The backbone of health and stamina.",
+      "order": 2,
+      "countsTowardTotal": true,
+      "isResource": false,
+      "rounding": "none"
+    },
+    {
+      "id": "stat-intellect",
+      "name": "Intellect",
+      "abbreviation": "INT",
+      "description": "Reasoning and arcane aptitude. Fuels mana and spellcraft.",
+      "order": 3,
+      "countsTowardTotal": true,
+      "isResource": false,
+      "rounding": "none"
+    },
+    {
+      "id": "stat-wisdom",
+      "name": "Wisdom",
+      "abbreviation": "WIS",
+      "description": "Perception, intuition, and force of will.",
+      "order": 4,
+      "countsTowardTotal": true,
+      "isResource": false,
+      "rounding": "none"
+    },
+    {
+      "id": "stat-charisma",
+      "name": "Charisma",
+      "abbreviation": "CHA",
+      "description": "Presence and persuasiveness in speech and song.",
+      "order": 5,
+      "countsTowardTotal": true,
+      "isResource": false,
+      "rounding": "none"
+    },
+    {
+      "id": "stat-health",
+      "name": "Health",
+      "abbreviation": "HLT",
+      "description": "Hit points. Reach zero and you fall.",
+      "order": 6,
+      "countsTowardTotal": false,
+      "isResource": true,
+      "rounding": "nearest",
+      "formula": "CON * 10 + STR * 2"
+    },
+    {
+      "id": "stat-mana",
+      "name": "Mana",
+      "abbreviation": "MNA",
+      "description": "Arcane reserves spent on spells.",
+      "order": 7,
+      "countsTowardTotal": false,
+      "isResource": true,
+      "rounding": "nearest",
+      "formula": "INT * 8 + WIS * 4"
+    },
+    {
+      "id": "stat-stamina",
+      "name": "Stamina",
+      "abbreviation": "STM",
+      "description": "Energy for sprinting, climbing, and heavy swings.",
+      "order": 8,
+      "countsTowardTotal": false,
+      "isResource": true,
+      "rounding": "nearest",
+      "formula": "(CON + DEX) * 5"
+    }
+  ]
 }

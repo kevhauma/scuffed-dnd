@@ -12,6 +12,7 @@ import { Text } from '../../ui/Text/Text';
 import { BlockedDeleteDialog } from '../shared/BlockedDeleteDialog';
 import { StatCard } from './StatCard';
 import { StatFormDialog } from './StatFormDialog';
+import { StatPointBudget } from './StatPointBudget';
 import { useStatManager } from './useStatManager';
 
 export function StatsConfigPanel() {
@@ -89,6 +90,8 @@ export function StatsConfigPanel() {
           ))}
         </div>
       )}
+
+      <StatPointBudget />
 
       {/* Form Dialog */}
       <StatFormDialog

@@ -30,8 +30,30 @@ const config: Configuration = {
   id: 'config1',
   name: 'Test Config',
   version: '1.0',
-  mainSkills: [{ id: 'str-id', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
-  stats: [{ id: 'gain', name: 'Gain', description: '', formula: 'curve.point_buy.main(STR)' }],
+  schemaVersion: 2,
+  stats: [
+    {
+      id: 'str-id',
+      name: 'Strength',
+      abbreviation: 'STR',
+      description: '',
+      order: 0,
+      countsTowardTotal: true,
+      isResource: false,
+      rounding: 'none',
+    },
+    {
+      id: 'gain',
+      name: 'Gain',
+      abbreviation: 'GAI',
+      description: '',
+      order: 0,
+      countsTowardTotal: true,
+      isResource: false,
+      rounding: 'none',
+      formula: 'curve.point_buy.main(STR)',
+    },
+  ],
   specialitySkills: [],
   combatSkills: [],
   materials: [],
@@ -226,9 +248,9 @@ describe('CurvesConfigPanel', () => {
     fireEvent.click(dialog.getByRole('button', { name: 'Save Changes' }));
 
     await waitFor(() =>
-      expect(useConfigStore.getState().config?.stats[0].formula).toBe(
-        'curve.point_buy.main_type(STR)'
-      )
+      expect(
+        useConfigStore.getState().config?.stats.find((candidate) => candidate.formula)?.formula
+      ).toBe('curve.point_buy.main_type(STR)')
     );
   });
 

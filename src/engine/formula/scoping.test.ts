@@ -13,11 +13,40 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    mainSkills: [
-      { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+    schemaVersion: 2,
+    stats: [
+      {
+        id: 'STR',
+        name: 'Strength',
+        abbreviation: 'STR',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'DEX',
+        name: 'Dexterity',
+        abbreviation: 'DEX',
+        description: '',
+        order: 1,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'health',
+        name: 'Health',
+        abbreviation: 'HEA',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: true,
+        rounding: 'none',
+        formula: 'STR * 10',
+      },
     ],
-    stats: [{ id: 'health', name: 'Health', description: '', formula: 'STR * 10' }],
     specialitySkills: [
       {
         id: 'STL',
@@ -73,24 +102,25 @@ describe('formula scoping tables', () => {
 });
 
 describe('scopeFor', () => {
-  it('gives a stat the main skill codes only (Requirement 3.2)', () => {
+  it('gives a stat the stat abbreviations only (Requirement 3.2)', () => {
+    // Every stat, derived ones included — a derived stat is readable from another formula
     const scope = scopeFor(createConfig(), 'stat');
-    expect(Array.from(scope.codes).sort()).toEqual(['DEX', 'STR']);
+    expect(Array.from(scope.codes).sort()).toEqual(['DEX', 'HEA', 'STR']);
   });
 
-  it('gives a speciality skill the main skill codes only (Requirement 4.3)', () => {
+  it('gives a speciality skill the stat abbreviations only (Requirement 4.3)', () => {
     const scope = scopeFor(createConfig(), 'speciality-skill');
-    expect(Array.from(scope.codes).sort()).toEqual(['DEX', 'STR']);
+    expect(Array.from(scope.codes).sort()).toEqual(['DEX', 'HEA', 'STR']);
   });
 
-  it('gives a combat skill main and speciality codes (Requirement 5.4)', () => {
+  it('gives a combat skill stat abbreviations and speciality codes (Requirement 5.4)', () => {
     const scope = scopeFor(createConfig(), 'combat-skill');
-    expect(Array.from(scope.codes).sort()).toEqual(['DEX', 'STL', 'STR']);
+    expect(Array.from(scope.codes).sort()).toEqual(['DEX', 'HEA', 'STL', 'STR']);
   });
 
-  it('exposes stat ids as members of the stats namespace', () => {
+  it('exposes every stat by its slug as a member of the stats namespace', () => {
     const scope = scopeFor(createConfig(), 'stat');
-    expect(Array.from(scope.namespaces.stats ?? [])).toEqual(['health']);
+    expect(Array.from(scope.namespaces.stats ?? [])).toEqual(['strength', 'dexterity', 'health']);
   });
 
   it('exposes speciality codes as members of the skills namespace', () => {
@@ -111,12 +141,7 @@ describe('scopeFor', () => {
   });
 
   it('gives a curve generator the row key and the constants, and nothing else (TICKET-CRV-02)', () => {
-    const scope = scopeFor(
-      createConfig({
-        mainSkills: [{ id: 'str', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
-      }),
-      'curve-generator'
-    );
+    const scope = scopeFor(createConfig({}), 'curve-generator');
 
     // `key` as the User writes it; the parser normalises bare identifiers to uppercase
     expect(scope.codes.has('KEY')).toBe(true);
@@ -159,13 +184,43 @@ describe('scopeFor', () => {
     const scope = scopeFor(
       createConfig({
         stats: [
-          { id: 'health', name: 'Health', description: '', formula: 'STR' },
-          { id: 'mana', name: 'Mana', description: '', formula: 'DEX' },
+          {
+            id: 'str',
+            name: 'Strength',
+            abbreviation: 'STR',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: false,
+            rounding: 'none',
+          },
+          {
+            id: 'health',
+            name: 'Health',
+            abbreviation: 'HEA',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: true,
+            rounding: 'none',
+            formula: 'STR',
+          },
+          {
+            id: 'mana',
+            name: 'Mana',
+            abbreviation: 'MAN',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: false,
+            rounding: 'none',
+            formula: 'DEX',
+          },
         ],
       }),
       'stat'
     );
 
-    expect(Array.from(scope.namespaces.stats ?? []).sort()).toEqual(['health', 'mana']);
+    expect(Array.from(scope.namespaces.stats ?? []).sort()).toEqual(['health', 'mana', 'strength']);
   });
 });

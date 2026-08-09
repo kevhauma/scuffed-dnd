@@ -8,6 +8,7 @@
 
 import type { UseFormReturn } from 'react-hook-form';
 import { Button } from '../../ui/Button/Button';
+import { Checkbox } from '../../ui/Checkbox/Checkbox';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
 import { FormulaEditor } from '../../ui/FormulaEditor/FormulaEditor';
@@ -15,8 +16,11 @@ import { Text } from '../../ui/Text/Text';
 
 interface StatFormData {
   name: string;
+  abbreviation: string;
   description: string;
   formula: string;
+  countsTowardTotal: boolean;
+  isResource: boolean;
 }
 
 interface StatFormDialogProps {
@@ -56,13 +60,32 @@ export function StatFormDialog({
         />
 
         <FormField
+          label="Abbreviation"
+          required
+          placeholder="HP"
+          error={errors.abbreviation?.message}
+          {...register('abbreviation', { required: 'Abbreviation is required' })}
+        />
+
+        <FormField
           label="Description"
           placeholder="Character's life force"
           {...register('description')}
         />
 
+        <div className="flex flex-col gap-2">
+          <Checkbox
+            label="Counts toward the character's stat total"
+            {...register('countsTowardTotal')}
+          />
+          <Checkbox
+            label="Is a resource — the value is a maximum the character spends against"
+            {...register('isResource')}
+          />
+        </div>
+
         <FormulaEditor
-          label="Formula"
+          label="Formula (leave empty for an invested stat)"
           value={formulaValue}
           onChange={(value) => {
             // Editing clears a refusal from the previous save attempt

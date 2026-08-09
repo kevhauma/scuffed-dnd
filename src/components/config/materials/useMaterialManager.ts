@@ -77,7 +77,7 @@ export function useMaterialManager() {
 
   const categories = config?.materialCategories || [];
   const availableSkillCodes = [
-    ...(config?.mainSkills.map((s) => s.code) || []),
+    ...(config?.stats.map((stat) => stat.abbreviation) || []),
     ...(config?.specialitySkills.map((s) => s.code) || []),
     ...(config?.combatSkills.map((s) => s.code) || []),
   ];

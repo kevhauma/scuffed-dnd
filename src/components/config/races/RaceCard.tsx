@@ -7,19 +7,19 @@
  */
 
 import { useMemo } from 'react';
-import type { MainSkill, Race } from '../../../types';
+import type { Race, Stat } from '../../../types';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 
 interface RaceCardProps {
   race: Race;
-  availableMainSkills: MainSkill[];
+  availableStats: Stat[];
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-export function RaceCard({ race, availableMainSkills, onEdit, onDelete }: RaceCardProps) {
+export function RaceCard({ race, availableStats, onEdit, onDelete }: RaceCardProps) {
   // Calculate total modifiers
   const totalModifiers = useMemo(() => {
     const positive = race.skillModifiers.filter((m) => m.modifier > 0).length;
@@ -30,7 +30,7 @@ export function RaceCard({ race, availableMainSkills, onEdit, onDelete }: RaceCa
 
   // Get skill name from code
   const getSkillName = (code: string) => {
-    const skill = availableMainSkills.find((s) => s.code === code);
+    const skill = availableStats.find((s) => s.abbreviation === code);
     return skill ? skill.name : code;
   };
 

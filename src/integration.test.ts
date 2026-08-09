@@ -15,7 +15,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { calculateCharacter } from './engine/calculator';
 import { describeFormulaError, isFormulaError, numberOr } from './engine/formula/errors';
-import { loadCharacters, loadConfiguration } from './services/storage';
+import { loadCharacters, loadConfiguration, saveCharacters } from './services/storage';
 import { useCharacterStore } from './stores/characterStore';
 import { useConfigStore } from './stores/configStore';
 import type { Character } from './types/character';
@@ -27,11 +27,40 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Integration Ruleset',
     version: '1.0',
-    mainSkills: [
-      { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+    schemaVersion: 2,
+    stats: [
+      {
+        id: 'STR',
+        name: 'Strength',
+        abbreviation: 'STR',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'DEX',
+        name: 'Dexterity',
+        abbreviation: 'DEX',
+        description: '',
+        order: 1,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'health',
+        name: 'Health',
+        abbreviation: 'HEA',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: true,
+        rounding: 'none',
+        formula: 'STR * 10',
+      },
     ],
-    stats: [{ id: 'health', name: 'Health', description: '', formula: 'STR * 10' }],
     specialitySkills: [
       {
         id: 'STL',
@@ -84,9 +113,9 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     name: 'Aria',
     configurationId: 'config1',
     raceIds: [],
-    mainSkillLevels: { STR: 5, DEX: 4 },
+    investedStatPoints: { STR: 5, DEX: 4 },
     specialitySkillBaseLevels: { STL: 2 },
-    currentStatValues: {},
+    currentResourceValues: {},
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
@@ -103,12 +132,15 @@ describe('persistence round trip', () => {
 
   it('should carry a configuration through the store, storage and back (Req 17.1, 17.3)', () => {
     useConfigStore.getState().initializeConfig('Round Trip');
-    useConfigStore.getState().addMainSkill({
+    useConfigStore.getState().addStat({
       id: 'STR',
-      code: 'STR',
       name: 'Strength',
+      abbreviation: 'STR',
       description: '',
-      maxLevel: 20,
+      order: 0,
+      countsTowardTotal: true,
+      isResource: false,
+      rounding: 'none',
     });
 
     // It really is in the browser's storage, not just in the store
@@ -121,7 +153,7 @@ describe('persistence round trip', () => {
 
     const restored = useConfigStore.getState().config;
     expect(restored).toEqual(saved);
-    expect(restored?.mainSkills).toHaveLength(1);
+    expect(restored?.stats).toHaveLength(1);
     expect(useConfigStore.getState().isLoaded).toBe(true);
   });
 
@@ -133,7 +165,7 @@ describe('persistence round trip', () => {
       {
         name: 'Aria',
         raceIds: ['elf'],
-        mainSkillLevels: { STR: 6, DEX: 4 },
+        investedStatPoints: { STR: 6, DEX: 4 },
         focusStatCode: 'STL',
         specialitySkillBaseLevels: { STL: 3 },
       },
@@ -148,7 +180,7 @@ describe('persistence round trip', () => {
     const [restored] = useCharacterStore.getState().characters;
     expect(restored).toEqual(created);
     // Seeded current stat values survive too — they are player state, not a derivation
-    expect(restored.currentStatValues.health).toBe(60);
+    expect(restored.currentResourceValues.health).toBe(60);
   });
 
   it('should survive an edit made after a reload', () => {
@@ -158,7 +190,7 @@ describe('persistence round trip', () => {
       {
         name: 'Aria',
         raceIds: [],
-        mainSkillLevels: { STR: 5, DEX: 0 },
+        investedStatPoints: { STR: 5, DEX: 0 },
         specialitySkillBaseLevels: {},
       },
       config
@@ -173,7 +205,7 @@ describe('persistence round trip', () => {
     // Reload again — the edit is there
     useCharacterStore.setState({ characters: [], isLoaded: false });
     useCharacterStore.getState().loadCharacters();
-    expect(useCharacterStore.getState().characters[0].currentStatValues.health).toBe(12);
+    expect(useCharacterStore.getState().characters[0].currentResourceValues.health).toBe(12);
   });
 
   it('should read back what the service wrote, with no store involved', () => {
@@ -192,27 +224,27 @@ describe('recalculation flows', () => {
   it('should move stats when main skill levels change (Req 3.6)', () => {
     // Every main skill is allocated, even at 0 — an omitted one makes any formula naming it throw
     const before = calculateCharacter(
-      createCharacter({ mainSkillLevels: { STR: 5, DEX: 4 } }),
+      createCharacter({ investedStatPoints: { STR: 5, DEX: 4 } }),
       config
     );
     const after = calculateCharacter(
-      createCharacter({ mainSkillLevels: { STR: 9, DEX: 4 } }),
+      createCharacter({ investedStatPoints: { STR: 9, DEX: 4 } }),
       config
     );
 
     // Health is STR * 10 — derived at read time, so there is no stale value to go looking for
-    expect(before.maxStatValues.health).toBe(50);
-    expect(after.maxStatValues.health).toBe(90);
+    expect(before.statValues.health).toBe(50);
+    expect(after.statValues.health).toBe(90);
   });
 
   it('should move a speciality skill when its formula inputs change (Req 4.4)', () => {
     // Stealth is base + DEX
     const before = calculateCharacter(
-      createCharacter({ mainSkillLevels: { STR: 5, DEX: 4 } }),
+      createCharacter({ investedStatPoints: { STR: 5, DEX: 4 } }),
       config
     );
     const after = calculateCharacter(
-      createCharacter({ mainSkillLevels: { STR: 5, DEX: 10 } }),
+      createCharacter({ investedStatPoints: { STR: 5, DEX: 10 } }),
       config
     );
 
@@ -225,11 +257,11 @@ describe('recalculation flows', () => {
   it('should move a combat bonus when the skills it names change (Req 5.4)', () => {
     // Melee is STR + STL, and STL itself depends on DEX — so this proves the chain, not one hop
     const before = calculateCharacter(
-      createCharacter({ mainSkillLevels: { STR: 5, DEX: 4 } }),
+      createCharacter({ investedStatPoints: { STR: 5, DEX: 4 } }),
       config
     );
     const after = calculateCharacter(
-      createCharacter({ mainSkillLevels: { STR: 7, DEX: 4 } }),
+      createCharacter({ investedStatPoints: { STR: 7, DEX: 4 } }),
       config
     );
 
@@ -243,8 +275,8 @@ describe('recalculation flows', () => {
     const twoRaces = calculateCharacter(createCharacter({ raceIds: ['elf', 'human'] }), config);
 
     // Elf DEX +2, Human DEX +1 — and the extra point carries into Stealth, which reads DEX
-    expect(oneRace.totalMainSkillLevels.DEX).toBe(6);
-    expect(twoRaces.totalMainSkillLevels.DEX).toBe(7);
+    expect(oneRace.statValues.DEX).toBe(6);
+    expect(twoRaces.statValues.DEX).toBe(7);
     expect(
       numberOr(twoRaces.specialitySkillTotalLevels.STL, 0) -
         numberOr(oneRace.specialitySkillTotalLevels.STL, 0)
@@ -255,22 +287,25 @@ describe('recalculation flows', () => {
     const character = createCharacter();
     useConfigStore.getState().replaceConfig(config);
     useCharacterStore.setState({ characters: [character], isLoaded: true });
+    // The character is put in storage directly: nothing on its side needs re-keying any more, so
+    // no store action would otherwise write it, and this test reads both back from storage.
+    saveCharacters([character]);
 
     const before = calculateCharacter(character, config);
 
-    // Exactly what the skill manager does on a save that changed the code
-    useConfigStore.getState().updateMainSkill('STR', { code: 'STG', name: 'Might' });
-    useCharacterStore.getState().renameSkillCode('STR', 'STG');
+    // Exactly what the stat manager does on a save that changed the abbreviation. The character
+    // needs no re-keying at all now: investment is keyed by stat id (TICKET-STAT-01), so a
+    // rename cannot orphan it — which is the point of storing ids everywhere.
+    useConfigStore.getState().updateStat('STR', { abbreviation: 'STG', name: 'Might' });
 
     // Reload from real storage, so the assertion covers the persisted form too
     const reloadedConfig = loadConfiguration() as Configuration;
     const reloadedCharacter = loadCharacters()[0];
     const after = calculateCharacter(reloadedCharacter, reloadedConfig);
 
-    expect(reloadedConfig.stats[0].formula).toBe('STG * 10');
+    expect(reloadedConfig.stats.find((candidate) => candidate.formula)?.formula).toBe('STG * 10');
     expect(reloadedConfig.races[0].skillModifiers.map((m) => m.skillCode)).not.toContain('STR');
-    expect(after.totalMainSkillLevels.STG).toBe(before.totalMainSkillLevels.STR);
-    expect(after.maxStatValues).toEqual(before.maxStatValues);
+    expect(after.statValues).toEqual(before.statValues);
     expect(after.specialitySkillTotalLevels).toEqual(before.specialitySkillTotalLevels);
     expect(after.combatSkillBonuses).toEqual(before.combatSkillBonuses);
   });
@@ -281,15 +316,15 @@ describe('recalculation flows', () => {
     useCharacterStore.setState({ characters: [character], isLoaded: true });
 
     // Refused while the stat formula still names it
-    const blocked = useConfigStore.getState().deleteMainSkill('STR');
+    const blocked = useConfigStore.getState().deleteStat('STR');
     expect(blocked.map((reference) => reference.holderName)).toContain('Health');
-    expect(useConfigStore.getState().config?.mainSkills).toHaveLength(2);
+    expect(useConfigStore.getState().config?.stats.some((stat) => stat.id === 'STR')).toBe(true);
 
     // Forced through, the dependent values become errors rather than zeros
-    expect(useConfigStore.getState().deleteMainSkill('STR', { force: true })).toEqual([]);
+    expect(useConfigStore.getState().deleteStat('STR', { force: true })).toEqual([]);
 
     const after = calculateCharacter(character, useConfigStore.getState().config as Configuration);
-    const health = after.maxStatValues.health;
+    const health = after.statValues.health;
     expect(isFormulaError(health)).toBe(true);
     expect(describeFormulaError(health as FormulaError)).toContain('Undefined variable: STR');
 
@@ -309,19 +344,40 @@ describe('recalculation flows', () => {
     const config = createConfig({
       constants: [constant],
       stats: [
-        { id: 'health', name: 'Health', description: '', formula: 'STR * 10' },
-        { id: 'apt', name: 'APT', description: '', formula: 'max(1, round(60 / const.apt_value))' },
+        ...createConfig().stats.filter((stat) => stat.formula === undefined),
+        {
+          id: 'health',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: true,
+          rounding: 'none',
+          formula: 'STR * 10',
+        },
+        {
+          id: 'apt',
+          name: 'APT',
+          abbreviation: 'APT',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'max(1, round(60 / const.apt_value))',
+        },
       ],
     });
     const character = createCharacter();
 
-    expect(numberOr(calculateCharacter(character, config).maxStatValues.apt, -1)).toBe(2);
+    expect(numberOr(calculateCharacter(character, config).statValues.apt, -1)).toBe(2);
 
     // Retuning the one number moves the derived value on the next read — nothing is stored
     const retuned = { ...config, constants: [{ ...constant, value: 20 }] };
-    expect(numberOr(calculateCharacter(character, retuned).maxStatValues.apt, -1)).toBe(3);
+    expect(numberOr(calculateCharacter(character, retuned).statValues.apt, -1)).toBe(3);
 
     // A stat naming no constant is untouched
-    expect(calculateCharacter(character, retuned).maxStatValues.health).toBe(50);
+    expect(calculateCharacter(character, retuned).statValues.health).toBe(50);
   });
 });

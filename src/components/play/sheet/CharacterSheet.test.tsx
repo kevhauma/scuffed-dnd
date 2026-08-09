@@ -35,13 +35,50 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    mainSkills: [
-      { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-      { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-    ],
+    schemaVersion: 2,
     stats: [
-      { id: 'health', name: 'Health', description: '', formula: 'STR * 10' },
-      { id: 'mana', name: 'Mana', description: '', formula: 'DEX * 5' },
+      {
+        id: 'STR',
+        name: 'Strength',
+        abbreviation: 'STR',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'DEX',
+        name: 'Dexterity',
+        abbreviation: 'DEX',
+        description: '',
+        order: 1,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'health',
+        name: 'Health',
+        abbreviation: 'HEA',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: true,
+        rounding: 'none',
+        formula: 'STR * 10',
+      },
+      {
+        id: 'mana',
+        name: 'Mana',
+        abbreviation: 'MAN',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: true,
+        rounding: 'none',
+        formula: 'DEX * 5',
+      },
     ],
     specialitySkills: [
       {
@@ -95,10 +132,10 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     name: 'Aria',
     configurationId: 'config1',
     raceIds: ['elf'],
-    mainSkillLevels: { STR: 6, DEX: 4 },
+    investedStatPoints: { STR: 6, DEX: 4 },
     focusStatCode: 'STL',
     specialitySkillBaseLevels: { STL: 3 },
-    currentStatValues: { health: 60, mana: 30 },
+    currentResourceValues: { health: 60, mana: 30 },
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
@@ -132,13 +169,7 @@ describe('CharacterSheet', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Aria' })).toBeDefined();
     expect(screen.getByText(/Level 10 · Elf · focus: STL/)).toBeDefined();
 
-    for (const section of [
-      'Racial Modifiers',
-      'Main Skills',
-      'Stats',
-      'Speciality Skills',
-      'Combat Skills',
-    ]) {
+    for (const section of ['Racial Modifiers', 'Stats', 'Speciality Skills', 'Combat Skills']) {
       expect(screen.getByRole('heading', { name: section })).toBeDefined();
     }
   });
@@ -155,12 +186,12 @@ describe('CharacterSheet', () => {
     expect(within(rowFor(/Dexterity \(DEX\)/)).getByText('racial +3')).toBeDefined();
   });
 
-  it("should show a main skill's contributions separately from its total", () => {
+  it("should show a stat's contributions separately from its total", () => {
     render(<CharacterSheet characterId="char1" />);
 
     const dexterity = rowFor(/Dexterity \(DEX\)/);
     // Allocated and racial are shown apart (Requirement 13.4), not folded into the total
-    expect(within(dexterity).getByText('allocated +4')).toBeDefined();
+    expect(within(dexterity).getByText('invested +4')).toBeDefined();
     expect(within(dexterity).getByText('racial +2')).toBeDefined();
     expect(within(dexterity).getByText('6')).toBeDefined();
   });
@@ -182,10 +213,10 @@ describe('CharacterSheet', () => {
 
     // Main skills, speciality totals, combat bonuses and stat maxima all come from the engine
     expect(
-      within(rowFor(/Strength \(STR\)/)).getByText(String(expected.totalMainSkillLevels.STR))
+      within(rowFor(/Strength \(STR\)/)).getByText(String(expected.statValues.STR))
     ).toBeDefined();
     expect(
-      within(rowFor(/Dexterity \(DEX\)/)).getByText(String(expected.totalMainSkillLevels.DEX))
+      within(rowFor(/Dexterity \(DEX\)/)).getByText(String(expected.statValues.DEX))
     ).toBeDefined();
     expect(
       within(rowFor(/Stealth \(STL\)/)).getByText(String(expected.specialitySkillTotalLevels.STL))
@@ -194,7 +225,7 @@ describe('CharacterSheet', () => {
       within(rowFor(/Melee \(MEL\)/)).getByText(`+${expected.combatSkillBonuses.MEL}`)
     ).toBeDefined();
     expect(
-      within(rowFor('Health')).getByText(`of ${expected.maxStatValues.health} max`)
+      within(rowFor('Health')).getByText(`of ${expected.statValues.health} max`)
     ).toBeDefined();
   });
 
@@ -222,7 +253,7 @@ describe('CharacterSheet', () => {
     fireEvent.change(within(rowFor('Mana')).getByLabelText('Mana'), { target: { value: '12' } });
 
     // Requirement 14.2, 14.5 — the store holds it and the sheet re-reads it
-    expect(useCharacterStore.getState().characters[0].currentStatValues.mana).toBe(12);
+    expect(useCharacterStore.getState().characters[0].currentResourceValues.mana).toBe(12);
     expect((within(rowFor('Mana')).getByLabelText('Mana') as HTMLInputElement).value).toBe('12');
   });
 
@@ -234,7 +265,7 @@ describe('CharacterSheet', () => {
     fireEvent.blur(health);
 
     // Requirement 14.3 — the store refuses to store more than the calculated max of 60
-    expect(useCharacterStore.getState().characters[0].currentStatValues.health).toBe(60);
+    expect(useCharacterStore.getState().characters[0].currentResourceValues.health).toBe(60);
     expect((within(rowFor('Health')).getByLabelText('Health') as HTMLInputElement).value).toBe(
       '60'
     );
@@ -248,7 +279,7 @@ describe('CharacterSheet', () => {
     });
 
     // Requirement 14.4 — the clamp is one-sided
-    expect(useCharacterStore.getState().characters[0].currentStatValues.health).toBe(-5);
+    expect(useCharacterStore.getState().characters[0].currentResourceValues.health).toBe(-5);
   });
 
   it('should step a stat down with the decrease control', () => {
@@ -256,7 +287,7 @@ describe('CharacterSheet', () => {
 
     fireEvent.click(screen.getByLabelText('Decrease Health'));
 
-    expect(useCharacterStore.getState().characters[0].currentStatValues.health).toBe(59);
+    expect(useCharacterStore.getState().characters[0].currentResourceValues.health).toBe(59);
   });
 
   it('should navigate back to the character list', () => {
@@ -274,14 +305,14 @@ describe('CharacterSheet', () => {
       render(<CharacterSheet characterId="char1" />);
 
       expect(screen.getByRole('heading', { name: 'No Ruleset Yet' })).toBeDefined();
-      expect(screen.queryByRole('heading', { name: 'Main Skills' })).toBeNull();
+      expect(screen.queryByRole('heading', { name: 'Stats' })).toBeNull();
     });
 
     it('should explain that no character has this id', () => {
       render(<CharacterSheet characterId="missing" />);
 
       expect(screen.getByRole('heading', { name: 'Character Not Found' })).toBeDefined();
-      expect(screen.queryByRole('heading', { name: 'Main Skills' })).toBeNull();
+      expect(screen.queryByRole('heading', { name: 'Stats' })).toBeNull();
     });
 
     it('should explain that the character belongs to another ruleset', () => {
@@ -292,7 +323,7 @@ describe('CharacterSheet', () => {
       render(<CharacterSheet characterId="char1" />);
 
       expect(screen.getByRole('heading', { name: 'Different Ruleset Loaded' })).toBeDefined();
-      expect(screen.queryByRole('heading', { name: 'Main Skills' })).toBeNull();
+      expect(screen.queryByRole('heading', { name: 'Stats' })).toBeNull();
     });
   });
 
@@ -305,8 +336,29 @@ describe('CharacterSheet', () => {
       useConfigStore.setState({
         config: createConfig({
           stats: [
-            { id: 'health', name: 'Health', description: '', formula: 'NOPE * 10' },
-            { id: 'evasion', name: 'Evasion', description: '', formula: 'DEX * 2' },
+            ...createConfig().stats.filter((stat) => stat.formula === undefined),
+            {
+              id: 'health',
+              name: 'Health',
+              abbreviation: 'HEA',
+              description: '',
+              order: 0,
+              countsTowardTotal: true,
+              isResource: true,
+              rounding: 'none',
+              formula: 'NOPE * 10',
+            },
+            {
+              id: 'evasion',
+              name: 'Evasion',
+              abbreviation: 'EVA',
+              description: '',
+              order: 0,
+              countsTowardTotal: true,
+              isResource: true,
+              rounding: 'none',
+              formula: 'DEX * 2',
+            },
           ],
         }),
         isLoaded: true,
@@ -319,7 +371,7 @@ describe('CharacterSheet', () => {
       renderWithBrokenStat();
 
       expect(screen.queryByRole('heading', { name: 'Ruleset Formula Error' })).toBeNull();
-      expect(screen.getByRole('heading', { name: 'Main Skills' })).toBeDefined();
+      expect(screen.getByRole('heading', { name: 'Stats' })).toBeDefined();
       expect(screen.getByRole('heading', { name: 'Stats' })).toBeDefined();
       expect(screen.getByRole('heading', { name: 'Speciality Skills' })).toBeDefined();
     });
@@ -403,21 +455,66 @@ describe('CharacterSheet', () => {
     });
   });
 
-  describe('a main skill no character allocated (TICKET-CALC-02)', () => {
+  describe('a main skill no character invested (TICKET-CALC-02)', () => {
     it('should calculate a new stat over it rather than chipping the sheet', () => {
       // The original report: the User adds something to the ruleset, and every existing
       // character's sheet goes blank with `Undefined variable`. FORM-06 reduced that to one chip;
-      // CALC-02 removes the chip too — a configured main skill nobody allocated is simply 0.
+      // CALC-02 removes the chip too — a configured main skill nobody invested is simply 0.
       useConfigStore.setState({
         config: createConfig({
-          mainSkills: [
-            { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-            { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
-            { id: 'WIS', code: 'WIS', name: 'Wisdom', description: '', maxLevel: 20 }, // newly added
-          ],
           stats: [
-            { id: 'health', name: 'Health', description: '', formula: 'STR * 10' },
-            { id: 'insight', name: 'Insight', description: '', formula: 'WIS * 3' }, // newly added
+            {
+              id: 'STR',
+              name: 'Strength',
+              abbreviation: 'STR',
+              description: '',
+              order: 0,
+              countsTowardTotal: true,
+              isResource: false,
+              rounding: 'none',
+            },
+            {
+              id: 'DEX',
+              name: 'Dexterity',
+              abbreviation: 'DEX',
+              description: '',
+              order: 1,
+              countsTowardTotal: true,
+              isResource: false,
+              rounding: 'none',
+            },
+            {
+              id: 'WIS',
+              name: 'Wisdom',
+              abbreviation: 'WIS',
+              description: '',
+              order: 2,
+              countsTowardTotal: true,
+              isResource: false,
+              rounding: 'none',
+            },
+            {
+              id: 'health',
+              name: 'Health',
+              abbreviation: 'HEA',
+              description: '',
+              order: 0,
+              countsTowardTotal: true,
+              isResource: true,
+              rounding: 'none',
+              formula: 'STR * 10',
+            },
+            {
+              id: 'insight',
+              name: 'Insight',
+              abbreviation: 'INS',
+              description: '',
+              order: 0,
+              countsTowardTotal: true,
+              isResource: true,
+              rounding: 'none',
+              formula: 'WIS * 3',
+            }, // newly added
           ],
         }),
         isLoaded: true,

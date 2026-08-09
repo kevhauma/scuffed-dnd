@@ -11,6 +11,7 @@ import type { CalculatedCharacter } from '../../types/character';
 import type { CombatSkill, Configuration } from '../../types/config';
 import type { CombatRollResult, FormulaError } from '../../types/formula';
 import { calculateCombatSkillBonuses } from '../calculators/combatSkillCalculator';
+import { statVariables } from '../calculators/statCalculator';
 import { isFormulaError } from '../formula/errors';
 import { type RandomSource, rollDice, sumDiceResults } from './diceSimulator';
 
@@ -42,7 +43,7 @@ export function rollCombatSkill(
 
   const bonuses = calculateCombatSkillBonuses(
     config,
-    character.totalMainSkillLevels,
+    statVariables(config.stats, character.statValues),
     character.specialitySkillTotalLevels,
     character.equipmentBonuses
   );

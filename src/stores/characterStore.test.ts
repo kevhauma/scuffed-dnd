@@ -31,9 +31,9 @@ describe('CharacterStore', () => {
           name: 'Test Character',
           configurationId: 'config-1',
           raceIds: ['race-1'],
-          mainSkillLevels: { STR: 10 },
+          investedStatPoints: { STR: 10 },
           specialitySkillBaseLevels: {},
-          currentStatValues: {},
+          currentResourceValues: {},
           inventory: { equippedItems: {}, miscItems: [] },
           createdAt: '2024-01-01T00:00:00.000Z',
           updatedAt: '2024-01-01T00:00:00.000Z',
@@ -55,11 +55,40 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [
-        { id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 },
-        { id: 'DEX', code: 'DEX', name: 'Dexterity', description: '', maxLevel: 20 },
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'DEX',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'health',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: true,
+          rounding: 'none',
+          formula: 'STR * 10',
+        },
       ],
-      stats: [{ id: 'health', name: 'Health', description: '', formula: 'STR * 10' }],
       specialitySkills: [],
       combatSkills: [],
       materials: [],
@@ -77,7 +106,7 @@ describe('CharacterStore', () => {
       const creationData: CharacterCreationData = {
         name: 'New Character',
         raceIds: ['race-1'],
-        mainSkillLevels: { STR: 10, DEX: 8 },
+        investedStatPoints: { STR: 10, DEX: 8 },
         focusStatCode: 'STR',
         specialitySkillBaseLevels: { SWD: 5 },
       };
@@ -86,7 +115,7 @@ describe('CharacterStore', () => {
 
       expect(character.name).toBe('New Character');
       expect(character.raceIds).toEqual(['race-1']);
-      expect(character.mainSkillLevels).toEqual({ STR: 10, DEX: 8 });
+      expect(character.investedStatPoints).toEqual({ STR: 10, DEX: 8 });
       expect(character.focusStatCode).toBe('STR');
       expect(character.configurationId).toBe('config-1');
       expect(character.id).toBeDefined();
@@ -101,7 +130,7 @@ describe('CharacterStore', () => {
       const creationData: CharacterCreationData = {
         name: 'Test',
         raceIds: [],
-        mainSkillLevels: {},
+        investedStatPoints: {},
         specialitySkillBaseLevels: {},
       };
 
@@ -117,32 +146,44 @@ describe('CharacterStore', () => {
       const creationData: CharacterCreationData = {
         name: 'Full Health',
         raceIds: [],
-        mainSkillLevels: { STR: 7 },
+        investedStatPoints: { STR: 7 },
         specialitySkillBaseLevels: {},
       };
 
       const character = useCharacterStore.getState().createCharacter(creationData, testConfig);
 
       // health = STR * 10, so a new character starts at full rather than at zero
-      expect(character.currentStatValues).toEqual({ health: 70 });
+      expect(character.currentResourceValues).toEqual({ health: 70 });
     });
 
     it('should still create the character when a stat formula does not evaluate', () => {
       const brokenConfig: Configuration = {
         ...testConfig,
-        stats: [{ id: 'mana', name: 'Mana', description: '', formula: 'WIS * 5' }],
+        stats: [
+          {
+            id: 'mana',
+            name: 'Mana',
+            abbreviation: 'MAN',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: false,
+            rounding: 'none',
+            formula: 'WIS * 5',
+          },
+        ],
       };
       const creationData: CharacterCreationData = {
         name: 'Survivor',
         raceIds: [],
-        mainSkillLevels: { STR: 3 },
+        investedStatPoints: { STR: 3 },
         specialitySkillBaseLevels: {},
       };
 
       const character = useCharacterStore.getState().createCharacter(creationData, brokenConfig);
 
       expect(character.name).toBe('Survivor');
-      expect(character.currentStatValues).toEqual({});
+      expect(character.currentResourceValues).toEqual({});
       expect(useCharacterStore.getState().characters).toHaveLength(1);
     });
 
@@ -151,14 +192,35 @@ describe('CharacterStore', () => {
       const partlyBrokenConfig: Configuration = {
         ...testConfig,
         stats: [
-          { id: 'health', name: 'Health', description: '', formula: 'STR * 10' },
-          { id: 'mana', name: 'Mana', description: '', formula: 'WIS * 5' }, // WIS is undefined
+          ...testConfig.stats.filter((stat) => stat.formula === undefined),
+          {
+            id: 'health',
+            name: 'Health',
+            abbreviation: 'HEA',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: true,
+            rounding: 'none',
+            formula: 'STR * 10',
+          },
+          {
+            id: 'mana',
+            name: 'Mana',
+            abbreviation: 'MAN',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: true,
+            rounding: 'none',
+            formula: 'WIS * 5',
+          }, // WIS is undefined
         ],
       };
       const creationData: CharacterCreationData = {
         name: 'Half Broken',
         raceIds: [],
-        mainSkillLevels: { STR: 4 },
+        investedStatPoints: { STR: 4 },
         specialitySkillBaseLevels: {},
       };
 
@@ -166,8 +228,8 @@ describe('CharacterStore', () => {
         .getState()
         .createCharacter(creationData, partlyBrokenConfig);
 
-      expect(character.currentStatValues).toEqual({ health: 40 });
-      expect(character.currentStatValues.mana).toBeUndefined();
+      expect(character.currentResourceValues).toEqual({ health: 40 });
+      expect(character.currentResourceValues.mana).toBeUndefined();
     });
   });
 
@@ -178,9 +240,9 @@ describe('CharacterStore', () => {
         name: 'Original Name',
         configurationId: 'config-1',
         raceIds: [],
-        mainSkillLevels: {},
+        investedStatPoints: {},
         specialitySkillBaseLevels: {},
-        currentStatValues: {},
+        currentResourceValues: {},
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
@@ -204,9 +266,9 @@ describe('CharacterStore', () => {
         name: 'Test',
         configurationId: 'config-1',
         raceIds: [],
-        mainSkillLevels: {},
+        investedStatPoints: {},
         specialitySkillBaseLevels: {},
-        currentStatValues: {},
+        currentResourceValues: {},
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
@@ -228,9 +290,9 @@ describe('CharacterStore', () => {
         name: 'Test',
         configurationId: 'config-1',
         raceIds: [],
-        mainSkillLevels: {},
+        investedStatPoints: {},
         specialitySkillBaseLevels: {},
-        currentStatValues: {},
+        currentResourceValues: {},
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
@@ -259,7 +321,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [],
+      schemaVersion: 2,
       stats: [],
       specialitySkills: [],
       combatSkills: [],
@@ -288,9 +350,9 @@ describe('CharacterStore', () => {
         name: 'Test',
         configurationId: 'config-1',
         raceIds: [],
-        mainSkillLevels: {},
+        investedStatPoints: {},
         specialitySkillBaseLevels: {},
-        currentStatValues: {},
+        currentResourceValues: {},
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
@@ -511,10 +573,40 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      schemaVersion: 2,
       stats: [
-        { id: 'health', name: 'Health', description: '', formula: 'STR * 10' },
-        { id: 'mana', name: 'Mana', description: '', formula: 'STR * 5' },
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'health',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: true,
+          rounding: 'none',
+          formula: 'STR * 10',
+        },
+        {
+          id: 'mana',
+          name: 'Mana',
+          abbreviation: 'MAN',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: true,
+          rounding: 'none',
+          formula: 'STR * 5',
+        },
       ],
       specialitySkills: [],
       combatSkills: [],
@@ -535,9 +627,9 @@ describe('CharacterStore', () => {
         name: 'Test',
         configurationId: 'config-1',
         raceIds: [],
-        mainSkillLevels: { STR: 10 },
+        investedStatPoints: { STR: 10 },
         specialitySkillBaseLevels: {},
-        currentStatValues: { health: 100, mana: 50 },
+        currentResourceValues: { health: 100, mana: 50 },
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
@@ -550,8 +642,8 @@ describe('CharacterStore', () => {
         useCharacterStore.getState().updateCurrentStatValue('char-1', 'health', 80, statConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentStatValues.health).toBe(80);
-        expect(updated.currentStatValues.mana).toBe(50);
+        expect(updated.currentResourceValues.health).toBe(80);
+        expect(updated.currentResourceValues.mana).toBe(50);
         expect(storage.saveCharacters).toHaveBeenCalled();
       });
 
@@ -559,7 +651,7 @@ describe('CharacterStore', () => {
         useCharacterStore.getState().updateCurrentStatValue('char-1', 'health', -10, statConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentStatValues.health).toBe(-10);
+        expect(updated.currentResourceValues.health).toBe(-10);
       });
 
       it('should clamp a value above the calculated maximum', () => {
@@ -567,26 +659,40 @@ describe('CharacterStore', () => {
         useCharacterStore.getState().updateCurrentStatValue('char-1', 'health', 999, statConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentStatValues.health).toBe(100);
+        expect(updated.currentResourceValues.health).toBe(100);
       });
 
-      it('should write through a stat the configuration does not define', () => {
+      it('should drop a value for a stat the configuration does not define', () => {
+        // Only a resource has a current value, and the store is where that is decided — a
+        // component cannot write one for a stat that has none (TICKET-STAT-01)
         useCharacterStore.getState().updateCurrentStatValue('char-1', 'stamina', 42, statConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentStatValues.stamina).toBe(42);
+        expect(updated.currentResourceValues.stamina).toBeUndefined();
       });
 
       it('should write through unclamped when the ruleset has a broken formula', () => {
         const brokenConfig: Configuration = {
           ...statConfig,
-          stats: [{ id: 'health', name: 'Health', description: '', formula: 'UNKNOWN * 10' }],
+          stats: [
+            {
+              id: 'health',
+              name: 'Health',
+              abbreviation: 'HEA',
+              description: '',
+              order: 0,
+              countsTowardTotal: true,
+              isResource: true,
+              rounding: 'none',
+              formula: 'UNKNOWN * 10',
+            },
+          ],
         };
 
         useCharacterStore.getState().updateCurrentStatValue('char-1', 'health', 999, brokenConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentStatValues.health).toBe(999);
+        expect(updated.currentResourceValues.health).toBe(999);
       });
     });
 
@@ -602,24 +708,17 @@ describe('CharacterStore', () => {
         );
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentStatValues.health).toBe(90);
-        expect(updated.currentStatValues.mana).toBe(40);
+        expect(updated.currentResourceValues.health).toBe(90);
+        expect(updated.currentResourceValues.mana).toBe(40);
         expect(storage.saveCharacters).toHaveBeenCalled();
       });
 
       it('should merge with existing values', () => {
-        useCharacterStore.getState().updateCurrentStatValues(
-          'char-1',
-          {
-            stamina: 60,
-          },
-          statConfig
-        );
+        useCharacterStore.getState().updateCurrentStatValues('char-1', { mana: 30 }, statConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentStatValues.health).toBe(100);
-        expect(updated.currentStatValues.mana).toBe(50);
-        expect(updated.currentStatValues.stamina).toBe(60);
+        expect(updated.currentResourceValues.health).toBe(100);
+        expect(updated.currentResourceValues.mana).toBe(30);
       });
 
       it('should clamp each value independently', () => {
@@ -628,8 +727,8 @@ describe('CharacterStore', () => {
           .updateCurrentStatValues('char-1', { health: 500, mana: -5 }, statConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentStatValues.health).toBe(100);
-        expect(updated.currentStatValues.mana).toBe(-5);
+        expect(updated.currentResourceValues.health).toBe(100);
+        expect(updated.currentResourceValues.mana).toBe(-5);
       });
     });
   });
@@ -642,10 +741,10 @@ describe('CharacterStore', () => {
             name: 'Test',
             configurationId: 'config1',
             raceIds: [],
-            mainSkillLevels: { STR: 6, DEX: 4 },
+            investedStatPoints: { STR: 6, DEX: 4 },
             specialitySkillBaseLevels: { STL: 3 },
             focusStatCode: 'STR',
-            currentStatValues: {},
+            currentResourceValues: {},
             inventory: { equippedItems: {}, miscItems: [] },
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01',
@@ -656,11 +755,13 @@ describe('CharacterStore', () => {
       vi.clearAllMocks();
     });
 
-    it('moves the allocation, the base level and the focus stat onto the new code', () => {
+    it('moves the focus stat onto the new code, leaving id-keyed investment alone', () => {
       useCharacterStore.getState().renameSkillCode('STR', 'STG');
 
       const character = useCharacterStore.getState().characters[0];
-      expect(character.mainSkillLevels).toEqual({ DEX: 4, STG: 6 });
+      // Investment is keyed by stat id since TICKET-STAT-01, so a rename cannot orphan it and
+      // there is nothing here to move
+      expect(character.investedStatPoints).toEqual({ STR: 6, DEX: 4 });
       expect(character.focusStatCode).toBe('STG');
       expect(storage.saveCharacters).toHaveBeenCalled();
     });
@@ -676,7 +777,7 @@ describe('CharacterStore', () => {
     it('leaves characters and storage alone when nothing holds the code', () => {
       useCharacterStore.getState().renameSkillCode('ZZZ', 'YYY');
 
-      expect(useCharacterStore.getState().characters[0].mainSkillLevels).toEqual({
+      expect(useCharacterStore.getState().characters[0].investedStatPoints).toEqual({
         STR: 6,
         DEX: 4,
       });

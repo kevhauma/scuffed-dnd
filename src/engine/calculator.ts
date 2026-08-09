@@ -12,19 +12,21 @@ import type { Configuration } from '../types/config';
 import type { FormulaError, FormulaResult } from '../types/formula';
 import { isFormulaError } from './formula/errors';
 
+// Re-export all calculator functions
 export * from './calculators/combatSkillCalculator';
 export * from './calculators/equipmentBonusCalculator';
-// Re-export all calculator functions
-export * from './calculators/mainSkillCalculator';
 export * from './calculators/specialitySkillCalculator';
 export * from './calculators/statCalculator';
 
 import { calculateCombatSkillBonuses } from './calculators/combatSkillCalculator';
 import { calculateEquipmentBonuses } from './calculators/equipmentBonusCalculator';
 // Import for the composed entry point
-import { calculateTotalMainSkillLevels } from './calculators/mainSkillCalculator';
 import { calculateSpecialitySkillLevels } from './calculators/specialitySkillCalculator';
-import { calculateMaxStatValues } from './calculators/statCalculator';
+import {
+  calculateStatTotal,
+  calculateStatValues,
+  statVariables,
+} from './calculators/statCalculator';
 
 /**
  * Calculate every derived value for a character
@@ -34,18 +36,18 @@ import { calculateMaxStatValues } from './calculators/statCalculator';
  * persisted — call it at read time whenever a derived number is needed.
  *
  * The ordering is load-bearing:
- * 1. **equipment** — resolved first, because main and speciality skills both consume it;
- * 2. **main skills** — allocated levels + racial modifiers + equipment + focus (if the focus stat
- *    is a main skill), because stats, speciality skills and combat skills all read them;
- * 3. **stats** — evaluated over the finished main skill levels, so an equipped `STR +2` moves
- *    every stat derived from `STR` (Requirement 13.3);
- * 4. **speciality skills** — base + formula + equipment + focus (if the focus stat is a
+ * 1. **equipment** — resolved first, because stats and speciality skills both consume it;
+ * 2. **stats** — the composition: invested points + racial modifiers + equipment for an invested
+ *    stat, the formula for a derived one, then clamp and round (TICKET-STAT-01). Everything
+ *    downstream reads them, so an equipped `STR +2` moves every stat and skill derived from
+ *    `STR` (Requirement 13.3);
+ * 3. **speciality skills** — base + formula + equipment + focus (if the focus stat is a
  *    speciality skill);
- * 5. **combat skills** — formula over main and speciality levels + equipment targeting the
+ * 4. **combat skills** — formula over stats and speciality levels + equipment targeting the
  *    combat skill's own code.
  *
- * Because skill codes are unique across the three kinds, each equipment bonus is claimed by
- * exactly one step and can never be counted twice (Requirement 13.2).
+ * Because a stat abbreviation is unique against the speciality and combat code spaces, each
+ * equipment bonus is claimed by exactly one step and can never be counted twice (Req 13.2).
  *
  * **This function always returns.** A stat or skill whose formula is broken gets an error value
  * in its map entry naming what failed and on which entity; everything else is still calculated
@@ -65,36 +67,37 @@ export function calculateCharacter(
   // 1. Equipment bonuses from equipped items
   const equipmentBonuses = calculateEquipmentBonuses(character, config);
 
-  // 2. Total main skill levels — base + racial + equipment + focus
-  const totalMainSkillLevels = calculateTotalMainSkillLevels(character, races, {
-    mainSkills: config.mainSkills,
+  // 2. Stat values — the composition (invested or derived), clamped and rounded
+  const statValues = calculateStatValues(config.stats, character, {
+    races,
     equipmentBonuses,
     focusStatBonusLevel: config.focusStatBonusLevel,
+    source: config,
   });
 
-  // 3. Maximum stat values from the stat formulas
-  const maxStatValues = calculateMaxStatValues(config.stats, totalMainSkillLevels, config);
+  // The flat space downstream formulas are still written in, keyed by abbreviation
+  const variables = statVariables(config.stats, statValues);
 
-  // 4. Speciality skill totals — base + formula + equipment + focus
+  // 3. Speciality skill totals — base + formula + equipment + focus
   const specialitySkillTotalLevels = calculateSpecialitySkillLevels(
     character,
     config,
-    totalMainSkillLevels,
+    variables,
     equipmentBonuses
   );
 
-  // 5. Combat skill bonuses — formula + equipment targeting the combat skill itself
+  // 4. Combat skill bonuses — formula + equipment targeting the combat skill itself
   const combatSkillBonuses = calculateCombatSkillBonuses(
     config,
-    totalMainSkillLevels,
+    variables,
     specialitySkillTotalLevels,
     equipmentBonuses
   );
 
   return {
     ...character,
-    totalMainSkillLevels,
-    maxStatValues,
+    statValues,
+    statTotal: calculateStatTotal(config.stats, statValues),
     specialitySkillTotalLevels,
     combatSkillBonuses,
     equipmentBonuses,
@@ -116,7 +119,7 @@ export function calculateCharacter(
  */
 export function firstCalculationError(calculated: CalculatedCharacter): FormulaError | undefined {
   const entries: FormulaResult[] = [
-    ...Object.values(calculated.maxStatValues),
+    ...Object.values(calculated.statValues),
     ...Object.values(calculated.specialitySkillTotalLevels),
     ...Object.values(calculated.combatSkillBonuses),
   ];
@@ -138,5 +141,5 @@ export function calculateCharacterStats(
   character: Character,
   config: Configuration
 ): Record<string, FormulaResult> {
-  return calculateCharacter(character, config).maxStatValues;
+  return calculateCharacter(character, config).statValues;
 }

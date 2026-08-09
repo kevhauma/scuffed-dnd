@@ -60,10 +60,15 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   const warnings: ValidationIssue[] = [];
 
   // Build sets of valid identifiers for reference validation
-  const mainSkillCodes = new Set(config.mainSkills.map((s) => s.code));
+  const statAbbreviations = new Set(config.stats.map((stat) => stat.abbreviation));
   const specialitySkillCodes = new Set(config.specialitySkills.map((s) => s.code));
   const combatSkillCodes = new Set(config.combatSkills.map((s) => s.code));
-  const allSkillCodes = new Set([...mainSkillCodes, ...specialitySkillCodes, ...combatSkillCodes]);
+  // One flat space: a stat abbreviation and a skill code must not collide (TICKET-STAT-01)
+  const allSkillCodes = new Set([
+    ...statAbbreviations,
+    ...specialitySkillCodes,
+    ...combatSkillCodes,
+  ]);
   const materialCategoryIds = new Set(config.materialCategories.map((c) => c.id));
   const equipmentSlotTypes = new Set(config.equipmentSlots.map((s) => s.type));
   const materialIds = new Set(config.materials.map((m) => m.id));
@@ -75,8 +80,9 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   const specialityScope = scopeFor(config, 'speciality-skill');
   const combatScope = scopeFor(config, 'combat-skill');
 
-  // Validate stat formulas
+  // Validate stat formulas — only derived stats have one (TICKET-STAT-01)
   for (const stat of config.stats) {
+    if (stat.formula === undefined) continue;
     const result = validateFormula(stat.formula, statScope.codes, statScope);
 
     if (!result.isValid) {
@@ -132,7 +138,9 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   // Validate circular dependencies in formulas. `toFormulaDependency` is the one place that
   // decides what an edge is, so bare codes and dotted references land on the same graph nodes.
   const formulaDependencies: FormulaDependency[] = [
-    ...config.stats.map((stat) => toFormulaDependency(stat.id, stat.formula)),
+    ...config.stats
+      .filter((stat) => stat.formula !== undefined)
+      .map((stat) => toFormulaDependency(stat.id, stat.formula as string)),
     ...config.specialitySkills.map((skill) => toFormulaDependency(skill.code, skill.bonusFormula)),
     ...config.combatSkills.map((skill) => toFormulaDependency(skill.code, skill.bonusFormula)),
   ];
@@ -238,11 +246,11 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   // Validate race skill modifiers
   for (const race of config.races) {
     for (const modifier of race.skillModifiers) {
-      if (!mainSkillCodes.has(modifier.skillCode)) {
+      if (!statAbbreviations.has(modifier.skillCode)) {
         errors.push({
           severity: 'error',
           category: 'Reference Validation',
-          message: `Race "${race.name}" references non-existent main skill: ${modifier.skillCode}`,
+          message: `Race "${race.name}" references non-existent stat: ${modifier.skillCode}`,
           entityType: 'race',
           entityId: race.id,
           entityName: race.name,
@@ -278,7 +286,7 @@ export function validateConfiguration(config: Configuration): ValidationReport {
 
   // Validate unique skill codes
   const allCodes = [
-    ...config.mainSkills.map((s) => ({ code: s.code, type: 'Main Skill', name: s.name })),
+    ...config.stats.map((s) => ({ code: s.abbreviation, type: 'Stat', name: s.name })),
     ...config.specialitySkills.map((s) => ({
       code: s.code,
       type: 'Speciality Skill',

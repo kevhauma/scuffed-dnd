@@ -22,7 +22,6 @@ export * from './rolls/RollHistoryPanel';
 export * from './rolls/useCombatRoller';
 export * from './sheet/CharacterSheet';
 export * from './sheet/CombatSkillsSection';
-export * from './sheet/MainSkillsSection';
 export * from './sheet/RacialModifiersSection';
 export * from './sheet/SheetHeader';
 export * from './sheet/SkillBreakdownRow';

@@ -16,6 +16,7 @@ import {
   StorageError,
   StorageParseError,
   StorageQuotaError,
+  StorageSchemaError,
   saveCharacters,
   saveConfiguration,
 } from './storage';
@@ -59,7 +60,7 @@ describe('Storage Service', () => {
         id: 'test-config',
         name: 'Test Config',
         version: '1.0.0',
-        mainSkills: [],
+        schemaVersion: 2,
         stats: [],
         specialitySkills: [],
         combatSkills: [],
@@ -86,7 +87,7 @@ describe('Storage Service', () => {
         id: 'test-config',
         name: 'Test Config',
         version: '1.0.0',
-        mainSkills: [],
+        schemaVersion: 2,
         stats: [],
         specialitySkills: [],
         combatSkills: [],
@@ -121,7 +122,7 @@ describe('Storage Service', () => {
         id: 'test-config',
         name: 'Test Config',
         version: '1.0.0',
-        mainSkills: [],
+        schemaVersion: 2,
         stats: [],
         specialitySkills: [],
         combatSkills: [],
@@ -155,7 +156,7 @@ describe('Storage Service', () => {
         id: 'test-config',
         name: 'Test Config',
         version: '1.0.0',
-        mainSkills: [],
+        schemaVersion: 2,
         stats: [],
         specialitySkills: [],
         combatSkills: [],
@@ -197,9 +198,9 @@ describe('Storage Service', () => {
           name: 'Test Character',
           configurationId: 'config-1',
           raceIds: [],
-          mainSkillLevels: {},
+          investedStatPoints: {},
           specialitySkillBaseLevels: {},
-          currentStatValues: {},
+          currentResourceValues: {},
           inventory: { equippedItems: {}, miscItems: [] },
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-01T00:00:00Z',
@@ -239,9 +240,9 @@ describe('Storage Service', () => {
           name: 'Test Character',
           configurationId: 'config-1',
           raceIds: [],
-          mainSkillLevels: {},
+          investedStatPoints: {},
           specialitySkillBaseLevels: {},
-          currentStatValues: {},
+          currentResourceValues: {},
           inventory: { equippedItems: {}, miscItems: [] },
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-01T00:00:00Z',
@@ -321,13 +322,88 @@ describe('Storage Service', () => {
       expect(size).toBeGreaterThan(0);
     });
   });
+  describe('the v1 clean break (TICKET-STAT-01)', () => {
+    /** A ruleset as v1 wrote it: main skills, no `schemaVersion`, stats that are all formulas */
+    const v1Config = {
+      id: 'old',
+      name: 'Old Ruleset',
+      version: '1.0.0',
+      mainSkills: [{ id: 'id-str', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
+      stats: [{ id: 'id-hp', name: 'Health', description: '', formula: 'STR * 10' }],
+      specialitySkills: [],
+      combatSkills: [],
+      materials: [],
+      materialCategories: [],
+      items: [],
+      equipmentSlots: [],
+      races: [],
+      currencyTiers: [],
+      focusStatBonusLevel: 0,
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+    };
+
+    it('refuses a v1 ruleset by name rather than crashing on a field that is not there', () => {
+      localStorage.setItem('dnd_builder_config', JSON.stringify(v1Config));
+
+      // Converting is not on the table: v1's focus stat, spend-derived level and speciality base
+      // levels have no faithful mapping, so a conversion would invent a ruleset nobody authored
+      expect(() => loadConfiguration()).toThrow(StorageSchemaError);
+    });
+
+    it('says what the User can do about it', () => {
+      localStorage.setItem('dnd_builder_config', JSON.stringify(v1Config));
+
+      expect(() => loadConfiguration()).toThrow(/older version of the app/);
+    });
+
+    it('drops a v1 character rather than handing back one every read would crash on', () => {
+      localStorage.setItem(
+        'dnd_builder_characters',
+        JSON.stringify([
+          { id: 'old', name: 'Aria', mainSkillLevels: { STR: 5 }, currentStatValues: {} },
+          {
+            id: 'new',
+            name: 'Bree',
+            investedStatPoints: { 'id-str': 5 },
+            currentResourceValues: {},
+          },
+        ])
+      );
+
+      expect(loadCharacters().map((character) => character.id)).toEqual(['new']);
+    });
+  });
+
   describe('reference form at the storage boundary (TICKET-REF-01)', () => {
     const config: Configuration = {
       id: 'test-config',
       name: 'Test Config',
       version: '1.0.0',
-      mainSkills: [{ id: 'id-str', code: 'STR', name: 'Strength', description: '', maxLevel: 10 }],
-      stats: [{ id: 'id-hp', name: 'Health', description: '', formula: 'STR * 10' }],
+      schemaVersion: 2,
+      stats: [
+        {
+          id: 'id-str',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'id-hp',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'STR * 10',
+        },
+      ],
       specialitySkills: [],
       combatSkills: [],
       materials: [],
@@ -344,8 +420,8 @@ describe('Storage Service', () => {
     it('writes formulas with references resolved to ids', () => {
       saveConfiguration(config);
 
-      const raw = JSON.parse(localStorage.getItem('dnd_builder_config') as string);
-      expect(raw.stats[0].formula).toBe('[id-str] * 10');
+      const raw = JSON.parse(localStorage.getItem('dnd_builder_config') as string) as Configuration;
+      expect(raw.stats.find((candidate) => candidate.formula)?.formula).toBe('[id-str] * 10');
     });
 
     it('hands back the display form on load', () => {
@@ -354,26 +430,28 @@ describe('Storage Service', () => {
       expect(loadConfiguration()).toEqual(config);
     });
 
-    it('spells a stored formula with the code the skill has now', () => {
+    it('spells a stored formula with the abbreviation the stat has now', () => {
       saveConfiguration(config);
 
       const raw = JSON.parse(localStorage.getItem('dnd_builder_config') as string);
-      raw.mainSkills[0].code = 'STG';
+      raw.stats[0].abbreviation = 'STG';
       localStorage.setItem('dnd_builder_config', JSON.stringify(raw));
 
-      expect(loadConfiguration()?.stats[0].formula).toBe('STG * 10');
+      expect(loadConfiguration()?.stats.find((candidate) => candidate.formula)?.formula).toBe(
+        'STG * 10'
+      );
     });
 
-    it('completes a configuration written before skills had ids', () => {
+    it('completes a configuration written before entities had ids', () => {
       const legacy = {
         ...config,
-        mainSkills: [{ code: 'STR', name: 'Strength', description: '', maxLevel: 10 }],
+        stats: config.stats.map(({ id: _dropped, ...rest }: (typeof config.stats)[number]) => rest),
       };
       localStorage.setItem('dnd_builder_config', JSON.stringify(legacy));
 
       const loaded = loadConfiguration();
-      expect(loaded?.mainSkills[0].id).toBeTruthy();
-      expect(loaded?.stats[0].formula).toBe('STR * 10');
+      expect(loaded?.stats[0].id).toBeTruthy();
+      expect(loaded?.stats.find((candidate) => candidate.formula)?.formula).toBe('STR * 10');
     });
   });
 });

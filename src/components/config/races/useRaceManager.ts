@@ -38,7 +38,8 @@ export function useRaceManager() {
   });
 
   const currentRaces = config?.races || [];
-  const availableMainSkills = config?.mainSkills || [];
+  // A racial modifier targets a stat by abbreviation since TICKET-STAT-01
+  const availableStats = config?.stats || [];
 
   const handleAdd = () => {
     setEditingRaceId(null);
@@ -90,7 +91,7 @@ export function useRaceManager() {
     dismissBlocked,
     config,
     currentRaces,
-    availableMainSkills,
+    availableStats,
     isDialogOpen,
     setIsDialogOpen,
     editingRaceId,

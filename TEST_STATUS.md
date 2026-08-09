@@ -1,20 +1,23 @@
 # Test Status
 
 _Last verified: 2026-08-08 (`npx vitest run`), after
-[TICKET-CRV-03](docs/v2.0_sheet_core/tickets/TICKET-CRV-03-curves-panel-and-seeds.md)._
+[TICKET-STAT-01](docs/v2.0_sheet_core/tickets/TICKET-STAT-01-unified-stat-model-and-engine.md)._
 
 ## Summary
 
-- **Total tests**: 1091
-- **Passing**: 1091 (100%)
+- **Total tests**: 1094
+- **Passing**: 1094 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
 Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's tickets added
 +43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), +11 (FORM-06), +7 (CALC-02),
 +11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02), +64 (CRV-01),
-+32 (CRV-02), +27 (FORM-07) and +51 (CRV-03). FORM-02/03/04 only
-appended. FORM-05 also **rewrote** ~14 assertions that asserted the throwing contract it replaced,
++32 (CRV-02), +27 (FORM-07), +51 (CRV-03) and +3 (STAT-01). FORM-02/03/04 only
+appended. **STAT-01's +3 is a net figure**: the breaking schema change deleted
+`mainSkillCalculator.test.ts` (18) and `MainSkillPointBudget.test.tsx` (6) with the entities they
+covered, added `statCalculator.test.ts`, `stats.test.ts` and `StatPointBudget.test.tsx`, and
+rewrote assertions across ~30 fixture files. FORM-05 also **rewrote** ~14 assertions that asserted the throwing contract it replaced,
 and FORM-06 replaced one sheet test that asserted the whole-sheet error page it removed — see
 those tickets' implementation notes.
 
@@ -102,7 +105,7 @@ workflow and are documented here so a future regression is distinguishable from 
 | File | Error |
 | --- | --- |
 | `src/components/ui/Button/Button.test.tsx:68` | TS2339 — `.disabled` read off `HTMLElement` |
-| `src/services/importExport.test.ts:399` | TS2352 — `Blob`-shaped literal cast to `File` |
+| `src/services/importExport.test.ts:428` | TS2352 — `Blob`-shaped literal cast to `File` |
 
 Both are test-typing noise. The two `evaluator.ts` errors that stood beside them for five tickets
 are **gone as of TICKET-FORM-07**: `operator` does not exist on type `never` was the switch

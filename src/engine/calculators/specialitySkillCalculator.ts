@@ -25,21 +25,21 @@ import { namespacesFor } from '../formula/namespaces';
  *
  * @param character - The character whose speciality skills to calculate
  * @param config - The game configuration containing speciality skill definitions
- * @param totalMainSkillLevels - Main skill levels with racial and equipment bonuses applied
+ * @param statVariables - Composed stat values, keyed by abbreviation (TICKET-STAT-01)
  * @param equipmentBonuses - Bonuses from equipped items; only those targeting a speciality skill code are used
  * @returns Record of speciality skill code to total level or error
  */
 export function calculateSpecialitySkillLevels(
   character: Character,
   config: Configuration,
-  totalMainSkillLevels: Record<string, FormulaResult>,
+  statVariables: Record<string, FormulaResult>,
   equipmentBonuses: SkillModifier[] = []
 ): Record<string, FormulaResult> {
   const specialitySkillLevels: Record<string, FormulaResult> = {};
 
   // Main skill levels serve the legacy bare codes; the resolvers serve dotted references
   const context: FormulaContext = {
-    variables: totalMainSkillLevels,
+    variables: statVariables,
     namespaces: namespacesFor(config, 'speciality-skill'),
   };
 

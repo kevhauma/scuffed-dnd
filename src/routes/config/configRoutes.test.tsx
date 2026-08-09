@@ -14,9 +14,6 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../components/config/skills/main/MainSkillsPanel', () => ({
-  MainSkillsPanel: () => <div data-testid="main-skills-panel" />,
-}));
 vi.mock('../../components/config/skills/speciality/SpecialitySkillsPanel', () => ({
   SpecialitySkillsPanel: () => <div data-testid="speciality-skills-panel" />,
 }));
@@ -74,10 +71,10 @@ import { SkillsConfig } from './skills';
 import { StatsConfig } from './stats';
 
 describe('configuration routes', () => {
-  it('/config/skills renders the three skills panels', () => {
+  it('/config/skills renders the two skills panels', () => {
+    // Main skills went with TICKET-STAT-01 — the invested atom is a stat, edited at /config/stats
     render(<SkillsConfig />);
 
-    expect(screen.getByTestId('main-skills-panel')).toBeDefined();
     expect(screen.getByTestId('speciality-skills-panel')).toBeDefined();
     expect(screen.getByTestId('combat-skills-panel')).toBeDefined();
   });

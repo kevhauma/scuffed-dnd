@@ -20,14 +20,14 @@ import { namespacesFor } from '../formula/namespaces';
  * 2. Adding equipment bonuses for the specific combat skill
  *
  * @param config - The game configuration containing combat skill definitions
- * @param totalMainSkillLevels - Main skill levels with racial bonuses applied
+ * @param statVariables - Composed stat values, keyed by abbreviation (TICKET-STAT-01)
  * @param specialitySkillLevels - Calculated speciality skill levels
  * @param equipmentBonuses - Bonuses from equipped items
  * @returns Record of combat skill code to total bonus or error
  */
 export function calculateCombatSkillBonuses(
   config: Configuration,
-  totalMainSkillLevels: Record<string, FormulaResult>,
+  statVariables: Record<string, FormulaResult>,
   specialitySkillLevels: Record<string, FormulaResult>,
   equipmentBonuses: SkillModifier[]
 ): Record<string, FormulaResult> {
@@ -37,7 +37,7 @@ export function calculateCombatSkillBonuses(
   // error stays an error here, so a combat skill reading it reports the upstream cause.
   const context: FormulaContext = {
     variables: {
-      ...totalMainSkillLevels,
+      ...statVariables,
       ...specialitySkillLevels,
     },
     namespaces: namespacesFor(config, 'combat-skill'),

@@ -36,8 +36,19 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    mainSkills: [{ id: 'STR', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
-    stats: [],
+    schemaVersion: 2,
+    stats: [
+      {
+        id: 'STR',
+        name: 'Strength',
+        abbreviation: 'STR',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+    ],
     specialitySkills: [],
     combatSkills: [],
     materials: [],
@@ -156,7 +167,19 @@ describe('ConfigTransferPanel', () => {
         JSON.stringify(
           createConfig({
             name: 'Dangling',
-            stats: [{ id: 'health', name: 'Health', description: '', formula: 'WIS * 10' }],
+            stats: [
+              {
+                id: 'health',
+                name: 'Health',
+                abbreviation: 'HEA',
+                description: '',
+                order: 0,
+                countsTowardTotal: true,
+                isResource: true,
+                rounding: 'none',
+                formula: 'WIS * 10',
+              },
+            ],
           })
         )
       )

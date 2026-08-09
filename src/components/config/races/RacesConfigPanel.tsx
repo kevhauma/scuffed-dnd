@@ -18,7 +18,7 @@ export function RacesConfigPanel() {
   const {
     config,
     currentRaces,
-    availableMainSkills,
+    availableStats,
     isDialogOpen,
     setIsDialogOpen,
     editingRaceId,
@@ -59,7 +59,7 @@ export function RacesConfigPanel() {
           </Button>
         </div>
 
-        {availableMainSkills.length === 0 && (
+        {availableStats.length === 0 && (
           <div className="mt-4 p-4 bg-amber/10 border border-amber rounded">
             <Text variant="body-small" className="text-ink-700">
               No main skills configured yet. Add main skills first to assign racial modifiers.
@@ -81,7 +81,7 @@ export function RacesConfigPanel() {
             <RaceCard
               key={race.id}
               race={race}
-              availableMainSkills={availableMainSkills}
+              availableStats={availableStats}
               onEdit={handleEdit}
               onDelete={handleDelete}
             />
@@ -94,7 +94,7 @@ export function RacesConfigPanel() {
         isOpen={isDialogOpen}
         isEditing={!!editingRaceId}
         form={form}
-        availableMainSkills={availableMainSkills}
+        availableStats={availableStats}
         onClose={() => setIsDialogOpen(false)}
         onSave={handleSave}
       />

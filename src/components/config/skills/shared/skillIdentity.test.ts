@@ -42,9 +42,9 @@ describe('useSkillCodeRename', () => {
           name: 'Test',
           configurationId: 'config1',
           raceIds: [],
-          mainSkillLevels: { STR: 6 },
-          specialitySkillBaseLevels: {},
-          currentStatValues: {},
+          investedStatPoints: { STR: 6 },
+          specialitySkillBaseLevels: { STL: 3 },
+          currentResourceValues: {},
           inventory: { equippedItems: {}, miscItems: [] },
           createdAt: '2024-01-01',
           updatedAt: '2024-01-01',
@@ -54,20 +54,33 @@ describe('useSkillCodeRename', () => {
     });
   });
 
-  it('re-keys allocations when the code changed', () => {
+  it('re-keys speciality base levels when the code changed', () => {
+    const { result } = renderHook(() => useSkillCodeRename());
+
+    result.current('STL', 'SNK');
+
+    expect(useCharacterStore.getState().characters[0].specialitySkillBaseLevels).toEqual({
+      SNK: 3,
+    });
+  });
+
+  it('leaves stat investment alone — it is keyed by id, so a rename cannot orphan it', () => {
+    // TICKET-STAT-01: only the two code-keyed maps still need re-keying
     const { result } = renderHook(() => useSkillCodeRename());
 
     result.current('STR', 'STG');
 
-    expect(useCharacterStore.getState().characters[0].mainSkillLevels).toEqual({ STG: 6 });
+    expect(useCharacterStore.getState().characters[0].investedStatPoints).toEqual({ STR: 6 });
   });
 
   it('does nothing for an add or an edit that kept the code', () => {
     const { result } = renderHook(() => useSkillCodeRename());
 
-    result.current(null, 'STG');
-    result.current('STR', 'STR');
+    result.current(null, 'SNK');
+    result.current('STL', 'STL');
 
-    expect(useCharacterStore.getState().characters[0].mainSkillLevels).toEqual({ STR: 6 });
+    expect(useCharacterStore.getState().characters[0].specialitySkillBaseLevels).toEqual({
+      STL: 3,
+    });
   });
 });

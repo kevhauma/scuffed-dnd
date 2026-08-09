@@ -36,7 +36,6 @@ import type {
   CurveColumn,
   EquipmentSlot,
   Item,
-  MainSkill,
   Material,
   MaterialCategory,
   Race,
@@ -68,11 +67,6 @@ interface ConfigState {
   loadConfig: () => void;
   replaceConfig: (config: Configuration) => void;
   renameConfig: (name: string) => void;
-
-  // Main Skills CRUD
-  addMainSkill: (skill: MainSkill) => void;
-  updateMainSkill: (code: string, updates: Partial<MainSkill>) => void;
-  deleteMainSkill: (code: string, options?: DeleteOptions) => EntityReference[];
 
   // Stats CRUD
   addStat: (stat: Stat) => void;
@@ -303,7 +297,7 @@ function createFreshConfiguration(name: string): Configuration {
     id: crypto.randomUUID(),
     name,
     version: '1.0.0',
-    mainSkills: [],
+    schemaVersion: 2,
     stats: [],
     specialitySkills: [],
     combatSkills: [],
@@ -475,39 +469,6 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const updated = autoSave({ ...config, name });
     set({ config: updated });
   },
-
-  // Main Skills CRUD
-  addMainSkill: (skill: MainSkill) => {
-    const { config } = get();
-    if (!config) return;
-
-    const updated = autoSave({
-      ...config,
-      mainSkills: [...config.mainSkills, skill],
-    });
-    set({ config: updated });
-  },
-
-  updateMainSkill: (code: string, updates: Partial<MainSkill>) => {
-    const { config } = get();
-    if (!config) return;
-
-    const updated = autoSave(
-      applyRenameSafely(config, (current) => ({
-        ...current,
-        mainSkills: current.mainSkills.map((skill) =>
-          skill.code === code ? { ...skill, ...updates } : skill
-        ),
-      }))
-    );
-    set({ config: updated });
-  },
-
-  deleteMainSkill: (code: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'main-skill', code, options, (config) => ({
-      ...config,
-      mainSkills: config.mainSkills.filter((skill) => skill.code !== code),
-    })),
 
   // Stats CRUD
   addStat: (stat: Stat) => {
