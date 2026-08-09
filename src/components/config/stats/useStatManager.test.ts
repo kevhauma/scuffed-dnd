@@ -155,4 +155,85 @@ describe('useStatManager', () => {
     expect(result.current.form.formState.errors.formula).toBeDefined();
     expect(useConfigStore.getState().config?.stats.filter((stat) => stat.formula)).toHaveLength(1);
   });
+
+  describe('ordering (TICKET-STAT-02)', () => {
+    it('should list the stats by their order rather than by array position', () => {
+      // Written out of order on purpose: an imported ruleset can hold either arrangement
+      useConfigStore.setState({
+        config: {
+          ...structuredClone(config),
+          stats: [
+            { ...config.stats[0], id: 'a', order: 2 },
+            { ...config.stats[1], id: 'b', order: 0 },
+            { ...config.stats[2], id: 'c', order: 1 },
+          ],
+        },
+        isLoaded: true,
+      });
+
+      const { result } = renderStatManager();
+
+      expect(result.current.currentStats.map((stat) => stat.id)).toEqual(['b', 'c', 'a']);
+    });
+
+    it('should do nothing when a move would run off the end', () => {
+      const { result } = renderStatManager();
+      const before = result.current.currentStats.map((stat) => stat.id);
+
+      act(() => result.current.handleMove(before[0], -1));
+      act(() => result.current.handleMove(before.at(-1) as string, 1));
+
+      // A no-op rather than a wrap — the list has ends, and they hold
+      expect(result.current.currentStats.map((stat) => stat.id)).toEqual(before);
+    });
+
+    it('should ignore a move for a stat that is not there', () => {
+      const { result } = renderStatManager();
+      const before = result.current.currentStats.map((stat) => stat.id);
+
+      act(() => result.current.handleMove('not-a-stat', 1));
+
+      expect(result.current.currentStats.map((stat) => stat.id)).toEqual(before);
+    });
+  });
+
+  describe('the derived/invested distinction and the resource warning', () => {
+    it('should call a stat derived exactly while its formula field holds something', () => {
+      const { result } = renderStatManager();
+
+      act(() => result.current.handleAdd());
+      expect(result.current.isDerived).toBe(false);
+
+      act(() => result.current.form.setValue('formula', 'STR * 2'));
+      expect(result.current.isDerived).toBe(true);
+
+      // Whitespace is not a formula — clearing the field puts the stat back on points
+      act(() => result.current.form.setValue('formula', '   '));
+      expect(result.current.isDerived).toBe(false);
+    });
+
+    it('should warn about a resource with neither a formula nor a maximum', () => {
+      const { result } = renderStatManager();
+
+      act(() => result.current.handleAdd());
+      expect(result.current.warnings).toEqual([]);
+
+      act(() => result.current.form.setValue('isResource', true));
+      expect(result.current.warnings[0]).toContain('no ceiling');
+
+      // A formula derives the maximum, so there is a ceiling after all
+      act(() => result.current.form.setValue('formula', 'STR * 10'));
+      expect(result.current.warnings).toEqual([]);
+    });
+
+    it('should take a typed maximum as the ceiling', () => {
+      const { result } = renderStatManager();
+
+      act(() => result.current.handleAdd());
+      act(() => result.current.form.setValue('isResource', true));
+      act(() => result.current.form.setValue('max', '50'));
+
+      expect(result.current.warnings).toEqual([]);
+    });
+  });
 });

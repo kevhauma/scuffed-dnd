@@ -81,6 +81,18 @@ interface ConfigState {
   addStat: (stat: Stat) => void;
   updateStat: (id: string, updates: Partial<Stat>) => void;
   deleteStat: (id: string, options?: DeleteOptions) => EntityReference[];
+  /**
+   * Put the stats in the given order and renumber `order` to match (TICKET-STAT-02)
+   *
+   * Takes the whole ordering rather than a from/to pair so the array and the field can never
+   * disagree: `order` is rewritten from each stat's position, and the stored array is written in
+   * that same sequence, which is what makes every `config.stats.map(…)` in the app display in
+   * the User's order without each caller remembering to sort.
+   *
+   * Ids not in the list keep their relative order at the end; unknown ids are ignored. Reordering
+   * never changes a value — references are by id (Concept 01).
+   */
+  reorderStats: (orderedIds: string[]) => void;
 
   // Speciality Skills CRUD
   addSpecialitySkill: (skill: SpecialitySkill) => void;
@@ -345,6 +357,26 @@ function applyRenameSafely(
 }
 
 /**
+ * Merge a patch where an explicit `undefined` **clears** an optional field
+ *
+ * A plain spread would leave `min: undefined` sitting on the record — a key that is present,
+ * reads as absent, and disappears the next time the ruleset is serialised. The data model's rule
+ * is that an optional field is deleted rather than stored empty (`setMainSkillPointBudget` is the
+ * worked example), so a caller clearing a bound or a formula gets the key removed.
+ *
+ * @param entity - The record being edited
+ * @param updates - The patch; a key set to `undefined` is a removal, an absent key is a no-op
+ * @returns The merged record, with no `undefined`-valued keys
+ */
+function mergeClearingAbsent<T extends object>(entity: T, updates: Partial<T>): T {
+  const merged = { ...entity, ...updates } as Record<string, unknown>;
+  for (const key of Object.keys(merged)) {
+    if (merged[key] === undefined) delete merged[key];
+  }
+  return merged as T;
+}
+
+/**
  * Auto-save helper - saves config and updates timestamp
  */
 function autoSave(config: Configuration): Configuration {
@@ -506,7 +538,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const updated = autoSave(
       applyRenameSafely(config, (current) => ({
         ...current,
-        stats: current.stats.map((stat) => (stat.id === id ? { ...stat, ...updates } : stat)),
+        // `undefined` clears rather than sticks: a User who empties `max` or `formula` is
+        // making the stat unbounded or invested, and the key goes with it
+        stats: current.stats.map((stat) =>
+          stat.id === id ? mergeClearingAbsent(stat, updates) : stat
+        ),
       }))
     );
     set({ config: updated });
@@ -517,6 +553,26 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       ...config,
       stats: config.stats.filter((stat) => stat.id !== id),
     })),
+
+  reorderStats: (orderedIds: string[]) => {
+    const { config } = get();
+    if (!config) return;
+
+    const byId = new Map(config.stats.map((stat) => [stat.id, stat]));
+    const named = orderedIds
+      .map((id) => byId.get(id))
+      .filter((stat): stat is Stat => stat !== undefined);
+    // Anything the caller left out keeps its relative position, at the end — a partial list
+    // reorders what it names rather than dropping the rest
+    const namedIds = new Set(named.map((stat) => stat.id));
+    const rest = config.stats.filter((stat) => !namedIds.has(stat.id));
+
+    const updated = autoSave({
+      ...config,
+      stats: [...named, ...rest].map((stat, index) => ({ ...stat, order: index })),
+    });
+    set({ config: updated });
+  },
 
   // Speciality Skills CRUD
   addSpecialitySkill: (skill: SpecialitySkill) => {

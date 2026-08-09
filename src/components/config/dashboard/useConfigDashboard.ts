@@ -18,12 +18,14 @@ import { useUIStore } from '../../../stores/uiStore';
 
 /** The nine configuration areas, in the order the dashboard lists them — reached via `sections` */
 const CONFIG_SECTIONS = [
-  { to: '/config/skills', label: 'Skills', description: 'Main, speciality, and combat skills' },
+  // Stats first: they are the atom every other section refers to, and since TICKET-STAT-02 they
+  // are also where the old "main skills" live — Skills is the speciality/combat pair only
   {
     to: '/config/stats',
     label: 'Stats',
-    description: 'Stats derived from main skills via formulas',
+    description: 'Every numeric axis — invested, derived, or a resource',
   },
+  { to: '/config/skills', label: 'Skills', description: 'Speciality and combat skills' },
   { to: '/config/materials', label: 'Materials', description: 'Materials, levels, and categories' },
   { to: '/config/items', label: 'Items', description: 'Items and equipment slots' },
   { to: '/config/races', label: 'Races', description: 'Races and their skill modifiers' },

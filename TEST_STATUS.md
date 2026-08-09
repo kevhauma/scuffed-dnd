@@ -1,19 +1,21 @@
 # Test Status
 
 _Last verified: 2026-08-09 (`npx vitest run`), after
-[TICKET-IO-03](docs/v2.0_sheet_core/tickets/TICKET-IO-03-v2-shape-clean-break.md)._
+[TICKET-STAT-02](docs/v2.0_sheet_core/tickets/TICKET-STAT-02-unified-stats-panel.md)._
 
 ## Summary
 
-- **Total tests**: 1141
-- **Passing**: 1141 (100%)
+- **Total tests**: 1168
+- **Passing**: 1168 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
 Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's tickets added
 +43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), +11 (FORM-06), +7 (CALC-02),
 +11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02), +64 (CRV-01),
-+32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03) and +47 (IO-03). FORM-02/03/04 only
++32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03) and +27 (STAT-02).
+**STAT-02 restored `StatsConfigPanel.test.tsx`**, one of the five panel test files TICKET-DX-01
+deleted — it is back, rewritten against the real store, and passing. FORM-02/03/04 only
 appended. **STAT-01's +3 is a net figure**: the breaking schema change deleted
 `mainSkillCalculator.test.ts` (18) and `MainSkillPointBudget.test.tsx` (6) with the entities they
 covered, added `statCalculator.test.ts`, `stats.test.ts` and `StatPointBudget.test.tsx`, and
@@ -77,7 +79,9 @@ repaired — a deliberate scope decision by the User, recorded in the ticket:
 - `src/components/config/items/EquipmentSlotsConfigPanel.test.tsx`
 - `src/components/config/materials/MaterialsConfigPanel.test.tsx`
 - `src/components/config/races/RacesConfigPanel.test.tsx`
-- `src/components/config/stats/StatsConfigPanel.test.tsx`
+- `src/components/config/stats/StatsConfigPanel.test.tsx` — **back as of TICKET-STAT-02**,
+  rewritten against the real store with storage mocked, which is what avoids the selector-ignoring
+  mock that killed the original
 
 Their failures were: store mocks using `mockReturnValue(state)` that ignore the selector passed to
 `useConfigStore(s => s.config)`; `getByText(/add race/i)`-style queries matching both a button and

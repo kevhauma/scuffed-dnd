@@ -39,6 +39,16 @@ pattern to copy: **absent means unlimited**, so rulesets saved before it existed
 value; `setMainSkillPointBudget(undefined)` deletes the key rather than storing `undefined`; and
 `validateStatAllocation()` in `src/engine/skillAllocation.ts` reads it as `null` = no limit.
 
+The same rule applies inside an entity. `updateStat` merges through `mergeClearingAbsent`
+(TICKET-STAT-02), so a patch setting `min`, `max` or `formula` to `undefined` **deletes** the key
+rather than leaving it present-and-empty — a User who clears a bound gets an unbounded stat, not
+a phantom one. Copy that when an update action can clear an optional field.
+
+**`Stat.order` is written by `reorderStats(orderedIds)`, never by hand.** It rewrites the stored
+array *and* renumbers `order` from each position, so `config.stats.map(…)` displays in the User's
+order without every reader remembering to sort — and the two can never disagree. Reordering
+changes no value; references are by id (Concept 01).
+
 **`schemaVersion` is the clean break** (TICKET-STAT-01, TICKET-IO-03). v1 files have no such key,
 which is exactly how they are recognised. The number itself lives in
 [types/config.ts](../../../src/types/config.ts) as `SUPPORTED_SCHEMA_VERSION` — not in either

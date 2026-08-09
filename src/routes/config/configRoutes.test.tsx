@@ -71,12 +71,15 @@ import { SkillsConfig } from './skills';
 import { StatsConfig } from './stats';
 
 describe('configuration routes', () => {
-  it('/config/skills renders the two skills panels', () => {
+  it('/config/skills renders the two skills panels and no main-skills surface', () => {
     // Main skills went with TICKET-STAT-01 — the invested atom is a stat, edited at /config/stats
-    render(<SkillsConfig />);
+    const { container } = render(<SkillsConfig />);
 
     expect(screen.getByTestId('speciality-skills-panel')).toBeDefined();
     expect(screen.getByTestId('combat-skills-panel')).toBeDefined();
+    // The merge is complete (TICKET-STAT-02): two panels here, and neither is about main skills
+    expect(container.querySelectorAll('[data-testid$="-panel"]')).toHaveLength(2);
+    expect(screen.queryByTestId('main-skills-panel')).toBeNull();
   });
 
   it('/config/stats renders the stats panel', () => {

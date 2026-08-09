@@ -234,6 +234,70 @@ describe('ConfigStore', () => {
       expect(config?.stats).toHaveLength(0);
       expect(storage.saveConfiguration).toHaveBeenCalled();
     });
+
+    describe('reorderStats (TICKET-STAT-02)', () => {
+      const statNamed = (id: string): Stat => ({
+        id,
+        name: id,
+        abbreviation: id.toUpperCase(),
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      });
+
+      beforeEach(() => {
+        for (const id of ['str', 'dex', 'con']) {
+          useConfigStore.getState().addStat(statNamed(id));
+        }
+        vi.clearAllMocks();
+      });
+
+      it('should write the array and the order field from the same sequence', () => {
+        useConfigStore.getState().reorderStats(['con', 'str', 'dex']);
+
+        expect(
+          useConfigStore.getState().config?.stats.map((stat) => [stat.id, stat.order])
+        ).toEqual([
+          ['con', 0],
+          ['str', 1],
+          ['dex', 2],
+        ]);
+        expect(storage.saveConfiguration).toHaveBeenCalled();
+      });
+
+      it('should keep a stat the caller did not name, at the end', () => {
+        useConfigStore.getState().reorderStats(['con']);
+
+        // A partial list reorders what it names rather than dropping the rest
+        expect(useConfigStore.getState().config?.stats.map((stat) => stat.id)).toEqual([
+          'con',
+          'str',
+          'dex',
+        ]);
+      });
+
+      it('should ignore an id that is not a stat', () => {
+        useConfigStore.getState().reorderStats(['nope', 'dex', 'str', 'con']);
+
+        expect(useConfigStore.getState().config?.stats.map((stat) => stat.id)).toEqual([
+          'dex',
+          'str',
+          'con',
+        ]);
+      });
+
+      it('should change no value but the order', () => {
+        const before = useConfigStore.getState().config?.stats.find((stat) => stat.id === 'str');
+
+        useConfigStore.getState().reorderStats(['con', 'dex', 'str']);
+
+        const after = useConfigStore.getState().config?.stats.find((stat) => stat.id === 'str');
+        // Reordering never affects values — references are by id (Concept 01)
+        expect({ ...after, order: 0 }).toEqual({ ...before, order: 0 });
+      });
+    });
   });
 
   describe('Speciality Skills CRUD', () => {
