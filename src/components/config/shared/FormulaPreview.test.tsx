@@ -61,14 +61,15 @@ function renderPreview(formula: string) {
   return render(<FormulaPreview formula={formula} owner="stat" config={config} />);
 }
 
-/** The ladder's rows as `[level, result]` pairs, read off the rendered cells */
+/** The ladder's body rows as `[level, result]` pairs */
 function ladderRows(): [string, string][] {
-  const section = screen.getByText(/With every input at the same level/).parentElement;
-  if (!section) throw new Error('no ladder rendered');
-
-  return Array.from(section.querySelectorAll('div > div'))
-    .map((row) => Array.from(row.querySelectorAll('span')).map((cell) => cell.textContent ?? ''))
-    .filter((cells): cells is [string, string] => cells.length === 2);
+  return within(screen.getByRole('table'))
+    .getAllByRole('row')
+    .slice(1) // the header row
+    .map((row) => [
+      within(row).getByRole('rowheader').textContent ?? '',
+      within(row).getByRole('cell').textContent ?? '',
+    ]);
 }
 
 /** The single "at these values" result */

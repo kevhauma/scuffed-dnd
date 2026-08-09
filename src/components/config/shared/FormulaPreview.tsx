@@ -32,6 +32,13 @@ import { Card } from '../../ui/Card/Card';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
+import {
+  captionStyles,
+  headerCellStyles,
+  levelCellStyles,
+  resultCellStyles,
+  tableStyles,
+} from './FormulaPreview.style';
 
 /**
  * The levels the ladder walks (TICKET-FORM-08)
@@ -247,24 +254,35 @@ export function FormulaPreview({ formula, owner, config, className = '' }: Formu
 
           {ladder.length > 0 && (
             <div className="mt-3">
-              <Text variant="body-small-secondary" as="p" className="mb-1">
-                With every input at the same level
-              </Text>
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-1">
-                {ladder.map(({ level, result }) => (
-                  <div
-                    key={level}
-                    className="flex justify-between gap-2 px-2 py-1 bg-parchment-100 border border-stone-200 rounded"
-                  >
-                    <Text variant="body-small-secondary" className="font-mono">
-                      {level}
-                    </Text>
-                    <Text variant="body-small" className="font-mono">
-                      {formatResult(result)}
-                    </Text>
-                  </div>
-                ))}
-              </div>
+              <table className={tableStyles}>
+                <caption className={captionStyles}>
+                  <Text variant="body-small-secondary">With every input at the same level</Text>
+                </caption>
+                <thead>
+                  <tr>
+                    <th className={headerCellStyles} scope="col">
+                      <Text variant="body-small-secondary">Level</Text>
+                    </th>
+                    <th className={headerCellStyles} scope="col">
+                      <Text variant="body-small-secondary">Value</Text>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ladder.map(({ level, result }) => (
+                    <tr key={level}>
+                      {/* The level is what the row *is* about, so it heads the row rather than
+                          sitting in it — that is what makes a screen reader say "15, 4.5" */}
+                      <th className={levelCellStyles} scope="row">
+                        <Text variant="body-small-secondary">{level}</Text>
+                      </th>
+                      <td className={resultCellStyles}>
+                        <Text variant="body-small">{formatResult(result)}</Text>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </>

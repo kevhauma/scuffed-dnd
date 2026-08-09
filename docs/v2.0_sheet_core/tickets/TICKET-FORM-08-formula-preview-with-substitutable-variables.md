@@ -56,10 +56,11 @@ takes it to the rest.
 ## Acceptance criteria
 
 - [x] `FormulaPreview` lives in `components/config/shared/`, composes `ui/` primitives (`Input`,
-      `Label`, `Text`, `Card`) and owns its own layout; no raw `<input>`/`<table>` controls, no base
-      component gains a margin. Theme tokens only. (`src/components/config/shared/FormulaPreview.tsx`,
-      barrelled in that folder's `index.ts`; `yarn run check` clean and the conventions review
-      confirmed the base-component contract holds.)
+      `Label`, `Text`, `Card`) and owns its own layout; ~~no raw `<input>`/`<table>` controls~~
+      **no raw form controls** — the ladder *is* a raw `<table>`, see the amendment below — no base
+      component gains a margin. Theme tokens only. (`src/components/config/shared/FormulaPreview.tsx`
+      plus its `FormulaPreview.style.ts`, barrelled in that folder's `index.ts`; `yarn run check`
+      clean and the conventions review confirmed the base-component contract holds.)
 - [x] Sample values are supplied to the evaluator as **both** `variables` and `statValues` on the
       `NamespaceSource`, so a formula written `STR` and one written `stats.strenght` preview from
       the same box rather than disagreeing. (`evaluateAt` in `FormulaPreview.tsx` maps each
@@ -157,6 +158,14 @@ takes it to the rest.
   `not-evaluable` is what an overflow and a curve with no value at one key produce — and
   collapsing on those would hide the levels where the formula works. `FormulaPreview.test.tsx` →
   "a reference nothing can resolve (TICKET-FORM-09)" pins both halves.
+- **The ladder is a `<table>`** (User request, 2026-08-09), which **amends the first acceptance
+  criterion above**: it forbade a raw `<table>`, and the ladder now is one, with a sibling
+  `FormulaPreview.style.ts` following `CurveGrid`'s precedent. The criterion was written to keep
+  raw *controls* out of a feature component; a nine-row list of levels and values is tabular data,
+  and marking it up as a grid of divs was the mistake. Each row's level is a `<th scope="row">`, so
+  a screen reader reads "15, 4.5" rather than two loose numbers. The result column is headed
+  **Value**, not Result, so it does not collide with the single-result row's own label. The ban on
+  raw form controls stands — the sample boxes are still `ui/Input`.
 - **TICKET-FORM-09 also made the sample boxes swallow Enter.** They sit inside the owning dialog's
   `<form onSubmit={onSave}>`, so pressing Enter while typing a sample value saved the entity. A
   bug this ticket introduced with `StatFormDialog` and FORM-09 multiplied by three before fixing
