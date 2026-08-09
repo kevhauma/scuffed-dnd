@@ -16,12 +16,14 @@
 
 import { useId } from 'react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
+import type { Configuration } from '../../../types/config';
 import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormulaEditor } from '../../ui/FormulaEditor/FormulaEditor';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
+import { FormulaPreview } from '../shared/FormulaPreview';
 import type { ColumnFormData } from './useCurveManager';
 
 interface CurveColumnDialogProps {
@@ -30,6 +32,8 @@ interface CurveColumnDialogProps {
   form: UseFormReturn<ColumnFormData>;
   /** What a generator may name — `key` plus the ruleset's constants */
   generatorVariables: string[];
+  /** The ruleset, so the preview resolves `const.*` the way regeneration will */
+  config: Configuration;
   onClose: () => void;
   onSave: () => void;
 }
@@ -39,6 +43,7 @@ export function CurveColumnDialog({
   isEditing,
   form,
   generatorVariables,
+  config,
   onClose,
   onSave,
 }: CurveColumnDialogProps) {
@@ -48,7 +53,9 @@ export function CurveColumnDialog({
     control,
     register,
     formState: { errors },
+    watch,
   } = form;
+  const generator = watch('generator');
 
   return (
     <Dialog open={isOpen} onClose={onClose} title={isEditing ? 'Edit Column' : 'Add Column'}>
@@ -102,6 +109,10 @@ export function CurveColumnDialog({
             </Text>
           )}
         </div>
+
+        {/* The ladder sweeps `key`, so the rows read as the column this generator would write —
+            the fastest way to see the progression before it overwrites a table (TICKET-FORM-09) */}
+        <FormulaPreview formula={generator} owner="curve-generator" config={config} />
 
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="secondary" onClick={onClose}>

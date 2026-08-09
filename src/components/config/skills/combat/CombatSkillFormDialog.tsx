@@ -8,6 +8,7 @@
 
 import { Controller, type UseFormReturn } from 'react-hook-form';
 import type { DiceConfig } from '../../../../types';
+import type { Configuration } from '../../../../types/config';
 import { Button } from '../../../ui/Button/Button';
 import { Dialog } from '../../../ui/Dialog/Dialog';
 import { FormField } from '../../../ui/FormField/FormField';
@@ -15,6 +16,7 @@ import { FormulaEditor } from '../../../ui/FormulaEditor/FormulaEditor';
 import { Input } from '../../../ui/Input/Input';
 import { Label } from '../../../ui/Label/Label';
 import { Text } from '../../../ui/Text/Text';
+import { FormulaPreview } from '../../shared/FormulaPreview';
 
 interface SkillFormData {
   code: string;
@@ -30,6 +32,8 @@ interface CombatSkillFormDialogProps {
   isEditing: boolean;
   form: UseFormReturn<SkillFormData>;
   availableSkillCodes: string[];
+  /** The ruleset, so the preview scopes and resolves the way the saved formula will */
+  config: Configuration;
   validateCode: (code: string) => string | true;
   onClose: () => void;
   onSave: () => void;
@@ -40,6 +44,7 @@ export function CombatSkillFormDialog({
   isEditing,
   form,
   availableSkillCodes,
+  config,
   validateCode,
   onClose,
   onSave,
@@ -48,7 +53,9 @@ export function CombatSkillFormDialog({
     register,
     control,
     formState: { errors },
+    watch,
   } = form;
+  const bonusFormula = watch('bonusFormula');
 
   return (
     <Dialog open={isOpen} onClose={onClose} title={`${isEditing ? 'Edit' : 'Add'} Combat Skill`}>
@@ -129,6 +136,10 @@ export function CombatSkillFormDialog({
             {errors.bonusFormula.message}
           </Text>
         )}
+
+        {/* A combat roll sees speciality codes as well as stats, which is why the owner differs
+            from the speciality dialog's (TICKET-FORM-09) */}
+        <FormulaPreview formula={bonusFormula} owner="combat-skill" config={config} />
 
         {/* Actions */}
         <div className="flex justify-end gap-3 mt-6">

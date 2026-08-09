@@ -1,19 +1,19 @@
 # Test Status
 
 _Last verified: 2026-08-09 (`npx vitest run`), after
-[TICKET-FORM-08](docs/v2.0_sheet_core/tickets/TICKET-FORM-08-formula-preview-with-substitutable-variables.md)._
+[TICKET-FORM-09](docs/v2.0_sheet_core/tickets/TICKET-FORM-09-formula-preview-everywhere.md)._
 
 ## Summary
 
-- **Total tests**: 1183
-- **Passing**: 1183 (100%)
+- **Total tests**: 1191
+- **Passing**: 1191 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
 Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's tickets added
 +43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), +11 (FORM-06), +7 (CALC-02),
 +11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02), +64 (CRV-01),
-+32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02) and +15 (FORM-08).
++32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08) and +8 (FORM-09).
 **STAT-02 restored `StatsConfigPanel.test.tsx`**, one of the five panel test files TICKET-DX-01
 deleted — it is back, rewritten against the real store, and passing. FORM-02/03/04 only
 appended. **STAT-01's +3 is a net figure**: the breaking schema change deleted

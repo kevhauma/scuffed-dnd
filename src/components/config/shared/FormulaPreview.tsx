@@ -19,7 +19,7 @@
  */
 
 import { useId, useMemo, useState } from 'react';
-import { asNumber } from '../../../engine/formula/errors';
+import { asNumber, isFormulaError } from '../../../engine/formula/errors';
 import { evaluateFormulaString } from '../../../engine/formula/evaluator';
 import { namespacesFor } from '../../../engine/formula/namespaces';
 import { statMemberName } from '../../../engine/formula/references';
@@ -27,7 +27,7 @@ import type { FormulaOwner } from '../../../engine/formula/scoping';
 import { scopeFor } from '../../../engine/formula/scoping';
 import { validateFormula } from '../../../engine/formula/validator';
 import type { Configuration } from '../../../types/config';
-import type { FormulaResult } from '../../../types/formula';
+import type { FormulaErrorKind, FormulaResult } from '../../../types/formula';
 import { Card } from '../../ui/Card/Card';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
@@ -44,6 +44,24 @@ const LADDER_LEVELS = [1, 2, 3, 4, 5, 10, 15, 20, 50] as const;
 
 /** What an unset sample box holds */
 const DEFAULT_SAMPLE = 10;
+
+/**
+ * Error kinds that cannot depend on the numbers going in (TICKET-FORM-09)
+ *
+ * A formula naming `skills.STL` has no resolver behind it until TICKET-SKL-02, and it will not
+ * acquire one at level 15. Nine identical dashes say nothing; one line saying *why* says
+ * everything, so these replace the numbers rather than decorating them.
+ *
+ * Exactly two, and the list is short on purpose. `division-by-zero`, `out-of-range` and `upstream`
+ * plainly vary with the inputs, and so does `not-evaluable`: it is what an overflow
+ * (`STR ^ 400` at a large sample) and a curve with no value at one key both produce, and blanking
+ * the whole preview would hide the levels where the formula works — which is the opposite of what
+ * this is for.
+ */
+const STRUCTURAL_ERROR_KINDS: ReadonlySet<FormulaErrorKind> = new Set([
+  'unknown-namespace',
+  'unknown-member',
+]);
 
 export interface FormulaPreviewProps {
   /** The formula as the User has it now — mid-edit and unparseable is expected, not exceptional */
@@ -146,14 +164,26 @@ export function FormulaPreview({ formula, owner, config, className = '' }: Formu
     [validation, evaluateAt, currentSamples]
   );
 
+  /**
+   * The message to show *instead of* the numbers, when no number is reachable at any level
+   *
+   * Only for the kinds that cannot change with the inputs — a `skills.*` member with no resolver
+   * behind it reads the same at level 1 and at level 50 (TICKET-FORM-09).
+   */
+  const structuralError = useMemo(() => {
+    if (!isFormulaError(sampleResult)) return null;
+
+    return STRUCTURAL_ERROR_KINDS.has(sampleResult.kind) ? sampleResult.message : null;
+  }, [sampleResult]);
+
   const ladder = useMemo(() => {
-    if (!validation?.isValid || inputs.length === 0) return [];
+    if (!validation?.isValid || inputs.length === 0 || structuralError !== null) return [];
 
     return LADDER_LEVELS.map((level) => ({
       level,
       result: evaluateAt(Object.fromEntries(inputs.map((code) => [code, level]))),
     }));
-  }, [validation, inputs, evaluateAt]);
+  }, [validation, inputs, evaluateAt, structuralError]);
 
   // Nothing to preview and nothing to complain about
   if (validation === null) return null;
@@ -180,6 +210,11 @@ export function FormulaPreview({ formula, owner, config, className = '' }: Formu
                   <Input
                     id={`${fieldPrefix}-${code}`}
                     type="number"
+                    // These boxes live inside the owning dialog's form. Enter in one would
+                    // otherwise submit it, so typing a sample value would save the entity.
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') event.preventDefault();
+                    }}
                     value={currentSamples[code]}
                     onChange={(event) =>
                       setSamples((previous) => ({
@@ -194,14 +229,21 @@ export function FormulaPreview({ formula, owner, config, className = '' }: Formu
             </div>
           )}
 
-          <div className="flex justify-between items-center p-2 bg-forest/10 border border-forest rounded">
-            <Text variant="body-small-secondary">
-              {inputs.length > 0 ? 'At these values' : 'Result'}
+          {structuralError !== null ? (
+            // Said once rather than nine times: this is the answer at every level
+            <Text variant="error" as="p">
+              {structuralError}
             </Text>
-            <Text variant="body" className="font-semibold text-forest font-mono">
-              {formatResult(sampleResult)}
-            </Text>
-          </div>
+          ) : (
+            <div className="flex justify-between items-center p-2 bg-forest/10 border border-forest rounded">
+              <Text variant="body-small-secondary">
+                {inputs.length > 0 ? 'At these values' : 'Result'}
+              </Text>
+              <Text variant="body" className="font-semibold text-forest font-mono">
+                {formatResult(sampleResult)}
+              </Text>
+            </div>
+          )}
 
           {ladder.length > 0 && (
             <div className="mt-3">

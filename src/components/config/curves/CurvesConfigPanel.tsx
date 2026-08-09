@@ -131,6 +131,7 @@ export function CurvesConfigPanel() {
         isEditing={!!columnTarget?.columnId}
         form={columnForm}
         generatorVariables={generatorVariables}
+        config={config}
         onClose={closeColumnDialog}
         onSave={handleSaveColumn}
       />

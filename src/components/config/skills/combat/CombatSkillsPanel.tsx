@@ -60,6 +60,7 @@ export function CombatSkillsPanel() {
           isEditing={!!editingSkill}
           form={form}
           availableSkillCodes={availableSkillCodes}
+          config={config}
           validateCode={validateCode}
           onClose={() => setIsDialogOpen(false)}
           onSave={handleSave}

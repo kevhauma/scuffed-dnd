@@ -133,8 +133,10 @@ takes it to the rest.
    a differently scoped preview. What FORM-09 will have to add is `key` for `curve-generator`,
    which is a context code rather than a namespace and has no home in either prop today.
 2. **The dialog shows a parse error twice**, once from `FormulaEditor`'s own inline message and
-   once from the preview. Left as-is: silencing the editor's half means changing a base primitive
-   three other dialogs share, which is FORM-09's territory rather than this ticket's. The two can
+   once from the preview — in all four dialogs as of TICKET-FORM-09, which asserts the duplication
+   rather than leaving it to surprise someone. Left as-is: silencing the editor's half means
+   changing a base primitive four dialogs share, and the right fix is to give `FormulaEditor` a
+   `FormulaScope` so it stops needing its own weaker check at all. The two can
    no longer *disagree* about bare codes — `useStatManager` now feeds the editor the same
    `scopeFor` set the preview validates against — but the editor still has no `FormulaScope`, so
    `const.typo` is silent there and reported here. That gap closes when FORM-09 gives the editor
@@ -144,3 +146,18 @@ takes it to the rest.
    later "fixes" it — `FormulaPreview.test.tsx` → "should leave the ladder alone when a sample
    value changes".
 4. **Sheet-import fragment: nothing to land.** Authoring UI only; no persisted shape changed.
+
+### Later changes to this component (recorded here, per FORM-09's rule)
+
+- **TICKET-FORM-09 added the structural-error line.** When the result is an `unknown-namespace` or
+  `unknown-member` error, the preview shows that message once in place of the single result and
+  suppresses the ladder — a `skills.*` reference has no resolver until SKL-02 and will not acquire
+  one at level 15, so nine identical dashes say nothing. **Exactly those two kinds.**
+  `division-by-zero`, `out-of-range`, `upstream` and `not-evaluable` all vary with the inputs —
+  `not-evaluable` is what an overflow and a curve with no value at one key produce — and
+  collapsing on those would hide the levels where the formula works. `FormulaPreview.test.tsx` →
+  "a reference nothing can resolve (TICKET-FORM-09)" pins both halves.
+- **TICKET-FORM-09 also made the sample boxes swallow Enter.** They sit inside the owning dialog's
+  `<form onSubmit={onSave}>`, so pressing Enter while typing a sample value saved the entity. A
+  bug this ticket introduced with `StatFormDialog` and FORM-09 multiplied by three before fixing
+  it in the one place it belongs.

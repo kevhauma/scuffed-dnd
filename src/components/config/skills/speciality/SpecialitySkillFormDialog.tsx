@@ -8,11 +8,13 @@
 
 import { Controller, type UseFormReturn } from 'react-hook-form';
 import type { DiceConfig } from '../../../../types';
+import type { Configuration } from '../../../../types/config';
 import { Button } from '../../../ui/Button/Button';
 import { Dialog } from '../../../ui/Dialog/Dialog';
 import { FormField } from '../../../ui/FormField/FormField';
 import { FormulaEditor } from '../../../ui/FormulaEditor/FormulaEditor';
 import { Text } from '../../../ui/Text/Text';
+import { FormulaPreview } from '../../shared/FormulaPreview';
 
 interface SkillFormData {
   code: string;
@@ -28,6 +30,8 @@ interface SpecialitySkillFormDialogProps {
   isEditing: boolean;
   form: UseFormReturn<SkillFormData>;
   availableSkillCodes: string[];
+  /** The ruleset, so the preview scopes and resolves the way the saved formula will */
+  config: Configuration;
   validateCode: (code: string) => string | true;
   onClose: () => void;
   onSave: () => void;
@@ -38,6 +42,7 @@ export function SpecialitySkillFormDialog({
   isEditing,
   form,
   availableSkillCodes,
+  config,
   validateCode,
   onClose,
   onSave,
@@ -46,7 +51,9 @@ export function SpecialitySkillFormDialog({
     register,
     control,
     formState: { errors },
+    watch,
   } = form;
+  const bonusFormula = watch('bonusFormula');
 
   return (
     <Dialog
@@ -120,6 +127,9 @@ export function SpecialitySkillFormDialog({
             {errors.bonusFormula.message}
           </Text>
         )}
+
+        {/* A speciality skill sees stats and constants, and no other skill (TICKET-FORM-09) */}
+        <FormulaPreview formula={bonusFormula} owner="speciality-skill" config={config} />
 
         {/* Actions */}
         <div className="flex justify-end gap-3 mt-6">

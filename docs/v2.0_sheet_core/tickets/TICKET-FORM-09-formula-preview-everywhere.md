@@ -3,7 +3,7 @@
 - **Area:** Formula engine (authoring UI)
 - **Type:** Feature
 - **Traceability:** Concept [00 · Field model §5](../../excel%20export%20summary/concepts/00-field-model.md);
-  Requirements 4.2, 5.4, 16.1–16.4, 21.1–21.7
+  Requirements 4.3, 4.5, 5.4, 16.1–16.4, 16.6, 21.1–21.5
 
 ## User story
 
@@ -48,20 +48,48 @@ different variable set — not new preview behaviour.
 
 ## Acceptance criteria
 
-- [ ] All three dialogs render `FormulaPreview` with their own `FormulaOwner`; no dialog
-      constructs a namespace source or evaluates a formula itself.
-- [ ] The curve-generator preview sweeps `key` and its single-result box edits `key`, matching what
+- [x] All three dialogs render `FormulaPreview` with their own `FormulaOwner`; no dialog
+      constructs a namespace source or evaluates a formula itself. (`SpecialitySkillFormDialog`
+      → `speciality-skill`, `CombatSkillFormDialog` → `combat-skill`, `CurveColumnDialog` →
+      `curve-generator`; each takes `config` from its manager hook and passes the watched field
+      through. No dialog imports the engine.)
+- [x] The curve-generator preview sweeps `key` and its single-result box edits `key`, matching what
       `regenerateCurveTable` will compute for that row — verified against a generated column.
-- [ ] A reference the current build cannot resolve (an unresolved namespace member) renders as one
-      explanatory line, not nine `NaN`s or nine dashes.
-- [ ] Feature components compose `ui/` primitives; layout stays in the dialogs; theme tokens only.
-- [ ] Unit tests cover: the speciality dialog previewing `STR * 0.2 + CHA * 0.1`; the combat dialog
+      (`FormulaPreviewPlacements.test.tsx` → "should sweep the row key and match what regeneration
+      would write" reads 1.5 / 4.5 / 8.25 off the ladder at keys 1, 5, 10 and compares them to
+      `regenerateCurve(pointBuy, config)`'s own rows. They cannot disagree by construction —
+      `curveGenerator.ts` binds `{ KEY: key }` with `namespacesFor(source, 'curve-generator')`, the
+      exact context the preview builds. "should let the single-result box edit the key" covers the
+      box.)
+- [x] A reference the current build cannot resolve (an unresolved namespace member) renders as one
+      explanatory line, not nine `NaN`s or nine dashes. (`FormulaPreviewPlacements.test.tsx` →
+      "should say once, not nine times, what it cannot resolve" — `STR + skills.STL` in the combat
+      dialog shows `Unknown namespace: skills` with no ladder and no dash. The rule is narrow on
+      purpose: only `unknown-namespace` and `unknown-member` collapse, because every other error
+      kind varies with the inputs — `FormulaPreview.test.tsx` → "should keep the ladder for an
+      error that varies with the inputs" holds that line.)
+- [x] Feature components compose `ui/` primitives; layout stays in the dialogs; theme tokens only.
+      (No new markup beyond the three `<FormulaPreview …/>` lines; `yarn run check` clean and the
+      conventions review confirmed the layering.)
+- [x] Unit tests cover: the speciality dialog previewing `STR * 0.2 + CHA * 0.1`; the combat dialog
       previewing a formula naming a speciality code; the curve dialog previewing
       `0.75 * (key + 1)` and matching `regenerateCurveTable`'s values for rows 1, 5 and 10; an
-      unresolvable reference showing one message.
-- [ ] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions` skill.
+      unresolvable reference showing one message. (All four in
+      `src/components/config/shared/FormulaPreviewPlacements.test.tsx`, plus the owner's teeth: a
+      speciality code is *refused* in the speciality dialog and *previewed* in the combat one, from
+      the same fixture.)
+- [x] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions` skill.
+      (1191 passing / 0 failing / 0 skipped, tsc at the documented 2-error baseline, `yarn run
+      check` clean. `fallow review`: no unused exports. conventions-reviewer's findings applied —
+      `not-evaluable` dropped from the structural set (it varies with the inputs, so collapsing on
+      it would have hidden working levels), the new behaviour given its own tests in
+      `FormulaPreview.test.tsx` rather than only indirect ones, the curve comparison moved off the
+      store action onto the pure engine so no `act(…)` warning is introduced, the traceability
+      lines corrected, and the Enter-submits-the-dialog bug fixed in `FormulaPreview` — see the
+      "Later changes to this component" section on TICKET-FORM-08.)
 - [ ] Verified live in the browser: with the Ducklets import loaded, edit `intimidation`, read the
-      ladder, then edit the `point_buy` `main` column and read its generator preview.
+      ladder, then edit the `point_buy` `main` column and read its generator preview. — **not
+      run**: the User asked for no browser verification on this run. Left open rather than ticked.
 
 ## Notes
 
@@ -74,3 +102,20 @@ different variable set — not new preview behaviour.
   takes an owner rather than an entity.
 - Once `skills.*` has a resolver (SKL-02), the combat preview stops needing its "cannot resolve"
   line for speciality references. Nothing here needs changing when that lands.
+
+## Implementation notes
+
+1. **The one behaviour added to `FormulaPreview` is recorded on FORM-08**, under "Later changes to
+   this component", as this ticket's own note asks. Two changes, both narrow: the structural-error
+   line, and the sample boxes swallowing Enter so typing into one no longer submits the dialog.
+2. **The structural-error set is two kinds, not three.** `not-evaluable` looked like it belonged
+   and does not: it is what an arithmetic overflow and a curve with no value at one key produce,
+   both of which vary with the input, so collapsing on it would have blanked a preview whose first
+   five levels were fine. `FormulaPreview.test.tsx` → "should keep the ladder for an error that
+   varies with the inputs" is the guard.
+3. **The duplicate error message is now in four dialogs.** Both `FormulaEditor` and the preview
+   report an undefined variable, so the User sees it twice. Asserted rather than papered over
+   (`FormulaPreviewPlacements.test.tsx` → "should refuse a speciality code…" expects exactly two);
+   the fix is to give `FormulaEditor` a `FormulaScope` so it stops needing its own weaker check,
+   which is a base-primitive change four dialogs share and wants its own ticket.
+4. **Sheet-import fragment: nothing to land.** Authoring UI only; no persisted shape changed.

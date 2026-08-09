@@ -185,4 +185,27 @@ describe('FormulaPreview', () => {
     expect(sampleResult()).toBe('—');
     expect(screen.queryByText(/NaN|Infinity/)).toBeNull();
   });
+
+  describe('a reference nothing can resolve (TICKET-FORM-09)', () => {
+    it('should say why once, instead of a ladder of identical dashes', () => {
+      // `stats` is in scope for a stat, but `nope` is not a member of it
+      renderPreview('STR + stats.nope');
+
+      expect(screen.getByText(/Unknown member/i)).toBeDefined();
+      expect(screen.queryByText(/With every input at the same level/)).toBeNull();
+      expect(screen.queryByText('—')).toBeNull();
+    });
+
+    it('should keep the ladder for an error that varies with the inputs', () => {
+      // Overflow is `not-evaluable`, and it is a fact about the *value*, not about the formula —
+      // collapsing here would hide the levels where the formula works
+      renderPreview('STR ^ STR ^ STR');
+
+      expect(screen.getByText(/With every input at the same level/)).toBeDefined();
+      const rows = Object.fromEntries(ladderRows());
+      expect(rows['1']).toBe('1');
+      expect(rows['2']).toBe('16');
+      expect(rows['50']).toBe('—');
+    });
+  });
 });
