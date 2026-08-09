@@ -79,6 +79,8 @@ The schema rework:
 - [x] [TICKET-STAT-01](./tickets/TICKET-STAT-01-unified-stat-model-and-engine.md) — The unified Stat model and engine (Concepts 01, 00) — **the centrepiece**; merges `MainSkill` + `Stat`, new character shape, composition calculator. The flat formula space now holds **stat abbreviations**, which is what let `MainSkill` be deleted without redesigning races, materials and both skill kinds in the same ticket; `Configuration.schemaVersion: 2` is in and `storage.ts` refuses v1 by name, leaving IO-03 the notice rather than the detection
 - [ ] [TICKET-IO-03](./tickets/TICKET-IO-03-v2-shape-clean-break.md) — Clean break: reject v1 data with a clear notice (decision above) — immediately after STAT-01 so nothing misloads old data
 - [ ] [TICKET-STAT-02](./tickets/TICKET-STAT-02-unified-stats-panel.md) — Unified stats configuration panel (Concept 01) — the real editor replacing STAT-01's mechanical patches
+- [ ] [TICKET-FORM-08](./tickets/TICKET-FORM-08-formula-preview-with-substitutable-variables.md) — Formula preview with substitutable variables (Req 3.1–3.3, 16.4) — **directly after STAT-02** so the preview lands in the real stats editor rather than in STAT-01's interim patch, and the stat card's one-off preview retires with it
+- [ ] [TICKET-FORM-09](./tickets/TICKET-FORM-09-formula-preview-everywhere.md) — Every formula field previews (Req 4.2, 5.4, 16.1–16.4) — needs FORM-08; placements only. SKL-03 later reworks the speciality dialog and ROLL-05 replaces the combat one — both keep the preview under the standing rule in [CLAUDE.md](../../CLAUDE.md)
 - [ ] [TICKET-STAT-03](./tickets/TICKET-STAT-03-wizard-and-sheet-on-unified-stats.md) — Wizard and sheet on unified stats (Concept 01) — play surfaces; resource gating of current values
 
 Mechanics on the new core:
@@ -111,7 +113,9 @@ Per [../../CLAUDE.md](../../CLAUDE.md): `npx vitest run` green — 0 failures, 0
 [TEST_STATUS.md](../../TEST_STATUS.md), `yarn run check` clean (the pre-commit hook enforces it),
 verification via the `verifier` subagent plus the `fallow` and `coding-conventions` skills, and a
 live browser check for anything UI-visible (ask the User first; if declined, the criterion stays
-open with a note). Persistence goes through a store action. Derived values come from the engine
+open with a note). A ticket that adds or reshapes a persisted entity also lands that feature's
+fragment in [`docs/imports/`](../imports/README.md) — the real sheet data, cell ranges cited — and
+reruns `yarn run sheet:import`. Persistence goes through a store action. Derived values come from the engine
 and are never persisted onto `Character` — the sanctioned stored player state after this
 milestone is exactly resource current values, invested points, and accumulated XP. Feature
 components compose `components/ui` primitives; theme tokens only; `src/routeTree.gen.ts` is never

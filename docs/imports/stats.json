@@ -1,0 +1,130 @@
+{
+  "feature": "stats",
+  "title": "Stats",
+  "tickets": [
+    "TICKET-STAT-01"
+  ],
+  "concept": "01 · Stat",
+  "source": {
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit",
+    "exportedAt": "2026-08-09",
+    "ranges": [
+      "'Creature stats'!A5:A13",
+      "Charactersheet!E9",
+      "Setup!P6:P14"
+    ]
+  },
+  "confidence": "confirmed",
+  "notes": [
+    "Names are the sheet's own spellings, typo included (\"Strenght\"). Renaming is safe (TICKET-REF-01), so the fix is a User edit rather than a silent correction here.",
+    "countsTowardTotal is the six-core-only rule confirmed on Concept 01 — human 60, elf 64, dwarf 60, Raccoon 59, Demon 90, Monolith 1800, Gods 1920.",
+    "APT is the sheet's one derived stat: Charactersheet!E9 is IF(ROUND(J21/Calculator!Q2,0) <= 0, 1, ROUND(J21/Calculator!Q2,0)) with Q2 = 30, which is max(1, round(SPEED / const.apt_value)). It needs constants.json loaded alongside.",
+    "Abbreviations are ours, not the sheet's — the sheet addresses stats by row position. They share one flat formula namespace with every skill code, so nothing else may use STR, DEX, CON, INT, WIS, CHA, HP, MANA, SPEED or APT."
+  ],
+  "data": {
+    "stats": [
+      {
+        "id": "stat-strenght",
+        "name": "Strenght",
+        "abbreviation": "STR",
+        "description": "Physical power. The sheet spells it \"Strenght\"; kept as the sheet has it.",
+        "order": 0,
+        "countsTowardTotal": true,
+        "isResource": false,
+        "rounding": "none"
+      },
+      {
+        "id": "stat-dex",
+        "name": "Dex",
+        "abbreviation": "DEX",
+        "description": "Agility and precision.",
+        "order": 1,
+        "countsTowardTotal": true,
+        "isResource": false,
+        "rounding": "none"
+      },
+      {
+        "id": "stat-con",
+        "name": "Con",
+        "abbreviation": "CON",
+        "description": "Toughness and endurance.",
+        "order": 2,
+        "countsTowardTotal": true,
+        "isResource": false,
+        "rounding": "none"
+      },
+      {
+        "id": "stat-int",
+        "name": "Int",
+        "abbreviation": "INT",
+        "description": "Reasoning and learned knowledge.",
+        "order": 3,
+        "countsTowardTotal": true,
+        "isResource": false,
+        "rounding": "none"
+      },
+      {
+        "id": "stat-wis",
+        "name": "Wis",
+        "abbreviation": "WIS",
+        "description": "Perception, instinct and judgement.",
+        "order": 4,
+        "countsTowardTotal": true,
+        "isResource": false,
+        "rounding": "none"
+      },
+      {
+        "id": "stat-char",
+        "name": "Char",
+        "abbreviation": "CHA",
+        "description": "Presence and force of personality.",
+        "order": 5,
+        "countsTowardTotal": true,
+        "isResource": false,
+        "rounding": "none"
+      },
+      {
+        "id": "stat-health",
+        "name": "Health",
+        "abbreviation": "HP",
+        "description": "Hit points. A pool: the composed value is the maximum.",
+        "order": 6,
+        "countsTowardTotal": false,
+        "isResource": true,
+        "rounding": "none"
+      },
+      {
+        "id": "stat-mana",
+        "name": "Mana",
+        "abbreviation": "MANA",
+        "description": "Spell fuel. A pool: invested and tracked, which is what v1 could not express.",
+        "order": 7,
+        "countsTowardTotal": false,
+        "isResource": true,
+        "rounding": "none"
+      },
+      {
+        "id": "stat-speed",
+        "name": "Speed",
+        "abbreviation": "SPEED",
+        "description": "Movement, and through APT the action economy as well.",
+        "order": 8,
+        "countsTowardTotal": false,
+        "isResource": false,
+        "rounding": "none"
+      },
+      {
+        "id": "stat-apt",
+        "name": "APT",
+        "abbreviation": "APT",
+        "description": "Attacks Per Turn. Derived from Speed — Charactersheet!E9.",
+        "order": 9,
+        "countsTowardTotal": false,
+        "isResource": false,
+        "formula": "max(1, round(SPEED / const.apt_value))",
+        "min": 1,
+        "rounding": "none"
+      }
+    ]
+  }
+}

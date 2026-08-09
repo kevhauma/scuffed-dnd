@@ -49,6 +49,13 @@ encodes all of them as one fixture-driven suite — the milestone's acceptance g
 
 ## Notes
 
+- **The sample configuration should be built from [`docs/imports/`](../../imports/README.md), not
+  hand-authored.** That corpus already holds the sheet's real stats, constants, curves, skills,
+  materials, races and currency as importable fragments, with the cell ranges cited; it also
+  raised the Persuasion weights divergence this ticket will have to settle (Concept 02 says
+  `Char × 0.3`, the live `Skills!D31:G31` says `Char × 0.2 + Strenght × 0.1`).
+  `src/services/sheetImport.test.ts` proves the data is faithful and importable — this ticket
+  proves the engine computes the sheet's numbers from it.
 - If a ticket-local test and a fixture disagree, the fixture wins — both came from the same page;
   one drifted.
 - The importer milestone extends this suite with the full cached-value corpus (Bickuss Dickuss

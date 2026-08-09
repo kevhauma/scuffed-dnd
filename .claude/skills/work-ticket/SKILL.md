@@ -56,6 +56,9 @@ routes or UI are touched. Respect the hard rules while planning:
   `evaluateFormula`). No `eval`, no `new Function`.
 - Feature components compose `components/ui` primitives and own all layout; base components gain
   no margin/flex/grid/positioning.
+- A field the User types a **formula** into renders `FormulaPreview` (TICKET-FORM-08) beneath it,
+  with that attachment point's `FormulaOwner` — never a bare `FormulaEditor`, never a second
+  hand-rolled evaluation.
 - Theme tokens only (`parchment-*`, `ink-*`, `stone-*`, `crimson`, `forest`, `royal`, `amber`,
   `font-heading`/`font-body`, `shadow-parchment*`) — no raw hex, no stock Tailwind palette.
 - `src/routeTree.gen.ts` is generated — never hand-edit it.
@@ -105,6 +108,26 @@ A criterion gets ticked **only when it verifiably passes** — never on hope.
    true two steps later.
 
 Optionally run the **conventions-reviewer** subagent on the diff before finalizing.
+
+## Step 5.5 — Land the feature's sheet-import fragment
+
+Every feature carries real data from the source spreadsheet, not just a shape. `docs/imports/` holds
+one JSON fragment per built feature; `docs/imports/ducklets.json` is their merge and the file a
+User can actually import. Read [docs/imports/README.md](../../../docs/imports/README.md) for the
+envelope and the rules before writing one.
+
+- **New entity or new configuration field** → add or extend that feature's fragment with what the
+  [source sheet](https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit)
+  actually holds, citing the exact ranges in `source.ranges`.
+- **Changed shape of an existing entity** → bring its fragment forward in the same change, and say
+  in `notes` what moved.
+- **The sheet has no data for it** (XP thresholds, exchange rates) → say that in `notes` and leave
+  the field neutral. Never invent a number to fill a required field.
+- **Pure engine or UI ticket that touches no persisted shape** → nothing to do here; say so.
+
+Then `yarn run sheet:import` and commit the regenerated `ducklets.json` alongside the fragment.
+`npx vitest run src/services/sheetImport.test.ts` is the check — it fails if the merge is stale or
+the corpus no longer imports.
 
 ## Step 6 — Check off the story (only when ALL criteria are `[x]`)
 

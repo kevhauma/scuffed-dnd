@@ -118,7 +118,9 @@ A formula heading for the store goes through `validateFormulaChange(config, chan
 formula with `String.includes`; ask the parser via `validateFormula(f).referencedVariables`.
 Validation errors are shown to the user (the `FormulaEditor` primitive already does this) rather
 than thrown away; a formula referencing an unknown 3-letter code is a user-visible error, not a
-crash.
+crash. A field the User types a formula into also renders `FormulaPreview` beneath it — sample
+values plus the level ladder — with the `FormulaOwner` for that attachment point, so scope and
+resolvers match what the formula will see at play time (TICKET-FORM-08).
 
 ## Styling
 

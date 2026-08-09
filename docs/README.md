@@ -28,6 +28,14 @@ added to it.
 Don't hardcode the folder list anywhere; `ls docs/` is the source of truth (see the
 `spec-navigator` subagent).
 
+## `imports/`
+
+Not a version — one folder for the whole project. [`imports/`](./imports/README.md) holds the real
+ruleset data from the source spreadsheet, **one JSON fragment per built feature**, merged into an
+importable `ducklets.json` by `yarn run sheet:import`. A ticket that adds or reshapes a persisted
+entity lands its fragment in the same change; `src/services/sheetImport.test.ts` fails if the merge
+goes stale or the corpus stops importing.
+
 ## Adding work
 
 - A bug, refactor, or feature → the **`story-ticket`** skill. It asks which version the ticket

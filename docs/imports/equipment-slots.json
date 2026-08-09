@@ -1,0 +1,59 @@
+{
+  "feature": "equipment-slots",
+  "title": "Equipment slots",
+  "tickets": [
+    "TICKET-INV (v1.0)"
+  ],
+  "concept": "10 · Slot",
+  "source": {
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit",
+    "exportedAt": "2026-08-09",
+    "ranges": [
+      "Charactersheet!M3:O15"
+    ]
+  },
+  "confidence": "confirmed",
+  "notes": [
+    "Seven boxes, read off the Charactersheet layout in sheet order. Names keep the sheet's casing and spelling (\"accesory\").",
+    "The sheet gives no slot a count or an accepts-list — every box holds one \"material material object\" string. Concept 10's count/accepts fields are a later milestone."
+  ],
+  "data": {
+    "equipmentSlots": [
+      {
+        "type": "head",
+        "name": "Head",
+        "description": "Equipment box on the character sheet (Charactersheet!N3)."
+      },
+      {
+        "type": "chest",
+        "name": "chest",
+        "description": "Equipment box on the character sheet (Charactersheet!N7)."
+      },
+      {
+        "type": "main_hand",
+        "name": "main hand",
+        "description": "Equipment box on the character sheet (Charactersheet!M7)."
+      },
+      {
+        "type": "off_hand",
+        "name": "Off hand",
+        "description": "Equipment box on the character sheet (Charactersheet!O7)."
+      },
+      {
+        "type": "legs",
+        "name": "Legs",
+        "description": "Equipment box on the character sheet (Charactersheet!N11)."
+      },
+      {
+        "type": "feet",
+        "name": "Feet",
+        "description": "Equipment box on the character sheet (Charactersheet!N14)."
+      },
+      {
+        "type": "accessory",
+        "name": "accesory",
+        "description": "Equipment box on the character sheet (Charactersheet!O11)."
+      }
+    ]
+  }
+}

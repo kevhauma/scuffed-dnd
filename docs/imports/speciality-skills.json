@@ -1,0 +1,413 @@
+{
+  "feature": "speciality-skills",
+  "title": "Skills",
+  "tickets": [
+    "TICKET-SKL-02 (pending)"
+  ],
+  "concept": "02 · Skill",
+  "source": {
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit",
+    "exportedAt": "2026-08-09",
+    "ranges": [
+      "Skills!C12:G59"
+    ]
+  },
+  "confidence": "confirmed",
+  "notes": [
+    "48 skills, each with the 1–2 weighted stats the Skills tab gives it. Single-stat skills weigh 0.2 or 0.3; two-stat skills split 0.2 + 0.1.",
+    "bonusFormula holds the sheet's **level** expression, not its bonus. The sheet's bonus is ROUND(level / const.bonus_divider, 0) and the v1 SpecialitySkill shape has nowhere to put the level/bonus split — TICKET-SKL-02 introduces it, and this fragment then moves to stat_weights without the numbers changing.",
+    "maxBaseLevel is 0 on every skill: the sheet has no such cap, and inventing one would put a number in the User's ruleset that nothing in the source supports.",
+    "The three-letter codes are ours — the sheet addresses skills by cell. They are generated to avoid colliding with any stat abbreviation or roll code, which is what the shared flat namespace requires.",
+    "Duplicate name kept deliberately (Concept 02 import note): Skinning appears twice in the sheet with different levels, so they are two records until the User merges them.",
+    "Verified against Concept 02: Charm = CHA * 0.3 (11.7 at Char 39), Brewing = WIS * 0.3, Black smithing = STR * 0.2, alchemy = INT * 0.2, Trading = CHA * 0.3.",
+    "One divergence from Concept 02, and the sheet wins: the page has Persuasion at Char x 0.3, the live Skills tab has Char x 0.2 + Strenght x 0.1 (Skills!D31:G31). The page's 11.7 for Persuasion is Charm's number. Worth a look before the golden fixtures pin it (TICKET-DX-04)."
+  ],
+  "data": {
+    "specialitySkills": [
+      {
+        "id": "skill-alchemy-alc",
+        "code": "ALC",
+        "name": "alchemy",
+        "description": "Skills!C12. Weights: INT 0.2.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "INT * 0.2"
+      },
+      {
+        "id": "skill-assassination-ass",
+        "code": "ASS",
+        "name": "assassination",
+        "description": "Skills!C13. Weights: DEX 0.2.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "DEX * 0.2"
+      },
+      {
+        "id": "skill-black-smithing-bsl",
+        "code": "BSL",
+        "name": "Black smithing",
+        "description": "Skills!C14. Weights: STR 0.2.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "STR * 0.2"
+      },
+      {
+        "id": "skill-brewing-bre",
+        "code": "BRE",
+        "name": "Brewing",
+        "description": "Skills!C15. Weights: WIS 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.3"
+      },
+      {
+        "id": "skill-butchering-but",
+        "code": "BUT",
+        "name": "butchering",
+        "description": "Skills!C16. Weights: STR 0.2.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "STR * 0.2"
+      },
+      {
+        "id": "skill-charm-chr",
+        "code": "CHR",
+        "name": "Charm",
+        "description": "Skills!C17. Weights: CHA 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "CHA * 0.3"
+      },
+      {
+        "id": "skill-construction-cos",
+        "code": "COS",
+        "name": "construction",
+        "description": "Skills!C18. Weights: STR 0.2.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "STR * 0.2"
+      },
+      {
+        "id": "skill-cooking-coo",
+        "code": "COO",
+        "name": "Cooking",
+        "description": "Skills!C19. Weights: WIS 0.2, DEX 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.2 + DEX * 0.1"
+      },
+      {
+        "id": "skill-dancing-dan",
+        "code": "DAN",
+        "name": "Dancing",
+        "description": "Skills!C20. Weights: DEX 0.2.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "DEX * 0.2"
+      },
+      {
+        "id": "skill-foraging-for",
+        "code": "FOR",
+        "name": "foraging",
+        "description": "Skills!C21. Weights: WIS 0.2, DEX 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.2 + DEX * 0.1"
+      },
+      {
+        "id": "skill-handeling-han",
+        "code": "HAN",
+        "name": "Handeling",
+        "description": "Skills!C22. Weights: WIS 0.2, DEX 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.2 + DEX * 0.1"
+      },
+      {
+        "id": "skill-healing-hea",
+        "code": "HEA",
+        "name": "Healing",
+        "description": "Skills!C23. Weights: WIS 0.2.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.2"
+      },
+      {
+        "id": "skill-hiding-hid",
+        "code": "HID",
+        "name": "Hiding",
+        "description": "Skills!C24. Weights: DEX 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "DEX * 0.3"
+      },
+      {
+        "id": "skill-history-his",
+        "code": "HIS",
+        "name": "history",
+        "description": "Skills!C25. Weights: WIS 0.2, INT 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.2 + INT * 0.1"
+      },
+      {
+        "id": "skill-intimidation-ini",
+        "code": "INI",
+        "name": "intimidation",
+        "description": "Skills!C26. Weights: STR 0.2, CHA 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "STR * 0.2 + CHA * 0.1"
+      },
+      {
+        "id": "skill-lock-picking-lpo",
+        "code": "LPO",
+        "name": "Lock picking",
+        "description": "Skills!C27. Weights: DEX 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "DEX * 0.3"
+      },
+      {
+        "id": "skill-medician-med",
+        "code": "MED",
+        "name": "Medician",
+        "description": "Skills!C28. Weights: WIS 0.2, INT 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.2 + INT * 0.1"
+      },
+      {
+        "id": "skill-mining-min",
+        "code": "MIN",
+        "name": "Mining",
+        "description": "Skills!C29. Weights: STR 0.2, CON 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "STR * 0.2 + CON * 0.1"
+      },
+      {
+        "id": "skill-navigation-nav",
+        "code": "NAV",
+        "name": "navigation",
+        "description": "Skills!C30. Weights: WIS 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.3"
+      },
+      {
+        "id": "skill-persuasion-per",
+        "code": "PER",
+        "name": "Persuasion",
+        "description": "Skills!C31. Weights: CHA 0.2, STR 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "CHA * 0.2 + STR * 0.1"
+      },
+      {
+        "id": "skill-prefomance-pre",
+        "code": "PRE",
+        "name": "Prefomance",
+        "description": "Skills!C32. Weights: CHA 0.2, DEX 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "CHA * 0.2 + DEX * 0.1"
+      },
+      {
+        "id": "skill-sailing-sai",
+        "code": "SAI",
+        "name": "Sailing",
+        "description": "Skills!C33. Weights: STR 0.2, CON 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "STR * 0.2 + CON * 0.1"
+      },
+      {
+        "id": "skill-scouting-sco",
+        "code": "SCO",
+        "name": "Scouting",
+        "description": "Skills!C34. Weights: DEX 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "DEX * 0.3"
+      },
+      {
+        "id": "skill-sewing-sew",
+        "code": "SEW",
+        "name": "sewing",
+        "description": "Skills!C35. Weights: DEX 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "DEX * 0.3"
+      },
+      {
+        "id": "skill-skinning-ski",
+        "code": "SKI",
+        "name": "skinning",
+        "description": "Skills!C36. Weights: DEX 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "DEX * 0.3"
+      },
+      {
+        "id": "skill-sneaking-sne",
+        "code": "SNE",
+        "name": "Sneaking",
+        "description": "Skills!C37. Weights: DEX 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "DEX * 0.3"
+      },
+      {
+        "id": "skill-stealing-ste",
+        "code": "STE",
+        "name": "Stealing",
+        "description": "Skills!C38. Weights: DEX 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "DEX * 0.3"
+      },
+      {
+        "id": "skill-storytelling-sto",
+        "code": "STO",
+        "name": "Storytelling",
+        "description": "Skills!C39. Weights: WIS 0.2, CHA 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.2 + CHA * 0.1"
+      },
+      {
+        "id": "skill-tailoring-tai",
+        "code": "TAI",
+        "name": "tailoring",
+        "description": "Skills!C40. Weights: DEX 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "DEX * 0.3"
+      },
+      {
+        "id": "skill-taming-tam",
+        "code": "TAM",
+        "name": "Taming",
+        "description": "Skills!C41. Weights: WIS 0.2, STR 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.2 + STR * 0.1"
+      },
+      {
+        "id": "skill-teaching-tea",
+        "code": "TEA",
+        "name": "Teaching",
+        "description": "Skills!C42. Weights: WIS 0.2, INT 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.2 + INT * 0.1"
+      },
+      {
+        "id": "skill-tracking-tra",
+        "code": "TRA",
+        "name": "Tracking",
+        "description": "Skills!C43. Weights: WIS 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.3"
+      },
+      {
+        "id": "skill-trading-trd",
+        "code": "TRD",
+        "name": "Trading",
+        "description": "Skills!C44. Weights: CHA 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "CHA * 0.3"
+      },
+      {
+        "id": "skill-white-smithing-wsh",
+        "code": "WSH",
+        "name": "white smithing",
+        "description": "Skills!C45. Weights: WIS 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.3"
+      },
+      {
+        "id": "skill-woodcutting-woo",
+        "code": "WOO",
+        "name": "woodcutting",
+        "description": "Skills!C46. Weights: STR 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "STR * 0.3"
+      },
+      {
+        "id": "skill-writing-wri",
+        "code": "WRI",
+        "name": "writing",
+        "description": "Skills!C47. Weights: CHA 0.2, WIS 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "CHA * 0.2 + WIS * 0.1"
+      },
+      {
+        "id": "skill-graple-gra",
+        "code": "GRA",
+        "name": "graple",
+        "description": "Skills!C48. Weights: STR 0.2, DEX 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "STR * 0.2 + DEX * 0.1"
+      },
+      {
+        "id": "skill-perception-pec",
+        "code": "PEC",
+        "name": "perception",
+        "description": "Skills!C49. Weights: WIS 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.3"
+      },
+      {
+        "id": "skill-athletics-ath",
+        "code": "ATH",
+        "name": "athletics",
+        "description": "Skills!C50. Weights: DEX 0.2, STR 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "DEX * 0.2 + STR * 0.1"
+      },
+      {
+        "id": "skill-hand-to-hand-hta",
+        "code": "HTA",
+        "name": "hand to hand",
+        "description": "Skills!C51. Weights: STR 0.2, DEX 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "STR * 0.2 + DEX * 0.1"
+      },
+      {
+        "id": "skill-farming-far",
+        "code": "FAR",
+        "name": "farming",
+        "description": "Skills!C52. Weights: WIS 0.2, DEX 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.2 + DEX * 0.1"
+      },
+      {
+        "id": "skill-riding-rid",
+        "code": "RID",
+        "name": "riding",
+        "description": "Skills!C53. Weights: DEX 0.2, STR 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "DEX * 0.2 + STR * 0.1"
+      },
+      {
+        "id": "skill-skinning-skn",
+        "code": "SKN",
+        "name": "Skinning",
+        "description": "Skills!C54. Weights: DEX 0.2, WIS 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "DEX * 0.2 + WIS * 0.1"
+      },
+      {
+        "id": "skill-arcane-arc",
+        "code": "ARC",
+        "name": "arcane",
+        "description": "Skills!C55. Weights: INT 0.2, WIS 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "INT * 0.2 + WIS * 0.1"
+      },
+      {
+        "id": "skill-linguistics-lin",
+        "code": "LIN",
+        "name": "linguistics",
+        "description": "Skills!C56. Weights: INT 0.3.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "INT * 0.3"
+      },
+      {
+        "id": "skill-law-law",
+        "code": "LAW",
+        "name": "law",
+        "description": "Skills!C57. Weights: INT 0.2, WIS 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "INT * 0.2 + WIS * 0.1"
+      },
+      {
+        "id": "skill-zoology-zoo",
+        "code": "ZOO",
+        "name": "zoology",
+        "description": "Skills!C58. Weights: WIS 0.2, INT 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.2 + INT * 0.1"
+      },
+      {
+        "id": "skill-botany-bot",
+        "code": "BOT",
+        "name": "botany",
+        "description": "Skills!C59. Weights: WIS 0.2, INT 0.1.",
+        "maxBaseLevel": 0,
+        "bonusFormula": "WIS * 0.2 + INT * 0.1"
+      }
+    ]
+  }
+}

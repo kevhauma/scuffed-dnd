@@ -10,6 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "sheet:import": "node scripts/build-sheet-import.mjs",
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check"

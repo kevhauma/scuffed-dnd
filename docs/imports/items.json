@@ -1,0 +1,1172 @@
+{
+  "feature": "items",
+  "title": "Items",
+  "tickets": [
+    "TICKET-ITEM (v1.0)"
+  ],
+  "concept": "11 · Item template",
+  "source": {
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit",
+    "exportedAt": "2026-08-09",
+    "ranges": [
+      "Equimment!A4:L194"
+    ]
+  },
+  "confidence": "confirmed names and values / no slot or material links in the source",
+  "notes": [
+    "191 item templates in the sheet's own order and spelling.",
+    "The base value lives in the description, not in a field: the v1 Item shape has no value. Concept 11 gives an item template one, and the ticket that adds it can lift these numbers straight out — dagger 1000, breastplate 10000, all in copper.",
+    "No item names a material or an equipment slot. The sheet composes those at the point of use (\"iron 1 empty rapier\" in the main-hand box), so a slot assignment here would be our guess rather than the sheet's data. Concept 11's template/instance split is the fix.",
+    "Every item's stat-modifier columns are zero in this tab — bonuses come from the material, which is exactly Concept 11's \"what a thing is, vs. what it is made of\"."
+  ],
+  "data": {
+    "items": [
+      {
+        "id": "item-empty-5",
+        "name": "empty",
+        "description": "Equipment tab, empty — base value 0 copper.",
+        "categoryId": "empty"
+      },
+      {
+        "id": "item-coin-6",
+        "name": "coin",
+        "description": "Equipment tab, Money — base value 1 copper.",
+        "categoryId": "Money"
+      },
+      {
+        "id": "item-raw-7",
+        "name": "raw",
+        "description": "Equipment tab, type — base value 2 copper.",
+        "categoryId": "type"
+      },
+      {
+        "id": "item-ingot-8",
+        "name": "ingot",
+        "description": "Equipment tab, type — base value 5 copper.",
+        "categoryId": "type"
+      },
+      {
+        "id": "item-roll-9",
+        "name": "Roll",
+        "description": "Equipment tab, type — base value 0 copper.",
+        "categoryId": "type"
+      },
+      {
+        "id": "item-breastplate-10",
+        "name": "breastplate",
+        "description": "Equipment tab, Armor — base value 10000 copper.",
+        "categoryId": "Armor"
+      },
+      {
+        "id": "item-chain-pants-11",
+        "name": "chain pants",
+        "description": "Equipment tab, Armor — base value 9000 copper.",
+        "categoryId": "Armor"
+      },
+      {
+        "id": "item-chain-shirt-12",
+        "name": "chain shirt",
+        "description": "Equipment tab, Armor — base value 9000 copper.",
+        "categoryId": "Armor"
+      },
+      {
+        "id": "item-helmet-13",
+        "name": "helmet",
+        "description": "Equipment tab, Armor — base value 5000 copper.",
+        "categoryId": "Armor"
+      },
+      {
+        "id": "item-leg-plate-14",
+        "name": "leg plate",
+        "description": "Equipment tab, Armor — base value 7500 copper.",
+        "categoryId": "Armor"
+      },
+      {
+        "id": "item-ring-mail-chest-15",
+        "name": "ring mail chest",
+        "description": "Equipment tab, Armor — base value 7500 copper.",
+        "categoryId": "Armor"
+      },
+      {
+        "id": "item-ring-mail-legs-16",
+        "name": "ring mail legs",
+        "description": "Equipment tab, Armor — base value 7500 copper.",
+        "categoryId": "Armor"
+      },
+      {
+        "id": "item-battleaxe-17",
+        "name": "battleaxe",
+        "description": "Equipment tab, Mele weapons — base value 1500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-club-18",
+        "name": "club",
+        "description": "Equipment tab, Mele weapons — base value 1500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-dagger-19",
+        "name": "dagger",
+        "description": "Equipment tab, Mele weapons — base value 1000 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-flail-20",
+        "name": "flail",
+        "description": "Equipment tab, Mele weapons — base value 1500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-glaive-21",
+        "name": "glaive",
+        "description": "Equipment tab, Mele weapons — base value 1500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-greataxe-22",
+        "name": "greataxe",
+        "description": "Equipment tab, Mele weapons — base value 3000 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-greatclub-23",
+        "name": "greatclub",
+        "description": "Equipment tab, Mele weapons — base value 3000 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-greatsword-24",
+        "name": "greatsword",
+        "description": "Equipment tab, Mele weapons — base value 3000 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-halberd-25",
+        "name": "halberd",
+        "description": "Equipment tab, Mele weapons — base value 3000 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-handaxe-26",
+        "name": "handaxe",
+        "description": "Equipment tab, Mele weapons — base value 1500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-javelin-27",
+        "name": "javelin",
+        "description": "Equipment tab, Mele weapons — base value 1500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-lance-28",
+        "name": "lance",
+        "description": "Equipment tab, Mele weapons — base value 1500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-light-hammer-29",
+        "name": "light hammer",
+        "description": "Equipment tab, Mele weapons — base value 1000 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-longsword-30",
+        "name": "longsword",
+        "description": "Equipment tab, Mele weapons — base value 1500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-mace-31",
+        "name": "mace",
+        "description": "Equipment tab, Mele weapons — base value 1500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-maul-32",
+        "name": "maul",
+        "description": "Equipment tab, Mele weapons — base value 3000 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-morningstar-33",
+        "name": "morningstar",
+        "description": "Equipment tab, Mele weapons — base value 1500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-pike-34",
+        "name": "pike",
+        "description": "Equipment tab, Mele weapons — base value 3000 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-quarterstaff-35",
+        "name": "quarterstaff",
+        "description": "Equipment tab, Mele weapons — base value 2500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-rapier-36",
+        "name": "rapier",
+        "description": "Equipment tab, Mele weapons — base value 1500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-scimitar-37",
+        "name": "scimitar",
+        "description": "Equipment tab, Mele weapons — base value 1500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-shortsword-38",
+        "name": "shortsword",
+        "description": "Equipment tab, Mele weapons — base value 1500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-sicle-39",
+        "name": "sicle",
+        "description": "Equipment tab, Mele weapons — base value 1000 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-spear-40",
+        "name": "spear",
+        "description": "Equipment tab, Mele weapons — base value 1500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-trident-41",
+        "name": "trident",
+        "description": "Equipment tab, Mele weapons — base value 3000 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-warhammer-42",
+        "name": "warhammer",
+        "description": "Equipment tab, Mele weapons — base value 1500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-warpick-43",
+        "name": "warpick",
+        "description": "Equipment tab, Mele weapons — base value 1500 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-whip-44",
+        "name": "whip",
+        "description": "Equipment tab, Mele weapons — base value 1000 copper.",
+        "categoryId": "Mele weapons"
+      },
+      {
+        "id": "item-blowgun-45",
+        "name": "blowgun",
+        "description": "Equipment tab, Ranged weapons — base value 800 copper.",
+        "categoryId": "Ranged weapons"
+      },
+      {
+        "id": "item-hand-crossbow-46",
+        "name": "hand crossbow",
+        "description": "Equipment tab, Ranged weapons — base value 800 copper.",
+        "categoryId": "Ranged weapons"
+      },
+      {
+        "id": "item-heavy-crossbow-47",
+        "name": "heavy crossbow",
+        "description": "Equipment tab, Ranged weapons — base value 2000 copper.",
+        "categoryId": "Ranged weapons"
+      },
+      {
+        "id": "item-long-bow-48",
+        "name": "long bow",
+        "description": "Equipment tab, Ranged weapons — base value 2000 copper.",
+        "categoryId": "Ranged weapons"
+      },
+      {
+        "id": "item-short-bow-49",
+        "name": "short bow",
+        "description": "Equipment tab, Ranged weapons — base value 800 copper.",
+        "categoryId": "Ranged weapons"
+      },
+      {
+        "id": "item-sling-50",
+        "name": "sling",
+        "description": "Equipment tab, Ranged weapons — base value 800 copper.",
+        "categoryId": "Ranged weapons"
+      },
+      {
+        "id": "item-net-51",
+        "name": "net",
+        "description": "Equipment tab, Miscellaneous — base value 750 copper.",
+        "categoryId": "Miscellaneous"
+      },
+      {
+        "id": "item-shield-52",
+        "name": "shield",
+        "description": "Equipment tab, Miscellaneous — base value 5000 copper.",
+        "categoryId": "Miscellaneous"
+      },
+      {
+        "id": "item-arrows-53",
+        "name": "arrows",
+        "description": "Equipment tab, Ammo per 20 — base value 1500 copper.",
+        "categoryId": "Ammo per 20"
+      },
+      {
+        "id": "item-blowgun-needles-54",
+        "name": "blowgun needles",
+        "description": "Equipment tab, Ammo per 20 — base value 1500 copper.",
+        "categoryId": "Ammo per 20"
+      },
+      {
+        "id": "item-crossbow-bolts-55",
+        "name": "crossbow bolts",
+        "description": "Equipment tab, Ammo per 20 — base value 1500 copper.",
+        "categoryId": "Ammo per 20"
+      },
+      {
+        "id": "item-sling-bullets-56",
+        "name": "sling bullets",
+        "description": "Equipment tab, Ammo per 20 — base value 1500 copper.",
+        "categoryId": "Ammo per 20"
+      },
+      {
+        "id": "item-orb-57",
+        "name": "orb",
+        "description": "Equipment tab, Magic weapons — base value 8000 copper.",
+        "categoryId": "Magic weapons"
+      },
+      {
+        "id": "item-rod-58",
+        "name": "rod",
+        "description": "Equipment tab, Magic weapons — base value 8000 copper.",
+        "categoryId": "Magic weapons"
+      },
+      {
+        "id": "item-staff-59",
+        "name": "staff",
+        "description": "Equipment tab, Magic weapons — base value 8000 copper.",
+        "categoryId": "Magic weapons"
+      },
+      {
+        "id": "item-wand-60",
+        "name": "wand",
+        "description": "Equipment tab, Magic weapons — base value 8000 copper.",
+        "categoryId": "Magic weapons"
+      },
+      {
+        "id": "item-amulet-61",
+        "name": "amulet",
+        "description": "Equipment tab, Reliques — base value 15000 copper.",
+        "categoryId": "Reliques"
+      },
+      {
+        "id": "item-emblem-62",
+        "name": "emblem",
+        "description": "Equipment tab, Reliques — base value 15000 copper.",
+        "categoryId": "Reliques"
+      },
+      {
+        "id": "item-reliquary-63",
+        "name": "reliquary",
+        "description": "Equipment tab, Reliques — base value 15000 copper.",
+        "categoryId": "Reliques"
+      },
+      {
+        "id": "item-totem-64",
+        "name": "totem",
+        "description": "Equipment tab, Reliques — base value 15000 copper.",
+        "categoryId": "Reliques"
+      },
+      {
+        "id": "item-basic-beak-65",
+        "name": "basic beak",
+        "description": "Equipment tab, Monster harvest items — base value 250 copper.",
+        "categoryId": "Monster harvest items"
+      },
+      {
+        "id": "item-basic-carapace-66",
+        "name": "basic carapace",
+        "description": "Equipment tab, Monster harvest items — base value 250 copper.",
+        "categoryId": "Monster harvest items"
+      },
+      {
+        "id": "item-basic-claw-67",
+        "name": "basic claw",
+        "description": "Equipment tab, Monster harvest items — base value 250 copper.",
+        "categoryId": "Monster harvest items"
+      },
+      {
+        "id": "item-basic-feather-68",
+        "name": "basic feather",
+        "description": "Equipment tab, Monster harvest items — base value 250 copper.",
+        "categoryId": "Monster harvest items"
+      },
+      {
+        "id": "item-basic-fur-69",
+        "name": "basic fur",
+        "description": "Equipment tab, Monster harvest items — base value 250 copper.",
+        "categoryId": "Monster harvest items"
+      },
+      {
+        "id": "item-basic-leather-70",
+        "name": "basic Leather",
+        "description": "Equipment tab, Monster harvest items — base value 250 copper.",
+        "categoryId": "Monster harvest items"
+      },
+      {
+        "id": "item-basic-meat-71",
+        "name": "Basic meat",
+        "description": "Equipment tab, Monster harvest items — base value 250 copper.",
+        "categoryId": "Monster harvest items"
+      },
+      {
+        "id": "item-basic-scales-72",
+        "name": "basic scales",
+        "description": "Equipment tab, Monster harvest items — base value 250 copper.",
+        "categoryId": "Monster harvest items"
+      },
+      {
+        "id": "item-basic-stinger-73",
+        "name": "basic stinger",
+        "description": "Equipment tab, Monster harvest items — base value 250 copper.",
+        "categoryId": "Monster harvest items"
+      },
+      {
+        "id": "item-basic-tanden-74",
+        "name": "basic tanden",
+        "description": "Equipment tab, Monster harvest items — base value 250 copper.",
+        "categoryId": "Monster harvest items"
+      },
+      {
+        "id": "item-basic-tusk-75",
+        "name": "basic tusk",
+        "description": "Equipment tab, Monster harvest items — base value 250 copper.",
+        "categoryId": "Monster harvest items"
+      },
+      {
+        "id": "item-alchimist-case-76",
+        "name": "alchimist case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-ammo-case-77",
+        "name": "ammo case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-bag-78",
+        "name": "Bag",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-barrel-79",
+        "name": "barrel",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-basket-80",
+        "name": "basket",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-bottle-81",
+        "name": "bottle",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-brewers-case-82",
+        "name": "brewers case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-bucket-83",
+        "name": "bucket",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-calligraphers-case-84",
+        "name": "calligraphers case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-carpenters-case-85",
+        "name": "carpenters case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-cartographers-case-86",
+        "name": "cartographers case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-cobblers-case-87",
+        "name": "cobblers case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-cooking-case-88",
+        "name": "cooking case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-disguise-case-89",
+        "name": "disguise case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-document-case-90",
+        "name": "document case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-forgery-case-91",
+        "name": "forgery case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-glassblower-case-92",
+        "name": "glassblower case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-herbalisme-case-93",
+        "name": "herbalisme case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-jewelers-case-94",
+        "name": "jewelers case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-leatherworkers-case-95",
+        "name": "leatherworkers case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-masons-case-96",
+        "name": "masons case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-nagivators-case-97",
+        "name": "nagivators case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-painters-case-98",
+        "name": "painters case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-poisoners-case-99",
+        "name": "poisoners case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-potters-case-100",
+        "name": "potters case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-pouch-101",
+        "name": "pouch",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-rations-102",
+        "name": "rations",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-smiths-case-103",
+        "name": "smiths case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-thieves-case-104",
+        "name": "thieves case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-tinkers-case-105",
+        "name": "tinkers case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-vail-106",
+        "name": "vail",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-waterskin-107",
+        "name": "waterskin",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-weavers-case-108",
+        "name": "weavers case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-woodcarvers-case-109",
+        "name": "woodcarvers case",
+        "description": "Equipment tab, Containers — base value 1000 copper.",
+        "categoryId": "Containers"
+      },
+      {
+        "id": "item-boots-110",
+        "name": "boots",
+        "description": "Equipment tab, cloths — base value 500 copper.",
+        "categoryId": "cloths"
+      },
+      {
+        "id": "item-fedora-111",
+        "name": "fedora",
+        "description": "Equipment tab, cloths — base value 500 copper.",
+        "categoryId": "cloths"
+      },
+      {
+        "id": "item-hat-112",
+        "name": "hat",
+        "description": "Equipment tab, cloths — base value 500 copper.",
+        "categoryId": "cloths"
+      },
+      {
+        "id": "item-mage-hat-113",
+        "name": "mage hat",
+        "description": "Equipment tab, cloths — base value 500 copper.",
+        "categoryId": "cloths"
+      },
+      {
+        "id": "item-pants-114",
+        "name": "pants",
+        "description": "Equipment tab, cloths — base value 500 copper.",
+        "categoryId": "cloths"
+      },
+      {
+        "id": "item-robes-115",
+        "name": "robes",
+        "description": "Equipment tab, cloths — base value 500 copper.",
+        "categoryId": "cloths"
+      },
+      {
+        "id": "item-sandals-116",
+        "name": "sandals",
+        "description": "Equipment tab, cloths — base value 500 copper.",
+        "categoryId": "cloths"
+      },
+      {
+        "id": "item-shirt-117",
+        "name": "shirt",
+        "description": "Equipment tab, cloths — base value 500 copper.",
+        "categoryId": "cloths"
+      },
+      {
+        "id": "item-skirt-118",
+        "name": "Skirt",
+        "description": "Equipment tab, cloths — base value 500 copper.",
+        "categoryId": "cloths"
+      },
+      {
+        "id": "item-top-hat-119",
+        "name": "top hat",
+        "description": "Equipment tab, cloths — base value 500 copper.",
+        "categoryId": "cloths"
+      },
+      {
+        "id": "item-ball-bearings-120",
+        "name": "ball bearings",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-bedroll-121",
+        "name": "bedroll",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-bell-122",
+        "name": "bell",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-blanket-123",
+        "name": "blanket",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-book-124",
+        "name": "book",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-butchering-knife-125",
+        "name": "butchering knife",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-candle-126",
+        "name": "candle",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-chain-127",
+        "name": "chain",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-chalk-128",
+        "name": "chalk",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-clalk-129",
+        "name": "clalk",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-clatrops-130",
+        "name": "clatrops",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-compass-131",
+        "name": "compass",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-crowbar-132",
+        "name": "crowbar",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-cup-133",
+        "name": "cup",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-cutting-knife-134",
+        "name": "cutting knife",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-fishing-rot-135",
+        "name": "fishing rot",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-flint-and-steel-136",
+        "name": "flint and steel",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-grappling-hook-137",
+        "name": "grappling hook",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-hammer-138",
+        "name": "hammer",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-hourglass-139",
+        "name": "hourglass",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-hunting-trap-140",
+        "name": "hunting trap",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-kettle-141",
+        "name": "kettle",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-ladder-142",
+        "name": "ladder",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-lamp-143",
+        "name": "lamp",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-lantern-144",
+        "name": "lantern",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-lock-145",
+        "name": "lock",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-magnifying-glass-146",
+        "name": "magnifying glass",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-manacles-147",
+        "name": "manacles",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-paper-148",
+        "name": "paper",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-parchement-149",
+        "name": "parchement",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-pen-150",
+        "name": "pen",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-pick-151",
+        "name": "pick",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-pitcher-152",
+        "name": "pitcher",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-piton-153",
+        "name": "piton",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-plate-154",
+        "name": "plate",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-pole-155",
+        "name": "pole",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-pot-156",
+        "name": "pot",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-quest-documents-157",
+        "name": "Quest documents",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-ram-158",
+        "name": "ram",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-rope-159",
+        "name": "rope",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-sealing-wax-160",
+        "name": "sealing wax",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-shovel-161",
+        "name": "shovel",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-skillet-162",
+        "name": "skillet",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-skinning-knife-163",
+        "name": "skinning knife",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-sledge-hammer-164",
+        "name": "sledge hammer",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-soap-165",
+        "name": "soap",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-spikes-166",
+        "name": "spikes",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-spyglass-167",
+        "name": "spyglass",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-stake-168",
+        "name": "stake",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-tent-169",
+        "name": "tent",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-tinderbox-170",
+        "name": "tinderbox",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-torch-171",
+        "name": "torch",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-vegtable-172",
+        "name": "Vegtable",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-whetstone-173",
+        "name": "whetstone",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-wok-174",
+        "name": "wok",
+        "description": "Equipment tab, Te tam om dees te sorteren — base value 500 copper.",
+        "categoryId": "Te tam om dees te sorteren"
+      },
+      {
+        "id": "item-dice-set-175",
+        "name": "dice set",
+        "description": "Equipment tab, Gambeling — base value 500 copper.",
+        "categoryId": "Gambeling"
+      },
+      {
+        "id": "item-plaing-card-set-176",
+        "name": "plaing card set",
+        "description": "Equipment tab, Gambeling — base value 500 copper.",
+        "categoryId": "Gambeling"
+      },
+      {
+        "id": "item-bagpipes-177",
+        "name": "bagpipes",
+        "description": "Equipment tab, instruments — base value 500 copper.",
+        "categoryId": "instruments"
+      },
+      {
+        "id": "item-bulcimer-178",
+        "name": "bulcimer",
+        "description": "Equipment tab, instruments — base value 500 copper.",
+        "categoryId": "instruments"
+      },
+      {
+        "id": "item-drum-179",
+        "name": "drum",
+        "description": "Equipment tab, instruments — base value 500 copper.",
+        "categoryId": "instruments"
+      },
+      {
+        "id": "item-flute-180",
+        "name": "flute",
+        "description": "Equipment tab, instruments — base value 500 copper.",
+        "categoryId": "instruments"
+      },
+      {
+        "id": "item-horn-181",
+        "name": "horn",
+        "description": "Equipment tab, instruments — base value 500 copper.",
+        "categoryId": "instruments"
+      },
+      {
+        "id": "item-lute-182",
+        "name": "lute",
+        "description": "Equipment tab, instruments — base value 500 copper.",
+        "categoryId": "instruments"
+      },
+      {
+        "id": "item-lyre-183",
+        "name": "lyre",
+        "description": "Equipment tab, instruments — base value 500 copper.",
+        "categoryId": "instruments"
+      },
+      {
+        "id": "item-pan-flute-184",
+        "name": "pan flute",
+        "description": "Equipment tab, instruments — base value 500 copper.",
+        "categoryId": "instruments"
+      },
+      {
+        "id": "item-shawn-185",
+        "name": "shawn",
+        "description": "Equipment tab, instruments — base value 500 copper.",
+        "categoryId": "instruments"
+      },
+      {
+        "id": "item-viol-186",
+        "name": "viol",
+        "description": "Equipment tab, instruments — base value 500 copper.",
+        "categoryId": "instruments"
+      },
+      {
+        "id": "item-cloak-187",
+        "name": "cloak",
+        "description": "Equipment tab, Accessories — base value 500 copper.",
+        "categoryId": "Accessories"
+      },
+      {
+        "id": "item-crown-188",
+        "name": "crown",
+        "description": "Equipment tab, Accessories — base value 500 copper.",
+        "categoryId": "Accessories"
+      },
+      {
+        "id": "item-ring-189",
+        "name": "ring",
+        "description": "Equipment tab, Accessories — base value 500 copper.",
+        "categoryId": "Accessories"
+      },
+      {
+        "id": "item-signet-ring-190",
+        "name": "signet ring",
+        "description": "Equipment tab, Accessories — base value 500 copper.",
+        "categoryId": "Accessories"
+      },
+      {
+        "id": "item-mirror-191",
+        "name": "mirror",
+        "description": "Equipment tab, furniture — base value 500 copper.",
+        "categoryId": "furniture"
+      },
+      {
+        "id": "item-monitor-crystal-192",
+        "name": "Monitor crystal",
+        "description": "Equipment tab, furniture — base value 500 copper.",
+        "categoryId": "furniture"
+      },
+      {
+        "id": "item-bed-193",
+        "name": "bed",
+        "description": "Equipment tab, furniture — base value 500 copper.",
+        "categoryId": "furniture"
+      },
+      {
+        "id": "item-colt-45-194",
+        "name": "Colt 45",
+        "description": "Equipment tab, magical items — base value 15000 copper.",
+        "categoryId": "magical items"
+      },
+      {
+        "id": "item-bullets-195",
+        "name": "bullets",
+        "description": "Equipment tab, magical items — base value 5000 copper.",
+        "categoryId": "magical items"
+      }
+    ]
+  }
+}

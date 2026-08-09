@@ -232,6 +232,14 @@ id-resolved references, what they hand back holds the ruleset's current spelling
   Note the name collision: this `validateConfiguration` checks *imported JSON shape*;
   `engine/validator.ts`'s checks *referential integrity of a loaded config*.
 
+## Scripts (`scripts/`)
+
+Node-only tooling, outside the app bundle. `build-sheet-import.mjs` (plus a hand-written
+`.d.mts` so the test can import it under `tsc`) merges the per-feature fragments in `docs/imports/`
+into `docs/imports/ducklets.json` — `yarn run sheet:import`.
+`src/services/sheetImport.test.ts` re-runs that merge in the suite and fails on drift. See
+[docs/imports/README.md](../../../docs/imports/README.md).
+
 ## Components (`src/components/`)
 
 **`ui/` — base primitives.** One folder per component holding `Name.tsx`, `Name.style.ts`,

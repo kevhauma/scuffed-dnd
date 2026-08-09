@@ -1,0 +1,741 @@
+{
+  "feature": "curves",
+  "title": "Curves",
+  "tickets": [
+    "TICKET-CRV-01",
+    "TICKET-CRV-02",
+    "TICKET-CRV-03"
+  ],
+  "concept": "06 · Curve",
+  "source": {
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit",
+    "exportedAt": "2026-08-09",
+    "ranges": [
+      "Calculator!B2:E54"
+    ]
+  },
+  "confidence": "confirmed (point_buy) / absent from the sheet (xp_thresholds)",
+  "notes": [
+    "point_buy carries all 51 rows the sheet has (0–50 points), not the 16 the seed ships. The main column is 0.75 x (points + 1) for every one of them, verified cell by cell during extraction, so it ships as a generator; non and sub are hand-entered and marked overridden so regeneration cannot touch them.",
+    "Two anomalies come across as the sheet has them, deliberately: sub at 9 points is 4.64285714285714 and non at 50 points is 12.0665306122449, where every neighbour is an integer. Concept 06 wants a decision on these, not a silent rounding.",
+    "xp_thresholds is shape only. The sheet has no XP table — level is hand-typed in Charactersheet!E5 — so this is Concept 06 open question 8 and waits for the User."
+  ],
+  "data": {
+    "curves": [
+      {
+        "id": "curve-point-buy",
+        "name": "point_buy",
+        "displayName": "Point buy",
+        "description": "What a point spent on a stat is worth, by how much the archetype favours that stat.",
+        "keyName": "points",
+        "columns": [
+          {
+            "id": "curve-point-buy-col-non",
+            "name": "non"
+          },
+          {
+            "id": "curve-point-buy-col-sub",
+            "name": "sub"
+          },
+          {
+            "id": "curve-point-buy-col-main",
+            "name": "main",
+            "generator": "0.75 * (key + 1)"
+          }
+        ],
+        "rows": [
+          {
+            "key": 0,
+            "values": [
+              0,
+              0,
+              0.75
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 1,
+            "values": [
+              1,
+              1,
+              1.5
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 2,
+            "values": [
+              1,
+              1,
+              2.25
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 3,
+            "values": [
+              1,
+              2,
+              3
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 4,
+            "values": [
+              2,
+              2,
+              3.75
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 5,
+            "values": [
+              2,
+              3,
+              4.5
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 6,
+            "values": [
+              2,
+              3,
+              5.25
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 7,
+            "values": [
+              3,
+              4,
+              6
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 8,
+            "values": [
+              3,
+              4,
+              6.75
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 9,
+            "values": [
+              3,
+              4.64285714285714,
+              7.5
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 10,
+            "values": [
+              4,
+              5,
+              8.25
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 11,
+            "values": [
+              4,
+              5,
+              9
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 12,
+            "values": [
+              4,
+              6,
+              9.75
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 13,
+            "values": [
+              4,
+              6,
+              10.5
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 14,
+            "values": [
+              5,
+              7,
+              11.25
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 15,
+            "values": [
+              5,
+              7,
+              12
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 16,
+            "values": [
+              5,
+              8,
+              12.75
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 17,
+            "values": [
+              5,
+              8,
+              13.5
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 18,
+            "values": [
+              6,
+              9,
+              14.25
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 19,
+            "values": [
+              6,
+              9,
+              15
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 20,
+            "values": [
+              6,
+              10,
+              15.75
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 21,
+            "values": [
+              6,
+              10,
+              16.5
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 22,
+            "values": [
+              7,
+              11,
+              17.25
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 23,
+            "values": [
+              7,
+              11,
+              18
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 24,
+            "values": [
+              7,
+              12,
+              18.75
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 25,
+            "values": [
+              7,
+              12,
+              19.5
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 26,
+            "values": [
+              7,
+              13,
+              20.25
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 27,
+            "values": [
+              8,
+              13,
+              21
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 28,
+            "values": [
+              8,
+              14,
+              21.75
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 29,
+            "values": [
+              8,
+              14,
+              22.5
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 30,
+            "values": [
+              8,
+              15,
+              23.25
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 31,
+            "values": [
+              8,
+              15,
+              24
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 32,
+            "values": [
+              8,
+              16,
+              24.75
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 33,
+            "values": [
+              9,
+              17,
+              25.5
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 34,
+            "values": [
+              9,
+              17,
+              26.25
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 35,
+            "values": [
+              9,
+              18,
+              27
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 36,
+            "values": [
+              9,
+              18,
+              27.75
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 37,
+            "values": [
+              9,
+              19,
+              28.5
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 38,
+            "values": [
+              9,
+              19,
+              29.25
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 39,
+            "values": [
+              10,
+              20,
+              30
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 40,
+            "values": [
+              10,
+              20,
+              30.75
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 41,
+            "values": [
+              10,
+              21,
+              31.5
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 42,
+            "values": [
+              10,
+              21,
+              32.25
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 43,
+            "values": [
+              10,
+              22,
+              33
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 44,
+            "values": [
+              10,
+              23,
+              33.75
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 45,
+            "values": [
+              10,
+              23,
+              34.5
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 46,
+            "values": [
+              11,
+              24,
+              35.25
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 47,
+            "values": [
+              11,
+              24,
+              36
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 48,
+            "values": [
+              11,
+              25,
+              36.75
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 49,
+            "values": [
+              11,
+              25,
+              37.5
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "key": 50,
+            "values": [
+              12.0665306122449,
+              26,
+              38.25
+            ],
+            "overridden": [
+              true,
+              true,
+              false
+            ]
+          }
+        ],
+        "interpolation": "step",
+        "outOfRange": "error",
+        "lookupDirection": "forward"
+      },
+      {
+        "id": "curve-xp-thresholds",
+        "name": "xp_thresholds",
+        "displayName": "XP thresholds",
+        "description": "Total experience needed for each level. Read backwards: given the XP, which level. Placeholder — the sheet does not have this table.",
+        "keyName": "level",
+        "columns": [
+          {
+            "id": "curve-xp-thresholds-col-xp",
+            "name": "xp_required"
+          }
+        ],
+        "rows": [
+          {
+            "key": 1,
+            "values": [
+              0
+            ]
+          }
+        ],
+        "interpolation": "step",
+        "outOfRange": "extrapolate",
+        "lookupDirection": "reverse"
+      }
+    ]
+  }
+}

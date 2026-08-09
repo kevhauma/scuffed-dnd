@@ -212,6 +212,11 @@ concern, so:
   `useConfigStore.replaceConfig(config)` is what applying an import means (the app holds one
   configuration, so it replaces rather than appends); `renameConfig(name)` renames it.
 - Round-trip test: export → import must reproduce an equivalent configuration.
+- **The sheet-import corpus moves with the shape.** `docs/imports/` holds one JSON fragment per
+  built feature carrying that feature's real data from the source spreadsheet, merged into
+  `docs/imports/ducklets.json` by `yarn run sheet:import` and validated by
+  `src/services/sheetImport.test.ts`. A changed entity shape means updating that entity's fragment
+  and regenerating in the same change — see [docs/imports/README.md](../../../docs/imports/README.md).
 
 ## Data flow
 

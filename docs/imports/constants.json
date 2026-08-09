@@ -1,0 +1,58 @@
+{
+  "feature": "constants",
+  "title": "Constants",
+  "tickets": [
+    "TICKET-CST-01",
+    "TICKET-CST-02"
+  ],
+  "concept": "05 · Constant",
+  "source": {
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit",
+    "exportedAt": "2026-08-09",
+    "ranges": [
+      "Calculator!G13:G14",
+      "Calculator!P2:Q2",
+      "Calculator!P5:Q5",
+      "Setup!Q6"
+    ]
+  },
+  "confidence": "confirmed",
+  "notes": [
+    "bonus_divider is labelled in Calculator!G13 and read by every skill bonus cell as ROUND(level / Calculator!$G$14, 0).",
+    "race_blend_divisor is the /2 in Setup!Q6 — ROUNDUP(K6+N6,0)/2 — the only place the sheet blends two races. The sheet has no label for it; the name is ours.",
+    "These four match the seed constants a fresh ruleset already ships with, so importing this fragment over a fresh configuration replaces like with like."
+  ],
+  "data": {
+    "constants": [
+      {
+        "id": "const-bonus-divider",
+        "name": "bonus_divider",
+        "displayName": "Bonus divider",
+        "description": "How many skill levels are worth one point of bonus. Lower makes skills matter more.",
+        "value": 5
+      },
+      {
+        "id": "const-apt-value",
+        "name": "apt_value",
+        "displayName": "APT value",
+        "description": "Speed needed per attack per turn. Lower gives everyone more attacks at the same Speed.",
+        "value": 30
+      },
+      {
+        "id": "const-points-per-level",
+        "name": "points_per_level",
+        "displayName": "Points per level",
+        "description": "Skill points a character receives for each level gained.",
+        "value": 3,
+        "unit": "points"
+      },
+      {
+        "id": "const-race-blend-divisor",
+        "name": "race_blend_divisor",
+        "displayName": "Race blend divisor",
+        "description": "What a blended base is divided by when a character has more than one race.",
+        "value": 2
+      }
+    ]
+  }
+}

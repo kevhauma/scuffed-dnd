@@ -89,6 +89,8 @@ As a <User | Player>, I want <capability>, so <benefit>.
 - [ ] <Derived values come from the engine calculators, not recomputed inline — if numbers are shown.>
 - [ ] <Feature components compose components/ui primitives; no raw HTML controls; base components gain no layout styles.>
 - [ ] <Unit tests cover: … (name the cases).>
+- [ ] <Every User-authored formula field renders `FormulaPreview` with its `FormulaOwner`, not a bare `FormulaEditor` — if this adds or reworks a field the User types a formula into.>
+- [ ] <The feature's `docs/imports/` fragment carries the source sheet's real data for it, with `source.ranges` cited and anything the sheet lacks recorded in `notes`; `yarn run sheet:import` regenerated — if this touches a persisted shape.>
 - [ ] <Verified via the fallow skill and the react-conventions skill.>
 - [ ] <Verified live in the browser: … — for anything UI-visible.>
 

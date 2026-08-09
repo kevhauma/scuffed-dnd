@@ -12,6 +12,7 @@ Tailwind CSS 4 (custom medieval theme), Vitest + fast-check, Biome.
 ```bash
 yarn dev            # dev server on :3000
 yarn run test       # vitest, single pass
+yarn run sheet:import   # rebuild docs/imports/ducklets.json from the per-feature fragments
 npx vitest run <path>   # one test file
 npx tsc --noEmit    # typecheck
 yarn run lint       # biome lint
@@ -47,6 +48,7 @@ it back into `vite.config.ts`; TEST_STATUS.md has the evidence.
 | Architecture, component-library contracts, medieval theme | `docs/v1.0_foundation/design.md` |
 | What's built, what's next, in build order | `docs/v1.0_foundation/overview.md` |
 | Original task-numbered plan (referenced by commit messages) | `docs/v1.0_foundation/tasks.md` |
+| Real ruleset data from the source spreadsheet, per feature | `docs/imports/README.md` |
 | `docs/` folder naming scheme and ticket prefixes | `docs/README.md` |
 
 Skills in `.claude/skills/`: `story-ticket` (write a new ticket), `work-ticket` (build one
@@ -64,6 +66,17 @@ acceptance criteria.
 - New bug/refactor/feature → **`story-ticket`** skill.
 - Building one → **`work-ticket`** skill: plan against the criteria, wait for approval, implement,
   tick each criterion **with evidence**, then check the line off in `overview.md`.
+- **Every User-authored formula field ships a preview.** A new field the User types a formula into
+  renders `FormulaPreview` (TICKET-FORM-08) beneath it, with the `FormulaOwner` for that attachment
+  point — editable sample values plus the level ladder. Never a bare `FormulaEditor`, and never a
+  second hand-rolled evaluation: if the preview cannot express what the field needs, extend the
+  component and note it on FORM-08.
+- **Every feature ships its sheet data.** A ticket that adds or reshapes a persisted entity also
+  adds or updates that feature's fragment in [`docs/imports/`](docs/imports/README.md) and reruns
+  `yarn run sheet:import`. The fragments hold the real
+  [source spreadsheet](https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit)
+  data, cite the cell ranges they came from, and record in `notes` anything the sheet lacks or the
+  current shape cannot hold. Never invent a number to fill a required field.
 - Remaining foundation items that aren't ticketed yet appear in `overview.md` as *(plan §N)* lines
   — expand one into a ticket before building it, never implement straight from a plan line.
 - Commit messages: ticket ID + title (`TICKET-CHAR-01 Create CharacterList component`). Older
