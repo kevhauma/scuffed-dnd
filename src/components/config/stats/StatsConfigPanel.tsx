@@ -14,9 +14,9 @@
  */
 
 import { Button } from '../../ui/Button/Button';
-import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
-import { BlockedDeleteDialog } from '../shared/BlockedDeleteDialog';
+import { ConfigEmptyState } from '../shared/ConfigEmptyState';
+import { ConfigPanelShell, NoConfigurationNotice } from '../shared/ConfigPanelShell';
 import { StatCard } from './StatCard';
 import { StatFormDialog } from './StatFormDialog';
 import { StatPointBudget } from './StatPointBudget';
@@ -44,49 +44,30 @@ export function StatsConfigPanel() {
   } = useStatManager();
 
   if (!config) {
-    return (
-      <Card className="p-6">
-        <Text variant="body-secondary">
-          No configuration loaded. Please initialize a configuration first.
-        </Text>
-      </Card>
-    );
+    return <NoConfigurationNotice />;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card className="p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <Text variant="h4" as="h2" className="mb-2">
-              Stats
-            </Text>
-            <Text variant="body-secondary">
-              Every numeric axis a character is measured on. A stat takes invested points, or
-              derives its value from a formula — and a resource stat's value is a maximum the
-              character spends against.
-            </Text>
-          </div>
-          <Button variant="primary" onClick={handleAdd}>
-            Add Stat
-          </Button>
-        </div>
-
-        {currentStats.length > 1 && (
+    <ConfigPanelShell
+      title="Stats"
+      description="Every numeric axis a character is measured on. A stat takes invested points, or derives its value from a formula — and a resource stat's value is a maximum the character spends against."
+      actions={
+        <Button variant="primary" onClick={handleAdd}>
+          Add Stat
+        </Button>
+      }
+      headerExtra={
+        currentStats.length > 1 && (
           <Text variant="muted">
             Drag a stat, or use its arrows, to change the order it appears in everywhere.
           </Text>
-        )}
-      </Card>
-
-      {/* Stats List */}
+        )
+      }
+      blocked={blocked}
+      onCloseBlocked={dismissBlocked}
+    >
       {currentStats.length === 0 ? (
-        <Card className="p-6">
-          <Text variant="body-secondary" className="text-center">
-            No stats configured yet. Click 'Add Stat' to create your first stat.
-          </Text>
-        </Card>
+        <ConfigEmptyState message="No stats configured yet. Click 'Add Stat' to create your first stat." />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {currentStats.map((stat, index) => {
@@ -111,7 +92,6 @@ export function StatsConfigPanel() {
 
       <StatPointBudget />
 
-      {/* Form Dialog */}
       <StatFormDialog
         isOpen={isDialogOpen}
         isEditing={!!editingStatId}
@@ -123,7 +103,6 @@ export function StatsConfigPanel() {
         onClose={() => setIsDialogOpen(false)}
         onSave={handleSave}
       />
-      <BlockedDeleteDialog blocked={blocked} onClose={dismissBlocked} />
-    </div>
+    </ConfigPanelShell>
   );
 }

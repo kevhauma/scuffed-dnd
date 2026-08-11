@@ -276,9 +276,19 @@ value and neither imports the engine to decide what to draw. Use it rather than 
 - `XFormDialog.tsx` — add/edit form in a `Dialog`
 - `useXManager.ts` — the hook holding store selectors, `react-hook-form` state, and handlers
 
+**A panel's frame comes from `ConfigPanelShell`** (`config/shared/`, TICKET-DX-05) — the header
+card with its title, description and `actions`, the amber `prerequisites` notes, and the
+`BlockedDeleteDialog`. All eleven config components compose it, so a new section is
+`if (!config) return <NoConfigurationNotice />` plus one `<ConfigPanelShell>` — never a
+hand-written header. Its siblings are `ConfigEmptyState` (the "No X configured yet" card, next to
+a list rather than a shell prop, because a section can have more than one list) and
+`NoConfigurationNotice`. Panel-specific content goes in `headerExtra` or `children`; **don't add a
+prop per panel.**
+
 `config/index.ts` re-exports all of it. `skills/shared/` holds what the three skill kinds share:
-`BaseSkillPanel.tsx`, `SkillFormFields.tsx` and `skillIdentity.ts` (`resolveSkillId`,
-`useSkillCodeRename` — TICKET-REF-01).
+`BaseSkillPanel.tsx` — now the *skills specialisation* of `ConfigPanelShell` (a `code`-keyed list
+in a three-column grid) rather than a second frame — plus `SkillFormFields.tsx` and
+`skillIdentity.ts` (`resolveSkillId`, `useSkillCodeRename` — TICKET-REF-01).
 
 **`config/shared/` also holds `FormulaPreview`** (TICKET-FORM-08) — the one preview for any
 User-authored formula field: editable sample values plus a fixed 1–50 level ladder, taking the

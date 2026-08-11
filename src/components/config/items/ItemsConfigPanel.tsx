@@ -10,7 +10,7 @@ import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
-import { BlockedDeleteDialog } from '../shared/BlockedDeleteDialog';
+import { ConfigPanelShell, NoConfigurationNotice } from '../shared/ConfigPanelShell';
 import { EquipmentSlotFormDialog } from './EquipmentSlotFormDialog';
 import { ItemCard } from './ItemCard';
 import { ItemFormDialog } from './ItemFormDialog';
@@ -46,54 +46,34 @@ export function ItemsConfigPanel() {
   } = useItemManager();
 
   if (!config) {
-    return (
-      <Card className="p-6">
-        <Text variant="body-secondary">
-          No configuration loaded. Please initialize a configuration first.
-        </Text>
-      </Card>
-    );
+    return <NoConfigurationNotice />;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card className="p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <Text variant="h4" as="h2" className="mb-2">
-              Items & Equipment
-            </Text>
-            <Text variant="body-secondary">Define items with materials and equipment slots</Text>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={handleAddEquipmentSlot}>
-              Add Equipment Slot
-            </Button>
-            <Button variant="primary" onClick={handleAddItem}>
-              Add Item
-            </Button>
-          </div>
-        </div>
-
-        {/* Warnings */}
-        {materials.length === 0 && (
-          <div className="mt-4 p-4 bg-amber/10 border border-amber rounded">
-            <Text variant="body-small" className="text-ink-700">
-              No materials configured yet. Add materials first to assign them to items.
-            </Text>
-          </div>
-        )}
-
-        {equipmentSlots.length === 0 && (
-          <div className="mt-4 p-4 bg-amber/10 border border-amber rounded">
-            <Text variant="body-small" className="text-ink-700">
-              No equipment slots configured yet. Add equipment slots to make items equippable.
-            </Text>
-          </div>
-        )}
-      </Card>
-
+    <ConfigPanelShell
+      title="Items & Equipment"
+      description="Define items with materials and equipment slots"
+      actions={
+        <>
+          <Button variant="secondary" onClick={handleAddEquipmentSlot}>
+            Add Equipment Slot
+          </Button>
+          <Button variant="primary" onClick={handleAddItem}>
+            Add Item
+          </Button>
+        </>
+      }
+      prerequisites={[
+        ...(materials.length === 0
+          ? ['No materials configured yet. Add materials first to assign them to items.']
+          : []),
+        ...(equipmentSlots.length === 0
+          ? ['No equipment slots configured yet. Add equipment slots to make items equippable.']
+          : []),
+      ]}
+      blocked={blocked}
+      onCloseBlocked={dismissBlocked}
+    >
       {/* Equipment Slots Section */}
       {equipmentSlots.length > 0 && (
         <Card className="p-6">
@@ -209,7 +189,6 @@ export function ItemsConfigPanel() {
         onClose={() => setIsEquipmentSlotDialogOpen(false)}
         onSave={handleSaveEquipmentSlot}
       />
-      <BlockedDeleteDialog blocked={blocked} onClose={dismissBlocked} />
-    </div>
+    </ConfigPanelShell>
   );
 }

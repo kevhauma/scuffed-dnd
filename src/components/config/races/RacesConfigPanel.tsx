@@ -9,9 +9,8 @@
  */
 
 import { Button } from '../../ui/Button/Button';
-import { Card } from '../../ui/Card/Card';
-import { Text } from '../../ui/Text/Text';
-import { BlockedDeleteDialog } from '../shared/BlockedDeleteDialog';
+import { ConfigEmptyState } from '../shared/ConfigEmptyState';
+import { ConfigPanelShell, NoConfigurationNotice } from '../shared/ConfigPanelShell';
 import { RaceCard } from './RaceCard';
 import { RaceFormDialog } from './RaceFormDialog';
 import { useRaceManager } from './useRaceManager';
@@ -34,47 +33,28 @@ export function RacesConfigPanel() {
   } = useRaceManager();
 
   if (!config) {
-    return (
-      <Card className="p-6">
-        <Text variant="body-secondary">
-          No configuration loaded. Please initialize a configuration first.
-        </Text>
-      </Card>
-    );
+    return <NoConfigurationNotice />;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card className="p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <Text variant="h4" as="h2" className="mb-2">
-              Races
-            </Text>
-            <Text variant="body-secondary">Character lineages, as a stat block per race</Text>
-          </div>
-          <Button variant="primary" onClick={handleAdd}>
-            Add Race
-          </Button>
-        </div>
-
-        {availableStats.length === 0 && (
-          <div className="mt-4 p-4 bg-amber/10 border border-amber rounded">
-            <Text variant="body-small" className="text-ink-700">
-              No stats configured yet. A race is a stat block, so add stats first.
-            </Text>
-          </div>
-        )}
-      </Card>
-
-      {/* Races List */}
+    <ConfigPanelShell
+      title="Races"
+      description="Character lineages, as a stat block per race"
+      actions={
+        <Button variant="primary" onClick={handleAdd}>
+          Add Race
+        </Button>
+      }
+      prerequisites={
+        availableStats.length === 0
+          ? ['No stats configured yet. A race is a stat block, so add stats first.']
+          : undefined
+      }
+      blocked={blocked}
+      onCloseBlocked={dismissBlocked}
+    >
       {currentRaces.length === 0 ? (
-        <Card className="p-6">
-          <Text variant="body-secondary" className="text-center">
-            No races configured yet. Click 'Add Race' to create your first race.
-          </Text>
-        </Card>
+        <ConfigEmptyState message="No races configured yet. Click 'Add Race' to create your first race." />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {currentRaces.map((race) => (
@@ -89,7 +69,6 @@ export function RacesConfigPanel() {
         </div>
       )}
 
-      {/* Form Dialog */}
       <RaceFormDialog
         isOpen={isDialogOpen}
         isEditing={!!editingRaceId}
@@ -98,7 +77,6 @@ export function RacesConfigPanel() {
         onClose={() => setIsDialogOpen(false)}
         onSave={handleSave}
       />
-      <BlockedDeleteDialog blocked={blocked} onClose={dismissBlocked} />
-    </div>
+    </ConfigPanelShell>
   );
 }

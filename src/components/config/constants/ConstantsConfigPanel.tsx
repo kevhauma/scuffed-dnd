@@ -9,9 +9,9 @@
  */
 
 import { Button } from '../../ui/Button/Button';
-import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
-import { BlockedDeleteDialog } from '../shared/BlockedDeleteDialog';
+import { ConfigEmptyState } from '../shared/ConfigEmptyState';
+import { ConfigPanelShell, NoConfigurationNotice } from '../shared/ConfigPanelShell';
 import { ConstantCard } from './ConstantCard';
 import { ConstantFormDialog } from './ConstantFormDialog';
 import { useConstantManager } from './useConstantManager';
@@ -34,33 +34,19 @@ export function ConstantsConfigPanel() {
   } = useConstantManager();
 
   if (!config) {
-    return (
-      <Card className="p-6">
-        <Text variant="body-secondary">
-          No configuration loaded. Please initialize a configuration first.
-        </Text>
-      </Card>
-    );
+    return <NoConfigurationNotice />;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card className="p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <Text variant="h4" as="h2" className="mb-2">
-              Constants
-            </Text>
-            <Text variant="body-secondary">
-              Named numbers your formulas share, so rebalancing is one edit rather than a hunt
-            </Text>
-          </div>
-          <Button variant="primary" onClick={handleAdd}>
-            Add Constant
-          </Button>
-        </div>
-
+    <ConfigPanelShell
+      title="Constants"
+      description="Named numbers your formulas share, so rebalancing is one edit rather than a hunt"
+      actions={
+        <Button variant="primary" onClick={handleAdd}>
+          Add Constant
+        </Button>
+      }
+      headerExtra={
         <div className="mt-4 p-4 bg-parchment-100 border border-stone-200 rounded">
           <Text variant="body-small" className="text-ink-700">
             <strong>Tip:</strong> A formula reaches a constant as{' '}
@@ -68,15 +54,12 @@ export function ConstantsConfigPanel() {
             depends on it, so you can see what a change will move before you make it.
           </Text>
         </div>
-      </Card>
-
-      {/* Constants list */}
+      }
+      blocked={blocked}
+      onCloseBlocked={dismissBlocked}
+    >
       {constants.length === 0 ? (
-        <Card className="p-6">
-          <Text variant="body-secondary" className="text-center">
-            No constants configured yet. Click 'Add Constant' to create your first one.
-          </Text>
-        </Card>
+        <ConfigEmptyState message="No constants configured yet. Click 'Add Constant' to create your first one." />
       ) : (
         <ul className="space-y-3">
           {constants.map((constant) => (
@@ -99,7 +82,6 @@ export function ConstantsConfigPanel() {
         onClose={() => setIsDialogOpen(false)}
         onSave={handleSave}
       />
-      <BlockedDeleteDialog blocked={blocked} onClose={dismissBlocked} />
-    </div>
+    </ConfigPanelShell>
   );
 }

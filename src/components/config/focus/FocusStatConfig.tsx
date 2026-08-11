@@ -12,6 +12,7 @@ import { Card } from '../../ui/Card/Card';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
+import { ConfigPanelShell, NoConfigurationNotice } from '../shared/ConfigPanelShell';
 import { useFocusStatManager } from './useFocusStatManager';
 
 export function FocusStatConfig() {
@@ -29,28 +30,14 @@ export function FocusStatConfig() {
   } = useFocusStatManager();
 
   if (!config) {
-    return (
-      <Card className="p-6">
-        <Text variant="body-secondary">
-          No configuration loaded. Please initialize a configuration first.
-        </Text>
-      </Card>
-    );
+    return <NoConfigurationNotice />;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card className="p-6">
-        <div className="mb-4">
-          <Text variant="h4" as="h2" className="mb-2">
-            Focus Stat Configuration
-          </Text>
-          <Text variant="body-secondary">
-            Configure the bonus level characters receive when they select a focus stat
-          </Text>
-        </div>
-
+    <ConfigPanelShell
+      title="Focus Stat Configuration"
+      description="Configure the bonus level characters receive when they select a focus stat"
+      headerExtra={
         <div className="mt-4 p-4 bg-parchment-100 border border-stone-200 rounded">
           <Text variant="body-small" className="text-ink-700">
             <strong>What is a Focus Stat?</strong> During character creation, players can select one
@@ -58,9 +45,8 @@ export function FocusStatConfig() {
             area of expertise and grants bonus levels.
           </Text>
         </div>
-      </Card>
-
-      {/* Configuration Form */}
+      }
+    >
       <Card className="p-6">
         <div className="space-y-4">
           <div>
@@ -120,6 +106,6 @@ export function FocusStatConfig() {
           )}
         </div>
       </Card>
-    </div>
+    </ConfigPanelShell>
   );
 }

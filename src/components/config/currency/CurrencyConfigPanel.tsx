@@ -7,9 +7,9 @@
  */
 
 import { Button } from '../../ui/Button/Button';
-import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
-import { BlockedDeleteDialog } from '../shared/BlockedDeleteDialog';
+import { ConfigEmptyState } from '../shared/ConfigEmptyState';
+import { ConfigPanelShell, NoConfigurationNotice } from '../shared/ConfigPanelShell';
 import { ConversionCalculator } from './ConversionCalculator';
 import { CurrencyFormDialog } from './CurrencyFormDialog';
 import { CurrencyTierCard } from './CurrencyTierCard';
@@ -34,48 +34,31 @@ export function CurrencyConfigPanel() {
   } = useCurrencyManager();
 
   if (!config) {
-    return (
-      <Card className="p-6">
-        <Text variant="body-secondary">
-          No configuration loaded. Please initialize a configuration first.
-        </Text>
-      </Card>
-    );
+    return <NoConfigurationNotice />;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card className="p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <Text variant="h4" as="h2" className="mb-2">
-              Currency Tiers
-            </Text>
-            <Text variant="body-secondary">
-              Define your monetary system with multiple currency tiers and conversion rates
-            </Text>
-          </div>
-          <Button variant="primary" onClick={handleAdd}>
-            Add Currency Tier
-          </Button>
-        </div>
-
+    <ConfigPanelShell
+      title="Currency Tiers"
+      description="Define your monetary system with multiple currency tiers and conversion rates"
+      actions={
+        <Button variant="primary" onClick={handleAdd}>
+          Add Currency Tier
+        </Button>
+      }
+      headerExtra={
         <div className="mt-4 p-4 bg-parchment-100 border border-stone-200 rounded">
           <Text variant="body-small" className="text-ink-700">
             <strong>Tip:</strong> Order tiers from lowest to highest value. Use the arrow buttons to
             reorder. The conversion rate determines how many of one tier equals 1 of the next tier.
           </Text>
         </div>
-      </Card>
-
-      {/* Currency Tiers List */}
+      }
+      blocked={blocked}
+      onCloseBlocked={dismissBlocked}
+    >
       {currentTiers.length === 0 ? (
-        <Card className="p-6">
-          <Text variant="body-secondary" className="text-center">
-            No currency tiers configured yet. Click 'Add Currency Tier' to create your first tier.
-          </Text>
-        </Card>
+        <ConfigEmptyState message="No currency tiers configured yet. Click 'Add Currency Tier' to create your first tier." />
       ) : (
         <div className="space-y-3">
           {currentTiers.map((tier, index) => (
@@ -93,10 +76,8 @@ export function CurrencyConfigPanel() {
         </div>
       )}
 
-      {/* Conversion Calculator */}
       {currentTiers.length > 1 && <ConversionCalculator tiers={currentTiers} />}
 
-      {/* Form Dialog */}
       <CurrencyFormDialog
         isOpen={isDialogOpen}
         isEditing={!!editingTierId}
@@ -104,7 +85,6 @@ export function CurrencyConfigPanel() {
         onClose={() => setIsDialogOpen(false)}
         onSave={handleSave}
       />
-      <BlockedDeleteDialog blocked={blocked} onClose={dismissBlocked} />
-    </div>
+    </ConfigPanelShell>
   );
 }

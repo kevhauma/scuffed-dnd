@@ -6,8 +6,7 @@
  * **Validates: Requirements 4.1, 21.1-21.5**
  */
 
-import { Card } from '../../../ui/Card/Card';
-import { Text } from '../../../ui/Text/Text';
+import { NoConfigurationNotice } from '../../shared/ConfigPanelShell';
 import { BaseSkillPanel } from '../shared/BaseSkillPanel';
 import { SpecialitySkillCard } from './SpecialitySkillCard';
 import { SpecialitySkillFormDialog } from './SpecialitySkillFormDialog';
@@ -32,13 +31,7 @@ export function SpecialitySkillsPanel() {
   } = useSpecialitySkillManager();
 
   if (!config) {
-    return (
-      <Card className="p-6">
-        <Text variant="body-secondary">
-          No configuration loaded. Please initialize a configuration first.
-        </Text>
-      </Card>
-    );
+    return <NoConfigurationNotice />;
   }
 
   return (

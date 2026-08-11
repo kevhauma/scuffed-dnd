@@ -11,9 +11,9 @@
  */
 
 import { Button } from '../../ui/Button/Button';
-import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
-import { BlockedDeleteDialog } from '../shared/BlockedDeleteDialog';
+import { ConfigEmptyState } from '../shared/ConfigEmptyState';
+import { ConfigPanelShell, NoConfigurationNotice } from '../shared/ConfigPanelShell';
 import { CurveCard } from './CurveCard';
 import { CurveColumnDialog } from './CurveColumnDialog';
 import { CurveFormDialog } from './CurveFormDialog';
@@ -52,32 +52,19 @@ export function CurvesConfigPanel() {
   } = useCurveManager();
 
   if (!config) {
-    return (
-      <Card className="p-6">
-        <Text variant="body-secondary">
-          No configuration loaded. Please initialize a configuration first.
-        </Text>
-      </Card>
-    );
+    return <NoConfigurationNotice />;
   }
 
   return (
-    <div className="space-y-6">
-      <Card className="p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <Text variant="h4" as="h2" className="mb-2">
-              Curves
-            </Text>
-            <Text variant="body-secondary">
-              Progressions as tables you can read and tune, rather than formulas nobody can check
-            </Text>
-          </div>
-          <Button variant="primary" onClick={handleAddCurve}>
-            Add Curve
-          </Button>
-        </div>
-
+    <ConfigPanelShell
+      title="Curves"
+      description="Progressions as tables you can read and tune, rather than formulas nobody can check"
+      actions={
+        <Button variant="primary" onClick={handleAddCurve}>
+          Add Curve
+        </Button>
+      }
+      headerExtra={
         <div className="mt-4 p-4 bg-parchment-100 border border-stone-200 rounded">
           <Text variant="body-small" className="text-ink-700">
             <strong>Tip:</strong> A formula reads a curve as{' '}
@@ -86,14 +73,12 @@ export function CurvesConfigPanel() {
             overwritten by regenerating.
           </Text>
         </div>
-      </Card>
-
+      }
+      blocked={blocked}
+      onCloseBlocked={dismissBlocked}
+    >
       {curves.length === 0 ? (
-        <Card className="p-6">
-          <Text variant="body-secondary" className="text-center">
-            No curves configured yet. Click 'Add Curve' to create your first one.
-          </Text>
-        </Card>
+        <ConfigEmptyState message="No curves configured yet. Click 'Add Curve' to create your first one." />
       ) : (
         <ul className="space-y-4">
           {curves.map((curve) => (
@@ -135,7 +120,6 @@ export function CurvesConfigPanel() {
         onClose={closeColumnDialog}
         onSave={handleSaveColumn}
       />
-      <BlockedDeleteDialog blocked={blocked} onClose={dismissBlocked} />
-    </div>
+    </ConfigPanelShell>
   );
 }

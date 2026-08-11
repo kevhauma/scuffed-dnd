@@ -87,6 +87,16 @@ and adding a component means adding its barrel line in the same change.
 - A domain folder in `components/config/` follows the four-part shape: `XConfigPanel` (layout and
   composition only) + `XCard` (one entity) + `XFormDialog` (add/edit) + `useXManager` (the hook).
   Follow it for new domains, including in `components/play/`.
+- **A config panel's frame is `ConfigPanelShell`** (`config/shared/`, TICKET-DX-05), not
+  hand-written. A new section is `if (!config) return <NoConfigurationNotice />` followed by one
+  `<ConfigPanelShell title description actions prerequisites headerExtra blocked onCloseBlocked>`,
+  with the list, cards and dialogs as children and `ConfigEmptyState` where a list is empty. All
+  eleven config components compose it — copy
+  [RacesConfigPanel.tsx](../../../src/components/config/races/RacesConfigPanel.tsx).
+  If a panel needs something the shell doesn't offer, pass it as `headerExtra` or a child —
+  **never add a prop per panel.** The shell exists because eight panels copied the frame and
+  `BaseSkillPanel` had already drifted from them (h3 against h4); a shell with a boolean per caller
+  would hide that kind of difference instead of sharing the frame.
 - **Panels don't hold logic.** Store selectors, `react-hook-form` state, and handlers live in the
   `useXManager` hook; the panel destructures the hook and renders. **Every configuration domain now
   follows this** — `FocusStatConfig` was the last exception and gained `useFocusStatManager` in

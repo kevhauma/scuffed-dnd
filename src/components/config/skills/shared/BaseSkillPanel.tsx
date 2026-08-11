@@ -8,14 +8,19 @@
  * closure, so it already has it. Two props that carried it were accepted and silently dropped
  * until TICKET-DX-02 removed them.
  *
- * **Validates: Requirements 2.1, 4.1, 5.1, 21.1-21.5**
+ * Since TICKET-DX-05 the frame comes from `ConfigPanelShell` rather than being written out here —
+ * this stays as the *skills* specialisation of it (a `code`-keyed list rendered into a
+ * three-column grid), which is what the two skill panels actually share beyond the frame. Before
+ * that, this rendered an `h3` title in a `gap-6` column while the other eight panels rendered an
+ * `h4` in a `space-y-6` one; adopting the shell settles that (Requirement 21.7).
+ *
+ * **Validates: Requirements 2.1, 4.1, 5.1, 21.1-21.5, 21.7**
  */
 
 import type { ReactNode } from 'react';
 import { Button } from '../../../ui/Button/Button';
-import { Card } from '../../../ui/Card/Card';
-import { Text } from '../../../ui/Text/Text';
-import { BlockedDeleteDialog } from '../../shared/BlockedDeleteDialog';
+import { ConfigEmptyState } from '../../shared/ConfigEmptyState';
+import { ConfigPanelShell } from '../../shared/ConfigPanelShell';
 import type { BlockedDelete } from '../../shared/useGuardedDelete';
 
 interface BaseSkillPanelProps<T> {
@@ -45,29 +50,19 @@ export function BaseSkillPanel<T extends { code: string }>({
   renderFormDialog,
 }: BaseSkillPanelProps<T>) {
   return (
-    <div className="flex flex-col gap-6">
-      {/* Header */}
-      <Card className="p-6">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <Text variant="h3" as="h2" className="mb-2">
-              {title}
-            </Text>
-            <Text variant="body-secondary">{description}</Text>
-          </div>
-          <Button variant="primary" onClick={onAdd}>
-            {addButtonText}
-          </Button>
-        </div>
-      </Card>
-
-      {/* Skills List */}
+    <ConfigPanelShell
+      title={title}
+      description={description}
+      actions={
+        <Button variant="primary" onClick={onAdd}>
+          {addButtonText}
+        </Button>
+      }
+      blocked={blocked}
+      onCloseBlocked={onCloseBlocked}
+    >
       {skills.length === 0 ? (
-        <Card className="p-6">
-          <Text variant="body-secondary" className="text-center">
-            {emptyMessage}
-          </Text>
-        </Card>
+        <ConfigEmptyState message={emptyMessage} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {skills.map((skill) => (
@@ -76,11 +71,7 @@ export function BaseSkillPanel<T extends { code: string }>({
         </div>
       )}
 
-      {/* Form Dialog */}
       {renderFormDialog()}
-
-      {/* Refused-delete dialog (TICKET-REF-02) */}
-      <BlockedDeleteDialog blocked={blocked} onClose={onCloseBlocked} />
-    </div>
+    </ConfigPanelShell>
   );
 }
