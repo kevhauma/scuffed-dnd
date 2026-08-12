@@ -162,7 +162,7 @@ describe('CharacterCreationWizard', () => {
     expect((screen.getByLabelText(/Strength \(STR\)/) as HTMLInputElement).value).toBe('4');
   });
 
-  it('should allow selecting zero or more races', () => {
+  it('should allow selecting zero, one or two races', () => {
     render(<CharacterCreationWizard />);
 
     // Zero races is valid — the name alone unblocks step 1
@@ -174,6 +174,46 @@ describe('CharacterCreationWizard', () => {
 
     expect((screen.getByLabelText('Elf') as HTMLInputElement).checked).toBe(true);
     expect((screen.getByLabelText('Human') as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('should refuse a third race and say why (TICKET-RACE-02)', () => {
+    const config = createConfig({
+      races: [
+        { id: 'elf', name: 'Elf', description: '', statValues: { DEX: 2 } },
+        { id: 'human', name: 'Human', description: '', statValues: {} },
+        { id: 'dwarf', name: 'Dwarf', description: '', statValues: { STR: 4 } },
+      ],
+    });
+    useConfigStore.setState({ config, isLoaded: true });
+
+    render(<CharacterCreationWizard />);
+
+    fireEvent.click(screen.getByLabelText('Elf'));
+    fireEvent.click(screen.getByLabelText('Human'));
+
+    // The third box is out of reach, and clicking it anyway changes nothing
+    const dwarf = () => screen.getByLabelText('Dwarf') as HTMLInputElement;
+    expect(dwarf().disabled).toBe(true);
+    expect(screen.getByText(/That is 2 races/)).toBeDefined();
+
+    fireEvent.click(dwarf());
+    expect(dwarf().checked).toBe(false);
+
+    // Clearing one puts the third back within reach
+    fireEvent.click(screen.getByLabelText('Human'));
+    expect(dwarf().disabled).toBe(false);
+  });
+
+  it('should show the blended base of two races on the allocation step (TICKET-RACE-02)', () => {
+    render(<CharacterCreationWizard />);
+
+    fireEvent.change(nameField(), { target: { value: 'Aria' } });
+    fireEvent.click(screen.getByLabelText('Elf')); // DEX 2
+    fireEvent.click(screen.getByLabelText('Human')); // says nothing about DEX
+    next();
+
+    // roundup((2 + 0) / 2) = 1, not the 2 the old additive stacking gave
+    expect(screen.getByText(/\+1 racial/)).toBeDefined();
   });
 
   it('should show the racial modifier separately from the allocated base level', () => {

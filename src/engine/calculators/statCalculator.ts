@@ -18,14 +18,19 @@
  * exists, so an allocation, race stat block entry or equipment bonus naming a stat the
  * configuration no longer defines contributes nothing rather than answering for a deleted stat.
  *
- * **Validates: Concept 01; Concept 00 §7; Requirements 3.4, 3.6, 8.4, 16.6**
+ * **Validates: Concepts 01, 04; Concept 00 §7; Requirements 3.4, 3.6, 16.6**
+ *
+ * (Requirement 8.4 — "combine racial bonuses additively" — is deliberately *not* validated here
+ * any more: Concept 04's blend supersedes it, TICKET-RACE-02.)
  */
 
 import type { Character } from '../../types/character';
-import type { Race, SkillModifier, Stat } from '../../types/config';
+import type { Constant, Race, SkillModifier, Stat } from '../../types/config';
 import type { FormulaContext, FormulaResult } from '../../types/formula';
+import { constantsNamespace } from '../formula/constants';
 import { asNumber, isFormulaError, withSource } from '../formula/errors';
 import { evaluateFormulaString } from '../formula/evaluator';
+import { roundAwayFromZero } from '../formula/functions';
 import type { NamespaceSource } from '../formula/namespaces';
 import { namespacesFor } from '../formula/namespaces';
 
@@ -42,25 +47,82 @@ export interface StatCompositionOptions {
 }
 
 /**
- * Combine the stat blocks of a set of races
+ * How many races a character's base can be blended from (Concept 04, TICKET-RACE-02)
+ *
+ * The sheet's hybrid is a two-creature blend, so two is what the arithmetic is defined over. The
+ * rule is enforced where a character is written — `characterStore`'s create and update — and in
+ * the wizard's race step; this constant is the one place the number is stated.
+ */
+export const MAX_RACE_COUNT = 2;
+
+/** The constant the blend divides by, and what it is worth when the ruleset does not define it */
+const RACE_BLEND_DIVISOR_NAME = 'race_blend_divisor';
+const DEFAULT_RACE_BLEND_DIVISOR = 2;
+
+/**
+ * The ruleset's blend divisor, or the seeded 2
+ *
+ * The **first** engine code to read a constant by name rather than through `const.*` in a User
+ * formula: the blend is system arithmetic (Concept 04), not something the User writes, so there is
+ * no formula for `references.ts` to re-spell. The consequence is that renaming the constant makes
+ * the engine stop finding it — the fallback is what keeps that a retuning rather than a breakage,
+ * and the constants panel shows the name that matters.
+ *
+ * Resolved through `constantsNamespace` rather than a second `find`, so a duplicate name imported
+ * into a ruleset means the same constant here as it does in every formula.
+ *
+ * A zero, negative or non-finite divisor would turn every base into `Infinity` or `NaN`, which is
+ * a worse answer than the seed (TICKET-FORM-07's rule, applied outside the evaluator).
+ */
+function raceBlendDivisor(constants: Constant[] = []): number {
+  const value = constantsNamespace(constants).resolve(RACE_BLEND_DIVISOR_NAME);
+
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : DEFAULT_RACE_BLEND_DIVISOR;
+}
+
+/**
+ * Blend the stat blocks of a character's races into one base per stat (Concept 04)
  *
  * Kept separate from the totals so the UI can show the racial contribution on its own
  * (Requirement 8.4, 13.4) without recovering it from a difference. Keyed by **stat id** since
- * TICKET-RACE-01 made a race a stat block; a stat absent from a block contributes nothing.
+ * TICKET-RACE-01 made a race a stat block.
+ *
+ * Not a sum — TICKET-RACE-02 replaced v1's additive stacking with the sheet's hybrid:
+ *
+ * - **no races** — nothing, so every base is 0;
+ * - **one race** — its block, unchanged. The sheet writes a single-race character as a blend of the
+ *   same race twice, which for the seeded divisor of 2 is the race itself; taking it as identity
+ *   keeps that true for *any* divisor rather than only for 2;
+ * - **two races** — `roundup((a + b) / const.race_blend_divisor)` per stat, rounding away from zero
+ *   exactly as a User formula spelling `roundup` would. A stat absent from one block counts as 0 in
+ *   the blend, which is the whole point of picking a race that lacks it.
+ *
+ * Picking the same race twice therefore changes nothing, and beyond {@link MAX_RACE_COUNT} the
+ * blend has no meaning: a third race is refused where characters are written, and is ignored here
+ * rather than distorting the divisor if it reaches the engine through hand-edited data.
  *
  * @param races - The character's races
- * @returns Record of stat id to the combined value the races supply
+ * @param constants - The ruleset's constants, for the blend divisor; absent uses the seeded 2
+ * @returns Record of stat id to the base value the races supply
  */
-export function calculateRaceStatBases(races: Race[]): Record<string, number> {
+export function calculateRaceStatBases(
+  races: Race[],
+  constants: Constant[] = []
+): Record<string, number> {
+  const blended = races.slice(0, MAX_RACE_COUNT);
+
+  const [only] = blended;
+  if (only === undefined) return {};
+  if (blended.length === 1) return { ...only.statValues };
+
+  const divisor = raceBlendDivisor(constants);
   const bases: Record<string, number> = {};
 
-  // Still additive, which is v1's rule rather than the sheet's: TICKET-RACE-02 replaces this with
-  // `roundup((a + b) / const.race_blend_divisor)` over exactly 1–2 races. Kept as-is here so
-  // RACE-01 changes the *shape* without moving a single character's numbers.
-  for (const race of races) {
-    for (const [statId, value] of Object.entries(race.statValues)) {
-      bases[statId] = (bases[statId] ?? 0) + value;
-    }
+  for (const statId of new Set(blended.flatMap((race) => Object.keys(race.statValues)))) {
+    const sum = blended.reduce((total, race) => total + (race.statValues[statId] ?? 0), 0);
+    bases[statId] = roundAwayFromZero(sum / divisor);
   }
 
   return bases;
@@ -87,10 +149,9 @@ function finish(value: number, stat: Stat): number {
 /**
  * The invested side of the composition, before clamping
  *
- * The dedicated race `base` term is still 0. TICKET-RACE-01 turned a race into a stat block, but
- * its values keep arriving through the same additive slot the old modifiers used — TICKET-RACE-02
- * is what moves them into `base` and replaces the sum with the sheet's 1–2 race blend. Landing the
- * shape without moving the arithmetic is what keeps that a separate, checkable change.
+ * `base` is what the character's races make them (TICKET-RACE-02) — the blend, not a sum of
+ * modifiers — and everything else is added to it: the points they spent, what they carry, and the
+ * focus bonus ARC-03 retires.
  */
 function investedValue(
   stat: Stat,
@@ -99,9 +160,8 @@ function investedValue(
   equipmentBonuses: SkillModifier[],
   focusStatBonusLevel: number
 ): number {
-  const base = 0; // TICKET-RACE-02 moves `race` into here, blended rather than summed
+  const base = raceBases[stat.id] ?? 0;
   const invested = character.investedStatPoints[stat.id] ?? 0; // 1:1 until TICKET-ARC-02 routes it through a curve
-  const race = raceBases[stat.id] ?? 0;
 
   const equipment = equipmentBonuses
     .filter((bonus) => bonus.skillCode === stat.abbreviation)
@@ -109,7 +169,7 @@ function investedValue(
 
   const focus = character.focusStatCode === stat.abbreviation ? focusStatBonusLevel : 0;
 
-  return base + invested + race + equipment + focus;
+  return base + invested + equipment + focus;
 }
 
 /**
@@ -134,7 +194,7 @@ export function calculateStatValues(
 ): Record<string, FormulaResult> {
   const { races = [], equipmentBonuses = [], focusStatBonusLevel = 0, source = {} } = options;
 
-  const raceBases = calculateRaceStatBases(races);
+  const raceBases = calculateRaceStatBases(races, source.constants);
   const values: Record<string, FormulaResult> = {};
 
   // Seed the invested stats — they depend on nothing, so they are done in one pass

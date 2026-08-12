@@ -174,16 +174,18 @@ describe('CharacterSheet', () => {
     }
   });
 
-  it('should combine race stat blocks additively across multiple races', () => {
-    // Elf's block gives DEX 2, Human's gives DEX 1 — combined 3 until RACE-02's blend (Requirement 8.5, 8.3, 8.4)
+  it('should blend race stat blocks across two races (TICKET-RACE-02)', () => {
+    // Elf's block gives DEX 2, Human's gives DEX 1 — the base is roundup(3 / 2) = 2, and the
+    // section says which lineages it came from (Requirement 8.5, 8.3, 8.4)
     useCharacterStore.setState({
       characters: [createCharacter({ raceIds: ['elf', 'human'] })],
     });
 
     render(<CharacterSheet characterId="char1" />);
 
-    expect(screen.getByText('DEX 3')).toBeDefined();
-    expect(within(rowFor(/Dexterity \(DEX\)/)).getByText('race +3')).toBeDefined();
+    expect(screen.getByText('DEX 2')).toBeDefined();
+    expect(screen.getByText(/Elf × Human — blended/)).toBeDefined();
+    expect(within(rowFor(/Dexterity \(DEX\)/)).getByText('race +2')).toBeDefined();
   });
 
   it("should show a stat's contributions separately from its total", () => {

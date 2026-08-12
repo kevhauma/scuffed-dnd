@@ -270,17 +270,26 @@ describe('recalculation flows', () => {
     ).toBe(2);
   });
 
-  it('should combine multiple races additively through the whole chain (Req 8.3, 8.4)', () => {
+  it('should blend two races through the whole chain rather than stacking them (Req 8.3, 8.4)', () => {
     const oneRace = calculateCharacter(createCharacter({ raceIds: ['elf'] }), config);
     const twoRaces = calculateCharacter(createCharacter({ raceIds: ['elf', 'human'] }), config);
 
-    // Elf DEX +2, Human DEX +1 — and the extra point carries into Stealth, which reads DEX
-    expect(oneRace.statValues.DEX).toBe(6);
-    expect(twoRaces.statValues.DEX).toBe(7);
+    // Elf's DEX 2 and Human's DEX 1 average to roundup(3 / 2) = 2 — the second race pulls the
+    // base toward its own value instead of adding to it (TICKET-RACE-02), so nothing downstream
+    // moves either
+    expect(oneRace.statValues.DEX).toBe(6); // 4 invested + elf's 2
+    expect(twoRaces.statValues.DEX).toBe(6);
     expect(
       numberOr(twoRaces.specialitySkillTotalLevels.STL, 0) -
         numberOr(oneRace.specialitySkillTotalLevels.STL, 0)
-    ).toBe(1);
+    ).toBe(0);
+
+    // A race that says nothing about DEX halves what the elf alone supplied: roundup(2 / 2) = 1
+    const withRaceless = calculateCharacter(createCharacter({ raceIds: ['elf', 'raceless'] }), {
+      ...config,
+      races: [...config.races, { id: 'raceless', name: 'Empty', description: '', statValues: {} }],
+    });
+    expect(withRaceless.statValues.DEX).toBe(5);
   });
   it('keeps a character computing the same numbers after a skill is renamed (TICKET-REF-01)', () => {
     const config = createConfig();

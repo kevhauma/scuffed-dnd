@@ -81,7 +81,7 @@ export interface StatBreakdown {
   isDerived: boolean;
   /** Points the Player put into it — always 0 for a derived stat */
   invested: number;
-  /** What the character's races supply for this stat, combined (Requirement 8.5) */
+  /** What the character's races supply for this stat, blended (Requirement 8.5, Concept 04) */
   race: number;
   /** Combined modifier from equipped items targeting this stat */
   equipment: number;
@@ -189,7 +189,10 @@ function buildView(
   calculated: CalculatedCharacter
 ): CharacterSheetView {
   const races = config.races.filter((race) => character.raceIds.includes(race.id));
-  const raceBases = calculateRaceStatBases(races);
+
+  // The blend, not a sum (TICKET-RACE-02) — and the same call the composition makes, so the
+  // racial section and each stat's `race` term can never disagree
+  const raceBases = calculateRaceStatBases(races, config.constants);
   const equipmentBonuses = indexSkillModifiers(calculated.equipmentBonuses);
 
   const orderedStats = [...config.stats].sort((a, b) => a.order - b.order);

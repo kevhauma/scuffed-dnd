@@ -16,6 +16,18 @@ vi.mock('../services/storage', () => ({
   loadCharacters: vi.fn(() => []),
 }));
 
+/**
+ * Create through the store, failing the test rather than the typechecker when it refuses
+ *
+ * `createCharacter` is nullable since TICKET-RACE-02. Tests about *what* gets created say so once
+ * here; the tests about the refusal itself call the action directly and assert the `null`.
+ */
+function createOrFail(data: CharacterCreationData, config: Configuration): Character {
+  const character = useCharacterStore.getState().createCharacter(data, config);
+  if (!character) throw new Error('The store refused to create the character');
+  return character;
+}
+
 describe('CharacterStore', () => {
   beforeEach(() => {
     // Reset store state
@@ -111,7 +123,7 @@ describe('CharacterStore', () => {
         specialitySkillBaseLevels: { SWD: 5 },
       };
 
-      const character = useCharacterStore.getState().createCharacter(creationData, testConfig);
+      const character = createOrFail(creationData, testConfig);
 
       expect(character.name).toBe('New Character');
       expect(character.raceIds).toEqual(['race-1']);
@@ -134,7 +146,7 @@ describe('CharacterStore', () => {
         specialitySkillBaseLevels: {},
       };
 
-      const character = useCharacterStore.getState().createCharacter(creationData, testConfig);
+      const character = createOrFail(creationData, testConfig);
 
       expect(character.inventory).toEqual({
         equippedItems: {},
@@ -150,7 +162,7 @@ describe('CharacterStore', () => {
         specialitySkillBaseLevels: {},
       };
 
-      const character = useCharacterStore.getState().createCharacter(creationData, testConfig);
+      const character = createOrFail(creationData, testConfig);
 
       // health = STR * 10, so a new character starts at full rather than at zero
       expect(character.currentResourceValues).toEqual({ health: 70 });
@@ -180,7 +192,7 @@ describe('CharacterStore', () => {
         specialitySkillBaseLevels: {},
       };
 
-      const character = useCharacterStore.getState().createCharacter(creationData, brokenConfig);
+      const character = createOrFail(creationData, brokenConfig);
 
       expect(character.name).toBe('Survivor');
       expect(character.currentResourceValues).toEqual({});
@@ -224,12 +236,44 @@ describe('CharacterStore', () => {
         specialitySkillBaseLevels: {},
       };
 
-      const character = useCharacterStore
-        .getState()
-        .createCharacter(creationData, partlyBrokenConfig);
+      const character = createOrFail(creationData, partlyBrokenConfig);
 
       expect(character.currentResourceValues).toEqual({ health: 40 });
       expect(character.currentResourceValues.mana).toBeUndefined();
+    });
+
+    it('should refuse a third race, storing nothing (TICKET-RACE-02)', () => {
+      // The blend is defined over two; a third has no base to compute, so the write is refused
+      // rather than a character being stored that the composition cannot answer for
+      const creationData: CharacterCreationData = {
+        name: 'Chimera',
+        raceIds: ['race-1', 'race-2', 'race-3'],
+        investedStatPoints: {},
+        specialitySkillBaseLevels: {},
+      };
+
+      const character = useCharacterStore.getState().createCharacter(creationData, testConfig);
+
+      expect(character).toBeNull();
+      expect(useCharacterStore.getState().characters).toHaveLength(0);
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+
+    it('should accept none, one or two races', () => {
+      const forRaces = (raceIds: string[]): CharacterCreationData => ({
+        name: raceIds.join('-') || 'raceless',
+        raceIds,
+        investedStatPoints: {},
+        specialitySkillBaseLevels: {},
+      });
+
+      // Zero stays legal: a ruleset may define no races at all (Requirement 11.2)
+      expect(createOrFail(forRaces([]), testConfig).raceIds).toEqual([]);
+      expect(createOrFail(forRaces(['race-1']), testConfig).raceIds).toEqual(['race-1']);
+      expect(createOrFail(forRaces(['race-1', 'race-2']), testConfig).raceIds).toEqual([
+        'race-1',
+        'race-2',
+      ]);
     });
   });
 
@@ -256,6 +300,31 @@ describe('CharacterStore', () => {
       expect(updated.name).toBe('Updated Name');
       expect(updated.updatedAt).not.toBe(character.updatedAt);
       expect(storage.saveCharacters).toHaveBeenCalled();
+    });
+
+    it('should refuse a patch that would give a character a third race (TICKET-RACE-02)', () => {
+      const character: Character = {
+        id: 'char-1',
+        name: 'Hybrid',
+        configurationId: 'config-1',
+        raceIds: ['race-1', 'race-2'],
+        investedStatPoints: {},
+        specialitySkillBaseLevels: {},
+        currentResourceValues: {},
+        inventory: { equippedItems: {}, miscItems: [] },
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z',
+      };
+
+      useCharacterStore.setState({ characters: [character], isLoaded: true });
+
+      useCharacterStore
+        .getState()
+        .updateCharacter('char-1', { raceIds: ['race-1', 'race-2', 'race-3'] });
+
+      // Nothing moved — not the races, and not the rest of the patch either
+      expect(useCharacterStore.getState().characters[0]).toEqual(character);
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
     });
   });
 

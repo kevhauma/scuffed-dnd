@@ -31,6 +31,17 @@ function roundHalfAwayFromZero(x: number): number {
 }
 
 /**
+ * Away-from-zero rounding — what `roundup` means here (Excel ROUNDUP)
+ *
+ * Exported because system arithmetic outside the evaluator has to round the *same* way a User
+ * formula spelling `roundup` would: the race blend (TICKET-RACE-02) is written as `roundup` on its
+ * concept page, and a bare `Math.ceil` would answer -1 where the formula engine answers -2.
+ */
+export function roundAwayFromZero(x: number): number {
+  return Math.sign(x) * Math.ceil(Math.abs(x));
+}
+
+/**
  * The closed function library, keyed by (lowercase, reserved) name
  */
 export const FORMULA_FUNCTIONS: Record<string, FormulaFunction> = {
@@ -42,7 +53,7 @@ export const FORMULA_FUNCTIONS: Record<string, FormulaFunction> = {
   roundup: {
     minArgs: 1,
     maxArgs: 1,
-    apply: ([x]) => Math.sign(x) * Math.ceil(Math.abs(x)),
+    apply: ([x]) => roundAwayFromZero(x),
   },
   rounddown: {
     minArgs: 1,

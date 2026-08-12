@@ -11,7 +11,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { calculateCharacter, firstCalculationError } from '../../../engine/calculator';
-import { calculateRaceStatBases } from '../../../engine/calculators/statCalculator';
+import { calculateRaceStatBases, MAX_RACE_COUNT } from '../../../engine/calculators/statCalculator';
 import { describeFormulaError } from '../../../engine/formula/errors';
 import type { StatAllocationResult } from '../../../engine/skillAllocation';
 import { validateStatAllocation } from '../../../engine/skillAllocation';
@@ -109,19 +109,36 @@ export function useCharacterCreation() {
 
   const selectedRaces = races.filter((race) => values.raceIds.includes(race.id));
 
-  /** What the chosen races supply, per stat id — shown separately from the invested points */
-  const raceBases = calculateRaceStatBases(selectedRaces);
+  /**
+   * What the chosen races supply, per stat id — shown separately from the invested points
+   *
+   * The blend, since TICKET-RACE-02, so what the allocation step shows beside each stat is what
+   * the created character will actually have.
+   */
+  const raceBases = calculateRaceStatBases(selectedRaces, config?.constants);
 
   /** Points spent, remaining, and any per-skill breach — from the engine, never re-summed here */
   const allocation: StatAllocationResult | null = config
     ? validateStatAllocation(values.investedStatPoints, config)
     : null;
 
+  /** Whether another race can still be added — the blend is defined over at most two (RACE-02) */
+  const canAddRace = values.raceIds.length < MAX_RACE_COUNT;
+
   const toggleRace = (raceId: string) => {
-    const next = values.raceIds.includes(raceId)
-      ? values.raceIds.filter((id) => id !== raceId)
-      : [...values.raceIds, raceId];
-    form.setValue('raceIds', next);
+    if (values.raceIds.includes(raceId)) {
+      form.setValue(
+        'raceIds',
+        values.raceIds.filter((id) => id !== raceId)
+      );
+      return;
+    }
+
+    // Refused rather than silently swapping one out: which of the two to drop is the Player's
+    // decision, and the step disables the remaining boxes so this is only ever the last line
+    if (!canAddRace) return;
+
+    form.setValue('raceIds', [...values.raceIds, raceId]);
   };
 
   const setInvestedStatPoints = (statId: string, points: number) => {
@@ -202,9 +219,25 @@ export function useCharacterCreation() {
       : { value: null, error: 'The derived values cannot be calculated for this ruleset.' },
   }));
 
+  /**
+   * Why the identity step cannot be left, or null when it can
+   *
+   * The race count is checked as well as the name, even though `toggleRace` and the step's
+   * disabled boxes already make a third race unreachable. `characterStore.createCharacter` refuses
+   * that data by returning `null`, and a Submit that silently does nothing is the worst way for
+   * the two limits to drift apart — this is where the Player would be told, at the step that owns
+   * the choice rather than three steps later.
+   */
+  const identityStepError = (): string | null => {
+    if (creationData.name === '') return 'Give your character a name before continuing.';
+    if (values.raceIds.length > MAX_RACE_COUNT)
+      return `A character blends at most ${MAX_RACE_COUNT} races.`;
+    return null;
+  };
+
   /** Why the current step cannot be left, or null when it can */
   const stepErrorsByStep: Record<number, string | null> = {
-    0: creationData.name === '' ? 'Give your character a name before continuing.' : null,
+    0: identityStepError(),
     1: allocationStepError(allocation),
   };
   const stepError = stepErrorsByStep[stepIndex] ?? null;
@@ -229,7 +262,10 @@ export function useCharacterCreation() {
     if (!config || stepError !== null) return;
 
     // Persistence belongs to the store action
+    // `null` means the store refused the data; nothing was saved, so the wizard stays put
     const character = createCharacter(creationData, config);
+    if (!character) return;
+
     navigate({ to: '/play/character/$id', params: { id: character.id } });
   };
 
@@ -251,6 +287,8 @@ export function useCharacterCreation() {
     specialitySkills,
     races,
     raceBases,
+    canAddRace,
+    maxRaceCount: MAX_RACE_COUNT,
     allocation,
     preview,
     previewError,

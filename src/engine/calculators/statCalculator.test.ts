@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import type { Character } from '../../types/character';
 import type { Configuration, Race, Stat } from '../../types/config';
 import { isFormulaError } from '../formula/errors';
-import { calculateStatTotal, calculateStatValues } from './statCalculator';
+import { calculateRaceStatBases, calculateStatTotal, calculateStatValues } from './statCalculator';
 
 /** A stat with the boring fields filled in, so each test says only what it is about */
 function stat(overrides: Partial<Stat> & Pick<Stat, 'id' | 'name' | 'abbreviation'>): Stat {
@@ -54,6 +54,95 @@ const APT_SOURCE: Pick<Configuration, 'constants'> = {
     },
   ],
 };
+
+/** A race stat block, named so each blend test reads as the picking it describes */
+function race(id: string, statValues: Record<string, number>): Race {
+  return { id, name: id, description: '', statValues };
+}
+
+/** A ruleset's constants holding only the blend divisor */
+function withDivisor(value: number): Configuration['constants'] {
+  return [
+    {
+      id: 'divisor-id',
+      name: 'race_blend_divisor',
+      displayName: 'Race blend divisor',
+      description: '',
+      value,
+    },
+  ];
+}
+
+describe('calculateRaceStatBases — the hybrid blend (TICKET-RACE-02)', () => {
+  it('should give a single race its own stat block, unchanged', () => {
+    // The sheet writes one race as a blend of that race with itself; taking it as identity is the
+    // same answer for the seeded divisor and stays right when the User retunes it
+    expect(calculateRaceStatBases([race('dwarf', { str: 14, con: 15 })])).toEqual({
+      str: 14,
+      con: 15,
+    });
+  });
+
+  it('should give no races nothing at all', () => {
+    expect(calculateRaceStatBases([])).toEqual({});
+  });
+
+  it('should average two blocks, rounding an odd sum up', () => {
+    const bases = calculateRaceStatBases([
+      race('a', { str: 10, dex: 9 }),
+      race('b', { str: 12, dex: 12 }),
+    ]);
+
+    expect(bases).toEqual({ str: 11, dex: 11 }); // (10+12)/2 = 11; (9+12)/2 = 10.5 → 11
+  });
+
+  it('should count a stat one block says nothing about as 0 in the average', () => {
+    // Picking a race that lacks the stat is exactly how a Player halves it — the absent entry is
+    // a real 0 in the blend, not a reason to skip the stat
+    expect(calculateRaceStatBases([race('a', { str: 10 }), race('b', {})])).toEqual({ str: 5 });
+  });
+
+  it('should round a negative average away from zero, as `roundup` does', () => {
+    // The blend is `roundup` on its concept page, and `roundup` here is Excel's — away from zero.
+    // A bare Math.ceil would answer -1 where a User formula spelling roundup answers -2.
+    expect(calculateRaceStatBases([race('a', { str: -2 }), race('b', { str: -1 })])).toEqual({
+      str: -2,
+    });
+  });
+
+  it('should change nothing when the same race is picked twice', () => {
+    const dwarf = race('dwarf', { str: 14, con: 15 });
+
+    expect(calculateRaceStatBases([dwarf, dwarf])).toEqual({ str: 14, con: 15 });
+  });
+
+  it('should read the divisor from the ruleset constant', () => {
+    const picked = [race('a', { str: 10 }), race('b', { str: 12 })];
+
+    expect(calculateRaceStatBases(picked, withDivisor(1))).toEqual({ str: 22 });
+    expect(calculateRaceStatBases(picked, withDivisor(4))).toEqual({ str: 6 }); // 22/4 = 5.5 → 6
+  });
+
+  it('should fall back to the seeded divisor when the constant is missing or unusable', () => {
+    const picked = [race('a', { str: 10 }), race('b', { str: 12 })];
+
+    // A zero divisor would make every base Infinity, which is a worse answer than the seed
+    expect(calculateRaceStatBases(picked, withDivisor(0))).toEqual({ str: 11 });
+    expect(calculateRaceStatBases(picked, [])).toEqual({ str: 11 });
+  });
+
+  it('should ignore a third race rather than distorting the blend', () => {
+    // The cardinality is enforced where characters are written; hand-edited data reaching the
+    // engine gets the two-race blend rather than a sum divided by 2
+    const bases = calculateRaceStatBases([
+      race('a', { str: 10 }),
+      race('b', { str: 12 }),
+      race('c', { str: 100 }),
+    ]);
+
+    expect(bases).toEqual({ str: 11 });
+  });
+});
 
 describe('calculateStatValues', () => {
   describe('the three kinds of stat', () => {
@@ -188,6 +277,17 @@ describe('calculateStatValues', () => {
       });
 
       expect(values.str).toBe(10);
+    });
+
+    it('should compose from the blended base when two races are picked (TICKET-RACE-02)', () => {
+      const stats = [stat({ id: 'str', name: 'Strength', abbreviation: 'STR' })];
+
+      const values = calculateStatValues(stats, character({ investedStatPoints: { str: 5 } }), {
+        races: [race('dwarf', { str: 9 }), race('elf', { str: 12 })],
+        equipmentBonuses: [{ skillCode: 'STR', modifier: 3 }],
+      });
+
+      expect(values.str).toBe(19); // base 11 (from 9 and 12) + 5 invested + 3 equipment
     });
 
     it('should read a stat the race block says nothing about as 0 (TICKET-RACE-01)', () => {

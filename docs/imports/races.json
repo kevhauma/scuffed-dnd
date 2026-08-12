@@ -16,7 +16,8 @@
   "confidence": "confirmed",
   "notes": [
     "The ten entries the sheet's race picker offers, before the bestiary starts at column L (bat). The other 970-odd creature columns are Concept 04's bestiary — a later milestone, not a race list.",
-    "The sheet stores an **absolute base** per stat, and since TICKET-RACE-01 so does the app: a race is a stat block keyed by stat id, not a list of modifiers. The numbers are unchanged from the modifier form — they only ever agreed because a stat default base is 0 — but the meaning is now the sheet's. TICKET-RACE-02 adds the 1–2 race blend; until then, picking two races adds their blocks instead of averaging them.",
+    "The sheet stores an **absolute base** per stat, and since TICKET-RACE-01 so does the app: a race is a stat block keyed by stat id, not a list of modifiers. The numbers are unchanged from the modifier form — they only ever agreed because a stat default base is 0 — but the meaning is now the sheet's.",
+    "TICKET-RACE-02 landed the sheet's hybrid: a character has at most two races and their blocks blend as roundup((a + b) / const.race_blend_divisor) rather than stacking. The blocks below are unchanged by it — the blend is how they are read, not what they hold — but a two-race character's numbers moved, and \"Empty\" is now a way to halve a block rather than a no-op.",
     "Totals in each description are the sheet's own row 14 and are the six-core-only check Concept 01 confirms: human 60, elf 64, dwarf 60, Raccoon 59, Demon 90.",
     "\"Empty\" is the sheet's no-race placeholder and is kept because the race picker offers it. Its block is written as {} rather than as ten zeros: under the absent-reads-0 rule those are the same race, and the empty object is the one that stays correct when a stat is added."
   ],

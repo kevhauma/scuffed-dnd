@@ -33,6 +33,8 @@ export function CharacterCreationWizard() {
     specialitySkills,
     races,
     raceBases,
+    canAddRace,
+    maxRaceCount,
     allocation,
     preview,
     previewError,
@@ -96,6 +98,8 @@ export function CharacterCreationWizard() {
           register={form.register}
           races={races}
           selectedRaceIds={values.raceIds}
+          canAddRace={canAddRace}
+          maxRaceCount={maxRaceCount}
           onToggleRace={toggleRace}
         />
       )}

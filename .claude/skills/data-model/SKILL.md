@@ -71,9 +71,13 @@ member of that race has, like the sheet's creature rows. Two rules follow, and b
   writes a complete block (`useRaceManager`'s `handleSave` normalises against the ruleset as it
   stands at save time).
 
-Races still combine **additively** into the same slot the old modifiers used, so RACE-01 moved no
-character's numbers. TICKET-RACE-02 is what makes them the composition's `base` term and replaces
-the sum with the sheet's 1–2 race blend.
+Race blocks are the composition's **`base` term** and they **blend, never stack** (TICKET-RACE-02):
+one race is its own block, two are `roundup((a + b) / const.race_blend_divisor)` per stat, and a
+stat one block omits is a real 0 in that average. `Character.raceIds` therefore holds **at most 2**
+— `createCharacter` returns `null` and `updateCharacter` no-ops past that, and `MAX_RACE_COUNT` in
+[statCalculator.ts](../../../src/engine/calculators/statCalculator.ts) is the one place the number
+is written. Never re-derive a race contribution in a component: call `calculateRaceStatBases`, the
+same function the composition calls.
 
 **`schemaVersion` is the clean break** (TICKET-STAT-01, TICKET-IO-03). v1 files have no such key,
 which is exactly how they are recognised. The number itself lives in

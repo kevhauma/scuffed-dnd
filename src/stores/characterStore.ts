@@ -10,6 +10,7 @@
 
 import { create } from 'zustand';
 import { calculateCharacter } from '../engine/calculator';
+import { MAX_RACE_COUNT } from '../engine/calculators/statCalculator';
 import { asNumber } from '../engine/formula/errors';
 import { loadCharacters, saveCharacters } from '../services/storage';
 import type { Character, CharacterCreationData, Inventory } from '../types/character';
@@ -35,7 +36,14 @@ interface CharacterState {
   resetCharacters: () => void;
 
   // Character CRUD
-  createCharacter: (data: CharacterCreationData, config: Configuration) => Character;
+  /**
+   * Write a new character, or `null` when the data is one the model cannot hold
+   *
+   * Nullable since TICKET-RACE-02: more races than the blend is defined over is the first thing
+   * this action refuses outright rather than storing. A caller that gets `null` should stay where
+   * it is — nothing was saved.
+   */
+  createCharacter: (data: CharacterCreationData, config: Configuration) => Character | null;
   updateCharacter: (id: string, updates: Partial<Character>) => void;
   deleteCharacter: (id: string) => void;
   getCharacter: (id: string) => Character | undefined;
@@ -106,6 +114,21 @@ function clampToMaxStatValues(
   }
 
   return clamped;
+}
+
+/**
+ * Whether a set of races is one the composition can blend (TICKET-RACE-02)
+ *
+ * The upper bound is the rule: past {@link MAX_RACE_COUNT} the sheet's hybrid has no meaning, so
+ * the store refuses the write rather than storing a character whose bases cannot be computed.
+ *
+ * **No lower bound.** Concept 04 describes a character as one or two creatures, but a ruleset is
+ * free to define no races at all, and a raceless character is a coherent state the sheet already
+ * has an empty state for (Requirement 11.2). Requiring one would make the wizard unusable on a
+ * ruleset that has none — see the ticket's implementation note.
+ */
+function hasBlendableRaces(raceIds: string[]): boolean {
+  return raceIds.length <= MAX_RACE_COUNT;
 }
 
 /**
@@ -281,6 +304,8 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
 
   // Create new character
   createCharacter: (data: CharacterCreationData, config: Configuration) => {
+    if (!hasBlendableRaces(data.raceIds)) return null;
+
     const character = createCharacterFromData(data, config);
     const { characters } = get();
     const updated = autoSave([...characters, character]);
@@ -290,6 +315,9 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
 
   // Update character
   updateCharacter: (id: string, updates: Partial<Character>) => {
+    // Same rule as on create: a patch that would put a character past the blend is not applied
+    if (updates.raceIds !== undefined && !hasBlendableRaces(updates.raceIds)) return;
+
     const { characters } = get();
     const updated = autoSave(
       characters.map((char) => (char.id === id ? updateTimestamp({ ...char, ...updates }) : char))

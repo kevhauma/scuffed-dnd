@@ -120,7 +120,7 @@ describe('calculateCharacterStats', () => {
     });
   });
 
-  it('should calculate stats with multiple races', () => {
+  it('should blend the bases of two races into the composition (TICKET-RACE-02)', () => {
     const character: Character = {
       id: '1',
       name: 'Test Character',
@@ -203,10 +203,13 @@ describe('calculateCharacterStats', () => {
 
     const result = calculateCharacterStats(character, config);
 
+    // The bases are the round-up average of the two blocks, not their sum: a human's Strength of 1
+    // pulls an elf's -1 to 0 rather than cancelling it, and the DEX the human block says nothing
+    // about is a real 0 in the average
     expect(result).toEqual({
-      STR: 10, // 10 - 1 (elf) + 1 (human)
-      DEX: 10, // 8 + 2 (elf)
-      power: 20, // (10 - 1 + 1) + (8 + 2) = 10 + 10
+      STR: 10, // 10 invested + roundup((-1 + 1) / 2) = 10 + 0
+      DEX: 9, // 8 invested + roundup((2 + 0) / 2) = 8 + 1
+      power: 19, // 10 + 9
     });
   });
 
@@ -580,16 +583,33 @@ describe('calculateCharacter', () => {
     expect(unequipped.equipmentBonuses).toEqual([]);
   });
 
-  it('should combine racial modifiers from multiple races additively and keep them separable', () => {
+  it('should blend two races into the base and keep the terms separable (TICKET-RACE-02)', () => {
     const character = createFixtureCharacter({ raceIds: ['elf', 'human'] });
 
     const result = calculateCharacter(character, createFixtureConfig());
 
-    // STR 10 - 1 (elf) + 1 (human) = 10, DEX 8 + 2 (elf) = 10
-    expect(result.statValues).toEqual({ STR: 10, DEX: 10, CON: 12, health: 160, evasion: 20 });
-    // The allocated base is still available alongside the total, so the racial part is displayable
+    // elf is { DEX 2, STR -1 }, human is { STR 1 } — the base is their round-up average, so
+    // STR = roundup((-1 + 1) / 2) = 0 and DEX = roundup((2 + 0) / 2) = 1
+    expect(result.statValues).toEqual({ STR: 10, DEX: 9, CON: 12, health: 160, evasion: 18 });
+    // The allocated points are still available alongside the total, so the racial part is
+    // displayable rather than having to be recovered from a difference
     expect(result.investedStatPoints).toEqual({ STR: 10, DEX: 8, CON: 12 });
-    expect(Number(result.statValues.DEX) - result.investedStatPoints.DEX).toBe(2);
+    expect(Number(result.statValues.DEX) - result.investedStatPoints.DEX).toBe(1);
+  });
+
+  it('should sum the blended base, the invested points and equipment per stat', () => {
+    // The whole composition through the composed entry point (TICKET-RACE-02 acceptance criterion)
+    const character = createFixtureCharacter({
+      raceIds: ['elf', 'human'],
+      inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: [] },
+    });
+
+    const result = calculateCharacter(character, createFixtureConfig());
+    const sword = result.equipmentBonuses.find((bonus) => bonus.skillCode === 'STR');
+
+    expect(sword).toBeDefined();
+    // base 0 (blended) + 10 invested + the sword's STR bonus
+    expect(result.statValues.STR).toBe(10 + (sword?.modifier ?? 0));
   });
 
   it('should apply the focus stat bonus to a main skill and to nothing else', () => {
