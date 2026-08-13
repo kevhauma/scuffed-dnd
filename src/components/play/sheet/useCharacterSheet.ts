@@ -6,7 +6,7 @@
  * decides.
  *
  * Every derived number here comes from `calculateCharacter` / `calculateRaceStatBases` /
- * `indexSkillModifiers` — the sheet does no arithmetic of its own.
+ * `indexStatModifiers` — the sheet does no arithmetic of its own.
  *
  * **Validates: Requirements 8.5, 9.3, 13.4, 14.1, 14.2, 14.5, 16.6, 21.1-21.5**
  */
@@ -14,7 +14,7 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { calculateCharacter } from '../../../engine/calculator';
-import { indexSkillModifiers } from '../../../engine/calculators/equipmentBonusCalculator';
+import { indexStatModifiers } from '../../../engine/calculators/equipmentBonusCalculator';
 import { calculateRaceStatBases } from '../../../engine/calculators/statCalculator';
 import { calculateCharacterLevel } from '../../../engine/characterSummary';
 import { formatDiceNotation } from '../../../engine/dice/diceSimulator';
@@ -56,8 +56,6 @@ export interface SpecialitySkillBreakdown {
   name: string;
   /** The base level the Player allocated at creation */
   base: number;
-  /** Combined modifier from equipped items targeting this skill */
-  equipment: number;
   /** The configured focus bonus, non-zero only on the character's focus skill */
   focus: number;
   /** The engine's total — base plus the bonus formula, which can fail */
@@ -193,7 +191,8 @@ function buildView(
   // The blend, not a sum (TICKET-RACE-02) — and the same call the composition makes, so the
   // racial section and each stat's `race` term can never disagree
   const raceBases = calculateRaceStatBases(races, config.constants);
-  const equipmentBonuses = indexSkillModifiers(calculated.equipmentBonuses);
+  // Keyed by stat id since TICKET-MAT-02, so only a stat has an equipment contribution
+  const equipmentBonuses = indexStatModifiers(calculated.equipmentBonuses);
 
   const orderedStats = [...config.stats].sort((a, b) => a.order - b.order);
 
@@ -218,7 +217,6 @@ function buildView(
       code: skill.code,
       name: skill.name,
       base: character.specialitySkillBaseLevels[skill.code] ?? 0,
-      equipment: equipmentBonuses[skill.code] ?? 0,
       focus: focusFor(skill.code),
       total: toDerivedValue(calculated.specialitySkillTotalLevels[skill.code]),
       isFocusStat: character.focusStatCode === skill.code,
@@ -234,7 +232,7 @@ function buildView(
       isDerived: stat.formula !== undefined,
       invested: character.investedStatPoints[stat.id] ?? 0,
       race: raceBases[stat.id] ?? 0,
-      equipment: equipmentBonuses[stat.abbreviation] ?? 0,
+      equipment: equipmentBonuses[stat.id] ?? 0,
       focus: focusFor(stat.abbreviation),
       current: character.currentResourceValues[stat.id] ?? 0,
       max: toDerivedValue(calculated.statValues[stat.id]),

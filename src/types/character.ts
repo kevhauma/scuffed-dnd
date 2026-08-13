@@ -4,7 +4,7 @@
  * Type definitions for player characters and their state.
  */
 
-import type { SkillModifier } from './config';
+import type { StatModifier } from './config';
 import type { FormulaResult } from './formula';
 
 /**
@@ -69,7 +69,7 @@ export interface CalculatedCharacter extends Character {
   statTotal: number;
   specialitySkillTotalLevels: Record<string, FormulaResult>; // Base + bonus
   combatSkillBonuses: Record<string, FormulaResult>; // Calculated from formulas
-  equipmentBonuses: SkillModifier[]; // From equipped items
+  equipmentBonuses: StatModifier[]; // From equipped items, keyed by stat id (TICKET-MAT-02)
 }
 
 /**

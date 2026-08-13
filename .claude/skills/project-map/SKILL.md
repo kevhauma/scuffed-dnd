@@ -167,17 +167,20 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   kinds — invested (`race stat block + points + equipment`), resource (the same sum, read as a
   maximum) and derived (its formula) — then clamps to `min`/`max` and rounds. Plus
   `calculateStatTotal`, `statVariables` (the flat map keyed by abbreviation, for the downstream
-  formulas) and `calculateRaceStatBases` (the races' combined stat block on its own, keyed by stat
-  **id**, for display — TICKET-RACE-01; still additive across races until RACE-02's blend).
-- `calculators/specialitySkillCalculator.ts` — `calculateSpecialitySkillLevels` (base + formula bonus + equipment + focus bonus).
-- `calculators/combatSkillCalculator.ts` — `calculateCombatSkillBonuses` (formula + equipment bonuses).
-- `calculators/equipmentBonusCalculator.ts` — `calculateEquipmentBonuses` (aggregates equipped items' material bonuses) and `indexSkillModifiers(modifiers)` → `Record<skillCode, number>` (any `SkillModifier[]` as a per-code lookup, for showing a skill's equipment contribution on its own).
+  formulas), `calculateRaceStatBases` (the races' **blended** stat block on its own, keyed by stat
+  **id**, for display — TICKET-RACE-01/02) and `MAX_RACE_COUNT`, the one place the 1–2 race
+  cardinality is written.
+- `calculators/specialitySkillCalculator.ts` — `calculateSpecialitySkillLevels` (base + formula bonus + focus bonus). **No equipment term** since TICKET-MAT-02.
+- `calculators/combatSkillCalculator.ts` — `calculateCombatSkillBonuses` (the formula, and nothing else). **No equipment term** since TICKET-MAT-02.
+- `calculators/equipmentBonusCalculator.ts` — `calculateEquipmentBonuses` (aggregates equipped items' material tier modifiers into one `StatModifier[]`, keyed by stat **id**) and `indexStatModifiers(modifiers)` → `Record<statId, number>` (any `StatModifier[]` as a per-stat lookup, for showing a stat's equipment contribution on its own).
 - `calculator.ts` — re-exports the calculators, plus **`calculateCharacter(character, config):
   CalculatedCharacter`**, the single composed entry point (equipment → stats → speciality →
   combat, in that order). Call it for any derived number; don't compose the calculators by hand.
   `calculateCharacterStats()` remains as a thin documented wrapper returning just `.statValues`.
-  Each equipment bonus is claimed by exactly one step, since a stat abbreviation is unique against
-  the speciality and combat code spaces.
+  **Equipment applies exactly once, at the stat composition** (TICKET-MAT-02): a tier modifier
+  names a stat, so the skill steps have no equipment term to claim a second share with — they read
+  stats the bonus has already moved, which makes double-counting structurally impossible rather
+  than merely avoided.
 - `dependencies.ts` — **the reference walker** (TICKET-REF-02): `findReferences(target, config,
   characters)` → `EntityReference[]`, one case per guarded-delete `ReferenceTargetKind`. Pure over
   both stores' data; `configStore`'s delete actions call it. Answers "what points at this?"; the
@@ -334,7 +337,9 @@ Randomness is injectable via `useCombatRoller(id, calculated, { rng })` — neve
 sync and the play-mode config lock), `useAppHydration.ts` (the app-wide LocalStorage restore,
 called only by `RootLayout`), `StorageNotice.tsx` (the storage-unavailable message it drives) and
 `IncompatibleDataNotice.tsx` (the pre-v2-data refusal, with the backup offer and the two-step
-start-fresh — TICKET-IO-03).
+start-fresh — TICKET-IO-03), and `StatModifierBadges.tsx` (a material tier's modifiers as
+forest/crimson chips; it takes the ruleset's stats too, because a modifier names its target by
+**id** and resolving that to an abbreviation belongs in one place — TICKET-MAT-01).
 
 `components/Header.tsx` sits at the root of `components/`, outside the three folders.
 

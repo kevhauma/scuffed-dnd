@@ -48,7 +48,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         rounding: 'none',
       },
       {
-        id: 'DEX',
+        id: 'dex-id',
         name: 'Dexterity',
         abbreviation: 'DEX',
         description: '',
@@ -109,13 +109,13 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         id: 'elf',
         name: 'Elf',
         description: '',
-        statValues: { DEX: 2 },
+        statValues: { 'dex-id': 2 },
       },
       {
         id: 'human',
         name: 'Human',
         description: '',
-        statValues: { DEX: 1 },
+        statValues: { 'dex-id': 1 },
       },
     ],
     currencyTiers: [],
@@ -132,7 +132,7 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     name: 'Aria',
     configurationId: 'config1',
     raceIds: ['elf'],
-    investedStatPoints: { STR: 6, DEX: 4 },
+    investedStatPoints: { STR: 6, 'dex-id': 4 },
     focusStatCode: 'STL',
     specialitySkillBaseLevels: { STL: 3 },
     currentResourceValues: { health: 60, mana: 30 },
@@ -188,6 +188,61 @@ describe('CharacterSheet', () => {
     expect(within(rowFor(/Dexterity \(DEX\)/)).getByText('race +2')).toBeDefined();
   });
 
+  it("should label a stat's equipment contribution from the engine (TICKET-MAT-02)", () => {
+    // The cloak's tier grants DEX +4, and the sheet shows it as its own term rather than folded
+    // into the total — the engine's breakdown, not something the component re-derived
+    useConfigStore.setState({
+      config: createConfig({
+        materialCategories: [{ id: 'cloth', name: 'Cloth', description: '' }],
+        currencyTiers: [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 10 }],
+        materials: [
+          {
+            id: 'fur',
+            name: 'Fur',
+            description: '',
+            categoryId: 'cloth',
+            levels: [
+              {
+                level: 1,
+                name: 'Fur 1',
+                bonuses: [{ statId: 'dex-id', modifier: 4 }],
+                value: { tierId: 'gold', amount: 1 },
+              },
+            ],
+          },
+        ],
+        items: [
+          {
+            id: 'cloak',
+            name: 'Fur Cloak',
+            description: '',
+            materialId: 'fur',
+            materialLevel: 1,
+            equipmentSlotType: 'cloak',
+          },
+        ],
+        equipmentSlots: [{ type: 'cloak', name: 'Cloak', description: '' }],
+      }),
+      isLoaded: true,
+    });
+    useCharacterStore.setState({
+      characters: [
+        createCharacter({ inventory: { equippedItems: { cloak: 'cloak' }, miscItems: [] } }),
+      ],
+      isLoaded: true,
+    });
+
+    render(<CharacterSheet characterId="char1" />);
+
+    const dexterity = rowFor(/Dexterity \(DEX\)/);
+    expect(within(dexterity).getByText('equipment +4')).toBeDefined();
+    expect(within(dexterity).getByText('10')).toBeDefined(); // 4 invested + 2 race + 4 equipment
+
+    // And the skill follows through the stat its formula reads, which is the only route a tier
+    // modifier has to a skill since TICKET-MAT-02. Stealth is `DEX`, so it moves by the same 4.
+    expect(within(rowFor(/Stealth \(STL\)/)).getByText('16')).toBeDefined(); // 3 base + 10 DEX + 3 focus
+  });
+
   it("should show a stat's contributions separately from its total", () => {
     render(<CharacterSheet characterId="char1" />);
 
@@ -218,7 +273,7 @@ describe('CharacterSheet', () => {
       within(rowFor(/Strength \(STR\)/)).getByText(String(expected.statValues.STR))
     ).toBeDefined();
     expect(
-      within(rowFor(/Dexterity \(DEX\)/)).getByText(String(expected.statValues.DEX))
+      within(rowFor(/Dexterity \(DEX\)/)).getByText(String(expected.statValues['dex-id']))
     ).toBeDefined();
     expect(
       within(rowFor(/Stealth \(STL\)/)).getByText(String(expected.specialitySkillTotalLevels.STL))

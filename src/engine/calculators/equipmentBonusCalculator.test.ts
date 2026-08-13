@@ -1,20 +1,21 @@
 /**
  * Equipment Bonus Calculator Tests
  *
- * Tests for equipment bonus aggregation including material bonuses.
+ * Tests for equipment bonus aggregation, which is per **stat** since TICKET-MAT-02: no skill code
+ * can be a target any more, and a modifier naming a stat the ruleset does not define is dropped
+ * rather than emitted.
  */
 
 import { describe, expect, it } from 'vitest';
 import type { Character } from '../../types/character';
 import type { Configuration, Item, Material, Stat } from '../../types/config';
-import { calculateEquipmentBonuses, indexSkillModifiers } from './equipmentBonusCalculator';
+import { calculateEquipmentBonuses, indexStatModifiers } from './equipmentBonusCalculator';
 
 /**
  * The stats a material tier can target here
  *
- * Ids and abbreviations deliberately agree, so the aggregate this calculator returns — still keyed
- * by abbreviation until TICKET-MAT-02 — reads exactly as it did before TICKET-MAT-01 moved the
- * stored shape onto stat ids.
+ * The aggregate is keyed by stat **id** end to end since TICKET-MAT-02; ids and abbreviations
+ * agree in this fixture only so the numbers stay readable.
  */
 const STATS: Stat[] = ['STR', 'DEF', 'DEX'].map((abbreviation, order) => ({
   id: abbreviation,
@@ -186,8 +187,8 @@ describe('calculateEquipmentBonuses', () => {
     const result = calculateEquipmentBonuses(character, config);
 
     expect(result).toHaveLength(2);
-    expect(result).toContainEqual({ skillCode: 'STR', modifier: 2 });
-    expect(result).toContainEqual({ skillCode: 'DEF', modifier: 3 });
+    expect(result).toContainEqual({ statId: 'STR', modifier: 2 });
+    expect(result).toContainEqual({ statId: 'DEF', modifier: 3 });
   });
 
   it('should combine bonuses from multiple equipped items additively', () => {
@@ -288,8 +289,8 @@ describe('calculateEquipmentBonuses', () => {
     const result = calculateEquipmentBonuses(character, config);
 
     expect(result).toHaveLength(2);
-    expect(result).toContainEqual({ skillCode: 'STR', modifier: 3 }); // 2 + 1
-    expect(result).toContainEqual({ skillCode: 'DEF', modifier: 8 }); // 3 + 5
+    expect(result).toContainEqual({ statId: 'STR', modifier: 3 }); // 2 + 1
+    expect(result).toContainEqual({ statId: 'DEF', modifier: 8 }); // 3 + 5
   });
 
   it('should handle different material levels correctly', () => {
@@ -376,7 +377,7 @@ describe('calculateEquipmentBonuses', () => {
     const result = calculateEquipmentBonuses(character, config);
 
     expect(result).toHaveLength(1);
-    expect(result).toContainEqual({ skillCode: 'STR', modifier: 6 }); // 2 + 4
+    expect(result).toContainEqual({ statId: 'STR', modifier: 6 }); // 2 + 4
   });
 
   it('should handle negative modifiers (penalties)', () => {
@@ -449,8 +450,8 @@ describe('calculateEquipmentBonuses', () => {
     const result = calculateEquipmentBonuses(character, config);
 
     expect(result).toHaveLength(2);
-    expect(result).toContainEqual({ skillCode: 'DEF', modifier: 5 });
-    expect(result).toContainEqual({ skillCode: 'DEX', modifier: -2 });
+    expect(result).toContainEqual({ statId: 'DEF', modifier: 5 });
+    expect(result).toContainEqual({ statId: 'DEX', modifier: -2 });
   });
 
   it('should ignore items not found in configuration', () => {
@@ -733,9 +734,9 @@ describe('calculateEquipmentBonuses', () => {
     const result = calculateEquipmentBonuses(character, config);
 
     expect(result).toHaveLength(3);
-    expect(result).toContainEqual({ skillCode: 'STR', modifier: 4 }); // 2 + 2
-    expect(result).toContainEqual({ skillCode: 'DEF', modifier: 8 }); // 3 + 3 + 1 + 1
-    expect(result).toContainEqual({ skillCode: 'DEX', modifier: 6 }); // 3 + 3
+    expect(result).toContainEqual({ statId: 'STR', modifier: 4 }); // 2 + 2
+    expect(result).toContainEqual({ statId: 'DEF', modifier: 8 }); // 3 + 3 + 1 + 1
+    expect(result).toContainEqual({ statId: 'DEX', modifier: 6 }); // 3 + 3
   });
 });
 
@@ -802,28 +803,26 @@ describe('a tier modifier naming a stat the ruleset no longer defines (TICKET-MA
       updatedAt: '2024-01-01',
     };
 
-    expect(calculateEquipmentBonuses(character, config)).toEqual([
-      { skillCode: 'STR', modifier: 2 },
-    ]);
+    expect(calculateEquipmentBonuses(character, config)).toEqual([{ statId: 'STR', modifier: 2 }]);
   });
 });
 
-describe('indexSkillModifiers', () => {
-  it('should index a modifier by its skill code', () => {
-    expect(indexSkillModifiers([{ skillCode: 'STR', modifier: 2 }])).toEqual({ STR: 2 });
+describe('indexStatModifiers', () => {
+  it('should index a modifier by its stat id', () => {
+    expect(indexStatModifiers([{ statId: 'STR', modifier: 2 }])).toEqual({ STR: 2 });
   });
 
-  it('should combine repeated codes additively', () => {
+  it('should combine repeated stats additively', () => {
     expect(
-      indexSkillModifiers([
-        { skillCode: 'STR', modifier: 2 },
-        { skillCode: 'DEX', modifier: -1 },
-        { skillCode: 'STR', modifier: 3 },
+      indexStatModifiers([
+        { statId: 'STR', modifier: 2 },
+        { statId: 'DEX', modifier: -1 },
+        { statId: 'STR', modifier: 3 },
       ])
     ).toEqual({ STR: 5, DEX: -1 });
   });
 
   it('should return an empty record for no modifiers', () => {
-    expect(indexSkillModifiers([])).toEqual({});
+    expect(indexStatModifiers([])).toEqual({});
   });
 });

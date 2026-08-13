@@ -1,11 +1,15 @@
 /**
  * Combat Skill Bonus Calculator Tests
  *
- * Tests for combat skill bonus calculation including formula evaluation and equipment bonuses.
+ * Tests for combat skill bonus calculation.
+ *
+ * The equipment cases retired with TICKET-MAT-02: a tier modifier names a stat, so a combat skill
+ * has no equipment term of its own — it feels equipment through the stats and speciality levels its
+ * formula reads. `calculator.test.ts` pins that route end to end.
  */
 
 import { describe, expect, it } from 'vitest';
-import type { Configuration, SkillModifier } from '../../types/config';
+import type { Configuration } from '../../types/config';
 import { calculateCombatSkillBonuses } from './combatSkillCalculator';
 
 describe('calculateCombatSkillBonuses', () => {
@@ -65,14 +69,8 @@ describe('calculateCombatSkillBonuses', () => {
     };
 
     const specialitySkillLevels = {};
-    const equipmentBonuses: SkillModifier[] = [];
 
-    const result = calculateCombatSkillBonuses(
-      config,
-      totalMainSkillLevels,
-      specialitySkillLevels,
-      equipmentBonuses
-    );
+    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, specialitySkillLevels);
 
     expect(result).toEqual({
       MEL: 15, // 10 (STR) + 5
@@ -136,231 +134,14 @@ describe('calculateCombatSkillBonuses', () => {
       SWD: 15, // Calculated speciality skill level
     };
 
-    const equipmentBonuses: SkillModifier[] = [];
-
-    const result = calculateCombatSkillBonuses(
-      config,
-      totalMainSkillLevels,
-      specialitySkillLevels,
-      equipmentBonuses
-    );
+    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, specialitySkillLevels);
 
     expect(result).toEqual({
       MEL: 25, // 10 (STR) + 15 (SWD)
     });
   });
 
-  it('should add equipment bonuses to formula bonus', () => {
-    const config: Configuration = {
-      id: 'config1',
-      name: 'Test Config',
-      version: '1.0',
-      schemaVersion: 4,
-      stats: [
-        {
-          id: 'STR',
-          name: 'Strength',
-          abbreviation: 'STR',
-          description: '',
-          order: 0,
-          countsTowardTotal: true,
-          isResource: false,
-          rounding: 'none',
-        },
-      ],
-      specialitySkills: [],
-      combatSkills: [
-        {
-          id: 'MEL',
-          code: 'MEL',
-          name: 'Melee Attack',
-          description: 'Close combat attack',
-          dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-          bonusFormula: 'STR', // 10
-        },
-      ],
-      materials: [],
-      materialCategories: [],
-      items: [],
-      equipmentSlots: [],
-      races: [],
-      currencyTiers: [],
-      focusStatBonusLevel: 0,
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-01',
-    };
-
-    const totalMainSkillLevels = {
-      STR: 10,
-    };
-
-    const specialitySkillLevels = {};
-
-    const equipmentBonuses: SkillModifier[] = [
-      { skillCode: 'MEL', modifier: 3 }, // +3 from weapon
-      { skillCode: 'MEL', modifier: 2 }, // +2 from armor
-    ];
-
-    const result = calculateCombatSkillBonuses(
-      config,
-      totalMainSkillLevels,
-      specialitySkillLevels,
-      equipmentBonuses
-    );
-
-    expect(result).toEqual({
-      MEL: 15, // 10 (formula) + 3 (weapon) + 2 (armor)
-    });
-  });
-
-  it('should handle negative equipment bonuses (penalties)', () => {
-    const config: Configuration = {
-      id: 'config1',
-      name: 'Test Config',
-      version: '1.0',
-      schemaVersion: 4,
-      stats: [
-        {
-          id: 'STR',
-          name: 'Strength',
-          abbreviation: 'STR',
-          description: '',
-          order: 0,
-          countsTowardTotal: true,
-          isResource: false,
-          rounding: 'none',
-        },
-      ],
-      specialitySkills: [],
-      combatSkills: [
-        {
-          id: 'MEL',
-          code: 'MEL',
-          name: 'Melee Attack',
-          description: 'Close combat attack',
-          dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-          bonusFormula: 'STR', // 10
-        },
-      ],
-      materials: [],
-      materialCategories: [],
-      items: [],
-      equipmentSlots: [],
-      races: [],
-      currencyTiers: [],
-      focusStatBonusLevel: 0,
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-01',
-    };
-
-    const totalMainSkillLevels = {
-      STR: 10,
-    };
-
-    const specialitySkillLevels = {};
-
-    const equipmentBonuses: SkillModifier[] = [
-      { skillCode: 'MEL', modifier: 5 }, // +5 from weapon
-      { skillCode: 'MEL', modifier: -2 }, // -2 penalty from cursed item
-    ];
-
-    const result = calculateCombatSkillBonuses(
-      config,
-      totalMainSkillLevels,
-      specialitySkillLevels,
-      equipmentBonuses
-    );
-
-    expect(result).toEqual({
-      MEL: 13, // 10 (formula) + 5 (weapon) - 2 (penalty)
-    });
-  });
-
-  it('should only apply equipment bonuses for matching combat skill', () => {
-    const config: Configuration = {
-      id: 'config1',
-      name: 'Test Config',
-      version: '1.0',
-      schemaVersion: 4,
-      stats: [
-        {
-          id: 'STR',
-          name: 'Strength',
-          abbreviation: 'STR',
-          description: '',
-          order: 0,
-          countsTowardTotal: true,
-          isResource: false,
-          rounding: 'none',
-        },
-        {
-          id: 'DEX',
-          name: 'Dexterity',
-          abbreviation: 'DEX',
-          description: '',
-          order: 1,
-          countsTowardTotal: true,
-          isResource: false,
-          rounding: 'none',
-        },
-      ],
-      specialitySkills: [],
-      combatSkills: [
-        {
-          id: 'MEL',
-          code: 'MEL',
-          name: 'Melee Attack',
-          description: 'Close combat attack',
-          dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-          bonusFormula: 'STR',
-        },
-        {
-          id: 'RNG',
-          code: 'RNG',
-          name: 'Ranged Attack',
-          description: 'Ranged combat attack',
-          dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-          bonusFormula: 'DEX',
-        },
-      ],
-      materials: [],
-      materialCategories: [],
-      items: [],
-      equipmentSlots: [],
-      races: [],
-      currencyTiers: [],
-      focusStatBonusLevel: 0,
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-01',
-    };
-
-    const totalMainSkillLevels = {
-      STR: 10,
-      DEX: 8,
-    };
-
-    const specialitySkillLevels = {};
-
-    const equipmentBonuses: SkillModifier[] = [
-      { skillCode: 'MEL', modifier: 3 }, // +3 to melee only
-      { skillCode: 'RNG', modifier: 2 }, // +2 to ranged only
-      { skillCode: 'STR', modifier: 1 }, // +1 to STR (not a combat skill)
-    ];
-
-    const result = calculateCombatSkillBonuses(
-      config,
-      totalMainSkillLevels,
-      specialitySkillLevels,
-      equipmentBonuses
-    );
-
-    expect(result).toEqual({
-      MEL: 13, // 10 (STR) + 3 (equipment)
-      RNG: 10, // 8 (DEX) + 2 (equipment)
-    });
-  });
-
-  it('should handle combat skill with no equipment bonuses', () => {
+  it('should be the formula and nothing else', () => {
     const config: Configuration = {
       id: 'config1',
       name: 'Test Config',
@@ -405,17 +186,11 @@ describe('calculateCombatSkillBonuses', () => {
     };
 
     const specialitySkillLevels = {};
-    const equipmentBonuses: SkillModifier[] = [];
 
-    const result = calculateCombatSkillBonuses(
-      config,
-      totalMainSkillLevels,
-      specialitySkillLevels,
-      equipmentBonuses
-    );
+    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, specialitySkillLevels);
 
     expect(result).toEqual({
-      MEL: 20, // 10 * 2, no equipment bonus
+      MEL: 20, // 10 * 2
     });
   });
 
@@ -503,22 +278,13 @@ describe('calculateCombatSkillBonuses', () => {
 
     const specialitySkillLevels = {};
 
-    const equipmentBonuses: SkillModifier[] = [
-      { skillCode: 'MEL', modifier: 3 },
-      { skillCode: 'MAG', modifier: 5 },
-    ];
+    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, specialitySkillLevels);
 
-    const result = calculateCombatSkillBonuses(
-      config,
-      totalMainSkillLevels,
-      specialitySkillLevels,
-      equipmentBonuses
-    );
-
+    // No equipment term since TICKET-MAT-02 — each bonus is its formula and nothing else
     expect(result).toEqual({
-      MEL: 15, // (10 + 2) + 3
-      RNG: 8, // 8 + 0
-      MAG: 29, // (12 * 2) + 5
+      MEL: 12, // 10 + 2
+      RNG: 8,
+      MAG: 24, // 12 * 2
     });
   });
 
@@ -590,17 +356,10 @@ describe('calculateCombatSkillBonuses', () => {
       SWD: 15,
     };
 
-    const equipmentBonuses: SkillModifier[] = [{ skillCode: 'MEL', modifier: 6 }];
-
-    const result = calculateCombatSkillBonuses(
-      config,
-      totalMainSkillLevels,
-      specialitySkillLevels,
-      equipmentBonuses
-    );
+    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, specialitySkillLevels);
 
     expect(result).toEqual({
-      MEL: 30, // 24 (formula) + 6 (equipment)
+      MEL: 24, // the formula, and nothing else (TICKET-MAT-02)
     });
   });
 
@@ -649,15 +408,9 @@ describe('calculateCombatSkillBonuses', () => {
     };
 
     const specialitySkillLevels = {};
-    const equipmentBonuses: SkillModifier[] = [];
 
     expect(
-      calculateCombatSkillBonuses(
-        config,
-        totalMainSkillLevels,
-        specialitySkillLevels,
-        equipmentBonuses
-      ).MEL
+      calculateCombatSkillBonuses(config, totalMainSkillLevels, specialitySkillLevels).MEL
     ).toMatchObject({
       kind: 'undefined-variable',
       source: { kind: 'combat-skill', name: 'Melee Attack' },
@@ -709,15 +462,9 @@ describe('calculateCombatSkillBonuses', () => {
     };
 
     const specialitySkillLevels = {};
-    const equipmentBonuses: SkillModifier[] = [];
 
     expect(
-      calculateCombatSkillBonuses(
-        config,
-        totalMainSkillLevels,
-        specialitySkillLevels,
-        equipmentBonuses
-      ).MEL
+      calculateCombatSkillBonuses(config, totalMainSkillLevels, specialitySkillLevels).MEL
     ).toMatchObject({
       kind: 'syntax',
       source: { kind: 'combat-skill', name: 'Melee Attack' },
@@ -746,14 +493,8 @@ describe('calculateCombatSkillBonuses', () => {
 
     const totalMainSkillLevels = {};
     const specialitySkillLevels = {};
-    const equipmentBonuses: SkillModifier[] = [];
 
-    const result = calculateCombatSkillBonuses(
-      config,
-      totalMainSkillLevels,
-      specialitySkillLevels,
-      equipmentBonuses
-    );
+    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, specialitySkillLevels);
 
     expect(result).toEqual({});
   });

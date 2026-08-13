@@ -44,8 +44,7 @@ export function rollCombatSkill(
   const bonuses = calculateCombatSkillBonuses(
     config,
     statVariables(config.stats, character.statValues),
-    character.specialitySkillTotalLevels,
-    character.equipmentBonuses
+    character.specialitySkillTotalLevels
   );
 
   const bonusResult = bonuses[skill.code];

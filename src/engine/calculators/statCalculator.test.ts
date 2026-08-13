@@ -273,7 +273,7 @@ describe('calculateStatValues', () => {
 
       const values = calculateStatValues(stats, character({ investedStatPoints: { str: 5 } }), {
         races,
-        equipmentBonuses: [{ skillCode: 'STR', modifier: 3 }],
+        equipmentBonuses: [{ statId: 'str', modifier: 3 }],
       });
 
       expect(values.str).toBe(10);
@@ -284,7 +284,7 @@ describe('calculateStatValues', () => {
 
       const values = calculateStatValues(stats, character({ investedStatPoints: { str: 5 } }), {
         races: [race('dwarf', { str: 9 }), race('elf', { str: 12 })],
-        equipmentBonuses: [{ skillCode: 'STR', modifier: 3 }],
+        equipmentBonuses: [{ statId: 'str', modifier: 3 }],
       });
 
       expect(values.str).toBe(19); // base 11 (from 9 and 12) + 5 invested + 3 equipment
@@ -325,7 +325,7 @@ describe('calculateStatValues', () => {
       ];
 
       const values = calculateStatValues(stats, character({ investedStatPoints: { str: 5 } }), {
-        equipmentBonuses: [{ skillCode: 'STR', modifier: 2 }],
+        equipmentBonuses: [{ statId: 'str', modifier: 2 }],
       });
 
       expect(values.hp).toBe(70);

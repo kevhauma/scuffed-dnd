@@ -25,7 +25,7 @@
  */
 
 import type { Character } from '../../types/character';
-import type { Constant, Race, SkillModifier, Stat } from '../../types/config';
+import type { Constant, Race, Stat, StatModifier } from '../../types/config';
 import type { FormulaContext, FormulaResult } from '../../types/formula';
 import { constantsNamespace } from '../formula/constants';
 import { asNumber, isFormulaError, withSource } from '../formula/errors';
@@ -38,8 +38,8 @@ import { namespacesFor } from '../formula/namespaces';
 export interface StatCompositionOptions {
   /** The character's races, for their stat blocks */
   races?: Race[];
-  /** Aggregated bonuses from equipped items; only those naming a stat abbreviation are applied */
-  equipmentBonuses?: SkillModifier[];
+  /** Aggregated bonuses from equipped items, keyed by stat id (TICKET-MAT-02) */
+  equipmentBonuses?: StatModifier[];
   /** Bonus granted when the character's focus stat is this stat — retired by TICKET-ARC-03 */
   focusStatBonusLevel?: number;
   /** The ruleset's constants and curves, backing `const.*` and `curve.*(x)` */
@@ -157,14 +157,16 @@ function investedValue(
   stat: Stat,
   character: Character,
   raceBases: Record<string, number>,
-  equipmentBonuses: SkillModifier[],
+  equipmentBonuses: StatModifier[],
   focusStatBonusLevel: number
 ): number {
   const base = raceBases[stat.id] ?? 0;
   const invested = character.investedStatPoints[stat.id] ?? 0; // 1:1 until TICKET-ARC-02 routes it through a curve
 
+  // Matched by **id** since TICKET-MAT-02, which is what deleted STAT-01's abbreviation bridge:
+  // a bonus follows the stat it was attached to, not the spelling it had at the time
   const equipment = equipmentBonuses
-    .filter((bonus) => bonus.skillCode === stat.abbreviation)
+    .filter((bonus) => bonus.statId === stat.id)
     .reduce((sum, bonus) => sum + bonus.modifier, 0);
 
   const focus = character.focusStatCode === stat.abbreviation ? focusStatBonusLevel : 0;

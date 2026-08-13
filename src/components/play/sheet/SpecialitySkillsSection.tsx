@@ -1,11 +1,19 @@
 /**
  * Speciality Skills Section
  *
- * Each speciality skill's base level and engine total, with the equipment and focus contributions
- * shown separately. The formula bonus is the remainder and is not itemised — it is a property of
- * the ruleset, not something the Player changed.
+ * Each speciality skill's base level and engine total, with the focus contribution shown
+ * separately. The formula bonus is the remainder and is not itemised — it is a property of the
+ * ruleset, not something the Player changed.
  *
- * **Validates: Requirements 9.3, 13.4, 21.1-21.5**
+ * **No equipment row** since TICKET-MAT-02: equipment moves a stat, and a skill follows through
+ * the stats its formula reads, so the contribution is already inside the formula bonus. Itemising
+ * it here would need the engine to split a formula's result by cause, which it cannot do — and a
+ * row that always read `equipment +0` would be worse than no row.
+ *
+ * **Validates: Concepts 01, 09; Requirements 9.3, 21.1-21.5**
+ *
+ * (Requirement 13.4's "display equipment bonuses separately" is `StatsSection`'s now — that is
+ * where the contribution exists.)
  */
 
 import { Card } from '../../ui/Card/Card';
@@ -36,7 +44,6 @@ export function SpecialitySkillsSection({ specialitySkills }: SpecialitySkillsSe
             isFocusStat={skill.isFocusStat}
             contributions={[
               { label: 'base', value: skill.base, alwaysShow: true },
-              { label: 'equipment', value: skill.equipment },
               { label: 'focus', value: skill.focus },
             ]}
           />

@@ -1,12 +1,16 @@
 /**
  * Combat Skill Bonus Calculator
  *
- * Calculates combat skill bonuses from formulas and equipment.
+ * Calculates combat skill bonuses from their formulas.
  *
- * **Validates: Requirements 5.4, 13.3, 16.6; Concept 00 §7**
+ * **No equipment term** since TICKET-MAT-02, for the same reason the speciality calculator lost
+ * one: a tier modifier names a stat, and a combat skill feels equipment through the stats and
+ * speciality levels its formula reads.
+ *
+ * **Validates: Concepts 01, 09; Requirements 5.4, 13.3, 16.6; Concept 00 §7**
  */
 
-import type { Configuration, SkillModifier } from '../../types/config';
+import type { Configuration } from '../../types/config';
 import type { FormulaContext, FormulaResult } from '../../types/formula';
 import { isFormulaError, withSource } from '../formula/errors';
 import { evaluateFormulaString } from '../formula/evaluator';
@@ -15,21 +19,19 @@ import { namespacesFor } from '../formula/namespaces';
 /**
  * Calculate combat skill bonuses
  *
- * Calculates the bonus for each combat skill by:
- * 1. Evaluating the bonus formula with main and speciality skill levels
- * 2. Adding equipment bonuses for the specific combat skill
+ * The bonus is the formula, evaluated over the composed stats and speciality levels — both of
+ * which equipment has already moved, so an equipped sword reaches the roll without being added a
+ * second time here (Requirement 13.2).
  *
  * @param config - The game configuration containing combat skill definitions
  * @param statVariables - Composed stat values, keyed by abbreviation (TICKET-STAT-01)
  * @param specialitySkillLevels - Calculated speciality skill levels
- * @param equipmentBonuses - Bonuses from equipped items
  * @returns Record of combat skill code to total bonus or error
  */
 export function calculateCombatSkillBonuses(
   config: Configuration,
   statVariables: Record<string, FormulaResult>,
-  specialitySkillLevels: Record<string, FormulaResult>,
-  equipmentBonuses: SkillModifier[]
+  specialitySkillLevels: Record<string, FormulaResult>
 ): Record<string, FormulaResult> {
   const combatSkillBonuses: Record<string, FormulaResult> = {};
 
@@ -55,13 +57,7 @@ export function calculateCombatSkillBonuses(
       continue;
     }
 
-    // Add equipment bonuses for this combat skill
-    const equipmentBonus = equipmentBonuses
-      .filter((bonus) => bonus.skillCode === skill.code)
-      .reduce((sum, bonus) => sum + bonus.modifier, 0);
-
-    // Combine formula bonus with equipment bonus
-    combatSkillBonuses[skill.code] = formulaBonus + equipmentBonus;
+    combatSkillBonuses[skill.code] = formulaBonus;
   }
 
   return combatSkillBonuses;

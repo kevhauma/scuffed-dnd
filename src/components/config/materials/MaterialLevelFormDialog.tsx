@@ -7,7 +7,7 @@
  * "+50 max Mana" expressible. The picker is handed only the stats a modifier may land on, so a
  * derived stat is never on offer here; `useMaterialManager` decides which those are.
  *
- * **Validates: Concept 09; Requirements 6.4, 6.5, 6.6, 6.7, 21.1-21.5**
+ * **Validates: Concept 09; Requirements 6.4, 6.5, 6.6, 21.1-21.5**
  */
 
 import { useId } from 'react';

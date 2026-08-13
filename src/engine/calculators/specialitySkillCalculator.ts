@@ -1,14 +1,18 @@
 /**
  * Speciality Skill Calculator
  *
- * Calculates total speciality skill levels including base level, formula bonus, equipment
- * bonuses, and focus stat bonus.
+ * Calculates total speciality skill levels from base level, formula bonus, and focus stat bonus.
  *
- * **Validates: Requirements 3.6, 6.7, 9.3, 16.6; Concept 00 §7**
+ * **No equipment term** since TICKET-MAT-02. A material tier's modifiers name a stat, so there is
+ * no shape left that could target a skill code — and a skill still moves with equipment, through
+ * the stats its formula reads. That is the sheet's model rather than a regression: a Stealth
+ * written as `DEX / 2` follows a cloak that raises DEX.
+ *
+ * **Validates: Concepts 01, 09; Requirements 3.6, 9.3, 16.6; Concept 00 §7**
  */
 
 import type { Character } from '../../types/character';
-import type { Configuration, SkillModifier } from '../../types/config';
+import type { Configuration } from '../../types/config';
 import type { FormulaContext, FormulaResult } from '../../types/formula';
 import { isFormulaError, withSource } from '../formula/errors';
 import { evaluateFormulaString } from '../formula/evaluator';
@@ -19,21 +23,19 @@ import { namespacesFor } from '../formula/namespaces';
  *
  * Calculates the total level for each speciality skill by:
  * 1. Starting with the base level
- * 2. Adding the bonus calculated from the formula
- * 3. Adding equipment bonuses targeting this speciality skill's code
- * 4. Adding the focus stat bonus if this skill is the character's focus stat
+ * 2. Adding the bonus calculated from the formula — which is where equipment reaches it, since the
+ *    formula reads stats the equipment has already moved
+ * 3. Adding the focus stat bonus if this skill is the character's focus stat
  *
  * @param character - The character whose speciality skills to calculate
  * @param config - The game configuration containing speciality skill definitions
  * @param statVariables - Composed stat values, keyed by abbreviation (TICKET-STAT-01)
- * @param equipmentBonuses - Bonuses from equipped items; only those targeting a speciality skill code are used
  * @returns Record of speciality skill code to total level or error
  */
 export function calculateSpecialitySkillLevels(
   character: Character,
   config: Configuration,
-  statVariables: Record<string, FormulaResult>,
-  equipmentBonuses: SkillModifier[] = []
+  statVariables: Record<string, FormulaResult>
 ): Record<string, FormulaResult> {
   const specialitySkillLevels: Record<string, FormulaResult> = {};
 
@@ -59,13 +61,7 @@ export function calculateSpecialitySkillLevels(
       continue;
     }
 
-    // Add equipment bonuses targeting this speciality skill (Requirement 6.7)
-    const equipmentBonus = equipmentBonuses
-      .filter((modifier) => modifier.skillCode === skill.code)
-      .reduce((sum, modifier) => sum + modifier.modifier, 0);
-
-    // Combine base level with formula and equipment bonuses
-    let totalLevel = baseLevel + bonus + equipmentBonus;
+    let totalLevel = baseLevel + bonus;
 
     // Apply focus stat bonus if this skill is the character's focus stat
     if (character.focusStatCode === skill.code) {

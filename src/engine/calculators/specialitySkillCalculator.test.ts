@@ -659,7 +659,7 @@ describe('calculateSpecialitySkillLevels', () => {
     });
   });
 
-  describe('with equipment bonuses', () => {
+  describe('without an equipment term (TICKET-MAT-02)', () => {
     const character: Character = {
       id: '1',
       name: 'Test Character',
@@ -724,19 +724,10 @@ describe('calculateSpecialitySkillLevels', () => {
 
     const totalMainSkillLevels = { STR: 10, DEX: 8 };
 
-    it('should add equipment bonuses that target the speciality skill', () => {
-      const result = calculateSpecialitySkillLevels(character, config, totalMainSkillLevels, [
-        { skillCode: 'STL', modifier: 3 },
-      ]);
-
-      expect(result).toEqual({ STL: 12 }); // 5 (base) + 4 (formula) + 3 (equipment)
-    });
-
-    it('should ignore equipment bonuses that target another kind of skill', () => {
-      const result = calculateSpecialitySkillLevels(character, config, totalMainSkillLevels, [
-        { skillCode: 'STR', modifier: 2 },
-        { skillCode: 'MEL', modifier: 5 },
-      ]);
+    it('should take no equipment term of its own (TICKET-MAT-02)', () => {
+      // A tier modifier names a stat, so there is no shape left that could target `STL`. The
+      // skill feels equipment through `totalMainSkillLevels`, which the composition already moved.
+      const result = calculateSpecialitySkillLevels(character, config, totalMainSkillLevels);
 
       expect(result).toEqual({ STL: 9 }); // 5 (base) + 4 (formula)
     });

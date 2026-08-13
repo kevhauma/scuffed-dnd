@@ -518,7 +518,7 @@ describe('calculateCharacter', () => {
 
     const result = calculateCharacter(character, createFixtureConfig());
 
-    expect(result.equipmentBonuses).toEqual([{ skillCode: 'STR', modifier: 2 }]);
+    expect(result.equipmentBonuses).toEqual([{ statId: 'STR', modifier: 2 }]);
     // STR 9 + 2 from the steel sword
     expect(result.statValues.STR).toBe(11);
     // health follows the raised STR: 11 * 10 + 12 * 5
@@ -537,7 +537,7 @@ describe('calculateCharacter', () => {
 
     const result = calculateCharacter(character, createFixtureConfig());
 
-    expect(result.equipmentBonuses).toEqual([{ skillCode: 'DEX', modifier: 4 }]);
+    expect(result.equipmentBonuses).toEqual([{ statId: 'DEX', modifier: 4 }]);
     expect(result.statValues.DEX).toBe(14); // 8 invested + 2 elf + 4 equipment
     expect(result.statValues.evasion).toBe(28); // DEX * 2 follows
     expect(result.specialitySkillTotalLevels.STL).toBe(9); // base 2 + DEX 14 / 2
@@ -610,11 +610,92 @@ describe('calculateCharacter', () => {
     });
 
     const result = calculateCharacter(character, createFixtureConfig());
-    const sword = result.equipmentBonuses.find((bonus) => bonus.skillCode === 'STR');
+    const sword = result.equipmentBonuses.find((bonus) => bonus.statId === 'STR');
 
     expect(sword).toBeDefined();
     // base 0 (blended) + 10 invested + the sword's STR bonus
     expect(result.statValues.STR).toBe(10 + (sword?.modifier ?? 0));
+  });
+
+  it('should raise a resource maximum by the tier that grants it — the +50 Mana case', () => {
+    // Concept 09's fur tier, which is the thing v1's shape could not say at all: a modifier on a
+    // *resource*. The maximum moves; what the Player currently has does not (TICKET-MAT-02).
+    const config = createFixtureConfig({
+      stats: [
+        ...createFixtureConfig().stats,
+        {
+          id: 'mana',
+          name: 'Mana',
+          abbreviation: 'MANA',
+          description: '',
+          order: 5,
+          countsTowardTotal: false,
+          isResource: true,
+          rounding: 'none',
+        },
+      ],
+      materials: [
+        ...createFixtureConfig().materials,
+        {
+          id: 'mat-fur',
+          name: 'Fur',
+          description: '',
+          categoryId: 'cloth',
+          levels: [
+            {
+              level: 1,
+              name: 'Fur 1',
+              bonuses: [{ statId: 'mana', modifier: 50 }],
+              value: { tierId: 'gold', amount: 1 },
+            },
+          ],
+        },
+      ],
+      items: [
+        ...createFixtureConfig().items,
+        {
+          id: 'item-fur-cloak',
+          name: 'Fur Cloak',
+          description: '',
+          materialId: 'mat-fur',
+          materialLevel: 1,
+          equipmentSlotType: 'cloak',
+        },
+      ],
+    });
+
+    const unarmoured = createFixtureCharacter({
+      investedStatPoints: { STR: 10, DEX: 8, CON: 12, mana: 10 },
+      currentResourceValues: { health: 40, mana: 10 },
+    });
+    const equipped = {
+      ...unarmoured,
+      inventory: { equippedItems: { cloak: 'item-fur-cloak' }, miscItems: [] },
+    };
+
+    expect(calculateCharacter(unarmoured, config).statValues.mana).toBe(10);
+    expect(calculateCharacter(equipped, config).statValues.mana).toBe(60);
+    // Stored player state is untouched — the maximum is derived, the current value is not
+    expect(equipped.currentResourceValues.mana).toBe(10);
+  });
+
+  it('should revert on the next read when the item comes off, with nothing recalculated', () => {
+    // v1.0's property, preserved: equipping is a change to stored *inventory*, and every derived
+    // number is computed at read time, so unequipping needs no recalculation call at all
+    const config = createFixtureConfig();
+    const bare = createFixtureCharacter();
+    const equipped = {
+      ...bare,
+      inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: [] },
+    };
+
+    const before = calculateCharacter(bare, config);
+    const during = calculateCharacter(equipped, config);
+    const after = calculateCharacter({ ...equipped, inventory: bare.inventory }, config);
+
+    expect(during.statValues.STR).not.toBe(before.statValues.STR);
+    expect(after.statValues).toEqual(before.statValues);
+    expect(after.equipmentBonuses).toEqual([]);
   });
 
   it('should apply the focus stat bonus to a main skill and to nothing else', () => {
@@ -973,7 +1054,9 @@ describe('calculateCharacter over an unallocated main skill (TICKET-CALC-02)', (
  * carry-across from v1, where `MainSkill` was the invested atom; TICKET-STAT-01 kept it pointed at
  * stat abbreviations rather than redesigning both skill kinds in the same change.
  *
- * It is temporary, and these tests exist to fail loudly when it is removed:
+ * **The equipment half is already gone** (TICKET-MAT-02): an equipment bonus used to reach a stat
+ * by matching its abbreviation, and now matches the stat's id. What is left is the *formula*
+ * spelling, and it is temporary too — these tests exist to fail loudly when it goes:
  *
  * - **TICKET-SKL-02** replaces `SpecialitySkill` with the weighted Skill entity, which names its
  *   stats through `stats.*` rather than through the flat space;

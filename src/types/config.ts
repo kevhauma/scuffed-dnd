@@ -187,9 +187,10 @@ export interface MaterialLevel {
 /**
  * Stat modifier — what a material tier does to a stat (Concept 09, TICKET-MAT-01)
  *
- * The sheet's tier mods are per **stat** ("fur tier 1: Mana 50, Health 1"), which is what
+ * The sheet's tier mods are per **stat** ("fur tier 1: Mana 50, Health 1"), which is what v1's
  * `SkillModifier` could not express: it named a code in the flat formula space, so a resource like
- * Mana was unreachable and "+50 Mana" was not a thing a ruleset could say.
+ * Mana was unreachable and "+50 Mana" was not a thing a ruleset could say. That shape is gone
+ * entirely as of TICKET-MAT-02 — this is the only modifier the app has.
  *
  * Keyed by **stat id**, like a race's stat block (TICKET-RACE-01) and for the same reason: a
  * modifier is a reference to a stat, references are by id (TICKET-REF-01), and renaming a stat
@@ -201,23 +202,6 @@ export interface MaterialLevel {
  */
 export interface StatModifier {
   statId: string; // References Stat.id
-  modifier: number; // Positive for bonus, negative for penalty
-}
-
-/**
- * Skill modifier - bonus or penalty to a skill
- *
- * `skillCode` holds a **stat abbreviation** since TICKET-STAT-01 — the flat space it always
- * pointed into is now populated by stats rather than by main skills. That is the "abbreviation
- * bridge" the ticket names.
- *
- * **Nothing persisted uses this shape any more** (TICKET-RACE-01 took races, TICKET-MAT-01 took
- * material tiers). What is left is the *aggregate* the equipment calculator hands downstream, where
- * a speciality or combat code is still a legitimate target. TICKET-MAT-02 moves the stat half of
- * that aggregate onto {@link StatModifier} and TICKET-ROLL-06 retires the rest with `CombatSkill`.
- */
-export interface SkillModifier {
-  skillCode: string; // References a stat abbreviation (or a speciality/combat skill code)
   modifier: number; // Positive for bonus, negative for penalty
 }
 
