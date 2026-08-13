@@ -53,9 +53,7 @@ function bonusDivider(config: Configuration): number {
     (constant) => constant.name === BONUS_DIVIDER_NAME
   )?.value;
 
-  return value !== undefined && Number.isFinite(value) && value > 0
-    ? value
-    : DEFAULT_BONUS_DIVIDER;
+  return value !== undefined && Number.isFinite(value) && value > 0 ? value : DEFAULT_BONUS_DIVIDER;
 }
 
 /**

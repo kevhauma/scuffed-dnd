@@ -248,10 +248,7 @@ describe('recalculation flows', () => {
       config
     );
 
-    expect(
-      numberOr(after.skillLevels.STL, 0) -
-        numberOr(before.skillLevels.STL, 0)
-    ).toBe(6);
+    expect(numberOr(after.skillLevels.STL, 0) - numberOr(before.skillLevels.STL, 0)).toBe(6);
   });
 
   it('should move a combat bonus when the skills it names change (Req 5.4)', () => {
@@ -279,10 +276,7 @@ describe('recalculation flows', () => {
     // moves either
     expect(oneRace.statValues.DEX).toBe(6); // 4 invested + elf's 2
     expect(twoRaces.statValues.DEX).toBe(6);
-    expect(
-      numberOr(twoRaces.skillLevels.STL, 0) -
-        numberOr(oneRace.skillLevels.STL, 0)
-    ).toBe(0);
+    expect(numberOr(twoRaces.skillLevels.STL, 0) - numberOr(oneRace.skillLevels.STL, 0)).toBe(0);
 
     // A race that says nothing about DEX halves what the elf alone supplied: roundup(2 / 2) = 1
     const withRaceless = calculateCharacter(createCharacter({ raceIds: ['elf', 'raceless'] }), {

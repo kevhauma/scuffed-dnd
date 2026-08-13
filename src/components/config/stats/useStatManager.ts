@@ -226,8 +226,7 @@ export function useStatManager() {
     const taken =
       currentStats.some(
         (stat) => stat.abbreviation.toUpperCase() === abbreviation && stat.id !== editingStatId
-      ) ||
-      config.combatSkills.some((skill) => skill.code.toUpperCase() === abbreviation);
+      ) || config.combatSkills.some((skill) => skill.code.toUpperCase() === abbreviation);
 
     if (taken) {
       return { field: 'abbreviation', message: `${abbreviation} is already in use` };

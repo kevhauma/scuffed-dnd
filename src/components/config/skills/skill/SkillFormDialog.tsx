@@ -66,7 +66,11 @@ export function SkillFormDialog({
           {...register('name', { required: 'Name is required' })}
         />
 
-        <FormField label="Description" placeholder="What this skill covers" {...register('description')} />
+        <FormField
+          label="Description"
+          placeholder="What this skill covers"
+          {...register('description')}
+        />
 
         <div className="space-y-2">
           <div className="flex justify-between items-center">
@@ -100,9 +104,7 @@ export function SkillFormDialog({
               <div className="flex-1">
                 <Select
                   value={watch(`statWeights.${index}.statId`)}
-                  onChange={(event) =>
-                    setValue(`statWeights.${index}.statId`, event.target.value)
-                  }
+                  onChange={(event) => setValue(`statWeights.${index}.statId`, event.target.value)}
                   options={weightableStats.map((stat) => ({
                     value: stat.id,
                     label: `${stat.name} (${stat.abbreviation})`,

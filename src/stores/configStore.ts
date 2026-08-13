@@ -595,9 +595,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const updated = autoSave(
       applyRenameSafely(config, (current) => ({
         ...current,
-        skills: current.skills.map((skill) =>
-          skill.id === id ? { ...skill, ...updates } : skill
-        ),
+        skills: current.skills.map((skill) => (skill.id === id ? { ...skill, ...updates } : skill)),
       }))
     );
     set({ config: updated });

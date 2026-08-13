@@ -26,10 +26,7 @@ import { calculateCombatSkillBonuses } from './calculators/combatSkillCalculator
 import { calculateEquipmentBonuses } from './calculators/equipmentBonusCalculator';
 // Import for the composed entry point
 import { calculateSkills } from './calculators/skillCalculator';
-import {
-  calculateStatTotal,
-  calculateStatValues,
-} from './calculators/statCalculator';
+import { calculateStatTotal, calculateStatValues } from './calculators/statCalculator';
 
 /**
  * Calculate every derived value for a character

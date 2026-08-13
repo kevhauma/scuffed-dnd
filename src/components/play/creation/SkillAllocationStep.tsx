@@ -157,7 +157,9 @@ export function SkillAllocationStep({
                   type="number"
                   min="0"
                   value={investedSkillPoints[skill.id] ?? 0}
-                  onChange={(event) => onChangeInvestedSkillPoints(skill.id, toLevel(event.target.value))}
+                  onChange={(event) =>
+                    onChangeInvestedSkillPoints(skill.id, toLevel(event.target.value))
+                  }
                   className="w-24"
                 />
               </div>

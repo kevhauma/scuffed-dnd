@@ -534,6 +534,61 @@ export function validateConfiguration(data: unknown): ValidationResult {
     });
   }
 
+  // Validate constants structure — absent is valid, so files predating TICKET-CST-01 still
+  // import. `id` is not required for the same reason skills' is not: `ensureReferenceIds` mints
+  // a missing one on the way through `importConfiguration`.
+  if (config.constants !== undefined) {
+    if (!Array.isArray(config.constants)) {
+      errors.push("Field 'constants' must be an array when present");
+    } else {
+      const seenNames = new Set<string>();
+      config.constants.forEach((constant: unknown, index: number) => {
+        if (!constant || typeof constant !== 'object') {
+          errors.push(`constants[${index}] must be an object`);
+          return;
+        }
+        const c = constant as Record<string, unknown>;
+        if (typeof c.name !== 'string' || !IDENTIFIER_PATTERN.test(c.name)) {
+          errors.push(`constants[${index}].name must be a lowercase identifier`);
+        } else if (seenNames.has(c.name)) {
+          // A duplicate splits identity from value: the stored formula points at one constant's
+          // id while the resolver reads the other's number.
+          errors.push(`constants[${index}].name must be unique`);
+        } else {
+          seenNames.add(c.name);
+        }
+        if (typeof c.displayName !== 'string') {
+          errors.push(`constants[${index}].displayName must be a string`);
+        }
+        // Required by Concept 05 — a constant nobody understands is worse than a literal
+        if (typeof c.description !== 'string' || c.description.length === 0) {
+          errors.push(`constants[${index}].description is required`);
+        }
+        if (typeof c.value !== 'number') {
+          errors.push(`constants[${index}].value must be a number`);
+        }
+      });
+    }
+  }
+
+  // Validate curves structure — absent is valid, so files predating TICKET-CRV-01 still import.
+  // The row *contents* (sorted, unique keys) are `engine/validator.ts`'s job: a ruleset that
+  // imports with a badly ordered curve is reportable, not unreadable.
+  if (config.curves !== undefined) {
+    if (!Array.isArray(config.curves)) {
+      errors.push("Field 'curves' must be an array when present");
+    } else {
+      const seenNames = new Set<string>();
+      config.curves.forEach((curve: unknown, index: number) => {
+        if (!curve || typeof curve !== 'object') {
+          errors.push(`curves[${index}] must be an object`);
+          return;
+        }
+        errors.push(...curveShapeErrors(curve as Record<string, unknown>, index, seenNames));
+      });
+    }
+  }
+
   // Validate combat skills structure
   if (Array.isArray(config.combatSkills)) {
     config.combatSkills.forEach((skill: unknown, index: number) => {

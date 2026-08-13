@@ -390,9 +390,7 @@ describe('CharacterCreationWizard', () => {
 
     expect(screen.getByText('Aria')).toBeDefined();
     expect(rowValue('Health (HEA)')).toBe(`Health (HEA)${expected.statValues.health}`);
-    expect(rowValue('Stealth (STL)')).toBe(
-      `Stealth (STL)${expected.skillLevels.STL}`
-    );
+    expect(rowValue('Stealth (STL)')).toBe(`Stealth (STL)${expected.skillLevels.STL}`);
     expect(rowValue('Melee (MEL)')).toBe(`Melee (MEL)${expected.combatSkillBonuses.MEL}`);
     expect(rowValue('Dexterity (DEX)')).toBe(`Dexterity (DEX)${expected.statValues.DEX}`);
   });

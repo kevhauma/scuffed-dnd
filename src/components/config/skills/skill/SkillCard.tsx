@@ -33,7 +33,11 @@ export function SkillCard({ skill, stats, onEdit, onDelete }: SkillCardProps) {
           {skill.name}
         </Text>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => onEdit(skill.id)} className="text-sm px-2 py-1">
+          <Button
+            variant="secondary"
+            onClick={() => onEdit(skill.id)}
+            className="text-sm px-2 py-1"
+          >
             Edit
           </Button>
           <Button variant="danger" onClick={() => onDelete(skill.id)} className="text-sm px-2 py-1">

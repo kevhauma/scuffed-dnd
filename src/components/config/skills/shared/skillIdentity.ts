@@ -13,7 +13,6 @@
  * **Validates: Concept 00 §6 (TICKET-REF-01)**
  */
 
-
 /**
  * The id a saved skill should carry
  *
