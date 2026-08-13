@@ -31,7 +31,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 4,
+    schemaVersion: 5,
     stats: [
       {
         id: 'STR',
@@ -376,7 +376,7 @@ describe('CharacterCreationWizard', () => {
         configurationId: 'config1',
         raceIds: ['elf'],
         investedStatPoints: { STR: 5, DEX: 0 },
-        specialitySkillBaseLevels: { STL: 1 },
+        investedSkillPoints: { STL: 1 },
         currentResourceValues: {},
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '',
@@ -391,7 +391,7 @@ describe('CharacterCreationWizard', () => {
     expect(screen.getByText('Aria')).toBeDefined();
     expect(rowValue('Health (HEA)')).toBe(`Health (HEA)${expected.statValues.health}`);
     expect(rowValue('Stealth (STL)')).toBe(
-      `Stealth (STL)${expected.specialitySkillTotalLevels.STL}`
+      `Stealth (STL)${expected.skillLevels.STL}`
     );
     expect(rowValue('Melee (MEL)')).toBe(`Melee (MEL)${expected.combatSkillBonuses.MEL}`);
     expect(rowValue('Dexterity (DEX)')).toBe(`Dexterity (DEX)${expected.statValues.DEX}`);

@@ -104,16 +104,16 @@ export function ReviewStep({
           <SummaryRow label="Stat total" value={preview.statTotal} />
         </Card>
 
-        {config.specialitySkills.length > 0 && (
+        {config.skills.length > 0 && (
           <Card className="p-6">
             <Text variant="h5" as="h3" className="mb-3">
-              Speciality Skills
+              Skills
             </Text>
-            {config.specialitySkills.map((skill) => (
+            {config.skills.map((skill) => (
               <SummaryRow
-                key={skill.code}
-                label={`${skill.name} (${skill.code})`}
-                value={numberOr(preview.specialitySkillTotalLevels[skill.code], 0)}
+                key={skill.id}
+                label={skill.name}
+                value={numberOr(preview.skillBonuses[skill.id], 0)}
               />
             ))}
           </Card>

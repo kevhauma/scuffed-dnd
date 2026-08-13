@@ -27,7 +27,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Integration Ruleset',
     version: '1.0',
-    schemaVersion: 4,
+    schemaVersion: 5,
     stats: [
       {
         id: 'STR',
@@ -114,7 +114,7 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     configurationId: 'config1',
     raceIds: [],
     investedStatPoints: { STR: 5, DEX: 4 },
-    specialitySkillBaseLevels: { STL: 2 },
+    investedSkillPoints: { STL: 2 },
     currentResourceValues: {},
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',
@@ -167,7 +167,7 @@ describe('persistence round trip', () => {
         raceIds: ['elf'],
         investedStatPoints: { STR: 6, DEX: 4 },
         focusStatCode: 'STL',
-        specialitySkillBaseLevels: { STL: 3 },
+        investedSkillPoints: { STL: 3 },
       },
       config
     );
@@ -191,7 +191,7 @@ describe('persistence round trip', () => {
         name: 'Aria',
         raceIds: [],
         investedStatPoints: { STR: 5, DEX: 0 },
-        specialitySkillBaseLevels: {},
+        investedSkillPoints: {},
       },
       config
     );
@@ -249,8 +249,8 @@ describe('recalculation flows', () => {
     );
 
     expect(
-      numberOr(after.specialitySkillTotalLevels.STL, 0) -
-        numberOr(before.specialitySkillTotalLevels.STL, 0)
+      numberOr(after.skillLevels.STL, 0) -
+        numberOr(before.skillLevels.STL, 0)
     ).toBe(6);
   });
 
@@ -280,8 +280,8 @@ describe('recalculation flows', () => {
     expect(oneRace.statValues.DEX).toBe(6); // 4 invested + elf's 2
     expect(twoRaces.statValues.DEX).toBe(6);
     expect(
-      numberOr(twoRaces.specialitySkillTotalLevels.STL, 0) -
-        numberOr(oneRace.specialitySkillTotalLevels.STL, 0)
+      numberOr(twoRaces.skillLevels.STL, 0) -
+        numberOr(oneRace.skillLevels.STL, 0)
     ).toBe(0);
 
     // A race that says nothing about DEX halves what the elf alone supplied: roundup(2 / 2) = 1
@@ -316,7 +316,7 @@ describe('recalculation flows', () => {
     // A race's stat block holds stat ids, so a rename passes straight through it (TICKET-RACE-01)
     expect(Object.keys(reloadedConfig.races[0].statValues)).toEqual(['DEX']);
     expect(after.statValues).toEqual(before.statValues);
-    expect(after.specialitySkillTotalLevels).toEqual(before.specialitySkillTotalLevels);
+    expect(after.skillLevels).toEqual(before.skillLevels);
     expect(after.combatSkillBonuses).toEqual(before.combatSkillBonuses);
   });
   it('turns a force-deleted skill into error values, never silent zeros (TICKET-REF-02)', () => {
@@ -341,7 +341,7 @@ describe('recalculation flows', () => {
     // The combat skill reading STR fails the same way, and nothing threw on the way here
     expect(isFormulaError(after.combatSkillBonuses.MEL)).toBe(true);
     // Everything that did not name it still computes
-    expect(numberOr(after.specialitySkillTotalLevels.STL, -1)).toBe(6);
+    expect(numberOr(after.skillLevels.STL, -1)).toBe(6);
   });
   it('moves every dependent value when a constant is retuned (TICKET-CST-01)', () => {
     const constant = {

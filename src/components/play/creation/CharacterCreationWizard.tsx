@@ -30,7 +30,7 @@ export function CharacterCreationWizard() {
     stats,
     investableStats,
     derivedStatPreviews,
-    specialitySkills,
+    skills,
     races,
     raceBases,
     canAddRace,
@@ -40,7 +40,7 @@ export function CharacterCreationWizard() {
     previewError,
     toggleRace,
     setInvestedStatPoints,
-    setSpecialityBaseLevel,
+    setInvestedSkillPoints,
     setFocusStatCode,
     handleNext,
     handleBack,
@@ -108,20 +108,19 @@ export function CharacterCreationWizard() {
         <SkillAllocationStep
           investableStats={investableStats}
           derivedStatPreviews={derivedStatPreviews}
-          specialitySkills={specialitySkills}
+          skills={skills}
           investedStatPoints={values.investedStatPoints}
-          specialitySkillBaseLevels={values.specialitySkillBaseLevels}
+          investedSkillPoints={values.investedSkillPoints}
           raceBases={raceBases}
           allocation={allocation}
           onChangeInvestedStatPoints={setInvestedStatPoints}
-          onChangeSpecialityBaseLevel={setSpecialityBaseLevel}
+          onChangeInvestedSkillPoints={setInvestedSkillPoints}
         />
       )}
 
       {stepIndex === 2 && (
         <FocusStatStep
           stats={config.stats}
-          specialitySkills={specialitySkills}
           focusStatBonusLevel={config.focusStatBonusLevel}
           focusStatCode={values.focusStatCode}
           onChangeFocusStatCode={setFocusStatCode}

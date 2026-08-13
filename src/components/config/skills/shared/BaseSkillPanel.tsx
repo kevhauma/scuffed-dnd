@@ -9,7 +9,7 @@
  * until TICKET-DX-02 removed them.
  *
  * Since TICKET-DX-05 the frame comes from `ConfigPanelShell` rather than being written out here —
- * this stays as the *skills* specialisation of it (a `code`-keyed list rendered into a
+ * this stays as the *skills* specialisation of it (an id-keyed list rendered into a
  * three-column grid), which is what the two skill panels actually share beyond the frame. Before
  * that, this rendered an `h3` title in a `gap-6` column while the other eight panels rendered an
  * `h4` in a `space-y-6` one; adopting the shell settles that (Requirement 21.7).
@@ -37,7 +37,7 @@ interface BaseSkillPanelProps<T> {
   renderFormDialog: () => ReactNode;
 }
 
-export function BaseSkillPanel<T extends { code: string }>({
+export function BaseSkillPanel<T extends { id: string }>({
   title,
   description,
   addButtonText,
@@ -66,7 +66,7 @@ export function BaseSkillPanel<T extends { code: string }>({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {skills.map((skill) => (
-            <div key={skill.code}>{renderSkillCard(skill)}</div>
+            <div key={skill.id}>{renderSkillCard(skill)}</div>
           ))}
         </div>
       )}

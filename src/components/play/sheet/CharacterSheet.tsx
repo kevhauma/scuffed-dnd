@@ -17,7 +17,7 @@ import { useCombatRoller } from '../rolls/useCombatRoller';
 import { CombatSkillsSection } from './CombatSkillsSection';
 import { RaceStatBlockSection } from './RaceStatBlockSection';
 import { SheetHeader } from './SheetHeader';
-import { SpecialitySkillsSection } from './SpecialitySkillsSection';
+import { SkillsSection } from './SkillsSection';
 import { StatsSection } from './StatsSection';
 import { useCharacterSheet } from './useCharacterSheet';
 
@@ -63,7 +63,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     raceNames,
     level,
     raceContributions,
-    specialitySkills,
+    skills,
     stats,
     statTotal,
     combatSkills,
@@ -143,7 +143,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
 
       <InventoryPanel characterId={characterId} />
 
-      <SpecialitySkillsSection specialitySkills={specialitySkills} />
+      <SkillsSection skills={skills} />
 
       <CombatSkillsSection
         combatSkills={combatSkills}

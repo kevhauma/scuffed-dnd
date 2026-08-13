@@ -51,16 +51,15 @@ type CharacterSheetStatus =
 /**
  * A speciality skill's contributions, kept apart rather than pre-summed (Requirement 13.4)
  */
-export interface SpecialitySkillBreakdown {
-  code: string;
+export interface SkillBreakdown {
+  id: string;
   name: string;
-  /** The base level the Player allocated at creation */
-  base: number;
-  /** The configured focus bonus, non-zero only on the character's focus skill */
-  focus: number;
-  /** The engine's total — base plus the bonus formula, which can fail */
+  /** Points the Player invested at creation */
+  invested: number;
+  /** The integer a Player adds to a roll — `round(level / bonus_divider)` (Concept 02) */
+  bonus: DerivedValue;
+  /** The engine's level — the weighted stats plus the invested points, either of which can fail */
   total: DerivedValue;
-  isFocusStat: boolean;
 }
 
 /**
@@ -118,7 +117,7 @@ export interface CombatSkillBreakdown {
 interface CharacterSheetView {
   raceNames: string[];
   raceContributions: RaceContribution[];
-  specialitySkills: SpecialitySkillBreakdown[];
+  skills: SkillBreakdown[];
   stats: StatBreakdown[];
   /** Sum of the stats flagged as counting toward the character's total */
   statTotal: number;
@@ -128,7 +127,7 @@ interface CharacterSheetView {
 const EMPTY_VIEW: CharacterSheetView = {
   raceNames: [],
   raceContributions: [],
-  specialitySkills: [],
+  skills: [],
   stats: [],
   statTotal: 0,
   combatSkills: [],
@@ -213,13 +212,14 @@ function buildView(
         value: raceBases[stat.id] as number,
       })),
 
-    specialitySkills: config.specialitySkills.map((skill) => ({
-      code: skill.code,
+    // A skill has both numbers now (Concept 02): the level it derives to, and the bonus a Player
+    // actually rolls with
+    skills: config.skills.map((skill) => ({
+      id: skill.id,
       name: skill.name,
-      base: character.specialitySkillBaseLevels[skill.code] ?? 0,
-      focus: focusFor(skill.code),
-      total: toDerivedValue(calculated.specialitySkillTotalLevels[skill.code]),
-      isFocusStat: character.focusStatCode === skill.code,
+      invested: character.investedSkillPoints[skill.id] ?? 0,
+      bonus: toDerivedValue(calculated.skillBonuses[skill.id]),
+      total: toDerivedValue(calculated.skillLevels[skill.id]),
     })),
 
     // One row per stat, invested or derived (TICKET-STAT-01), in the order the User arranged them

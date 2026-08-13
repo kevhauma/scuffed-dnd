@@ -13,7 +13,6 @@
  * **Validates: Concept 00 §6 (TICKET-REF-01)**
  */
 
-import { useCharacterStore } from '../../../../stores/characterStore';
 
 /**
  * The id a saved skill should carry
@@ -28,21 +27,4 @@ export function resolveSkillId(
 ): string {
   const existing = editingCode ? skills.find((skill) => skill.code === editingCode) : undefined;
   return existing?.id ?? crypto.randomUUID();
-}
-
-/**
- * Carry a skill code rename into the characters built on it
- *
- * Returns a no-op for an add, or for an edit that left the code alone. The configuration side of
- * the rename needs nothing here — `configStore`'s update actions re-spell formulas on their own.
- *
- * @returns `(previousCode, nextCode) => void`, safe to call after every save
- */
-export function useSkillCodeRename(): (previousCode: string | null, nextCode: string) => void {
-  const renameSkillCode = useCharacterStore((state) => state.renameSkillCode);
-
-  return (previousCode, nextCode) => {
-    if (!previousCode || previousCode === nextCode) return;
-    renameSkillCode(previousCode, nextCode);
-  };
 }

@@ -40,8 +40,9 @@ export interface FormulaChange {
 /**
  * Build the formula dependency graph the configuration would have after the change
  *
- * Stats are keyed by id, skills by code — the same keys `engine/validator.ts` uses, so both
- * paths agree about what a cycle is.
+ * Stats are keyed by id, combat skills by code — the same keys `engine/validator.ts` uses, so
+ * both paths agree about what a cycle is. A `Skill` is not a node at all since TICKET-SKL-02: it
+ * holds weight rows rather than a formula, so it cannot be part of a cycle.
  */
 function dependenciesAfterChange(
   config: Configuration,
@@ -56,9 +57,6 @@ function dependenciesAfterChange(
       .filter((stat) => stat.formula !== undefined)
       .filter((stat) => !(change.owner === 'stat' && stat.id === replacedId))
       .map((stat) => toFormulaDependency(stat.id, stat.formula as string)),
-    ...config.specialitySkills
-      .filter((skill) => !(change.owner === 'speciality-skill' && skill.code === replacedId))
-      .map((skill) => toFormulaDependency(skill.code, skill.bonusFormula)),
     ...config.combatSkills
       .filter((skill) => !(change.owner === 'combat-skill' && skill.code === replacedId))
       .map((skill) => toFormulaDependency(skill.code, skill.bonusFormula)),

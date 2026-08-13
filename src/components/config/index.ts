@@ -58,10 +58,10 @@ export * from './skills/shared/BaseSkillPanel';
 // Shared components and helpers
 export * from './skills/shared/SkillFormFields';
 export * from './skills/shared/skillIdentity';
-export * from './skills/speciality/SpecialitySkillCard';
-export * from './skills/speciality/SpecialitySkillFormDialog';
-export * from './skills/speciality/SpecialitySkillsPanel';
-export * from './skills/speciality/useSpecialitySkillManager';
+export * from './skills/skill/SkillCard';
+export * from './skills/skill/SkillFormDialog';
+export * from './skills/skill/SkillsPanel';
+export * from './skills/skill/useSkillManager';
 export * from './stats/StatCard';
 export * from './stats/StatFormDialog';
 export * from './stats/StatPointBudget';

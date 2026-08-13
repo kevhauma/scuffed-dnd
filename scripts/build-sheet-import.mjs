@@ -35,7 +35,7 @@ const EXPORTED_AT = '2026-08-09T00:00:00.000Z';
 /** Every array a `Configuration` requires, so a missing fragment leaves an empty list, not a hole */
 const REQUIRED_ARRAYS = [
   'stats',
-  'specialitySkills',
+  'skills',
   'combatSkills',
   'materials',
   'materialCategories',
@@ -103,7 +103,7 @@ export function buildConfiguration(entries) {
     id: 'ducklets-sheet-import',
     name: 'Ducklets (sheet import)',
     version: '2.0.0',
-    schemaVersion: 4,
+    schemaVersion: 5,
     focusStatBonusLevel: 0,
     createdAt: EXPORTED_AT,
     updatedAt: EXPORTED_AT,
@@ -150,11 +150,11 @@ export function collisions(config) {
     }
   }
 
-  // A stat abbreviation and a skill code share one flat formula namespace (TICKET-STAT-01)
+  // A stat abbreviation and a roll code share one flat formula namespace (TICKET-STAT-01). A
+  // `Skill` left it with TICKET-SKL-02 — it is reached as `skills.<name-slug>` instead.
   const spellings = new Map();
   const namespace = [
     ...config.stats.map((stat) => [stat.abbreviation, `stat '${stat.name}'`]),
-    ...config.specialitySkills.map((skill) => [skill.code, `skill '${skill.name}'`]),
     ...config.combatSkills.map((skill) => [skill.code, `roll '${skill.name}'`]),
   ];
   for (const [spelling, owner] of namespace) {

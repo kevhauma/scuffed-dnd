@@ -32,7 +32,7 @@ describe('Import/Export Service', () => {
       id: 'test-config',
       name: 'Test Config',
       version: '1.0.0',
-      schemaVersion: 4,
+      schemaVersion: 5,
       stats: [
         {
           id: 'STR',
@@ -445,7 +445,7 @@ describe('Import/Export Service', () => {
       version: '1.0.0',
       mainSkills: [{ id: 'id-str', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [{ id: 'id-hp', name: 'Health', description: '', formula: 'STR * 10' }],
-      specialitySkills: [],
+      skills: [],
       combatSkills: [],
       materials: [],
       materialCategories: [],

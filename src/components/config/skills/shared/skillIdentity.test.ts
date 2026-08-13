@@ -43,7 +43,7 @@ describe('useSkillCodeRename', () => {
           configurationId: 'config1',
           raceIds: [],
           investedStatPoints: { STR: 6 },
-          specialitySkillBaseLevels: { STL: 3 },
+          investedSkillPoints: { STL: 3 },
           currentResourceValues: {},
           inventory: { equippedItems: {}, miscItems: [] },
           createdAt: '2024-01-01',
@@ -59,7 +59,7 @@ describe('useSkillCodeRename', () => {
 
     result.current('STL', 'SNK');
 
-    expect(useCharacterStore.getState().characters[0].specialitySkillBaseLevels).toEqual({
+    expect(useCharacterStore.getState().characters[0].investedSkillPoints).toEqual({
       SNK: 3,
     });
   });
@@ -79,7 +79,7 @@ describe('useSkillCodeRename', () => {
     result.current(null, 'SNK');
     result.current('STL', 'STL');
 
-    expect(useCharacterStore.getState().characters[0].specialitySkillBaseLevels).toEqual({
+    expect(useCharacterStore.getState().characters[0].investedSkillPoints).toEqual({
       STL: 3,
     });
   });

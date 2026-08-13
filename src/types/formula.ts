@@ -120,7 +120,7 @@ export type FormulaErrorKind =
  * The entity whose formula produced an error, for display and jump-to
  */
 export interface FormulaErrorSource {
-  kind: 'stat' | 'speciality-skill' | 'combat-skill';
+  kind: 'stat' | 'skill' | 'combat-skill';
   id: string;
   name: string;
 }

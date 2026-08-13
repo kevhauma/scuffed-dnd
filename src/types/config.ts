@@ -12,7 +12,7 @@
  * gate on the same number without one importing the other — and so a test that mocks one service
  * cannot change what the other considers current.
  */
-export const SUPPORTED_SCHEMA_VERSION = 4;
+export const SUPPORTED_SCHEMA_VERSION = 5;
 
 /**
  * Main configuration object containing all user-defined game rules
@@ -24,8 +24,8 @@ export interface Configuration {
   /**
    * Which persisted shape this is (TICKET-STAT-01).
    *
-   * `2` was the unified-stat shape, `3` added TICKET-RACE-01's race stat blocks, and `4` is
-   * TICKET-MAT-01's per-stat material modifiers. v1 files have no `schemaVersion` at all, which is exactly how they are recognised and refused — the shapes have
+   * `2` was the unified-stat shape, `3` added TICKET-RACE-01's race stat blocks, `4` is
+   * TICKET-MAT-01's per-stat material modifiers, and `5` is TICKET-SKL-02's weighted Skill. v1 files have no `schemaVersion` at all, which is exactly how they are recognised and refused — the shapes have
    * no faithful mapping between them (a v1 character's focus stat, spend-derived level and
    * speciality base levels have nowhere to go), so they are rejected with a notice rather than
    * converted. TICKET-IO-03 owns that UX and the notice covers every mismatch, not just v1.
@@ -33,11 +33,11 @@ export interface Configuration {
    * **The v2.0 milestone bumps this on every reshape**, by the User's decision (2026-08-09): the
    * persisted shape is not stable until the milestone lands, and a build that cannot read stored
    * data must say so through IO-03's notice rather than crash on a field that moved. Expect
-   * further bumps from SKL-02, RES-01, ARC-01 and ROLL-05.
+   * further bumps from RES-01, ARC-01 and ROLL-05.
    */
   schemaVersion: typeof SUPPORTED_SCHEMA_VERSION;
   stats: Stat[];
-  specialitySkills: SpecialitySkill[];
+  skills: Skill[];
   combatSkills: CombatSkill[];
   materials: Material[];
   materialCategories: MaterialCategory[];
@@ -124,17 +124,44 @@ export interface Stat {
 }
 
 /**
- * Speciality skill - skill with base level and bonus from formula
+ * Skill — a competence derived from weighted stats plus deliberate investment (Concept 02)
  *
- * `id` is the identity, `code` renamable display data (TICKET-REF-01).
+ * v1's `SpecialitySkill` had the right direction but an opaque `bonusFormula` string, which is the
+ * disease the concept page opens with: the sheet re-implements the same arithmetic in three tabs,
+ * so a global rebalance means editing every one of them. Here the **weights are data** and the
+ * arithmetic lives once, in the calculator:
+ *
+ * ```
+ * level = Σ (weight × stat value) + invested
+ * bonus = round(level / const.bonus_divider)
+ * ```
+ *
+ * So "make bonuses grow faster" is one constant, and "add a third governing stat" is one more row
+ * in `statWeights` — neither is a formula edit.
+ *
+ * **No `code`.** v1 gave a skill a 3-letter code so a formula could name it in the flat variable
+ * space; a skill is reached as `skills.<name-slug>` now (TICKET-SKL-02), and the flat space holds
+ * stat abbreviations only. **No `maxBaseLevel`** either: the sheet has no such cap.
  */
-export interface SpecialitySkill {
+export interface Skill {
   id: string; // Stable identity — assigned on creation, never shown, never reused
-  code: string; // 3-letter code — renamable display data
   name: string;
   description: string;
-  maxBaseLevel: number;
-  bonusFormula: string; // e.g., "(STR + DEX) / 2"
+  /** The stats this skill is derived from, and how much each one counts */
+  statWeights: StatWeight[];
+  /** Optional grouping — craft / social / physical / lore. The sheet has none (Concept 02) */
+  category?: string;
+}
+
+/**
+ * One stat's contribution to a skill's level (Concept 02)
+ *
+ * Keyed by stat **id** like every other reference, so renaming a stat cannot orphan a weight row.
+ * The sheet's seeds are 0.2 or 0.3 for a single-stat skill and 0.2 + 0.1 for a two-stat one.
+ */
+export interface StatWeight {
+  statId: string; // References Stat.id
+  weight: number;
 }
 
 /**

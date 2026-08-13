@@ -18,7 +18,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 4,
+      schemaVersion: 5,
       stats: [
         {
           id: 'STR',
@@ -41,7 +41,7 @@ describe('calculateCombatSkillBonuses', () => {
           rounding: 'none',
         },
       ],
-      specialitySkills: [],
+      skills: [],
       combatSkills: [
         {
           id: 'MEL',
@@ -82,7 +82,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 4,
+      schemaVersion: 5,
       stats: [
         {
           id: 'STR',
@@ -146,7 +146,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 4,
+      schemaVersion: 5,
       stats: [
         {
           id: 'STR',
@@ -159,7 +159,7 @@ describe('calculateCombatSkillBonuses', () => {
           rounding: 'none',
         },
       ],
-      specialitySkills: [],
+      skills: [],
       combatSkills: [
         {
           id: 'MEL',
@@ -199,7 +199,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 4,
+      schemaVersion: 5,
       stats: [
         {
           id: 'STR',
@@ -232,7 +232,7 @@ describe('calculateCombatSkillBonuses', () => {
           rounding: 'none',
         },
       ],
-      specialitySkills: [],
+      skills: [],
       combatSkills: [
         {
           id: 'MEL',
@@ -293,7 +293,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 4,
+      schemaVersion: 5,
       stats: [
         {
           id: 'STR',
@@ -368,7 +368,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 4,
+      schemaVersion: 5,
       stats: [
         {
           id: 'STR',
@@ -381,7 +381,7 @@ describe('calculateCombatSkillBonuses', () => {
           rounding: 'none',
         },
       ],
-      specialitySkills: [],
+      skills: [],
       combatSkills: [
         {
           id: 'MEL',
@@ -422,7 +422,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 4,
+      schemaVersion: 5,
       stats: [
         {
           id: 'STR',
@@ -435,7 +435,7 @@ describe('calculateCombatSkillBonuses', () => {
           rounding: 'none',
         },
       ],
-      specialitySkills: [],
+      skills: [],
       combatSkills: [
         {
           id: 'MEL',
@@ -476,9 +476,9 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 4,
+      schemaVersion: 5,
       stats: [],
-      specialitySkills: [],
+      skills: [],
       combatSkills: [], // No combat skills
       materials: [],
       materialCategories: [],

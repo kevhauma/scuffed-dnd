@@ -13,7 +13,7 @@
  */
 
 import type { StatAllocationResult } from '../../../engine/skillAllocation';
-import type { SpecialitySkill, Stat } from '../../../types/config';
+import type { Skill, Stat } from '../../../types/config';
 import { Card } from '../../ui/Card/Card';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
@@ -25,14 +25,14 @@ export interface SkillAllocationStepProps {
   investableStats: Stat[];
   /** The stats a formula decides — shown, never edited */
   derivedStatPreviews: DerivedStatPreview[];
-  specialitySkills: SpecialitySkill[];
+  skills: Skill[];
   investedStatPoints: Record<string, number>;
-  specialitySkillBaseLevels: Record<string, number>;
+  investedSkillPoints: Record<string, number>;
   /** What the chosen races supply, per stat id (TICKET-RACE-01) */
   raceBases: Record<string, number>;
   allocation: StatAllocationResult | null;
   onChangeInvestedStatPoints: (statId: string, points: number) => void;
-  onChangeSpecialityBaseLevel: (code: string, level: number) => void;
+  onChangeInvestedSkillPoints: (code: string, level: number) => void;
 }
 
 /** Parse a number input, treating a cleared field as zero rather than NaN */
@@ -44,13 +44,13 @@ function toLevel(value: string): number {
 export function SkillAllocationStep({
   investableStats,
   derivedStatPreviews,
-  specialitySkills,
+  skills,
   investedStatPoints,
-  specialitySkillBaseLevels,
+  investedSkillPoints,
   raceBases,
   allocation,
   onChangeInvestedStatPoints,
-  onChangeSpecialityBaseLevel,
+  onChangeInvestedSkillPoints,
 }: SkillAllocationStepProps) {
   return (
     <div className="space-y-4">
@@ -137,35 +137,29 @@ export function SkillAllocationStep({
         </Card>
       )}
 
-      {specialitySkills.length > 0 && (
+      {skills.length > 0 && (
         <Card className="p-6">
           <Text variant="h4" as="h2" className="mb-4">
-            Speciality Skills
+            Skills
           </Text>
           <Text variant="body-small-secondary" className="mb-3">
-            Base levels. The formula bonus is added on top and shown in the review.
+            Points invested. Each skill's governing stats are added on top and shown in the review.
           </Text>
 
           <div className="space-y-3">
-            {specialitySkills.map((skill) => (
-              <div key={skill.code} className="flex flex-wrap items-center gap-3">
-                <Label htmlFor={`spec-${skill.code}`} className="w-40 shrink-0">
-                  {skill.name} ({skill.code})
+            {skills.map((skill) => (
+              <div key={skill.id} className="flex flex-wrap items-center gap-3">
+                <Label htmlFor={`skill-${skill.id}`} className="w-40 shrink-0">
+                  {skill.name}
                 </Label>
                 <Input
-                  id={`spec-${skill.code}`}
+                  id={`skill-${skill.id}`}
                   type="number"
                   min="0"
-                  max={skill.maxBaseLevel}
-                  value={specialitySkillBaseLevels[skill.code] ?? 0}
-                  onChange={(event) =>
-                    onChangeSpecialityBaseLevel(skill.code, toLevel(event.target.value))
-                  }
+                  value={investedSkillPoints[skill.id] ?? 0}
+                  onChange={(event) => onChangeInvestedSkillPoints(skill.id, toLevel(event.target.value))}
                   className="w-24"
                 />
-                <Text variant="body-small-secondary" as="span">
-                  max base {skill.maxBaseLevel}
-                </Text>
               </div>
             ))}
           </div>

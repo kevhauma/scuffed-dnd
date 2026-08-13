@@ -25,8 +25,14 @@ export interface FormulaFunction {
 
 /**
  * Half-away-from-zero rounding (Excel ROUND)
+ *
+ * Exported for the same reason `roundAwayFromZero` is: a skill's bonus is `round(level /
+ * bonus_divider)` in Concept 02, computed by the calculator rather than by a User formula, and it
+ * has to round the way a formula spelling `round` would. `Math.round(-0.5)` is `-0` and this is
+ * `-1`; more to the point, Concept 02 verifies level 7.5 → bonus 2, which is the case that tells
+ * the two apart at the boundary.
  */
-function roundHalfAwayFromZero(x: number): number {
+export function roundHalfAwayFromZero(x: number): number {
   return Math.sign(x) * Math.round(Math.abs(x));
 }
 

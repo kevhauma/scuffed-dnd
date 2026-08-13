@@ -23,7 +23,7 @@ describe('calculateCharacterStats', () => {
         DEX: 8,
         CON: 12,
       },
-      specialitySkillBaseLevels: {},
+      investedSkillPoints: {},
       currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
@@ -34,7 +34,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 4,
+      schemaVersion: 5,
       stats: [
         {
           id: 'STR',
@@ -89,7 +89,7 @@ describe('calculateCharacterStats', () => {
           formula: 'DEX * 2',
         },
       ],
-      specialitySkills: [],
+      skills: [],
       combatSkills: [],
       materials: [],
       materialCategories: [],
@@ -130,7 +130,7 @@ describe('calculateCharacterStats', () => {
         STR: 10,
         DEX: 8,
       },
-      specialitySkillBaseLevels: {},
+      investedSkillPoints: {},
       currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
@@ -141,7 +141,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 4,
+      schemaVersion: 5,
       stats: [
         {
           id: 'STR',
@@ -175,7 +175,7 @@ describe('calculateCharacterStats', () => {
           formula: 'STR + DEX',
         },
       ],
-      specialitySkills: [],
+      skills: [],
       combatSkills: [],
       materials: [],
       materialCategories: [],
@@ -222,7 +222,7 @@ describe('calculateCharacterStats', () => {
       investedStatPoints: {
         STR: 10,
       },
-      specialitySkillBaseLevels: {},
+      investedSkillPoints: {},
       currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
@@ -233,7 +233,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 4,
+      schemaVersion: 5,
       stats: [
         {
           id: 'STR',
@@ -257,7 +257,7 @@ describe('calculateCharacterStats', () => {
           formula: 'STR * 10',
         },
       ],
-      specialitySkills: [],
+      skills: [],
       combatSkills: [],
       materials: [],
       materialCategories: [],
@@ -290,7 +290,7 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
     id: 'config1',
     name: 'Fixture Config',
     version: '1.0',
-    schemaVersion: 4,
+    schemaVersion: 5,
     stats: [
       {
         id: 'STR',
@@ -481,7 +481,7 @@ function createFixtureCharacter(overrides: Partial<Character> = {}): Character {
     configurationId: 'config1',
     raceIds: ['elf'],
     investedStatPoints: { STR: 10, DEX: 8, CON: 12 },
-    specialitySkillBaseLevels: { STL: 2, ARC: 1 },
+    investedSkillPoints: { STL: 2, ARC: 1 },
     currentResourceValues: { health: 40 },
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',
@@ -504,7 +504,7 @@ describe('calculateCharacter', () => {
     // STR 10 - 1 (elf) = 9, DEX 8 + 2 (elf) = 10, CON 12
     expect(result.statValues).toEqual({ STR: 9, DEX: 10, CON: 12, health: 150, evasion: 20 });
     // STL = 2 + (10 / 2), ARC = 1 + 12
-    expect(result.specialitySkillTotalLevels).toEqual({ STL: 7, ARC: 13 });
+    expect(result.skillLevels).toEqual({ STL: 7, ARC: 13 });
     // MEL = STR 9 + STL 7
     expect(result.combatSkillBonuses).toEqual({ MEL: 16 });
     // Nothing equipped
@@ -540,9 +540,9 @@ describe('calculateCharacter', () => {
     expect(result.equipmentBonuses).toEqual([{ statId: 'DEX', modifier: 4 }]);
     expect(result.statValues.DEX).toBe(14); // 8 invested + 2 elf + 4 equipment
     expect(result.statValues.evasion).toBe(28); // DEX * 2 follows
-    expect(result.specialitySkillTotalLevels.STL).toBe(9); // base 2 + DEX 14 / 2
+    expect(result.skillLevels.STL).toBe(9); // base 2 + DEX 14 / 2
     // The speciality skill that reads a different stat is untouched
-    expect(result.specialitySkillTotalLevels.ARC).toBe(13);
+    expect(result.skillLevels.ARC).toBe(13);
   });
 
   it('should count a stat-targeted bonus exactly once across every consumer', () => {
@@ -556,7 +556,7 @@ describe('calculateCharacter', () => {
     // bonus again on its own account (Requirement 13.2)
     expect(result.statValues.CON).toBe(17);
     expect(result.statValues.health).toBe(175); // STR 9 * 10 + CON 17 * 5
-    expect(result.specialitySkillTotalLevels.ARC).toBe(18); // base 1 + CON 17
+    expect(result.skillLevels.ARC).toBe(18); // base 1 + CON 17
     // Nothing reaches a combat skill's own code any more — a material cannot name one
     expect(result.combatSkillBonuses.MEL).toBe(16); // STR 9 + STL 7, unchanged
   });
@@ -583,7 +583,7 @@ describe('calculateCharacter', () => {
 
     expect(unequipped.statValues).toEqual(baseline.statValues);
     expect(unequipped.statValues).toEqual(baseline.statValues);
-    expect(unequipped.specialitySkillTotalLevels).toEqual(baseline.specialitySkillTotalLevels);
+    expect(unequipped.skillLevels).toEqual(baseline.skillLevels);
     expect(unequipped.combatSkillBonuses).toEqual(baseline.combatSkillBonuses);
     expect(unequipped.equipmentBonuses).toEqual([]);
   });
@@ -709,7 +709,7 @@ describe('calculateCharacter', () => {
     // health follows: 12 * 10 + 12 * 5
     expect(result.statValues.health).toBe(180);
     // Speciality skills do not also receive the focus bonus
-    expect(result.specialitySkillTotalLevels).toEqual({ STL: 7, ARC: 13 });
+    expect(result.skillLevels).toEqual({ STL: 7, ARC: 13 });
   });
 
   it('should apply the focus stat bonus to a speciality skill and to nothing else', () => {
@@ -718,8 +718,8 @@ describe('calculateCharacter', () => {
     const result = calculateCharacter(character, createFixtureConfig());
 
     // STL = base 2 + formula 5 + focus 3
-    expect(result.specialitySkillTotalLevels.STL).toBe(10);
-    expect(result.specialitySkillTotalLevels.ARC).toBe(13);
+    expect(result.skillLevels.STL).toBe(10);
+    expect(result.skillLevels.ARC).toBe(13);
     // Main skills are untouched
     expect(result.statValues).toEqual({ STR: 9, DEX: 10, CON: 12, health: 150, evasion: 20 });
     expect(result.statValues.health).toBe(150);
@@ -769,7 +769,7 @@ describe('calculateCharacter', () => {
 
     const result = calculateCharacter(createFixtureCharacter(), config);
 
-    expect(result.specialitySkillTotalLevels.STL).toMatchObject({
+    expect(result.skillLevels.STL).toMatchObject({
       kind: 'undefined-variable',
       message: 'Undefined variable: MAG',
       source: { kind: 'speciality-skill', id: 'STL', name: 'Stealth' },
@@ -864,8 +864,8 @@ describe('calculateCharacter', () => {
 
     // …every other derived value is still a number
     expect(result.statValues.evasion).toBe(20); // DEX 10 * 2
-    expect(result.specialitySkillTotalLevels.STL).toBe(7); // base 2 + DEX 10 / 2
-    expect(result.specialitySkillTotalLevels.ARC).toBe(13); // base 1 + CON 12
+    expect(result.skillLevels.STL).toBe(7); // base 2 + DEX 10 / 2
+    expect(result.skillLevels.ARC).toBe(13); // base 1 + CON 12
     expect(result.combatSkillBonuses.MEL).toBe(16); // STR 9 + STL 7
   });
 
@@ -905,7 +905,7 @@ describe('calculateCharacter', () => {
     });
 
     // The unrelated speciality skill and the stats are untouched
-    expect(result.specialitySkillTotalLevels.ARC).toBe(13); // base 1 + CON 12
+    expect(result.skillLevels.ARC).toBe(13); // base 1 + CON 12
     expect(result.statValues.health).toBe(150); // STR 9 * 10 + CON 12 * 5
   });
 
@@ -1008,7 +1008,7 @@ describe('calculateCharacter over an unallocated main skill (TICKET-CALC-02)', (
 
     expect(result.statValues.WIS).toBe(0);
     expect(result.statValues.insight).toBe(0); // WIS 0 * 3
-    expect(result.specialitySkillTotalLevels.STL).toBe(2); // base 2 + WIS 0
+    expect(result.skillLevels.STL).toBe(2); // base 2 + WIS 0
     expect(result.combatSkillBonuses.MEL).toBe(9); // STR 9 (10 - 1 elf) + WIS 0
     expect(firstCalculationError(result)).toBeUndefined();
   });
@@ -1071,7 +1071,7 @@ describe('the flat abbreviation bridge (retired by TICKET-SKL-02 and TICKET-ROLL
     const result = calculateCharacter(createFixtureCharacter(), createFixtureConfig());
 
     // STL is `base 2 + DEX / 2`, and DEX composes to 10
-    expect(result.specialitySkillTotalLevels.STL).toBe(7);
+    expect(result.skillLevels.STL).toBe(7);
   });
 
   it('should let a combat formula reach a stat by its abbreviation', () => {
@@ -1098,7 +1098,7 @@ describe('the flat abbreviation bridge (retired by TICKET-SKL-02 and TICKET-ROLL
 
     const stale = calculateCharacter(createFixtureCharacter(), renamed);
 
-    expect(stale.specialitySkillTotalLevels.STL).toMatchObject({
+    expect(stale.skillLevels.STL).toMatchObject({
       kind: 'undefined-variable',
       message: 'Undefined variable: DEX',
     });

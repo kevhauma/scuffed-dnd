@@ -48,7 +48,7 @@ export interface CharacterCreationFormData {
   name: string;
   raceIds: string[];
   investedStatPoints: Record<string, number>;
-  specialitySkillBaseLevels: Record<string, number>;
+  investedSkillPoints: Record<string, number>;
   focusStatCode: string;
 }
 
@@ -90,7 +90,7 @@ export function useCharacterCreation() {
       name: '',
       raceIds: [],
       investedStatPoints: {},
-      specialitySkillBaseLevels: {},
+      investedSkillPoints: {},
       focusStatCode: '',
     },
   });
@@ -104,7 +104,7 @@ export function useCharacterCreation() {
   // Only invested stats take points; a derived one computes its own value (TICKET-STAT-01)
   const investableStats = stats.filter((stat) => stat.formula === undefined);
   const derivedStats = stats.filter((stat) => stat.formula !== undefined);
-  const specialitySkills = config?.specialitySkills ?? [];
+  const skills = config?.skills ?? [];
   const races = config?.races ?? [];
 
   const selectedRaces = races.filter((race) => values.raceIds.includes(race.id));
@@ -145,10 +145,10 @@ export function useCharacterCreation() {
     form.setValue('investedStatPoints', { ...values.investedStatPoints, [statId]: points });
   };
 
-  const setSpecialityBaseLevel = (code: string, level: number) => {
-    form.setValue('specialitySkillBaseLevels', {
-      ...values.specialitySkillBaseLevels,
-      [code]: level,
+  const setInvestedSkillPoints = (skillId: string, points: number) => {
+    form.setValue('investedSkillPoints', {
+      ...values.investedSkillPoints,
+      [skillId]: points,
     });
   };
 
@@ -161,7 +161,7 @@ export function useCharacterCreation() {
     name: values.name.trim(),
     raceIds: values.raceIds,
     investedStatPoints: values.investedStatPoints,
-    specialitySkillBaseLevels: values.specialitySkillBaseLevels,
+    investedSkillPoints: values.investedSkillPoints,
     focusStatCode: values.focusStatCode || undefined,
   };
 
@@ -284,7 +284,7 @@ export function useCharacterCreation() {
     stats,
     investableStats,
     derivedStatPreviews,
-    specialitySkills,
+    skills,
     races,
     raceBases,
     canAddRace,
@@ -294,7 +294,7 @@ export function useCharacterCreation() {
     previewError,
     toggleRace,
     setInvestedStatPoints,
-    setSpecialityBaseLevel,
+    setInvestedSkillPoints,
     setFocusStatCode,
     handleNext,
     handleBack,

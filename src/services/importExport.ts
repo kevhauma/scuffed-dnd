@@ -363,7 +363,7 @@ export function validateConfiguration(data: unknown): ValidationResult {
   // Required array fields
   const requiredArrays = [
     'stats',
-    'specialitySkills',
+    'skills',
     'combatSkills',
     'materials',
     'materialCategories',
@@ -496,79 +496,42 @@ export function validateConfiguration(data: unknown): ValidationResult {
     });
   }
 
-  // Validate speciality skills structure
-  if (Array.isArray(config.specialitySkills)) {
-    config.specialitySkills.forEach((skill: unknown, index: number) => {
+  // Validate skills structure (Concept 02, TICKET-SKL-02). A skill is `{ id, name, description,
+  // statWeights }` — weight rows keyed by stat **id**, so a file still holding a `bonusFormula`
+  // and a `code` is reported by name here rather than importing as a skill derived from nothing.
+  if (Array.isArray(config.skills)) {
+    config.skills.forEach((skill: unknown, index: number) => {
       if (!skill || typeof skill !== 'object') {
-        errors.push(`specialitySkills[${index}] must be an object`);
+        errors.push(`skills[${index}] must be an object`);
         return;
       }
       const s = skill as Record<string, unknown>;
-      if (typeof s.code !== 'string' || s.code.length !== 3) {
-        errors.push(`specialitySkills[${index}].code must be a 3-letter string`);
+      if (typeof s.id !== 'string') {
+        errors.push(`skills[${index}].id must be a string`);
       }
       if (typeof s.name !== 'string') {
-        errors.push(`specialitySkills[${index}].name must be a string`);
+        errors.push(`skills[${index}].name must be a string`);
       }
-      if (typeof s.bonusFormula !== 'string') {
-        errors.push(`specialitySkills[${index}].bonusFormula must be a string`);
+      if (!Array.isArray(s.statWeights)) {
+        errors.push(`skills[${index}].statWeights must be an array`);
+        return;
       }
+
+      s.statWeights.forEach((row: unknown, rowIndex: number) => {
+        const at = `skills[${index}].statWeights[${rowIndex}]`;
+        if (!row || typeof row !== 'object') {
+          errors.push(`${at} must be an object`);
+          return;
+        }
+        const w = row as Record<string, unknown>;
+        if (typeof w.statId !== 'string' || w.statId === '') {
+          errors.push(`${at}.statId must be a stat id`);
+        }
+        if (typeof w.weight !== 'number' || !Number.isFinite(w.weight)) {
+          errors.push(`${at}.weight must be a finite number`);
+        }
+      });
     });
-  }
-
-  // Validate constants structure — absent is valid, so files predating TICKET-CST-01 still
-  // import. `id` is not required for the same reason skills' is not: `ensureReferenceIds` mints
-  // a missing one on the way through `importConfiguration`.
-  if (config.constants !== undefined) {
-    if (!Array.isArray(config.constants)) {
-      errors.push("Field 'constants' must be an array when present");
-    } else {
-      const seenNames = new Set<string>();
-      config.constants.forEach((constant: unknown, index: number) => {
-        if (!constant || typeof constant !== 'object') {
-          errors.push(`constants[${index}] must be an object`);
-          return;
-        }
-        const c = constant as Record<string, unknown>;
-        if (typeof c.name !== 'string' || !IDENTIFIER_PATTERN.test(c.name)) {
-          errors.push(`constants[${index}].name must be a lowercase identifier`);
-        } else if (seenNames.has(c.name)) {
-          // A duplicate splits identity from value: the stored formula points at one constant's
-          // id while the resolver reads the other's number.
-          errors.push(`constants[${index}].name must be unique`);
-        } else {
-          seenNames.add(c.name);
-        }
-        if (typeof c.displayName !== 'string') {
-          errors.push(`constants[${index}].displayName must be a string`);
-        }
-        // Required by Concept 05 — a constant nobody understands is worse than a literal
-        if (typeof c.description !== 'string' || c.description.length === 0) {
-          errors.push(`constants[${index}].description is required`);
-        }
-        if (typeof c.value !== 'number') {
-          errors.push(`constants[${index}].value must be a number`);
-        }
-      });
-    }
-  }
-
-  // Validate curves structure — absent is valid, so files predating TICKET-CRV-01 still import.
-  // The row *contents* (sorted, unique keys) are `engine/validator.ts`'s job: a ruleset that
-  // imports with a badly ordered curve is reportable, not unreadable.
-  if (config.curves !== undefined) {
-    if (!Array.isArray(config.curves)) {
-      errors.push("Field 'curves' must be an array when present");
-    } else {
-      const seenNames = new Set<string>();
-      config.curves.forEach((curve: unknown, index: number) => {
-        if (!curve || typeof curve !== 'object') {
-          errors.push(`curves[${index}] must be an object`);
-          return;
-        }
-        errors.push(...curveShapeErrors(curve as Record<string, unknown>, index, seenNames));
-      });
-    }
   }
 
   // Validate combat skills structure

@@ -69,7 +69,6 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   // Validate formulas against the same scoping table the save-time guard uses, so an imported
   // ruleset is judged by exactly the rules a panel would have enforced (Concept 00 §5).
   const statScope = scopeFor(config, 'stat');
-  const specialityScope = scopeFor(config, 'speciality-skill');
   const combatScope = scopeFor(config, 'combat-skill');
 
   // Validate stat formulas — only derived stats have one (TICKET-STAT-01)
@@ -91,21 +90,32 @@ export function validateConfiguration(config: Configuration): ValidationReport {
     }
   }
 
-  // Validate speciality skill formulas
-  for (const skill of config.specialitySkills) {
-    const result = validateFormula(skill.bonusFormula, specialityScope.codes, specialityScope);
+  // Validate skill weight rows — a skill has no formula since TICKET-SKL-02, so what can be
+  // wrong is a weight naming a stat the ruleset does not define (Concept 02)
+  for (const skill of config.skills) {
+    for (const { statId } of skill.statWeights) {
+      if (statsById.has(statId)) continue;
 
-    if (!result.isValid) {
-      for (const error of result.errors) {
-        errors.push({
-          severity: 'error',
-          category: 'Formula Validation',
-          message: `Speciality Skill "${skill.name}": ${error}`,
-          entityType: 'specialitySkill',
-          entityId: skill.code,
-          entityName: skill.name,
-        });
-      }
+      errors.push({
+        severity: 'error',
+        category: 'Reference Validation',
+        message: `Skill "${skill.name}" is weighted on a stat that does not exist: ${statId}`,
+        entityType: 'skill',
+        entityId: skill.id,
+        entityName: skill.name,
+      });
+    }
+
+    // Concept 02's own validation rule: not an error, but worth saying out loud
+    if (skill.statWeights.length === 0) {
+      warnings.push({
+        severity: 'warning',
+        category: 'Data Consistency',
+        message: `Skill "${skill.name}" has no stat weights, so its level is whatever the Player invests and nothing else`,
+        entityType: 'skill',
+        entityId: skill.id,
+        entityName: skill.name,
+      });
     }
   }
 
@@ -133,7 +143,6 @@ export function validateConfiguration(config: Configuration): ValidationReport {
     ...config.stats
       .filter((stat) => stat.formula !== undefined)
       .map((stat) => toFormulaDependency(stat.id, stat.formula as string)),
-    ...config.specialitySkills.map((skill) => toFormulaDependency(skill.code, skill.bonusFormula)),
     ...config.combatSkills.map((skill) => toFormulaDependency(skill.code, skill.bonusFormula)),
   ];
 
@@ -297,11 +306,6 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   // Validate unique skill codes
   const allCodes = [
     ...config.stats.map((s) => ({ code: s.abbreviation, type: 'Stat', name: s.name })),
-    ...config.specialitySkills.map((s) => ({
-      code: s.code,
-      type: 'Speciality Skill',
-      name: s.name,
-    })),
     ...config.combatSkills.map((s) => ({ code: s.code, type: 'Combat Skill', name: s.name })),
   ];
 

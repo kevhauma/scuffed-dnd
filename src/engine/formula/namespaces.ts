@@ -6,10 +6,10 @@
  * can resolve come from one table rather than two that drift apart.
  *
  * A namespace in scope with no resolver is simply absent, which the evaluator reports as
- * `Unknown namespace`. `skills` is still in that state — TICKET-SKL-02 gives the skill entity a
- * resolver. `stats` gained one with TICKET-STAT-01, but only when the caller supplies composed
- * values: a configuration alone says which stats *exist*, not what they are worth on a given
- * character, and answering from the first without the second would be a confident wrong number.
+ * `Unknown namespace`. `stats` and `skills` both have one, but only when the caller supplies
+ * computed values: a configuration alone says which stats and skills *exist*, not what they are
+ * worth on a given character, and answering from the first without the second would be a
+ * confident wrong number.
  *
  * **Validates: Concept 00 §5; Concepts 05, 06; spec §5.1**
  */
@@ -20,6 +20,7 @@ import { constantsNamespace } from './constants';
 import { curvesNamespace } from './curves';
 import type { FormulaNamespace, FormulaOwner } from './scoping';
 import { NAMESPACE_SCOPES } from './scoping';
+import { skillsNamespace } from './skills';
 import { statsNamespace } from './stats';
 
 /**
@@ -30,8 +31,10 @@ import { statsNamespace } from './stats';
  * answer for a caller with no character in hand (a curve generator, an import-time check).
  */
 export type NamespaceSource = Pick<Configuration, 'constants' | 'curves'> &
-  Partial<Pick<Configuration, 'stats'>> & {
+  Partial<Pick<Configuration, 'stats' | 'skills'>> & {
     statValues?: Record<string, FormulaResult>;
+    skillLevels?: Record<string, FormulaResult>;
+    skillBonuses?: Record<string, FormulaResult>;
   };
 
 /**
@@ -46,6 +49,10 @@ const RESOLVER_BUILDERS: Partial<
     source.statValues === undefined
       ? undefined
       : statsNamespace(source.stats ?? [], source.statValues),
+  skills: (source) =>
+    source.skillLevels === undefined
+      ? undefined
+      : skillsNamespace(source.skills ?? [], source.skillLevels, source.skillBonuses ?? {}),
 };
 
 /**

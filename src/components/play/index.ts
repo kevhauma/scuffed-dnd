@@ -26,7 +26,7 @@ export * from './sheet/CharacterSheet';
 export * from './sheet/CombatSkillsSection';
 export * from './sheet/RaceStatBlockSection';
 export * from './sheet/SheetHeader';
-export * from './sheet/SpecialitySkillsSection';
+export * from './sheet/SkillsSection';
 export * from './sheet/StatEditor';
 export * from './sheet/StatsSection';
 export * from './sheet/useCharacterSheet';

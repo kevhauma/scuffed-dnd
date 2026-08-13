@@ -12,7 +12,7 @@ import { validateFormulaChange } from '../../../../engine/formula/formulaChange'
 import { useConfigStore } from '../../../../stores/configStore';
 import type { CombatSkill, DiceConfig } from '../../../../types';
 import { useGuardedDelete } from '../../shared/useGuardedDelete';
-import { resolveSkillId, useSkillCodeRename } from '../shared/skillIdentity';
+import { resolveSkillId } from '../shared/skillIdentity';
 
 interface SkillFormData {
   code: string;
@@ -32,7 +32,6 @@ export function useCombatSkillManager() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSkill, setEditingSkill] = useState<string | null>(null);
   const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
-  const applySkillCodeRename = useSkillCodeRename();
 
   const form = useForm<SkillFormData>({
     defaultValues: {
@@ -47,12 +46,9 @@ export function useCombatSkillManager() {
 
   const currentSkills = config?.combatSkills || [];
 
-  const availableSkillCodes = config
-    ? [
-        ...config.stats.map((s) => s.abbreviation.toUpperCase()),
-        ...config.specialitySkills.map((s) => s.code),
-      ]
-    : [];
+  // Stat abbreviations only since TICKET-SKL-02 — a skill is reached as `skills.<name>`, not by
+  // a code in the flat space
+  const availableSkillCodes = config ? config.stats.map((s) => s.abbreviation.toUpperCase()) : [];
 
   const validateCode = (code: string): string | true => {
     if (!config) return 'No configuration loaded';
@@ -62,7 +58,6 @@ export function useCombatSkillManager() {
 
     const allCodes = [
       ...config.stats.map((s) => s.abbreviation.toUpperCase()),
-      ...config.specialitySkills.map((s) => s.code),
       ...config.combatSkills.map((s) => s.code),
     ];
 
@@ -135,7 +130,6 @@ export function useCombatSkillManager() {
 
     if (editingSkill) {
       updateCombatSkill(editingSkill, skill);
-      applySkillCodeRename(editingSkill, code);
     } else {
       addCombatSkill(skill);
     }

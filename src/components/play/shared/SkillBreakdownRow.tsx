@@ -25,7 +25,13 @@ export interface SkillContribution {
 
 export interface SkillBreakdownRowProps {
   name: string;
-  code: string;
+  /**
+   * The short spelling shown beside the name, when the entity has one.
+   *
+   * Optional since TICKET-SKL-02: a `Skill` is named and nothing else — its code retired with the
+   * flat-space spelling it existed for — while a stat and a combat skill still carry one.
+   */
+  code?: string;
   /**
    * The engine's total. A main skill is always a number; a speciality skill's total comes from a
    * formula and may be an error, which renders as a chip in place of the number.
@@ -56,7 +62,7 @@ export function SkillBreakdownRow({
     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-stone-200 py-2 last:border-b-0">
       <div className="flex flex-wrap items-baseline gap-2">
         <Text variant="body-small" as="span">
-          {name} ({code})
+          {code === undefined ? name : `${name} (${code})`}
         </Text>
         {isFocusStat && (
           <Text variant="caption" as="span">

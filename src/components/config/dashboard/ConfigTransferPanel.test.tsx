@@ -36,7 +36,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 4,
+    schemaVersion: 5,
     stats: [
       {
         id: 'STR',
@@ -49,7 +49,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         rounding: 'none',
       },
     ],
-    specialitySkills: [],
+    skills: [],
     combatSkills: [],
     materials: [],
     materialCategories: [],
@@ -151,7 +151,7 @@ describe('ConfigTransferPanel', () => {
     choose(
       jsonFile(
         'partial.json',
-        JSON.stringify({ id: 'x', name: 'Half a ruleset', schemaVersion: 4 })
+        JSON.stringify({ id: 'x', name: 'Half a ruleset', schemaVersion: 5 })
       )
     );
     confirmImport();
@@ -177,7 +177,7 @@ describe('ConfigTransferPanel', () => {
           version: '1.0.0',
           mainSkills: [{ id: 'id-str', code: 'STR', name: 'Strength' }],
           stats: [],
-          specialitySkills: [],
+          skills: [],
           combatSkills: [],
           materials: [],
           materialCategories: [],

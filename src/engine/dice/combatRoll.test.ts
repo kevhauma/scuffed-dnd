@@ -41,7 +41,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 4,
+    schemaVersion: 5,
     stats: [
       {
         id: 'STR',
@@ -96,7 +96,7 @@ function createCharacter(config: Configuration): CalculatedCharacter {
       configurationId: 'config1',
       raceIds: [],
       investedStatPoints: { STR: 6, DEX: 8 },
-      specialitySkillBaseLevels: { STL: 2 },
+      investedSkillPoints: { STL: 2 },
       currentResourceValues: {},
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',

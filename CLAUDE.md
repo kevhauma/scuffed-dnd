@@ -99,6 +99,11 @@ acceptance criteria.
 - **Medieval theme tokens only** — `parchment-*`, `ink-*`, `stone-*`, `crimson`, `forest`,
   `royal`, `amber`, `font-heading`/`font-body`/`font-mono`, `shadow-parchment*`. A raw hex or a
   `bg-blue-500` is a bug.
+- **File edits go through the editor tools, never the shell.** Create and change files with
+  Read/Write/Edit — never with shell or script workarounds (`echo >`, `cat <<EOF`, `sed -i`,
+  `Set-Content`, `Out-File`, a throwaway Python/Node script). Same for reading and searching: Read,
+  Glob, and Grep instead of `cat`/`head`/`find`/`rg`. The shell is for running commands — tests,
+  typecheck, lint, git, yarn — not for authoring files.
 - **`src/routeTree.gen.ts` is generated** — never hand-edit it.
 - **A stat's `abbreviation` and the speciality/combat skill `code`s share one flat formula
   namespace and must be unique across all of them** (TICKET-STAT-01 merged `MainSkill` into

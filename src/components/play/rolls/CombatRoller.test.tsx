@@ -38,7 +38,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 4,
+    schemaVersion: 5,
     stats: [
       {
         id: 'STR',
@@ -62,7 +62,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         formula: 'STR * 10',
       },
     ],
-    specialitySkills: [],
+    skills: [],
     combatSkills: [
       {
         id: 'MEL',
@@ -101,7 +101,7 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     configurationId: 'config1',
     raceIds: [],
     investedStatPoints: { STR: 5 },
-    specialitySkillBaseLevels: {},
+    investedSkillPoints: {},
     currentResourceValues: { health: 50 },
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',

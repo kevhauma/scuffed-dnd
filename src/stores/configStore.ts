@@ -39,7 +39,7 @@ import type {
   Material,
   MaterialCategory,
   Race,
-  SpecialitySkill,
+  Skill,
   Stat,
 } from '../types/config';
 import { SUPPORTED_SCHEMA_VERSION } from '../types/config';
@@ -95,9 +95,9 @@ interface ConfigState {
   reorderStats: (orderedIds: string[]) => void;
 
   // Speciality Skills CRUD
-  addSpecialitySkill: (skill: SpecialitySkill) => void;
-  updateSpecialitySkill: (code: string, updates: Partial<SpecialitySkill>) => void;
-  deleteSpecialitySkill: (code: string, options?: DeleteOptions) => EntityReference[];
+  addSkill: (skill: Skill) => void;
+  updateSkill: (id: string, updates: Partial<Skill>) => void;
+  deleteSkill: (id: string, options?: DeleteOptions) => EntityReference[];
 
   // Combat Skills CRUD
   addCombatSkill: (skill: CombatSkill) => void;
@@ -320,7 +320,7 @@ function createFreshConfiguration(name: string): Configuration {
     version: '1.0.0',
     schemaVersion: SUPPORTED_SCHEMA_VERSION,
     stats: [],
-    specialitySkills: [],
+    skills: [],
     combatSkills: [],
     materials: [],
     materialCategories: [],
@@ -574,37 +574,39 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ config: updated });
   },
 
-  // Speciality Skills CRUD
-  addSpecialitySkill: (skill: SpecialitySkill) => {
+  // Skills CRUD (Concept 02, TICKET-SKL-02)
+  addSkill: (skill: Skill) => {
     const { config } = get();
     if (!config) return;
 
     const updated = autoSave({
       ...config,
-      specialitySkills: [...config.specialitySkills, skill],
+      skills: [...config.skills, skill],
     });
     set({ config: updated });
   },
 
-  updateSpecialitySkill: (code: string, updates: Partial<SpecialitySkill>) => {
+  updateSkill: (id: string, updates: Partial<Skill>) => {
     const { config } = get();
     if (!config) return;
 
+    // Renaming a skill re-spells every `skills.<name>` that points at it, the same way renaming a
+    // stat does — the formulas hold the skill's id, so nothing has to chase the change
     const updated = autoSave(
       applyRenameSafely(config, (current) => ({
         ...current,
-        specialitySkills: current.specialitySkills.map((skill) =>
-          skill.code === code ? { ...skill, ...updates } : skill
+        skills: current.skills.map((skill) =>
+          skill.id === id ? { ...skill, ...updates } : skill
         ),
       }))
     );
     set({ config: updated });
   },
 
-  deleteSpecialitySkill: (code: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'speciality-skill', code, options, (config) => ({
+  deleteSkill: (id: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'skill', id, options, (config) => ({
       ...config,
-      specialitySkills: config.specialitySkills.filter((skill) => skill.code !== code),
+      skills: config.skills.filter((skill) => skill.id !== id),
     })),
 
   // Combat Skills CRUD

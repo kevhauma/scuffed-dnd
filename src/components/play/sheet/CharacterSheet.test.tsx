@@ -35,7 +35,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 4,
+    schemaVersion: 5,
     stats: [
       {
         id: 'STR',
@@ -134,7 +134,7 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     raceIds: ['elf'],
     investedStatPoints: { STR: 6, 'dex-id': 4 },
     focusStatCode: 'STL',
-    specialitySkillBaseLevels: { STL: 3 },
+    investedSkillPoints: { STL: 3 },
     currentResourceValues: { health: 60, mana: 30 },
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',
@@ -276,7 +276,7 @@ describe('CharacterSheet', () => {
       within(rowFor(/Dexterity \(DEX\)/)).getByText(String(expected.statValues['dex-id']))
     ).toBeDefined();
     expect(
-      within(rowFor(/Stealth \(STL\)/)).getByText(String(expected.specialitySkillTotalLevels.STL))
+      within(rowFor(/Stealth \(STL\)/)).getByText(String(expected.skillLevels.STL))
     ).toBeDefined();
     expect(
       within(rowFor(/Melee \(MEL\)/)).getByText(`+${expected.combatSkillBonuses.MEL}`)

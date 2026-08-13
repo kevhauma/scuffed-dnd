@@ -115,7 +115,7 @@ export function rootCause(error: FormulaError): FormulaError {
 function sourceLabel(source: FormulaErrorSource): string {
   const kindLabels: Record<FormulaErrorSource['kind'], string> = {
     stat: 'Stat',
-    'speciality-skill': 'Speciality Skill',
+    skill: 'Skill',
     'combat-skill': 'Combat Skill',
   };
 

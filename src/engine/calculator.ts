@@ -19,17 +19,16 @@ import { isFormulaError } from './formula/errors';
 // Re-export all calculator functions
 export * from './calculators/combatSkillCalculator';
 export * from './calculators/equipmentBonusCalculator';
-export * from './calculators/specialitySkillCalculator';
+export * from './calculators/skillCalculator';
 export * from './calculators/statCalculator';
 
 import { calculateCombatSkillBonuses } from './calculators/combatSkillCalculator';
 import { calculateEquipmentBonuses } from './calculators/equipmentBonusCalculator';
 // Import for the composed entry point
-import { calculateSpecialitySkillLevels } from './calculators/specialitySkillCalculator';
+import { calculateSkills } from './calculators/skillCalculator';
 import {
   calculateStatTotal,
   calculateStatValues,
-  statVariables,
 } from './calculators/statCalculator';
 
 /**
@@ -45,8 +44,8 @@ import {
  *    the formula for a derived one, then clamp and round (TICKET-STAT-01). Everything downstream
  *    reads them, so an equipped `STR +2` moves every stat and skill derived from `STR`
  *    (Requirement 13.3);
- * 3. **speciality skills** — base + formula + focus (if the focus stat is a speciality skill);
- * 4. **combat skills** — formula over stats and speciality levels.
+ * 3. **skills** — `Σ(weight × stat) + invested`, and the bonus that rounds off it (Concept 02);
+ * 4. **combat skills** — formula over stats and skills, both already computed.
  *
  * **Equipment is applied exactly once, at step 2** (TICKET-MAT-02). A tier modifier names a stat,
  * so steps 3 and 4 have no equipment term to claim a second share with — they read stats the
@@ -79,24 +78,25 @@ export function calculateCharacter(
     source: config,
   });
 
-  // The flat space downstream formulas are still written in, keyed by abbreviation
-  const variables = statVariables(config.stats, statValues);
-
-  // 3. Speciality skill totals — base + formula + focus
-  const specialitySkillTotalLevels = calculateSpecialitySkillLevels(character, config, variables);
-
-  // 4. Combat skill bonuses — the formula over stats and speciality levels
-  const combatSkillBonuses = calculateCombatSkillBonuses(
+  // 3. Skill levels and bonuses — weighted stats plus what the Player invested (Concept 02)
+  const { levels: skillLevels, bonuses: skillBonuses } = calculateSkills(
     config,
-    variables,
-    specialitySkillTotalLevels
+    statValues,
+    character
   );
+
+  // 4. Combat skill bonuses — the formula over the stats and skills already computed
+  const combatSkillBonuses = calculateCombatSkillBonuses(config, statValues, {
+    levels: skillLevels,
+    bonuses: skillBonuses,
+  });
 
   return {
     ...character,
     statValues,
     statTotal: calculateStatTotal(config.stats, statValues),
-    specialitySkillTotalLevels,
+    skillLevels,
+    skillBonuses,
     combatSkillBonuses,
     equipmentBonuses,
   };
@@ -118,7 +118,7 @@ export function calculateCharacter(
 export function firstCalculationError(calculated: CalculatedCharacter): FormulaError | undefined {
   const entries: FormulaResult[] = [
     ...Object.values(calculated.statValues),
-    ...Object.values(calculated.specialitySkillTotalLevels),
+    ...Object.values(calculated.skillLevels),
     ...Object.values(calculated.combatSkillBonuses),
   ];
 

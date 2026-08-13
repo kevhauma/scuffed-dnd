@@ -33,7 +33,7 @@ function character(overrides: Partial<Character> = {}): Character {
     configurationId: 'config1',
     raceIds: [],
     investedStatPoints: {},
-    specialitySkillBaseLevels: {},
+    investedSkillPoints: {},
     currentResourceValues: {},
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',

@@ -15,7 +15,7 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     configurationId: 'config1',
     raceIds: ['elf'],
     investedStatPoints: { STR: 4, DEX: 3, CON: 2 },
-    specialitySkillBaseLevels: {},
+    investedSkillPoints: {},
     currentResourceValues: {},
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',

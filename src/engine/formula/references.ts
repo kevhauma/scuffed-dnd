@@ -25,7 +25,7 @@
  * **Validates: Concept 00 §6; spec §3.2**
  */
 
-import type { Configuration, Stat } from '../../types/config';
+import type { Configuration, Skill, Stat } from '../../types/config';
 import type { FormulaToken } from './parser';
 import { tokenizeFormula } from './parser';
 
@@ -84,14 +84,36 @@ export interface ReferenceIndex {
  * @returns An identifier-shaped member name
  */
 export function statMemberName(stat: Pick<Stat, 'name'>): string {
-  const slug = stat.name
+  return memberSlug(stat.name, 'stat');
+}
+
+/**
+ * How a skill is spelled inside a formula
+ *
+ * The same derivation as a stat's, for the same reason: a `Skill` carries a name and an id but no
+ * code since TICKET-SKL-02, so `Lock picking` is written `skills.lock_picking`. The stored form
+ * holds the skill's id, so renaming re-slugs every formula naming it.
+ *
+ * @param skill - The skill to spell
+ * @returns An identifier-shaped member name
+ */
+export function skillMemberName(skill: Pick<Skill, 'name'>): string {
+  return memberSlug(skill.name, 'skill');
+}
+
+/**
+ * A name as an identifier-shaped member, prefixed when it would not start with a letter
+ *
+ * A name of digits or punctuation alone still needs a spelling, and prefixing is preferable to
+ * producing something the parser would reject.
+ */
+function memberSlug(name: string, prefix: string): string {
+  const slug = name
     .toLowerCase()
     .replace(/[^a-z0-9_]+/g, '_')
     .replace(/^_+|_+$/g, '');
 
-  // Identifiers must start with a letter; a name of digits or punctuation alone still needs a
-  // spelling, and prefixing is preferable to producing something the parser would reject.
-  return /^[a-z]/.test(slug) ? slug : `stat_${slug}`;
+  return /^[a-z]/.test(slug) ? slug : `${prefix}_${slug}`;
 }
 
 /**
@@ -134,14 +156,16 @@ export function buildReferenceIndex(config: Configuration): ReferenceIndex {
     link(toId.bare, toDisplay.bare, stat.abbreviation.toUpperCase(), stat.id);
   }
 
-  for (const skill of [...config.specialitySkills, ...config.combatSkills]) {
+  // Combat skills still hold a code (ROLL-05/06 retires them); a `Skill` does not, so the flat
+  // space is stat abbreviations plus combat codes now (TICKET-SKL-02)
+  for (const skill of config.combatSkills) {
     if (!skill.id) continue;
     link(toId.bare, toDisplay.bare, skill.code.toUpperCase(), skill.id);
   }
 
-  for (const skill of config.specialitySkills) {
+  for (const skill of config.skills) {
     if (!skill.id) continue;
-    link(toId.skills, toDisplay.skills, skill.code.toUpperCase(), skill.id);
+    link(toId.skills, toDisplay.skills, skillMemberName(skill), skill.id);
   }
 
   for (const stat of config.stats) {
@@ -404,10 +428,6 @@ function translateConfiguration(
         ? stat
         : { ...stat, formula: translateFormula(stat.formula, index) }
     ),
-    specialitySkills: config.specialitySkills.map((skill) => ({
-      ...skill,
-      bonusFormula: translateFormula(skill.bonusFormula, index),
-    })),
     combatSkills: config.combatSkills.map((skill) => ({
       ...skill,
       bonusFormula: translateFormula(skill.bonusFormula, index),
@@ -472,7 +492,7 @@ export function ensureReferenceIds(config: Configuration, newId: () => string): 
   return {
     ...config,
     stats: config.stats.map(withId),
-    specialitySkills: config.specialitySkills.map(withId),
+    skills: config.skills.map(withId),
     combatSkills: config.combatSkills.map(withId),
     // Absent stays absent, the way `mainSkillPointBudget` does — a file predating TICKET-CST-01
     // round-trips unchanged rather than growing an empty array on the way through.

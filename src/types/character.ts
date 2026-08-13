@@ -24,8 +24,23 @@ export interface Character {
    * TICKET-CALC-02's invariant carried across.
    */
   investedStatPoints: Record<string, number>; // statId -> points invested
-  focusStatCode?: string; // Stat abbreviation or speciality skill code — retired by TICKET-ARC-03
-  specialitySkillBaseLevels: Record<string, number>; // skillCode -> base level
+  /**
+   * The stat this character focused on, by **abbreviation** — retired by TICKET-ARC-03.
+   *
+   * A stat only, since TICKET-SKL-02: a skill has no code to name it by any more, so a focus on a
+   * skill has nowhere to point. Archetype replaces the whole mechanism, so this is a shrinking
+   * field rather than one to redesign.
+   */
+  focusStatCode?: string;
+  /**
+   * Points the Player has put into each skill, keyed by **skill id** (TICKET-SKL-02).
+   *
+   * Replaces v1's `specialitySkillBaseLevels`, which was keyed by a mutable 3-letter code — so a
+   * rename orphaned the Player's investment and needed a store action to chase it. An id cannot.
+   * The contribution to `level` is 1:1 for now; Concept 02 leaves the real conversion open
+   * (`+1.5` for one starting pick), and TICKET-ARC-02 routes it through the point-buy curve.
+   */
+  investedSkillPoints: Record<string, number>;
   /**
    * Where each **resource** stat currently stands against its maximum, keyed by stat id.
    *
@@ -67,7 +82,10 @@ export interface CalculatedCharacter extends Character {
   statValues: Record<string, FormulaResult>; // statId -> composed value (the max, for resources)
   /** Sum of the `countsTowardTotal` stats — stats that failed to compute contribute nothing */
   statTotal: number;
-  specialitySkillTotalLevels: Record<string, FormulaResult>; // Base + bonus
+  /** Each skill's level — `Σ(weight × stat) + invested` — keyed by skill id (Concept 02) */
+  skillLevels: Record<string, FormulaResult>;
+  /** Each skill's **bonus**, the integer a Player adds to a roll: `round(level / bonus_divider)` */
+  skillBonuses: Record<string, FormulaResult>;
   combatSkillBonuses: Record<string, FormulaResult>; // Calculated from formulas
   equipmentBonuses: StatModifier[]; // From equipped items, keyed by stat id (TICKET-MAT-02)
 }
@@ -80,7 +98,7 @@ export interface CharacterCreationData {
   raceIds: string[];
   investedStatPoints: Record<string, number>;
   focusStatCode?: string;
-  specialitySkillBaseLevels: Record<string, number>;
+  investedSkillPoints: Record<string, number>;
 }
 
 /**

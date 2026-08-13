@@ -29,7 +29,6 @@ import { scopeFor } from '../../../engine/formula/scoping';
 import { useConfigStore } from '../../../stores/configStore';
 import type { Stat, StatRounding } from '../../../types';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
-import { useSkillCodeRename } from '../skills/shared/skillIdentity';
 
 /** What a spelling in the flat formula space must look like — `STR`, never `Str Total` */
 const ABBREVIATION_PATTERN = /^[A-Z][A-Z0-9_]*$/;
@@ -95,7 +94,6 @@ export function useStatManager() {
   const reorderStats = useConfigStore((state) => state.reorderStats);
 
   const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
-  const applyAbbreviationRename = useSkillCodeRename();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStatId, setEditingStatId] = useState<string | null>(null);
@@ -222,15 +220,14 @@ export function useStatManager() {
       };
     }
 
-    // One flat space, shared with the two skill code spaces (CLAUDE.md): a collision would split
-    // a formula's identity from the value it reads
+    // One flat space, shared with the combat skill codes (CLAUDE.md): a collision would split a
+    // formula's identity from the value it reads. A `Skill` is not in it — TICKET-SKL-02 gave it
+    // a name slug under `skills.*` instead of a code.
     const taken =
       currentStats.some(
         (stat) => stat.abbreviation.toUpperCase() === abbreviation && stat.id !== editingStatId
       ) ||
-      [...config.specialitySkills, ...config.combatSkills].some(
-        (skill) => skill.code.toUpperCase() === abbreviation
-      );
+      config.combatSkills.some((skill) => skill.code.toUpperCase() === abbreviation);
 
     if (taken) {
       return { field: 'abbreviation', message: `${abbreviation} is already in use` };
@@ -286,7 +283,6 @@ export function useStatManager() {
       // merge would keep a bound or a formula the User just cleared
       updateStat(editingStatId, { ...stat, formula: formula || undefined, min, max });
       // The configuration half is rename-safe on its own; this is the character half
-      applyAbbreviationRename(existing?.abbreviation ?? null, abbreviation);
     } else {
       addStat(stat);
     }

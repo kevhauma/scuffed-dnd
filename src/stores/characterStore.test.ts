@@ -44,7 +44,7 @@ describe('CharacterStore', () => {
           configurationId: 'config-1',
           raceIds: ['race-1'],
           investedStatPoints: { STR: 10 },
-          specialitySkillBaseLevels: {},
+          investedSkillPoints: {},
           currentResourceValues: {},
           inventory: { equippedItems: {}, miscItems: [] },
           createdAt: '2024-01-01T00:00:00.000Z',
@@ -67,7 +67,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 4,
+      schemaVersion: 5,
       stats: [
         {
           id: 'STR',
@@ -101,7 +101,7 @@ describe('CharacterStore', () => {
           formula: 'STR * 10',
         },
       ],
-      specialitySkills: [],
+      skills: [],
       combatSkills: [],
       materials: [],
       materialCategories: [],
@@ -120,7 +120,7 @@ describe('CharacterStore', () => {
         raceIds: ['race-1'],
         investedStatPoints: { STR: 10, DEX: 8 },
         focusStatCode: 'STR',
-        specialitySkillBaseLevels: { SWD: 5 },
+        investedSkillPoints: { SWD: 5 },
       };
 
       const character = createOrFail(creationData, testConfig);
@@ -143,7 +143,7 @@ describe('CharacterStore', () => {
         name: 'Test',
         raceIds: [],
         investedStatPoints: {},
-        specialitySkillBaseLevels: {},
+        investedSkillPoints: {},
       };
 
       const character = createOrFail(creationData, testConfig);
@@ -159,7 +159,7 @@ describe('CharacterStore', () => {
         name: 'Full Health',
         raceIds: [],
         investedStatPoints: { STR: 7 },
-        specialitySkillBaseLevels: {},
+        investedSkillPoints: {},
       };
 
       const character = createOrFail(creationData, testConfig);
@@ -189,7 +189,7 @@ describe('CharacterStore', () => {
         name: 'Survivor',
         raceIds: [],
         investedStatPoints: { STR: 3 },
-        specialitySkillBaseLevels: {},
+        investedSkillPoints: {},
       };
 
       const character = createOrFail(creationData, brokenConfig);
@@ -233,7 +233,7 @@ describe('CharacterStore', () => {
         name: 'Half Broken',
         raceIds: [],
         investedStatPoints: { STR: 4 },
-        specialitySkillBaseLevels: {},
+        investedSkillPoints: {},
       };
 
       const character = createOrFail(creationData, partlyBrokenConfig);
@@ -249,7 +249,7 @@ describe('CharacterStore', () => {
         name: 'Chimera',
         raceIds: ['race-1', 'race-2', 'race-3'],
         investedStatPoints: {},
-        specialitySkillBaseLevels: {},
+        investedSkillPoints: {},
       };
 
       const character = useCharacterStore.getState().createCharacter(creationData, testConfig);
@@ -264,7 +264,7 @@ describe('CharacterStore', () => {
         name: raceIds.join('-') || 'raceless',
         raceIds,
         investedStatPoints: {},
-        specialitySkillBaseLevels: {},
+        investedSkillPoints: {},
       });
 
       // Zero stays legal: a ruleset may define no races at all (Requirement 11.2)
@@ -285,7 +285,7 @@ describe('CharacterStore', () => {
         configurationId: 'config-1',
         raceIds: [],
         investedStatPoints: {},
-        specialitySkillBaseLevels: {},
+        investedSkillPoints: {},
         currentResourceValues: {},
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
@@ -309,7 +309,7 @@ describe('CharacterStore', () => {
         configurationId: 'config-1',
         raceIds: ['race-1', 'race-2'],
         investedStatPoints: {},
-        specialitySkillBaseLevels: {},
+        investedSkillPoints: {},
         currentResourceValues: {},
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
@@ -336,7 +336,7 @@ describe('CharacterStore', () => {
         configurationId: 'config-1',
         raceIds: [],
         investedStatPoints: {},
-        specialitySkillBaseLevels: {},
+        investedSkillPoints: {},
         currentResourceValues: {},
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
@@ -360,7 +360,7 @@ describe('CharacterStore', () => {
         configurationId: 'config-1',
         raceIds: [],
         investedStatPoints: {},
-        specialitySkillBaseLevels: {},
+        investedSkillPoints: {},
         currentResourceValues: {},
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
@@ -390,9 +390,9 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 4,
+      schemaVersion: 5,
       stats: [],
-      specialitySkills: [],
+      skills: [],
       combatSkills: [],
       materials: [],
       materialCategories: [],
@@ -420,7 +420,7 @@ describe('CharacterStore', () => {
         configurationId: 'config-1',
         raceIds: [],
         investedStatPoints: {},
-        specialitySkillBaseLevels: {},
+        investedSkillPoints: {},
         currentResourceValues: {},
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
@@ -642,7 +642,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 4,
+      schemaVersion: 5,
       stats: [
         {
           id: 'STR',
@@ -677,7 +677,7 @@ describe('CharacterStore', () => {
           formula: 'STR * 5',
         },
       ],
-      specialitySkills: [],
+      skills: [],
       combatSkills: [],
       materials: [],
       materialCategories: [],
@@ -697,7 +697,7 @@ describe('CharacterStore', () => {
         configurationId: 'config-1',
         raceIds: [],
         investedStatPoints: { STR: 10 },
-        specialitySkillBaseLevels: {},
+        investedSkillPoints: {},
         currentResourceValues: { health: 100, mana: 50 },
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
@@ -811,7 +811,7 @@ describe('CharacterStore', () => {
             configurationId: 'config1',
             raceIds: [],
             investedStatPoints: { STR: 6, DEX: 4 },
-            specialitySkillBaseLevels: { STL: 3 },
+            investedSkillPoints: { STL: 3 },
             focusStatCode: 'STR',
             currentResourceValues: {},
             inventory: { equippedItems: {}, miscItems: [] },
@@ -838,7 +838,7 @@ describe('CharacterStore', () => {
     it('moves a speciality base level too', () => {
       useCharacterStore.getState().renameSkillCode('STL', 'SNK');
 
-      expect(useCharacterStore.getState().characters[0].specialitySkillBaseLevels).toEqual({
+      expect(useCharacterStore.getState().characters[0].investedSkillPoints).toEqual({
         SNK: 3,
       });
     });

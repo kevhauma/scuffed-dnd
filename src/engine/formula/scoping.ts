@@ -10,7 +10,7 @@
  */
 
 import type { Configuration } from '../../types/config';
-import { statMemberName } from './references';
+import { skillMemberName, statMemberName } from './references';
 
 /**
  * Where a formula is attached. One row of the scoping tables below.
@@ -18,7 +18,7 @@ import { statMemberName } from './references';
  * This milestone's slice of the Concept 00 §5 context table — the attachment points that exist
  * today. Later tickets add rows (constants-as-formulas, roll inputs); they do not add branches.
  */
-export type FormulaOwner = 'stat' | 'speciality-skill' | 'combat-skill' | 'curve-generator';
+export type FormulaOwner = 'stat' | 'combat-skill' | 'curve-generator';
 
 /**
  * Every namespace the engine knows about, regardless of context.
@@ -51,18 +51,14 @@ export function isKnownNamespace(name: string): name is FormulaNamespace {
  * `equipment`, `archetype`, and `race`. Those arrive with the concepts that define them; listing
  * them before they resolve would only produce formulas that save and then fail.
  *
- * Note that a stat may reach speciality skills through `skills.*` even though bare speciality
- * codes stay refused for stats (Requirement 3.2). That is intentional, not an oversight: the
- * legacy bare-code rules are frozen exactly as v1.0 left them until TICKET-STAT-01 retires them,
- * while the namespaced rules follow the spec's context table, which this milestone is moving
- * toward. The two syntaxes therefore disagree for one milestone, by design.
+ * **There is no skill attachment point any more** (TICKET-SKL-02). A `Skill` carries weight rows
+ * rather than a formula string, so nothing is attached to it for a scope to describe — which is
+ * the entity's whole argument: the arithmetic lives once, in the calculator, and a rebalance is a
+ * constant rather than 48 edits.
  */
 export const NAMESPACE_SCOPES: Record<FormulaOwner, readonly FormulaNamespace[]> = {
   // Character derived field
   stat: ['stats', 'skills', 'const', 'curve'],
-  // Skill level — the spec row is `stats`, `self`, `character`, `const`; `self` and `character`
-  // aren't modelled yet
-  'speciality-skill': ['stats', 'const'],
   // Roll input, on its way to becoming a roll definition (TICKET-ROLL-05)
   'combat-skill': ['stats', 'skills', 'const', 'curve'],
   // A curve column's generator (Concept 06): the row's key and the ruleset's tunables, nothing
@@ -74,15 +70,15 @@ export const NAMESPACE_SCOPES: Record<FormulaOwner, readonly FormulaNamespace[]>
 /**
  * Which legacy bare-code collections each attachment point may name
  *
- * Preserves the v1.0 rules exactly (Requirements 3.2, 4.3, 5.4) until TICKET-STAT-01 retires
- * bare codes: stats and speciality skills see stat abbreviations, combat skills also see
- * speciality codes. `stat` sees the abbreviations so a derived stat can be written either way —
- * `STR * 10` or `stats.strength * 10` — which is what the source sheet's formulas look like.
+ * What is left of the v1.0 rules: every attachment point that sees anything sees **stat
+ * abbreviations**, so a derived stat can be written either way — `STR * 10` or
+ * `stats.strength * 10` — which is what the source sheet's formulas look like. The speciality half
+ * retired with the code it named: a `Skill` has none since TICKET-SKL-02, and a combat formula
+ * reaches one as `skills.<name>` instead.
  */
-const LEGACY_CODE_SCOPES: Record<FormulaOwner, readonly ('stat' | 'speciality')[]> = {
+const LEGACY_CODE_SCOPES: Record<FormulaOwner, readonly 'stat'[]> = {
   stat: ['stat'],
-  'speciality-skill': ['stat'],
-  'combat-skill': ['stat', 'speciality'],
+  'combat-skill': ['stat'],
   // A generator sees no skill at all — it fills a table, not a character (TICKET-CRV-02)
   'curve-generator': [],
 };
@@ -96,7 +92,6 @@ const LEGACY_CODE_SCOPES: Record<FormulaOwner, readonly ('stat' | 'speciality')[
  */
 const CONTEXT_CODES: Record<FormulaOwner, readonly string[]> = {
   stat: [],
-  'speciality-skill': [],
   'combat-skill': [],
   'curve-generator': ['KEY'],
 };
@@ -115,18 +110,18 @@ export interface FormulaScope {
  * The members each namespace currently provides, derived from the configuration
  *
  * Members are **display spellings**, because that is the form a formula is written and validated
- * in — `stats.max_health`, `skills.STL`. The stored form holds ids instead (TICKET-REF-01,
+ * in — `stats.max_health`, `skills.lock_picking`. The stored form holds ids instead (TICKET-REF-01,
  * `references.ts`), which is why renaming a stat or a code changes what validates here without
  * changing what any formula points at.
  *
  * `curve` publishes curve **names** (TICKET-CRV-01). A curve's value column is a third segment
  * rather than a member, so which column a call names is checked at evaluation, where the curve
- * itself is in hand — the same place `skills.STL.level`'s property is checked.
+ * itself is in hand — the same place a `skills.<name>.bonus` property is checked.
  */
 function membersOf(config: Configuration): Record<FormulaNamespace, ReadonlySet<string>> {
   return {
     stats: new Set(config.stats.map(statMemberName)),
-    skills: new Set(config.specialitySkills.map((skill) => skill.code)),
+    skills: new Set(config.skills.map(skillMemberName)),
     const: new Set((config.constants ?? []).map((constant) => constant.name)),
     curve: new Set((config.curves ?? []).map((curve) => curve.name)),
   };
@@ -143,12 +138,8 @@ export function scopeFor(config: Configuration, owner: FormulaOwner): FormulaSco
   const members = membersOf(config);
 
   const codes = new Set<string>(CONTEXT_CODES[owner]);
-  for (const source of LEGACY_CODE_SCOPES[owner]) {
-    if (source === 'stat') {
-      for (const stat of config.stats) codes.add(stat.abbreviation.toUpperCase());
-    } else {
-      for (const skill of config.specialitySkills) codes.add(skill.code);
-    }
+  if (LEGACY_CODE_SCOPES[owner].includes('stat')) {
+    for (const stat of config.stats) codes.add(stat.abbreviation.toUpperCase());
   }
 
   // No `?? new Set()` fallback: `membersOf` returns every `FormulaNamespace`, so a row that

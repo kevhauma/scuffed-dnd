@@ -18,7 +18,7 @@
 
 import type { Character } from '../types/character';
 import type { Configuration, MaterialLevel } from '../types/config';
-import { statMemberName } from './formula/references';
+import { skillMemberName, statMemberName } from './formula/references';
 import { validateFormula } from './formula/validator';
 
 /**
@@ -30,7 +30,7 @@ export type ReferenceTargetKind =
   | 'constant'
   | 'curve'
   | 'curve-column'
-  | 'speciality-skill'
+  | 'skill'
   | 'combat-skill'
   | 'stat'
   | 'race'
@@ -140,15 +140,6 @@ function formulaSources(config: Configuration): { reference: EntityReference; fo
         },
         formula: stat.formula as string,
       })),
-    ...config.specialitySkills.map((skill) => ({
-      reference: {
-        holderKind: 'Speciality Skill',
-        holderName: skill.name,
-        field: 'bonusFormula',
-        holderId: skill.id,
-      },
-      formula: skill.bonusFormula,
-    })),
     ...config.combatSkills.map((skill) => ({
       reference: {
         holderKind: 'Combat Skill',
@@ -247,37 +238,64 @@ function raceStatBlockReferences(config: Configuration, statId: string): EntityR
     }));
 }
 
-/** Characters holding anything under a skill code */
-function characterSkillReferences(characters: Character[], code: string): EntityReference[] {
+/** Characters whose focus names a code */
+function characterFocusReferences(characters: Character[], code: string): EntityReference[] {
   return characters
-    .filter(
-      (character) => code in character.specialitySkillBaseLevels || character.focusStatCode === code
-    )
+    .filter((character) => character.focusStatCode === code)
     .map((character) => ({
       holderKind: 'Character',
       holderName: character.name,
-      field: 'skill levels',
+      field: 'focus stat',
       holderId: character.id,
     }));
 }
 
-/** Everything pointing at one of the three skill kinds, which share a code space */
-function skillReferences(
+/** Characters who have invested in a skill, by **id** since TICKET-SKL-02 */
+function characterSkillReferences(characters: Character[], skillId: string): EntityReference[] {
+  return characters
+    .filter((character) => skillId in character.investedSkillPoints)
+    .map((character) => ({
+      holderKind: 'Character',
+      holderName: character.name,
+      field: 'invested skill points',
+      holderId: character.id,
+    }));
+}
+
+/**
+ * Everything pointing at a skill (Concept 02, TICKET-SKL-02)
+ *
+ * A `Skill` has no code, so nothing names it in the flat space and it has no own formula to
+ * exclude: what points at it is a formula spelling `skills.<name>` and a character's investment.
+ */
+function skillEntityReferences(
+  config: Configuration,
+  characters: Character[],
+  id: string
+): EntityReference[] {
+  const skill = config.skills.find((candidate) => candidate.id === id);
+
+  return [
+    ...(skill ? formulaReferences(config, namesMember('skills', skillMemberName(skill)), id) : []),
+    ...characterSkillReferences(characters, id),
+  ];
+}
+
+/** Everything pointing at a combat skill, which still lives in the flat code space */
+function combatSkillReferences(
   config: Configuration,
   characters: Character[],
   code: string
 ): EntityReference[] {
   // A skill's own bonus formula goes with it, so exclude it by id — the codes in the formula are
   // spellings, the identity is not (TICKET-REF-01).
-  const own = [...config.specialitySkills, ...config.combatSkills].find(
-    (skill) => skill.code === code
-  );
+  const own = config.combatSkills.find((skill) => skill.code === code);
 
   // No material lookup here since TICKET-MAT-01: a tier's modifiers name a stat id, so a
   // speciality or combat code can no longer be one of their targets.
   return [
     ...formulaReferences(config, namesSkill(code), own?.id ?? code),
-    ...characterSkillReferences(characters, code),
+    ...characterFocusReferences(characters, code),
   ];
 }
 
@@ -380,9 +398,11 @@ export function findReferences(
   characters: Character[] = []
 ): EntityReference[] {
   switch (target.kind) {
-    case 'speciality-skill':
+    case 'skill':
+      return skillEntityReferences(config, characters, target.id);
+
     case 'combat-skill':
-      return skillReferences(config, characters, target.id);
+      return combatSkillReferences(config, characters, target.id);
 
     case 'stat':
       return statReferences(config, characters, target.id);
