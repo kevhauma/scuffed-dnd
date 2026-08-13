@@ -32,7 +32,7 @@ function createMinimalConfig(): Configuration {
     id: 'test-config',
     name: 'Test Configuration',
     version: '1.0.0',
-    schemaVersion: 3,
+    schemaVersion: 4,
     stats: [
       stat('STR', 'Strength', 'STR'),
       stat('DEX', 'Dexterity', 'DEX'),
@@ -152,7 +152,7 @@ describe('validateConfiguration', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should validate materials with valid category and skill references', () => {
+    it('should validate materials with valid category and stat references', () => {
       const config = createMinimalConfig();
       config.materialCategories = [{ id: 'metals', name: 'Metals', description: '' }];
       config.currencyTiers = [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 1 }];
@@ -166,7 +166,7 @@ describe('validateConfiguration', () => {
             {
               level: 1,
               name: 'Iron',
-              bonuses: [{ skillCode: 'STR', modifier: 2 }],
+              bonuses: [{ statId: 'STR', modifier: 2 }],
               value: { tierId: 'gold', amount: 10 },
             },
           ],
@@ -554,7 +554,7 @@ describe('validateConfiguration', () => {
       expect(result.errors[0].message).toContain('level 99');
     });
 
-    it('should detect invalid skill reference in material bonuses', () => {
+    it('should detect a dangling stat reference in material bonuses (TICKET-MAT-01)', () => {
       const config = createMinimalConfig();
       config.materialCategories = [{ id: 'metals', name: 'Metals', description: '' }];
       config.currencyTiers = [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 1 }];
@@ -568,7 +568,7 @@ describe('validateConfiguration', () => {
             {
               level: 1,
               name: 'Iron',
-              bonuses: [{ skillCode: 'INVALID', modifier: 2 }],
+              bonuses: [{ statId: 'INVALID', modifier: 2 }],
               value: { tierId: 'gold', amount: 10 },
             },
           ],
@@ -581,6 +581,51 @@ describe('validateConfiguration', () => {
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0].message).toContain('Iron');
       expect(result.errors[0].message).toContain('INVALID');
+    });
+
+    it('should refuse a material bonus that targets a derived stat (TICKET-MAT-01)', () => {
+      // A derived stat's formula is its only source, so a modifier there would be a term the
+      // composition never applies — silently, which is the worst kind of wrong number
+      const config = createMinimalConfig();
+      config.stats = [
+        ...config.stats,
+        {
+          id: 'apt',
+          name: 'APT',
+          abbreviation: 'APT',
+          description: '',
+          order: 9,
+          countsTowardTotal: false,
+          isResource: false,
+          rounding: 'none',
+          formula: 'STR / 2',
+        },
+      ];
+      config.materialCategories = [{ id: 'metals', name: 'Metals', description: '' }];
+      config.currencyTiers = [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 1 }];
+      config.materials = [
+        {
+          id: 'iron',
+          name: 'Iron',
+          description: '',
+          categoryId: 'metals',
+          levels: [
+            {
+              level: 1,
+              name: 'Iron',
+              bonuses: [{ statId: 'apt', modifier: 2 }],
+              value: { tierId: 'gold', amount: 10 },
+            },
+          ],
+        },
+      ];
+
+      const result = validateConfiguration(config);
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].message).toContain('APT');
+      expect(result.errors[0].message).toContain('derived stat');
     });
 
     it('should detect invalid currency tier reference in material', () => {

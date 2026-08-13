@@ -81,7 +81,7 @@ describe('the merged ruleset', () => {
   it('imports at the current schema version, with the sheet in it', () => {
     const config = importConfiguration(committed);
 
-    expect(config.schemaVersion).toBe(3);
+    expect(config.schemaVersion).toBe(4);
     expect(config.stats.map((stat) => stat.abbreviation)).toContain('APT');
     expect(config.specialitySkills).toHaveLength(48);
     expect(config.curves?.find((curve) => curve.name === 'point_buy')?.rows).toHaveLength(51);

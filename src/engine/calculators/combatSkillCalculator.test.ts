@@ -14,7 +14,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
+      schemaVersion: 4,
       stats: [
         {
           id: 'STR',
@@ -84,7 +84,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
+      schemaVersion: 4,
       stats: [
         {
           id: 'STR',
@@ -155,7 +155,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
+      schemaVersion: 4,
       stats: [
         {
           id: 'STR',
@@ -218,7 +218,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
+      schemaVersion: 4,
       stats: [
         {
           id: 'STR',
@@ -281,7 +281,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
+      schemaVersion: 4,
       stats: [
         {
           id: 'STR',
@@ -365,7 +365,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
+      schemaVersion: 4,
       stats: [
         {
           id: 'STR',
@@ -424,7 +424,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
+      schemaVersion: 4,
       stats: [
         {
           id: 'STR',
@@ -527,7 +527,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
+      schemaVersion: 4,
       stats: [
         {
           id: 'STR',
@@ -609,7 +609,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
+      schemaVersion: 4,
       stats: [
         {
           id: 'STR',
@@ -669,7 +669,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
+      schemaVersion: 4,
       stats: [
         {
           id: 'STR',
@@ -729,7 +729,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
+      schemaVersion: 4,
       stats: [],
       specialitySkills: [],
       combatSkills: [], // No combat skills

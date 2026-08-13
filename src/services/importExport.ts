@@ -450,6 +450,52 @@ export function validateConfiguration(data: unknown): ValidationResult {
     });
   }
 
+  // Validate material tier modifiers (TICKET-MAT-01). A tier bonus is `{ statId, modifier }` —
+  // keyed by stat **id**, like a race's stat block, so a file still holding the old
+  // `{ skillCode, modifier }` shape is reported here by name rather than silently importing as a
+  // list of modifiers that target nothing.
+  if (Array.isArray(config.materials)) {
+    config.materials.forEach((material: unknown, index: number) => {
+      if (!material || typeof material !== 'object') {
+        errors.push(`materials[${index}] must be an object`);
+        return;
+      }
+      const m = material as Record<string, unknown>;
+      if (!Array.isArray(m.levels)) {
+        errors.push(`materials[${index}].levels must be an array`);
+        return;
+      }
+
+      m.levels.forEach((level: unknown, levelIndex: number) => {
+        const where = `materials[${index}].levels[${levelIndex}]`;
+        if (!level || typeof level !== 'object') {
+          errors.push(`${where} must be an object`);
+          return;
+        }
+        const l = level as Record<string, unknown>;
+        if (!Array.isArray(l.bonuses)) {
+          errors.push(`${where}.bonuses must be an array`);
+          return;
+        }
+
+        l.bonuses.forEach((bonus: unknown, bonusIndex: number) => {
+          const at = `${where}.bonuses[${bonusIndex}]`;
+          if (!bonus || typeof bonus !== 'object') {
+            errors.push(`${at} must be an object`);
+            return;
+          }
+          const b = bonus as Record<string, unknown>;
+          if (typeof b.statId !== 'string' || b.statId === '') {
+            errors.push(`${at}.statId must be a stat id`);
+          }
+          if (typeof b.modifier !== 'number' || !Number.isFinite(b.modifier)) {
+            errors.push(`${at}.modifier must be a finite number`);
+          }
+        });
+      });
+    });
+  }
+
   // Validate speciality skills structure
   if (Array.isArray(config.specialitySkills)) {
     config.specialitySkills.forEach((skill: unknown, index: number) => {

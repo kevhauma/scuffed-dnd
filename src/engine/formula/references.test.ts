@@ -26,7 +26,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 3,
+    schemaVersion: 4,
     stats: [
       {
         id: 'id-str',
@@ -443,11 +443,11 @@ describe('the rename test (Concept 00 §6)', () => {
     expect(formulaFor('id-2')).toBe('curve.beta.main(1)');
   });
 
-  it('carries material bonuses through a rename, and leaves a race stat block untouched', () => {
-    // Two different answers to the same problem, deliberately. A material bonus names a stat by
-    // its `skillCode` spelling, so a rename has to re-spell it. A race's stat block is keyed by
-    // stat **id** since TICKET-RACE-01, so there is nothing to re-spell — and a translation pass
-    // over it would be a way for display and stored form to disagree, not a safety net.
+  it('leaves a material bonus and a race stat block untouched through a rename', () => {
+    // Both are keyed by stat **id** now — races since TICKET-RACE-01, material tier modifiers
+    // since TICKET-MAT-01 — so there is nothing to re-spell in either. A translation pass over
+    // them would be a way for display and stored form to disagree, not a safety net: the rename
+    // moves the abbreviation and the modifier keeps pointing at the same stat regardless.
     const config = createConfig({
       races: [
         {
@@ -467,7 +467,7 @@ describe('the rename test (Concept 00 §6)', () => {
             {
               level: 1,
               name: 'Iron',
-              bonuses: [{ skillCode: 'STR', modifier: 1 }],
+              bonuses: [{ statId: 'id-str', modifier: 1 }],
               value: { tierId: 'gold', amount: 1 },
             },
           ],
@@ -482,7 +482,7 @@ describe('the rename test (Concept 00 §6)', () => {
       ),
     }));
 
-    expect(renamed.materials[0].levels[0].bonuses[0].skillCode).toBe('STG');
+    expect(renamed.materials[0].levels[0].bonuses[0].statId).toBe('id-str');
     expect(renamed.races[0].statValues).toEqual({ 'id-str': 2 });
   });
 

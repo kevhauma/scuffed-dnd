@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react';
-import type { CurrencyTier, Material, MaterialCategory } from '../../../types';
+import type { CurrencyTier, Material, MaterialCategory, Stat } from '../../../types';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
@@ -16,7 +16,8 @@ import { MaterialCard } from './MaterialCard';
 interface MaterialCategoryCardProps {
   category: MaterialCategory;
   materials: Material[];
-  availableSkillCodes: string[];
+  /** The ruleset's stats, threaded to each material's tier bonuses (TICKET-MAT-01) */
+  stats: Stat[];
   currencyTiers: CurrencyTier[];
   onEditCategory: (id: string) => void;
   onDeleteCategory: (id: string) => void;
@@ -31,7 +32,7 @@ interface MaterialCategoryCardProps {
 export function MaterialCategoryCard({
   category,
   materials,
-  availableSkillCodes,
+  stats,
   currencyTiers,
   onEditCategory,
   onDeleteCategory,
@@ -103,7 +104,7 @@ export function MaterialCategoryCard({
               <MaterialCard
                 key={material.id}
                 material={material}
-                availableSkillCodes={availableSkillCodes}
+                stats={stats}
                 currencyTiers={currencyTiers}
                 onEdit={onEditMaterial}
                 onDelete={onDeleteMaterial}

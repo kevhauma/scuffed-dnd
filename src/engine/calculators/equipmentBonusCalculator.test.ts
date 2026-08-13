@@ -6,8 +6,26 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Character } from '../../types/character';
-import type { Configuration, Item, Material } from '../../types/config';
+import type { Configuration, Item, Material, Stat } from '../../types/config';
 import { calculateEquipmentBonuses, indexSkillModifiers } from './equipmentBonusCalculator';
+
+/**
+ * The stats a material tier can target here
+ *
+ * Ids and abbreviations deliberately agree, so the aggregate this calculator returns — still keyed
+ * by abbreviation until TICKET-MAT-02 — reads exactly as it did before TICKET-MAT-01 moved the
+ * stored shape onto stat ids.
+ */
+const STATS: Stat[] = ['STR', 'DEF', 'DEX'].map((abbreviation, order) => ({
+  id: abbreviation,
+  name: abbreviation,
+  abbreviation,
+  description: '',
+  order,
+  countsTowardTotal: true,
+  isResource: false,
+  rounding: 'none',
+}));
 
 describe('calculateEquipmentBonuses', () => {
   it('should return empty array when no items equipped', () => {
@@ -28,8 +46,8 @@ describe('calculateEquipmentBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
-      stats: [],
+      schemaVersion: 4,
+      stats: STATS,
       specialitySkills: [],
       combatSkills: [],
       materials: [],
@@ -78,8 +96,8 @@ describe('calculateEquipmentBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
-      stats: [],
+      schemaVersion: 4,
+      stats: STATS,
       specialitySkills: [],
       combatSkills: [],
       materials: [],
@@ -126,8 +144,8 @@ describe('calculateEquipmentBonuses', () => {
             level: 1,
             name: 'Iron',
             bonuses: [
-              { skillCode: 'STR', modifier: 2 },
-              { skillCode: 'DEF', modifier: 3 },
+              { statId: 'STR', modifier: 2 },
+              { statId: 'DEF', modifier: 3 },
             ],
             value: { tierId: 'gold', amount: 10 },
           },
@@ -150,8 +168,8 @@ describe('calculateEquipmentBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
-      stats: [],
+      schemaVersion: 4,
+      stats: STATS,
       specialitySkills: [],
       combatSkills: [],
       materials,
@@ -203,8 +221,8 @@ describe('calculateEquipmentBonuses', () => {
             level: 1,
             name: 'Iron',
             bonuses: [
-              { skillCode: 'STR', modifier: 2 },
-              { skillCode: 'DEF', modifier: 3 },
+              { statId: 'STR', modifier: 2 },
+              { statId: 'DEF', modifier: 3 },
             ],
             value: { tierId: 'gold', amount: 10 },
           },
@@ -220,8 +238,8 @@ describe('calculateEquipmentBonuses', () => {
             level: 1,
             name: 'Steel',
             bonuses: [
-              { skillCode: 'STR', modifier: 1 },
-              { skillCode: 'DEF', modifier: 5 },
+              { statId: 'STR', modifier: 1 },
+              { statId: 'DEF', modifier: 5 },
             ],
             value: { tierId: 'gold', amount: 20 },
           },
@@ -252,8 +270,8 @@ describe('calculateEquipmentBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
-      stats: [],
+      schemaVersion: 4,
+      stats: STATS,
       specialitySkills: [],
       combatSkills: [],
       materials,
@@ -304,13 +322,13 @@ describe('calculateEquipmentBonuses', () => {
           {
             level: 1,
             name: 'Iron',
-            bonuses: [{ skillCode: 'STR', modifier: 2 }],
+            bonuses: [{ statId: 'STR', modifier: 2 }],
             value: { tierId: 'gold', amount: 10 },
           },
           {
             level: 2,
             name: 'Refined Iron',
-            bonuses: [{ skillCode: 'STR', modifier: 4 }],
+            bonuses: [{ statId: 'STR', modifier: 4 }],
             value: { tierId: 'gold', amount: 20 },
           },
         ],
@@ -340,8 +358,8 @@ describe('calculateEquipmentBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
-      stats: [],
+      schemaVersion: 4,
+      stats: STATS,
       specialitySkills: [],
       combatSkills: [],
       materials,
@@ -389,8 +407,8 @@ describe('calculateEquipmentBonuses', () => {
             level: 1,
             name: 'Heavy Iron',
             bonuses: [
-              { skillCode: 'DEF', modifier: 5 },
-              { skillCode: 'DEX', modifier: -2 }, // Penalty
+              { statId: 'DEF', modifier: 5 },
+              { statId: 'DEX', modifier: -2 }, // Penalty
             ],
             value: { tierId: 'gold', amount: 15 },
           },
@@ -413,8 +431,8 @@ describe('calculateEquipmentBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
-      stats: [],
+      schemaVersion: 4,
+      stats: STATS,
       specialitySkills: [],
       combatSkills: [],
       materials,
@@ -458,8 +476,8 @@ describe('calculateEquipmentBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
-      stats: [],
+      schemaVersion: 4,
+      stats: STATS,
       specialitySkills: [],
       combatSkills: [],
       materials: [],
@@ -510,8 +528,8 @@ describe('calculateEquipmentBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
-      stats: [],
+      schemaVersion: 4,
+      stats: STATS,
       specialitySkills: [],
       combatSkills: [],
       materials: [],
@@ -557,7 +575,7 @@ describe('calculateEquipmentBonuses', () => {
           {
             level: 1,
             name: 'Iron',
-            bonuses: [{ skillCode: 'STR', modifier: 2 }],
+            bonuses: [{ statId: 'STR', modifier: 2 }],
             value: { tierId: 'gold', amount: 10 },
           },
         ],
@@ -579,8 +597,8 @@ describe('calculateEquipmentBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
-      stats: [],
+      schemaVersion: 4,
+      stats: STATS,
       specialitySkills: [],
       combatSkills: [],
       materials,
@@ -632,8 +650,8 @@ describe('calculateEquipmentBonuses', () => {
             level: 1,
             name: 'Iron',
             bonuses: [
-              { skillCode: 'STR', modifier: 2 },
-              { skillCode: 'DEF', modifier: 3 },
+              { statId: 'STR', modifier: 2 },
+              { statId: 'DEF', modifier: 3 },
             ],
             value: { tierId: 'gold', amount: 10 },
           },
@@ -649,8 +667,8 @@ describe('calculateEquipmentBonuses', () => {
             level: 1,
             name: 'Leather',
             bonuses: [
-              { skillCode: 'DEX', modifier: 3 },
-              { skillCode: 'DEF', modifier: 1 },
+              { statId: 'DEX', modifier: 3 },
+              { statId: 'DEF', modifier: 1 },
             ],
             value: { tierId: 'gold', amount: 5 },
           },
@@ -697,8 +715,8 @@ describe('calculateEquipmentBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
-      stats: [],
+      schemaVersion: 4,
+      stats: STATS,
       specialitySkills: [],
       combatSkills: [],
       materials,
@@ -718,6 +736,75 @@ describe('calculateEquipmentBonuses', () => {
     expect(result).toContainEqual({ skillCode: 'STR', modifier: 4 }); // 2 + 2
     expect(result).toContainEqual({ skillCode: 'DEF', modifier: 8 }); // 3 + 3 + 1 + 1
     expect(result).toContainEqual({ skillCode: 'DEX', modifier: 6 }); // 3 + 3
+  });
+});
+
+describe('a tier modifier naming a stat the ruleset no longer defines (TICKET-MAT-01)', () => {
+  it('should contribute nothing rather than inventing a target', () => {
+    // The converse of the seeding invariant: the ruleset alone decides what exists, so a dangling
+    // `statId` drops out of the aggregate instead of arriving as an `undefined` key
+    const character: Character = {
+      id: '1',
+      name: 'Test Character',
+      configurationId: 'config1',
+      raceIds: [],
+      investedStatPoints: {},
+      specialitySkillBaseLevels: {},
+      currentResourceValues: {},
+      inventory: { equippedItems: { helmet: 'item1' }, miscItems: [] },
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+    };
+
+    const config: Configuration = {
+      id: 'config1',
+      name: 'Test Config',
+      version: '1.0',
+      schemaVersion: 4,
+      stats: STATS,
+      specialitySkills: [],
+      combatSkills: [],
+      materials: [
+        {
+          id: 'mat1',
+          name: 'Iron',
+          description: '',
+          categoryId: 'metals',
+          levels: [
+            {
+              level: 1,
+              name: 'Iron',
+              bonuses: [
+                { statId: 'STR', modifier: 2 },
+                { statId: 'deleted-stat', modifier: 99 },
+              ],
+              value: { tierId: 'gold', amount: 10 },
+            },
+          ],
+        },
+      ],
+      materialCategories: [],
+      items: [
+        {
+          id: 'item1',
+          name: 'Iron Helmet',
+          description: '',
+          materialId: 'mat1',
+          materialLevel: 1,
+          equipmentSlotType: 'helmet',
+        },
+      ],
+      equipmentSlots: [],
+      races: [],
+      currencyTiers: [],
+      focusStatBonusLevel: 0,
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+    };
+
+    expect(calculateEquipmentBonuses(character, config)).toEqual([
+      { skillCode: 'STR', modifier: 2 },
+    ]);
   });
 });
 

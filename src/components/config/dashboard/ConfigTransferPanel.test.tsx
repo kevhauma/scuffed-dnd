@@ -36,7 +36,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 3,
+    schemaVersion: 4,
     stats: [
       {
         id: 'STR',
@@ -151,7 +151,7 @@ describe('ConfigTransferPanel', () => {
     choose(
       jsonFile(
         'partial.json',
-        JSON.stringify({ id: 'x', name: 'Half a ruleset', schemaVersion: 3 })
+        JSON.stringify({ id: 'x', name: 'Half a ruleset', schemaVersion: 4 })
       )
     );
     confirmImport();

@@ -12,7 +12,7 @@
  * gate on the same number without one importing the other — and so a test that mocks one service
  * cannot change what the other considers current.
  */
-export const SUPPORTED_SCHEMA_VERSION = 3;
+export const SUPPORTED_SCHEMA_VERSION = 4;
 
 /**
  * Main configuration object containing all user-defined game rules
@@ -24,8 +24,8 @@ export interface Configuration {
   /**
    * Which persisted shape this is (TICKET-STAT-01).
    *
-   * `2` was the unified-stat shape; `3` adds TICKET-RACE-01's race stat blocks. v1 files have no
-   * `schemaVersion` at all, which is exactly how they are recognised and refused — the shapes have
+   * `2` was the unified-stat shape, `3` added TICKET-RACE-01's race stat blocks, and `4` is
+   * TICKET-MAT-01's per-stat material modifiers. v1 files have no `schemaVersion` at all, which is exactly how they are recognised and refused — the shapes have
    * no faithful mapping between them (a v1 character's focus stat, spend-derived level and
    * speciality base levels have nowhere to go), so they are rejected with a notice rather than
    * converted. TICKET-IO-03 owns that UX and the notice covers every mismatch, not just v1.
@@ -33,9 +33,9 @@ export interface Configuration {
    * **The v2.0 milestone bumps this on every reshape**, by the User's decision (2026-08-09): the
    * persisted shape is not stable until the milestone lands, and a build that cannot read stored
    * data must say so through IO-03's notice rather than crash on a field that moved. Expect
-   * further bumps from MAT-01, SKL-02, RES-01, ARC-01 and ROLL-05.
+   * further bumps from SKL-02, RES-01, ARC-01 and ROLL-05.
    */
-  schemaVersion: 3;
+  schemaVersion: typeof SUPPORTED_SCHEMA_VERSION;
   stats: Stat[];
   specialitySkills: SpecialitySkill[];
   combatSkills: CombatSkill[];
@@ -180,8 +180,28 @@ export interface Material {
 export interface MaterialLevel {
   level: number;
   name: string; // e.g., "Iron", "Steel", "Mithril"
-  bonuses: SkillModifier[];
+  bonuses: StatModifier[];
   value: CurrencyValue;
+}
+
+/**
+ * Stat modifier — what a material tier does to a stat (Concept 09, TICKET-MAT-01)
+ *
+ * The sheet's tier mods are per **stat** ("fur tier 1: Mana 50, Health 1"), which is what
+ * `SkillModifier` could not express: it named a code in the flat formula space, so a resource like
+ * Mana was unreachable and "+50 Mana" was not a thing a ruleset could say.
+ *
+ * Keyed by **stat id**, like a race's stat block (TICKET-RACE-01) and for the same reason: a
+ * modifier is a reference to a stat, references are by id (TICKET-REF-01), and renaming a stat
+ * therefore cannot orphan one.
+ *
+ * A modifier belongs on an **invested or resource** stat. A derived stat's formula is its source,
+ * so a modifier there is a validation error rather than a term — `engine/validator.ts` reports it
+ * and the material-level dialog does not offer it.
+ */
+export interface StatModifier {
+  statId: string; // References Stat.id
+  modifier: number; // Positive for bonus, negative for penalty
 }
 
 /**
@@ -189,8 +209,12 @@ export interface MaterialLevel {
  *
  * `skillCode` holds a **stat abbreviation** since TICKET-STAT-01 — the flat space it always
  * pointed into is now populated by stats rather than by main skills. That is the "abbreviation
- * bridge" the ticket names: it keeps races and materials working through the schema change
- * without redesigning them, and TICKET-RACE-01 / TICKET-MAT-01 replace it with a stat **id**.
+ * bridge" the ticket names.
+ *
+ * **Nothing persisted uses this shape any more** (TICKET-RACE-01 took races, TICKET-MAT-01 took
+ * material tiers). What is left is the *aggregate* the equipment calculator hands downstream, where
+ * a speciality or combat code is still a legitimate target. TICKET-MAT-02 moves the stat half of
+ * that aggregate onto {@link StatModifier} and TICKET-ROLL-06 retires the rest with `CombatSkill`.
  */
 export interface SkillModifier {
   skillCode: string; // References a stat abbreviation (or a speciality/combat skill code)

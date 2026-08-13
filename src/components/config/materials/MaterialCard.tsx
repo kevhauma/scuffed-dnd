@@ -12,15 +12,16 @@
 
 import { useState } from 'react';
 import { formatCurrency, normalizeCurrency } from '../../../engine/currency';
-import type { CurrencyTier, Material } from '../../../types';
-import { SkillModifierBadge } from '../../shared/SkillModifierBadge';
+import type { CurrencyTier, Material, Stat } from '../../../types';
+import { StatModifierBadges } from '../../shared/StatModifierBadges';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 
 interface MaterialCardProps {
   material: Material;
-  availableSkillCodes: string[];
+  /** The ruleset's stats, for spelling each tier bonus's target (TICKET-MAT-01) */
+  stats: Stat[];
   currencyTiers: CurrencyTier[];
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
@@ -31,6 +32,7 @@ interface MaterialCardProps {
 
 export function MaterialCard({
   material,
+  stats,
   currencyTiers,
   onEdit,
   onDelete,
@@ -138,11 +140,7 @@ export function MaterialCard({
                     <Text variant="body-small-secondary" className="mb-1">
                       Bonuses:
                     </Text>
-                    <div className="flex flex-wrap gap-2">
-                      {level.bonuses.map((bonus) => (
-                        <SkillModifierBadge key={bonus.skillCode} modifier={bonus} />
-                      ))}
-                    </div>
+                    <StatModifierBadges modifiers={level.bonuses} stats={stats} />
                   </div>
                 )}
 

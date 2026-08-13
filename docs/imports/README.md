@@ -33,10 +33,10 @@ from the fragments without the suite saying so.
 | [`curves.json`](./curves.json) | Curves | CRV-01…03 | 06 | `Calculator!B2:E54` |
 | [`speciality-skills.json`](./speciality-skills.json) | Skills | v1.0 shape; SKL-02 pending | 02 | `Skills!C12:G59` |
 | [`combat-skills.json`](./combat-skills.json) | Rolls | v1.0 shape; ROLL-05/06 pending | 08 | `Calculator!G17:N20`, `!I16:L16` |
-| [`materials.json`](./materials.json) | Materials | v1.0 shape; MAT-01 pending | 09 | `Components!A5:L295` |
+| [`materials.json`](./materials.json) | Materials | MAT-01 | 09 | `Components!A5:L295` |
 | [`items.json`](./items.json) | Items | v1.0 shape | 11 | `Equimment!A4:L194` |
 | [`equipment-slots.json`](./equipment-slots.json) | Equipment slots | v1.0 shape | 10 | `Charactersheet!M3:O15` |
-| [`races.json`](./races.json) | Races | v1.0 shape; RACE-01/02 pending | 04 | `Creature stats!B4:K14` |
+| [`races.json`](./races.json) | Races | RACE-01, RACE-02 | 04 | `Creature stats!B4:K14` |
 | [`currency-tiers.json`](./currency-tiers.json) | Currency | v1.0 shape | 16 | `Charactersheet!Q18:S23` |
 
 Not here yet, because the feature is not built: archetypes (ARC-01), the dice ladder (ROLL-03),

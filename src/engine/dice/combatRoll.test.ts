@@ -41,7 +41,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 3,
+    schemaVersion: 4,
     stats: [
       {
         id: 'STR',
@@ -160,7 +160,7 @@ describe('rollCombatSkill', () => {
             {
               level: 1,
               name: 'Keen Edge',
-              bonuses: [{ skillCode: 'MEL', modifier: 5 }],
+              bonuses: [{ statId: 'STR', modifier: 5 }],
               value: { tierId: 'gold', amount: 1 },
             },
           ],
@@ -190,6 +190,8 @@ describe('rollCombatSkill', () => {
 
     const result = rollOk(melee, character, config, () => 0);
 
+    // The sword raises STR by 5 and `STR + STL` follows. Since TICKET-MAT-01 a tier modifier can
+    // only name a stat, so this is the one route equipment reaches a combat roll by.
     expect(result.bonus).toBe(17); // 12 + 5 from the equipped sword
   });
 

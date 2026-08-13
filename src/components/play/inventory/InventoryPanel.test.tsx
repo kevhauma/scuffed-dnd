@@ -36,7 +36,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 3,
+    schemaVersion: 4,
     stats: [
       {
         id: 'STR',
@@ -81,7 +81,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
           {
             level: 1,
             name: 'Iron',
-            bonuses: [{ skillCode: 'STR', modifier: 2 }],
+            bonuses: [{ statId: 'STR', modifier: 2 }],
             value: { tierId: 'gold', amount: 1 },
           },
         ],
@@ -95,7 +95,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
           {
             level: 1,
             name: 'Steel',
-            bonuses: [{ skillCode: 'STR', modifier: 3 }],
+            bonuses: [{ statId: 'STR', modifier: 3 }],
             value: { tierId: 'gold', amount: 2 },
           },
         ],

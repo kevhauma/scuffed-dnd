@@ -66,6 +66,8 @@ export function useItemManager() {
   const items = config?.items || [];
   const materials = config?.materials || [];
   const equipmentSlots = config?.equipmentSlots || [];
+  // For spelling a material tier's stat modifiers on the item card (TICKET-MAT-01)
+  const stats = config?.stats || [];
 
   // Get unique categories from items
   const itemCategories = Array.from(new Set(items.map((item) => item.categoryId).filter(Boolean)));
@@ -180,6 +182,7 @@ export function useItemManager() {
     items,
     filteredItems,
     materials,
+    stats,
     equipmentSlots,
     itemCategories,
     categoryFilter,

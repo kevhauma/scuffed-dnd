@@ -205,11 +205,17 @@ function materialLevels(
   );
 }
 
-/** Material levels whose bonuses name a skill code */
-function materialBonusReferences(config: Configuration, code: string): EntityReference[] {
+/**
+ * Material levels whose bonuses name a stat
+ *
+ * By **id** since TICKET-MAT-01, like the race stat block beside it, so this half of the guard
+ * cannot be defeated by a rename either — and materials no longer point at a speciality or combat
+ * skill at all, which is why this is reachable only from the stat branch now.
+ */
+function materialBonusReferences(config: Configuration, statId: string): EntityReference[] {
   return config.materials
     .filter((material) =>
-      material.levels.some((level) => level.bonuses.some((bonus) => bonus.skillCode === code))
+      material.levels.some((level) => level.bonuses.some((bonus) => bonus.statId === statId))
     )
     .map((material) => ({
       holderKind: 'Material',
@@ -267,9 +273,10 @@ function skillReferences(
     (skill) => skill.code === code
   );
 
+  // No material lookup here since TICKET-MAT-01: a tier's modifiers name a stat id, so a
+  // speciality or combat code can no longer be one of their targets.
   return [
     ...formulaReferences(config, namesSkill(code), own?.id ?? code),
-    ...materialBonusReferences(config, code),
     ...characterSkillReferences(characters, code),
   ];
 }
@@ -295,11 +302,11 @@ function statReferences(
       )
     : [];
 
-  // Materials still target a stat by abbreviation (TICKET-STAT-01's bridge); a race's stat block
-  // names it by id, so that half is looked up directly and needs no `stat` to spell it
+  // Both modifier shapes name the stat by id now (TICKET-RACE-01, TICKET-MAT-01), so neither needs
+  // a `stat` in hand to spell it — the guard holds even for an id nothing defines any more
   const modifiers = [
     ...raceStatBlockReferences(config, id),
-    ...(stat ? materialBonusReferences(config, stat.abbreviation) : []),
+    ...materialBonusReferences(config, id),
   ];
 
   const players = characters

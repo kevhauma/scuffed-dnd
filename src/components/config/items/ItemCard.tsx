@@ -6,8 +6,8 @@
  * **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 7.6, 21.1-21.5**
  */
 
-import type { EquipmentSlot, Item, Material } from '../../../types';
-import { SkillModifierBadge } from '../../shared/SkillModifierBadge';
+import type { EquipmentSlot, Item, Material, Stat } from '../../../types';
+import { StatModifierBadges } from '../../shared/StatModifierBadges';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
@@ -16,11 +16,20 @@ interface ItemCardProps {
   item: Item;
   materials: Material[];
   equipmentSlots: EquipmentSlot[];
+  /** The ruleset's stats, for spelling the material bonuses' targets (TICKET-MAT-01) */
+  stats: Stat[];
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-export function ItemCard({ item, materials, equipmentSlots, onEdit, onDelete }: ItemCardProps) {
+export function ItemCard({
+  item,
+  materials,
+  equipmentSlots,
+  stats,
+  onEdit,
+  onDelete,
+}: ItemCardProps) {
   const material = item.materialId ? materials.find((m) => m.id === item.materialId) : null;
 
   const materialLevel =
@@ -94,11 +103,7 @@ export function ItemCard({ item, materials, equipmentSlots, onEdit, onDelete }: 
             <Text variant="body-small-secondary" className="mb-1">
               Bonuses:
             </Text>
-            <div className="flex flex-wrap gap-2">
-              {materialLevel.bonuses.map((bonus) => (
-                <SkillModifierBadge key={bonus.skillCode} modifier={bonus} />
-              ))}
-            </div>
+            <StatModifierBadges modifiers={materialLevel.bonuses} stats={stats} />
           </div>
         )}
       </div>

@@ -15,6 +15,14 @@ import type { Configuration, SkillModifier } from '../../types/config';
  * Collects bonuses from all equipped items and combines them additively.
  * If an item has a material, the material's bonuses are applied.
  *
+ * A material tier's modifiers name a stat by **id** since TICKET-MAT-01, while everything
+ * downstream still reads an abbreviation-keyed aggregate. The translation happens here, once: a
+ * `statId` is spelled as the stat's abbreviation on the way out, and one naming a stat the ruleset
+ * no longer defines contributes nothing rather than inventing a target (the same rule the stat
+ * composition applies to a dangling race entry). **TICKET-MAT-02 removes this step** by carrying
+ * `StatModifier[]` all the way to the composition — until then the aggregate is unchanged, which
+ * is what keeps MAT-01 a reshape that moves no character's numbers.
+ *
  * @param character - The character whose equipment to evaluate
  * @param config - The game configuration containing items and materials
  * @returns Array of skill modifiers from all equipped items
@@ -23,6 +31,7 @@ export function calculateEquipmentBonuses(
   character: Character,
   config: Configuration
 ): SkillModifier[] {
+  const abbreviationById = new Map(config.stats.map((stat) => [stat.id, stat.abbreviation]));
   const bonusMap: Record<string, number> = {};
 
   // Iterate through all equipped items
@@ -42,8 +51,10 @@ export function calculateEquipmentBonuses(
 
       // Add all bonuses from this material level
       for (const bonus of materialLevel.bonuses) {
-        const currentBonus = bonusMap[bonus.skillCode] || 0;
-        bonusMap[bonus.skillCode] = currentBonus + bonus.modifier;
+        const skillCode = abbreviationById.get(bonus.statId);
+        if (skillCode === undefined) continue;
+
+        bonusMap[skillCode] = (bonusMap[skillCode] ?? 0) + bonus.modifier;
       }
     }
   }
@@ -61,7 +72,7 @@ export function calculateEquipmentBonuses(
  * The character sheet has to show each skill's equipment contribution separately from its base
  * (Requirement 13.4), which means a per-code lookup rather than a list. Doing it here keeps the
  * summing in the engine — `calculateEquipmentBonuses` already returns one entry per code, but an
- * arbitrary `SkillModifier[]` (a race's modifiers, a material level's bonuses) may repeat one.
+ * arbitrary `SkillModifier[]` may repeat one.
  *
  * @param modifiers - Any list of skill modifiers
  * @returns Record of skill code to the combined modifier for that code

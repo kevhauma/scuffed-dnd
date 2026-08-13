@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../stores/configStore';
-import type { Material, MaterialCategory, MaterialLevel } from '../../../types';
+import type { Material, MaterialCategory, MaterialLevel, StatModifier } from '../../../types';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
 interface CategoryFormData {
@@ -25,7 +25,7 @@ interface MaterialFormData {
 interface LevelFormData {
   level: number;
   name: string;
-  bonuses: Array<{ skillCode: string; modifier: number }>;
+  bonuses: StatModifier[];
   tierId: string;
   amount: number;
 }
@@ -76,11 +76,26 @@ export function useMaterialManager() {
   });
 
   const categories = config?.materialCategories || [];
-  const availableSkillCodes = [
-    ...(config?.stats.map((stat) => stat.abbreviation) || []),
-    ...(config?.specialitySkills.map((s) => s.code) || []),
-    ...(config?.combatSkills.map((s) => s.code) || []),
-  ];
+
+  /**
+   * Every stat, in the order the User arranged them
+   *
+   * What the **cards** need: a modifier is stored as a stat id, and spelling one takes the whole
+   * set — including the derived stats the picker will not offer, so a modifier that reached a
+   * derived stat by import still renders as `APT: +2` rather than as a raw id.
+   */
+  const stats = [...(config?.stats ?? [])].sort((a, b) => a.order - b.order);
+
+  /**
+   * The stats a tier's modifier may target (Concept 09, TICKET-MAT-01)
+   *
+   * Invested **and** resource stats, in the order the User arranged them — "+50 max Mana" is the
+   * thing this ticket makes expressible. A **derived** stat is left out rather than offered and
+   * refused: its formula is its only source, so a modifier there would be a term nothing applies.
+   * `engine/validator.ts` reports one that arrives by import anyway.
+   */
+  const modifiableStats = stats.filter((stat) => stat.formula === undefined);
+
   const currencyTiers = config?.currencyTiers || [];
 
   // Category handlers
@@ -257,7 +272,8 @@ export function useMaterialManager() {
     dismissBlocked,
     config,
     categories,
-    availableSkillCodes,
+    stats,
+    modifiableStats,
     currencyTiers,
     isCategoryDialogOpen,
     setIsCategoryDialogOpen,

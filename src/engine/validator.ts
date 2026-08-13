@@ -60,19 +60,11 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   const warnings: ValidationIssue[] = [];
 
   // Build sets of valid identifiers for reference validation
-  const statAbbreviations = new Set(config.stats.map((stat) => stat.abbreviation));
-  const specialitySkillCodes = new Set(config.specialitySkills.map((s) => s.code));
-  const combatSkillCodes = new Set(config.combatSkills.map((s) => s.code));
-  // One flat space: a stat abbreviation and a skill code must not collide (TICKET-STAT-01)
-  const allSkillCodes = new Set([
-    ...statAbbreviations,
-    ...specialitySkillCodes,
-    ...combatSkillCodes,
-  ]);
   const materialCategoryIds = new Set(config.materialCategories.map((c) => c.id));
   const equipmentSlotTypes = new Set(config.equipmentSlots.map((s) => s.type));
   const materialIds = new Set(config.materials.map((m) => m.id));
   const currencyTierIds = new Set(config.currencyTiers.map((t) => t.id));
+  const statsById = new Map(config.stats.map((stat) => [stat.id, stat]));
 
   // Validate formulas against the same scoping table the save-time guard uses, so an imported
   // ruleset is judged by exactly the rules a panel would have enforced (Concept 00 §5).
@@ -169,14 +161,31 @@ export function validateConfiguration(config: Configuration): ValidationReport {
       });
     }
 
-    // Validate skill modifiers in material levels
+    // Validate stat modifiers in material levels. Keyed by stat **id** since TICKET-MAT-01, so a
+    // dangling key is a stat that was deleted rather than one that was renamed.
     for (const level of material.levels) {
       for (const bonus of level.bonuses) {
-        if (!allSkillCodes.has(bonus.skillCode)) {
+        const target = statsById.get(bonus.statId);
+
+        if (!target) {
           errors.push({
             severity: 'error',
             category: 'Reference Validation',
-            message: `Material "${material.name}" level ${level.level} references non-existent skill: ${bonus.skillCode}`,
+            message: `Material "${material.name}" level ${level.level} references non-existent stat: ${bonus.statId}`,
+            entityType: 'material',
+            entityId: material.id,
+            entityName: material.name,
+          });
+          continue;
+        }
+
+        // A derived stat's formula *is* its source, so a modifier on one would be a term the
+        // composition never applies — silently, which is the worst kind of wrong number
+        if (target.formula !== undefined) {
+          errors.push({
+            severity: 'error',
+            category: 'Reference Validation',
+            message: `Material "${material.name}" level ${level.level} modifies "${target.name}", which is a derived stat — its formula is its only source`,
             entityType: 'material',
             entityId: material.id,
             entityName: material.name,
@@ -245,10 +254,9 @@ export function validateConfiguration(config: Configuration): ValidationReport {
 
   // Validate race stat blocks — keyed by stat id since TICKET-RACE-01, so a dangling key is a
   // stat that was deleted rather than one that was renamed
-  const statIds = new Set(config.stats.map((stat) => stat.id));
   for (const race of config.races) {
     for (const statId of Object.keys(race.statValues)) {
-      if (!statIds.has(statId)) {
+      if (!statsById.has(statId)) {
         errors.push({
           severity: 'error',
           category: 'Reference Validation',

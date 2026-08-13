@@ -16,7 +16,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 3,
+    schemaVersion: 4,
     stats: [
       {
         id: 'id-str',
@@ -80,7 +80,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
           {
             level: 1,
             name: 'Iron',
-            bonuses: [{ skillCode: 'STR', modifier: 1 }],
+            bonuses: [{ statId: 'id-str', modifier: 1 }],
             value: { tierId: 'gold', amount: 5 },
           },
         ],
@@ -148,6 +148,28 @@ describe('findReferences', () => {
         'Material: Iron',
         'Character: Aria',
       ]);
+    });
+
+    it('finds a material tier modifier by stat id, so a rename cannot defeat the guard', () => {
+      // TICKET-MAT-01: the modifier holds the stat's identity, not its spelling, so renaming the
+      // abbreviation leaves the reference — and the delete guard — exactly where it was
+      const renamed = createConfig({
+        stats: createConfig().stats.map((stat) =>
+          stat.id === 'id-str' ? { ...stat, abbreviation: 'STG' } : stat
+        ),
+      });
+
+      const found = findReferences({ kind: 'stat', id: 'id-str' }, renamed, []);
+
+      expect(holders(found)).toContain('Material: Iron');
+    });
+
+    it('no longer finds a material bonus when a speciality skill is deleted (TICKET-MAT-01)', () => {
+      // A tier modifier can only target a stat now, so a material is never a reason a skill
+      // cannot be deleted
+      const found = findReferences({ kind: 'speciality-skill', id: 'STL' }, createConfig(), []);
+
+      expect(holders(found)).not.toContain('Material: Iron');
     });
 
     it('does not count a zero in a race stat block as a reference (TICKET-RACE-01)', () => {

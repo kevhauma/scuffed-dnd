@@ -66,7 +66,7 @@ describe('ConfigStore', () => {
         id: 'test-id',
         name: 'Loaded Config',
         version: '1.0.0',
-        schemaVersion: 3,
+        schemaVersion: 4,
         stats: [],
         specialitySkills: [],
         combatSkills: [],
@@ -964,7 +964,7 @@ describe('ConfigStore', () => {
           id: 'config1',
           name: 'Test',
           version: '1.0',
-          schemaVersion: 3,
+          schemaVersion: 4,
           stats: [
             {
               id: 'id-str',

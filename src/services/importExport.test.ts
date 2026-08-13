@@ -32,7 +32,7 @@ describe('Import/Export Service', () => {
       id: 'test-config',
       name: 'Test Config',
       version: '1.0.0',
-      schemaVersion: 3,
+      schemaVersion: 4,
       stats: [
         {
           id: 'STR',
@@ -489,7 +489,7 @@ describe('Import/Export Service', () => {
     });
 
     it('refuses a future shape by the same gate', () => {
-      const future = JSON.stringify({ ...validConfig, schemaVersion: 4 });
+      const future = JSON.stringify({ ...validConfig, schemaVersion: 5 });
 
       expect(() => importConfiguration(future)).toThrow(SchemaVersionError);
     });
@@ -508,10 +508,38 @@ describe('Import/Export Service', () => {
       expect(() => importConfiguration(staleV2)).not.toThrow(ValidationError);
     });
 
+    it('refuses the shape before per-stat material modifiers (TICKET-MAT-01)', () => {
+      // v3 tier bonuses named a skill code. Reading one as a `statId` would import a modifier
+      // that targets nothing at all, so the version gate stops it before the shape check does.
+      const staleV3 = JSON.stringify({
+        ...validConfig,
+        schemaVersion: 3,
+        materials: [
+          {
+            id: 'mat1',
+            name: 'Iron',
+            description: '',
+            categoryId: 'cat1',
+            levels: [
+              {
+                level: 1,
+                name: 'Iron',
+                bonuses: [{ skillCode: 'STR', modifier: 2 }],
+                value: { tierId: 'gold', amount: 1 },
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(() => importConfiguration(staleV3)).toThrow(SchemaVersionError);
+      expect(() => importConfiguration(staleV3)).not.toThrow(ValidationError);
+    });
+
     it('exports the version it imports, so the round-trip survives the gate', async () => {
       const exported = await exportConfiguration(validConfig).text();
 
-      expect(JSON.parse(exported).schemaVersion).toBe(3);
+      expect(JSON.parse(exported).schemaVersion).toBe(4);
       expect(importConfiguration(exported)).toEqual(validConfig);
     });
   });
@@ -545,6 +573,61 @@ describe('Import/Export Service', () => {
       const raw = JSON.parse(await exportConfiguration(withRaces).text());
 
       expect(raw.races[0].statValues).toEqual({ 'id-str': 14 });
+    });
+  });
+
+  describe('material stat modifier round-trip (TICKET-MAT-01)', () => {
+    const roundTrip = async (config: Configuration): Promise<Configuration> =>
+      importConfiguration(await exportConfiguration(config).text());
+
+    /** A ruleset whose one material tier modifies a stat */
+    const withMaterials = (bonuses: unknown[]): Configuration =>
+      ({
+        ...validConfig,
+        materialCategories: [{ id: 'cat1', name: 'Metals', description: '' }],
+        currencyTiers: [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 10 }],
+        materials: [
+          {
+            id: 'mat1',
+            name: 'Iron',
+            description: '',
+            categoryId: 'cat1',
+            levels: [
+              {
+                level: 1,
+                name: 'Iron',
+                bonuses,
+                value: { tierId: 'gold', amount: 10 },
+              },
+            ],
+          },
+        ],
+      }) as Configuration;
+
+    it('should survive export then import unchanged', async () => {
+      const config = withMaterials([{ statId: 'id-str', modifier: 50 }]);
+
+      const imported = await roundTrip(config);
+
+      expect(imported.materials).toEqual(config.materials);
+    });
+
+    it('should keep the modifier spelled in stat ids on the wire, not in abbreviations', async () => {
+      // Like a race's stat block, a tier modifier is already an id, so it crosses the
+      // reference-form boundary untranslated and a rename cannot orphan it
+      const config = withMaterials([{ statId: 'id-str', modifier: 50 }]);
+
+      const raw = JSON.parse(await exportConfiguration(config).text());
+
+      expect(raw.materials[0].levels[0].bonuses).toEqual([{ statId: 'id-str', modifier: 50 }]);
+    });
+
+    it('should reject a tier bonus that is not { statId, modifier }', () => {
+      const oldShape = JSON.stringify(withMaterials([{ skillCode: 'STR', modifier: 2 }]));
+      const badNumber = JSON.stringify(withMaterials([{ statId: 'id-str', modifier: 'a lot' }]));
+
+      expect(() => importConfiguration(oldShape)).toThrow(ValidationError);
+      expect(() => importConfiguration(badNumber)).toThrow(ValidationError);
     });
   });
 

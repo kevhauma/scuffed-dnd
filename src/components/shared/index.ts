@@ -6,7 +6,7 @@
 
 export * from './AppShell';
 export * from './IncompatibleDataNotice';
-export * from './SkillModifierBadge';
+export * from './StatModifierBadges';
 export * from './StorageNotice';
 export * from './useAppHydration';
 export * from './useAppMode';

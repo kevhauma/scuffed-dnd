@@ -26,7 +26,7 @@ as part of the action. That is the equivalent of a repository layer here.
 
 ## Configuration (the ruleset)
 
-One `Configuration` per browser: id, name, version, **`schemaVersion: 3`**, timestamps,
+One `Configuration` per browser: id, name, version, **`schemaVersion: 4`**, timestamps,
 `focusStatBonusLevel`, the optional
 `mainSkillPointBudget`, plus the entity arrays — `stats`, `specialitySkills`,
 `combatSkills`, `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
@@ -63,8 +63,9 @@ member of that race has, like the sheet's creature rows. Two rules follow, and b
 
 - **Keyed by stat *id*, not abbreviation.** So a stat block needs no display↔stored translation at
   all — `references.ts` has no `races` branch, and a rename passes straight through it. The
-  guarded-delete walker matches it by id too (`raceStatBlockReferences` in `dependencies.ts`),
-  which is what a *material* bonus, still keyed by `skillCode`, cannot do.
+  guarded-delete walker matches it by id too (`raceStatBlockReferences` in `dependencies.ts`).
+  A material tier's modifiers are keyed the same way since TICKET-MAT-01
+  (`materialBonusReferences`), so **no persisted modifier names a spelling any more**.
 - **A stat absent from the record reads 0.** Adding a stat to the ruleset therefore costs nothing:
   every existing race is already defined over it. Keep that when reading a block —
   `race.statValues[stat.id] ?? 0`, never a bare index — and let the editor be the thing that
@@ -164,8 +165,10 @@ Identity rules that the rest of the app depends on:
   of the same expression: `STR + DEX` in display form, `[id-str] + [id-dex]` in stored form. The
   translation lives in [engine/formula/references.ts](../../../src/engine/formula/references.ts)
   and is applied at exactly two places — `services/storage.ts` and `services/importExport.ts`, so
-  everything above them (stores, engine, components) works in display form only. Same for the
-  `skillCode` on every race and material modifier. A rename is `toStoredConfiguration` → patch →
+  everything above them (stores, engine, components) works in display form only. **Formula strings
+  are the only reference-carrying fields left**: a race's stat block (TICKET-RACE-01) and a
+  material tier's modifiers (TICKET-MAT-01) hold stat ids, so `references.ts` translates neither.
+  A rename is `toStoredConfiguration` → patch →
   `toDisplayConfiguration`, which `configStore`'s `applyRenameSafely` does for you; the reference
   index is **derived on every call and never persisted**.
   A `stats.*` member is a slug of the stat's name (`Max Health` → `stats.max_health`) until

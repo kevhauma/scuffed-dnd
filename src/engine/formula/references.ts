@@ -384,15 +384,14 @@ export function toDisplayFormula(formula: string, index: ReferenceIndex): string
  * Apply a formula translation across a whole configuration
  *
  * The index is built once from `config`, so both directions read the spellings that configuration
- * currently has. Reference-carrying fields are the three formula strings plus the `skillCode` of
- * every material bonus, which points at a skill by the same flat code a formula uses. A race's
- * stat block is *not* one of them — it is keyed by stat id, so there is nothing to re-spell
- * (TICKET-RACE-01).
+ * currently has. Reference-carrying fields are the **formula strings** and nothing else now: a
+ * race's stat block (TICKET-RACE-01) and a material tier's modifiers (TICKET-MAT-01) are both
+ * keyed by stat id, so their display and stored forms are the same thing and translating them
+ * would only create a way for the two to disagree.
  */
 function translateConfiguration(
   config: Configuration,
-  translateFormula: (formula: string, index: ReferenceIndex) => string,
-  translateCode: (code: string, index: ReferenceIndex) => string
+  translateFormula: (formula: string, index: ReferenceIndex) => string
 ): Configuration {
   const index = buildReferenceIndex(config);
 
@@ -428,33 +427,7 @@ function translateConfiguration(
           })),
         }
       : {}),
-    // `races` is deliberately absent: since TICKET-RACE-01 a race is a stat block keyed by stat
-    // **id**, so its display and stored forms are the same thing and translating it would only
-    // create a way for the two to disagree.
-    materials: config.materials.map((material) => ({
-      ...material,
-      levels: material.levels.map((level) => ({
-        ...level,
-        bonuses: level.bonuses.map((bonus) => ({
-          ...bonus,
-          skillCode: translateCode(bonus.skillCode, index),
-        })),
-      })),
-    })),
   };
-}
-
-/** A `skillCode` field written as an id, so a rename cannot orphan a material bonus */
-function codeToStored(code: string, index: ReferenceIndex): string {
-  if (code.startsWith('[')) return code;
-  const id = index.toId.bare.get(code.toUpperCase());
-  return id === undefined ? code : `[${id}]`;
-}
-
-/** The display spelling of a `skillCode` field written as an id */
-function codeToDisplay(code: string, index: ReferenceIndex): string {
-  if (!code.startsWith('[') || !code.endsWith(']')) return code;
-  return index.toDisplay.bare.get(code.slice(1, -1)) ?? code;
 }
 
 /**
@@ -464,7 +437,7 @@ function codeToDisplay(code: string, index: ReferenceIndex): string {
  * @returns The same configuration with id-resolved references
  */
 export function toStoredConfiguration(config: Configuration): Configuration {
-  return translateConfiguration(config, toStoredFormula, codeToStored);
+  return translateConfiguration(config, toStoredFormula);
 }
 
 /**
@@ -474,7 +447,7 @@ export function toStoredConfiguration(config: Configuration): Configuration {
  * @returns The same configuration in display form
  */
 export function toDisplayConfiguration(config: Configuration): Configuration {
-  return translateConfiguration(config, toDisplayFormula, codeToDisplay);
+  return translateConfiguration(config, toDisplayFormula);
 }
 
 /**

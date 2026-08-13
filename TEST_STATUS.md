@@ -5,8 +5,8 @@ _Last verified: 2026-08-09 (`npx vitest run`), after
 
 ## Summary
 
-- **Total tests**: 1252
-- **Passing**: 1252 (100%)
+- **Total tests**: 1271
+- **Passing**: 1271 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
@@ -109,7 +109,7 @@ workflow and are documented here so a future regression is distinguishable from 
 | File | Error |
 | --- | --- |
 | `src/components/ui/Button/Button.test.tsx:68` | TS2339 — `.disabled` read off `HTMLElement` |
-| `src/services/importExport.test.ts:638` | TS2352 — `Blob`-shaped literal cast to `File` |
+| `src/services/importExport.test.ts:721` | TS2352 — `Blob`-shaped literal cast to `File` |
 
 Both are test-typing noise. The two `evaluator.ts` errors that stood beside them for five tickets
 are **gone as of TICKET-FORM-07**: `operator` does not exist on type `never` was the switch

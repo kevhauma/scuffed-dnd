@@ -19,7 +19,8 @@ export function MaterialsConfigPanel() {
   const {
     config,
     categories,
-    availableSkillCodes,
+    stats,
+    modifiableStats,
     currencyTiers,
     isCategoryDialogOpen,
     setIsCategoryDialogOpen,
@@ -63,8 +64,10 @@ export function MaterialsConfigPanel() {
         </Button>
       }
       prerequisites={[
-        ...(availableSkillCodes.length === 0
-          ? ['No skills configured yet. Add skills first to use them in material bonuses.']
+        ...(modifiableStats.length === 0
+          ? [
+              'No stats a modifier can land on. Add an invested or resource stat to use in tier bonuses.',
+            ]
           : []),
         ...(currencyTiers.length === 0
           ? ['No currency tiers configured yet. Add currency tiers first to set material values.']
@@ -82,7 +85,7 @@ export function MaterialsConfigPanel() {
               key={category.id}
               category={category}
               materials={config.materials.filter((m) => m.categoryId === category.id)}
-              availableSkillCodes={availableSkillCodes}
+              stats={stats}
               currencyTiers={currencyTiers}
               onEditCategory={handleEditCategory}
               onDeleteCategory={handleDeleteCategory}
@@ -117,7 +120,7 @@ export function MaterialsConfigPanel() {
         isOpen={isLevelDialogOpen}
         isEditing={editingMaterialLevelIndex !== null}
         form={levelForm}
-        availableSkillCodes={availableSkillCodes}
+        modifiableStats={modifiableStats}
         currencyTiers={currencyTiers}
         onClose={() => setIsLevelDialogOpen(false)}
         onSave={handleSaveLevel}

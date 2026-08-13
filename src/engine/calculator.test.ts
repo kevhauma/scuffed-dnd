@@ -34,7 +34,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
+      schemaVersion: 4,
       stats: [
         {
           id: 'STR',
@@ -141,7 +141,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
+      schemaVersion: 4,
       stats: [
         {
           id: 'STR',
@@ -233,7 +233,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 3,
+      schemaVersion: 4,
       stats: [
         {
           id: 'STR',
@@ -290,7 +290,7 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
     id: 'config1',
     name: 'Fixture Config',
     version: '1.0',
-    schemaVersion: 3,
+    schemaVersion: 4,
     stats: [
       {
         id: 'STR',
@@ -383,7 +383,7 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
           {
             level: 1,
             name: 'Steel',
-            bonuses: [{ skillCode: 'STR', modifier: 2 }],
+            bonuses: [{ statId: 'STR', modifier: 2 }],
             value: { tierId: 'gold', amount: 10 },
           },
         ],
@@ -397,7 +397,7 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
           {
             level: 1,
             name: 'Shadowweave',
-            bonuses: [{ skillCode: 'STL', modifier: 4 }],
+            bonuses: [{ statId: 'DEX', modifier: 4 }],
             value: { tierId: 'gold', amount: 20 },
           },
         ],
@@ -411,7 +411,7 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
           {
             level: 1,
             name: 'Keen Edge',
-            bonuses: [{ skillCode: 'MEL', modifier: 5 }],
+            bonuses: [{ statId: 'CON', modifier: 5 }],
             value: { tierId: 'gold', amount: 30 },
           },
         ],
@@ -527,33 +527,38 @@ describe('calculateCharacter', () => {
     expect(result.combatSkillBonuses.MEL).toBe(18);
   });
 
-  it('should apply an equipment bonus to a speciality skill', () => {
+  it('should reach a speciality skill only through the stat its formula reads (TICKET-MAT-01)', () => {
+    // The cloak's material used to name `STL` directly. A tier modifier targets a **stat** now
+    // (Concept 09), so it raises DEX and the speciality skill follows because its formula reads
+    // DEX — one route instead of two, and the one the sheet actually has.
     const character = createFixtureCharacter({
       inventory: { equippedItems: { cloak: 'item-cloak' }, miscItems: [] },
     });
 
     const result = calculateCharacter(character, createFixtureConfig());
 
-    // STL = base 2 + formula 5 + equipment 4
-    expect(result.specialitySkillTotalLevels.STL).toBe(11);
-    // The other speciality skill is untouched
+    expect(result.equipmentBonuses).toEqual([{ skillCode: 'DEX', modifier: 4 }]);
+    expect(result.statValues.DEX).toBe(14); // 8 invested + 2 elf + 4 equipment
+    expect(result.statValues.evasion).toBe(28); // DEX * 2 follows
+    expect(result.specialitySkillTotalLevels.STL).toBe(9); // base 2 + DEX 14 / 2
+    // The speciality skill that reads a different stat is untouched
     expect(result.specialitySkillTotalLevels.ARC).toBe(13);
-    // Main skills are untouched by a speciality-targeted bonus
-    expect(result.statValues).toEqual({ STR: 9, DEX: 10, CON: 12, health: 150, evasion: 20 });
   });
 
-  it('should count an equipment bonus to a combat skill exactly once', () => {
+  it('should count a stat-targeted bonus exactly once across every consumer', () => {
     const character = createFixtureCharacter({
       inventory: { equippedItems: { trinket: 'item-charm' }, miscItems: [] },
     });
 
     const result = calculateCharacter(character, createFixtureConfig());
 
-    // MEL = STR 9 + STL 7 + equipment 5 — not 9 + 7 + 5 + 5
-    expect(result.combatSkillBonuses.MEL).toBe(21);
-    // The combat-targeted bonus never leaks into main or speciality skills
-    expect(result.statValues).toEqual({ STR: 9, DEX: 10, CON: 12, health: 150, evasion: 20 });
-    expect(result.specialitySkillTotalLevels).toEqual({ STL: 7, ARC: 13 });
+    // The charm gives CON +5 once, and each consumer reads the raised stat rather than adding the
+    // bonus again on its own account (Requirement 13.2)
+    expect(result.statValues.CON).toBe(17);
+    expect(result.statValues.health).toBe(175); // STR 9 * 10 + CON 17 * 5
+    expect(result.specialitySkillTotalLevels.ARC).toBe(18); // base 1 + CON 17
+    // Nothing reaches a combat skill's own code any more — a material cannot name one
+    expect(result.combatSkillBonuses.MEL).toBe(16); // STR 9 + STL 7, unchanged
   });
 
   it('should return to the pre-equip numbers when everything is unequipped', () => {

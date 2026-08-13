@@ -3,15 +3,20 @@
  *
  * Form for adding/editing material levels with bonuses and values.
  *
- * **Validates: Requirements 6.4, 6.5, 6.6, 6.7, 21.1-21.5**
+ * A tier's modifiers target **stats** since TICKET-MAT-01 — the sheet's own shape, and what makes
+ * "+50 max Mana" expressible. The picker is handed only the stats a modifier may land on, so a
+ * derived stat is never on offer here; `useMaterialManager` decides which those are.
+ *
+ * **Validates: Concept 09; Requirements 6.4, 6.5, 6.6, 6.7, 21.1-21.5**
  */
 
 import { useId } from 'react';
 import { type UseFormReturn, useFieldArray } from 'react-hook-form';
-import type { CurrencyTier } from '../../../types';
+import type { CurrencyTier, Stat, StatModifier } from '../../../types';
 import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
+import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
@@ -19,7 +24,7 @@ import { Text } from '../../ui/Text/Text';
 interface LevelFormData {
   level: number;
   name: string;
-  bonuses: Array<{ skillCode: string; modifier: number }>;
+  bonuses: StatModifier[];
   tierId: string;
   amount: number;
 }
@@ -28,7 +33,8 @@ interface MaterialLevelFormDialogProps {
   isOpen: boolean;
   isEditing: boolean;
   form: UseFormReturn<LevelFormData>;
-  availableSkillCodes: string[];
+  /** The stats a modifier may target — invested and resource, never derived */
+  modifiableStats: Stat[];
   currencyTiers: CurrencyTier[];
   onClose: () => void;
   onSave: () => void;
@@ -38,7 +44,7 @@ export function MaterialLevelFormDialog({
   isOpen,
   isEditing,
   form,
-  availableSkillCodes,
+  modifiableStats,
   currencyTiers,
   onClose,
   onSave,
@@ -57,7 +63,7 @@ export function MaterialLevelFormDialog({
   });
 
   const handleAddBonus = () => {
-    append({ skillCode: availableSkillCodes[0] || '', modifier: 0 });
+    append({ statId: modifiableStats[0]?.id ?? '', modifier: 0 });
   };
 
   return (
@@ -95,28 +101,29 @@ export function MaterialLevelFormDialog({
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <Text variant="body-small" className="font-semibold">
-              Skill Bonuses/Penalties
+              Stat Bonuses/Penalties
             </Text>
             <Button
               type="button"
               variant="secondary"
               onClick={handleAddBonus}
-              disabled={availableSkillCodes.length === 0}
+              disabled={modifiableStats.length === 0}
               className="text-xs px-2 py-1"
             >
               Add Bonus
             </Button>
           </div>
 
-          {availableSkillCodes.length === 0 && (
+          {modifiableStats.length === 0 && (
             <Text variant="body-small-secondary" className="italic">
-              No skills configured yet. Add skills first to define bonuses.
+              No stats a modifier can land on. A derived stat takes its value from its formula, so
+              add an invested or resource stat first.
             </Text>
           )}
 
-          {fields.length === 0 && availableSkillCodes.length > 0 && (
+          {fields.length === 0 && modifiableStats.length > 0 && (
             <Text variant="body-small-secondary" className="italic">
-              No bonuses defined. Click 'Add Bonus' to add skill modifiers.
+              No bonuses defined. Click 'Add Bonus' to add stat modifiers.
             </Text>
           )}
 
@@ -124,20 +131,20 @@ export function MaterialLevelFormDialog({
             <div key={field.id} className="flex gap-2 items-start">
               <div className="flex-1">
                 <Select
-                  value={watch(`bonuses.${index}.skillCode`)}
-                  onChange={(e) => form.setValue(`bonuses.${index}.skillCode`, e.target.value)}
-                  options={availableSkillCodes.map((code) => ({
-                    value: code,
-                    label: code,
+                  value={watch(`bonuses.${index}.statId`)}
+                  onChange={(e) => form.setValue(`bonuses.${index}.statId`, e.target.value)}
+                  options={modifiableStats.map((stat) => ({
+                    value: stat.id,
+                    label: `${stat.name} (${stat.abbreviation})`,
                   }))}
                   className="w-full"
                 />
               </div>
               <div className="flex-1">
-                <input
+                <Input
                   type="number"
                   placeholder="Modifier (+ or -)"
-                  className="w-full px-3 py-2 border border-stone-300 rounded bg-white text-ink-900 focus:outline-none focus:ring-2 focus:ring-amber"
+                  className="w-full"
                   {...register(`bonuses.${index}.modifier`, {
                     valueAsNumber: true,
                   })}

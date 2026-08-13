@@ -22,6 +22,7 @@ export function ItemsConfigPanel() {
     filteredItems,
     materials,
     equipmentSlots,
+    stats,
     itemCategories,
     categoryFilter,
     setCategoryFilter,
@@ -162,6 +163,7 @@ export function ItemsConfigPanel() {
                 item={item}
                 materials={materials}
                 equipmentSlots={equipmentSlots}
+                stats={stats}
                 onEdit={handleEditItem}
                 onDelete={handleDeleteItem}
               />
