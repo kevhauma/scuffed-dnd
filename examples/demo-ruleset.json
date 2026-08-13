@@ -2,48 +2,89 @@
   "id": "demo-ruleset-0001",
   "name": "Emberfall Demo Ruleset",
   "version": "1.0.0",
-  "schemaVersion": 2,
+  "schemaVersion": 5,
   "focusStatBonusLevel": 2,
   "mainSkillPointBudget": 20,
-  "specialitySkills": [
+  "skills": [
     {
-      "code": "STL",
+      "id": "skill-stealth",
       "name": "Stealth",
-      "description": "Moving unseen and unheard.",
-      "maxBaseLevel": 5,
-      "bonusFormula": "(DEX + WIS) / 2"
+      "description": "Moving unseen and unheard. Weights: DEX 0.5, WIS 0.5.",
+      "statWeights": [
+        {
+          "statId": "stat-dexterity",
+          "weight": 0.5
+        },
+        {
+          "statId": "stat-wisdom",
+          "weight": 0.5
+        }
+      ]
     },
     {
-      "code": "ATH",
+      "id": "skill-athletics",
       "name": "Athletics",
-      "description": "Climbing, swimming, jumping, and grappling.",
-      "maxBaseLevel": 5,
-      "bonusFormula": "(STR + CON) / 2"
+      "description": "Climbing, swimming, jumping, and grappling. Weights: STR 0.5, CON 0.5.",
+      "statWeights": [
+        {
+          "statId": "stat-strength",
+          "weight": 0.5
+        },
+        {
+          "statId": "stat-constitution",
+          "weight": 0.5
+        }
+      ]
     },
     {
-      "code": "PRS",
+      "id": "skill-persuasion",
       "name": "Persuasion",
-      "description": "Talking your way into (or out of) trouble.",
-      "maxBaseLevel": 5,
-      "bonusFormula": "(CHA + WIS) / 2"
+      "description": "Talking your way into (or out of) trouble. Weights: CHA 0.5, WIS 0.5.",
+      "statWeights": [
+        {
+          "statId": "stat-charisma",
+          "weight": 0.5
+        },
+        {
+          "statId": "stat-wisdom",
+          "weight": 0.5
+        }
+      ]
     },
     {
-      "code": "LOR",
+      "id": "skill-lore",
       "name": "Lore",
-      "description": "Knowledge of history, arcana, and forgotten things.",
-      "maxBaseLevel": 5,
-      "bonusFormula": "(INT + WIS) / 2"
+      "description": "Knowledge of history, arcana, and forgotten things. Weights: INT 0.5, WIS 0.5.",
+      "statWeights": [
+        {
+          "statId": "stat-intellect",
+          "weight": 0.5
+        },
+        {
+          "statId": "stat-wisdom",
+          "weight": 0.5
+        }
+      ]
     },
     {
-      "code": "SUR",
+      "id": "skill-survival",
       "name": "Survival",
-      "description": "Tracking, foraging, and reading the wilds.",
-      "maxBaseLevel": 5,
-      "bonusFormula": "(WIS + CON) / 2"
+      "description": "Tracking, foraging, and reading the wilds. Weights: WIS 0.5, CON 0.5.",
+      "statWeights": [
+        {
+          "statId": "stat-wisdom",
+          "weight": 0.5
+        },
+        {
+          "statId": "stat-constitution",
+          "weight": 0.5
+        }
+      ]
     }
   ],
   "combatSkills": [
     {
+      "id": "combat-melee-strike",
       "code": "MEL",
       "name": "Melee Strike",
       "description": "A close-quarters weapon attack.",
@@ -55,9 +96,10 @@
         "d12": 0,
         "d20": 0
       },
-      "bonusFormula": "STR + ATH / 2"
+      "bonusFormula": "STR + skills.athletics / 2"
     },
     {
+      "id": "combat-ranged-shot",
       "code": "RNG",
       "name": "Ranged Shot",
       "description": "A bow or thrown-weapon attack from distance.",
@@ -69,9 +111,10 @@
         "d12": 0,
         "d20": 0
       },
-      "bonusFormula": "DEX + SUR / 2"
+      "bonusFormula": "DEX + skills.survival / 2"
     },
     {
+      "id": "combat-arcane-bolt",
       "code": "ARC",
       "name": "Arcane Bolt",
       "description": "A crackling missile of raw magic.",
@@ -83,7 +126,7 @@
         "d12": 0,
         "d20": 0
       },
-      "bonusFormula": "INT + LOR / 2"
+      "bonusFormula": "INT + skills.lore / 2"
     }
   ],
   "materialCategories": [
@@ -115,7 +158,7 @@
           "name": "Iron",
           "bonuses": [
             {
-              "skillCode": "MEL",
+              "statId": "stat-strength",
               "modifier": 1
             }
           ],
@@ -129,7 +172,7 @@
           "name": "Steel",
           "bonuses": [
             {
-              "skillCode": "MEL",
+              "statId": "stat-strength",
               "modifier": 2
             }
           ],
@@ -143,11 +186,11 @@
           "name": "Mithril",
           "bonuses": [
             {
-              "skillCode": "MEL",
+              "statId": "stat-strength",
               "modifier": 4
             },
             {
-              "skillCode": "STL",
+              "statId": "stat-dexterity",
               "modifier": 1
             }
           ],
@@ -169,7 +212,7 @@
           "name": "Rawhide",
           "bonuses": [
             {
-              "skillCode": "STL",
+              "statId": "stat-dexterity",
               "modifier": 1
             }
           ],
@@ -183,7 +226,7 @@
           "name": "Boiled Leather",
           "bonuses": [
             {
-              "skillCode": "STL",
+              "statId": "stat-dexterity",
               "modifier": 2
             }
           ],
@@ -197,12 +240,8 @@
           "name": "Drakescale",
           "bonuses": [
             {
-              "skillCode": "STL",
-              "modifier": 2
-            },
-            {
-              "skillCode": "RNG",
-              "modifier": 1
+              "statId": "stat-dexterity",
+              "modifier": 3
             }
           ],
           "value": {
@@ -223,7 +262,7 @@
           "name": "Pine",
           "bonuses": [
             {
-              "skillCode": "RNG",
+              "statId": "stat-dexterity",
               "modifier": 1
             }
           ],
@@ -237,7 +276,7 @@
           "name": "Oak",
           "bonuses": [
             {
-              "skillCode": "RNG",
+              "statId": "stat-dexterity",
               "modifier": 2
             }
           ],
@@ -251,11 +290,11 @@
           "name": "Ironwood",
           "bonuses": [
             {
-              "skillCode": "RNG",
+              "statId": "stat-dexterity",
               "modifier": 3
             },
             {
-              "skillCode": "MEL",
+              "statId": "stat-strength",
               "modifier": 1
             }
           ],
@@ -365,69 +404,39 @@
       "id": "race-human",
       "name": "Human",
       "description": "Adaptable and ambitious, at home anywhere.",
-      "skillModifiers": [
-        {
-          "skillCode": "CHA",
-          "modifier": 1
-        }
-      ]
+      "statValues": {
+        "stat-charisma": 1
+      }
     },
     {
       "id": "race-dwarf",
       "name": "Dwarf",
       "description": "Stout mountain folk, tough as the stone they mine.",
-      "skillModifiers": [
-        {
-          "skillCode": "CON",
-          "modifier": 2
-        },
-        {
-          "skillCode": "STR",
-          "modifier": 1
-        },
-        {
-          "skillCode": "DEX",
-          "modifier": -1
-        }
-      ]
+      "statValues": {
+        "stat-constitution": 2,
+        "stat-strength": 1,
+        "stat-dexterity": -1
+      }
     },
     {
       "id": "race-elf",
       "name": "Elf",
       "description": "Graceful and long-lived, with keen minds and keener eyes.",
-      "skillModifiers": [
-        {
-          "skillCode": "DEX",
-          "modifier": 2
-        },
-        {
-          "skillCode": "INT",
-          "modifier": 1
-        },
-        {
-          "skillCode": "CON",
-          "modifier": -1
-        }
-      ]
+      "statValues": {
+        "stat-dexterity": 2,
+        "stat-intellect": 1,
+        "stat-constitution": -1
+      }
     },
     {
       "id": "race-orc",
       "name": "Orc",
       "description": "Fierce warriors bred for the front line.",
-      "skillModifiers": [
-        {
-          "skillCode": "STR",
-          "modifier": 2
-        },
-        {
-          "skillCode": "CON",
-          "modifier": 1
-        },
-        {
-          "skillCode": "INT",
-          "modifier": -1
-        }
-      ]
+      "statValues": {
+        "stat-strength": 2,
+        "stat-constitution": 1,
+        "stat-intellect": -1
+      }
     }
   ],
   "currencyTiers": [
@@ -451,7 +460,7 @@
     }
   ],
   "createdAt": "2026-08-02T12:00:00.000Z",
-  "updatedAt": "2026-08-02T12:00:00.000Z",
+  "updatedAt": "2026-08-13T12:00:00.000Z",
   "stats": [
     {
       "id": "stat-strength",
