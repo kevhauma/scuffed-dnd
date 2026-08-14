@@ -12,8 +12,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Character } from '../../types/character';
 import type { Configuration, Skill, Stat } from '../../types/config';
-import type { FormulaResult } from '../../types/formula';
-import { formulaError } from '../formula/errors';
+import type { FormulaError, FormulaResult } from '../../types/formula';
+import { formulaError, rootCause } from '../formula/errors';
 import { calculateSkills } from './skillCalculator';
 
 /** The sample character's four stats, ids matching the sheet's names */
@@ -251,7 +251,11 @@ describe('weight rows', () => {
 });
 
 describe('errors as values (Concept 00 §7)', () => {
-  it('carries a broken stat into the level, naming the skill that could not be computed', () => {
+  it('carries a broken stat into the level as an upstream error naming the skill', () => {
+    // The whole chain, asserted here rather than only through the sheet's chip: `withSource` keeps
+    // the *first* source it is given, so returning the stat's own error would leave the level
+    // claiming to belong to the stat and stop the chain at one link. An `upstream` wrapper is what
+    // makes the skill nameable and keeps the root cause reachable (Concept 00 §7).
     const charm = skill('charm', 'Charm', [{ statId: 'char', weight: 0.3 }]);
     const broken = formulaError('undefined-variable', 'Undefined variable: NOPE');
 
@@ -259,8 +263,13 @@ describe('errors as values (Concept 00 §7)', () => {
 
     expect(levels.charm).toMatchObject({
       formulaError: true,
+      kind: 'upstream',
+      // Names the stat that failed, so the chip says which input to go and fix
+      message: 'char could not be calculated',
       source: { kind: 'skill', id: 'charm', name: 'Charm' },
+      cause: broken,
     });
+    expect(rootCause(levels.charm as FormulaError)).toEqual(broken);
   });
 
   it('says the same thing in the bonus rather than a confident 0', () => {

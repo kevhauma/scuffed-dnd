@@ -288,7 +288,6 @@ export function useStatManager() {
       // Spelled out rather than merged: `formula` and the bounds are optional, and a shallow
       // merge would keep a bound or a formula the User just cleared
       updateStat(editingStatId, { ...stat, formula: formula || undefined, min, max });
-      // The configuration half is rename-safe on its own; this is the character half
     } else {
       addStat(stat);
     }

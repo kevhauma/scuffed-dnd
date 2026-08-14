@@ -87,8 +87,8 @@ acceptance criteria.
 - **Persistence belongs to the store action.** A component, hook, or engine module never calls
   `localStorage`, `saveConfiguration()`, or `saveCharacters()` — it calls a Zustand action, which
   patches state and persists.
-- **Derived values are computed, never stored.** Total skill levels, max stats, speciality totals,
-  combat bonuses, and equipment bonuses come from `engine/calculator.ts` /
+- **Derived values are computed, never stored.** Composed stat values, the stat total, skill levels
+  and bonuses, combat bonuses, and equipment bonuses come from `engine/calculator.ts` /
   `engine/calculators/*` at read time. `Character.currentStatValues` is the one sanctioned
   exception — it's player state, not a derivation.
 - **All user-authored math goes through the formula engine** (`parseFormula` → `validateFormula` →
@@ -105,9 +105,12 @@ acceptance criteria.
   Glob, and Grep instead of `cat`/`head`/`find`/`rg`. The shell is for running commands — tests,
   typecheck, lint, git, yarn — not for authoring files.
 - **`src/routeTree.gen.ts` is generated** — never hand-edit it.
-- **A stat's `abbreviation` and the speciality/combat skill `code`s share one flat formula
-  namespace and must be unique across all of them** (TICKET-STAT-01 merged `MainSkill` into
-  `Stat`). Skill codes are 3 letters; a stat abbreviation is an uppercase identifier.
+- **A stat's `abbreviation` and the combat skill `code`s share one flat formula namespace and must
+  be unique across both** (TICKET-STAT-01 merged `MainSkill` into `Stat`). Combat codes are 3
+  letters; a stat abbreviation is an uppercase identifier. **A `Skill` is not in that space** — it
+  lost its code in TICKET-SKL-02 and a formula reaches one as `skills.<name-slug>`, so two skills
+  may share a spelling without colliding with anything (the sheet genuinely has `skinning` and
+  `Skinning`); the first one wins the reference.
 - New barrels use `export *`; imports are relative (the `#/*` alias exists but is unused — don't
   half-adopt it).
 - No new runtime dependencies without asking. The app stays browser-only.

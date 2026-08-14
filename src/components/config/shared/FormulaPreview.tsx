@@ -23,7 +23,7 @@ import { calculateSkills } from '../../../engine/calculators/skillCalculator';
 import { asNumber, isFormulaError } from '../../../engine/formula/errors';
 import { evaluateFormulaString } from '../../../engine/formula/evaluator';
 import { namespacesFor } from '../../../engine/formula/namespaces';
-import { statMemberName } from '../../../engine/formula/references';
+import { skillMemberName, statMemberName } from '../../../engine/formula/references';
 import type { FormulaOwner } from '../../../engine/formula/scoping';
 import { scopeFor } from '../../../engine/formula/scoping';
 import { validateFormula } from '../../../engine/formula/validator';
@@ -60,7 +60,7 @@ const DEFAULT_SAMPLE = 10;
  * A ruleset is being edited here, not played: the preview's claim is "at these stats, this
  * formula computes X", and someone's invested points would make that claim about one character.
  */
-const UNINVESTED = { investedSkillPoints: {} } as Character;
+const UNINVESTED: Pick<Character, 'investedSkillPoints'> = { investedSkillPoints: {} };
 
 /**
  * Error kinds that cannot depend on the numbers going in (TICKET-FORM-09)
@@ -96,6 +96,13 @@ export interface FormulaPreviewProps {
  * A stat reachable two ways — bare `STR` and dotted `stats.strength` — is **one** input, keyed by
  * the abbreviation. That is what stops the same stat getting two boxes that disagree.
  *
+ * **A `skills.<name>` reference contributes the stats it is weighted on** (TICKET-SKL-02), because
+ * that is what it is made of: a skill has no value of its own to offer a box for, and offering
+ * none at all would be worse than either — `calculateSkills` skips a weight whose stat is absent
+ * from `statValues`, so the level would quietly drop those terms and the preview would show a
+ * confident wrong number. Naming the stats keeps the promise the module header makes: a preview
+ * and the real thing cannot disagree.
+ *
  * @param config - The ruleset, for the dotted-spelling → abbreviation mapping
  * @param referencedVariables - The bare codes the validator found
  * @param namespacedReferences - The dotted references the validator found
@@ -110,13 +117,26 @@ function previewInputs(
   const add = (code: string) => {
     if (code && !inputs.includes(code)) inputs.push(code);
   };
+  const addStatById = (statId: string) => {
+    const stat = config.stats.find((candidate) => candidate.id === statId);
+    if (stat) add(stat.abbreviation.toUpperCase());
+  };
 
   for (const code of referencedVariables) add(code);
 
   for (const reference of namespacedReferences) {
-    if (reference.namespace !== 'stats') continue;
-    const stat = config.stats.find((candidate) => statMemberName(candidate) === reference.member);
-    if (stat) add(stat.abbreviation.toUpperCase());
+    if (reference.namespace === 'stats') {
+      const stat = config.stats.find((candidate) => statMemberName(candidate) === reference.member);
+      if (stat) add(stat.abbreviation.toUpperCase());
+      continue;
+    }
+
+    if (reference.namespace === 'skills') {
+      const skill = config.skills.find(
+        (candidate) => skillMemberName(candidate) === reference.member
+      );
+      for (const { statId } of skill?.statWeights ?? []) addStatById(statId);
+    }
   }
 
   return inputs;
@@ -196,8 +216,8 @@ export function FormulaPreview({ formula, owner, config, className = '' }: Formu
   /**
    * The message to show *instead of* the numbers, when no number is reachable at any level
    *
-   * Only for the kinds that cannot change with the inputs — a `skills.*` member with no resolver
-   * behind it reads the same at level 1 and at level 50 (TICKET-FORM-09).
+   * Only for the kinds that cannot change with the inputs — a member that names no skill the
+   * ruleset defines reads the same at level 1 and at level 50 (TICKET-FORM-09).
    */
   const structuralError = useMemo(() => {
     if (!isFormulaError(sampleResult)) return null;

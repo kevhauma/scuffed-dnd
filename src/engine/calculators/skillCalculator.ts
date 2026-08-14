@@ -98,6 +98,12 @@ function levelOf(
 /**
  * Compute every skill's level and bonus for a character
  *
+ * Narrowed to the one field it reads rather than taking a whole `Character`, so a caller with no
+ * player in hand — `FormulaPreview` sampling a ruleset — can supply an honest empty allocation
+ * without asserting its way past the type. **When TICKET-ARC-02 routes the invested term through
+ * the point-buy curve this signature widens**, and every such caller becomes a compile error
+ * rather than a silent `undefined` at runtime.
+ *
  * @param config - The configuration's skills and constants
  * @param statValues - Composed stat values, keyed by stat id
  * @param character - The character whose invested points are applied
@@ -106,7 +112,7 @@ function levelOf(
 export function calculateSkills(
   config: Configuration,
   statValues: Record<string, FormulaResult>,
-  character: Character
+  character: Pick<Character, 'investedSkillPoints'>
 ): CalculatedSkills {
   const divider = bonusDivider(config);
   const statNames = new Map(config.stats.map((stat) => [stat.id, stat.name]));

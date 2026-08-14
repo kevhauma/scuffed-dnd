@@ -70,7 +70,9 @@ const config: Configuration = {
       id: 'stl-id',
       name: 'Stealth',
       description: '',
-      statWeights: [{ statId: 'str-id', weight: 1 }],
+      // Weighted on CHA, **not** STR: the combat formulas below name STR bare, so a skill sharing
+      // that stat would let a missing skills-namespace box pass unnoticed (TICKET-SKL-02)
+      statWeights: [{ statId: 'cha-id', weight: 1 }],
     },
   ],
   combatSkills: [
@@ -147,6 +149,23 @@ describe('FormulaPreview placements (TICKET-FORM-09)', () => {
 
       expect(dialog().getByLabelText('STR')).toBeDefined();
       expect(previewResult()).toBe('20');
+    });
+
+    it('should offer a box for the stats a named skill is weighted on (TICKET-SKL-02)', () => {
+      // A skill has no value of its own to put in a box, and offering none at all would preview a
+      // confident 0: `calculateSkills` skips a weight whose stat is missing from `statValues`.
+      // Stealth is CHA × 1 here, so previewing it alone must still surface a CHA box and a ladder.
+      render(<CombatSkillsPanel />);
+      fireEvent.click(screen.getByRole('button', { name: 'Add Combat Skill' }));
+
+      fireEvent.change(dialog().getByPlaceholderText(/STR \+ MEL/), {
+        target: { value: 'skills.stealth * 2' },
+      });
+
+      expect(dialog().getByLabelText('CHA')).toHaveProperty('value', '10');
+      expect(previewResult()).toBe('20');
+      // …and the ladder sweeps it rather than showing nine identical zeroes
+      expect(ladderRows()[0]).toEqual(['1', '2']);
     });
 
     it('should say once, not nine times, what it cannot resolve', () => {
