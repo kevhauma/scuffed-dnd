@@ -40,7 +40,7 @@ rather than a read-only config UI).
 |---|---|---|
 | `/` | `routes/index.tsx` | landing page, feature overview |
 | `/config` | `routes/config/index.tsx` | `ConfigDashboard` (components/config/dashboard/) — validation status, the "Validate Configuration" action, the `ConfigTransferPanel` (rename/export/import), and a card index of the nine sections below |
-| `/config/skills` | `routes/config/skills.tsx` | `SpecialitySkillsPanel` + `CombatSkillsPanel` (main skills merged into stats — TICKET-STAT-01) |
+| `/config/skills` | `routes/config/skills.tsx` | `SkillsPanel` + `CombatSkillsPanel` (main skills merged into stats — TICKET-STAT-01; the speciality panel became the weighted `SkillsPanel` — TICKET-SKL-02) |
 | `/config/stats` | `routes/config/stats.tsx` | `StatsConfigPanel` — the unified Stat: invested, resource and derived alike, every field in one editor with drag/arrow reordering (TICKET-STAT-02), plus `StatPointBudget` |
 | `/config/materials` | `routes/config/materials.tsx` | `MaterialsConfigPanel` |
 | `/config/items` | `routes/config/items.tsx` | `ItemsConfigPanel` + `EquipmentSlotsConfigPanel` |
@@ -96,8 +96,8 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   a deliberate split, TICKET-FORM-07), parentheses, unary negation, numeric literals,
   function calls `name(arg, …)`, dotted namespaced references (`stats.speed`, `skills.healing.level`,
   `curve.cr(x)`), bracketed id references (`[b1f0…]`, `stats.[b1f0…]` — the persisted form,
-  TICKET-REF-01), and bare variable refs (**deprecated** — the flat space now holds stat
-  abbreviations plus speciality and combat codes; TICKET-SKL-02/ROLL-05 move the last callers off it).
+  TICKET-REF-01), and bare variable refs (**deprecated** — the flat space holds stat
+  abbreviations plus combat codes; TICKET-SKL-02 took the speciality half out, ROLL-05/06 takes the rest).
   Identifiers are `[A-Za-z][A-Za-z0-9_]*`. **Full grammar lives in the module JSDoc** — read it
   there rather than restating it. Also exports `tokenizeFormula(src)` — the lexer alone, for
   rewriting reference tokens in place.
@@ -156,12 +156,13 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   unknown member). **Use `toFormulaDependency` to build cycle-graph entries** — it is what makes
   `stats.health` and bare `HEALTH` land on the same node.
 - `formula/formulaChange.ts` — `validateFormulaChange(config, change)`, the **save-time guard** the
-  three formula-owning `useXManager` hooks call before writing to the store. It validates the
+  formula-owning `useXManager` hooks call before writing to the store. It validates the
   configuration *as it would be after the save* (syntax → cycles → undefined codes) and reuses the
-  validator's detector rather than adding a second one. Reference scope per kind lives here:
-  stats and speciality skills may name stat abbreviations, combat skills may also name speciality
-  codes. A stat may now name another stat, so that graph is no longer a DAG by construction —
-  `calculateStatValues` resolves in passes and reports a cycle as error values.
+  validator's detector rather than adding a second one. Reference scope per attachment point is
+  the table in `scoping.ts`, not a branch here. **A `Skill` is neither an attachment point nor a
+  graph node** (TICKET-SKL-02): it holds weight rows rather than a formula, so it cannot be part
+  of a cycle, and `skills.*` is a leaf. A stat may name another stat, so that graph is no longer a
+  DAG by construction — `calculateStatValues` resolves in passes and reports a cycle as error values.
 - `calculators/statCalculator.ts` — **the composition calculator** (TICKET-STAT-01):
   `calculateStatValues(stats, character, options)` answers "what is this stat worth" for all three
   kinds — invested (`race stat block + points + equipment`), resource (the same sum, read as a
@@ -170,11 +171,11 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   formulas), `calculateRaceStatBases` (the races' **blended** stat block on its own, keyed by stat
   **id**, for display — TICKET-RACE-01/02) and `MAX_RACE_COUNT`, the one place the 1–2 race
   cardinality is written.
-- `calculators/specialitySkillCalculator.ts` — `calculateSpecialitySkillLevels` (base + formula bonus + focus bonus). **No equipment term** since TICKET-MAT-02.
+- `calculators/skillCalculator.ts` — `calculateSkills(config, statValues, character)` → `{ levels, bonuses }`, both keyed by skill id (TICKET-SKL-02). `level = Σ(weight × stat) + invested`, `bonus = round(level / const.bonus_divider)` half-away-from-zero, with the divider read **by name** and falling back to Concept 05's seeded 5. A weight naming a stat that no longer exists contributes nothing; a stat whose own formula failed yields an `upstream` error naming it, with the original as `cause`. The invested term is 1:1 and **provisional** — TICKET-ARC-02 routes it through the point-buy curve.
 - `calculators/combatSkillCalculator.ts` — `calculateCombatSkillBonuses` (the formula, and nothing else). **No equipment term** since TICKET-MAT-02.
 - `calculators/equipmentBonusCalculator.ts` — `calculateEquipmentBonuses` (aggregates equipped items' material tier modifiers into one `StatModifier[]`, keyed by stat **id**) and `indexStatModifiers(modifiers)` → `Record<statId, number>` (any `StatModifier[]` as a per-stat lookup, for showing a stat's equipment contribution on its own).
 - `calculator.ts` — re-exports the calculators, plus **`calculateCharacter(character, config):
-  CalculatedCharacter`**, the single composed entry point (equipment → stats → speciality →
+  CalculatedCharacter`**, the single composed entry point (equipment → stats → skills →
   combat, in that order). Call it for any derived number; don't compose the calculators by hand.
   `calculateCharacterStats()` remains as a thin documented wrapper returning just `.statValues`.
   **Equipment applies exactly once, at the stat composition** (TICKET-MAT-02): a tier modifier
@@ -271,7 +272,7 @@ value and neither imports the engine to decide what to draw. Use it rather than 
 `FormulaResult` in a component.
 
 **`config/` — configuration-mode features**, one folder per domain
-(`skills/{speciality,combat,shared}`, `stats/`, `materials/`, `items/`, `races/`,
+(`skills/{skill,combat,shared}`, `stats/`, `materials/`, `items/`, `races/`,
 `currency/`, `constants/`, `curves/`, `focus/`). Each domain repeats the same four-part shape:
 
 - `XConfigPanel.tsx` — layout + composition only
@@ -291,7 +292,9 @@ prop per panel.**
 `config/index.ts` re-exports all of it. `skills/shared/` holds what the three skill kinds share:
 `BaseSkillPanel.tsx` — now the *skills specialisation* of `ConfigPanelShell` (a `code`-keyed list
 in a three-column grid) rather than a second frame — plus `SkillFormFields.tsx` and
-`skillIdentity.ts` (`resolveSkillId`, `useSkillCodeRename` — TICKET-REF-01).
+`skillIdentity.ts` (`resolveSkillId` alone — TICKET-REF-01; `useSkillCodeRename` was deleted in
+TICKET-SKL-02 once both character investment maps became id-keyed, and `resolveSkillId` now serves
+the combat manager only, the last kind still addressed by a code).
 
 **`config/shared/` also holds `FormulaPreview`** (TICKET-FORM-08) — the one preview for any
 User-authored formula field: editable sample values plus a fixed 1–50 level ladder, taking the
@@ -321,7 +324,8 @@ previews the derived ones read-only off the same `calculateCharacter` result the
 with `SheetHeader`, `RaceStatBlockSection` (the races' combined block, stated in absolutes —
 TICKET-RACE-01), `StatsSection` (one `SkillBreakdownRow` per stat in
 `order`, **plus** a `StatEditor` for each `isResource` stat — the breakdown row owns the value and
-its error chip, the editor owns the current value; TICKET-STAT-03), `SpecialitySkillsSection` and
+its error chip, the editor owns the current value; TICKET-STAT-03), `SkillsSection` (one row per
+skill showing its **bonus** and the points invested — the level joins it in TICKET-SKL-03) and
 `CombatSkillsSection` as pure props.
 `inventory/` holds `InventoryPanel` (mounted by the sheet, taking only a `characterId`) with
 `EquipmentSlotRow`, `MiscItemRow` and `useInventoryManager`. Equipping needs no recalculation call:

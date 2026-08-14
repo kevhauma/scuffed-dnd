@@ -26,12 +26,20 @@ as part of the action. That is the equivalent of a repository layer here.
 
 ## Configuration (the ruleset)
 
-One `Configuration` per browser: id, name, version, **`schemaVersion: 4`**, timestamps,
+One `Configuration` per browser: id, name, version, **`schemaVersion: 5`**, timestamps,
 `focusStatBonusLevel`, the optional
-`mainSkillPointBudget`, plus the entity arrays — `stats`, `specialitySkills`,
+`mainSkillPointBudget`, plus the entity arrays — `stats`, `skills`,
 `combatSkills`, `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
 `currencyTiers`, the optional `constants` (TICKET-CST-01), and the optional `curves`
 (TICKET-CRV-01).
+
+**`Skill` is the sheet's Skill since TICKET-SKL-02**: `{ id, name, description, statWeights:
+[{ statId, weight }], category? }`. It replaced v1's `SpecialitySkill` outright — no `code`, no
+`maxBaseLevel`, no `bonusFormula`. The arithmetic is not per-skill any more: `level = Σ(weight ×
+stat value) + invested` and `bonus = round(level / const.bonus_divider)` live once, in
+[skillCalculator.ts](../../../src/engine/calculators/skillCalculator.ts), so a global rebalance is
+one constant rather than 48 formula edits. A weight row names a stat by **id**, so a rename cannot
+orphan it, and a formula reaches a skill as `skills.<name-slug>` (`.bonus` for the integer).
 
 `mainSkillPointBudget?: number` is the worked example of an optional field done right, and the
 pattern to copy: **absent means unlimited**, so rulesets saved before it existed stay valid;
@@ -118,16 +126,20 @@ and `rounding` (`none` | `nearest` | `up` | `down`, applied after the clamp).
 Identity rules that the rest of the app depends on:
 
 - **Every referenceable entity carries a stable `id`.** Since TICKET-REF-01 that includes stats
-  and the two skill kinds, whose `abbreviation` / `code` is renamable display data rather than the
-  identity. The skill store actions still *address* a skill by code (`updateCombatSkill('MEL', …)`)
-  — that is a lookup argument, not the key; `updateStat` takes the id. `EquipmentSlot` is still
-  keyed by `type`.
+  and both skill kinds, whose `abbreviation` / `code` is renamable display data rather than the
+  identity. **`updateSkill`/`deleteSkill` take the id** (TICKET-SKL-02 — a `Skill` has no code to
+  address it by); the combat actions still *address* by code (`updateCombatSkill('MEL', …)`),
+  which is a lookup argument, not the key, until ROLL-05/06. `EquipmentSlot` is still keyed by
+  `type`.
 - **A stat's `abbreviation` is an uppercase identifier and unique across the one flat formula
-  space** it shares with the speciality and combat codes (TICKET-STAT-01). Enforced in both places
-  the rule needs: `validateConfiguration()` for import, `useStatManager`'s save path for User
-  input. Renaming one is safe — the stored formula holds the stat's id — and `useStatManager`
-  carries the character half through `useSkillCodeRename`, because `focusStatCode` is keyed by the
-  spelling until TICKET-ARC-03 retires it.
+  space** it shares with the combat codes (TICKET-STAT-01; the speciality half of that space left
+  with the code in TICKET-SKL-02). Enforced in both places the rule needs:
+  `validateConfiguration()` for import, `useStatManager`'s save path for User input. Renaming one
+  is safe — the stored formula holds the stat's id — and there is **no character half left to
+  carry**: `investedStatPoints` and `investedSkillPoints` are both keyed by id, which is why
+  `renameSkillCode` and `useSkillCodeRename` were deleted. One field still escapes it —
+  `focusStatCode` holds an abbreviation, so a rename orphans it, and nothing chases it. Left for
+  TICKET-ARC-03, which retires the focus stat; recorded on TICKET-SKL-02.
 - **A constant's `name` is a lowercase identifier (`^[a-z][a-z0-9_]*$`) and unique.** It is what a
   formula spells as `const.<name>`, and a duplicate splits identity from value — the stored formula
   points at one constant's id while `constantsNamespace` reads the other's number. Enforced in two
@@ -173,8 +185,10 @@ Identity rules that the rest of the app depends on:
   index is **derived on every call and never persisted**.
   A `stats.*` member is a slug of the stat's name (`Max Health` → `stats.max_health`) until
   TICKET-STAT-01 gives stats a real code.
-- **Formulas are strings** on `Stat.formula`, `SpecialitySkill.bonusFormula`, and
-  `CombatSkill.bonusFormula`. They are parsed by the formula engine, never `eval`'d, and a bare
+- **Formulas are strings** on `Stat.formula`, `CombatSkill.bonusFormula`, and
+  `CurveColumn.generator`. **A `Skill` carries none** — weight rows replaced the string in
+  TICKET-SKL-02, which is also why there is no `skill` attachment point in `scoping.ts` and why a
+  skill cannot be a node in the dependency graph. They are parsed by the formula engine, never `eval`'d, and a bare
   variable is only valid if it resolves to a configured skill code. Since TICKET-FORM-03 a formula
   may also carry **dotted namespaced references** (`stats.speed`, `const.bonus_divider`) and
   **namespaced calls** (`curve.xp_thresholds(x)`, `curve.point_buy.main_type(x)` — the third
@@ -203,12 +217,13 @@ Identity rules that the rest of the app depends on:
 
 `Character` stores only what the player chose: `raceIds`, `investedStatPoints` (**keyed by stat
 id**, so a rename cannot orphan an allocation),
-`specialitySkillBaseLevels`, `focusStatCode`, `currentResourceValues`, and an `Inventory`
+`investedSkillPoints` (**keyed by skill id**, same reason — TICKET-SKL-02 replaced v1's
+code-keyed `specialitySkillBaseLevels`), `focusStatCode`, `currentResourceValues`, and an `Inventory`
 (`equippedItems: Record<slotType, itemId>` + `miscItems: itemId[]`). It carries
 `configurationId` so a character is always read against the ruleset it was built on.
 
-**Derived values are never persisted.** Composed stat values, the stat total, speciality totals,
-combat bonuses, and equipment bonuses are computed on demand from
+**Derived values are never persisted.** Composed stat values, the stat total, skill levels and
+bonuses, combat bonuses, and equipment bonuses are computed on demand from
 `src/engine/`. `calculateCharacter(character, config)` in
 [calculator.ts](../../../src/engine/calculator.ts) is the single entry point that produces a
 `CalculatedCharacter` with all five derived fields populated; `calculateCharacterStats()` is a thin
@@ -233,7 +248,7 @@ value — the composition terminates rather than reporting a cycle the validator
 names.
 
 **Since TICKET-FORM-05 the formula-derived maps hold `FormulaResult` — a number *or* a
-`FormulaError`** (`statValues`, `specialitySkillTotalLevels`, `combatSkillBonuses`; `statTotal` is
+`FormulaError`** (`statValues`, `skillLevels`, `skillBonuses`, `combatSkillBonuses`; `statTotal` is
 a plain number, and a stat that failed contributes nothing to it rather than poisoning it).
 `calculateCharacter` **always returns**: a broken formula poisons its own entry and nothing else
 (Concept 00 §7). Read entries with `numberOr(result, fallback)` or `asNumber(result)` from

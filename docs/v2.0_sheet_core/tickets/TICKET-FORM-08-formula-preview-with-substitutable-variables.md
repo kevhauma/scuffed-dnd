@@ -142,6 +142,15 @@ takes it to the rest.
    `scopeFor` set the preview validates against — but the editor still has no `FormulaScope`, so
    `const.typo` is silent there and reported here. That gap closes when FORM-09 gives the editor
    a scope.
+2b. **The preview resolves `skills.*` as of TICKET-SKL-02** — the third change to this component,
+   recorded here under the same rule. `skills` was in scope for a combat formula from FORM-04 on
+   but had no resolver, so `STR + skills.stealth` previewed as `Unknown namespace` once SKL-02 made
+   it a real reference. The component now runs the sample stat values through `calculateSkills`,
+   the same function the sheet reads, and passes `skillLevels` / `skillBonuses` into
+   `namespacesFor`. **Skills get no sample boxes of their own**, deliberately: a skill's level is
+   `Σ(weight × stat) + invested`, so once the stats are chosen the levels are decided and a box
+   could only disagree with them. The character handed to the calculator has invested nothing —
+   the preview's claim is about the ruleset, not about one Player's allocation.
 3. **The ladder does not react to the sample boxes**, by design: the boxes answer "what does this
    give for *my* character", the ladder answers "what shape is this formula". Asserted, so nobody
    later "fixes" it — `FormulaPreview.test.tsx` → "should leave the ladder alone when a sample

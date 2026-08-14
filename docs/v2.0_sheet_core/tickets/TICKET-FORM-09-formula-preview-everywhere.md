@@ -119,3 +119,12 @@ different variable set — not new preview behaviour.
    the fix is to give `FormulaEditor` a `FormulaScope` so it stops needing its own weaker check,
    which is a base-primitive change four dialogs share and wants its own ticket.
 4. **Sheet-import fragment: nothing to land.** Authoring UI only; no persisted shape changed.
+5. **Four placements became three** (TICKET-SKL-02, 2026-08-14). The speciality skill dialog had a
+   `bonusFormula` field with a preview beneath it; the `Skill` that replaced the entity has no
+   formula field at all — its arithmetic lives once, in the calculator — so there is nothing left
+   to preview there and the right count is zero rather than one. The standing rule in
+   [CLAUDE.md](../../../CLAUDE.md) is unbroken: every User-authored formula field still ships a
+   preview, there is simply one fewer field. `FormulaPreviewPlacements.test.tsx` → *offers no
+   formula field, and therefore no preview* is the guard, and note 3's "four dialogs" is now three.
+   SKL-02 also extended the component itself (`skills.*` resolution) — recorded on FORM-08 as
+   note 2b, per this ticket's own rule.
