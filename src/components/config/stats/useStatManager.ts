@@ -13,11 +13,18 @@
  * Concept 01 says a resource with no ceiling is worth telling the User about, not worth refusing,
  * because the ruleset is still coherent — the sheet just cannot draw a bar for it.
  *
- * Two rules moved here with the merge. **An abbreviation is a formula spelling**, and it shares
- * one flat namespace with the speciality and combat skill codes, so it has to be identifier-shaped
- * and unique against all three — the rule the skill managers already enforce from their side.
- * **A rename has a character half**: `focusStatCode` is keyed by the abbreviation, so re-spelling
- * one carries into the characters through `useSkillCodeRename`, exactly as the skill managers do.
+ * One rule moved here with the merge: **an abbreviation is a formula spelling**, and it shares one
+ * flat namespace with the combat skill codes, so it has to be identifier-shaped and unique against
+ * both — the rule the combat skill manager already enforces from its side. (A `Skill` left that
+ * namespace with its code in TICKET-SKL-02, so there is no third space to be unique against.)
+ *
+ * **A rename no longer has a character half.** `investedStatPoints` is keyed by stat id
+ * (TICKET-STAT-01) and `investedSkillPoints` by skill id (TICKET-SKL-02), so re-spelling an
+ * abbreviation cannot orphan either, and `useSkillCodeRename` was deleted rather than kept for a
+ * job that no longer exists. **One field is left behind**: `focusStatCode` still holds an
+ * abbreviation, so renaming a stat orphans a character's focus. TICKET-ARC-03 retires the focus
+ * stat outright — recorded on TICKET-SKL-02 rather than fixed by re-adding a store action for a
+ * field about to be deleted.
  *
  * **Validates: Concept 01; Concept 00 §6; Requirements 2.3, 16.5, 16.6**
  */

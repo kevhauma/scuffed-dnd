@@ -18,7 +18,7 @@ import type {
   Material,
   MaterialCategory,
   Race,
-  SpecialitySkill,
+  Skill,
   Stat,
 } from '../types/config';
 import { useCharacterStore } from './characterStore';
@@ -49,7 +49,7 @@ describe('ConfigStore', () => {
       expect(config).toBeDefined();
       expect(config?.name).toBe('Test Config');
       expect(config?.stats).toEqual([]);
-      expect(config?.specialitySkills).toEqual([]);
+      expect(config?.skills).toEqual([]);
       expect(config?.combatSkills).toEqual([]);
       expect(config?.materials).toEqual([]);
       expect(config?.materialCategories).toEqual([]);
@@ -300,67 +300,63 @@ describe('ConfigStore', () => {
     });
   });
 
-  describe('Speciality Skills CRUD', () => {
+  describe('Skills CRUD (TICKET-SKL-02)', () => {
+    const melee: Skill = {
+      id: 'MEL',
+      name: 'Melee',
+      description: 'Close combat',
+      statWeights: [
+        { statId: 'str', weight: 0.2 },
+        { statId: 'dex', weight: 0.1 },
+      ],
+    };
+
     beforeEach(() => {
       useConfigStore.getState().initializeConfig('Test');
       vi.clearAllMocks();
     });
 
-    it('should add speciality skill', () => {
-      const skill: SpecialitySkill = {
-        id: 'MEL',
-        code: 'MEL',
-        name: 'Melee',
-        description: 'Close combat',
-        maxBaseLevel: 10,
-        bonusFormula: 'STR + DEX',
-      };
-
-      useConfigStore.getState().addSpecialitySkill(skill);
+    it('should add a skill with its weight rows', () => {
+      useConfigStore.getState().addSkill(melee);
 
       const { config } = useConfigStore.getState();
-      expect(config?.specialitySkills).toHaveLength(1);
-      expect(config?.specialitySkills[0]).toEqual(skill);
+      expect(config?.skills).toHaveLength(1);
+      expect(config?.skills[0]).toEqual(melee);
       expect(storage.saveConfiguration).toHaveBeenCalled();
     });
 
-    it('should update speciality skill', () => {
-      const skill: SpecialitySkill = {
-        id: 'MEL',
-        code: 'MEL',
-        name: 'Melee',
-        description: 'Close combat',
-        maxBaseLevel: 10,
-        bonusFormula: 'STR + DEX',
-      };
-
-      useConfigStore.getState().addSpecialitySkill(skill);
+    it('should update a skill by id, not by any code', () => {
+      useConfigStore.getState().addSkill(melee);
       vi.clearAllMocks();
 
-      useConfigStore.getState().updateSpecialitySkill('MEL', { maxBaseLevel: 20 });
+      useConfigStore.getState().updateSkill('MEL', {
+        statWeights: [{ statId: 'str', weight: 0.5 }],
+      });
 
       const { config } = useConfigStore.getState();
-      expect(config?.specialitySkills[0].maxBaseLevel).toBe(20);
+      expect(config?.skills[0].statWeights).toEqual([{ statId: 'str', weight: 0.5 }]);
       expect(storage.saveConfiguration).toHaveBeenCalled();
     });
 
-    it('should delete speciality skill', () => {
-      const skill: SpecialitySkill = {
-        id: 'MEL',
-        code: 'MEL',
-        name: 'Melee',
-        description: 'Close combat',
-        maxBaseLevel: 10,
-        bonusFormula: 'STR + DEX',
-      };
-
-      useConfigStore.getState().addSpecialitySkill(skill);
+    it('should rename a skill without disturbing its weights', () => {
+      useConfigStore.getState().addSkill(melee);
       vi.clearAllMocks();
 
-      useConfigStore.getState().deleteSpecialitySkill('MEL');
+      useConfigStore.getState().updateSkill('MEL', { name: 'Brawling' });
 
       const { config } = useConfigStore.getState();
-      expect(config?.specialitySkills).toHaveLength(0);
+      expect(config?.skills[0].name).toBe('Brawling');
+      expect(config?.skills[0].statWeights).toEqual(melee.statWeights);
+    });
+
+    it('should delete a skill', () => {
+      useConfigStore.getState().addSkill(melee);
+      vi.clearAllMocks();
+
+      useConfigStore.getState().deleteSkill('MEL');
+
+      const { config } = useConfigStore.getState();
+      expect(config?.skills).toHaveLength(0);
       expect(storage.saveConfiguration).toHaveBeenCalled();
     });
   });
@@ -897,12 +893,18 @@ describe('ConfigStore', () => {
         rounding: 'none',
         formula: 'STR * 10',
       });
-      useConfigStore.getState().addSpecialitySkill({
+      useConfigStore.getState().addSkill({
         id: 'id-stl',
-        code: 'STL',
         name: 'Stealth',
         description: '',
-        maxBaseLevel: 10,
+        statWeights: [{ statId: 'id-str', weight: 0.5 }],
+      });
+      useConfigStore.getState().addCombatSkill({
+        id: 'id-mel',
+        code: 'MEL',
+        name: 'Melee',
+        description: '',
+        dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
         bonusFormula: 'STR / 2',
       });
       useConfigStore.getState().addRace({
@@ -919,27 +921,29 @@ describe('ConfigStore', () => {
 
       const { config } = useConfigStore.getState();
       expect(config?.stats.find((candidate) => candidate.formula)?.formula).toBe('STG * 10');
-      expect(config?.specialitySkills[0].bonusFormula).toBe('STG / 2');
+      expect(config?.combatSkills[0].bonusFormula).toBe('STG / 2');
       // …and needs to rewrite nothing at all in a race's stat block, which is keyed by stat id
-      // and so was never spelled in the first place (TICKET-RACE-01)
+      // and so was never spelled in the first place (TICKET-RACE-01) — nor in a skill's weight
+      // rows, which are keyed the same way (TICKET-SKL-02)
       expect(config?.races[0].statValues).toEqual({ 'id-str': 2 });
+      expect(config?.skills[0].statWeights).toEqual([{ statId: 'id-str', weight: 0.5 }]);
       expect(config?.stats[0].id).toBe('id-str');
     });
 
-    it('rewrites a formula naming a speciality skill whose code changes', () => {
-      useConfigStore.getState().updateStat('id-hp', { formula: 'skills.STL.level * 2' });
-      useConfigStore.getState().updateSpecialitySkill('STL', { code: 'SNK' });
+    it('rewrites a formula naming a skill whose name changes (TICKET-SKL-02)', () => {
+      useConfigStore.getState().updateStat('id-hp', { formula: 'skills.stealth.bonus * 2' });
+      useConfigStore.getState().updateSkill('id-stl', { name: 'Sneaking' });
 
       expect(
         useConfigStore.getState().config?.stats.find((candidate) => candidate.formula)?.formula
-      ).toBe('skills.SNK.level * 2');
+      ).toBe('skills.sneaking.bonus * 2');
     });
 
     it('re-slugs a stat named in another formula when the stat is renamed', () => {
-      useConfigStore.getState().updateSpecialitySkill('STL', { bonusFormula: 'stats.health / 4' });
+      useConfigStore.getState().updateCombatSkill('MEL', { bonusFormula: 'stats.health / 4' });
       useConfigStore.getState().updateStat('id-hp', { name: 'Vitality' });
 
-      expect(useConfigStore.getState().config?.specialitySkills[0].bonusFormula).toBe(
+      expect(useConfigStore.getState().config?.combatSkills[0].bonusFormula).toBe(
         'stats.vitality / 4'
       );
     });
@@ -954,7 +958,8 @@ describe('ConfigStore', () => {
       expect(after?.stats.map((stat) => stat.formula)).toEqual(
         before?.stats.map((stat) => stat.formula)
       );
-      expect(after?.specialitySkills).toEqual(before?.specialitySkills);
+      expect(after?.combatSkills).toEqual(before?.combatSkills);
+      expect(after?.skills).toEqual(before?.skills);
     });
   });
   describe('Guarded deletes (TICKET-REF-02)', () => {

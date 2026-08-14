@@ -7,6 +7,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { toStoredConfiguration } from '../engine/formula/references';
 import type { Configuration } from '../types/config';
+import { SUPPORTED_SCHEMA_VERSION } from '../types/config';
 import {
   downloadConfiguration,
   downloadStoredBackup,
@@ -66,14 +67,15 @@ describe('Import/Export Service', () => {
           formula: 'STR * 10',
         },
       ],
-      specialitySkills: [
+      skills: [
         {
           id: 'MEL',
-          code: 'MEL',
           name: 'Melee',
           description: 'Close combat',
-          maxBaseLevel: 10,
-          bonusFormula: 'STR + DEX',
+          statWeights: [
+            { statId: 'STR', weight: 0.2 },
+            { statId: 'DEX', weight: 0.1 },
+          ],
         },
       ],
       combatSkills: [
@@ -83,7 +85,7 @@ describe('Import/Export Service', () => {
           name: 'Attack',
           description: 'Basic attack',
           dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 1 },
-          bonusFormula: 'STR + MEL',
+          bonusFormula: 'STR + skills.melee',
         },
       ],
       materials: [],
@@ -116,16 +118,16 @@ describe('Import/Export Service', () => {
           const text = reader.result as string;
           const parsed = JSON.parse(text) as Configuration;
 
-          // Everything but the formulas is carried through untouched…
+          // Everything but the formulas is carried through untouched. A skill's weight rows are
+          // keyed by stat id already, so there is nothing in them to resolve (TICKET-SKL-02).
           expect(parsed).toEqual({
             ...validConfig,
             stats: validConfig.stats.map((stat) =>
               stat.formula ? { ...stat, formula: '[STR] * 10' } : stat
             ),
-            specialitySkills: [
-              { ...validConfig.specialitySkills[0], bonusFormula: '[STR] + [DEX]' },
+            combatSkills: [
+              { ...validConfig.combatSkills[0], bonusFormula: '[STR] + skills.[MEL]' },
             ],
-            combatSkills: [{ ...validConfig.combatSkills[0], bonusFormula: '[STR] + [MEL]' }],
           });
 
           // …and importing the file spells them the way this ruleset spells them again
@@ -359,17 +361,36 @@ describe('Import/Export Service', () => {
       expect(result.isValid).toBe(true);
     });
 
-    it('should validate speciality skill structure', () => {
+    it('should validate skill structure (TICKET-SKL-02)', () => {
+      // A file still holding v1's `{ code, bonusFormula }` is reported by name rather than
+      // importing as a skill derived from nothing
       const invalid = {
         ...validConfig,
-        specialitySkills: [
-          { code: 'AB', name: 'Invalid', bonusFormula: 'STR' }, // Code too short
+        skills: [{ code: 'AB', name: 'Invalid', bonusFormula: 'STR' }],
+      };
+      const result = validateConfiguration(invalid);
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('skills[0].statWeights must be an array');
+    });
+
+    it('should reject a weight row that names no stat or carries no number', () => {
+      const invalid = {
+        ...validConfig,
+        skills: [
+          {
+            id: 'MEL',
+            name: 'Melee',
+            description: '',
+            statWeights: [{ statId: '', weight: 'heavy' }],
+          },
         ],
       };
       const result = validateConfiguration(invalid);
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e) => e.includes('3-letter'))).toBe(true);
+      expect(result.errors).toContain('skills[0].statWeights[0].statId must be a stat id');
+      expect(result.errors).toContain('skills[0].statWeights[0].weight must be a finite number');
     });
 
     it('should validate combat skill structure', () => {
@@ -489,7 +510,12 @@ describe('Import/Export Service', () => {
     });
 
     it('refuses a future shape by the same gate', () => {
-      const future = JSON.stringify({ ...validConfig, schemaVersion: 5 });
+      // Read off the constant rather than written out: this milestone bumps the version on every
+      // reshape, and a literal here would turn each bump into a false failure
+      const future = JSON.stringify({
+        ...validConfig,
+        schemaVersion: SUPPORTED_SCHEMA_VERSION + 1,
+      });
 
       expect(() => importConfiguration(future)).toThrow(SchemaVersionError);
     });
@@ -539,7 +565,7 @@ describe('Import/Export Service', () => {
     it('exports the version it imports, so the round-trip survives the gate', async () => {
       const exported = await exportConfiguration(validConfig).text();
 
-      expect(JSON.parse(exported).schemaVersion).toBe(4);
+      expect(JSON.parse(exported).schemaVersion).toBe(SUPPORTED_SCHEMA_VERSION);
       expect(importConfiguration(exported)).toEqual(validConfig);
     });
   });

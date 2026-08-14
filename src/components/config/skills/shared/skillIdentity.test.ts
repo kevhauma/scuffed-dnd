@@ -1,13 +1,19 @@
 /**
  * Shared Skill Identity Tests
  *
+ * `useSkillCodeRename` retired with TICKET-SKL-02: it re-keyed a character's
+ * `specialitySkillBaseLevels`, which was keyed by a mutable 3-letter code. `investedSkillPoints`
+ * is keyed by skill **id**, so there is no second half of a rename left for a hook to apply.
+ * `characterStore.test.ts` pins that from the store's side.
+ *
+ * What is left here is `resolveSkillId`, which still serves the **combat** skill manager — the one
+ * skill kind that still addresses its entity by a code (TICKET-ROLL-05/06 retires it).
+ *
  * **Validates: Concept 00 §6 (TICKET-REF-01)**
  */
 
-import { renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { useCharacterStore } from '../../../../stores/characterStore';
-import { resolveSkillId, useSkillCodeRename } from './skillIdentity';
+import { describe, expect, it } from 'vitest';
+import { resolveSkillId } from './skillIdentity';
 
 const skills = [
   { id: 'id-str', code: 'STR' },
@@ -30,57 +36,5 @@ describe('resolveSkillId', () => {
   it('mints an id when the edited code names no skill', () => {
     expect(resolveSkillId(skills, 'GONE')).toBeTruthy();
     expect(resolveSkillId(skills, 'GONE')).not.toBe('id-str');
-  });
-});
-
-describe('useSkillCodeRename', () => {
-  beforeEach(() => {
-    useCharacterStore.setState({
-      characters: [
-        {
-          id: 'char1',
-          name: 'Test',
-          configurationId: 'config1',
-          raceIds: [],
-          investedStatPoints: { STR: 6 },
-          investedSkillPoints: { STL: 3 },
-          currentResourceValues: {},
-          inventory: { equippedItems: {}, miscItems: [] },
-          createdAt: '2024-01-01',
-          updatedAt: '2024-01-01',
-        },
-      ],
-      isLoaded: true,
-    });
-  });
-
-  it('re-keys speciality base levels when the code changed', () => {
-    const { result } = renderHook(() => useSkillCodeRename());
-
-    result.current('STL', 'SNK');
-
-    expect(useCharacterStore.getState().characters[0].investedSkillPoints).toEqual({
-      SNK: 3,
-    });
-  });
-
-  it('leaves stat investment alone — it is keyed by id, so a rename cannot orphan it', () => {
-    // TICKET-STAT-01: only the two code-keyed maps still need re-keying
-    const { result } = renderHook(() => useSkillCodeRename());
-
-    result.current('STR', 'STG');
-
-    expect(useCharacterStore.getState().characters[0].investedStatPoints).toEqual({ STR: 6 });
-  });
-
-  it('does nothing for an add or an edit that kept the code', () => {
-    const { result } = renderHook(() => useSkillCodeRename());
-
-    result.current(null, 'SNK');
-    result.current('STL', 'STL');
-
-    expect(useCharacterStore.getState().characters[0].investedSkillPoints).toEqual({
-      STL: 3,
-    });
   });
 });

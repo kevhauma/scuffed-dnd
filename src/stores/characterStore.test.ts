@@ -801,7 +801,20 @@ describe('CharacterStore', () => {
       });
     });
   });
-  describe('renameSkillCode (TICKET-REF-01)', () => {
+  /**
+   * `renameSkillCode` is gone (TICKET-SKL-02)
+   *
+   * It existed to chase a rename through two code-keyed character maps: `investedStatPoints`,
+   * re-keyed by id in TICKET-STAT-01, and `specialitySkillBaseLevels`, re-keyed by id here. With
+   * both keyed by an id a rename cannot reach, there is no second half of a rename left to apply
+   * and the action deleted itself.
+   *
+   * **One code-keyed field survives it**: `focusStatCode` still holds a stat *abbreviation*, so
+   * renaming a stat orphans a character's focus. That is recorded on the ticket rather than
+   * papered over — TICKET-ARC-03 retires the focus stat outright, and re-adding a store action
+   * for a field about to be deleted would be work in the wrong direction.
+   */
+  describe('what a rename does to a character now (TICKET-SKL-02)', () => {
     beforeEach(() => {
       useCharacterStore.setState({
         characters: [
@@ -824,32 +837,21 @@ describe('CharacterStore', () => {
       vi.clearAllMocks();
     });
 
-    it('moves the focus stat onto the new code, leaving id-keyed investment alone', () => {
-      useCharacterStore.getState().renameSkillCode('STR', 'STG');
+    it('offers no rename action at all, because nothing on a character is code-keyed', () => {
+      // The guard against this test rotting into a tautology: if a future ticket re-introduces a
+      // code-keyed character field, it has to re-introduce the action too, and this fails first.
+      expect(
+        Object.keys(useCharacterStore.getState()).filter((key) => key.startsWith('rename'))
+      ).toEqual([]);
+    });
 
+    it('keeps both investment maps addressable by id after a stat is renamed', () => {
+      // Nothing is called: the maps are keyed by stat id (TICKET-STAT-01) and skill id
+      // (TICKET-SKL-02), so a rename in the configuration does not touch the character at all
       const character = useCharacterStore.getState().characters[0];
-      // Investment is keyed by stat id since TICKET-STAT-01, so a rename cannot orphan it and
-      // there is nothing here to move
+
       expect(character.investedStatPoints).toEqual({ STR: 6, DEX: 4 });
-      expect(character.focusStatCode).toBe('STG');
-      expect(storage.saveCharacters).toHaveBeenCalled();
-    });
-
-    it('moves a speciality base level too', () => {
-      useCharacterStore.getState().renameSkillCode('STL', 'SNK');
-
-      expect(useCharacterStore.getState().characters[0].investedSkillPoints).toEqual({
-        SNK: 3,
-      });
-    });
-
-    it('leaves characters and storage alone when nothing holds the code', () => {
-      useCharacterStore.getState().renameSkillCode('ZZZ', 'YYY');
-
-      expect(useCharacterStore.getState().characters[0].investedStatPoints).toEqual({
-        STR: 6,
-        DEX: 4,
-      });
+      expect(character.investedSkillPoints).toEqual({ STL: 3 });
       expect(storage.saveCharacters).not.toHaveBeenCalled();
     });
   });

@@ -61,14 +61,13 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         formula: 'STR * 10',
       },
     ],
-    specialitySkills: [
+    skills: [
       {
         id: 'STL',
-        code: 'STL',
         name: 'Stealth',
         description: '',
-        maxBaseLevel: 10,
-        bonusFormula: 'DEX',
+        // The weighted equivalent of v1's `DEX` formula (TICKET-SKL-02)
+        statWeights: [{ statId: 'DEX', weight: 1 }],
       },
     ],
     combatSkills: [
@@ -78,7 +77,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         name: 'Melee',
         description: '',
         dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-        bonusFormula: 'STR + STL',
+        bonusFormula: 'STR + skills.stealth',
       },
     ],
     materials: [],
