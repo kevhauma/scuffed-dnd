@@ -44,7 +44,7 @@ the entity and derivation; panel, sheet grid, and skill validation are TICKET-SK
 - [x] The verified table passes as engine tests (re-pinned later by DX-04); changing `const.bonus_divider` moves every bonus on next read. (New [skillCalculator.test.ts](../../../src/engine/calculators/skillCalculator.test.ts) — 20 tests. *Concept 02's verified table* reproduces all six rows: Charm 11.7→2, Trading 11.7→2, Brewing 4.5→1, Black smithing 2.0→0, alchemy 1.6→0, Persuasion 13.2→3, plus *rounds half away from zero — level 7.5 is bonus 2, not 1*. The divider is covered by *moves every bonus when the constant is retuned* (5→4 turns Charm's 2 into a 3), *falls back to the seeded 5 when the ruleset defines no such constant*, and three fall-back cases for 0, -5 and NaN)
 - [x] Multi-weight sums, empty weights (level = invested), unknown `statId` (validation error) tested. (*sums a two-stat skill, the sheet's 0.2 + 0.1 split*; *is exactly the invested points when a skill has no weights at all* and *is 0 for a skill with neither weights nor investment*; the validation error is [validator.ts](../../../src/engine/validator.ts):95-107 covered by *should detect a weight naming a stat the ruleset does not define*, with the calculator's own behaviour — contribute nothing rather than poison the level — in *skips a weight naming a stat the ruleset no longer defines*. Concept 02's zero-weight **warn** rule is also covered, by *should warn about a skill with no weights at all, without refusing it*)
 - [x] Renaming a stat breaks no skill (REF-01 applied to weight rows). (*keeps a skill computing the same level when a stat it weights is renamed* in [references.test.ts](../../../src/engine/formula/references.test.ts) — `skillLevels` and `skillBonuses` are identical either side of an abbreviation *and* name change, and the weight row still reads `{ statId: 'id-dex' }`. Reinforced from the store side by *rewrites every formula naming a stat whose abbreviation changes*, which asserts `skills[0].statWeights` is untouched)
-- [x] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions` skill. (`verifier`: **1283 passing, 0 failing, 0 skipped**; `npx tsc --noEmit` at the documented 2-error baseline with zero new errors; `yarn run check` clean across 271 files. `fallow` and `conventions-reviewer` findings addressed — see implementation note 6)
+- [x] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions` skill. (`verifier`: **1284 passing, 0 failing, 0 skipped**; `npx tsc --noEmit` at the documented 2-error baseline with zero new errors; `yarn run check` clean across 271 files. `fallow audit --base 7877707`: verdict **pass** — 0 introduced dead code, 0 introduced complexity, 0 duplication clone groups; the 2 dead-code and 3 complexity findings it reports are all inherited. `conventions-reviewer` found one HIGH regression and four smaller items, **all fixed** — see implementation note 7)
 
 ## Implementation notes (2026-08-14)
 
@@ -97,6 +97,23 @@ the entity and derivation; panel, sheet grid, and skill validation are TICKET-SK
    a parity only speciality skills ever had, because only they had `id === code === member`. That
    is a pre-existing limitation of the graph's keying, not something this ticket introduced, and it
    is out of scope here.
+
+7. **The `conventions-reviewer` caught a regression note 3 had introduced.** Teaching
+   `FormulaPreview` the `skills` namespace was only half the job: `previewInputs` still
+   short-circuited on `namespace !== 'stats'`, so a `skills.<name>` reference got **no sample box**,
+   `calculateSkills` received a `statValues` map missing that skill's weighted stats, and `levelOf`
+   skipped them — `skills.stealth * 2` previewed as a confident **0** with the ladder suppressed.
+   Strictly worse than the `Unknown namespace` it replaced, and a contradiction of the module's own
+   header. A skills reference now contributes the stats it is weighted on. **The existing placement
+   test could not have caught it**: its Stealth was weighted on the same `str-id` the combat
+   formulas name bare, so the box was there for the wrong reason — Stealth moved to CHA and a
+   skills-only case was added. Four smaller findings fixed in the same commit: the `as Character`
+   cast became `Pick<Character, 'investedSkillPoints'>` on `calculateSkills` (so ARC-02 widening it
+   is a compile error, not a runtime `undefined`); a stale structural-error JSDoc; the calculator's
+   own error test, which asserted only `formulaError: true` and a source and so would have passed
+   against the *broken* code note 2 fixed — it now pins `kind`, the message and `cause` identity;
+   and an orphan comment in `useStatManager`. `CLAUDE.md`'s flat-namespace and derived-values hard
+   rules were still written in terms of speciality skills and were corrected too.
 
 ## Notes
 

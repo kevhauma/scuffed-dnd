@@ -5,16 +5,16 @@ _Last verified: 2026-08-14 (`npx vitest run`), after
 
 ## Summary
 
-- **Total tests**: 1283
-- **Passing**: 1283 (100%)
+- **Total tests**: 1284
+- **Passing**: 1284 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
 Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's tickets added
 +43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), +11 (FORM-06), +7 (CALC-02),
 +11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02), +64 (CRV-01),
-+32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09) and +13 (SKL-02).
-**SKL-02's +13 is a net figure across a very large rewrite**: the source-side reshape landed a
++32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09) and +14 (SKL-02).
+**SKL-02's +14 is a net figure across a very large rewrite**: the source-side reshape landed a
 session ahead of its tests, so 171 tests were failing when the ticket was picked up. 20 tests were
 added in a new `skillCalculator.test.ts` (Concept 02's verified table), a handful more elsewhere,
 and roughly as many were deleted or rewritten with the entity they covered — the speciality
