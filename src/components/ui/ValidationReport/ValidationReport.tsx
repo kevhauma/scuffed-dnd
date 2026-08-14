@@ -11,16 +11,17 @@ import {
   containerStyles,
   emptyStateStyles,
   entityInfoStyles,
-  errorIconStyles,
   headerStyles,
   issueItemStyles,
   issueListStyles,
   messageStyles,
+  sectionListStyles,
+  severityStyles,
   summaryStyles,
-  warningIconStyles,
 } from './ValidationReport.style';
 
-export type ValidationSeverity = 'error' | 'warning';
+/** Mirrors `engine/validator`'s severity — `information` is Concept 02's balance rule (SKL-03) */
+export type ValidationSeverity = 'error' | 'warning' | 'information';
 
 export interface ValidationIssue {
   severity: ValidationSeverity;
@@ -40,6 +41,7 @@ export interface ValidationReportProps {
 export function ValidationReport({ issues, onIssueClick, className = '' }: ValidationReportProps) {
   const errors = issues.filter((i) => i.severity === 'error');
   const warnings = issues.filter((i) => i.severity === 'warning');
+  const information = issues.filter((i) => i.severity === 'information');
 
   const handleIssueClick = (issue: ValidationIssue) => {
     if (onIssueClick) {
@@ -77,6 +79,47 @@ export function ValidationReport({ issues, onIssueClick, className = '' }: Valid
     onIssueClick(issue);
   };
 
+  /**
+   * One severity's heading and rows
+   *
+   * Written once rather than per severity: the three sections differ only in their heading, colour
+   * and glyph, and TICKET-SKL-03's `information` would otherwise have been a third copy of markup
+   * that already existed twice. Colours and the glyph come from `severityStyles`, so this carries
+   * no class strings of its own.
+   */
+  const issueSection = (
+    sectionIssues: ValidationIssue[],
+    severity: ValidationSeverity,
+    heading: string
+  ) =>
+    sectionIssues.length === 0 ? null : (
+      <div>
+        <h4 className={severityStyles[severity].heading}>{heading}</h4>
+        <div className={issueListStyles}>
+          {sectionIssues.map((issue) => (
+            <div
+              key={`${issue.category}-${issue.entityId ?? issue.entityName ?? ''}-${issue.message}`}
+              className={issueItemStyles}
+              {...interactionProps(issue)}
+            >
+              <span className={severityStyles[severity].icon}>
+                {severityStyles[severity].glyph}
+              </span>
+              <div className="flex-1">
+                <div className={messageStyles}>{issue.message}</div>
+                {(issue.entityType || issue.entityName) && (
+                  <div className={entityInfoStyles}>
+                    {issue.entityType && <span>{issue.entityType}</span>}
+                    {issue.entityName && <span>"{issue.entityName}"</span>}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+
   return (
     <Card variant="bordered" className={`${containerStyles} ${className}`}>
       <div className={headerStyles}>
@@ -92,6 +135,11 @@ export function ValidationReport({ issues, onIssueClick, className = '' }: Valid
               {warnings.length} {warnings.length === 1 ? 'Warning' : 'Warnings'}
             </span>
           )}
+          {information.length > 0 && (
+            <span className="text-royal font-semibold">
+              {information.length} {information.length === 1 ? 'Note' : 'Notes'}
+            </span>
+          )}
           {issues.length === 0 && <span className="text-forest font-semibold">No Issues</span>}
         </div>
       </div>
@@ -102,59 +150,11 @@ export function ValidationReport({ issues, onIssueClick, className = '' }: Valid
           <p className="text-ink-700 font-body">Configuration is valid. No issues detected.</p>
         </div>
       ) : (
-        <>
-          {errors.length > 0 && (
-            <div className="mb-4">
-              <h4 className="font-heading font-semibold text-lg text-crimson mb-2">Errors</h4>
-              <div className={issueListStyles}>
-                {errors.map((issue) => (
-                  <div
-                    key={`${issue.category}-${issue.entityId ?? issue.entityName ?? ''}-${issue.message}`}
-                    className={issueItemStyles}
-                    {...interactionProps(issue)}
-                  >
-                    <span className={errorIconStyles}>✕</span>
-                    <div className="flex-1">
-                      <div className={messageStyles}>{issue.message}</div>
-                      {(issue.entityType || issue.entityName) && (
-                        <div className={entityInfoStyles}>
-                          {issue.entityType && <span>{issue.entityType}</span>}
-                          {issue.entityName && <span>"{issue.entityName}"</span>}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {warnings.length > 0 && (
-            <div>
-              <h4 className="font-heading font-semibold text-lg text-amber mb-2">Warnings</h4>
-              <div className={issueListStyles}>
-                {warnings.map((issue) => (
-                  <div
-                    key={`${issue.category}-${issue.entityId ?? issue.entityName ?? ''}-${issue.message}`}
-                    className={issueItemStyles}
-                    {...interactionProps(issue)}
-                  >
-                    <span className={warningIconStyles}>⚠</span>
-                    <div className="flex-1">
-                      <div className={messageStyles}>{issue.message}</div>
-                      {(issue.entityType || issue.entityName) && (
-                        <div className={entityInfoStyles}>
-                          {issue.entityType && <span>{issue.entityType}</span>}
-                          {issue.entityName && <span>"{issue.entityName}"</span>}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
+        <div className={sectionListStyles}>
+          {issueSection(errors, 'error', 'Errors')}
+          {issueSection(warnings, 'warning', 'Warnings')}
+          {issueSection(information, 'information', 'Information')}
+        </div>
       )}
     </Card>
   );

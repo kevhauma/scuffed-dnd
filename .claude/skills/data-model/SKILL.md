@@ -226,8 +226,12 @@ code-keyed `specialitySkillBaseLevels`), `focusStatCode`, `currentResourceValues
 bonuses, combat bonuses, and equipment bonuses are computed on demand from
 `src/engine/`. `calculateCharacter(character, config)` in
 [calculator.ts](../../../src/engine/calculator.ts) is the single entry point that produces a
-`CalculatedCharacter` with all five derived fields populated; `calculateCharacterStats()` is a thin
-wrapper over it for callers that only want the stat values. If you find yourself wanting to store a
+`CalculatedCharacter` with every derived field populated; `calculateCharacterStats()` is a thin
+wrapper over it for callers that only want the stat values. **A derived value's *explanation* is
+derived too** — TICKET-SKL-03 added `skillContributions`, one already-multiplied
+`SkillStatContribution` per weight row, so the sheet can label a breakdown without a component
+redoing the arithmetic. When a surface needs to show how a number was reached, widen the calculator's
+return rather than recomputing the terms at the render site. If you find yourself wanting to store a
 computed number on `Character`, the answer is a recalculation call at read time instead. The one deliberate
 exception is `currentResourceValues` — the player's *current* HP/mana, which is state, not
 derivation (its maximum is derived; its current value is not). **Only `isResource` stats appear

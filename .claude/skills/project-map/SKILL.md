@@ -171,7 +171,7 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   formulas), `calculateRaceStatBases` (the races' **blended** stat block on its own, keyed by stat
   **id**, for display — TICKET-RACE-01/02) and `MAX_RACE_COUNT`, the one place the 1–2 race
   cardinality is written.
-- `calculators/skillCalculator.ts` — `calculateSkills(config, statValues, character)` → `{ levels, bonuses }`, both keyed by skill id (TICKET-SKL-02). `level = Σ(weight × stat) + invested`, `bonus = round(level / const.bonus_divider)` half-away-from-zero, with the divider read **by name** and falling back to Concept 05's seeded 5. A weight naming a stat that no longer exists contributes nothing; a stat whose own formula failed yields an `upstream` error naming it, with the original as `cause`. The invested term is 1:1 and **provisional** — TICKET-ARC-02 routes it through the point-buy curve.
+- `calculators/skillCalculator.ts` — `calculateSkills(config, statValues, character)` → `{ levels, bonuses, contributions }`, all keyed by skill id (TICKET-SKL-02; `contributions` added by TICKET-SKL-03 — one `SkillStatContribution` per weight row with `weight × statValue` **already multiplied**, so the sheet labels terms it never recomputes; empty for a level that failed). `level = Σ(weight × stat) + invested`, `bonus = round(level / const.bonus_divider)` half-away-from-zero, with the divider read **by name** and falling back to Concept 05's seeded 5. A weight naming a stat that no longer exists contributes nothing; a stat whose own formula failed yields an `upstream` error naming it, with the original as `cause`. The invested term is 1:1 and **provisional** — TICKET-ARC-02 routes it through the point-buy curve.
 - `calculators/combatSkillCalculator.ts` — `calculateCombatSkillBonuses` (the formula, and nothing else). **No equipment term** since TICKET-MAT-02.
 - `calculators/equipmentBonusCalculator.ts` — `calculateEquipmentBonuses` (aggregates equipped items' material tier modifiers into one `StatModifier[]`, keyed by stat **id**) and `indexStatModifiers(modifiers)` → `Record<statId, number>` (any `StatModifier[]` as a per-stat lookup, for showing a stat's equipment contribution on its own).
 - `calculator.ts` — re-exports the calculators, plus **`calculateCharacter(character, config):
@@ -189,7 +189,12 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 - `validator.ts` — `validateConfiguration(config): ValidationReport` (cross-entity referential
   integrity: formula refs, equipment slot types, material categories, circular formulas). It is
   the *after the fact* report — `dependencies.ts` is the *before the fact* guard, and both stay:
-  the validator still catches what an import brings in.
+  the validator still catches what an import brings in. **Three severities since TICKET-SKL-03**:
+  `error` (fails `isValid`), `warning`, and `information` for an observation that is not a defect —
+  Concept 02's weight-sum balance rule is the first. A new rule picks `information` when the User
+  may well have meant it; anything reported as a warning should be something they would want to
+  change. The report has one array per severity, and a consumer flattening it for the
+  `ui/ValidationReport` primitive must include all three.
 - `curveGenerator.ts` — **generate, overlay overrides, show both** (TICKET-CRV-02):
   `regenerateCurve(curve, source)` → `{ curve, report }`, plus `setCurveCell` and
   `clearCurveOverride`. A column may carry a `generator` formula evaluated per row with the row's
@@ -312,7 +317,9 @@ decides whether a delete is safe; `configStore`'s delete actions return the refe
 `shared/` is play mode's cross-domain folder, the counterpart to `config/shared/`: `derivedValue.ts`
 (above) and `SkillBreakdownRow.tsx`, the "total plus its labelled contributions" row that both the
 sheet and the wizard's derived-stat preview render — reuse it rather than re-deriving a breakdown
-layout.
+layout. Its optional `secondary` prop carries a **second** labelled number before the total, for a
+row that has two (a skill's level beside its bonus); it is dropped when it carries an error, leaving
+the total's chip to explain the one cause once.
 `characters/` holds `CharacterList` + `CharacterCard` + `useCharacterListManager`.
 `creation/` holds the four-step wizard: `CharacterCreationWizard` dispatches on a step index and
 the four step components (`IdentityStep`, `SkillAllocationStep`, `FocusStatStep`, `ReviewStep`)
@@ -325,8 +332,9 @@ with `SheetHeader`, `RaceStatBlockSection` (the races' combined block, stated in
 TICKET-RACE-01), `StatsSection` (one `SkillBreakdownRow` per stat in
 `order`, **plus** a `StatEditor` for each `isResource` stat — the breakdown row owns the value and
 its error chip, the editor owns the current value; TICKET-STAT-03), `SkillsSection` (one row per
-skill showing its **bonus** and the points invested — the level joins it in TICKET-SKL-03) and
-`CombatSkillsSection` as pure props.
+skill carrying **both** of Concept 02's numbers since TICKET-SKL-03 — the bonus as the row's total,
+the level in `SkillBreakdownRow`'s `secondary` slot — over a breakdown of `STR × 0.2 +2` terms plus
+the points invested) and `CombatSkillsSection` as pure props.
 `inventory/` holds `InventoryPanel` (mounted by the sheet, taking only a `characterId`) with
 `EquipmentSlotRow`, `MiscItemRow` and `useInventoryManager`. Equipping needs no recalculation call:
 `calculateCharacter` reads `inventory.equippedItems` at render time.

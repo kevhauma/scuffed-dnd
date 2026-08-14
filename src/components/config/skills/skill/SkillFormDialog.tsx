@@ -7,10 +7,11 @@
  * now, and the arithmetic they feed lives once in the calculator. The standing rule in CLAUDE.md
  * applies to fields the User types a formula into, and this dialog no longer has one.
  *
- * Deliberately plain — TICKET-SKL-03 owns the real panel, the categories and the validation
- * surfacing; this is the editor the new entity needs to be usable at all.
+ * A name, a description and the weight rows — which is everything a `Skill` holds that the User
+ * authors. `Skill.category` exists on the type and has no editor here; it wants a ticket rather
+ * than a promise in a comment.
  *
- * **Validates: Concept 02; Requirements 4.1, 4.2, 21.1-21.5**
+ * **Validates: Concept 02; Requirements 21.1-21.5**
  */
 
 import { type UseFormReturn, useFieldArray } from 'react-hook-form';

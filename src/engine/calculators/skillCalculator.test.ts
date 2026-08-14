@@ -301,3 +301,94 @@ describe('errors as values (Concept 00 §7)', () => {
     expect(levels.brewing).toBe(4.5);
   });
 });
+
+describe('the breakdown behind a level (TICKET-SKL-03)', () => {
+  it('reports one already-multiplied term per weight row, in the skill’s own order', () => {
+    const cooking = skill('cooking', 'Cooking', [
+      { statId: 'wis', weight: 0.2 },
+      { statId: 'str', weight: 0.1 },
+    ]);
+
+    const { levels, contributions } = calculateSkills(
+      createConfig([cooking]),
+      SAMPLE_VALUES,
+      createCharacter()
+    );
+
+    expect(contributions.cooking).toEqual([
+      { statId: 'wis', weight: 0.2, statValue: 15, contribution: 3 },
+      { statId: 'str', weight: 0.1, statValue: 10, contribution: 1 },
+    ]);
+    // The terms account for the level exactly, which is the property that lets the sheet show them
+    // beside it without either number having to be recomputed
+    expect(contributions.cooking.reduce((sum, row) => sum + row.contribution, 0)).toBe(
+      levels.cooking
+    );
+  });
+
+  it('leaves the invested points out of the terms — they are the Player’s, not a stat’s', () => {
+    const persuasion = skill('persuasion', 'Persuasion', [{ statId: 'char', weight: 0.3 }]);
+
+    const { levels, contributions } = calculateSkills(
+      createConfig([persuasion]),
+      SAMPLE_VALUES,
+      createCharacter({ persuasion: 1.5 })
+    );
+
+    expect(contributions.persuasion).toEqual([
+      { statId: 'char', weight: 0.3, statValue: 39, contribution: 11.7 },
+    ]);
+    expect(levels.persuasion).toBeCloseTo(13.2, 10);
+  });
+
+  it('skips a weight row naming a stat the ruleset no longer defines', () => {
+    const stale = skill('stale', 'Stale', [
+      { statId: 'char', weight: 0.3 },
+      { statId: 'deleted', weight: 0.5 },
+    ]);
+
+    const { contributions } = calculateSkills(
+      createConfig([stale]),
+      SAMPLE_VALUES,
+      createCharacter()
+    );
+
+    expect(contributions.stale).toEqual([
+      { statId: 'char', weight: 0.3, statValue: 39, contribution: 11.7 },
+    ]);
+  });
+
+  it('reports no terms at all for a level that failed, rather than half a sum', () => {
+    const charm = skill('charm', 'Charm', [
+      { statId: 'wis', weight: 0.3 },
+      { statId: 'char', weight: 0.3 },
+    ]);
+    const values = {
+      ...SAMPLE_VALUES,
+      char: formulaError('undefined-variable', 'Undefined variable: NOPE'),
+    };
+
+    const { levels, contributions } = calculateSkills(
+      createConfig([charm]),
+      values,
+      createCharacter()
+    );
+
+    expect(levels.charm).toMatchObject({ formulaError: true });
+    // `wis` had already contributed 4.5 before `char` failed — reporting it would show a breakdown
+    // that sums to a number the sheet is not displaying
+    expect(contributions.charm).toEqual([]);
+  });
+
+  it('gives a weightless skill an empty breakdown rather than leaving it absent', () => {
+    const pure = skill('pure', 'Pure Investment', []);
+
+    const { contributions } = calculateSkills(
+      createConfig([pure]),
+      SAMPLE_VALUES,
+      createCharacter({ pure: 3 })
+    );
+
+    expect(contributions.pure).toEqual([]);
+  });
+});

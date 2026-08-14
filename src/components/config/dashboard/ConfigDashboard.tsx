@@ -73,15 +73,23 @@ export function ConfigDashboard() {
               Validation
             </Text>
             {/* Requirement 18.6 — the status is here whether or not the User asked for it */}
-            {status?.isValid ? (
+            {status?.isValid && (
               <Text variant="success" as="p">
                 This ruleset is valid.
               </Text>
-            ) : (
-              <Text variant={status && status.errors.length > 0 ? 'error' : 'warning'} as="p">
-                {status?.errors.length ?? 0} error(s) · {status?.warnings.length ?? 0} warning(s)
-              </Text>
             )}
+            {/*
+              Counted on the issues themselves rather than on `isValid`, which only tracks errors:
+              a warning or a note would otherwise be invisible beside "This ruleset is valid", and
+              a note (TICKET-SKL-03) exists precisely to be read on a ruleset that *is* valid.
+            */}
+            {status !== null &&
+              status.errors.length + status.warnings.length + status.information.length > 0 && (
+                <Text variant={status.errors.length > 0 ? 'error' : 'warning'} as="p">
+                  {status.errors.length} error(s) · {status.warnings.length} warning(s) ·{' '}
+                  {status.information.length} note(s)
+                </Text>
+              )}
           </div>
           <Button variant="secondary" onClick={handleValidate}>
             Validate Configuration

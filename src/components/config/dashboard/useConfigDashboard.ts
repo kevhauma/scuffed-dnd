@@ -72,8 +72,8 @@ export function useConfigDashboard() {
     sections: CONFIG_SECTIONS,
     status,
     report,
-    /** Errors and warnings as the one flat list the `ValidationReport` primitive takes */
-    reportIssues: report ? [...report.errors, ...report.warnings] : [],
+    /** All three severities as the one flat list the `ValidationReport` primitive takes */
+    reportIssues: report ? [...report.errors, ...report.warnings, ...report.information] : [],
     handleInitialize,
     handleValidate,
   };

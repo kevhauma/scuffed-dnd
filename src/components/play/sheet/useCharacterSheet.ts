@@ -60,6 +60,20 @@ export interface SkillBreakdown {
   bonus: DerivedValue;
   /** The engine's level — the weighted stats plus the invested points, either of which can fail */
   total: DerivedValue;
+  /**
+   * One entry per weight row that fed the level, already multiplied out by the calculator and
+   * paired here with the stat's abbreviation to render (TICKET-SKL-03). Empty when the level
+   * failed — see `CalculatedSkills.contributions`.
+   */
+  statContributions: SkillStatContributionView[];
+}
+
+/** A weight row's share of a skill's level, spelled for display */
+export interface SkillStatContributionView {
+  /** `STR × 0.2` — the stat's short spelling and the weight applied to it */
+  label: string;
+  /** `weight × statValue`, straight from the calculator */
+  value: number;
 }
 
 /**
@@ -194,6 +208,7 @@ function buildView(
   const equipmentBonuses = indexStatModifiers(calculated.equipmentBonuses);
 
   const orderedStats = [...config.stats].sort((a, b) => a.order - b.order);
+  const abbreviationById = new Map(config.stats.map((stat) => [stat.id, stat.abbreviation]));
 
   /** The configured bonus, but only on the skill the character actually spent its focus on */
   const focusFor = (skillCode: string): number =>
@@ -220,6 +235,12 @@ function buildView(
       invested: character.investedSkillPoints[skill.id] ?? 0,
       bonus: toDerivedValue(calculated.skillBonuses[skill.id]),
       total: toDerivedValue(calculated.skillLevels[skill.id]),
+      // The calculator did the multiplication; all that happens here is spelling the stat, the
+      // same reason `raceContributions` pairs an id with its abbreviation
+      statContributions: (calculated.skillContributions[skill.id] ?? []).map((row) => ({
+        label: `${abbreviationById.get(row.statId) ?? row.statId} × ${row.weight}`,
+        value: row.contribution,
+      })),
     })),
 
     // One row per stat, invested or derived (TICKET-STAT-01), in the order the User arranged them

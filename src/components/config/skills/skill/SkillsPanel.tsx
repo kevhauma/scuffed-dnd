@@ -3,7 +3,7 @@
  *
  * Manages skills and the weighted stats they are derived from (Concept 02).
  *
- * **Validates: Concept 02; Requirements 4.1, 21.1-21.5**
+ * **Validates: Concept 02; Requirements 21.1-21.5**
  */
 
 import { NoConfigurationNotice } from '../../shared/ConfigPanelShell';

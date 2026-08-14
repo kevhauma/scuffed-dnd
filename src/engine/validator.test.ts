@@ -756,6 +756,145 @@ describe('validateConfiguration', () => {
     });
   });
 
+  /**
+   * Concept 02's three rules, each at the severity the page asks for. The severities are the point
+   * of the group: a ruleset that reports everything as a warning teaches the User to skip warnings.
+   */
+  describe('skill validation (Concept 02, TICKET-SKL-03)', () => {
+    function skill(id: string, name: string, statWeights: { statId: string; weight: number }[]) {
+      return { id, name, description: '', statWeights };
+    }
+
+    it('should warn that a skill with no weights is worth only what the Player invests', () => {
+      const config = createMinimalConfig();
+      config.skills = [skill('s1', 'Meditation', [])];
+
+      const result = validateConfiguration(config);
+
+      expect(result.isValid).toBe(true);
+      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings[0]).toMatchObject({
+        severity: 'warning',
+        entityType: 'skill',
+        entityId: 's1',
+      });
+      expect(result.warnings[0].message).toContain('no stat weights');
+    });
+
+    it('should report a weight sum above 0.5 as information, not as a problem', () => {
+      const config = createMinimalConfig();
+      config.skills = [
+        skill('s1', 'Overweighted', [
+          { statId: 'STR', weight: 0.5 },
+          { statId: 'DEX', weight: 0.4 },
+        ]),
+      ];
+
+      const result = validateConfiguration(config);
+
+      expect(result.isValid).toBe(true);
+      expect(result.warnings).toHaveLength(0);
+      expect(result.errors).toHaveLength(0);
+      expect(result.information).toHaveLength(1);
+      expect(result.information[0]).toMatchObject({
+        severity: 'information',
+        category: 'Balance',
+        entityId: 's1',
+      });
+      expect(result.information[0].message).toContain('0.9');
+    });
+
+    it('should leave a skill weighted the way the sheet weighs its own alone', () => {
+      const config = createMinimalConfig();
+      config.skills = [
+        skill('s1', 'Cooking', [
+          { statId: 'STR', weight: 0.2 },
+          { statId: 'DEX', weight: 0.1 },
+        ]),
+        skill('s2', 'Hiding', [{ statId: 'DEX', weight: 0.3 }]),
+        // Exactly at the boundary — 0.5 is the top of the observed range, not past it
+        skill('s3', 'Edge', [{ statId: 'STR', weight: 0.5 }]),
+      ];
+
+      const result = validateConfiguration(config);
+
+      expect(result.information).toHaveLength(0);
+      expect(result.warnings).toHaveLength(0);
+    });
+
+    it('should state a weight sum without floating-point noise', () => {
+      const config = createMinimalConfig();
+      config.skills = [
+        skill('s1', 'Noisy', [
+          { statId: 'STR', weight: 0.6 },
+          { statId: 'DEX', weight: 0.1 },
+        ]),
+      ];
+
+      const result = validateConfiguration(config);
+
+      // 0.6 + 0.1 is 0.7000000000000001 in binary floating point
+      expect(result.information[0].message).toContain('0.7');
+      expect(result.information[0].message).not.toContain('0.7000');
+    });
+
+    it('should warn about names that differ only by case, naming both', () => {
+      const config = createMinimalConfig();
+      config.skills = [
+        skill('s1', 'skinning', [{ statId: 'STR', weight: 0.2 }]),
+        skill('s2', 'Skinning', [{ statId: 'DEX', weight: 0.2 }]),
+      ];
+
+      const result = validateConfiguration(config);
+
+      // Never an error: the sheet genuinely holds both, and a skill left the flat formula space in
+      // TICKET-SKL-02, so two skills sharing a spelling collide with nothing
+      expect(result.isValid).toBe(true);
+      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings[0].severity).toBe('warning');
+      expect(result.warnings[0].message).toContain('"skinning"');
+      expect(result.warnings[0].message).toContain('"Skinning"');
+    });
+
+    it('should treat surrounding whitespace as a near-duplicate too', () => {
+      const config = createMinimalConfig();
+      config.skills = [
+        skill('s1', 'Charm', [{ statId: 'STR', weight: 0.2 }]),
+        skill('s2', ' Charm ', [{ statId: 'DEX', weight: 0.2 }]),
+      ];
+
+      const result = validateConfiguration(config);
+
+      expect(result.warnings).toHaveLength(1);
+    });
+
+    it('should raise one warning per colliding group rather than one per skill', () => {
+      const config = createMinimalConfig();
+      config.skills = [
+        skill('s1', 'Charm', [{ statId: 'STR', weight: 0.2 }]),
+        skill('s2', 'charm', [{ statId: 'STR', weight: 0.2 }]),
+        skill('s3', 'CHARM', [{ statId: 'STR', weight: 0.2 }]),
+      ];
+
+      const result = validateConfiguration(config);
+
+      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings[0].message).toContain('"CHARM"');
+    });
+
+    it('should not flag skills whose names merely resemble one another', () => {
+      const config = createMinimalConfig();
+      config.skills = [
+        skill('s1', 'Cooking', [{ statId: 'STR', weight: 0.2 }]),
+        skill('s2', 'Cooling', [{ statId: 'STR', weight: 0.2 }]),
+      ];
+
+      const result = validateConfiguration(config);
+
+      expect(result.warnings).toHaveLength(0);
+    });
+  });
+
   describe('Multiple errors', () => {
     it('should report all errors in a configuration', () => {
       const config = createMinimalConfig();

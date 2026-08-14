@@ -12,7 +12,7 @@
  * **Validates: Requirements 18.1, 18.2, 18.3, 18.4, 18.5; Concept 06**
  */
 
-import type { Configuration, Curve } from '../types/config';
+import type { Configuration, Curve, Skill } from '../types/config';
 import type { FormulaScope } from './formula/scoping';
 import { scopeFor } from './formula/scoping';
 import type { FormulaDependency } from './formula/validator';
@@ -23,9 +23,31 @@ import {
 } from './formula/validator';
 
 /**
- * Validation issue severity levels
+ * The weight sum above which Concept 02 calls a skill a balance smell
+ *
+ * The sheet's own skills weigh one stat at 0.2 or 0.3, or two at 0.2 and 0.1 — so 0.5 is the top of
+ * the observed range rather than a rule, which is why exceeding it is reported as information.
  */
-export type ValidationSeverity = 'error' | 'warning';
+const BALANCED_WEIGHT_SUM = 0.5;
+
+/**
+ * A weight sum stated without floating-point noise
+ *
+ * `0.2 + 0.1` is `0.30000000000000004`, and a message that says so reads as a bug in the app rather
+ * than a fact about the ruleset. Two decimals covers every weight the sheet uses.
+ */
+function roundWeightSum(sum: number): number {
+  return Math.round(sum * 100) / 100;
+}
+
+/**
+ * Validation issue severity levels
+ *
+ * `information` arrived with TICKET-SKL-03 for Concept 02's balance rule, which is explicitly *not*
+ * a mistake: a skill weighted well above ~0.5 is a deliberate choice as often as an accident, and
+ * reporting it as a warning would train the User to ignore warnings. It never affects `isValid`.
+ */
+export type ValidationSeverity = 'error' | 'warning' | 'information';
 
 /**
  * Validation issue
@@ -46,6 +68,8 @@ export interface ValidationReport {
   isValid: boolean;
   errors: ValidationIssue[];
   warnings: ValidationIssue[];
+  /** Observations that are worth stating and are not defects — see {@link ValidationSeverity} */
+  information: ValidationIssue[];
   timestamp: string;
 }
 
@@ -58,6 +82,7 @@ export interface ValidationReport {
 export function validateConfiguration(config: Configuration): ValidationReport {
   const errors: ValidationIssue[] = [];
   const warnings: ValidationIssue[] = [];
+  const information: ValidationIssue[] = [];
 
   // Build sets of valid identifiers for reference validation
   const materialCategoryIds = new Set(config.materialCategories.map((c) => c.id));
@@ -106,7 +131,11 @@ export function validateConfiguration(config: Configuration): ValidationReport {
       });
     }
 
-    // Concept 02's own validation rule: not an error, but worth saying out loud
+    // Concept 02's own validation rule: not an error, but worth saying out loud.
+    //
+    // Stated about the *ruleset* rather than about any character, which is all this function can
+    // see: the concept page's "and no invested points" half is a property of a Player's
+    // allocation, and a config-mode report has no character in hand to check it against.
     if (skill.statWeights.length === 0) {
       warnings.push({
         severity: 'warning',
@@ -117,7 +146,30 @@ export function validateConfiguration(config: Configuration): ValidationReport {
         entityName: skill.name,
       });
     }
+
+    // Concept 02's balance rule. Deliberately *information*: the sheet's own skills sum to 0.2–0.3,
+    // so more than 0.5 is a departure from that shape — but a departure the User may well have
+    // meant, and calling it a warning would devalue the warnings that are real problems.
+    const weightSum = skill.statWeights.reduce((total, row) => total + row.weight, 0);
+    if (weightSum > BALANCED_WEIGHT_SUM) {
+      information.push({
+        severity: 'information',
+        category: 'Balance',
+        // "above", not "well above": the check is a strict `>`, so 0.51 lands here too and the
+        // message has to be true of it as well as of 0.9
+        message: `Skill "${skill.name}" has stat weights totalling ${roundWeightSum(weightSum)}, above the ~${BALANCED_WEIGHT_SUM} the sheet's own skills use — deliberate, or a typo?`,
+        entityType: 'skill',
+        entityId: skill.id,
+        entityName: skill.name,
+      });
+    }
   }
+
+  // Concept 02's near-duplicate rule. The sheet genuinely holds both `skinning` and `Skinning` with
+  // different levels, so this can never be an error — TICKET-SKL-02 made two skills sharing a
+  // spelling legal by taking a skill out of the flat formula space. It is a warning because the
+  // usual cause is one skill entered twice, and only the User can tell that from the sheet's case.
+  warnings.push(...nearDuplicateSkillNameWarnings(config.skills));
 
   // Validate combat skill formulas
   for (const skill of config.combatSkills) {
@@ -340,8 +392,53 @@ export function validateConfiguration(config: Configuration): ValidationReport {
     isValid: errors.length === 0,
     errors,
     warnings,
+    information,
     timestamp: new Date().toISOString(),
   };
+}
+
+/**
+ * The spelling two skill names are compared on
+ *
+ * Case and surrounding whitespace only: `skinning` and ` Skinning ` are the pair Concept 02's
+ * import note calls out. Nothing more aggressive — stripping punctuation or spaces would collide
+ * skills that are genuinely different, and a false warning here is worse than a missed one.
+ */
+function normalizedSkillName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+/**
+ * One warning per group of skills whose names differ only by case or padding (Concept 02)
+ *
+ * @param skills - The ruleset's skills
+ * @returns One issue per colliding group, naming every member
+ */
+function nearDuplicateSkillNameWarnings(skills: readonly Skill[]): ValidationIssue[] {
+  const byNormalizedName = new Map<string, Skill[]>();
+
+  for (const skill of skills) {
+    const key = normalizedSkillName(skill.name);
+    if (key === '') continue;
+
+    const group = byNormalizedName.get(key);
+    if (group) {
+      group.push(skill);
+    } else {
+      byNormalizedName.set(key, [skill]);
+    }
+  }
+
+  return [...byNormalizedName.values()]
+    .filter((group) => group.length > 1)
+    .map((group) => ({
+      severity: 'warning' as const,
+      category: 'Data Consistency',
+      message: `Skills with near-duplicate names: ${group.map((skill) => `"${skill.name}"`).join(', ')} — keep both deliberately, or merge them`,
+      entityType: 'skill',
+      entityId: group[0].id,
+      entityName: group[0].name,
+    }));
 }
 
 /**

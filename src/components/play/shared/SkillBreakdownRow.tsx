@@ -33,18 +33,43 @@ export interface SkillBreakdownRowProps {
    */
   code?: string;
   /**
-   * The engine's total. A main skill is always a number; a speciality skill's total comes from a
-   * formula and may be an error, which renders as a chip in place of the number.
+   * The number this row leads with, and the one an error chips.
+   *
+   * Whichever of the entity's numbers is the one to act on rather than the finer one behind it: a
+   * stat's composed value, and a skill's **bonus** — the integer a Player adds to a roll — with the
+   * level behind it in `secondary`. Either can be an error since TICKET-FORM-05 (a derived stat's
+   * formula, or a skill weighted on one), which renders as a chip in place of the number.
    */
   total: DerivedValue;
   /** Contributions in display order; zero-valued ones are dropped */
   contributions: SkillContribution[];
+  /**
+   * A second labelled number shown before the total, for a row that has two (TICKET-SKL-03).
+   *
+   * A skill is the case that needs it: its *level* is the fine-grained derivation and its *bonus*
+   * is the integer a Player actually rolls with, and Concept 02 wants both on the row rather than
+   * making the Player divide. A stat row leaves it out and is unchanged.
+   */
+  secondary?: { label: string; value: DerivedValue };
   isFocusStat?: boolean;
+}
+
+/**
+ * A number as the Player should read it
+ *
+ * Two decimals, because a weighted term is a product of a stat and a weight like 0.2 and binary
+ * floating point makes `7 × 0.2` render as `1.4000000000000001` — which reads as a bug in the app
+ * rather than a fact about the ruleset. Rounded **here, at the display edge, and nowhere earlier**:
+ * the calculator's terms have to keep summing to the level exactly (TICKET-SKL-03). Same treatment
+ * `FormulaPreview` gives its ladder.
+ */
+function readable(value: number): string {
+  return String(Math.round(value * 100) / 100);
 }
 
 /** Render a contribution with an explicit sign, so `+2` and `-2` are never ambiguous */
 function signed(value: number): string {
-  return value > 0 ? `+${value}` : String(value);
+  return value > 0 ? `+${readable(value)}` : readable(value);
 }
 
 export function SkillBreakdownRow({
@@ -52,6 +77,7 @@ export function SkillBreakdownRow({
   code,
   total,
   contributions,
+  secondary,
   isFocusStat = false,
 }: SkillBreakdownRowProps) {
   const shown = contributions.filter(
@@ -72,16 +98,26 @@ export function SkillBreakdownRow({
       </div>
 
       <div className="flex flex-wrap items-baseline gap-2">
-        {shown.map((contribution) => (
-          <Text key={contribution.label} variant="caption" as="span">
+        {/* Keyed by position as well as label: two weight rows may name one stat at one weight */}
+        {shown.map((contribution, index) => (
+          <Text key={`${index}-${contribution.label}`} variant="caption" as="span">
             {contribution.label} {signed(contribution.value)}
           </Text>
         ))}
+        {/*
+          A failed secondary is left to the total's chip rather than chipping twice — the two come
+          from one derivation, so one explanation is the honest count (STAT-03's precedent).
+        */}
+        {secondary !== undefined && secondary.value.error === null && (
+          <Text variant="caption" as="span">
+            {secondary.label} {readable(secondary.value.value)}
+          </Text>
+        )}
         {total.error !== null ? (
           <ErrorChip label="unavailable" detail={total.error} />
         ) : (
           <Text variant="highlight" as="span">
-            {total.value}
+            {readable(total.value)}
           </Text>
         )}
       </div>

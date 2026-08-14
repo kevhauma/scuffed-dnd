@@ -8,6 +8,23 @@ import type { StatModifier } from './config';
 import type { FormulaResult } from './formula';
 
 /**
+ * One weight row's share of a skill's level (Concept 02, TICKET-SKL-03)
+ *
+ * The engine's own terms rather than the sheet's: a caller gets the stat id, the weight and the
+ * stat's value, and spells them however it renders. The **multiplication is done in the
+ * calculator**, because `weight × statValue` is the derivation and a component that recomputed it
+ * could disagree with the level it sits beside.
+ */
+export interface SkillStatContribution {
+  statId: string;
+  weight: number;
+  /** The stat's composed value at the time the level was computed */
+  statValue: number;
+  /** `weight × statValue` — this row's share of the level */
+  contribution: number;
+}
+
+/**
  * Character - player's in-game persona with stats, skills, and equipment
  */
 export interface Character {
@@ -86,6 +103,11 @@ export interface CalculatedCharacter extends Character {
   skillLevels: Record<string, FormulaResult>;
   /** Each skill's **bonus**, the integer a Player adds to a roll: `round(level / bonus_divider)` */
   skillBonuses: Record<string, FormulaResult>;
+  /**
+   * The weight rows behind each level, so the sheet can label a breakdown without redoing the
+   * multiplication (TICKET-SKL-03). Derived like the rest — never persisted.
+   */
+  skillContributions: Record<string, SkillStatContribution[]>;
   combatSkillBonuses: Record<string, FormulaResult>; // Calculated from formulas
   equipmentBonuses: StatModifier[]; // From equipped items, keyed by stat id (TICKET-MAT-02)
 }

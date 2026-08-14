@@ -76,11 +76,11 @@ export function calculateCharacter(
   });
 
   // 3. Skill levels and bonuses — weighted stats plus what the Player invested (Concept 02)
-  const { levels: skillLevels, bonuses: skillBonuses } = calculateSkills(
-    config,
-    statValues,
-    character
-  );
+  const {
+    levels: skillLevels,
+    bonuses: skillBonuses,
+    contributions: skillContributions,
+  } = calculateSkills(config, statValues, character);
 
   // 4. Combat skill bonuses — the formula over the stats and skills already computed
   const combatSkillBonuses = calculateCombatSkillBonuses(config, statValues, {
@@ -94,6 +94,7 @@ export function calculateCharacter(
     statTotal: calculateStatTotal(config.stats, statValues),
     skillLevels,
     skillBonuses,
+    skillContributions,
     combatSkillBonuses,
     equipmentBonuses,
   };

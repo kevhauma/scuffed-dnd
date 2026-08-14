@@ -1,14 +1,16 @@
 /**
  * Skills Section
  *
- * Each skill's **bonus** — the integer a Player adds to a roll (Concept 02) — with the points the
- * Player invested beside it. The weighted stats are the remainder and are not itemised: they are a
- * property of the ruleset, not something the Player changed.
+ * Each skill's two numbers together (Concept 02, TICKET-SKL-03): the **level** it derives to, and
+ * the **bonus** — the integer a Player actually adds to a roll — with the terms that produced them
+ * spelled out beside the name.
  *
- * The *level* is deliberately not shown yet: TICKET-SKL-03 owns the sheet's skill grid, where
- * level and bonus sit together in a table rather than being squeezed into a one-line row.
+ * The weighted stats *are* itemised here, unlike before this ticket. They are a property of the
+ * ruleset rather than something the Player changed, but a Player reading `+3` has no way to tell a
+ * high stat from spent points without them, which is the question the breakdown exists to answer.
+ * Every number comes from the calculator; this section multiplies nothing.
  *
- * **Validates: Concept 02; Requirements 9.3, 21.1-21.5**
+ * **Validates: Concept 02; Requirements 9.3, 13.4, 21.1-21.5**
  */
 
 import { Card } from '../../ui/Card/Card';
@@ -35,7 +37,11 @@ export function SkillsSection({ skills }: SkillsSectionProps) {
             key={skill.id}
             name={skill.name}
             total={skill.bonus}
-            contributions={[{ label: 'invested', value: skill.invested, alwaysShow: true }]}
+            secondary={{ label: 'level', value: skill.total }}
+            contributions={[
+              ...skill.statContributions,
+              { label: 'invested', value: skill.invested, alwaysShow: true },
+            ]}
           />
         ))
       )}

@@ -7,7 +7,7 @@
  * **Validates: Requirements 8.5, 9.3, 13.4, 14.1, 14.2, 14.3, 14.4, 14.5, 21.1-21.5**
  */
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Character } from '../../../types/character';
 import type { Configuration } from '../../../types/config';
@@ -293,6 +293,111 @@ describe('CharacterSheet', () => {
     expect(screen.queryByText('focus stat')).toBeNull();
   });
 
+  /**
+   * Concept 02's grid: both numbers on the row, and the terms that produced them. Asserted against
+   * `calculateCharacter` rather than against literals wherever the number is the engine's, so a
+   * change to the derivation moves the expectation with it instead of pinning a stale figure.
+   */
+  describe('the skills grid (TICKET-SKL-03)', () => {
+    it('should show a weight row as the stat times its weight, already multiplied', () => {
+      const expected = calculateCharacter(createCharacter(), createConfig());
+
+      render(<CharacterSheet characterId="char1" />);
+
+      // DEX is 4 invested + 2 from Elf = 6, weighted 0.5, so the term is +3
+      const term = expected.skillContributions.STL[0];
+      expect(term).toMatchObject({ statId: 'dex-id', weight: 0.5, statValue: 6, contribution: 3 });
+      expect(within(rowFor(/Stealth/)).getByText('DEX × 0.5 +3')).toBeDefined();
+    });
+
+    it('should show the invested points as their own term, and at zero', () => {
+      render(<CharacterSheet characterId="char1" />);
+      expect(within(rowFor(/Stealth/)).getByText('invested +3')).toBeDefined();
+
+      cleanup();
+      useCharacterStore.setState({
+        characters: [createCharacter({ investedSkillPoints: {} })],
+      });
+      render(<CharacterSheet characterId="char1" />);
+
+      // Always shown: "spent nothing here" is part of the character, unlike an absent contribution
+      expect(within(rowFor(/Stealth/)).getByText('invested 0')).toBeDefined();
+    });
+
+    it('should show level and bonus as different numbers', () => {
+      const expected = calculateCharacter(createCharacter(), createConfig());
+
+      render(<CharacterSheet characterId="char1" />);
+
+      // level 6 = 3 weighted + 3 invested; bonus = round(6 / 5) = 1
+      expect(expected.skillLevels.STL).toBe(6);
+      expect(expected.skillBonuses.STL).toBe(1);
+      const row = rowFor(/Stealth/);
+      expect(within(row).getByText(`level ${expected.skillLevels.STL}`)).toBeDefined();
+      // The bonus is the row's lead number — `variant="highlight"` — rather than any text node
+      // that happens to read "1"
+      expect(within(row).getByText(String(expected.skillBonuses.STL)).className).toContain(
+        'font-mono'
+      );
+    });
+
+    it('should not show a weighted term as binary floating-point noise', () => {
+      // DEX 7 at weight 0.2 is 1.4000000000000001 as a double. The terms must keep summing to the
+      // level exactly, so the rounding belongs at the display edge and nowhere earlier.
+      useConfigStore.setState({
+        config: createConfig({
+          skills: [
+            {
+              id: 'STL',
+              name: 'Stealth',
+              description: '',
+              statWeights: [{ statId: 'dex-id', weight: 0.2 }],
+            },
+          ],
+        }),
+      });
+      useCharacterStore.setState({
+        characters: [
+          createCharacter({ investedStatPoints: { STR: 6, 'dex-id': 5 }, investedSkillPoints: {} }),
+        ],
+      });
+
+      render(<CharacterSheet characterId="char1" />);
+
+      const row = rowFor(/Stealth/);
+      expect(within(row).getByText('DEX × 0.2 +1.4')).toBeDefined();
+      expect(within(row).getByText('level 1.4')).toBeDefined();
+      expect(within(row).queryByText(/0000000/)).toBeNull();
+    });
+
+    it('should drop the breakdown and chip once when the level cannot be computed', () => {
+      useConfigStore.setState({
+        config: createConfig({
+          skills: [
+            {
+              id: 'STL',
+              name: 'Stealth',
+              description: '',
+              // Weighted on a resource whose own formula is broken
+              statWeights: [{ statId: 'health', weight: 0.5 }],
+            },
+          ],
+          stats: createConfig().stats.map((stat) =>
+            stat.id === 'health' ? { ...stat, formula: 'NOPE * 10' } : stat
+          ),
+        }),
+      });
+
+      render(<CharacterSheet characterId="char1" />);
+
+      const row = rowFor(/Stealth/);
+      expect(within(row).queryByText(/HEA ×/)).toBeNull();
+      expect(within(row).queryByText(/^level/)).toBeNull();
+      // One chip for the row, not one for the level and another for the bonus
+      expect(within(row).getAllByRole('img', { name: /unavailable/ })).toHaveLength(1);
+    });
+  });
+
   it('should render values that match calculateCharacter for the same character', () => {
     const config = createConfig();
     const character = createCharacter();
@@ -307,9 +412,12 @@ describe('CharacterSheet', () => {
     expect(
       within(rowFor(/Dexterity \(DEX\)/)).getByText(String(expected.statValues['dex-id']))
     ).toBeDefined();
-    // The skill row carries the **bonus** — the number a Player adds to a roll (Concept 02).
-    // SKL-03 puts the level beside it.
+    // The skill row carries the **bonus** — the number a Player adds to a roll (Concept 02) — with
+    // the level beside it since TICKET-SKL-03
     expect(within(rowFor(/Stealth/)).getByText(String(expected.skillBonuses.STL))).toBeDefined();
+    expect(
+      within(rowFor(/Stealth/)).getByText(`level ${String(expected.skillLevels.STL)}`)
+    ).toBeDefined();
     expect(
       within(rowFor(/Melee \(MEL\)/)).getByText(`+${expected.combatSkillBonuses.MEL}`)
     ).toBeDefined();

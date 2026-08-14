@@ -7,10 +7,11 @@
  * no code to keep unique: what a skill has is a name, and the weights that derive its level. That
  * is the entity's whole argument — a rebalance is one constant, not 48 edits.
  *
- * The editor is deliberately plain here. TICKET-SKL-03 owns the real panel, the sheet grid and the
- * three validation rules; this keeps the surface working on the new entity without pre-empting it.
+ * The weight rows are the whole editor (TICKET-SKL-03 covered them with tests and closed the
+ * `NaN` hole below). `Skill.category` exists on the type and nothing edits it yet — that wants a
+ * ticket rather than a promise in a comment.
  *
- * **Validates: Concept 02; Requirements 2.5, 2.6**
+ * **Validates: Concept 02**
  */
 
 import { useState } from 'react';
@@ -76,8 +77,14 @@ export function useSkillManager() {
       name: data.name,
       description: data.description,
       // A weight row pointing at nothing is dropped rather than stored: the picker only offers
-      // real stats, so an empty target means the row was added and never filled in
-      statWeights: data.statWeights.filter((row) => row.statId !== ''),
+      // real stats, so an empty target means the row was added and never filled in.
+      //
+      // An emptied weight box reads back as `NaN` through `valueAsNumber`, which would persist and
+      // then poison every level the skill feeds — so it is read as the 0 the empty box looks like
+      // rather than stored as a number that is not one (TICKET-SKL-03).
+      statWeights: data.statWeights
+        .filter((row) => row.statId !== '')
+        .map((row) => ({ ...row, weight: Number.isFinite(row.weight) ? row.weight : 0 })),
     };
 
     if (editingSkill) {

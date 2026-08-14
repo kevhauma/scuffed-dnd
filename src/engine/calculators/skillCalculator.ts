@@ -24,7 +24,7 @@
  * **Validates: Concept 02; Concept 05; Concept 00 §7**
  */
 
-import type { Character } from '../../types/character';
+import type { Character, SkillStatContribution } from '../../types/character';
 import type { Configuration, Skill } from '../../types/config';
 import type { FormulaResult } from '../../types/formula';
 import { asNumber, formulaError, isFormulaError, withSource } from '../formula/errors';
@@ -34,10 +34,17 @@ import { roundHalfAwayFromZero } from '../formula/functions';
 const BONUS_DIVIDER_NAME = 'bonus_divider';
 const DEFAULT_BONUS_DIVIDER = 5;
 
-/** Both of a skill's derived numbers, keyed by skill id */
+/** Both of a skill's derived numbers plus the terms behind them, keyed by skill id */
 export interface CalculatedSkills {
   levels: Record<string, FormulaResult>;
   bonuses: Record<string, FormulaResult>;
+  /**
+   * The weight rows that produced each level, in the skill's own row order.
+   *
+   * Empty for a skill whose level failed — there is no honest breakdown of a number that could not
+   * be computed, and half a sum is more misleading than none (Concept 00 §7).
+   */
+  contributions: Record<string, SkillStatContribution[]>;
 }
 
 /**
@@ -75,24 +82,30 @@ function levelOf(
   statValues: Record<string, FormulaResult>,
   statNames: ReadonlyMap<string, string>,
   invested: number
-): FormulaResult {
+): { level: FormulaResult; contributions: SkillStatContribution[] } {
   let total = invested;
+  const contributions: SkillStatContribution[] = [];
 
   for (const { statId, weight } of skill.statWeights) {
     const value = statValues[statId];
     if (value === undefined) continue;
     if (isFormulaError(value)) {
-      return formulaError(
-        'upstream',
-        `${statNames.get(statId) ?? statId} could not be calculated`,
-        { cause: value }
-      );
+      return {
+        level: formulaError(
+          'upstream',
+          `${statNames.get(statId) ?? statId} could not be calculated`,
+          { cause: value }
+        ),
+        contributions: [],
+      };
     }
 
-    total += weight * value;
+    const contribution = weight * value;
+    total += contribution;
+    contributions.push({ statId, weight, statValue: value, contribution });
   }
 
-  return total;
+  return { level: total, contributions };
 }
 
 /**
@@ -119,6 +132,7 @@ export function calculateSkills(
 
   const levels: Record<string, FormulaResult> = {};
   const bonuses: Record<string, FormulaResult> = {};
+  const contributions: Record<string, SkillStatContribution[]> = {};
 
   for (const skill of config.skills) {
     const computed = levelOf(
@@ -127,10 +141,11 @@ export function calculateSkills(
       statNames,
       character.investedSkillPoints[skill.id] ?? 0
     );
-    const level = isFormulaError(computed)
-      ? withSource(computed, { kind: 'skill', id: skill.id, name: skill.name })
-      : computed;
+    const level = isFormulaError(computed.level)
+      ? withSource(computed.level, { kind: 'skill', id: skill.id, name: skill.name })
+      : computed.level;
     levels[skill.id] = level;
+    contributions[skill.id] = computed.contributions;
 
     // A level that failed has no bonus either, and the bonus says the same thing rather than a
     // confident 0 (Concept 00 §7)
@@ -138,5 +153,5 @@ export function calculateSkills(
     bonuses[skill.id] = numeric === undefined ? level : roundHalfAwayFromZero(numeric / divider);
   }
 
-  return { levels, bonuses };
+  return { levels, bonuses, contributions };
 }

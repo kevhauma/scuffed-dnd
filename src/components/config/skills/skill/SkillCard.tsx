@@ -7,7 +7,7 @@
  * string, because that is what the entity holds since TICKET-SKL-02: the arithmetic around them is
  * the calculator's and is the same for every skill.
  *
- * **Validates: Concept 02; Requirements 4.1, 4.2, 21.1-21.5**
+ * **Validates: Concept 02; Requirements 21.1-21.5**
  */
 
 import type { Skill, Stat } from '../../../../types';
@@ -59,8 +59,9 @@ export function SkillCard({ skill, stats, onEdit, onDelete }: SkillCardProps) {
         </Text>
       ) : (
         <div className="flex flex-wrap gap-2 mt-1">
-          {skill.statWeights.map((row) => (
-            <Text key={row.statId} variant="highlight" as="span">
+          {/* Keyed by position as well as stat: nothing stops two rows naming the same stat */}
+          {skill.statWeights.map((row, index) => (
+            <Text key={`${index}-${row.statId}`} variant="highlight" as="span">
               {abbreviationById.get(row.statId) ?? row.statId} × {row.weight}
             </Text>
           ))}

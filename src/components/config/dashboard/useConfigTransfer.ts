@@ -85,7 +85,9 @@ export function useConfigTransfer() {
     pendingFileName: pendingFile?.name ?? null,
     importErrors,
     importReport,
-    importReportIssues: importReport ? [...importReport.errors, ...importReport.warnings] : [],
+    importReportIssues: importReport
+      ? [...importReport.errors, ...importReport.warnings, ...importReport.information]
+      : [],
     handleExport,
     handleFileChosen,
     handleCancelImport,

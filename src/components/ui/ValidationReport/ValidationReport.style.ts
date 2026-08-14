@@ -28,11 +28,39 @@ export const issueItemStyles = [
   'focus:outline-none focus:ring-2 focus:ring-amber focus:ring-offset-2',
 ].join(' ');
 
-// Error icon styles
-export const errorIconStyles = ['text-crimson', 'text-xl', 'font-bold', 'flex-shrink-0'].join(' ');
+// Icon styles, shared by all three severities — only the colour differs
+const iconStyles = ['text-xl', 'font-bold', 'flex-shrink-0'].join(' ');
 
-// Warning icon styles
-export const warningIconStyles = ['text-amber', 'text-xl', 'font-bold', 'flex-shrink-0'].join(' ');
+// Section heading styles, shared by all three severities — only the colour differs
+const sectionHeadingStyles = ['font-heading', 'font-semibold', 'text-lg', 'mb-2'].join(' ');
+
+// Spacing between the severity sections
+export const sectionListStyles = ['space-y-4'].join(' ');
+
+/**
+ * Per-severity presentation: heading colour, icon colour, and the glyph.
+ *
+ * One record rather than three sets of loose constants, so a fourth severity is one entry here and
+ * nothing in the JSX. `information` is royal rather than amber (TICKET-SKL-03) — an observation
+ * that is not a defect must not borrow the colour of one.
+ */
+export const severityStyles = {
+  error: {
+    heading: `${sectionHeadingStyles} text-crimson`,
+    icon: `${iconStyles} text-crimson`,
+    glyph: '✕',
+  },
+  warning: {
+    heading: `${sectionHeadingStyles} text-amber`,
+    icon: `${iconStyles} text-amber`,
+    glyph: '⚠',
+  },
+  information: {
+    heading: `${sectionHeadingStyles} text-royal`,
+    icon: `${iconStyles} text-royal`,
+    glyph: 'ℹ',
+  },
+} as const;
 
 // Message styles
 export const messageStyles = ['font-body text-base', 'text-ink-900', 'mb-1'].join(' ');

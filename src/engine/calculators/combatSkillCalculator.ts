@@ -38,7 +38,10 @@ import { statVariables } from './statCalculator';
 export function calculateCombatSkillBonuses(
   config: Configuration,
   statValues: Record<string, FormulaResult>,
-  skills: CalculatedSkills
+  // Narrowed to the two maps a formula can name (TICKET-SKL-03). A combat skill reads
+  // `skills.<name>.level` and `.bonus` and nothing else, so asking for the whole `CalculatedSkills`
+  // would make every caller carry a breakdown it has no use for — and invent one where it has none.
+  skills: Pick<CalculatedSkills, 'levels' | 'bonuses'>
 ): Record<string, FormulaResult> {
   const combatSkillBonuses: Record<string, FormulaResult> = {};
 
