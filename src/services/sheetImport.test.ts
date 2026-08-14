@@ -26,6 +26,7 @@ import {
   readFragments,
   renderConfiguration,
 } from '../../scripts/build-sheet-import.mjs';
+import { SUPPORTED_SCHEMA_VERSION } from '../types/config';
 import { importConfiguration, validateConfiguration } from './importExport';
 
 const fragments = readFragments();
@@ -41,7 +42,7 @@ describe('sheet import fragments', () => {
       'items.json',
       'materials.json',
       'races.json',
-      'speciality-skills.json',
+      'skills.json',
       'stats.json',
     ]);
   });
@@ -81,9 +82,9 @@ describe('the merged ruleset', () => {
   it('imports at the current schema version, with the sheet in it', () => {
     const config = importConfiguration(committed);
 
-    expect(config.schemaVersion).toBe(4);
+    expect(config.schemaVersion).toBe(SUPPORTED_SCHEMA_VERSION);
     expect(config.stats.map((stat) => stat.abbreviation)).toContain('APT');
-    expect(config.specialitySkills).toHaveLength(48);
+    expect(config.skills).toHaveLength(48);
     expect(config.curves?.find((curve) => curve.name === 'point_buy')?.rows).toHaveLength(51);
   });
 });
@@ -120,15 +121,36 @@ describe('the confirmed derivations survive the round trip', () => {
   });
 
   it('keeps the skill weights Concept 02 confirmed', () => {
-    const formula = (name: string) =>
-      config.specialitySkills.find((skill) => skill.name === name)?.bonusFormula;
+    // Weight rows rather than a formula string since TICKET-SKL-02, and keyed by stat **id** —
+    // so this reads through the stats to check the spelling the concept page uses
+    const abbreviationOf = (statId: string) =>
+      config.stats.find((stat) => stat.id === statId)?.abbreviation;
 
-    expect(formula('Charm')).toBe('CHA * 0.3');
-    expect(formula('Trading')).toBe('CHA * 0.3');
-    expect(formula('Brewing')).toBe('WIS * 0.3');
-    expect(formula('Black smithing')).toBe('STR * 0.2');
-    expect(formula('alchemy')).toBe('INT * 0.2');
-    expect(formula('Cooking')).toBe('WIS * 0.2 + DEX * 0.1');
+    const weights = (name: string) =>
+      config.skills
+        .find((skill) => skill.name === name)
+        ?.statWeights.map(({ statId, weight }) => `${abbreviationOf(statId)} ${weight}`)
+        .join(' + ');
+
+    expect(weights('Charm')).toBe('CHA 0.3');
+    expect(weights('Trading')).toBe('CHA 0.3');
+    expect(weights('Brewing')).toBe('WIS 0.3');
+    expect(weights('Black smithing')).toBe('STR 0.2');
+    expect(weights('alchemy')).toBe('INT 0.2');
+    expect(weights('Cooking')).toBe('WIS 0.2 + DEX 0.1');
+  });
+
+  it('keeps every weight pointing at a stat the corpus actually defines', () => {
+    // The failure mode a fragment keyed by id has that a formula string did not: a weight can
+    // name an id no stats.json row supplies, and nothing spells it out at import time
+    const statIds = new Set(config.stats.map((stat) => stat.id));
+    const dangling = config.skills.flatMap((skill) =>
+      skill.statWeights
+        .filter((row) => !statIds.has(row.statId))
+        .map((row) => `${skill.name} → ${row.statId}`)
+    );
+
+    expect(dangling).toEqual([]);
   });
 
   it('keeps the constants the sheet labels (Concept 05)', () => {
