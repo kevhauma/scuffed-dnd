@@ -345,22 +345,19 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
         formula: 'DEX * 2',
       },
     ],
-    specialitySkills: [
+    skills: [
       {
         id: 'STL',
-        code: 'STL',
         name: 'Stealth',
         description: '',
-        maxBaseLevel: 10,
-        bonusFormula: 'DEX / 2',
+        // The weighted equivalents of v1's `DEX / 2` and `CON` formulas (TICKET-SKL-02)
+        statWeights: [{ statId: 'DEX', weight: 0.5 }],
       },
       {
         id: 'ARC',
-        code: 'ARC',
         name: 'Arcana',
         description: '',
-        maxBaseLevel: 10,
-        bonusFormula: 'CON',
+        statWeights: [{ statId: 'CON', weight: 1 }],
       },
     ],
     combatSkills: [
@@ -370,7 +367,7 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
         name: 'Melee',
         description: '',
         dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-        bonusFormula: 'STR + STL',
+        bonusFormula: 'STR + skills.stealth',
       },
     ],
     materials: [
@@ -708,21 +705,20 @@ describe('calculateCharacter', () => {
     expect(result.statValues.DEX).toBe(10);
     // health follows: 12 * 10 + 12 * 5
     expect(result.statValues.health).toBe(180);
-    // Speciality skills do not also receive the focus bonus
+    // Skills do not also receive the focus bonus — they move only through DEX and CON
     expect(result.skillLevels).toEqual({ STL: 7, ARC: 13 });
   });
 
-  it('should apply the focus stat bonus to a speciality skill and to nothing else', () => {
+  it('should do nothing at all when the focus stat names a skill (TICKET-SKL-02)', () => {
+    // v1 let a focus land on a speciality code. The focus is matched against a stat abbreviation
+    // and a `Skill` has no code, so this names nothing and moves nothing. TICKET-ARC-03 retires
+    // the focus stat outright.
     const character = createFixtureCharacter({ focusStatCode: 'STL' });
 
     const result = calculateCharacter(character, createFixtureConfig());
 
-    // STL = base 2 + formula 5 + focus 3
-    expect(result.skillLevels.STL).toBe(10);
-    expect(result.skillLevels.ARC).toBe(13);
-    // Main skills are untouched
+    expect(result.skillLevels).toEqual({ STL: 7, ARC: 13 });
     expect(result.statValues).toEqual({ STR: 9, DEX: 10, CON: 12, health: 150, evasion: 20 });
-    expect(result.statValues.health).toBe(150);
   });
 
   // TICKET-FORM-05: these used to assert a throw that aborted the whole calculation. The
@@ -753,16 +749,29 @@ describe('calculateCharacter', () => {
     });
   });
 
-  it('should name the speciality skill when its formula references an undefined skill', () => {
+  it('should name the skill when a stat it is weighted on could not be calculated', () => {
+    // A skill has no formula of its own to hold an undefined code (TICKET-SKL-02), so the way it
+    // fails is upstream: a derived stat in its weight rows that did not compute.
     const config = createFixtureConfig({
-      specialitySkills: [
+      stats: [
+        {
+          id: 'mana',
+          name: 'Mana',
+          abbreviation: 'MAN',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: 'MAG * 5',
+        },
+      ],
+      skills: [
         {
           id: 'STL',
-          code: 'STL',
           name: 'Stealth',
           description: '',
-          maxBaseLevel: 10,
-          bonusFormula: 'MAG',
+          statWeights: [{ statId: 'mana', weight: 0.5 }],
         },
       ],
     });
@@ -770,9 +779,13 @@ describe('calculateCharacter', () => {
     const result = calculateCharacter(createFixtureCharacter(), config);
 
     expect(result.skillLevels.STL).toMatchObject({
-      kind: 'undefined-variable',
-      message: 'Undefined variable: MAG',
-      source: { kind: 'speciality-skill', id: 'STL', name: 'Stealth' },
+      kind: 'upstream',
+      message: 'Mana could not be calculated',
+      source: { kind: 'skill', id: 'STL', name: 'Stealth' },
+      cause: {
+        message: 'Undefined variable: MAG',
+        source: { kind: 'stat', id: 'mana', name: 'Mana' },
+      },
     });
   });
 
@@ -869,44 +882,74 @@ describe('calculateCharacter', () => {
     expect(result.combatSkillBonuses.MEL).toBe(16); // STR 9 + STL 7
   });
 
-  it('should chain provenance from a broken speciality skill into the combat skill reading it', () => {
+  it('should chain provenance from a broken skill into the combat skill reading it', () => {
+    // Stealth is weighted on a derived stat that cannot compute, so its level is an error and the
+    // combat skill reading `skills.stealth` reports it as the cause rather than a bare 0
     const config = createFixtureConfig({
-      specialitySkills: [
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'CON',
+          name: 'Constitution',
+          abbreviation: 'CON',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'mana',
+          name: 'Mana',
+          abbreviation: 'MAN',
+          description: '',
+          order: 2,
+          countsTowardTotal: false,
+          isResource: false,
+          rounding: 'none',
+          formula: 'MAG * 5',
+        },
+      ],
+      skills: [
         {
           id: 'STL',
-          code: 'STL',
           name: 'Stealth',
           description: '',
-          maxBaseLevel: 10,
-          bonusFormula: 'MAG',
+          statWeights: [{ statId: 'mana', weight: 0.5 }],
         },
         {
           id: 'ARC',
-          code: 'ARC',
           name: 'Arcana',
           description: '',
-          maxBaseLevel: 10,
-          bonusFormula: 'CON',
+          statWeights: [{ statId: 'CON', weight: 1 }],
         },
       ],
     });
 
     const result = calculateCharacter(createFixtureCharacter(), config);
 
-    // MEL is `STR + STL`, and STL is broken — so MEL's error names STL as the cause
+    // MEL is `STR + skills.stealth`, and Stealth is broken — so MEL's error names it as the cause
     expect(result.combatSkillBonuses.MEL).toMatchObject({
       kind: 'upstream',
-      message: 'STL could not be calculated',
       source: { kind: 'combat-skill', name: 'Melee' },
       cause: {
-        message: 'Undefined variable: MAG',
-        source: { kind: 'speciality-skill', name: 'Stealth' },
+        kind: 'upstream',
+        source: { kind: 'skill', name: 'Stealth' },
+        cause: { message: 'Undefined variable: MAG', source: { kind: 'stat', name: 'Mana' } },
       },
     });
 
-    // The unrelated speciality skill and the stats are untouched
-    expect(result.skillLevels.ARC).toBe(13); // base 1 + CON 12
-    expect(result.statValues.health).toBe(150); // STR 9 * 10 + CON 12 * 5
+    // The unrelated skill is untouched
+    expect(result.skillLevels.ARC).toBe(13); // invested 1 + CON 12
   });
 
   it('should agree with calculateCharacterStats, the wrapper over the same chain', () => {
@@ -981,14 +1024,12 @@ describe('calculateCharacter over an unallocated main skill (TICKET-CALC-02)', (
           formula: 'WIS * 3',
         },
       ],
-      specialitySkills: [
+      skills: [
         {
           id: 'STL',
-          code: 'STL',
           name: 'Stealth',
           description: '',
-          maxBaseLevel: 10,
-          bonusFormula: 'WIS',
+          statWeights: [{ statId: 'WIS', weight: 1 }],
         },
       ],
       combatSkills: [
@@ -1049,36 +1090,27 @@ describe('calculateCharacter over an unallocated main skill (TICKET-CALC-02)', (
 /**
  * The abbreviation bridge — scaffolding, not a design
  *
- * A speciality skill's `bonusFormula` and a combat skill's are still written in the **flat**
- * variable space, so `(STR + DEX) / 2` reaches stats by their `abbreviation`. That space is a
- * carry-across from v1, where `MainSkill` was the invested atom; TICKET-STAT-01 kept it pointed at
- * stat abbreviations rather than redesigning both skill kinds in the same change.
+ * A combat skill's `bonusFormula` is still written in the **flat** variable space, so `STR + 2`
+ * reaches a stat by its `abbreviation`. That space is a carry-across from v1, where `MainSkill`
+ * was the invested atom; TICKET-STAT-01 kept it pointed at stat abbreviations rather than
+ * redesigning both skill kinds in the same change.
  *
  * **The equipment half is already gone** (TICKET-MAT-02): an equipment bonus used to reach a stat
- * by matching its abbreviation, and now matches the stat's id. What is left is the *formula*
- * spelling, and it is temporary too — these tests exist to fail loudly when it goes:
+ * by matching its abbreviation, and now matches the stat's id. **The speciality half is gone too**
+ * (TICKET-SKL-02): a `Skill` names its stats by **id** in `statWeights`, so no spelling is
+ * involved and a rename cannot orphan it — which is what the deleted half of this block used to
+ * demonstrate going wrong.
  *
- * - **TICKET-SKL-02** replaces `SpecialitySkill` with the weighted Skill entity, which names its
- *   stats through `stats.*` rather than through the flat space;
- * - **TICKET-ROLL-06** replaces `CombatSkill` with roll definitions, which do the same.
- *
- * When either lands, delete the half of this block it retires — do not "fix" it by re-adding the
- * flat spelling. When both have landed, the whole block goes, and with it `statVariables`.
+ * What is left is the combat formula's spelling, and it is temporary too — this test exists to
+ * fail loudly when **TICKET-ROLL-06** replaces `CombatSkill` with roll definitions that name
+ * `stats.*`. When that lands the whole block goes, and with it `statVariables`. Do not "fix" it by
+ * re-adding a flat spelling.
  */
-describe('the flat abbreviation bridge (retired by TICKET-SKL-02 and TICKET-ROLL-06)', () => {
-  it('should let a speciality formula reach a stat by its abbreviation', () => {
-    // TICKET-SKL-02 retires this: the Skill entity weights `stats.*` instead
-    const result = calculateCharacter(createFixtureCharacter(), createFixtureConfig());
-
-    // STL is `base 2 + DEX / 2`, and DEX composes to 10
-    expect(result.skillLevels.STL).toBe(7);
-  });
-
+describe('the flat abbreviation bridge (half retired by TICKET-SKL-02, rest by TICKET-ROLL-06)', () => {
   it('should let a combat formula reach a stat by its abbreviation', () => {
-    // TICKET-ROLL-06 retires this: a roll definition names `stats.*` instead
     const result = calculateCharacter(createFixtureCharacter(), createFixtureConfig());
 
-    // MEL is `STR + STL`, and STR composes to 9
+    // MEL is `STR + skills.stealth`, STR composes to 9 and Stealth to 7
     expect(result.combatSkillBonuses.MEL).toBe(16);
   });
 
@@ -1086,21 +1118,24 @@ describe('the flat abbreviation bridge (retired by TICKET-SKL-02 and TICKET-ROLL
     // The bridge is spelled, not stored: `statVariables` rebuilds it from the current
     // abbreviations at calculation time. So renaming a stat and leaving the old spelling in a
     // formula is an undefined variable rather than a stale number — which is exactly why
-    // TICKET-REF-01 rewrites the formulas on rename, and why moving both skill kinds onto
-    // `stats.*` removes the class of problem rather than managing it.
+    // TICKET-REF-01 rewrites the formulas on rename, and why moving off the flat space removes
+    // the class of problem rather than managing it.
     const config = createFixtureConfig();
     const renamed: Configuration = {
       ...config,
       stats: config.stats.map((stat) =>
-        stat.id === 'DEX' ? { ...stat, abbreviation: 'AGI' } : stat
+        stat.id === 'STR' ? { ...stat, abbreviation: 'STG' } : stat
       ),
     };
 
     const stale = calculateCharacter(createFixtureCharacter(), renamed);
 
-    expect(stale.skillLevels.STL).toMatchObject({
+    expect(stale.combatSkillBonuses.MEL).toMatchObject({
       kind: 'undefined-variable',
-      message: 'Undefined variable: DEX',
+      message: 'Undefined variable: STR',
     });
+
+    // The skill beside it is keyed by id and does not budge (TICKET-SKL-02)
+    expect(stale.skillLevels.STL).toBe(7);
   });
 });

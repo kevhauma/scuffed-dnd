@@ -27,7 +27,7 @@
 import type { Character } from '../../types/character';
 import type { Configuration, Skill } from '../../types/config';
 import type { FormulaResult } from '../../types/formula';
-import { asNumber, isFormulaError, withSource } from '../formula/errors';
+import { asNumber, formulaError, isFormulaError, withSource } from '../formula/errors';
 import { roundHalfAwayFromZero } from '../formula/functions';
 
 /** The constant a level is divided by to reach a bonus, and its Concept 05 seed */
@@ -63,10 +63,17 @@ function bonusDivider(config: Configuration): number {
  * the level — the same rule the composition applies to a dangling race entry (TICKET-REF-02). A
  * stat whose own formula is broken is different: it has no value at all, so the level that depends
  * on it cannot be computed either, and the error is carried rather than silently read as 0.
+ *
+ * Carried the way the evaluator carries one between formulas: an `upstream` error naming the stat,
+ * with the original as its `cause`. Returning the stat's own error instead would leave it claiming
+ * to belong to the stat — `withSource` keeps the first source it is given — so the sheet would chip
+ * the skill's row with a message attributing it to something else, and the chain would stop at one
+ * link (Concept 00 §7).
  */
 function levelOf(
   skill: Skill,
   statValues: Record<string, FormulaResult>,
+  statNames: ReadonlyMap<string, string>,
   invested: number
 ): FormulaResult {
   let total = invested;
@@ -75,7 +82,11 @@ function levelOf(
     const value = statValues[statId];
     if (value === undefined) continue;
     if (isFormulaError(value)) {
-      return withSource(value, { kind: 'skill', id: skill.id, name: skill.name });
+      return formulaError(
+        'upstream',
+        `${statNames.get(statId) ?? statId} could not be calculated`,
+        { cause: value }
+      );
     }
 
     total += weight * value;
@@ -98,12 +109,21 @@ export function calculateSkills(
   character: Character
 ): CalculatedSkills {
   const divider = bonusDivider(config);
+  const statNames = new Map(config.stats.map((stat) => [stat.id, stat.name]));
 
   const levels: Record<string, FormulaResult> = {};
   const bonuses: Record<string, FormulaResult> = {};
 
   for (const skill of config.skills) {
-    const level = levelOf(skill, statValues, character.investedSkillPoints[skill.id] ?? 0);
+    const computed = levelOf(
+      skill,
+      statValues,
+      statNames,
+      character.investedSkillPoints[skill.id] ?? 0
+    );
+    const level = isFormulaError(computed)
+      ? withSource(computed, { kind: 'skill', id: skill.id, name: skill.name })
+      : computed;
     levels[skill.id] = level;
 
     // A level that failed has no bonus either, and the bonus says the same thing rather than a

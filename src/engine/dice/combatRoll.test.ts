@@ -24,7 +24,7 @@ const melee: CombatSkill = {
   name: 'Melee',
   description: '',
   dice: { d4: 0, d6: 2, d8: 0, d10: 0, d12: 0, d20: 1 },
-  bonusFormula: 'STR + STL',
+  bonusFormula: 'STR + skills.stealth',
 };
 
 const unarmed: CombatSkill = {
@@ -64,14 +64,13 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         rounding: 'none',
       },
     ],
-    specialitySkills: [
+    skills: [
       {
         id: 'STL',
-        code: 'STL',
         name: 'Stealth',
         description: '',
-        maxBaseLevel: 10,
-        bonusFormula: 'DEX / 2',
+        // The weighted equivalent of v1's `DEX / 2` formula (TICKET-SKL-02)
+        statWeights: [{ statId: 'DEX', weight: 0.5 }],
       },
     ],
     combatSkills: [melee, unarmed],
@@ -123,7 +122,7 @@ describe('rollCombatSkill', () => {
     const config = createConfig();
     const character = createCharacter(config);
 
-    // STL = base 2 + DEX 8 / 2 = 6, so MEL's bonus is STR 6 + STL 6 = 12
+    // Stealth = invested 2 + DEX 8 × 0.5 = 6, so MEL's bonus is STR 6 + 6 = 12
     expect(character.combatSkillBonuses.MEL).toBe(12);
 
     // 0 → the lowest face of each die: 1, 1 (d6) and 1 (d20)
@@ -190,7 +189,8 @@ describe('rollCombatSkill', () => {
 
     const result = rollOk(melee, character, config, () => 0);
 
-    // The sword raises STR by 5 and `STR + STL` follows. Since TICKET-MAT-01 a tier modifier can
+    // The sword raises STR by 5 and `STR + skills.stealth` follows. Since TICKET-MAT-01 a tier
+    // modifier can
     // only name a stat, so this is the one route equipment reaches a combat roll by.
     expect(result.bonus).toBe(17); // 12 + 5 from the equipped sword
   });

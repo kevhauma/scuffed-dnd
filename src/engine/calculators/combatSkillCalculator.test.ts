@@ -68,9 +68,9 @@ describe('calculateCombatSkillBonuses', () => {
       DEX: 8,
     };
 
-    const specialitySkillLevels = {};
+    const skillValues = { levels: {}, bonuses: {} };
 
-    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, specialitySkillLevels);
+    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, skillValues);
 
     expect(result).toEqual({
       MEL: 15, // 10 (STR) + 5
@@ -95,14 +95,12 @@ describe('calculateCombatSkillBonuses', () => {
           rounding: 'none',
         },
       ],
-      specialitySkills: [
+      skills: [
         {
           id: 'SWD',
-          code: 'SWD',
           name: 'Swordsmanship',
           description: 'Sword skill',
-          maxBaseLevel: 10,
-          bonusFormula: 'STR',
+          statWeights: [{ statId: 'STR', weight: 0.3 }],
         },
       ],
       combatSkills: [
@@ -112,7 +110,8 @@ describe('calculateCombatSkillBonuses', () => {
           name: 'Melee Attack',
           description: 'Close combat attack',
           dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-          bonusFormula: 'STR + SWD', // 10 + 15 = 25
+          // `skills.<name>` — a `Skill` has no code since TICKET-SKL-02
+          bonusFormula: 'STR + skills.swordsmanship', // 10 + 15 = 25
         },
       ],
       materials: [],
@@ -130,11 +129,12 @@ describe('calculateCombatSkillBonuses', () => {
       STR: 10,
     };
 
-    const specialitySkillLevels = {
-      SWD: 15, // Calculated speciality skill level
+    const skillValues = {
+      levels: { SWD: 15 }, // Calculated skill level, keyed by skill id
+      bonuses: { SWD: 3 },
     };
 
-    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, specialitySkillLevels);
+    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, skillValues);
 
     expect(result).toEqual({
       MEL: 25, // 10 (STR) + 15 (SWD)
@@ -185,9 +185,9 @@ describe('calculateCombatSkillBonuses', () => {
       STR: 10,
     };
 
-    const specialitySkillLevels = {};
+    const skillValues = { levels: {}, bonuses: {} };
 
-    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, specialitySkillLevels);
+    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, skillValues);
 
     expect(result).toEqual({
       MEL: 20, // 10 * 2
@@ -276,9 +276,9 @@ describe('calculateCombatSkillBonuses', () => {
       INT: 12,
     };
 
-    const specialitySkillLevels = {};
+    const skillValues = { levels: {}, bonuses: {} };
 
-    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, specialitySkillLevels);
+    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, skillValues);
 
     // No equipment term since TICKET-MAT-02 — each bonus is its formula and nothing else
     expect(result).toEqual({
@@ -316,14 +316,12 @@ describe('calculateCombatSkillBonuses', () => {
           rounding: 'none',
         },
       ],
-      specialitySkills: [
+      skills: [
         {
           id: 'SWD',
-          code: 'SWD',
           name: 'Swordsmanship',
           description: 'Sword skill',
-          maxBaseLevel: 10,
-          bonusFormula: 'STR',
+          statWeights: [{ statId: 'STR', weight: 0.3 }],
         },
       ],
       combatSkills: [
@@ -333,7 +331,8 @@ describe('calculateCombatSkillBonuses', () => {
           name: 'Melee Attack',
           description: 'Close combat attack',
           dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-          bonusFormula: '(STR + DEX) / 2 + SWD', // (10 + 8) / 2 + 15 = 9 + 15 = 24
+          // (10 + 8) / 2 + 15 = 9 + 15 = 24
+          bonusFormula: '(STR + DEX) / 2 + skills.swordsmanship',
         },
       ],
       materials: [],
@@ -352,11 +351,12 @@ describe('calculateCombatSkillBonuses', () => {
       DEX: 8,
     };
 
-    const specialitySkillLevels = {
-      SWD: 15,
+    const skillValues = {
+      levels: { SWD: 15 },
+      bonuses: { SWD: 3 },
     };
 
-    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, specialitySkillLevels);
+    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, skillValues);
 
     expect(result).toEqual({
       MEL: 24, // the formula, and nothing else (TICKET-MAT-02)
@@ -407,10 +407,10 @@ describe('calculateCombatSkillBonuses', () => {
       STR: 10,
     };
 
-    const specialitySkillLevels = {};
+    const skillValues = { levels: {}, bonuses: {} };
 
     expect(
-      calculateCombatSkillBonuses(config, totalMainSkillLevels, specialitySkillLevels).MEL
+      calculateCombatSkillBonuses(config, totalMainSkillLevels, skillValues).MEL
     ).toMatchObject({
       kind: 'undefined-variable',
       source: { kind: 'combat-skill', name: 'Melee Attack' },
@@ -461,10 +461,10 @@ describe('calculateCombatSkillBonuses', () => {
       STR: 10,
     };
 
-    const specialitySkillLevels = {};
+    const skillValues = { levels: {}, bonuses: {} };
 
     expect(
-      calculateCombatSkillBonuses(config, totalMainSkillLevels, specialitySkillLevels).MEL
+      calculateCombatSkillBonuses(config, totalMainSkillLevels, skillValues).MEL
     ).toMatchObject({
       kind: 'syntax',
       source: { kind: 'combat-skill', name: 'Melee Attack' },
@@ -492,9 +492,9 @@ describe('calculateCombatSkillBonuses', () => {
     };
 
     const totalMainSkillLevels = {};
-    const specialitySkillLevels = {};
+    const skillValues = { levels: {}, bonuses: {} };
 
-    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, specialitySkillLevels);
+    const result = calculateCombatSkillBonuses(config, totalMainSkillLevels, skillValues);
 
     expect(result).toEqual({});
   });

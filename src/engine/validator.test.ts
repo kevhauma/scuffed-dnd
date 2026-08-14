@@ -104,16 +104,17 @@ describe('validateConfiguration', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should validate speciality skills with valid formulas', () => {
+    it('should validate skills whose weights name real stats (TICKET-SKL-02)', () => {
       const config = createMinimalConfig();
-      config.specialitySkills = [
+      config.skills = [
         {
           id: 'MEL',
-          code: 'MEL',
           name: 'Melee',
           description: '',
-          maxBaseLevel: 10,
-          bonusFormula: '(STR + DEX) / 2',
+          statWeights: [
+            { statId: 'STR', weight: 0.2 },
+            { statId: 'DEX', weight: 0.1 },
+          ],
         },
       ];
 
@@ -123,16 +124,14 @@ describe('validateConfiguration', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should validate combat skills referencing main and speciality skills', () => {
+    it('should validate combat skills referencing stats and skills', () => {
       const config = createMinimalConfig();
-      config.specialitySkills = [
+      config.skills = [
         {
           id: 'MEL',
-          code: 'MEL',
           name: 'Melee',
           description: '',
-          maxBaseLevel: 10,
-          bonusFormula: 'STR',
+          statWeights: [{ statId: 'STR', weight: 0.2 }],
         },
       ];
       config.combatSkills = [
@@ -142,7 +141,7 @@ describe('validateConfiguration', () => {
           name: 'Sword',
           description: '',
           dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-          bonusFormula: 'STR + MEL',
+          bonusFormula: 'STR + skills.melee',
         },
       ];
 
@@ -250,16 +249,19 @@ describe('validateConfiguration', () => {
       expect(result.errors[0].message).toContain('UNDEFINED');
     });
 
-    it('should detect undefined variable in speciality skill formula', () => {
+    it('should detect a weight naming a stat the ruleset does not define (TICKET-SKL-02)', () => {
+      // A skill has no formula to hold an undefined variable — what can be wrong is a weight row
+      // pointing at a stat that is gone (Concept 02)
       const config = createMinimalConfig();
-      config.specialitySkills = [
+      config.skills = [
         {
           id: 'MEL',
-          code: 'MEL',
           name: 'Melee',
           description: '',
-          maxBaseLevel: 10,
-          bonusFormula: 'STR + MISSING',
+          statWeights: [
+            { statId: 'STR', weight: 0.2 },
+            { statId: 'MISSING', weight: 0.1 },
+          ],
         },
       ];
 
@@ -269,6 +271,17 @@ describe('validateConfiguration', () => {
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0].message).toContain('Melee');
       expect(result.errors[0].message).toContain('MISSING');
+    });
+
+    it('should warn about a skill with no weights at all, without refusing it', () => {
+      // Concept 02's own rule: always level 0 unless the Player invests — worth saying, not an error
+      const config = createMinimalConfig();
+      config.skills = [{ id: 'MEL', name: 'Melee', description: '', statWeights: [] }];
+
+      const result = validateConfiguration(config);
+
+      expect(result.isValid).toBe(true);
+      expect(result.warnings.some((w) => w.message.includes('no stat weights'))).toBe(true);
     });
 
     it('should detect undefined variable in combat skill formula', () => {
@@ -405,39 +418,18 @@ describe('validateConfiguration', () => {
       expect(result.isValid).toBe(true);
     });
 
-    it('should detect circular dependency in speciality skills', () => {
+    it('cannot build a cycle through a skill, which holds no formula (TICKET-SKL-02)', () => {
       const config = createMinimalConfig();
-      // Speciality skills can't reference each other in current design
-      // They only reference main skills
-      config.specialitySkills = [
+      config.skills = [
         {
           id: 'MEL',
-          code: 'MEL',
           name: 'Melee',
           description: '',
-          maxBaseLevel: 10,
-          bonusFormula: 'STR',
+          statWeights: [{ statId: 'STR', weight: 0.2 }],
         },
       ];
-
-      const result = validateConfiguration(config);
-
-      expect(result.isValid).toBe(true);
-    });
-
-    it('should detect circular dependency between combat and speciality skills', () => {
-      const config = createMinimalConfig();
-      config.specialitySkills = [
-        {
-          id: 'MEL',
-          code: 'MEL',
-          name: 'Melee',
-          description: '',
-          maxBaseLevel: 10,
-          bonusFormula: 'STR',
-        },
-      ];
-      // Combat skill references speciality skill - this is valid
+      // A combat skill reading a skill is a chain, not a cycle: the skill's weights point at
+      // stats and nothing points back
       config.combatSkills = [
         {
           id: 'SWD',
@@ -445,13 +437,12 @@ describe('validateConfiguration', () => {
           name: 'Sword',
           description: '',
           dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-          bonusFormula: 'MEL',
+          bonusFormula: 'skills.melee',
         },
       ];
 
       const result = validateConfiguration(config);
 
-      // Should be valid - combat skills can reference speciality skills
       expect(result.isValid).toBe(true);
     });
   });
@@ -686,15 +677,17 @@ describe('validateConfiguration', () => {
   });
 
   describe('Uniqueness validation', () => {
-    it('should detect duplicate skill codes across skill types', () => {
+    it('should detect a combat code colliding with a stat abbreviation', () => {
+      // The flat space holds stat abbreviations and combat codes since TICKET-SKL-02 — a `Skill`
+      // has no code, so it cannot collide with anything
       const config = createMinimalConfig();
-      config.specialitySkills = [
+      config.combatSkills = [
         {
-          id: 'STR',
+          id: 'strike',
           code: 'STR',
           name: 'Strike',
           description: '',
-          maxBaseLevel: 10,
+          dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
           bonusFormula: '5',
         },
       ];
@@ -707,6 +700,18 @@ describe('validateConfiguration', () => {
       expect(result.errors[0].message).toContain('STR');
       expect(result.errors[0].message).toContain('Strength');
       expect(result.errors[0].message).toContain('Strike');
+    });
+
+    it('lets two skills share a name-shaped spelling without colliding on a code', () => {
+      // The sheet genuinely has `skinning` and `Skinning` (Concept 02's import note). They slug
+      // the same way, but neither occupies the flat space, so uniqueness has nothing to refuse.
+      const config = createMinimalConfig();
+      config.skills = [
+        { id: 'a', name: 'skinning', description: '', statWeights: [] },
+        { id: 'b', name: 'Skinning', description: '', statWeights: [] },
+      ];
+
+      expect(validateConfiguration(config).errors).toEqual([]);
     });
 
     it('should detect two stats sharing one abbreviation', () => {
@@ -930,23 +935,29 @@ describe('validateConfiguration', () => {
       );
     });
 
-    it('reports a namespace that is out of scope for a speciality skill', () => {
+    it('reports a namespace that is out of scope for a curve generator', () => {
+      // The narrowest row of the scope table now that the speciality attachment point is gone
+      // (TICKET-SKL-02): a generator fills a table, so it sees `const` and its row key, not stats
       const config = createMinimalConfig();
-      config.specialitySkills = [
+      config.curves = [
         {
-          id: 'STL',
-          code: 'STL',
-          name: 'Stealth',
+          id: 'id-xp',
+          name: 'xp_thresholds',
+          displayName: 'XP thresholds',
           description: '',
-          maxBaseLevel: 10,
-          bonusFormula: 'curve.growth(STR)',
+          keyName: 'level',
+          columns: [{ id: 'col', name: 'xp_required', generator: 'stats.strength * key' }],
+          rows: [{ key: 1, values: [0] }],
+          interpolation: 'step',
+          outOfRange: 'error',
+          lookupDirection: 'reverse',
         },
       ];
 
       const result = validateConfiguration(config);
 
       expect(
-        result.errors.some((e) => e.message.includes('Namespace not available here: curve'))
+        result.errors.some((e) => e.message.includes('Namespace not available here: stats'))
       ).toBe(true);
     });
 
