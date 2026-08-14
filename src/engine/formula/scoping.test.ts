@@ -47,14 +47,12 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         formula: 'STR * 10',
       },
     ],
-    specialitySkills: [
+    skills: [
       {
         id: 'STL',
-        code: 'STL',
         name: 'Stealth',
         description: '',
-        maxBaseLevel: 10,
-        bonusFormula: 'DEX / 2',
+        statWeights: [{ statId: 'DEX', weight: 0.3 }],
       },
     ],
     combatSkills: [],
@@ -73,10 +71,11 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
 
 describe('formula scoping tables', () => {
   it('declares a namespace row for every attachment point', () => {
+    // No skill row since TICKET-SKL-02: a `Skill` carries weight rows rather than a formula
+    // string, so it is not an attachment point at all
     expect(Object.keys(NAMESPACE_SCOPES).sort()).toEqual([
       'combat-skill',
       'curve-generator',
-      'speciality-skill',
       'stat',
     ]);
   });
@@ -108,14 +107,11 @@ describe('scopeFor', () => {
     expect(Array.from(scope.codes).sort()).toEqual(['DEX', 'HEA', 'STR']);
   });
 
-  it('gives a speciality skill the stat abbreviations only (Requirement 4.3)', () => {
-    const scope = scopeFor(createConfig(), 'speciality-skill');
-    expect(Array.from(scope.codes).sort()).toEqual(['DEX', 'HEA', 'STR']);
-  });
-
-  it('gives a combat skill stat abbreviations and speciality codes (Requirement 5.4)', () => {
+  it('gives a combat skill the stat abbreviations only (Requirement 5.4)', () => {
+    // v1 put speciality codes in this flat space too. A `Skill` has no code since TICKET-SKL-02,
+    // so a combat formula reaches one as `skills.<name>` and the bare space is stats alone.
     const scope = scopeFor(createConfig(), 'combat-skill');
-    expect(Array.from(scope.codes).sort()).toEqual(['DEX', 'HEA', 'STL', 'STR']);
+    expect(Array.from(scope.codes).sort()).toEqual(['DEX', 'HEA', 'STR']);
   });
 
   it('exposes every stat by its slug as a member of the stats namespace', () => {
@@ -123,14 +119,15 @@ describe('scopeFor', () => {
     expect(Array.from(scope.namespaces.stats ?? [])).toEqual(['strength', 'dexterity', 'health']);
   });
 
-  it('exposes speciality codes as members of the skills namespace', () => {
+  it('exposes each skill by its name slug as a member of the skills namespace (TICKET-SKL-02)', () => {
+    // Not the 3-letter code v1 published here — a skill is spelled `skills.stealth` now
     const scope = scopeFor(createConfig(), 'combat-skill');
-    expect(Array.from(scope.namespaces.skills ?? [])).toEqual(['STL']);
+    expect(Array.from(scope.namespaces.skills ?? [])).toEqual(['stealth']);
   });
 
-  it('withholds the skills namespace from a speciality skill', () => {
-    const scope = scopeFor(createConfig(), 'speciality-skill');
-    expect(scope.namespaces.skills).toBeUndefined();
+  it('gives a stat the skills namespace too, so a stat may derive from a skill', () => {
+    const scope = scopeFor(createConfig(), 'stat');
+    expect(scope.namespaces.skills).toBeDefined();
     expect(scope.namespaces.stats).toBeDefined();
   });
 

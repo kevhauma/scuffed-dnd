@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { Configuration } from '../../types/config';
+import type { CombatSkill, Configuration } from '../../types/config';
 import { validateFormulaChange } from './formulaChange';
 
 function createConfig(overrides: Partial<Configuration> = {}): Configuration {
@@ -57,14 +57,15 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         formula: 'STR * 10',
       },
     ],
-    specialitySkills: [
+    // A `Skill` carries weight rows rather than a formula, so it is neither an attachment point
+    // nor a node in the dependency graph (TICKET-SKL-02) — every cycle case below is therefore
+    // written over stats and combat skills, the two things that still hold a formula.
+    skills: [
       {
         id: 'STL',
-        code: 'STL',
         name: 'Stealth',
         description: '',
-        maxBaseLevel: 10,
-        bonusFormula: 'DEX / 2',
+        statWeights: [{ statId: 'DEX', weight: 0.3 }],
       },
     ],
     combatSkills: [
@@ -74,7 +75,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         name: 'Melee',
         description: '',
         dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-        bonusFormula: 'STR + STL',
+        bonusFormula: 'STR + skills.stealth',
       },
     ],
     materials: [],
@@ -90,100 +91,76 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
   };
 }
 
+/** A combat skill, the shortest formula-carrying entity keyed by the graph key it uses */
+function combatSkill(code: string, bonusFormula: string): CombatSkill {
+  return {
+    id: code,
+    code,
+    name: code,
+    description: '',
+    dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
+    bonusFormula,
+  };
+}
+
 describe('validateFormulaChange', () => {
   it('should refuse a formula that references its own entity, naming the cycle', () => {
     const result = validateFormulaChange(createConfig(), {
-      owner: 'speciality-skill',
-      id: 'STL',
-      formula: 'STL + 1',
-      previousId: 'STL',
+      owner: 'combat-skill',
+      id: 'MEL',
+      formula: 'MEL + 1',
+      previousId: 'MEL',
     });
 
     expect(result.isValid).toBe(false);
-    expect(result.errors[0]).toBe('Circular dependency detected: STL → STL');
+    expect(result.errors[0]).toBe('Circular dependency detected: MEL → MEL');
   });
 
   it('should refuse an indirect cycle and name the whole chain', () => {
-    // A configuration that could only have arrived by import: two speciality skills that
-    // reference each other. Saving an edit to either one must be refused.
+    // A configuration that could only have arrived by import: two combat skills that reference
+    // each other. Saving an edit to either one must be refused.
     const config = createConfig({
-      specialitySkills: [
-        {
-          id: 'STL',
-          code: 'STL',
-          name: 'Stealth',
-          description: '',
-          maxBaseLevel: 10,
-          bonusFormula: 'ACR',
-        },
-        {
-          id: 'ACR',
-          code: 'ACR',
-          name: 'Acrobatics',
-          description: '',
-          maxBaseLevel: 10,
-          bonusFormula: 'DEX',
-        },
-      ],
-      combatSkills: [],
+      combatSkills: [combatSkill('MEL', 'RNG'), combatSkill('RNG', 'DEX')],
     });
 
     const result = validateFormulaChange(config, {
-      owner: 'speciality-skill',
-      id: 'ACR',
-      formula: 'STL + 1',
-      previousId: 'ACR',
+      owner: 'combat-skill',
+      id: 'RNG',
+      formula: 'MEL + 1',
+      previousId: 'RNG',
     });
 
     expect(result.isValid).toBe(false);
     expect(result.errors.join(' ')).toMatch(
-      /Circular dependency detected: (STL → ACR → STL|ACR → STL → ACR)/
+      /Circular dependency detected: (MEL → RNG → MEL|RNG → MEL → RNG)/
     );
   });
 
   it('should evaluate the post-save state, catching an edit that turns a valid formula circular', () => {
     const config = createConfig({
-      specialitySkills: [
-        {
-          id: 'STL',
-          code: 'STL',
-          name: 'Stealth',
-          description: '',
-          maxBaseLevel: 10,
-          bonusFormula: 'ACR',
-        },
-        {
-          id: 'ACR',
-          code: 'ACR',
-          name: 'Acrobatics',
-          description: '',
-          maxBaseLevel: 10,
-          bonusFormula: 'DEX',
-        },
-      ],
-      combatSkills: [],
+      combatSkills: [combatSkill('MEL', 'RNG'), combatSkill('RNG', 'DEX')],
     });
 
     // As it stands the configuration is acyclic — the cycle only exists after the edit
     const before = validateFormulaChange(config, {
-      owner: 'speciality-skill',
-      id: 'ACR',
+      owner: 'combat-skill',
+      id: 'RNG',
       formula: 'DEX + 1',
-      previousId: 'ACR',
+      previousId: 'RNG',
     });
     expect(before.isValid).toBe(true);
 
     const after = validateFormulaChange(config, {
-      owner: 'speciality-skill',
-      id: 'ACR',
-      formula: 'STL',
-      previousId: 'ACR',
+      owner: 'combat-skill',
+      id: 'RNG',
+      formula: 'MEL',
+      previousId: 'RNG',
     });
     expect(after.isValid).toBe(false);
     expect(after.errors.join(' ')).toMatch(/Circular dependency/);
   });
 
-  it('should accept a formula that legitimately references several skills', () => {
+  it('should accept a formula that legitimately references several stats', () => {
     const result = validateFormulaChange(createConfig(), {
       owner: 'stat',
       id: 'armour',
@@ -195,11 +172,11 @@ describe('validateFormulaChange', () => {
     expect(result.referencedVariables.sort()).toEqual(['CON', 'DEX', 'STR']);
   });
 
-  it('should accept a combat formula referencing a speciality skill', () => {
+  it('should accept a combat formula referencing a skill (TICKET-SKL-02)', () => {
     const result = validateFormulaChange(createConfig(), {
       owner: 'combat-skill',
       id: 'RNG',
-      formula: 'DEX + STL',
+      formula: 'DEX + skills.stealth',
     });
 
     expect(result.isValid).toBe(true);
@@ -216,16 +193,16 @@ describe('validateFormulaChange', () => {
     expect(result.errors[0]).toContain('WIS');
   });
 
-  it('should refuse a speciality formula referencing a speciality code, which is not in scope for it', () => {
-    // Requirement 3.3 — speciality formulas reference main skills only
+  it('should refuse a curve generator naming a stat, which is not in scope for it', () => {
+    // A generator fills a table, not a character — the scope table's narrowest row
     const result = validateFormulaChange(createConfig(), {
-      owner: 'speciality-skill',
-      id: 'ACR',
-      formula: 'STL + 1',
+      owner: 'curve-generator',
+      id: 'xp_required',
+      formula: 'STR + 1',
     });
 
     expect(result.isValid).toBe(false);
-    expect(result.errors[0]).toContain('STL');
+    expect(result.errors[0]).toContain('STR');
   });
 
   it('should refuse an unparseable formula', () => {
@@ -253,14 +230,17 @@ describe('validateFormulaChange', () => {
   });
 
   it('should not report a cycle against the entry being replaced when a code is renamed', () => {
-    // Editing STL and renaming it to AGI: the old STL entry must not linger in the graph
-    const config = createConfig({ combatSkills: [] });
+    // Editing MEL and renaming it to AGI: the old MEL entry must not linger in the graph and
+    // collide with the new formula
+    const config = createConfig({
+      combatSkills: [combatSkill('MEL', 'AGI'), combatSkill('AGI', 'DEX')],
+    });
 
     const result = validateFormulaChange(config, {
-      owner: 'speciality-skill',
+      owner: 'combat-skill',
       id: 'AGI',
       formula: 'DEX / 2',
-      previousId: 'STL',
+      previousId: 'MEL',
     });
 
     expect(result.isValid).toBe(true);
@@ -281,15 +261,15 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
     });
 
     it('names a real namespace that is out of scope at this attachment point', () => {
-      // `skills` is available to stats and combat skills, not to a speciality skill's own level
+      // `stats` is available to stats and combat skills, not to a curve generator
       const result = validateFormulaChange(createConfig(), {
-        owner: 'speciality-skill',
-        id: 'ACR',
-        formula: 'skills.STL + 1',
+        owner: 'curve-generator',
+        id: 'xp_required',
+        formula: 'stats.health + 1',
       });
 
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Namespace not available here: skills');
+      expect(result.errors).toContain('Namespace not available here: stats');
     });
 
     it('names a member the namespace does not provide', () => {
@@ -305,16 +285,16 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
 
     it('distinguishes the three from each other in one formula', () => {
       const result = validateFormulaChange(createConfig(), {
-        owner: 'speciality-skill',
-        id: 'ACR',
-        formula: 'wibble.a + skills.STL + stats.nope',
+        owner: 'curve-generator',
+        id: 'xp_required',
+        formula: 'wibble.a + stats.health + const.nope',
       });
 
       expect(result.errors).toEqual(
         expect.arrayContaining([
           'Unknown namespace: wibble',
-          'Namespace not available here: skills',
-          'Unknown member: stats.nope',
+          'Namespace not available here: stats',
+          'Unknown member: const.nope',
         ])
       );
     });
@@ -332,8 +312,8 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
       expect(result.namespacedReferences).toEqual([{ namespace: 'stats', member: 'health' }]);
     });
 
-    it('reports every member of an entity-less namespace as unknown until its ticket lands', () => {
-      // `const` is in scope for a stat but has no members until TICKET-CST-01
+    it('reports every member of an entity-less namespace as unknown', () => {
+      // `const` is in scope for a stat, but this ruleset defines no constants
       const result = validateFormulaChange(createConfig(), {
         owner: 'stat',
         id: 'armour',
@@ -399,51 +379,44 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
       );
     });
 
-    it('catches a cycle that mixes namespaced and bare syntax', () => {
-      // An imported configuration where STL names ACR with a bare code. Closing the loop from
-      // the other side with dotted syntax must still register as the same cycle — the two
-      // spellings have to land on one graph node for that to work.
+    it('leaves an acyclic chain written in namespaced syntax alone', () => {
+      // A combat skill reading a skill is a chain, not a cycle — and a skill is not a node at all
+      const result = validateFormulaChange(createConfig(), {
+        owner: 'combat-skill',
+        id: 'RNG',
+        formula: 'skills.stealth + 1',
+      });
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toEqual([]);
+    });
+
+    it('cannot cycle through a skill, because a skill holds no formula (TICKET-SKL-02)', () => {
+      // The one cycle v1 could build here — speciality A names B names A — is gone with the
+      // formula string. A weight row points at a stat and a stat cannot point back at a skill
+      // through it, so `skills.*` is a leaf in the graph.
       const config = createConfig({
-        specialitySkills: [
+        stats: [
           {
-            id: 'STL',
-            code: 'STL',
-            name: 'Stealth',
+            id: 'armour',
+            name: 'Armour',
+            abbreviation: 'ARM',
             description: '',
-            maxBaseLevel: 10,
-            bonusFormula: 'ACR',
-          },
-          {
-            id: 'ACR',
-            code: 'ACR',
-            name: 'Acrobatics',
-            description: '',
-            maxBaseLevel: 10,
-            bonusFormula: 'DEX',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: false,
+            rounding: 'none',
+            formula: 'skills.stealth',
           },
         ],
         combatSkills: [],
       });
 
       const result = validateFormulaChange(config, {
-        owner: 'speciality-skill',
-        id: 'ACR',
-        formula: 'skills.STL + 1',
-        previousId: 'ACR',
-      });
-
-      expect(result.isValid).toBe(false);
-      expect(result.errors.join(' ')).toMatch(
-        /Circular dependency detected: (STL → ACR → STL|ACR → STL → ACR)/
-      );
-    });
-
-    it('leaves an acyclic chain written in namespaced syntax alone', () => {
-      // MEL → STL is a chain, not a cycle; `skills` is in scope for a combat skill
-      const result = validateFormulaChange(createConfig(), {
-        owner: 'combat-skill',
-        id: 'RNG',
-        formula: 'skills.STL + 1',
+        owner: 'stat',
+        id: 'armour',
+        formula: 'skills.stealth * 2',
+        previousId: 'armour',
       });
 
       expect(result.isValid).toBe(true);
@@ -451,8 +424,8 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
     });
   });
 
-  describe('legacy bare-code scoping is unchanged', () => {
-    it('still lets a stat name a main skill', () => {
+  describe('legacy bare-code scoping', () => {
+    it('still lets a stat name another stat by its abbreviation', () => {
       const result = validateFormulaChange(createConfig(), {
         owner: 'stat',
         id: 'armour',
@@ -462,55 +435,26 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
       expect(result.isValid).toBe(true);
     });
 
-    it('still refuses a stat naming a speciality code', () => {
-      const result = validateFormulaChange(createConfig(), {
-        owner: 'stat',
-        id: 'armour',
-        formula: 'STL * 2',
-      });
+    it('refuses any formula naming a skill by a bare code (TICKET-SKL-02)', () => {
+      // v1 gave a speciality skill a 3-letter code in this flat space. A `Skill` has none, so the
+      // spelling is undefined for every attachment point rather than merely out of scope for some.
+      for (const owner of ['stat', 'combat-skill'] as const) {
+        const result = validateFormulaChange(createConfig(), {
+          owner,
+          id: 'armour',
+          formula: 'STL * 2',
+        });
 
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Undefined variable: STL');
+        expect(result.isValid, owner).toBe(false);
+        expect(result.errors, owner).toContain('Undefined variable: STL');
+      }
     });
 
-    it('still refuses a speciality skill naming another speciality code', () => {
-      const config = createConfig({
-        specialitySkills: [
-          {
-            id: 'STL',
-            code: 'STL',
-            name: 'Stealth',
-            description: '',
-            maxBaseLevel: 10,
-            bonusFormula: 'DEX',
-          },
-          {
-            id: 'ACR',
-            code: 'ACR',
-            name: 'Acrobatics',
-            description: '',
-            maxBaseLevel: 10,
-            bonusFormula: 'DEX',
-          },
-        ],
-        combatSkills: [],
-      });
-
-      const result = validateFormulaChange(config, {
-        owner: 'speciality-skill',
-        id: 'ACR',
-        formula: 'STL + 1',
-        previousId: 'ACR',
-      });
-
-      expect(result.isValid).toBe(false);
-    });
-
-    it('still lets a combat skill name both main and speciality codes', () => {
+    it('still lets a combat skill name a stat by its abbreviation', () => {
       const result = validateFormulaChange(createConfig(), {
         owner: 'combat-skill',
         id: 'RNG',
-        formula: 'DEX + STL',
+        formula: 'DEX + CON',
       });
 
       expect(result.isValid).toBe(true);

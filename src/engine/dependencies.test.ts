@@ -50,14 +50,12 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         formula: 'STR * 10',
       },
     ],
-    specialitySkills: [
+    skills: [
       {
         id: 'id-stl',
-        code: 'STL',
         name: 'Stealth',
         description: '',
-        maxBaseLevel: 10,
-        bonusFormula: 'DEX / 2',
+        statWeights: [{ statId: 'id-dex', weight: 0.3 }],
       },
     ],
     combatSkills: [
@@ -67,7 +65,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         name: 'Melee',
         description: '',
         dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-        bonusFormula: 'STR + STL',
+        bonusFormula: 'STR + skills.stealth',
       },
     ],
     materials: [
@@ -164,10 +162,10 @@ describe('findReferences', () => {
       expect(holders(found)).toContain('Material: Iron');
     });
 
-    it('no longer finds a material bonus when a speciality skill is deleted (TICKET-MAT-01)', () => {
+    it('no longer finds a material bonus when a skill is deleted (TICKET-MAT-01)', () => {
       // A tier modifier can only target a stat now, so a material is never a reason a skill
       // cannot be deleted
-      const found = findReferences({ kind: 'speciality-skill', id: 'STL' }, createConfig(), []);
+      const found = findReferences({ kind: 'skill', id: 'id-stl' }, createConfig(), []);
 
       expect(holders(found)).not.toContain('Material: Iron');
     });
@@ -190,8 +188,10 @@ describe('findReferences', () => {
       );
     });
 
-    it('finds a speciality skill named by a combat skill formula', () => {
-      const found = findReferences({ kind: 'speciality-skill', id: 'STL' }, createConfig(), []);
+    it('finds a skill named by a combat skill formula, by id (TICKET-SKL-02)', () => {
+      // Targeted by id rather than by a code, and matched through `skills.<name>` — the only way
+      // a formula can name a skill now
+      const found = findReferences({ kind: 'skill', id: 'id-stl' }, createConfig(), []);
 
       expect(holders(found)).toEqual(['Combat Skill: Melee']);
     });

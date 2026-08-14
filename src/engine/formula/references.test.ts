@@ -60,14 +60,12 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         formula: 'STR * 10',
       },
     ],
-    specialitySkills: [
+    skills: [
       {
         id: 'id-stl',
-        code: 'STL',
         name: 'Stealth',
         description: '',
-        maxBaseLevel: 10,
-        bonusFormula: 'DEX / 2',
+        statWeights: [{ statId: 'id-dex', weight: 0.3 }],
       },
     ],
     combatSkills: [
@@ -77,7 +75,8 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         name: 'Attack',
         description: '',
         dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-        bonusFormula: 'STR + STL',
+        // `skills.<name>` rather than v1's bare `STL` — a `Skill` has no code (TICKET-SKL-02)
+        bonusFormula: 'STR + skills.stealth',
       },
     ],
     materials: [],
@@ -99,8 +98,8 @@ function createCharacter(): Character {
     name: 'Test',
     configurationId: 'config1',
     raceIds: [],
-    investedStatPoints: { STR: 6, DEX: 4 },
-    investedSkillPoints: { STL: 3 },
+    investedStatPoints: { 'id-str': 6, 'id-dex': 4 },
+    investedSkillPoints: { 'id-stl': 3 },
     currentResourceValues: {},
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',
@@ -127,18 +126,26 @@ describe('statMemberName', () => {
 });
 
 describe('buildReferenceIndex', () => {
-  it('puts every skill kind in the one flat code space', () => {
+  it('puts stat abbreviations and combat codes in the one flat code space', () => {
     const index = buildReferenceIndex(createConfig());
 
     expect(index.toId.bare.get('STR')).toBe('id-str');
-    expect(index.toId.bare.get('STL')).toBe('id-stl');
     expect(index.toId.bare.get('ATK')).toBe('id-atk');
   });
 
-  it('exposes speciality skills under skills and stats by their slug', () => {
+  it('keeps a skill out of the flat space entirely (TICKET-SKL-02)', () => {
+    // The half of the flat space a speciality code used to occupy is gone with the code
     const index = buildReferenceIndex(createConfig());
 
-    expect(index.toId.skills.get('STL')).toBe('id-stl');
+    expect(index.toId.bare.has('STL')).toBe(false);
+    expect(index.toDisplay.bare.has('id-stl')).toBe(false);
+  });
+
+  it('exposes skills and stats under their namespaces by slug', () => {
+    const index = buildReferenceIndex(createConfig());
+
+    expect(index.toId.skills.get('stealth')).toBe('id-stl');
+    expect(index.toDisplay.skills.get('id-stl')).toBe('stealth');
     expect(index.toId.stats.get('max_health')).toBe('id-hp');
     expect(index.toDisplay.stats.get('id-hp')).toBe('max_health');
   });
@@ -183,7 +190,7 @@ describe('toStoredFormula / toDisplayFormula', () => {
   it('resolves bare codes and namespaced members to ids', () => {
     expect(toStoredFormula('STR + DEX', index)).toBe('[id-str] + [id-dex]');
     expect(toStoredFormula('stats.max_health / 2', index)).toBe('stats.[id-hp] / 2');
-    expect(toStoredFormula('skills.STL.level', index)).toBe('skills.[id-stl].level');
+    expect(toStoredFormula('skills.stealth.bonus', index)).toBe('skills.[id-stl].bonus');
   });
 
   it('leaves everything that is not a reference untouched', () => {
@@ -195,7 +202,7 @@ describe('toStoredFormula / toDisplayFormula', () => {
   it('spells ids back the way the ruleset spells them', () => {
     expect(toDisplayFormula('[id-str] + [id-dex]', index)).toBe('STR + DEX');
     expect(toDisplayFormula('stats.[id-hp] / 2', index)).toBe('stats.max_health / 2');
-    expect(toDisplayFormula('skills.[id-stl].level', index)).toBe('skills.STL.level');
+    expect(toDisplayFormula('skills.[id-stl].bonus', index)).toBe('skills.stealth.bonus');
   });
 
   it('round-trips a formula in both directions', () => {
@@ -239,21 +246,19 @@ describe('the rename test (Concept 00 §6)', () => {
       ),
     }));
 
-    // Allocations are keyed by code, so the character store re-keys them as part of the same
-    // rename (`characterStore.renameSkillCode`). That half is applied here so this test isolates
-    // the formula half; `integration.test.ts` exercises both together.
-    const after = calculateCharacter(
-      { ...character, investedStatPoints: { STG: 6, DEX: 4 } },
-      renamed
-    );
+    // Nothing to re-key on the character: investment is keyed by stat id (TICKET-STAT-01) and by
+    // skill id (TICKET-SKL-02), so the same character is passed to both calculations.
+    const after = calculateCharacter(character, renamed);
 
     expect(renamed.stats.find((candidate) => candidate.formula)?.formula).toBe('STG * 10');
-    expect(renamed.combatSkills[0].bonusFormula).toBe('STG + STL');
+    expect(renamed.combatSkills[0].bonusFormula).toBe('STG + skills.stealth');
     expect(after.statValues).toEqual(before.statValues);
     expect(after.combatSkillBonuses).toEqual(before.combatSkillBonuses);
   });
 
-  it('re-spells a speciality skill named through both syntaxes', () => {
+  it('re-spells a skill everywhere it is named when the skill is renamed (TICKET-SKL-02)', () => {
+    // A `Skill` has no code, so its *name* is the display spelling — renaming it re-slugs every
+    // formula naming it, in both the level and the `.bonus` form
     const config = createConfig({
       stats: [
         {
@@ -265,18 +270,39 @@ describe('the rename test (Concept 00 §6)', () => {
           countsTowardTotal: true,
           isResource: false,
           rounding: 'none',
-          formula: 'skills.STL.level',
+          formula: 'skills.stealth.bonus',
         },
       ],
     });
 
     const renamed = rename(config, (current) => ({
       ...current,
-      specialitySkills: current.specialitySkills.map((skill) => ({ ...skill, code: 'SNK' })),
+      skills: current.skills.map((skill) => ({ ...skill, name: 'Sneaking' })),
     }));
 
-    expect(renamed.stats.find((candidate) => candidate.formula)?.formula).toBe('skills.SNK.level');
-    expect(renamed.combatSkills[0].bonusFormula).toBe('STR + SNK');
+    expect(renamed.stats.find((candidate) => candidate.formula)?.formula).toBe(
+      'skills.sneaking.bonus'
+    );
+    expect(renamed.combatSkills[0].bonusFormula).toBe('STR + skills.sneaking');
+  });
+
+  it('keeps a skill computing the same level when a stat it weights is renamed (TICKET-SKL-02)', () => {
+    // AC 4: a weight row points at a stat **id**, so a rename cannot orphan it. The skill's level
+    // is the same number before and after, with no formula to re-spell at all.
+    const character = createCharacter();
+    const before = calculateCharacter(character, createConfig());
+
+    const renamed = rename(createConfig(), (config) => ({
+      ...config,
+      stats: config.stats.map((stat) =>
+        stat.id === 'id-dex' ? { ...stat, abbreviation: 'AGI', name: 'Agility' } : stat
+      ),
+    }));
+    const after = calculateCharacter(character, renamed);
+
+    expect(renamed.skills[0].statWeights).toEqual([{ statId: 'id-dex', weight: 0.3 }]);
+    expect(after.skillLevels).toEqual(before.skillLevels);
+    expect(after.skillBonuses).toEqual(before.skillBonuses);
   });
 
   it('re-spells a stat named in another formula when the stat is renamed', () => {
@@ -539,6 +565,6 @@ describe('ensureReferenceIds', () => {
     const completed = ensureReferenceIds(legacy, () => 'minted');
 
     expect(completed.stats.every((stat) => Boolean(stat.id))).toBe(true);
-    expect(completed.specialitySkills[0].id).toBe('id-stl');
+    expect(completed.skills[0].id).toBe('id-stl');
   });
 });
