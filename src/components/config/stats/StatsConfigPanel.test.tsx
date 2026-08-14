@@ -67,17 +67,24 @@ const config: Configuration = {
       formula: 'STR / 10',
     },
   ],
-  specialitySkills: [
+  skills: [
     {
       id: 'heal-id',
-      code: 'HEA',
       name: 'Healing',
       description: '',
-      maxBaseLevel: 10,
+      statWeights: [{ statId: 'str-id', weight: 0.2 }],
+    },
+  ],
+  combatSkills: [
+    {
+      id: 'heal-combat-id',
+      code: 'HEA',
+      name: 'Healing strike',
+      description: '',
+      dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
       bonusFormula: 'STR',
     },
   ],
-  combatSkills: [],
   materials: [],
   materialCategories: [],
   items: [],
@@ -241,7 +248,9 @@ describe('StatsConfigPanel', () => {
     it('should refuse an abbreviation already taken in the flat formula space', async () => {
       render(<StatsConfigPanel />);
 
-      // `HEA` belongs to the Healing speciality skill — one flat space, so it is not free here
+      // `HEA` belongs to the Healing strike combat skill — one flat space shared by stat
+      // abbreviations and combat codes, so it is not free here (a `Skill` has no code at all
+      // since TICKET-SKL-02, and so cannot take a spelling)
       openAddDialogWith('Health', 'HEA');
       fireEvent.click(dialog().getByRole('button', { name: 'Add Stat' }));
 

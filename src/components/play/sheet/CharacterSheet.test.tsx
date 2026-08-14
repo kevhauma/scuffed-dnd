@@ -80,14 +80,14 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         formula: 'DEX * 5',
       },
     ],
-    specialitySkills: [
+    skills: [
       {
         id: 'STL',
-        code: 'STL',
         name: 'Stealth',
         description: '',
-        maxBaseLevel: 10,
-        bonusFormula: 'DEX',
+        // Half of DEX, which keeps the bonus distinct from the 3 invested points below so a row
+        // assertion cannot match the wrong number (TICKET-SKL-02)
+        statWeights: [{ statId: 'dex-id', weight: 0.5 }],
       },
     ],
     combatSkills: [
@@ -97,7 +97,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         name: 'Melee',
         description: '',
         dice: { d4: 0, d6: 2, d8: 0, d10: 0, d12: 0, d20: 1 },
-        bonusFormula: 'STR + STL',
+        bonusFormula: 'STR + skills.stealth',
       },
     ],
     materials: [],
@@ -133,6 +133,8 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     configurationId: 'config1',
     raceIds: ['elf'],
     investedStatPoints: { STR: 6, 'dex-id': 4 },
+    // Names a skill, which is to say nothing: the focus is matched against a stat abbreviation
+    // and a `Skill` has no code since TICKET-SKL-02, so no stat receives the bonus
     focusStatCode: 'STL',
     investedSkillPoints: { STL: 3 },
     currentResourceValues: { health: 60, mana: 30 },
@@ -169,7 +171,7 @@ describe('CharacterSheet', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Aria' })).toBeDefined();
     expect(screen.getByText(/Level 10 · Elf · focus: STL/)).toBeDefined();
 
-    for (const section of ['Race Stat Block', 'Stats', 'Speciality Skills', 'Combat Skills']) {
+    for (const section of ['Race Stat Block', 'Stats', 'Skills', 'Combat Skills']) {
       expect(screen.getByRole('heading', { name: section })).toBeDefined();
     }
   });
@@ -238,9 +240,10 @@ describe('CharacterSheet', () => {
     expect(within(dexterity).getByText('equipment +4')).toBeDefined();
     expect(within(dexterity).getByText('10')).toBeDefined(); // 4 invested + 2 race + 4 equipment
 
-    // And the skill follows through the stat its formula reads, which is the only route a tier
-    // modifier has to a skill since TICKET-MAT-02. Stealth is `DEX`, so it moves by the same 4.
-    expect(within(rowFor(/Stealth \(STL\)/)).getByText('16')).toBeDefined(); // 3 base + 10 DEX + 3 focus
+    // And the skill follows through the stat it is weighted on, which is the only route a tier
+    // modifier has to a skill since TICKET-MAT-02. Stealth is DEX × 0.5, so the +4 carries into
+    // its level as +2 and its bonus rounds up a step: level 3 + 5 = 8, bonus round(8 / 5) = 2.
+    expect(within(rowFor(/Stealth/)).getByText('2')).toBeDefined();
   });
 
   it("should show a stat's contributions separately from its total", () => {
@@ -253,12 +256,41 @@ describe('CharacterSheet', () => {
     expect(within(dexterity).getByText('6')).toBeDefined();
   });
 
-  it('should mark the focus stat and show the bonus it grants', () => {
+  it('should show the focus bonus as its own term on the stat that receives it', () => {
+    // The focus lands on a **stat** — it is matched against an abbreviation, and a `Skill` has no
+    // code to be named by since TICKET-SKL-02
+    useCharacterStore.setState({ characters: [createCharacter({ focusStatCode: 'STR' })] });
+
     render(<CharacterSheet characterId="char1" />);
 
-    const stealth = rowFor(/Stealth \(STL\)/);
-    expect(within(stealth).getByText('focus stat')).toBeDefined();
-    expect(within(stealth).getByText('focus +3')).toBeDefined();
+    expect(within(rowFor(/Strength \(STR\)/)).getByText('focus +3')).toBeDefined();
+  });
+
+  it('should give the focus nothing to land on when it names a skill (TICKET-SKL-02)', () => {
+    // The base fixture's `focusStatCode: 'STL'` is a skill id, which matches no abbreviation, so
+    // no stat gains the bonus and the header is the only place the code appears at all
+    render(<CharacterSheet characterId="char1" />);
+
+    expect(within(rowFor(/Strength \(STR\)/)).queryByText(/focus/)).toBeNull();
+    expect(within(rowFor(/Stealth/)).queryByText(/focus/)).toBeNull();
+  });
+
+  /**
+   * The `focus stat` badge has no caller (TICKET-SKL-02)
+   *
+   * `SkillBreakdownRow` still accepts `isFocusStat`, but the only section that ever passed it was
+   * the speciality-skills one this ticket deleted — a skill cannot be a focus now, and the stats
+   * grid never marked one. So the badge is unreachable rather than merely unused here.
+   *
+   * Left in place rather than removed: TICKET-ARC-03 retires the focus stat outright, prop and
+   * badge included, and deleting half of it now would only make that ticket's diff harder to read.
+   */
+  it('marks no row as the focus stat, because nothing passes the flag any more', () => {
+    useCharacterStore.setState({ characters: [createCharacter({ focusStatCode: 'STR' })] });
+
+    render(<CharacterSheet characterId="char1" />);
+
+    expect(screen.queryByText('focus stat')).toBeNull();
   });
 
   it('should render values that match calculateCharacter for the same character', () => {
@@ -275,9 +307,9 @@ describe('CharacterSheet', () => {
     expect(
       within(rowFor(/Dexterity \(DEX\)/)).getByText(String(expected.statValues['dex-id']))
     ).toBeDefined();
-    expect(
-      within(rowFor(/Stealth \(STL\)/)).getByText(String(expected.skillLevels.STL))
-    ).toBeDefined();
+    // The skill row carries the **bonus** — the number a Player adds to a roll (Concept 02).
+    // SKL-03 puts the level beside it.
+    expect(within(rowFor(/Stealth/)).getByText(String(expected.skillBonuses.STL))).toBeDefined();
     expect(
       within(rowFor(/Melee \(MEL\)/)).getByText(`+${expected.combatSkillBonuses.MEL}`)
     ).toBeDefined();
@@ -503,7 +535,7 @@ describe('CharacterSheet', () => {
       expect(screen.queryByRole('heading', { name: 'Ruleset Formula Error' })).toBeNull();
       expect(screen.getByRole('heading', { name: 'Stats' })).toBeDefined();
       expect(screen.getByRole('heading', { name: 'Stats' })).toBeDefined();
-      expect(screen.getByRole('heading', { name: 'Speciality Skills' })).toBeDefined();
+      expect(screen.getByRole('heading', { name: 'Skills' })).toBeDefined();
     });
 
     it('should show one chip carrying the provenance text, on the broken value only', () => {
@@ -526,19 +558,32 @@ describe('CharacterSheet', () => {
       ).toBeNull();
     });
 
-    it('should chip a broken speciality total and the combat skill that reads it', () => {
-      // Melee is `STR + STL`, so breaking Stealth's own formula breaks Melee too — and the
-      // combat chip must name Stealth as the cause, which is the whole point of the chain.
+    it('should chip a broken skill level and the combat skill that reads it', () => {
+      // Melee is `STR + skills.stealth`, and Stealth is weighted on a derived stat that cannot
+      // compute — so breaking that stat breaks Stealth and Melee in turn, and Melee's chip must
+      // name Stealth as the cause, which is the whole point of the chain (TICKET-SKL-02).
       useConfigStore.setState({
         config: createConfig({
-          specialitySkills: [
+          stats: [
+            ...createConfig().stats,
+            {
+              id: 'aura',
+              name: 'Aura',
+              abbreviation: 'AUR',
+              description: '',
+              order: 9,
+              countsTowardTotal: false,
+              isResource: false,
+              rounding: 'none',
+              formula: 'MAG',
+            },
+          ],
+          skills: [
             {
               id: 'STL',
-              code: 'STL',
               name: 'Stealth',
               description: '',
-              maxBaseLevel: 10,
-              bonusFormula: 'MAG',
+              statWeights: [{ statId: 'aura', weight: 1 }],
             },
           ],
         }),
@@ -547,16 +592,17 @@ describe('CharacterSheet', () => {
 
       render(<CharacterSheet characterId="char1" />);
 
-      // The speciality's own total is unavailable
-      expect(
-        within(rowFor(/Stealth \(STL\)/)).getByRole('img', { name: /Undefined variable: MAG/ })
-      ).toBeDefined();
+      // The skill's own level is unavailable, and the chip carries the whole chain
+      const stealthChip = within(rowFor(/Stealth/)).getByRole('img', {
+        name: /Undefined variable: MAG/,
+      });
+      expect(stealthChip.getAttribute('aria-label')).toContain('Skill "Stealth"');
 
       // …and Melee's chip names Stealth as the upstream cause
-      const meleeChip = within(rowFor(/Melee \(MEL\)/)).getByRole('img', { name: /STL/ });
+      const meleeChip = within(rowFor(/Melee \(MEL\)/)).getByRole('img', { name: /Stealth/ });
       const chain = meleeChip.getAttribute('aria-label') ?? '';
       expect(chain).toContain('Combat Skill "Melee"');
-      expect(chain).toContain('Speciality Skill "Stealth"');
+      expect(chain).toContain('Skill "Stealth"');
       expect(chain).toContain('Undefined variable: MAG');
     });
 
@@ -590,9 +636,10 @@ describe('CharacterSheet', () => {
       // and the formula doubles it
       expect(within(rowFor('Evasion')).getByText('of 12 max')).toBeDefined();
 
-      // …as are the main skill totals, which never depended on the broken formula
+      // …as are the stat and skill totals, which never depended on the broken formula.
+      // Stealth is 3 invested + DEX 6 × 0.5 = 6, so its bonus is round(6 / 5) = 1.
       expect(within(rowFor(/Strength \(STR\)/)).getByText('6')).toBeDefined();
-      expect(within(rowFor(/Stealth \(STL\)/)).getByText('12')).toBeDefined();
+      expect(within(rowFor(/Stealth/)).getByText('1')).toBeDefined();
     });
   });
 

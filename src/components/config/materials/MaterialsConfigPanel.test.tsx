@@ -48,14 +48,12 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
       stat({ id: 'mana-id', name: 'Mana', abbreviation: 'MANA', order: 1, isResource: true }),
       stat({ id: 'apt-id', name: 'APT', abbreviation: 'APT', order: 2, formula: 'STR / 2' }),
     ],
-    specialitySkills: [
+    skills: [
       {
         id: 'STL',
-        code: 'STL',
         name: 'Stealth',
         description: '',
-        maxBaseLevel: 10,
-        bonusFormula: 'STR',
+        statWeights: [{ statId: 'str-id', weight: 0.2 }],
       },
     ],
     combatSkills: [],

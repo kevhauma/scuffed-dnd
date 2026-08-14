@@ -2,9 +2,12 @@
  * Formula Preview Placements Tests
  *
  * TICKET-FORM-09 adds no preview behaviour, only placements — so these assert the thing a
- * placement can get wrong: the **owner**. A speciality dialog that previewed with the combat
- * owner would quietly accept a formula the save then refuses, and a curve generator previewed at
- * any other owner would not see `key` at all.
+ * placement can get wrong: the **owner**. A curve generator previewed at any other owner would
+ * not see `key` at all.
+ *
+ * **One placement is gone** (TICKET-SKL-02): the speciality skill dialog had a `bonusFormula`
+ * field and a preview beneath it, and a `Skill` has neither — it is weight rows, so there is no
+ * user-authored formula on it to preview. FORM-09's four placements are three.
  *
  * The curve case additionally checks the preview against `regenerateCurve`'s own output, because
  * "what this generator will write into the table" is the only claim that preview makes.
@@ -28,7 +31,7 @@ vi.mock('../../../services/storage', () => ({
 import { useConfigStore } from '../../../stores/configStore';
 import { CurvesConfigPanel } from '../curves/CurvesConfigPanel';
 import { CombatSkillsPanel } from '../skills/combat/CombatSkillsPanel';
-import { SpecialitySkillsPanel } from '../skills/speciality/SpecialitySkillsPanel';
+import { SkillsPanel } from '../skills/skill/SkillsPanel';
 
 function stat(id: string, name: string, abbreviation: string): Stat {
   return {
@@ -62,14 +65,12 @@ const config: Configuration = {
   version: '1.0',
   schemaVersion: 5,
   stats: [stat('str-id', 'Strength', 'STR'), stat('cha-id', 'Charisma', 'CHA')],
-  specialitySkills: [
+  skills: [
     {
       id: 'stl-id',
-      code: 'STL',
       name: 'Stealth',
       description: '',
-      maxBaseLevel: 10,
-      bonusFormula: 'STR',
+      statWeights: [{ statId: 'str-id', weight: 1 }],
     },
   ],
   combatSkills: [
@@ -120,45 +121,31 @@ describe('FormulaPreview placements (TICKET-FORM-09)', () => {
     useConfigStore.setState({ config: structuredClone(config), isLoaded: true });
   });
 
-  describe('the speciality skill dialog', () => {
-    it('should preview a bonus formula over the stats it may name', () => {
-      render(<SpecialitySkillsPanel />);
-      fireEvent.click(screen.getByRole('button', { name: 'Add Speciality Skill' }));
+  describe('the skill dialog (TICKET-SKL-02)', () => {
+    it('offers no formula field, and therefore no preview', () => {
+      // The standing rule in CLAUDE.md is "every User-authored formula field ships a preview".
+      // A `Skill` has no such field — its arithmetic lives once, in the calculator — so the right
+      // number of previews here is zero rather than one over a formula nobody writes.
+      render(<SkillsPanel />);
+      fireEvent.click(screen.getByRole('button', { name: 'Add Skill' }));
 
-      fireEvent.change(dialog().getByPlaceholderText(/STR \+ DEX/), {
-        target: { value: 'STR * 0.2 + CHA * 0.1' },
-      });
-
-      expect(dialog().getByLabelText('STR')).toHaveProperty('value', '10');
-      expect(previewResult()).toBe('3');
-      expect(ladderRows()[0]).toEqual(['1', '0.3']);
-    });
-
-    it('should refuse a speciality code, which this owner may not name', () => {
-      render(<SpecialitySkillsPanel />);
-      fireEvent.click(screen.getByRole('button', { name: 'Add Speciality Skill' }));
-
-      fireEvent.change(dialog().getByPlaceholderText(/STR \+ DEX/), {
-        target: { value: 'STL * 2' },
-      });
-
-      // The owner is what makes this a mistake here and legal in the combat dialog.
-      // Twice, because `FormulaEditor` reports it too — the known duplication recorded in
-      // TICKET-FORM-08 implementation note 2, asserted rather than left to surprise someone.
-      expect(dialog().getAllByText(/Undefined variable: STL/)).toHaveLength(2);
+      expect(dialog().queryByPlaceholderText(/STR \+ DEX/)).toBeNull();
+      expect(dialog().queryByText(/With every input at the same level/)).toBeNull();
+      // What it offers instead
+      expect(dialog().getByText('Governing stats')).toBeDefined();
     });
   });
 
   describe('the combat skill dialog', () => {
-    it('should preview a formula naming a speciality code, which this owner may name', () => {
+    it('should preview a formula naming a skill, which this owner may name', () => {
       render(<CombatSkillsPanel />);
       fireEvent.click(screen.getByRole('button', { name: 'Add Combat Skill' }));
 
       fireEvent.change(dialog().getByPlaceholderText(/STR \+ MEL/), {
-        target: { value: 'STR + STL' },
+        target: { value: 'STR + skills.stealth' },
       });
 
-      expect(dialog().getByLabelText('STL')).toBeDefined();
+      expect(dialog().getByLabelText('STR')).toBeDefined();
       expect(previewResult()).toBe('20');
     });
 
@@ -166,12 +153,12 @@ describe('FormulaPreview placements (TICKET-FORM-09)', () => {
       render(<CombatSkillsPanel />);
       fireEvent.click(screen.getByRole('button', { name: 'Add Combat Skill' }));
 
-      // `skills.*` is in scope for a combat roll but has no resolver until TICKET-SKL-02
+      // `skills` resolves since TICKET-SKL-02, but `nope` is not a member of it
       fireEvent.change(dialog().getByPlaceholderText(/STR \+ MEL/), {
-        target: { value: 'STR + skills.STL' },
+        target: { value: 'STR + skills.nope' },
       });
 
-      expect(dialog().getByText(/Unknown namespace: skills/i)).toBeDefined();
+      expect(dialog().getByText(/Unknown member: skills\.nope/i)).toBeDefined();
       // One explanatory line instead of a ladder of identical dashes
       expect(dialog().queryByText(/With every input at the same level/)).toBeNull();
       expect(dialog().queryByText('—')).toBeNull();

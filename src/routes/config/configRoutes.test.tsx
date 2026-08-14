@@ -14,8 +14,8 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../components/config/skills/speciality/SpecialitySkillsPanel', () => ({
-  SpecialitySkillsPanel: () => <div data-testid="speciality-skills-panel" />,
+vi.mock('../../components/config/skills/skill/SkillsPanel', () => ({
+  SkillsPanel: () => <div data-testid="skills-panel" />,
 }));
 vi.mock('../../components/config/skills/combat/CombatSkillsPanel', () => ({
   CombatSkillsPanel: () => <div data-testid="combat-skills-panel" />,
@@ -75,7 +75,7 @@ describe('configuration routes', () => {
     // Main skills went with TICKET-STAT-01 — the invested atom is a stat, edited at /config/stats
     const { container } = render(<SkillsConfig />);
 
-    expect(screen.getByTestId('speciality-skills-panel')).toBeDefined();
+    expect(screen.getByTestId('skills-panel')).toBeDefined();
     expect(screen.getByTestId('combat-skills-panel')).toBeDefined();
     // The merge is complete (TICKET-STAT-02): two panels here, and neither is about main skills
     expect(container.querySelectorAll('[data-testid$="-panel"]')).toHaveLength(2);

@@ -19,6 +19,7 @@
  */
 
 import { useId, useMemo, useState } from 'react';
+import { calculateSkills } from '../../../engine/calculators/skillCalculator';
 import { asNumber, isFormulaError } from '../../../engine/formula/errors';
 import { evaluateFormulaString } from '../../../engine/formula/evaluator';
 import { namespacesFor } from '../../../engine/formula/namespaces';
@@ -26,6 +27,7 @@ import { statMemberName } from '../../../engine/formula/references';
 import type { FormulaOwner } from '../../../engine/formula/scoping';
 import { scopeFor } from '../../../engine/formula/scoping';
 import { validateFormula } from '../../../engine/formula/validator';
+import type { Character } from '../../../types/character';
 import type { Configuration } from '../../../types/config';
 import type { FormulaErrorKind, FormulaResult } from '../../../types/formula';
 import { Card } from '../../ui/Card/Card';
@@ -53,11 +55,19 @@ const LADDER_LEVELS = [1, 2, 3, 4, 5, 10, 15, 20, 50] as const;
 const DEFAULT_SAMPLE = 10;
 
 /**
+ * The character `calculateSkills` is given, so a previewed skill is its weights and nothing else
+ *
+ * A ruleset is being edited here, not played: the preview's claim is "at these stats, this
+ * formula computes X", and someone's invested points would make that claim about one character.
+ */
+const UNINVESTED = { investedSkillPoints: {} } as Character;
+
+/**
  * Error kinds that cannot depend on the numbers going in (TICKET-FORM-09)
  *
- * A formula naming `skills.STL` has no resolver behind it until TICKET-SKL-02, and it will not
- * acquire one at level 15. Nine identical dashes say nothing; one line saying *why* says
- * everything, so these replace the numbers rather than decorating them.
+ * A formula naming `skills.nope` names no skill the ruleset defines, and it will not acquire one
+ * at level 15. Nine identical dashes say nothing; one line saying *why* says everything, so these
+ * replace the numbers rather than decorating them.
  *
  * Exactly two, and the list is short on purpose. `division-by-zero`, `out-of-range` and `upstream`
  * plainly vary with the inputs, and so does `not-evaluable`: it is what an overflow
@@ -140,6 +150,13 @@ export function FormulaPreview({ formula, owner, config, className = '' }: Formu
    *
    * The one place this component produces a number. Values go in twice — as bare `variables` and
    * as `statValues` keyed by stat id — so the two spellings of the same stat read the same box.
+   *
+   * **Skills follow from the stats rather than getting boxes of their own** (TICKET-SKL-02). A
+   * skill's level is `Σ(weight × stat) + invested`, so once the sample stats are chosen the skill
+   * levels are decided too — a box for `skills.stealth` could only disagree with them. They come
+   * from `calculateSkills`, the same function the sheet reads, over a character who has invested
+   * nothing: the preview answers "what does this formula compute at these stats", and a Player's
+   * investment is not a property of the ruleset being edited.
    */
   const evaluateAt = useMemo(() => {
     const byAbbreviation = new Map(
@@ -153,9 +170,14 @@ export function FormulaPreview({ formula, owner, config, className = '' }: Formu
         if (id !== undefined) statValues[id] = value;
       }
 
+      const { levels, bonuses } = calculateSkills(config, statValues, UNINVESTED);
+
       return evaluateFormulaString(formula, {
         variables: values,
-        namespaces: namespacesFor({ ...config, statValues }, owner),
+        namespaces: namespacesFor(
+          { ...config, statValues, skillLevels: levels, skillBonuses: bonuses },
+          owner
+        ),
       });
     };
   }, [config, formula, owner]);

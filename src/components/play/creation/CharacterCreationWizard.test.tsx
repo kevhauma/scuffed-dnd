@@ -65,14 +65,13 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         formula: 'STR * 10',
       },
     ],
-    specialitySkills: [
+    skills: [
       {
         id: 'STL',
-        code: 'STL',
         name: 'Stealth',
         description: '',
-        maxBaseLevel: 5,
-        bonusFormula: 'DEX / 2',
+        // The weighted equivalent of v1's `DEX / 2` formula (TICKET-SKL-02)
+        statWeights: [{ statId: 'DEX', weight: 0.5 }],
       },
     ],
     combatSkills: [
@@ -82,7 +81,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         name: 'Melee',
         description: '',
         dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-        bonusFormula: 'STR + STL',
+        bonusFormula: 'STR + skills.stealth',
       },
     ],
     materials: [],
@@ -343,7 +342,9 @@ describe('CharacterCreationWizard', () => {
     });
   });
 
-  it('should offer a focus stat from both main and speciality skills, stating the bonus', () => {
+  it('should offer a focus stat from the stats alone, stating the bonus (TICKET-SKL-02)', () => {
+    // v1 offered speciality skills here too. A `Skill` has no code for the focus to hold, so the
+    // list is stats — every one of them, since TICKET-STAT-01 merged the invested atom into Stat.
     render(<CharacterCreationWizard />);
 
     toSkillsStep();
@@ -354,7 +355,7 @@ describe('CharacterCreationWizard', () => {
 
     expect(optionValues).toContain('STR');
     expect(optionValues).toContain('DEX');
-    expect(optionValues).toContain('STL');
+    expect(optionValues).not.toContain('STL');
     expect(screen.getByText(/\+3 levels/)).toBeDefined();
   });
 
@@ -365,7 +366,8 @@ describe('CharacterCreationWizard', () => {
     fireEvent.click(screen.getByLabelText('Elf'));
     next();
     fireEvent.change(screen.getByLabelText(/Strength \(STR\)/), { target: { value: '5' } });
-    fireEvent.change(screen.getByLabelText(/Stealth \(STL\)/), { target: { value: '1' } });
+    // Labelled by name alone — a `Skill` has no code to bracket (TICKET-SKL-02)
+    fireEvent.change(screen.getByLabelText('Stealth'), { target: { value: '1' } });
     next();
     next();
 
@@ -390,7 +392,8 @@ describe('CharacterCreationWizard', () => {
 
     expect(screen.getByText('Aria')).toBeDefined();
     expect(rowValue('Health (HEA)')).toBe(`Health (HEA)${expected.statValues.health}`);
-    expect(rowValue('Stealth (STL)')).toBe(`Stealth (STL)${expected.skillLevels.STL}`);
+    // The review shows the **bonus** a Player rolls with, not the level (Concept 02)
+    expect(rowValue('Stealth')).toBe(`Stealth${expected.skillBonuses.STL}`);
     expect(rowValue('Melee (MEL)')).toBe(`Melee (MEL)${expected.combatSkillBonuses.MEL}`);
     expect(rowValue('Dexterity (DEX)')).toBe(`Dexterity (DEX)${expected.statValues.DEX}`);
   });

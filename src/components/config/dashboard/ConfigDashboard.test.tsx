@@ -174,13 +174,15 @@ describe('ConfigDashboard', () => {
   it('should report a circular dependency between formulas', () => {
     useConfigStore.setState({
       config: createConfig({
-        specialitySkills: [
+        // Written over combat skills since TICKET-SKL-02: a `Skill` holds weight rows rather
+        // than a formula, so two of them cannot reference each other at all
+        combatSkills: [
           {
             id: 'AAA',
             code: 'AAA',
             name: 'A',
             description: '',
-            maxBaseLevel: 5,
+            dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
             bonusFormula: 'BBB',
           },
           {
@@ -188,7 +190,7 @@ describe('ConfigDashboard', () => {
             code: 'BBB',
             name: 'B',
             description: '',
-            maxBaseLevel: 5,
+            dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
             bonusFormula: 'AAA',
           },
         ],
