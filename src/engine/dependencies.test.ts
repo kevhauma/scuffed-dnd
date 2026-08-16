@@ -283,6 +283,52 @@ describe('findReferences', () => {
     expect(found[0].field).toBe('raceIds');
   });
 
+  it('finds an archetype that tags a stat (TICKET-ARC-01)', () => {
+    // A tagging is stored sparsely, so presence of the key *is* the opinion — unlike a race's
+    // dense stat block, where a zero is not a reference
+    const config = createConfig({
+      archetypes: [
+        { id: 'strong', name: 'Strong', description: '', statAffinity: { 'id-str': 'main' } },
+      ],
+    });
+
+    const found = findReferences({ kind: 'stat', id: 'id-str' }, config, []);
+
+    expect(found.some((reference) => reference.holderName === 'Strong')).toBe(true);
+    expect(found.find((reference) => reference.holderName === 'Strong')?.holderKind).toBe(
+      'Archetype'
+    );
+  });
+
+  it('does not count a stat an archetype says nothing about as a reference', () => {
+    const config = createConfig({
+      archetypes: [
+        { id: 'strong', name: 'Strong', description: '', statAffinity: { 'id-str': 'main' } },
+      ],
+    });
+
+    expect(
+      findReferences({ kind: 'stat', id: 'id-hp' }, config, []).some(
+        (reference) => reference.holderKind === 'Archetype'
+      )
+    ).toBe(false);
+  });
+
+  it('finds an archetype on a character (TICKET-ARC-01)', () => {
+    const found = findReferences({ kind: 'archetype', id: 'strong' }, createConfig(), [
+      createCharacter({ archetypeId: 'strong' }),
+    ]);
+
+    expect(holders(found)).toEqual(['Character: Aria']);
+    expect(found[0].field).toBe('archetypeId');
+  });
+
+  it('finds nothing for an archetype no character is built on', () => {
+    expect(
+      findReferences({ kind: 'archetype', id: 'strong' }, createConfig(), [createCharacter()])
+    ).toEqual([]);
+  });
+
   it('finds an item in an inventory, equipped or loose', () => {
     const equipped = findReferences({ kind: 'item', id: 'axe' }, createConfig(), [
       createCharacter(),

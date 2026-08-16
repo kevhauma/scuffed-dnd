@@ -19,8 +19,7 @@ import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
 import { Input } from '../../ui/Input/Input';
-import { Label } from '../../ui/Label/Label';
-import { Text } from '../../ui/Text/Text';
+import { StatRowsField } from '../shared/StatRowsField';
 
 interface RaceFormData {
   name: string;
@@ -68,38 +67,21 @@ export function RaceFormDialog({
           {...register('description')}
         />
 
-        <div className="space-y-3">
-          <Text variant="body-small" className="font-semibold">
-            Stat Block
-          </Text>
-          <Text variant="body-small-secondary">
-            What a member of this race has, before anything they invest.
-          </Text>
-
-          {availableStats.length === 0 ? (
-            <div className="p-3 bg-parchment-100 rounded">
-              <Text variant="body-small-secondary">
-                This ruleset defines no stats yet, so there is nothing for a race to be made of.
-              </Text>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {availableStats.map((stat) => (
-                <div key={stat.id} className="flex items-center gap-2 p-2 bg-parchment-50 rounded">
-                  <Label htmlFor={`race-stat-${stat.id}`} className="flex-1">
-                    {stat.name} ({stat.abbreviation})
-                  </Label>
-                  <Input
-                    id={`race-stat-${stat.id}`}
-                    type="number"
-                    className="w-24"
-                    {...register(`statValues.${stat.id}` as const, { valueAsNumber: true })}
-                  />
-                </div>
-              ))}
-            </div>
+        <StatRowsField
+          title="Stat Block"
+          description="What a member of this race has, before anything they invest."
+          emptyMessage="This ruleset defines no stats yet, so there is nothing for a race to be made of."
+          availableStats={availableStats}
+          idPrefix="race-stat"
+          renderControl={(stat, controlId) => (
+            <Input
+              id={controlId}
+              type="number"
+              className="w-24"
+              {...register(`statValues.${stat.id}` as const, { valueAsNumber: true })}
+            />
           )}
-        </div>
+        />
 
         <div className="flex justify-end gap-3 mt-6">
           <Button type="button" variant="secondary" onClick={onClose}>

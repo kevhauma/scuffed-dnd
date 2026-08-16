@@ -13,6 +13,7 @@
  */
 
 import type { Configuration, Curve, Skill } from '../types/config';
+import { POINT_BUY_CURVE_NAME } from '../types/config';
 import type { FormulaScope } from './formula/scoping';
 import { scopeFor } from './formula/scoping';
 import type { FormulaDependency } from './formula/validator';
@@ -325,6 +326,81 @@ export function validateConfiguration(config: Configuration): ValidationReport {
           entityType: 'race',
           entityId: race.id,
           entityName: race.name,
+        });
+      }
+    }
+  }
+
+  // Validate archetypes (Concept 03, TICKET-ARC-01)
+  for (const archetype of config.archetypes ?? []) {
+    // A dangling key is a stat that was deleted, not one that was renamed — affinity is keyed by
+    // stat id for exactly that reason
+    for (const statId of Object.keys(archetype.statAffinity)) {
+      if (!statsById.has(statId)) {
+        errors.push({
+          severity: 'error',
+          category: 'Reference Validation',
+          message: `Archetype "${archetype.name}" references non-existent stat: ${statId}`,
+          entityType: 'archetype',
+          entityId: archetype.id,
+          entityName: archetype.name,
+        });
+      }
+    }
+
+    // Concept 03's default: a stat the archetype says nothing about is `non`. Reported so the
+    // User knows the ruleset made a choice for them, as a **warning** rather than as information
+    // — unlike the weight-sum balance rule, this one silently changes what a point buys.
+    const untagged = config.stats.filter((stat) => archetype.statAffinity[stat.id] === undefined);
+    if (untagged.length > 0) {
+      warnings.push({
+        severity: 'warning',
+        category: 'Data Consistency',
+        message: `Archetype "${archetype.name}" does not tag ${untagged
+          .map((stat) => stat.abbreviation)
+          .join(', ')} — ${untagged.length === 1 ? 'it defaults' : 'they default'} to "non"`,
+        entityType: 'archetype',
+        entityId: archetype.id,
+        entityName: archetype.name,
+      });
+    }
+  }
+
+  // Every affinity an archetype actually uses needs a `point_buy` column to route through
+  // (Concept 03, Concept 06). Without one, TICKET-ARC-02 has nothing to look a spent point up in,
+  // so this is an error rather than a warning — named per missing column so the fix is obvious.
+  const pointBuy = (config.curves ?? []).find((curve) => curve.name === POINT_BUY_CURVE_NAME);
+  const hasArchetypes = (config.archetypes ?? []).length > 0;
+
+  if (hasArchetypes && pointBuy === undefined) {
+    // Strictly worse than a missing column, so it cannot be the quiet case: no curve means no
+    // affinity routes anywhere at all
+    errors.push({
+      severity: 'error',
+      category: 'Reference Validation',
+      message: `This ruleset defines archetypes but has no "${POINT_BUY_CURVE_NAME}" curve, so no affinity has anything to route a spent point through`,
+      entityType: 'curve',
+    });
+  }
+
+  if (pointBuy && hasArchetypes) {
+    const columnNames = new Set(pointBuy.columns.map((column) => column.name));
+    const usedAffinities = new Set<string>(
+      (config.archetypes ?? []).flatMap((archetype) => Object.values(archetype.statAffinity))
+    );
+    // An untagged stat defaults to `non`, so `non` is used by any ruleset that has archetypes and
+    // stats at all — even one whose every tag is `main`
+    if (config.stats.length > 0) usedAffinities.add('non');
+
+    for (const affinity of usedAffinities) {
+      if (!columnNames.has(affinity)) {
+        errors.push({
+          severity: 'error',
+          category: 'Reference Validation',
+          message: `The "${POINT_BUY_CURVE_NAME}" curve has no "${affinity}" column, so an archetype using that affinity has nothing to route a spent point through`,
+          entityType: 'curve',
+          entityId: pointBuy.id,
+          entityName: pointBuy.displayName,
         });
       }
     }

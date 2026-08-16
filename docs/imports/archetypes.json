@@ -1,0 +1,77 @@
+{
+  "feature": "archetypes",
+  "title": "Archetypes",
+  "tickets": [
+    "TICKET-ARC-01"
+  ],
+  "concept": "03 · Archetype",
+  "source": {
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit",
+    "exportedAt": "2026-08-09",
+    "ranges": [
+      "Calculator!B2:B7",
+      "Calculator!C2:C7"
+    ]
+  },
+  "confidence": "partial",
+  "notes": [
+    "The six archetypes the sheet's picker offers, with their descriptions verbatim — typos and all, because they are the User's words and this fragment is a transcription rather than an edit.",
+    "**Only the main stat is provable.** Concept 03 infers it from the Calculator's live 0.75 multipliers, which sit on exactly one stat per archetype. The sub/non split across the other nine stats is that page's open question 🔍 and is NOT invented here: every stat but the main one is left absent, which the app reads as `non` (Concept 03's own default). A ruleset importing this gets six archetypes that are each strong in one place and flat everywhere else — which is what the export actually proves, not a guess dressed as data.",
+    "That means every imported archetype trips the validator's \"does not tag …\" warning by design. The warning is the honest state: the ruleset made a choice the sheet did not, and the User is the one who confirms the matrix from the live Calculator tab.",
+    "Affinity is keyed by stat **id**, matching stats.json — the same treatment races.json gives a stat block, so renaming a stat cannot orphan an archetype.",
+    "`starting_bonus`, `skill_affinity` and `unlock_condition` are in Concept 03 and are not modelled yet (TICKET-ARC-01's notes); the last needs boolean formulas the engine does not have. Nothing is written for them here.",
+    "What a tag is *worth* lives in the point_buy curve (curves.json), not here — Concept 03's 2.4x spread at 15 points is a property of that table."
+  ],
+  "data": {
+    "archetypes": [
+      {
+        "id": "archetype-strong",
+        "name": "Strong",
+        "description": "Strenght above all bulky en not easy to take down",
+        "statAffinity": {
+          "stat-strenght": "main"
+        }
+      },
+      {
+        "id": "archetype-sneaky",
+        "name": "Sneaky",
+        "description": "stealing and murder they will never know it was you",
+        "statAffinity": {
+          "stat-dex": "main"
+        }
+      },
+      {
+        "id": "archetype-smart",
+        "name": "Smart",
+        "description": "magic and science is where you excel",
+        "statAffinity": {
+          "stat-int": "main"
+        }
+      },
+      {
+        "id": "archetype-wise",
+        "name": "Wise",
+        "description": "nature and advice is where your heart lays",
+        "statAffinity": {
+          "stat-wis": "main"
+        }
+      },
+      {
+        "id": "archetype-tanky",
+        "name": "Tanky",
+        "description": "taking hits en locking things down the tank is the shield for the weak",
+        "statAffinity": {
+          "stat-con": "main"
+        }
+      },
+      {
+        "id": "archetype-funny",
+        "name": "Funny",
+        "description": "want to fuck and charm your way trough live",
+        "statAffinity": {
+          "stat-char": "main"
+        }
+      }
+    ]
+  }
+}

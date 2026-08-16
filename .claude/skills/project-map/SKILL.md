@@ -45,6 +45,7 @@ rather than a read-only config UI).
 | `/config/materials` | `routes/config/materials.tsx` | `MaterialsConfigPanel` |
 | `/config/items` | `routes/config/items.tsx` | `ItemsConfigPanel` + `EquipmentSlotsConfigPanel` |
 | `/config/races` | `routes/config/races.tsx` | `RacesConfigPanel` |
+| `/config/archetypes` | `routes/config/archetypes.tsx` | `ArchetypesConfigPanel` — what a character is good at growing: `main`/`sub`/`non` per stat, which selects a `point_buy` column (TICKET-ARC-01) |
 | `/config/currency` | `routes/config/currency.tsx` | `CurrencyConfigPanel` (which renders `ConversionCalculator` once tiers exist) |
 | `/config/constants` | `routes/config/constants.tsx` | `ConstantsConfigPanel` — named tunables (`const.*`), each card listing the formulas that name it |
 | `/config/curves` | `routes/config/curves.tsx` | `CurvesConfigPanel` — progressions as editable tables (`curve.*(x)`), with per-cell override highlighting and a regenerate action (TICKET-CRV-03) |
@@ -313,6 +314,16 @@ the combat manager only, the last kind still addressed by a code).
 User-authored formula field: editable sample values plus a fixed 1–50 level ladder, taking the
 formula, its `FormulaOwner` and the `Configuration` so it scopes and resolves exactly as the saved
 formula will. Every formula field renders it; never a bare `FormulaEditor` (CLAUDE.md).
+
+**`config/shared/StatRowsField`** (TICKET-ARC-01) is the "one row per configured stat" block, with
+the empty state for a ruleset that has none. A race's stat block and an archetype's affinity table
+both render it, passing their own control as a render prop — the shape exists because the ruleset's
+stats decide what an entity has an opinion about, so there is no add/remove control anywhere.
+
+**`config/shared/` also holds `StatRowsField`** (TICKET-ARC-01) — a titled "one row per configured
+stat" block with the no-stats empty state, taking the row's control as a render prop. Both the race
+stat block and the archetype affinity table are that shape, because the ruleset's stats decide what
+an entity has an opinion about. Reuse it for any future per-stat editor rather than copying the rows.
 
 **`config/shared/` is cross-domain** (TICKET-REF-02): `useGuardedDelete` holds a delete the store
 refused, and `BlockedDeleteDialog` renders the reference list with a "Delete Anyway" force button.

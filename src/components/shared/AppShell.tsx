@@ -21,6 +21,7 @@ const CONFIG_NAV = [
   { to: '/config/materials', label: 'Materials' },
   { to: '/config/items', label: 'Items' },
   { to: '/config/races', label: 'Races' },
+  { to: '/config/archetypes', label: 'Archetypes' },
   { to: '/config/currency', label: 'Currency' },
   { to: '/config/constants', label: 'Constants' },
   { to: '/config/focus', label: 'Focus Stat' },

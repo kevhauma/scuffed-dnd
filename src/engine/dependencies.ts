@@ -34,6 +34,7 @@ export type ReferenceTargetKind =
   | 'combat-skill'
   | 'stat'
   | 'race'
+  | 'archetype'
   | 'item'
   | 'material'
   | 'material-category'
@@ -238,6 +239,29 @@ function raceStatBlockReferences(config: Configuration, statId: string): EntityR
     }));
 }
 
+/**
+ * Archetypes that tag a stat with an affinity (TICKET-ARC-01)
+ *
+ * By **id**, like a race's stat block, and with the same rule about what counts: **presence of the
+ * key is the reference**, because a tagging is stored *sparsely* — an absent stat is `non`, and the
+ * editor prunes `non` on save. So a key that is present is one the User deliberately tagged, and
+ * every key present is a real opinion about that stat.
+ *
+ * That is the mirror of the race rule rather than a departure from it: both ask "does this entity
+ * actually say something about the stat", and the answer differs only because a race's block is
+ * dense with a neutral zero while an archetype's is sparse with a neutral absence.
+ */
+function archetypeAffinityReferences(config: Configuration, statId: string): EntityReference[] {
+  return (config.archetypes ?? [])
+    .filter((archetype) => statId in archetype.statAffinity)
+    .map((archetype) => ({
+      holderKind: 'Archetype',
+      holderName: archetype.name,
+      field: 'statAffinity',
+      holderId: archetype.id,
+    }));
+}
+
 /** Characters whose focus names a code */
 function characterFocusReferences(characters: Character[], code: string): EntityReference[] {
   return characters
@@ -320,11 +344,13 @@ function statReferences(
       )
     : [];
 
-  // Both modifier shapes name the stat by id now (TICKET-RACE-01, TICKET-MAT-01), so neither needs
-  // a `stat` in hand to spell it — the guard holds even for an id nothing defines any more
+  // Every persisted opinion about a stat names it by id now (TICKET-RACE-01, TICKET-MAT-01,
+  // TICKET-ARC-01), so none needs a `stat` in hand to spell it — the guard holds even for an id
+  // nothing defines any more
   const modifiers = [
     ...raceStatBlockReferences(config, id),
     ...materialBonusReferences(config, id),
+    ...archetypeAffinityReferences(config, id),
   ];
 
   const players = characters
@@ -442,6 +468,19 @@ export function findReferences(
           holderKind: 'Character',
           holderName: character.name,
           field: 'raceIds',
+          holderId: character.id,
+        }));
+
+    case 'archetype':
+      // Only a character holds one (TICKET-ARC-01). No formula can name an archetype — affinity
+      // is read by the point-buy routing, not spelled in a formula string — so there is no
+      // namespace to scan the way `stat` and `constant` have.
+      return characters
+        .filter((character) => character.archetypeId === target.id)
+        .map((character) => ({
+          holderKind: 'Character',
+          holderName: character.name,
+          field: 'archetypeId',
           holderId: character.id,
         }));
 

@@ -1354,4 +1354,186 @@ describe('validateConfiguration', () => {
       expect(warnings).toEqual([]);
     });
   });
+
+  describe('archetypes (TICKET-ARC-01)', () => {
+    /** Two stats and a `point_buy` curve with all three affinity columns — the seeded shape */
+    function withArchetypes(overrides: Partial<Configuration> = {}): Configuration {
+      const config = createMinimalConfig();
+      config.stats = [
+        {
+          id: 'str-id',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'dex-id',
+          name: 'Dexterity',
+          abbreviation: 'DEX',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+      ];
+      config.curves = [
+        {
+          id: 'id-point-buy',
+          name: 'point_buy',
+          displayName: 'Point buy',
+          description: '',
+          keyName: 'points',
+          columns: [
+            { id: 'col-non', name: 'non' },
+            { id: 'col-sub', name: 'sub' },
+            { id: 'col-main', name: 'main' },
+          ],
+          rows: [{ key: 1, values: [1, 1, 1] }],
+          interpolation: 'step',
+          outOfRange: 'clamp',
+          lookupDirection: 'forward',
+        },
+      ];
+      config.archetypes = [
+        {
+          id: 'strong',
+          name: 'Strong',
+          description: '',
+          statAffinity: { 'str-id': 'main', 'dex-id': 'non' },
+        },
+      ];
+      return { ...config, ...overrides };
+    }
+
+    it('should accept an archetype tagging every configured stat', () => {
+      const result = validateConfiguration(withArchetypes());
+
+      expect(result.errors).toEqual([]);
+      expect(result.warnings).toEqual([]);
+    });
+
+    it('should warn that an untagged stat defaults to non', () => {
+      const config = withArchetypes();
+      config.archetypes = [
+        { id: 'strong', name: 'Strong', description: '', statAffinity: { 'str-id': 'main' } },
+      ];
+
+      const { warnings } = validateConfiguration(config);
+
+      // Concept 03's default is applied either way; the point is that the User is told it was
+      expect(warnings.some((issue) => issue.message.includes('does not tag DEX'))).toBe(true);
+      expect(warnings.some((issue) => issue.message.includes('defaults to "non"'))).toBe(true);
+    });
+
+    it('should name every untagged stat in one warning rather than one each', () => {
+      const config = withArchetypes();
+      config.archetypes = [{ id: 'blank', name: 'Blank', description: '', statAffinity: {} }];
+
+      const { warnings } = validateConfiguration(config);
+      const untagged = warnings.filter((issue) => issue.entityId === 'blank');
+
+      expect(untagged).toHaveLength(1);
+      expect(untagged[0].message).toContain('STR, DEX');
+      expect(untagged[0].message).toContain('they default');
+    });
+
+    it('should report an affinity keyed by a stat the ruleset does not define', () => {
+      const config = withArchetypes();
+      config.archetypes = [
+        {
+          id: 'strong',
+          name: 'Strong',
+          description: '',
+          statAffinity: { 'str-id': 'main', 'dex-id': 'sub', 'gone-id': 'main' },
+        },
+      ];
+
+      const { errors } = validateConfiguration(config);
+
+      expect(
+        errors.some((issue) =>
+          issue.message.includes('Archetype "Strong" references non-existent stat: gone-id')
+        )
+      ).toBe(true);
+    });
+
+    it('should report a point_buy curve with no column for an affinity in use', () => {
+      const config = withArchetypes();
+      // The `main` column is gone, so TICKET-ARC-02 has nothing to look a Strong point up in
+      const pointBuy = config.curves?.[0];
+      if (pointBuy) {
+        pointBuy.columns = pointBuy.columns.filter((column) => column.name !== 'main');
+        pointBuy.rows = [{ key: 1, values: [1, 1] }];
+      }
+
+      const { errors } = validateConfiguration(config);
+
+      expect(errors.some((issue) => issue.message.includes('has no "main" column'))).toBe(true);
+    });
+
+    it('should report a missing non column even when no archetype tags anything non', () => {
+      const config = withArchetypes();
+      config.archetypes = [
+        {
+          id: 'strong',
+          name: 'Strong',
+          description: '',
+          statAffinity: { 'str-id': 'main', 'dex-id': 'sub' },
+        },
+      ];
+      const pointBuy = config.curves?.[0];
+      if (pointBuy) {
+        pointBuy.columns = pointBuy.columns.filter((column) => column.name !== 'non');
+        pointBuy.rows = [{ key: 1, values: [1, 1] }];
+      }
+
+      const { errors } = validateConfiguration(config);
+
+      // `non` is the default for a stat added later, so a ruleset with stats always needs it
+      expect(errors.some((issue) => issue.message.includes('has no "non" column'))).toBe(true);
+    });
+
+    it('should report a ruleset that has archetypes but no point_buy curve at all', () => {
+      // Strictly worse than a missing column, so it cannot be the quiet case
+      const config = withArchetypes({ curves: [] });
+
+      const { errors } = validateConfiguration(config);
+
+      expect(errors.some((issue) => issue.message.includes('has no "point_buy" curve'))).toBe(true);
+    });
+
+    it('should say nothing about a missing point_buy curve when there are no archetypes', () => {
+      const config = withArchetypes({ curves: [], archetypes: [] });
+
+      expect(validateConfiguration(config).errors).toEqual([]);
+    });
+
+    it('should say nothing about point_buy columns when the ruleset has no archetypes', () => {
+      const config = withArchetypes({ archetypes: [] });
+      const pointBuy = config.curves?.[0];
+      if (pointBuy) {
+        pointBuy.columns = [{ id: 'col-non', name: 'non' }];
+        pointBuy.rows = [{ key: 1, values: [1] }];
+      }
+
+      const { errors } = validateConfiguration(config);
+
+      expect(errors.filter((issue) => issue.message.includes('column'))).toEqual([]);
+    });
+
+    it('should say nothing at all when the ruleset defines no archetypes', () => {
+      const config = withArchetypes();
+      config.archetypes = undefined;
+
+      const result = validateConfiguration(config);
+
+      expect(result.errors).toEqual([]);
+      expect(result.warnings).toEqual([]);
+    });
+  });
 });

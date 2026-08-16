@@ -17,7 +17,7 @@ import {
   toStoredConfiguration,
 } from '../engine/formula/references';
 import type { Configuration } from '../types/config';
-import { SUPPORTED_SCHEMA_VERSION } from '../types/config';
+import { STAT_AFFINITIES, SUPPORTED_SCHEMA_VERSION } from '../types/config';
 import { readStoredSnapshot } from './storage';
 
 /**
@@ -202,6 +202,9 @@ function retiredFieldErrors(config: Record<string, unknown>): string[] {
 
 /** What a name a formula spells must look like — shared by constants and curve columns */
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/;
+
+/** The affinity values an archetype may tag a stat with (Concept 03) */
+const AFFINITY_VALUES = new Set<string>(STAT_AFFINITIES);
 
 /** The enum values a curve's three modes accept (Concept 06) */
 const CURVE_MODES = {
@@ -450,6 +453,46 @@ export function validateConfiguration(data: unknown): ValidationResult {
         }
       }
     });
+  }
+
+  // Validate archetypes (TICKET-ARC-01). Optional and absent-means-none, like `constants` and
+  // `curves`, so only a present key is checked. `statAffinity` maps stat **id** to one of the three
+  // affinity values, and is sparse by design: an absent stat is `non`.
+  if (config.archetypes !== undefined) {
+    if (!Array.isArray(config.archetypes)) {
+      errors.push("Field 'archetypes' must be an array when present");
+    } else {
+      config.archetypes.forEach((archetype: unknown, index: number) => {
+        if (!archetype || typeof archetype !== 'object') {
+          errors.push(`archetypes[${index}] must be an object`);
+          return;
+        }
+        const a = archetype as Record<string, unknown>;
+        if (typeof a.id !== 'string') {
+          errors.push(`archetypes[${index}].id must be a string`);
+        }
+        if (typeof a.name !== 'string') {
+          errors.push(`archetypes[${index}].name must be a string`);
+        }
+        if (
+          !a.statAffinity ||
+          typeof a.statAffinity !== 'object' ||
+          Array.isArray(a.statAffinity)
+        ) {
+          errors.push(`archetypes[${index}].statAffinity must be an object keyed by stat id`);
+          return;
+        }
+        for (const [statId, affinity] of Object.entries(
+          a.statAffinity as Record<string, unknown>
+        )) {
+          if (typeof affinity !== 'string' || !AFFINITY_VALUES.has(affinity)) {
+            errors.push(
+              `archetypes[${index}].statAffinity.${statId} must be one of ${[...AFFINITY_VALUES].join(', ')}`
+            );
+          }
+        }
+      });
+    }
   }
 
   // Validate material tier modifiers (TICKET-MAT-01). A tier bonus is `{ statId, modifier }` —

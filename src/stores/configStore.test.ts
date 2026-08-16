@@ -9,6 +9,7 @@ import { toStoredConfiguration } from '../engine/formula/references';
 import { importConfiguration, validateConfiguration } from '../services/importExport';
 import * as storage from '../services/storage';
 import type {
+  Archetype,
   CombatSkill,
   Configuration,
   CurrencyTier,
@@ -659,6 +660,65 @@ describe('ConfigStore', () => {
       const { config } = useConfigStore.getState();
       expect(config?.equipmentSlots).toHaveLength(0);
       expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+  });
+
+  describe('Archetypes CRUD (TICKET-ARC-01)', () => {
+    const strong: Archetype = {
+      id: 'strong',
+      name: 'Strong',
+      description: 'Built for raw physical force',
+      statAffinity: { STR: 'main' },
+    };
+
+    beforeEach(() => {
+      useConfigStore.getState().initializeConfig('Test');
+      vi.clearAllMocks();
+    });
+
+    it('should mint a fresh ruleset with no archetypes key at all', () => {
+      // Absent means none, like `constants` and `curves` — a fresh ruleset does not grow an empty
+      // array it would then round-trip
+      expect(useConfigStore.getState().config?.archetypes).toBeUndefined();
+    });
+
+    it('should add an archetype and persist it', () => {
+      useConfigStore.getState().addArchetype(strong);
+
+      const { config } = useConfigStore.getState();
+      expect(config?.archetypes).toEqual([strong]);
+      expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+
+    it('should update an archetype', () => {
+      useConfigStore.getState().addArchetype(strong);
+      vi.clearAllMocks();
+
+      useConfigStore.getState().updateArchetype('strong', { name: 'Mighty' });
+
+      expect(useConfigStore.getState().config?.archetypes?.[0].name).toBe('Mighty');
+      expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+
+    it('should delete an unreferenced archetype', () => {
+      useConfigStore.getState().addArchetype(strong);
+      vi.clearAllMocks();
+
+      const references = useConfigStore.getState().deleteArchetype('strong');
+
+      expect(references).toEqual([]);
+      expect(useConfigStore.getState().config?.archetypes).toEqual([]);
+      expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+
+    it('should round-trip through export and import', () => {
+      useConfigStore.getState().addArchetype(strong);
+
+      const exported = JSON.stringify(
+        toStoredConfiguration(useConfigStore.getState().config as Configuration)
+      );
+
+      expect(importConfiguration(exported).archetypes).toEqual([strong]);
     });
   });
 

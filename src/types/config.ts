@@ -63,6 +63,16 @@ export interface Configuration {
    * write `config.curves ?? []`.
    */
   curves?: Curve[];
+  /**
+   * What a character is good at growing (Concept 03, TICKET-ARC-01).
+   *
+   * Optional for the same reason `constants` and `curves` are, and **without a schema bump**: this
+   * is purely additive, so a ruleset written before archetypes existed reads as having none and a
+   * build without them ignores the key. RACE-01's "bump on every reshape" rule is about a field
+   * that *moved or was removed*, where a stale file would be misread — see TICKET-ARC-01's
+   * implementation note 1.
+   */
+  archetypes?: Archetype[];
   focusStatBonusLevel: number;
   createdAt: string;
   updatedAt: string;
@@ -289,6 +299,60 @@ export interface Race {
   description: string;
   /** Absolute value this race supplies per stat id; absent means 0 */
   statValues: Record<string, number>;
+}
+
+/**
+ * How much an archetype favours one stat (Concept 03)
+ *
+ * The three values are not a scale the app interprets — they are **column names in the `point_buy`
+ * curve**, which is what makes "flatten the archetype advantage" a table edit rather than a code
+ * change. TICKET-ARC-02 is what routes a spent point through the matching column.
+ */
+export type StatAffinity = 'main' | 'sub' | 'non';
+
+/** Every affinity, in the order an editor offers them — least favoured last */
+export const STAT_AFFINITIES: readonly StatAffinity[] = ['main', 'sub', 'non'];
+
+/**
+ * What a stat an archetype says nothing about is worth (Concept 03)
+ *
+ * Lives with the type rather than with the editor because it is a property of the **stored shape**,
+ * not of any one surface: a tagging is sparse, so every reader resolves an absent stat through this.
+ */
+export const DEFAULT_STAT_AFFINITY: StatAffinity = 'non';
+
+/**
+ * The curve an archetype's affinity selects a column of (Concept 03, Concept 06)
+ *
+ * Here rather than in either reader because the engine and the store both need it and the engine
+ * cannot import the store: `createSeedCurves()` writes the curve and `validateConfiguration()`
+ * checks its columns, and the two spelling it separately is how renaming the seed would silently
+ * disable the check. TICKET-ARC-02 reads it a third time.
+ */
+export const POINT_BUY_CURVE_NAME = 'point_buy';
+
+/**
+ * Archetype - what a character is good at growing (Concept 03, TICKET-ARC-01)
+ *
+ * Replaces the focus stat, which was a flat adder on one stat and nothing the spec recognises;
+ * TICKET-ARC-03 retires that. An archetype instead tags **every** stat, so "Strong" is a shape
+ * across the whole sheet rather than a single favourite.
+ *
+ * `statAffinity` is keyed by stat **id**, like `Race.statValues`, so renaming a stat cannot orphan
+ * an archetype. It is deliberately **sparse**: a stat the archetype says nothing about is `non`,
+ * which is Concept 03's own rule and keeps a ruleset from having to re-save every archetype each
+ * time a stat is added. The validator reports the defaulting as an observation rather than
+ * silently applying it.
+ *
+ * `starting_bonus`, `skill_affinity` and `unlock_condition` are deferred (TICKET-ARC-01's notes) —
+ * the last needs boolean formulas the engine does not have.
+ */
+export interface Archetype {
+  id: string;
+  name: string;
+  description: string;
+  /** Affinity per stat id; a stat that is absent is `non` (Concept 03) */
+  statAffinity: Record<string, StatAffinity>;
 }
 
 /**

@@ -50,6 +50,15 @@ export interface Character {
    */
   focusStatCode?: string;
   /**
+   * The archetype this character grows along, by **id** (Concept 03, TICKET-ARC-01).
+   *
+   * Optional here rather than in ARC-03 for one reason: without it there is nothing that *can*
+   * hold an archetype, so `deleteArchetype`'s guard would return an empty list on every ruleset and
+   * the refusal would be untestable. TICKET-ARC-03 is what sets it — the wizard's archetype step —
+   * and TICKET-ARC-02 is what makes it change a number.
+   */
+  archetypeId?: string;
+  /**
    * Points the Player has put into each skill, keyed by **skill id** (TICKET-SKL-02).
    *
    * Replaces v1's `specialitySkillBaseLevels`, which was keyed by a mutable 3-letter code — so a

@@ -68,6 +68,25 @@ displays the way it reads rather than the way it happens to be stored. **Sort in
 a component**: the two consumers of the ordered list (`SkillAllocationStep`, `ReviewStep`) take it
 as a prop.
 
+**`Archetype` is what a character is good at growing** (Concept 03, TICKET-ARC-01):
+`{ id, name, description, statAffinity: Record<statId, 'main' | 'sub' | 'non'> }` on the optional
+`Configuration.archetypes`, with `Character.archetypeId?` pointing at one. The three affinity values
+are not a scale the app interprets — they are **column names in the `point_buy` curve**, which is
+what makes "flatten the archetype advantage" a table edit. Two rules, both load-bearing:
+
+- **`non` is absence.** A tagging is stored **sparsely** and a stat missing from the record reads
+  `non`. A stored `non` would count as a reference and make `deleteStat` refuse for every stat every
+  archetype had ever been saved over — the trap `Race.statValues` avoids by pruning zeros. The
+  validator *reports* the defaulting as a warning rather than letting it happen silently.
+- **Every affinity in use needs a `point_buy` column**, `non` always included (a stat added later
+  defaults to it). A missing one is a config-level **error**: without the column there is nothing to
+  route a spent point through.
+
+**Adding a purely optional field does not need a `SUPPORTED_SCHEMA_VERSION` bump.** RACE-01's
+"bump on every reshape" is about a build *crashing on a field that moved*; an additive optional key
+is readable by both builds, so `archetypes?` and `archetypeId?` shipped at version 7. Bump when a
+field moves or is removed.
+
 **`Race` is a stat block, not a bag of bonuses** (TICKET-RACE-01):
 `{ id, name, description, statValues: Record<statId, number> }`, holding the **absolute** value a
 member of that race has, like the sheet's creature rows. Two rules follow, and both are load-bearing:

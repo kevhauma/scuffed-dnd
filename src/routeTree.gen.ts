@@ -22,6 +22,7 @@ import { Route as ConfigFocusRouteImport } from './routes/config/focus'
 import { Route as ConfigCurvesRouteImport } from './routes/config/curves'
 import { Route as ConfigCurrencyRouteImport } from './routes/config/currency'
 import { Route as ConfigConstantsRouteImport } from './routes/config/constants'
+import { Route as ConfigArchetypesRouteImport } from './routes/config/archetypes'
 import { Route as PlayCharacterIdRouteImport } from './routes/play/character.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -89,6 +90,11 @@ const ConfigConstantsRoute = ConfigConstantsRouteImport.update({
   path: '/config/constants',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConfigArchetypesRoute = ConfigArchetypesRouteImport.update({
+  id: '/config/archetypes',
+  path: '/config/archetypes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlayCharacterIdRoute = PlayCharacterIdRouteImport.update({
   id: '/play/character/$id',
   path: '/play/character/$id',
@@ -97,6 +103,7 @@ const PlayCharacterIdRoute = PlayCharacterIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/config/archetypes': typeof ConfigArchetypesRoute
   '/config/constants': typeof ConfigConstantsRoute
   '/config/currency': typeof ConfigCurrencyRoute
   '/config/curves': typeof ConfigCurvesRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/config/archetypes': typeof ConfigArchetypesRoute
   '/config/constants': typeof ConfigConstantsRoute
   '/config/currency': typeof ConfigCurrencyRoute
   '/config/curves': typeof ConfigCurvesRoute
@@ -130,6 +138,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/config/archetypes': typeof ConfigArchetypesRoute
   '/config/constants': typeof ConfigConstantsRoute
   '/config/currency': typeof ConfigCurrencyRoute
   '/config/curves': typeof ConfigCurvesRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/config/archetypes'
     | '/config/constants'
     | '/config/currency'
     | '/config/curves'
@@ -164,6 +174,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/config/archetypes'
     | '/config/constants'
     | '/config/currency'
     | '/config/curves'
@@ -180,6 +191,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/config/archetypes'
     | '/config/constants'
     | '/config/currency'
     | '/config/curves'
@@ -197,6 +209,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ConfigArchetypesRoute: typeof ConfigArchetypesRoute
   ConfigConstantsRoute: typeof ConfigConstantsRoute
   ConfigCurrencyRoute: typeof ConfigCurrencyRoute
   ConfigCurvesRoute: typeof ConfigCurvesRoute
@@ -305,6 +318,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfigConstantsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/config/archetypes': {
+      id: '/config/archetypes'
+      path: '/config/archetypes'
+      fullPath: '/config/archetypes'
+      preLoaderRoute: typeof ConfigArchetypesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/play/character/$id': {
       id: '/play/character/$id'
       path: '/play/character/$id'
@@ -317,6 +337,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ConfigArchetypesRoute: ConfigArchetypesRoute,
   ConfigConstantsRoute: ConfigConstantsRoute,
   ConfigCurrencyRoute: ConfigCurrencyRoute,
   ConfigCurvesRoute: ConfigCurvesRoute,

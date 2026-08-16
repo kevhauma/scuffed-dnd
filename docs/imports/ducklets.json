@@ -11996,6 +11996,56 @@
       "conversionToNext": 0
     }
   ],
+  "archetypes": [
+    {
+      "id": "archetype-strong",
+      "name": "Strong",
+      "description": "Strenght above all bulky en not easy to take down",
+      "statAffinity": {
+        "stat-strenght": "main"
+      }
+    },
+    {
+      "id": "archetype-sneaky",
+      "name": "Sneaky",
+      "description": "stealing and murder they will never know it was you",
+      "statAffinity": {
+        "stat-dex": "main"
+      }
+    },
+    {
+      "id": "archetype-smart",
+      "name": "Smart",
+      "description": "magic and science is where you excel",
+      "statAffinity": {
+        "stat-int": "main"
+      }
+    },
+    {
+      "id": "archetype-wise",
+      "name": "Wise",
+      "description": "nature and advice is where your heart lays",
+      "statAffinity": {
+        "stat-wis": "main"
+      }
+    },
+    {
+      "id": "archetype-tanky",
+      "name": "Tanky",
+      "description": "taking hits en locking things down the tank is the shield for the weak",
+      "statAffinity": {
+        "stat-con": "main"
+      }
+    },
+    {
+      "id": "archetype-funny",
+      "name": "Funny",
+      "description": "want to fuck and charm your way trough live",
+      "statAffinity": {
+        "stat-char": "main"
+      }
+    }
+  ],
   "constants": [
     {
       "id": "const-bonus-divider",

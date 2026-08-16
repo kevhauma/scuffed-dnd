@@ -28,6 +28,7 @@ import { findReferences } from '../engine/dependencies';
 import { toDisplayConfiguration, toStoredConfiguration } from '../engine/formula/references';
 import { clearAllData, loadConfiguration, saveConfiguration } from '../services/storage';
 import type {
+  Archetype,
   CombatSkill,
   Configuration,
   Constant,
@@ -42,7 +43,7 @@ import type {
   Skill,
   Stat,
 } from '../types/config';
-import { SUPPORTED_SCHEMA_VERSION } from '../types/config';
+import { POINT_BUY_CURVE_NAME, SUPPORTED_SCHEMA_VERSION } from '../types/config';
 import { useCharacterStore } from './characterStore';
 
 /**
@@ -128,6 +129,11 @@ interface ConfigState {
   addRace: (race: Race) => void;
   updateRace: (id: string, updates: Partial<Race>) => void;
   deleteRace: (id: string, options?: DeleteOptions) => EntityReference[];
+
+  // Archetypes CRUD (Concept 03, TICKET-ARC-01)
+  addArchetype: (archetype: Archetype) => void;
+  updateArchetype: (id: string, updates: Partial<Archetype>) => void;
+  deleteArchetype: (id: string, options?: DeleteOptions) => EntityReference[];
 
   // Currency Tiers CRUD
   addCurrencyTier: (tier: CurrencyTier) => void;
@@ -267,7 +273,7 @@ const POINT_BUY_HAND_ROWS: readonly (readonly [key: number, non: number, sub: nu
 function createSeedCurves(): Curve[] {
   const pointBuy: Curve = {
     id: crypto.randomUUID(),
-    name: 'point_buy',
+    name: POINT_BUY_CURVE_NAME,
     displayName: 'Point buy',
     description:
       'What a point spent on a stat is worth, by how much the archetype favours that stat.',
@@ -786,6 +792,39 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     guardedDelete(set, get, 'race', id, options, (config) => ({
       ...config,
       races: config.races.filter((race) => race.id !== id),
+    })),
+
+  // Archetypes CRUD (Concept 03, TICKET-ARC-01)
+  addArchetype: (archetype: Archetype) => {
+    const { config } = get();
+    if (!config) return;
+
+    // `archetypes` is optional and absent means none, so the first one creates the array rather
+    // than a fresh ruleset shipping an empty one — the treatment `constants` and `curves` get
+    const updated = autoSave({
+      ...config,
+      archetypes: [...(config.archetypes ?? []), archetype],
+    });
+    set({ config: updated });
+  },
+
+  updateArchetype: (id: string, updates: Partial<Archetype>) => {
+    const { config } = get();
+    if (!config) return;
+
+    const updated = autoSave({
+      ...config,
+      archetypes: (config.archetypes ?? []).map((archetype) =>
+        archetype.id === id ? { ...archetype, ...updates } : archetype
+      ),
+    });
+    set({ config: updated });
+  },
+
+  deleteArchetype: (id: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'archetype', id, options, (config) => ({
+      ...config,
+      archetypes: (config.archetypes ?? []).filter((archetype) => archetype.id !== id),
     })),
 
   // Currency Tiers CRUD

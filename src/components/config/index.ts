@@ -4,6 +4,10 @@
  * Central export point for all configuration mode components.
  */
 
+export * from './archetypes/ArchetypeCard';
+export * from './archetypes/ArchetypeFormDialog';
+export * from './archetypes/ArchetypesConfigPanel';
+export * from './archetypes/useArchetypeManager';
 export * from './constants/ConstantCard';
 export * from './constants/ConstantFormDialog';
 export * from './constants/ConstantsConfigPanel';
@@ -48,6 +52,7 @@ export * from './races/useRaceManager';
 export * from './shared/BlockedDeleteDialog';
 export * from './shared/ConfigEmptyState';
 export * from './shared/ConfigPanelShell';
+export * from './shared/StatRowsField';
 export * from './shared/UsageList';
 export * from './shared/useGuardedDelete';
 export * from './skills/combat/CombatSkillCard';

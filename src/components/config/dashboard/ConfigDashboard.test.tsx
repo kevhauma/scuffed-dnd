@@ -249,7 +249,7 @@ describe('ConfigDashboard', () => {
     expect(screen.getByText('Loading configuration...')).toBeDefined();
   });
 
-  it('should still link to all eight configuration areas', () => {
+  it('should link to every configuration area', () => {
     render(<ConfigDashboard />);
 
     for (const label of [
@@ -258,8 +258,10 @@ describe('ConfigDashboard', () => {
       'Materials',
       'Items',
       'Races',
+      'Archetypes',
       'Currency',
       'Constants',
+      'Curves',
       'Focus Stat',
     ]) {
       expect(screen.getByText(label)).toBeDefined();

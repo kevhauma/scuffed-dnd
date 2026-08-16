@@ -1,19 +1,19 @@
 # Test Status
 
 _Last verified: 2026-08-16 (`npx vitest run`), after
-[TICKET-RES-03](docs/v2.0_sheet_core/tickets/TICKET-RES-03-resource-pool-behaviours.md)._
+[TICKET-ARC-01](docs/v2.0_sheet_core/tickets/TICKET-ARC-01-archetype-concept-and-panel.md)._
 
 ## Summary
 
-- **Total tests**: 1418
-- **Passing**: 1418 (100%)
+- **Total tests**: 1458
+- **Passing**: 1458 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
 Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's tickets added
 +43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), +11 (FORM-06), +7 (CALC-02),
 +11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02), +64 (CRV-01),
-+32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09), +14 (SKL-02), +36 (SKL-03), +36 (RES-01), +14 (RES-02) and +48 (RES-03).
++32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09), +14 (SKL-02), +36 (SKL-03), +36 (RES-01), +14 (RES-02), +48 (RES-03) and +40 (ARC-01).
 **RES-02's +14 is a net figure**: `StatPointBudget.test.tsx` (6) went with the flat pool it
 covered, `configStore.test.ts`'s budget block shrank from 4 cases to 2, and the
 `mainSkillPointBudget` round-trip block became a 4-case retired-field refusal — against which
@@ -24,6 +24,12 @@ gained 8 for `setInvestedStatPoints`, and the sheet gained 6 for the pool and it
 `characterStore.test.ts` for the two new pool actions and creation's affordability refusal, and 13
 on the sheet for quick entry, refill and kept-and-flagged. Three existing sheet cases were rewritten
 rather than added to: commit is on blur now, and `-5` is a delta rather than an absolute.
+**ARC-01's +40** is a new entity's full spread: 8 in a new `ArchetypesConfigPanel.test.tsx`, 5 in a
+new `StatRowsField.test.tsx`, 10 in `validator.test.ts` for the two new rules, 6 in
+`importExport.test.ts` for the shape, 5 in `configStore.test.ts` for CRUD and the export round-trip,
+4 in `dependencies.test.ts` for the guarded-delete reference in both directions, and 2 route cases.
+Nine of those came from the `conventions-reviewer` pass, which found `deleteStat` blind to archetype
+affinities — see the ticket.
 **SKL-02's +14 is a net figure across a very large rewrite**: the source-side reshape landed a
 session ahead of its tests, so 171 tests were failing when the ticket was picked up. 20 tests were
 added in a new `skillCalculator.test.ts` (Concept 02's verified table), a handful more elsewhere,

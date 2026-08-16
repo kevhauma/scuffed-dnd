@@ -32,6 +32,9 @@ vi.mock('../../components/config/items/ItemsConfigPanel', () => ({
 vi.mock('../../components/config/items/EquipmentSlotsConfigPanel', () => ({
   EquipmentSlotsConfigPanel: () => <div data-testid="equipment-slots-config-panel" />,
 }));
+vi.mock('../../components/config/archetypes/ArchetypesConfigPanel', () => ({
+  ArchetypesConfigPanel: () => <div data-testid="archetypes-config-panel" />,
+}));
 vi.mock('../../components/config/races/RacesConfigPanel', () => ({
   RacesConfigPanel: () => <div data-testid="races-config-panel" />,
 }));
@@ -59,6 +62,7 @@ vi.mock('../../services/storage', () => ({
 
 import { loadConfiguration } from '../../services/storage';
 import { useConfigStore } from '../../stores/configStore';
+import { ArchetypesConfig } from './archetypes';
 import { ConstantsConfig } from './constants';
 import { CurrencyConfig } from './currency';
 import { CurvesConfig } from './curves';
@@ -131,6 +135,12 @@ describe('configuration routes', () => {
     expect(screen.getByTestId('focus-stat-config')).toBeDefined();
   });
 
+  it('/config/archetypes renders the archetypes panel', () => {
+    render(<ArchetypesConfig />);
+
+    expect(screen.getByTestId('archetypes-config-panel')).toBeDefined();
+  });
+
   it('no config route renders the scaffold placeholder copy', () => {
     for (const Page of [
       SkillsConfig,
@@ -138,6 +148,7 @@ describe('configuration routes', () => {
       MaterialsConfig,
       ItemsConfig,
       RacesConfig,
+      ArchetypesConfig,
       CurrencyConfig,
       ConstantsConfig,
       CurvesConfig,
