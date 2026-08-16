@@ -67,8 +67,10 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     skills,
     stats,
     statTotal,
+    budget,
     combatSkills,
     handleChangeStatValue,
+    handleChangeInvestedPoints,
     handleAwardExperience,
     handleDeductExperience,
     handleBack,
@@ -145,7 +147,13 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
 
       <RaceStatBlockSection raceNames={raceNames} raceContributions={raceContributions} />
 
-      <StatsSection stats={stats} statTotal={statTotal} onChangeStatValue={handleChangeStatValue} />
+      <StatsSection
+        stats={stats}
+        statTotal={statTotal}
+        budget={budget}
+        onChangeStatValue={handleChangeStatValue}
+        onChangeInvestedPoints={handleChangeInvestedPoints}
+      />
 
       <InventoryPanel characterId={characterId} />
 

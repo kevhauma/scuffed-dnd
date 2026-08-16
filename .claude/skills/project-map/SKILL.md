@@ -41,7 +41,7 @@ rather than a read-only config UI).
 | `/` | `routes/index.tsx` | landing page, feature overview |
 | `/config` | `routes/config/index.tsx` | `ConfigDashboard` (components/config/dashboard/) — validation status, the "Validate Configuration" action, the `ConfigTransferPanel` (rename/export/import), and a card index of the nine sections below |
 | `/config/skills` | `routes/config/skills.tsx` | `SkillsPanel` + `CombatSkillsPanel` (main skills merged into stats — TICKET-STAT-01; the speciality panel became the weighted `SkillsPanel` — TICKET-SKL-02) |
-| `/config/stats` | `routes/config/stats.tsx` | `StatsConfigPanel` — the unified Stat: invested, resource and derived alike, every field in one editor with drag/arrow reordering (TICKET-STAT-02), plus `StatPointBudget` |
+| `/config/stats` | `routes/config/stats.tsx` | `StatsConfigPanel` — the unified Stat: invested, resource and derived alike, every field in one editor with drag/arrow reordering (TICKET-STAT-02). The flat point-budget field is gone — TICKET-RES-02 derives it |
 | `/config/materials` | `routes/config/materials.tsx` | `MaterialsConfigPanel` |
 | `/config/items` | `routes/config/items.tsx` | `ItemsConfigPanel` + `EquipmentSlotsConfigPanel` |
 | `/config/races` | `routes/config/races.tsx` | `RacesConfigPanel` |
@@ -80,7 +80,7 @@ calls the storage service; components and hooks never persist directly.
 |---|---|---|
 | `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), speciality and combat skills, materials + categories, items, equipment slots, races, currency tiers, constants, curves, focus-stat bonus level. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
-| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`) and `updateCurrentStatValue(s)` | `saveCharacters()` on every mutation |
+| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`) , `updateCurrentStatValue(s)`, `awardExperience`/`deductExperience`, and `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) | `saveCharacters()` on every mutation |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history | not persisted |
 
 Read the store's own type block (`ConfigState`, `CharacterState`, `UIState`) for the exact action
@@ -220,10 +220,13 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   chips rather than claiming 1. The curve is found **by name**, like `const.bonus_divider` and
   `const.race_blend_divisor`, so renaming it breaks the link rather than following it. Every screen
   showing a level reads it from here.
-- `skillAllocation.ts` — `validateStatAllocation(investedStatPoints, config)` → points
-  spent/remaining, per-stat violations (`negative-points`, `derived-stat`), verdict. Keyed by stat
-  id. The single global point pool (`Configuration.mainSkillPointBudget`,
-  absent = unlimited). The creation wizard reads this; it never re-sums levels itself.
+- `skillAllocation.ts` — `validateStatAllocation(character, config)` → points spent/remaining,
+  per-stat violations (`negative-points`, `derived-stat`), verdict. Keyed by stat id. The pool is
+  **derived** since TICKET-RES-02: `level × const.points_per_level`, so it takes the whole character
+  (the level comes from their experience) and both money numbers are `FormulaResult`s that carry the
+  level's error rather than substituting a number. An unpriceable pool is `isValid: false`, not
+  unlimited. The creation wizard, the sheet and `characterStore.setInvestedStatPoints` all read
+  this; none of them re-sums anything.
 
 - `dice/diceSimulator.ts` — `rollDice(diceConfig, rng?)` → `DiceRollResult[]` (one entry per die
   type with a count above zero, carrying every individual roll), plus `rollDie`, `sumDiceResults`,
@@ -324,7 +327,10 @@ decides whether a delete is safe; `configStore`'s delete actions return the refe
 sheet and the wizard's derived-stat preview render — reuse it rather than re-deriving a breakdown
 layout. Its optional `secondary` prop carries a **second** labelled number before the total, for a
 row that has two (a skill's level beside its bonus); it is dropped when it carries an error, leaving
-the total's chip to explain the one cause once.
+the total's chip to explain the one cause once. `PointBudgetSummary.tsx` (TICKET-RES-02) is the
+third: `toPointBudgetView(allocation)` turns the engine's verdict into display numbers and the
+component states "N of M points spent · K remaining", chipping instead when the pool cannot be
+priced. The wizard and the sheet both render it, so they cannot drift on what "remaining" means.
 `characters/` holds `CharacterList` + `CharacterCard` + `useCharacterListManager`.
 `creation/` holds the four-step wizard: `CharacterCreationWizard` dispatches on a step index and
 the four step components (`IdentityStep`, `SkillAllocationStep`, `FocusStatStep`, `ReviewStep`)
@@ -335,8 +341,10 @@ previews the derived ones read-only off the same `calculateCharacter` result the
 `useCharacterSheet` (status resolution, the one `calculateCharacter` call, and the stat handler),
 with `SheetHeader`, `RaceStatBlockSection` (the races' combined block, stated in absolutes —
 TICKET-RACE-01), `StatsSection` (one `SkillBreakdownRow` per stat in
-`order`, **plus** a `StatEditor` for each `isResource` stat — the breakdown row owns the value and
-its error chip, the editor owns the current value; TICKET-STAT-03), `SkillsSection` (one row per
+`order`, **plus** a `StatEditor` for each `isResource` stat and an `InvestedPointsEditor` for each
+non-derived one — the breakdown row owns the value and its error chip, the editor owns the current
+value, the points editor spends the level-derived pool; TICKET-STAT-03, TICKET-RES-02),
+`SkillsSection` (one row per
 skill carrying **both** of Concept 02's numbers since TICKET-SKL-03 — the bonus as the row's total,
 the level in `SkillBreakdownRow`'s `secondary` slot — over a breakdown of `STR × 0.2 +2` terms plus
 the points invested) and `CombatSkillsSection` as pure props.

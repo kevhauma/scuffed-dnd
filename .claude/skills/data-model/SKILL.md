@@ -26,9 +26,8 @@ as part of the action. That is the equivalent of a repository layer here.
 
 ## Configuration (the ruleset)
 
-One `Configuration` per browser: id, name, version, **`schemaVersion: 6`**, timestamps,
-`focusStatBonusLevel`, the optional
-`mainSkillPointBudget`, plus the entity arrays — `stats`, `skills`,
+One `Configuration` per browser: id, name, version, **`schemaVersion: 7`**, timestamps,
+`focusStatBonusLevel`, plus the entity arrays — `stats`, `skills`,
 `combatSkills`, `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
 `currencyTiers`, the optional `constants` (TICKET-CST-01), and the optional `curves`
 (TICKET-CRV-01).
@@ -41,11 +40,15 @@ stat value) + invested` and `bonus = round(level / const.bonus_divider)` live on
 one constant rather than 48 formula edits. A weight row names a stat by **id**, so a rename cannot
 orphan it, and a formula reaches a skill as `skills.<name-slug>` (`.bonus` for the integer).
 
-`mainSkillPointBudget?: number` is the worked example of an optional field done right, and the
-pattern to copy: **absent means unlimited**, so rulesets saved before it existed stay valid;
-`validateConfiguration()` in `importExport.ts` accepts `undefined` and only type-checks a present
-value; `setMainSkillPointBudget(undefined)` deletes the key rather than storing `undefined`; and
-`validateStatAllocation()` in `src/engine/skillAllocation.ts` reads it as `null` = no limit.
+`constants?: Constant[]` is the worked example of an optional field done right, and the pattern to
+copy: **absent means none and stays absent**, so a ruleset written before TICKET-CST-01 round-trips
+without growing an empty array; every reader writes `config.constants ?? []`.
+
+**A field that is retired is refused, not ignored** (TICKET-RES-02). `RETIRED_FIELDS` in
+[importExport.ts](../../../src/services/importExport.ts) maps each removed key to what replaced it,
+and `validateConfiguration()` errors when an imported file still carries one — importing a ruleset
+that plays differently from the one the User exported is worse than refusing it. Add to that map
+when you delete a persisted field, and bump `SUPPORTED_SCHEMA_VERSION` in the same change.
 
 The same rule applies inside an entity. `updateStat` merges through `mergeClearingAbsent`
 (TICKET-STAT-02), so a patch setting `min`, `max` or `formula` to `undefined` **deletes** the key
@@ -249,6 +252,14 @@ every screen reads. This inverts v1.0, where level was the sum of points spent; 
 `FormulaResult`, because the curve is User data that can be deleted or set to refuse out-of-range
 input — a level that cannot be read chips rather than showing a confident 1. Only
 `awardExperience`/`deductExperience` write it; a deduction below 0 is **refused**, not clamped.
+
+**The point budget closes that chain** (TICKET-RES-02): `validateStatAllocation(character, config)`
+in [skillAllocation.ts](../../../src/engine/skillAllocation.ts) prices the pool as
+`level × const.points_per_level` — derived, never stored — and `Configuration.mainSkillPointBudget`
+is gone with its "absent means unlimited". Both money numbers are `FormulaResult`s, so a level that
+cannot be read makes the allocation *invalid* rather than unlimited. Spending post-creation goes
+through `characterStore.setInvestedStatPoints`, which **refuses** an unaffordable spend rather than
+clamping it — a partial investment would read as one that landed.
 
 **Since TICKET-CALC-02, every *configured* stat has a value; absence is not a state.**
 `calculateStatValues` seeds every stat in `config.stats` before applying investment, racial

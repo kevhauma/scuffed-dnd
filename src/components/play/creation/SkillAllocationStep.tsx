@@ -1,7 +1,8 @@
 /**
  * Creation Step 2 — Stats
  *
- * Allocates points across the ruleset's **invested** stats within the configured budget, showing
+ * Allocates points across the ruleset's **invested** stats within the budget their level grants —
+ * `level × const.points_per_level` since TICKET-RES-02, which at creation is level-at-XP-0 — showing
  * each stat's racial modifier separately from the points spent, and the base level per speciality
  * skill. A **derived** stat takes no points, so it previews read-only and moves as the invested
  * ones do — that split is Concept 01's, wired here by TICKET-STAT-03.
@@ -12,12 +13,13 @@
  * **Validates: Concept 01; Requirements 11.3, 8.4, 16.6, 21.1-21.5**
  */
 
-import type { StatAllocationResult } from '../../../engine/skillAllocation';
 import type { Skill, Stat } from '../../../types/config';
 import { Card } from '../../ui/Card/Card';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
+import type { PointBudgetView } from '../shared/PointBudgetSummary';
+import { PointBudgetSummary } from '../shared/PointBudgetSummary';
 import { SkillBreakdownRow } from '../shared/SkillBreakdownRow';
 import type { DerivedStatPreview } from './useCharacterCreation';
 
@@ -30,7 +32,8 @@ export interface SkillAllocationStepProps {
   investedSkillPoints: Record<string, number>;
   /** What the chosen races supply, per stat id (TICKET-RACE-01) */
   raceBases: Record<string, number>;
-  allocation: StatAllocationResult | null;
+  /** Spent, available and remaining, already spelled for display by the hook */
+  budget: PointBudgetView | null;
   onChangeInvestedStatPoints: (statId: string, points: number) => void;
   onChangeInvestedSkillPoints: (code: string, level: number) => void;
 }
@@ -48,7 +51,7 @@ export function SkillAllocationStep({
   investedStatPoints,
   investedSkillPoints,
   raceBases,
-  allocation,
+  budget,
   onChangeInvestedStatPoints,
   onChangeInvestedSkillPoints,
 }: SkillAllocationStepProps) {
@@ -59,16 +62,13 @@ export function SkillAllocationStep({
           <Text variant="h4" as="h2">
             Stats
           </Text>
-          {allocation && allocation.pointBudget !== null && (
-            <Text variant={allocation.isOverBudget ? 'error' : 'body-small-secondary'} as="p">
-              {allocation.pointsSpent} of {allocation.pointBudget} points spent ·{' '}
-              {allocation.pointsRemaining} remaining
-            </Text>
-          )}
-          {allocation && allocation.pointBudget === null && (
-            <Text variant="body-small-secondary" as="p">
-              {allocation.pointsSpent} points spent · no budget set
-            </Text>
+          {budget && (
+            <PointBudgetSummary
+              pointsSpent={budget.pointsSpent}
+              pointBudget={budget.pointBudget}
+              pointsRemaining={budget.pointsRemaining}
+              isOverBudget={budget.isOverBudget}
+            />
           )}
         </div>
 

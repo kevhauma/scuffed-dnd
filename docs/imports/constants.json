@@ -3,7 +3,8 @@
   "title": "Constants",
   "tickets": [
     "TICKET-CST-01",
-    "TICKET-CST-02"
+    "TICKET-CST-02",
+    "TICKET-RES-02"
   ],
   "concept": "05 · Constant",
   "source": {
@@ -13,14 +14,17 @@
       "Calculator!G13:G14",
       "Calculator!P2:Q2",
       "Calculator!P5:Q5",
-      "Setup!Q6"
+      "Setup!Q6",
+      "Charactersheet!E17"
     ]
   },
   "confidence": "confirmed",
   "notes": [
     "bonus_divider is labelled in Calculator!G13 and read by every skill bonus cell as ROUND(level / Calculator!$G$14, 0).",
     "race_blend_divisor is the /2 in Setup!Q6 — ROUNDUP(K6+N6,0)/2 — the only place the sheet blends two races. The sheet has no label for it; the name is ours.",
-    "These four match the seed constants a fresh ruleset already ships with, so importing this fragment over a fresh configuration replaces like with like."
+    "These four match the seed constants a fresh ruleset already ships with, so importing this fragment over a fresh configuration replaces like with like.",
+    "TICKET-RES-02 makes points_per_level load-bearing: the stat point budget is now derived as level × points_per_level, matching Charactersheet!E17 (level × points_per_level − points_spent). The flat Configuration.mainSkillPointBudget it replaces was never sheet data, so nothing was lost from this fragment when it was deleted.",
+    "The sheet has no starting_points cell — whether a fresh character gets a bonus pool on top of level 1's is unanswered there, so nothing is invented here and level 1's budget is the starting budget."
   ],
   "data": {
     "constants": [

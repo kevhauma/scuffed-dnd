@@ -106,7 +106,7 @@ export function buildConfiguration(entries) {
     // Must track `SUPPORTED_SCHEMA_VERSION` in src/types/config.ts, which this script cannot
     // import (it is TypeScript). `exampleRuleset.test.ts` asserts the two agree, so drift fails
     // the suite rather than producing a corpus the app then refuses to import.
-    schemaVersion: 6,
+    schemaVersion: 7,
     focusStatBonusLevel: 0,
     createdAt: EXPORTED_AT,
     updatedAt: EXPORTED_AT,

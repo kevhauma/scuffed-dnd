@@ -173,9 +173,6 @@ interface ConfigState {
 
   // Focus Stat Configuration
   setFocusStatBonusLevel: (level: number) => void;
-
-  // Main Skill Point Allocation
-  setMainSkillPointBudget: (budget: number | undefined) => void;
 }
 
 /**
@@ -361,8 +358,8 @@ function applyRenameSafely(
  *
  * A plain spread would leave `min: undefined` sitting on the record — a key that is present,
  * reads as absent, and disappears the next time the ruleset is serialised. The data model's rule
- * is that an optional field is deleted rather than stored empty (`setMainSkillPointBudget` is the
- * worked example), so a caller clearing a bound or a formula gets the key removed.
+ * is that an optional field is deleted rather than stored empty, so a caller clearing a bound or a
+ * formula gets the key removed.
  *
  * @param entity - The record being edited
  * @param updates - The patch; a key set to `undefined` is a removal, an absent key is a no-op
@@ -944,19 +941,6 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       ...config,
       focusStatBonusLevel: level,
     });
-    set({ config: updated });
-  },
-
-  // Main Skill Point Allocation
-  setMainSkillPointBudget: (budget: number | undefined) => {
-    const { config } = get();
-    if (!config) return;
-
-    // undefined clears the limit — the field is optional and absent means unlimited
-    const { mainSkillPointBudget: _removed, ...rest } = config;
-    const updated = autoSave(
-      budget === undefined ? rest : { ...config, mainSkillPointBudget: budget }
-    );
     set({ config: updated });
   },
 }));

@@ -31,7 +31,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 6,
+    schemaVersion: 7,
     stats: [
       {
         id: 'STR',
@@ -98,8 +98,36 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
       { id: 'human', name: 'Human', description: '', statValues: {} },
     ],
     currencyTiers: [],
+    // The budget is derived since TICKET-RES-02, so the fixture buys it rather than declaring it:
+    // a fresh character is level 1 against the curve, and 12 points per level is the pool the
+    // allocation assertions below are written against
+    constants: [
+      {
+        id: 'const-ppl',
+        name: 'points_per_level',
+        displayName: 'Points per level',
+        description: '',
+        value: 12,
+      },
+    ],
+    curves: [
+      {
+        id: 'curve-xp',
+        name: 'xp_thresholds',
+        displayName: 'XP thresholds',
+        description: '',
+        keyName: 'level',
+        columns: [{ id: 'curve-xp-col', name: 'xp_required' }],
+        rows: [
+          { key: 1, values: [0] },
+          { key: 2, values: [300] },
+        ],
+        interpolation: 'step',
+        outOfRange: 'extrapolate',
+        lookupDirection: 'reverse',
+      },
+    ],
     focusStatBonusLevel: 3,
-    mainSkillPointBudget: 12,
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     ...overrides,

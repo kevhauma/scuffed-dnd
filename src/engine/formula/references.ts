@@ -494,8 +494,8 @@ export function ensureReferenceIds(config: Configuration, newId: () => string): 
     stats: config.stats.map(withId),
     skills: config.skills.map(withId),
     combatSkills: config.combatSkills.map(withId),
-    // Absent stays absent, the way `mainSkillPointBudget` does — a file predating TICKET-CST-01
-    // round-trips unchanged rather than growing an empty array on the way through.
+    // Absent stays absent — a file predating TICKET-CST-01 round-trips unchanged rather than
+    // growing an empty array on the way through.
     ...(config.constants ? { constants: config.constants.map(withId) } : {}),
     ...(config.curves
       ? {

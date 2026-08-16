@@ -12,6 +12,7 @@ import { create } from 'zustand';
 import { calculateCharacter } from '../engine/calculator';
 import { MAX_RACE_COUNT } from '../engine/calculators/statCalculator';
 import { asNumber } from '../engine/formula/errors';
+import { validateStatAllocation } from '../engine/skillAllocation';
 import { loadCharacters, saveCharacters } from '../services/storage';
 import type { Character, CharacterCreationData, Inventory } from '../types/character';
 import type { Configuration } from '../types/config';
@@ -76,6 +77,22 @@ interface CharacterState {
   updateCurrentStatValues: (
     characterId: string,
     values: Record<string, number>,
+    config: Configuration
+  ) => void;
+
+  /**
+   * Put points into one invested stat, refusing anything the derived budget cannot pay for
+   *
+   * The level-up mechanic (TICKET-RES-02): unspent points stay spendable, so a Player who gains a
+   * level simply has more to allocate and does it here rather than through a second wizard. The
+   * refusal is a **refusal**, not a clamp — silently spending fewer points than asked would leave
+   * a Player believing an investment landed. It takes the `Configuration` because the budget is
+   * derived from the character's level, which is never stored on them.
+   */
+  setInvestedStatPoints: (
+    characterId: string,
+    statId: string,
+    points: number,
     config: Configuration
   ) => void;
 
@@ -483,6 +500,36 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
           },
         });
       })
+    );
+    set({ characters: updated });
+  },
+
+  setInvestedStatPoints: (
+    characterId: string,
+    statId: string,
+    points: number,
+    config: Configuration
+  ) => {
+    const { characters } = get();
+    const character = characters.find((candidate) => candidate.id === characterId);
+    if (!character) return;
+
+    if (!Number.isInteger(points) || points < 0) return;
+
+    const proposed: Character = {
+      ...character,
+      investedStatPoints: { ...character.investedStatPoints, [statId]: points },
+    };
+
+    // The engine decides, so the sheet and the wizard cannot disagree about what is affordable.
+    // An unavailable budget lands here as `isValid: false`, which is the right answer: a ruleset
+    // that cannot say how many points exist cannot say this spend is allowed either.
+    if (!validateStatAllocation(proposed, config).isValid) return;
+
+    const updated = autoSave(
+      characters.map((candidate) =>
+        candidate.id === characterId ? updateTimestamp(proposed) : candidate
+      )
     );
     set({ characters: updated });
   },

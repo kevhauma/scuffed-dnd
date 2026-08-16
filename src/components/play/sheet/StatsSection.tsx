@@ -10,13 +10,20 @@
  * a maximum the Player spends against. That gating is the point of TICKET-STAT-03 — v1 gave every
  * stat an editable current value, which is how "current Strength" became a thing.
  *
- * **Validates: Concept 01; Requirements 13.4, 14.1, 14.2, 16.6, 21.1-21.5**
+ * An **invested** stat gets its own extra row for the same reason and by the same rule: the
+ * `InvestedPointsEditor`, because since TICKET-RES-02 a Player's pool grows with their level and
+ * spending it is something they do at the table rather than only at creation.
+ *
+ * **Validates: Concept 01; Concept 06; Requirements 11.3, 13.4, 14.1, 14.2, 16.6, 21.1-21.5**
  */
 
 import { Fragment } from 'react';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
+import type { PointBudgetView } from '../shared/PointBudgetSummary';
+import { PointBudgetSummary } from '../shared/PointBudgetSummary';
 import { SkillBreakdownRow } from '../shared/SkillBreakdownRow';
+import { InvestedPointsEditor } from './InvestedPointsEditor';
 import { StatEditor } from './StatEditor';
 import type { StatBreakdown } from './useCharacterSheet';
 
@@ -24,15 +31,34 @@ export interface StatsSectionProps {
   stats: StatBreakdown[];
   /** Sum of the stats the ruleset flags as counting toward the total */
   statTotal: number;
+  /** The pool every invested stat below spends from, or null when there is none to show */
+  budget: PointBudgetView | null;
   onChangeStatValue: (statId: string, value: number) => void;
+  onChangeInvestedPoints: (statId: string, points: number) => void;
 }
 
-export function StatsSection({ stats, statTotal, onChangeStatValue }: StatsSectionProps) {
+export function StatsSection({
+  stats,
+  statTotal,
+  budget,
+  onChangeStatValue,
+  onChangeInvestedPoints,
+}: StatsSectionProps) {
   return (
     <Card className="p-6">
-      <Text variant="h4" as="h2" className="mb-3">
-        Stats
-      </Text>
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <Text variant="h4" as="h2">
+          Stats
+        </Text>
+        {budget && (
+          <PointBudgetSummary
+            pointsSpent={budget.pointsSpent}
+            pointBudget={budget.pointBudget}
+            pointsRemaining={budget.pointsRemaining}
+            isOverBudget={budget.isOverBudget}
+          />
+        )}
+      </div>
 
       {stats.length === 0 ? (
         <Text variant="body-small-secondary">This ruleset defines no stats.</Text>
@@ -53,6 +79,15 @@ export function StatsSection({ stats, statTotal, onChangeStatValue }: StatsSecti
                 { label: 'focus', value: stat.focus },
               ]}
             />
+
+            {!stat.isDerived && budget && (
+              <InvestedPointsEditor
+                name={stat.name}
+                invested={stat.invested}
+                pointsRemaining={budget.pointsRemaining}
+                onChange={(points) => onChangeInvestedPoints(stat.id, points)}
+              />
+            )}
 
             {stat.isResource && (
               <StatEditor

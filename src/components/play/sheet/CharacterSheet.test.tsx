@@ -35,7 +35,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 6,
+    schemaVersion: 7,
     stats: [
       {
         id: 'STR',
@@ -119,6 +119,17 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
       },
     ],
     currencyTiers: [],
+    // The point budget is `level × points_per_level` since TICKET-RES-02, so at level 3 this
+    // character has 15 points and has spent 10 of them
+    constants: [
+      {
+        id: 'const-ppl',
+        name: 'points_per_level',
+        displayName: 'Points per level',
+        description: '',
+        value: 5,
+      },
+    ],
     // Level is read backwards out of this since TICKET-RES-01
     curves: [
       {
@@ -376,7 +387,9 @@ describe('CharacterSheet', () => {
 
       render(<CharacterSheet characterId="char1" />);
 
-      expect(screen.getByRole('img', { name: /xp_thresholds/ })).toBeDefined();
+      // Two chips, not one: the header's level and the stats section's point budget, which is
+      // priced off that same level since TICKET-RES-02
+      expect(screen.getAllByRole('img', { name: /xp_thresholds/ })).toHaveLength(2);
       // The XP itself is still readable — it is stored, not derived
       expect(screen.getByText(/900 XP/)).toBeDefined();
     });
@@ -645,6 +658,69 @@ describe('CharacterSheet', () => {
         // …but the stat itself is still on the sheet, with its calculated value
         expect(screen.queryByLabelText('Mana')).toBeNull();
         expect(within(rowFor(/Mana \(MAN\)/)).getByText('30')).toBeDefined();
+      });
+    });
+
+    /**
+     * The level-up mechanic (TICKET-RES-02): the pool follows the level, and spending it happens
+     * here rather than in a second wizard.
+     */
+    describe('the derived point budget', () => {
+      it('should state the pool the character’s level grants and what is left of it', () => {
+        render(<CharacterSheet characterId="char1" />);
+
+        // Level 3 × 5 points per level = 15; STR 6 + DEX 4 already spent
+        expect(screen.getByText('10 of 15 points spent · 5 remaining')).toBeDefined();
+      });
+
+      it('should move the pool when experience moves the level', () => {
+        useCharacterStore.setState({ characters: [createCharacter({ experience: 300 })] });
+
+        render(<CharacterSheet characterId="char1" />);
+
+        // Level 2 now, so 10 points — and the same 10 spent leaves nothing
+        expect(screen.getByText('10 of 10 points spent · 0 remaining')).toBeDefined();
+      });
+
+      it('should give every invested stat a control to spend the pool on', () => {
+        render(<CharacterSheet characterId="char1" />);
+
+        expect(screen.getByLabelText('Points in Strength')).toBeDefined();
+        expect(screen.getByLabelText('Spend a point on Strength')).toBeDefined();
+        // A derived stat computes its own value, so there is nothing to invest in it
+        expect(screen.queryByLabelText('Points in Health')).toBeNull();
+      });
+
+      it('should spend a point through the store and show the pool shrink', () => {
+        render(<CharacterSheet characterId="char1" />);
+
+        fireEvent.click(screen.getByLabelText('Spend a point on Strength'));
+
+        expect(useCharacterStore.getState().characters[0].investedStatPoints.STR).toBe(7);
+        expect(screen.getByText('11 of 15 points spent · 4 remaining')).toBeDefined();
+      });
+
+      it('should refuse a spend the pool cannot pay for, leaving the character untouched', () => {
+        useCharacterStore.setState({
+          characters: [createCharacter({ investedStatPoints: { STR: 11, 'dex-id': 4 } })],
+        });
+
+        render(<CharacterSheet characterId="char1" />);
+
+        // Nothing remains, so the control is closed rather than silently doing nothing
+        expect(
+          (screen.getByLabelText('Spend a point on Strength') as HTMLButtonElement).disabled
+        ).toBe(true);
+        expect(useCharacterStore.getState().characters[0].investedStatPoints.STR).toBe(11);
+      });
+
+      it('should chip the pool rather than showing zero when the level cannot be read', () => {
+        useConfigStore.setState({ config: createConfig({ curves: [] }), isLoaded: true });
+
+        render(<CharacterSheet characterId="char1" />);
+
+        expect(screen.getByText(/Points available:/)).toBeDefined();
+        expect(screen.queryByText(/points spent/)).toBeNull();
       });
     });
   });

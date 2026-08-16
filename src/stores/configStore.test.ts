@@ -66,7 +66,7 @@ describe('ConfigStore', () => {
         id: 'test-id',
         name: 'Loaded Config',
         version: '1.0.0',
-        schemaVersion: 6,
+        schemaVersion: 7,
         stats: [],
         skills: [],
         combatSkills: [],
@@ -795,36 +795,24 @@ describe('ConfigStore', () => {
     });
   });
 
-  describe('Main Skill Point Budget', () => {
+  describe('Stat point budget (retired by TICKET-RES-02)', () => {
     beforeEach(() => {
       useConfigStore.getState().initializeConfig('Test');
       vi.clearAllMocks();
     });
 
-    it('should start with no budget, meaning unlimited', () => {
-      expect(useConfigStore.getState().config?.mainSkillPointBudget).toBeUndefined();
-    });
-
-    it('should set the main skill point budget and persist it', () => {
-      useConfigStore.getState().setMainSkillPointBudget(20);
-
-      expect(useConfigStore.getState().config?.mainSkillPointBudget).toBe(20);
-      expect(storage.saveConfiguration).toHaveBeenCalled();
-    });
-
-    it('should accept a budget of zero', () => {
-      useConfigStore.getState().setMainSkillPointBudget(0);
-
-      expect(useConfigStore.getState().config?.mainSkillPointBudget).toBe(0);
-    });
-
-    it('should remove the field entirely when cleared, rather than storing undefined', () => {
-      useConfigStore.getState().setMainSkillPointBudget(20);
-      useConfigStore.getState().setMainSkillPointBudget(undefined);
-
+    it('should mint a ruleset with no budget field at all — the pool is derived now', () => {
       const { config } = useConfigStore.getState();
-      expect(config?.mainSkillPointBudget).toBeUndefined();
+
       expect(config && 'mainSkillPointBudget' in config).toBe(false);
+    });
+
+    it('should seed the points_per_level constant the derived budget reads', () => {
+      const seeded = useConfigStore
+        .getState()
+        .config?.constants?.find((constant) => constant.name === 'points_per_level');
+
+      expect(seeded?.value).toBe(3);
     });
   });
 
@@ -969,7 +957,7 @@ describe('ConfigStore', () => {
           id: 'config1',
           name: 'Test',
           version: '1.0',
-          schemaVersion: 6,
+          schemaVersion: 7,
           stats: [
             {
               id: 'id-str',

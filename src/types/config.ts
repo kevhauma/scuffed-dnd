@@ -12,7 +12,7 @@
  * gate on the same number without one importing the other — and so a test that mocks one service
  * cannot change what the other considers current.
  */
-export const SUPPORTED_SCHEMA_VERSION = 6;
+export const SUPPORTED_SCHEMA_VERSION = 7;
 
 /**
  * Main configuration object containing all user-defined game rules
@@ -25,7 +25,9 @@ export interface Configuration {
    * Which persisted shape this is (TICKET-STAT-01).
    *
    * `2` was the unified-stat shape, `3` added TICKET-RACE-01's race stat blocks, `4` is
-   * TICKET-MAT-01's per-stat material modifiers, and `5` is TICKET-SKL-02's weighted Skill. v1 files have no `schemaVersion` at all, which is exactly how they are recognised and refused — the shapes have
+   * TICKET-MAT-01's per-stat material modifiers, `5` is TICKET-SKL-02's weighted Skill, `6` is
+   * TICKET-RES-01's stored experience, and `7` is TICKET-RES-02 retiring `mainSkillPointBudget`.
+   * v1 files have no `schemaVersion` at all, which is exactly how they are recognised and refused — the shapes have
    * no faithful mapping between them (a v1 character's focus stat, spend-derived level and
    * speciality base levels have nowhere to go), so they are rejected with a notice rather than
    * converted. TICKET-IO-03 owns that UX and the notice covers every mismatch, not just v1.
@@ -50,7 +52,7 @@ export interface Configuration {
    *
    * Optional so a configuration written before TICKET-CST-01 still loads. **Absent means none**
    * and stays absent: readers write `config.constants ?? []`, and a file without the key
-   * round-trips without growing one — the same treatment `mainSkillPointBudget` gets.
+   * round-trips without growing one.
    */
   constants?: Constant[];
   /**
@@ -62,11 +64,6 @@ export interface Configuration {
    */
   curves?: Curve[];
   focusStatBonusLevel: number;
-  /**
-   * Points a Player may spend across all Main_Skills at character creation, one point per level.
-   * Absent means unlimited, so rulesets saved before this field existed keep working.
-   */
-  mainSkillPointBudget?: number;
   createdAt: string;
   updatedAt: string;
 }

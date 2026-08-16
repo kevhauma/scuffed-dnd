@@ -35,7 +35,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 6,
+      schemaVersion: 7,
       stats: [
         {
           id: 'STR',
@@ -143,7 +143,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 6,
+      schemaVersion: 7,
       stats: [
         {
           id: 'STR',
@@ -236,7 +236,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 6,
+      schemaVersion: 7,
       stats: [
         {
           id: 'STR',
@@ -293,7 +293,7 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
     id: 'config1',
     name: 'Fixture Config',
     version: '1.0',
-    schemaVersion: 6,
+    schemaVersion: 7,
     stats: [
       {
         id: 'STR',

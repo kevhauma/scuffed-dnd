@@ -64,6 +64,5 @@ export * from './skills/skill/SkillsPanel';
 export * from './skills/skill/useSkillManager';
 export * from './stats/StatCard';
 export * from './stats/StatFormDialog';
-export * from './stats/StatPointBudget';
 export * from './stats/StatsConfigPanel';
 export * from './stats/useStatManager';

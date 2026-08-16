@@ -33,7 +33,7 @@ describe('Import/Export Service', () => {
       id: 'test-config',
       name: 'Test Config',
       version: '1.0.0',
-      schemaVersion: 6,
+      schemaVersion: 7,
       stats: [
         {
           id: 'STR',
@@ -657,43 +657,36 @@ describe('Import/Export Service', () => {
     });
   });
 
-  describe('mainSkillPointBudget round-trip', () => {
-    /** exportConfiguration returns a Blob, so a real round-trip has to read it back */
-    const roundTrip = async (config: Configuration): Promise<Configuration> =>
-      importConfiguration(await exportConfiguration(config).text());
+  describe('retired fields (TICKET-RES-02)', () => {
+    it('should reject a file still carrying mainSkillPointBudget rather than ignoring it', () => {
+      const withRetiredField = { ...validConfig, mainSkillPointBudget: 25 };
 
-    it('should survive export then import unchanged', async () => {
-      const withBudget: Configuration = { ...validConfig, mainSkillPointBudget: 25 };
+      const result = validateConfiguration(withRetiredField);
 
-      const imported = await roundTrip(withBudget);
-
-      expect(imported.mainSkillPointBudget).toBe(25);
-      expect(imported).toEqual(withBudget);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.join(' ')).toContain('mainSkillPointBudget');
+      expect(() => importConfiguration(JSON.stringify(withRetiredField))).toThrow(ValidationError);
     });
 
-    it('should import a file that predates the field, leaving it unlimited', () => {
-      // validConfig has no mainSkillPointBudget — exactly the shape older exports have
-      const imported = importConfiguration(JSON.stringify(validConfig));
+    it('should name what replaced the field, not just refuse it', () => {
+      const withRetiredField = { ...validConfig, mainSkillPointBudget: 25 };
 
-      expect(imported.mainSkillPointBudget).toBeUndefined();
+      expect(validateConfiguration(withRetiredField).errors.join(' ')).toContain(
+        'points_per_level'
+      );
+    });
+
+    it('should reject a retired field whatever its value, including zero', () => {
+      // The old shape allowed 0 ("no points"), so a file holding it is exactly as stale as one
+      // holding 25 — a falsy value must not slip through the presence check
+      expect(validateConfiguration({ ...validConfig, mainSkillPointBudget: 0 }).isValid).toBe(
+        false
+      );
+    });
+
+    it('should accept a file on the current shape, which carries no such field', () => {
       expect(validateConfiguration(validConfig).isValid).toBe(true);
-    });
-
-    it('should round-trip a budget of zero rather than dropping it', async () => {
-      const withNoPoints: Configuration = { ...validConfig, mainSkillPointBudget: 0 };
-
-      const imported = await roundTrip(withNoPoints);
-
-      expect(imported.mainSkillPointBudget).toBe(0);
-    });
-
-    it('should reject a non-numeric or negative budget', () => {
-      const wrongType = { ...validConfig, mainSkillPointBudget: 'lots' };
-      expect(validateConfiguration(wrongType).isValid).toBe(false);
-      expect(validateConfiguration(wrongType).errors.join(' ')).toContain('mainSkillPointBudget');
-
-      const negative = { ...validConfig, mainSkillPointBudget: -1 };
-      expect(validateConfiguration(negative).isValid).toBe(false);
+      expect('mainSkillPointBudget' in validConfig).toBe(false);
     });
   });
 

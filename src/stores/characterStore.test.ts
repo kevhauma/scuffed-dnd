@@ -68,7 +68,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 6,
+      schemaVersion: 7,
       stats: [
         {
           id: 'STR',
@@ -395,7 +395,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 6,
+      schemaVersion: 7,
       stats: [],
       skills: [],
       combatSkills: [],
@@ -648,7 +648,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 6,
+      schemaVersion: 7,
       stats: [
         {
           id: 'STR',
@@ -821,6 +821,163 @@ describe('CharacterStore', () => {
    * papered over — TICKET-ARC-03 retires the focus stat outright, and re-adding a store action
    * for a field about to be deleted would be work in the wrong direction.
    */
+  /**
+   * The level-up mechanic (TICKET-RES-02): points earned by levelling stay spendable, and the
+   * store refuses anything the derived budget cannot pay for rather than clamping it.
+   */
+  describe('setInvestedStatPoints', () => {
+    /** Level 2 at 300 XP, 5 points per level — a pool of 10 */
+    const budgetConfig: Configuration = {
+      id: 'config-1',
+      name: 'Test Config',
+      version: '1.0',
+      schemaVersion: 7,
+      stats: [
+        {
+          id: 'STR',
+          name: 'Strength',
+          abbreviation: 'STR',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+        {
+          id: 'health',
+          name: 'Health',
+          abbreviation: 'HEA',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: true,
+          rounding: 'none',
+          formula: 'STR * 10',
+        },
+      ],
+      skills: [],
+      combatSkills: [],
+      materials: [],
+      materialCategories: [],
+      items: [],
+      equipmentSlots: [],
+      races: [],
+      currencyTiers: [],
+      constants: [
+        {
+          id: 'const-ppl',
+          name: 'points_per_level',
+          displayName: 'Points per level',
+          description: '',
+          value: 5,
+        },
+      ],
+      curves: [
+        {
+          id: 'curve-xp',
+          name: 'xp_thresholds',
+          displayName: 'XP thresholds',
+          description: '',
+          keyName: 'level',
+          columns: [{ id: 'curve-xp-col', name: 'xp_required' }],
+          rows: [
+            { key: 1, values: [0] },
+            { key: 2, values: [300] },
+          ],
+          interpolation: 'step',
+          outOfRange: 'extrapolate',
+          lookupDirection: 'reverse',
+        },
+      ],
+      focusStatBonusLevel: 0,
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+    };
+
+    beforeEach(() => {
+      useCharacterStore.setState({
+        characters: [
+          {
+            id: 'char-1',
+            name: 'Test',
+            configurationId: 'config-1',
+            raceIds: [],
+            investedStatPoints: { STR: 4 },
+            investedSkillPoints: {},
+            currentResourceValues: {},
+            experience: 300,
+            inventory: { equippedItems: {}, miscItems: [] },
+            createdAt: '2024-01-01T00:00:00.000Z',
+            updatedAt: '2024-01-01T00:00:00.000Z',
+          },
+        ],
+        isLoaded: true,
+      });
+      vi.clearAllMocks();
+    });
+
+    const invested = () => useCharacterStore.getState().characters[0].investedStatPoints.STR;
+
+    it('should write a spend the budget covers, and persist it', () => {
+      useCharacterStore.getState().setInvestedStatPoints('char-1', 'STR', 9, budgetConfig);
+
+      expect(invested()).toBe(9);
+      expect(storage.saveCharacters).toHaveBeenCalled();
+    });
+
+    it('should accept a spend exactly at the budget', () => {
+      useCharacterStore.getState().setInvestedStatPoints('char-1', 'STR', 10, budgetConfig);
+
+      expect(invested()).toBe(10);
+    });
+
+    it('should refuse a spend one point over the budget rather than clamping it', () => {
+      useCharacterStore.getState().setInvestedStatPoints('char-1', 'STR', 11, budgetConfig);
+
+      expect(invested()).toBe(4);
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+
+    it('should let the spend grow when experience does — that is the level-up mechanic', () => {
+      useCharacterStore.getState().setInvestedStatPoints('char-1', 'STR', 11, budgetConfig);
+      expect(invested()).toBe(4);
+
+      // Level 3 is off the end of the fixture curve, extrapolated to 600 XP, so the pool is 15
+      useCharacterStore.getState().awardExperience('char-1', 300);
+      useCharacterStore.getState().setInvestedStatPoints('char-1', 'STR', 11, budgetConfig);
+
+      expect(invested()).toBe(11);
+    });
+
+    it('should refuse a negative or fractional number of points', () => {
+      useCharacterStore.getState().setInvestedStatPoints('char-1', 'STR', -1, budgetConfig);
+      useCharacterStore.getState().setInvestedStatPoints('char-1', 'STR', 2.5, budgetConfig);
+
+      expect(invested()).toBe(4);
+    });
+
+    it('should refuse points put into a derived stat, which computes its own value', () => {
+      useCharacterStore.getState().setInvestedStatPoints('char-1', 'health', 1, budgetConfig);
+
+      expect(useCharacterStore.getState().characters[0].investedStatPoints.health).toBeUndefined();
+    });
+
+    it('should refuse every spend when the budget cannot be derived', () => {
+      const noCurve: Configuration = { ...budgetConfig, curves: [] };
+
+      useCharacterStore.getState().setInvestedStatPoints('char-1', 'STR', 5, noCurve);
+
+      expect(invested()).toBe(4);
+    });
+
+    it('should ignore an unknown character', () => {
+      useCharacterStore.getState().setInvestedStatPoints('missing', 'STR', 5, budgetConfig);
+
+      expect(invested()).toBe(4);
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+  });
+
   describe('what a rename does to a character now (TICKET-SKL-02)', () => {
     beforeEach(() => {
       useCharacterStore.setState({

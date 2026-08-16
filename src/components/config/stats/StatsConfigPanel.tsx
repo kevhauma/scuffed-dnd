@@ -19,7 +19,6 @@ import { ConfigEmptyState } from '../shared/ConfigEmptyState';
 import { ConfigPanelShell, NoConfigurationNotice } from '../shared/ConfigPanelShell';
 import { StatCard } from './StatCard';
 import { StatFormDialog } from './StatFormDialog';
-import { StatPointBudget } from './StatPointBudget';
 import { useStatManager } from './useStatManager';
 
 export function StatsConfigPanel() {
@@ -89,8 +88,6 @@ export function StatsConfigPanel() {
           })}
         </div>
       )}
-
-      <StatPointBudget />
 
       <StatFormDialog
         isOpen={isDialogOpen}

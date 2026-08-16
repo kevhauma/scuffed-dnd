@@ -25,6 +25,8 @@ import type {
 import type { Stat } from '../../../types/config';
 import type { DerivedValue } from '../shared/derivedValue';
 import { toDerivedValue } from '../shared/derivedValue';
+import type { PointBudgetView } from '../shared/PointBudgetSummary';
+import { toPointBudgetView } from '../shared/PointBudgetSummary';
 
 /**
  * The wizard's steps, in order — exposed to callers as the hook's `steps`
@@ -57,14 +59,23 @@ export interface CharacterCreationFormData {
  *
  * Reads the engine's verdict; it does no arithmetic of its own.
  */
-function allocationStepError(allocation: StatAllocationResult | null): string | null {
-  if (!allocation || allocation.isValid) {
+function allocationStepError(
+  allocation: StatAllocationResult | null,
+  budget: PointBudgetView | null
+): string | null {
+  if (!allocation || !budget || allocation.isValid) {
     return null;
   }
 
+  // A budget that could not be derived is the first thing to say: every other number on the step
+  // is priced against it, so reporting a violation instead would be answering the wrong question
+  if (budget.pointBudget.error !== null) {
+    return `This ruleset cannot say how many points you have: ${budget.pointBudget.error}`;
+  }
+
   if (allocation.isOverBudget) {
-    const over = Math.abs(allocation.pointsRemaining ?? 0);
-    return `That is ${over} point(s) over the budget of ${allocation.pointBudget}.`;
+    const over = Math.abs(budget.pointsRemaining.value ?? 0);
+    return `That is ${over} point(s) over the budget of ${budget.pointBudget.value}.`;
   }
 
   const breach = allocation.violations[0];
@@ -117,10 +128,40 @@ export function useCharacterCreation() {
    */
   const raceBases = calculateRaceStatBases(selectedRaces, config?.constants);
 
-  /** Points spent, remaining, and any per-skill breach — from the engine, never re-summed here */
-  const allocation: StatAllocationResult | null = config
-    ? validateStatAllocation(values.investedStatPoints, config)
+  /** The creation data as it stands, for validation, preview and submit */
+  const creationData: CharacterCreationData = {
+    name: values.name.trim(),
+    raceIds: values.raceIds,
+    investedStatPoints: values.investedStatPoints,
+    investedSkillPoints: values.investedSkillPoints,
+    focusStatCode: values.focusStatCode || undefined,
+  };
+
+  /**
+   * The character as it would be saved — the one draft the validator, the preview and the derived
+   * stats all read, so the budget the Player allocates against is the budget their saved character
+   * will have. Experience is 0, like the one the store will mint, which is what makes creation
+   * validate against level-at-XP-0's budget (TICKET-RES-02).
+   */
+  const draftCharacter: Character | null = config
+    ? {
+        id: 'preview',
+        configurationId: config.id,
+        currentResourceValues: {},
+        experience: 0,
+        inventory: { equippedItems: {}, miscItems: [] },
+        createdAt: '',
+        updatedAt: '',
+        ...creationData,
+      }
     : null;
+
+  /** Points spent, remaining, and any per-stat breach — from the engine, never re-summed here */
+  const allocation: StatAllocationResult | null =
+    config && draftCharacter ? validateStatAllocation(draftCharacter, config) : null;
+
+  /** The same verdict, spelled for the step: a number or the chip standing in for it */
+  const budget = toPointBudgetView(allocation);
 
   /** Whether another race can still be added — the blend is defined over at most two (RACE-02) */
   const canAddRace = values.raceIds.length < MAX_RACE_COUNT;
@@ -156,33 +197,13 @@ export function useCharacterCreation() {
     form.setValue('focusStatCode', code);
   };
 
-  /** The creation data as it stands, for preview and submit */
-  const creationData: CharacterCreationData = {
-    name: values.name.trim(),
-    raceIds: values.raceIds,
-    investedStatPoints: values.investedStatPoints,
-    investedSkillPoints: values.investedSkillPoints,
-    focusStatCode: values.focusStatCode || undefined,
-  };
-
   /**
    * The review step's numbers, from the one composed calculator — the wizard does no arithmetic
    */
   const preview: CalculatedCharacter | null = (() => {
-    if (!config) return null;
-    const draft: Character = {
-      id: 'preview',
-      configurationId: config.id,
-      currentResourceValues: {},
-      // A character being built has earned nothing yet, like the one the store will mint
-      experience: 0,
-      inventory: { equippedItems: {}, miscItems: [] },
-      createdAt: '',
-      updatedAt: '',
-      ...creationData,
-    };
+    if (!config || !draftCharacter) return null;
     try {
-      return calculateCharacter(draft, config);
+      return calculateCharacter(draftCharacter, config);
     } catch {
       // Only a genuine engine bug reaches here — ruleset problems come back as error values
       // inside the result and are reported through `previewError` below.
@@ -240,7 +261,7 @@ export function useCharacterCreation() {
   /** Why the current step cannot be left, or null when it can */
   const stepErrorsByStep: Record<number, string | null> = {
     0: identityStepError(),
-    1: allocationStepError(allocation),
+    1: allocationStepError(allocation, budget),
   };
   const stepError = stepErrorsByStep[stepIndex] ?? null;
 
@@ -292,6 +313,7 @@ export function useCharacterCreation() {
     canAddRace,
     maxRaceCount: MAX_RACE_COUNT,
     allocation,
+    budget,
     preview,
     previewError,
     toggleRace,

@@ -173,23 +173,31 @@ export function downloadConfiguration(config: Configuration, filename?: string):
 }
 
 /**
- * Validate an optional numeric field
+ * Fields a previous shape carried that this one no longer has, and what replaced each
  *
- * Absent is valid — that is what makes a field optional, and it is how a file exported before
- * the field existed stays importable.
- *
- * @param value The field's value, possibly undefined
- * @param field The field name, for the error message
- * @returns An error message, or null when the value is acceptable
+ * Reported as errors rather than ignored, for TICKET-IO-03's reason: a file carrying a retired
+ * field was authored against rules this build no longer applies, and silently dropping it would
+ * import a ruleset that plays differently from the one the User exported. Naming the replacement
+ * is the difference between "your file is wrong" and "here is where that number went now".
  */
-function validateOptionalNonNegativeNumber(value: unknown, field: string): string | null {
-  if (value === undefined) {
-    return null;
-  }
-  if (typeof value !== 'number' || value < 0) {
-    return `Field '${field}' must be a number of 0 or more when present`;
-  }
-  return null;
+const RETIRED_FIELDS: Record<string, string> = {
+  mainSkillPointBudget:
+    "the point budget is now derived as level × const.points_per_level, so set the 'points_per_level' constant instead (TICKET-RES-02)",
+};
+
+/**
+ * Errors for any retired field the imported configuration still carries
+ *
+ * @param config The parsed configuration object
+ * @returns One error per retired field present, empty when the file is on the current shape
+ */
+function retiredFieldErrors(config: Record<string, unknown>): string[] {
+  return Object.entries(RETIRED_FIELDS)
+    .filter(([field]) => config[field] !== undefined)
+    .map(
+      ([field, replacement]) =>
+        `Field '${field}' is no longer part of a configuration — ${replacement}`
+    );
 }
 
 /** What a name a formula spells must look like — shared by constants and curve columns */
@@ -351,14 +359,8 @@ export function validateConfiguration(data: unknown): ValidationResult {
     errors.push("Field 'focusStatBonusLevel' must be a number");
   }
 
-  // Optional number fields — absent is valid, so files predating the field still import
-  const budgetError = validateOptionalNonNegativeNumber(
-    config.mainSkillPointBudget,
-    'mainSkillPointBudget'
-  );
-  if (budgetError) {
-    errors.push(budgetError);
-  }
+  // A field a previous shape carried is a refusal, not something to ignore
+  errors.push(...retiredFieldErrors(config));
 
   // Required array fields
   const requiredArrays = [

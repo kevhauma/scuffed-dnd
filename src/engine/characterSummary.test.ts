@@ -62,7 +62,7 @@ function createConfig(curves: Curve[] = [xpCurve()]): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 6,
+    schemaVersion: 7,
     stats: [],
     skills: [],
     combatSkills: [],

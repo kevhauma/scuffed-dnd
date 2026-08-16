@@ -46,7 +46,7 @@ function createConfig(skills: Skill[], overrides: Partial<Configuration> = {}): 
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 6,
+    schemaVersion: 7,
     stats: SAMPLE_STATS.map(([id, abbreviation]) => stat(id, abbreviation)),
     skills,
     combatSkills: [],

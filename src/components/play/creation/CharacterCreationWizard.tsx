@@ -35,7 +35,7 @@ export function CharacterCreationWizard() {
     raceBases,
     canAddRace,
     maxRaceCount,
-    allocation,
+    budget,
     preview,
     previewError,
     toggleRace,
@@ -112,7 +112,7 @@ export function CharacterCreationWizard() {
           investedStatPoints={values.investedStatPoints}
           investedSkillPoints={values.investedSkillPoints}
           raceBases={raceBases}
-          allocation={allocation}
+          budget={budget}
           onChangeInvestedStatPoints={setInvestedStatPoints}
           onChangeInvestedSkillPoints={setInvestedSkillPoints}
         />

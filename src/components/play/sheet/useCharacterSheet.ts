@@ -18,12 +18,14 @@ import { indexStatModifiers } from '../../../engine/calculators/equipmentBonusCa
 import { calculateRaceStatBases } from '../../../engine/calculators/statCalculator';
 import { calculateCharacterLevel } from '../../../engine/characterSummary';
 import { formatDiceNotation } from '../../../engine/dice/diceSimulator';
+import { validateStatAllocation } from '../../../engine/skillAllocation';
 import { useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
 import type { CalculatedCharacter, Character } from '../../../types/character';
 import type { Configuration } from '../../../types/config';
 import type { DerivedValue } from '../shared/derivedValue';
 import { toDerivedValue } from '../shared/derivedValue';
+import { toPointBudgetView } from '../shared/PointBudgetSummary';
 
 /**
  * Why the sheet cannot be drawn, or `ready` when it can
@@ -276,6 +278,7 @@ export function useCharacterSheet(characterId: string) {
   const config = useConfigStore((state) => state.config);
   const characters = useCharacterStore((state) => state.characters);
   const updateCurrentStatValue = useCharacterStore((state) => state.updateCurrentStatValue);
+  const setInvestedStatPoints = useCharacterStore((state) => state.setInvestedStatPoints);
   const awardExperience = useCharacterStore((state) => state.awardExperience);
   const deductExperience = useCharacterStore((state) => state.deductExperience);
 
@@ -290,11 +293,30 @@ export function useCharacterSheet(characterId: string) {
       ? buildView(character, config, calculated)
       : EMPTY_VIEW;
 
+  /**
+   * The point pool as it stands at this character's current level (TICKET-RES-02)
+   *
+   * Recomputed from the character on every render, which is what makes the budget follow the
+   * level: awarding XP moves the level, the level moves the budget, and the unspent points appear
+   * without anything being written to the character.
+   */
+  const budget = toPointBudgetView(
+    character && config ? validateStatAllocation(character, config) : null
+  );
+
   const handleChangeStatValue = (statId: string, value: number) => {
     if (!character || !config) return;
 
     // Persistence — and the max-value clamp — belong to the store action, not to this hook
     updateCurrentStatValue(character.id, statId, value, config);
+  };
+
+  // Spending is the level-up mechanic (TICKET-RES-02). The store refuses anything the derived
+  // budget cannot pay for, so the sheet asks and renders whatever came back.
+  const handleChangeInvestedPoints = (statId: string, points: number) => {
+    if (!character || !config) return;
+
+    setInvestedStatPoints(character.id, statId, points, config);
   };
 
   // One action per click, mirroring the sheet's `exp.gs` — the store decides what is allowed
@@ -323,8 +345,11 @@ export function useCharacterSheet(characterId: string) {
       character && config ? calculateCharacterLevel(character, config) : undefined
     ),
     experience: character?.experience ?? 0,
+    /** Spent, available and remaining at this level — null when there is no sheet to draw */
+    budget,
     ...view,
     handleChangeStatValue,
+    handleChangeInvestedPoints,
     handleAwardExperience,
     handleDeductExperience,
     handleBack,
