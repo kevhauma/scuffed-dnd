@@ -163,6 +163,16 @@ export function useCharacterCreation() {
   /** The same verdict, spelled for the step: a number or the chip standing in for it */
   const budget = toPointBudgetView(allocation);
 
+  /**
+   * What each stat's points bought, keyed by stat id (TICKET-ARC-02)
+   *
+   * Straight off the validator's `gains`, so the step renders the archetype's exchange rate rather
+   * than adding points to a race base itself — which was right only while the term was 1:1.
+   */
+  const gains: Record<string, DerivedValue> = Object.fromEntries(
+    (allocation?.gains ?? []).map((row) => [row.statId, toDerivedValue(row.gain)])
+  );
+
   /** Whether another race can still be added — the blend is defined over at most two (RACE-02) */
   const canAddRace = values.raceIds.length < MAX_RACE_COUNT;
 
@@ -315,6 +325,7 @@ export function useCharacterCreation() {
     // `allocation` stays local: the step renders `budget`, and re-exporting the raw engine result
     // through the play barrel would offer supported API nothing consumes
     budget,
+    gains,
     preview,
     previewError,
     toggleRace,

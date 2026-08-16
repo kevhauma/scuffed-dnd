@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Character } from '../types/character';
-import type { Configuration, Constant, Curve } from '../types/config';
+import type { Archetype, Configuration, Constant, Curve } from '../types/config';
 import { isFormulaError } from './formula/errors';
 import { validateStatAllocation } from './skillAllocation';
 
@@ -257,6 +257,166 @@ describe('validateStatAllocation', () => {
         validateStatAllocation(createCharacter({ investedStatPoints: { STR: 4 } }), noCurve)
           .pointsSpent
       ).toBe(4);
+    });
+  });
+
+  /**
+   * What the points bought, not just how many were spent (Concept 03, TICKET-ARC-02) — so the
+   * wizard and the sheet render "7 points in Char → +9" from the engine rather than looking the
+   * curve up themselves.
+   */
+  describe('per-stat gains', () => {
+    /** The three keys these cases read, from the seeded table */
+    const pointBuy: Curve = {
+      id: 'curve-point-buy',
+      name: 'point_buy',
+      displayName: 'Point buy',
+      description: '',
+      keyName: 'points',
+      columns: [
+        { id: 'col-non', name: 'non' },
+        { id: 'col-sub', name: 'sub' },
+        { id: 'col-main', name: 'main' },
+      ],
+      rows: [
+        { key: 0, values: [0, 0, 0] },
+        { key: 5, values: [2, 3, 4.5] },
+        { key: 10, values: [4, 5, 8.25] },
+      ],
+      interpolation: 'step',
+      outOfRange: 'error',
+      lookupDirection: 'forward',
+    };
+
+    const archetype: Archetype = {
+      id: 'strong',
+      name: 'Strong',
+      description: '',
+      // CON untagged, so the mixed spread covers all three columns
+      statAffinity: { STR: 'main', DEX: 'sub' },
+    };
+
+    const withArchetype = (overrides: Partial<Configuration> = {}) =>
+      createConfig({ curves: [xpCurve(), pointBuy], archetypes: [archetype], ...overrides });
+
+    const gainsOf = (character: Character, config = withArchetype()) =>
+      Object.fromEntries(
+        validateStatAllocation(character, config).gains.map((row) => [row.statId, row])
+      );
+
+    it('should report what each stat’s spend bought, through its own column', () => {
+      const rows = gainsOf(
+        createCharacter({
+          archetypeId: 'strong',
+          investedStatPoints: { STR: 10, DEX: 10, CON: 10 },
+        })
+      );
+
+      expect(rows.STR).toMatchObject({ affinity: 'main', points: 10, gain: 8.25 });
+      expect(rows.DEX).toMatchObject({ affinity: 'sub', points: 10, gain: 5 });
+      expect(rows.CON).toMatchObject({ affinity: 'non', points: 10, gain: 4 });
+    });
+
+    it('should handle a mixed allocation, pricing each stat at its own key', () => {
+      const rows = gainsOf(
+        createCharacter({ archetypeId: 'strong', investedStatPoints: { STR: 5, DEX: 10 } })
+      );
+
+      expect(rows.STR.gain).toBe(4.5);
+      expect(rows.DEX.gain).toBe(5);
+      expect(rows.CON.gain).toBe(0);
+    });
+
+    it('should name the stat, so a caller renders a row without a second lookup', () => {
+      const rows = gainsOf(createCharacter({ investedStatPoints: { STR: 5 } }));
+
+      expect(rows.STR.statName).toBe('Strength');
+    });
+
+    it('should include every investable stat, including the untouched ones', () => {
+      const result = validateStatAllocation(createCharacter(), withArchetype());
+
+      // "You have spent nothing here" is a thing a Player allocating points needs to see
+      expect(result.gains.map((row) => row.statId)).toEqual(['STR', 'DEX', 'CON']);
+      expect(result.gains.every((row) => row.gain === 0)).toBe(true);
+    });
+
+    it('should leave a derived stat out — nothing a point could buy in it', () => {
+      const config = withArchetype();
+      config.stats = config.stats.map((stat) =>
+        stat.id === 'CON' ? { ...stat, formula: 'STR + DEX' } : stat
+      );
+
+      expect(
+        validateStatAllocation(createCharacter(), config).gains.map((row) => row.statId)
+      ).toEqual(['STR', 'DEX']);
+    });
+
+    it('should route every stat through non for a character with no archetype', () => {
+      const rows = gainsOf(createCharacter({ investedStatPoints: { STR: 10, DEX: 10 } }));
+
+      expect(rows.STR).toMatchObject({ affinity: 'non', gain: 4 });
+      expect(rows.DEX).toMatchObject({ affinity: 'non', gain: 4 });
+    });
+
+    it('should carry the curve’s error rather than a number it did not derive', () => {
+      const rows = gainsOf(
+        createCharacter({ archetypeId: 'strong', investedStatPoints: { STR: 40 } })
+      );
+
+      expect(isFormulaError(rows.STR.gain)).toBe(true);
+    });
+
+    it('should refuse an allocation the table cannot price, rather than letting it be saved', () => {
+      // Otherwise the store persists it and the stat renders as an error chip with nothing having
+      // refused — the state RES-02's "an unpriceable pool is not a licence to spend" prevents, met
+      // again per stat (found by the conventions-reviewer on this ticket)
+      const result = validateStatAllocation(
+        createCharacter({ archetypeId: 'strong', investedStatPoints: { STR: 40 } }),
+        withArchetype()
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.violations).toEqual([
+        { statId: 'STR', statName: 'Strength', points: 40, reason: 'unpriceable-gain' },
+      ]);
+    });
+
+    it('should still count an unpriceable spend towards the budget', () => {
+      // They *were* spent; reporting "0 of 15" while the Player looks at 40 in a box would be the
+      // wrong number to argue with
+      const result = validateStatAllocation(
+        createCharacter({ archetypeId: 'strong', investedStatPoints: { STR: 40 } }),
+        withArchetype()
+      );
+
+      expect(result.pointsSpent).toBe(40);
+    });
+
+    it('should report a negative allocation as negative-points, not as unpriceable', () => {
+      const result = validateStatAllocation(
+        createCharacter({ archetypeId: 'strong', investedStatPoints: { STR: -3 } }),
+        withArchetype()
+      );
+
+      expect(result.violations.map((violation) => violation.reason)).toEqual(['negative-points']);
+    });
+
+    it('should still price the stats the table can answer for', () => {
+      const rows = gainsOf(
+        createCharacter({ archetypeId: 'strong', investedStatPoints: { STR: 40, DEX: 10 } })
+      );
+
+      expect(rows.DEX.gain).toBe(5);
+    });
+
+    it('should fall back to 1:1 for a ruleset with no point_buy curve', () => {
+      const rows = gainsOf(
+        createCharacter({ investedStatPoints: { STR: 10 } }),
+        createConfig({ curves: [xpCurve()] })
+      );
+
+      expect(rows.STR.gain).toBe(10);
     });
   });
 

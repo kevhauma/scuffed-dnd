@@ -221,13 +221,23 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   chips rather than claiming 1. The curve is found **by name**, like `const.bonus_divider` and
   `const.race_blend_divisor`, so renaming it breaks the link rather than following it. Every screen
   showing a level reads it from here.
+- `calculators/pointBuy.ts` — `statGain(pointsSpent, affinity, curve)` → what a spent point *buys*
+  (TICKET-ARC-02), plus `archetypeOf` / `affinityFor` / `pointBuyCurve`. The character's archetype
+  tags a stat `main`/`sub`/`non`; that names a **column** of the `point_buy` curve, and the points
+  are the key — 15 points buy 12/7/5. Three rules live here rather than in the table: zero points
+  gains zero, a missing curve falls back to 1:1, and a lookup the table refuses is an **error value**
+  (never a 1:1 fallback, which would out-buy the main column). Read by the composition and by
+  `skillAllocation.ts`; never re-derive a gain.
 - `skillAllocation.ts` — `validateStatAllocation(character, config)` → points spent/remaining,
   per-stat violations (`negative-points`, `derived-stat`), verdict. Keyed by stat id. The pool is
   **derived** since TICKET-RES-02: `level × const.points_per_level`, so it takes the whole character
   (the level comes from their experience) and both money numbers are `FormulaResult`s that carry the
   level's error rather than substituting a number. An unpriceable pool is `isValid: false`, not
   unlimited. The creation wizard, the sheet and `characterStore.setInvestedStatPoints` all read
-  this; none of them re-sums anything.
+  this; none of them re-sums anything. Since TICKET-ARC-02 it also returns `gains` — one row per
+  investable stat with its affinity, its points and what they bought — so a surface renders
+  "7 points in Char → +9" without touching the curve, and refuses an `unpriceable-gain` rather than
+  letting a spend the table cannot value be saved.
 
 - `dice/diceSimulator.ts` — `rollDice(diceConfig, rng?)` → `DiceRollResult[]` (one entry per die
   type with a count above zero, carrying every individual roll), plus `rollDie`, `sumDiceResults`,

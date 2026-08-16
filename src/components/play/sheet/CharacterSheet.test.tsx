@@ -283,10 +283,80 @@ describe('CharacterSheet', () => {
     render(<CharacterSheet characterId="char1" />);
 
     const dexterity = rowFor(/Dexterity \(DEX\)/);
-    // Allocated and race are shown apart (Requirement 13.4), not folded into the total
-    expect(within(dexterity).getByText('invested +4')).toBeDefined();
+    // Allocated and race are shown apart (Requirement 13.4), not folded into the total. The
+    // invested term carries its price since TICKET-ARC-02 — `invested 4 → +4` here, because this
+    // fixture has no point_buy curve and takes the 1:1 fallback.
+    expect(within(dexterity).getByText('invested 4 → +4')).toBeDefined();
     expect(within(dexterity).getByText('race +2')).toBeDefined();
     expect(within(dexterity).getByText('6')).toBeDefined();
+  });
+
+  /**
+   * Requirement 13.4's contract is that the labelled terms are terms of the *total*. Since
+   * TICKET-ARC-02 the term is the **gain**, not the points — found by the `conventions-reviewer`,
+   * which noticed the suite could not see it because no fixture carried a `point_buy` curve.
+   */
+  describe('the invested term against a point-buy curve (TICKET-ARC-02)', () => {
+    /** 10 points buy 8.25 main / 5 sub / 4 non — three keys of the seeded shape */
+    const withPointBuy = () =>
+      createConfig({
+        curves: [
+          ...(createConfig().curves ?? []),
+          {
+            id: 'curve-point-buy',
+            name: 'point_buy',
+            displayName: 'Point buy',
+            description: '',
+            keyName: 'points',
+            columns: [
+              { id: 'col-non', name: 'non' },
+              { id: 'col-sub', name: 'sub' },
+              { id: 'col-main', name: 'main' },
+            ],
+            rows: [
+              { key: 0, values: [0, 0, 0] },
+              { key: 4, values: [2, 2, 3.75] },
+              { key: 6, values: [2, 3, 5.25] },
+            ],
+            interpolation: 'step',
+            outOfRange: 'error',
+            lookupDirection: 'forward',
+          },
+        ],
+        archetypes: [
+          { id: 'strong', name: 'Strong', description: '', statAffinity: { STR: 'main' } },
+        ],
+      });
+
+    it('should show the gain as the contribution, with the points as its price', () => {
+      useConfigStore.setState({ config: withPointBuy(), isLoaded: true });
+      useCharacterStore.setState({ characters: [createCharacter({ archetypeId: 'strong' })] });
+
+      render(<CharacterSheet characterId="char1" />);
+
+      // STR is main-type with 6 points invested, which buys 5.25 — not 6
+      expect(within(rowFor(/Strength \(STR\)/)).getByText('invested 6 → +5.25')).toBeDefined();
+    });
+
+    it('should have the breakdown add up to the total it is a breakdown of', () => {
+      useConfigStore.setState({ config: withPointBuy(), isLoaded: true });
+      useCharacterStore.setState({ characters: [createCharacter({ archetypeId: 'strong' })] });
+
+      render(<CharacterSheet characterId="char1" />);
+
+      // No race block on STR and nothing equipped, so the gain *is* the total
+      expect(within(rowFor(/Strength \(STR\)/)).getByText('5.25')).toBeDefined();
+    });
+
+    it('should price a non-type stat through its own column', () => {
+      useConfigStore.setState({ config: withPointBuy(), isLoaded: true });
+      useCharacterStore.setState({ characters: [createCharacter({ archetypeId: 'strong' })] });
+
+      render(<CharacterSheet characterId="char1" />);
+
+      // DEX is untagged, so `non`: 4 points buy 2, plus the elf's race block of 2
+      expect(within(rowFor(/Dexterity \(DEX\)/)).getByText('invested 4 → +2')).toBeDefined();
+    });
   });
 
   it('should show the focus bonus as its own term on the stat that receives it', () => {

@@ -36,18 +36,25 @@
  */
 
 import type { Character } from '../types/character';
-import type { Configuration } from '../types/config';
+import type { Configuration, StatAffinity } from '../types/config';
 import type { FormulaResult } from '../types/formula';
+import { affinityFor, archetypeOf, pointBuyCurve, statGain } from './calculators/pointBuy';
 import { calculateCharacterLevel } from './characterSummary';
 import { isFormulaError } from './formula/errors';
 
 /**
  * Why a single stat's allocation is not allowed
  *
- * `derived-stat` is the new one: a stat with a formula computes its own value, so points put into
- * it would be silently discarded by the calculator rather than doing nothing visible.
+ * `derived-stat` came with TICKET-STAT-01: a stat with a formula computes its own value, so points
+ * put into it would be silently discarded by the calculator rather than doing nothing visible.
+ *
+ * `unpriceable-gain` came with TICKET-ARC-02, and is the same argument one layer along: the seeded
+ * `point_buy` table stops at 15 points and refuses out-of-range, so a spend past it has no value
+ * the ruleset can name. Letting it through would persist an allocation whose stat then renders as
+ * an error chip with nothing having refused it — the state RES-02's "an unpriceable pool is not a
+ * licence to spend" exists to prevent, met again per stat rather than per pool.
  */
-export type StatAllocationViolationReason = 'negative-points' | 'derived-stat';
+export type StatAllocationViolationReason = 'negative-points' | 'derived-stat' | 'unpriceable-gain';
 
 /**
  * One stat's allocation being out of bounds, independent of the budget
@@ -83,6 +90,24 @@ function pointsPerLevel(config: Configuration): number {
 }
 
 /**
+ * What one stat's spend bought (Concept 03, TICKET-ARC-02)
+ *
+ * Reported so the wizard and the sheet can render "7 points in Char → +9" from the engine rather
+ * than looking the curve up themselves. `gain` is a `FormulaResult` for the same reason the stat's
+ * composed value is: the `point_buy` table can refuse an input.
+ */
+export interface StatAllocationGain {
+  statId: string;
+  statName: string;
+  /** How much the character's archetype favours this stat */
+  affinity: StatAffinity;
+  /** Points the Player put in */
+  points: number;
+  /** What those points bought, through the affinity's `point_buy` column */
+  gain: FormulaResult;
+}
+
+/**
  * The verdict on a whole allocation
  */
 export interface StatAllocationResult {
@@ -96,6 +121,14 @@ export interface StatAllocationResult {
   pointsRemaining: FormulaResult;
   /** True only when the budget is a number and the spend exceeds it */
   isOverBudget: boolean;
+  /**
+   * What each investable stat's spend bought, in configuration order (TICKET-ARC-02)
+   *
+   * Every investable stat gets a row, including the ones at zero — "you have spent nothing here"
+   * is a thing a Player allocating points needs to see, and an absent row would read as a stat
+   * that does not exist.
+   */
+  gains: StatAllocationGain[];
   /** Per-stat problems: negative, or points put into a derived stat */
   violations: StatAllocationViolation[];
   /** Allocated ids that are not stats in this configuration */
@@ -125,10 +158,35 @@ export function validateStatAllocation(
 ): StatAllocationResult {
   const investedStatPoints = character.investedStatPoints;
   const violations: StatAllocationViolation[] = [];
+  const gains: StatAllocationGain[] = [];
   let pointsSpent = 0;
+
+  // Resolved once for the whole allocation rather than per stat — the archetype and the curve are
+  // properties of the character and the ruleset, not of any one row (TICKET-ARC-02)
+  const archetype = archetypeOf(character, config);
+  const curve = pointBuyCurve(config);
 
   for (const stat of config.stats) {
     const points = investedStatPoints[stat.id] ?? 0;
+
+    // A derived stat computes its own value, so there is nothing a point could buy in it
+    if (stat.formula === undefined) {
+      const affinity = affinityFor(archetype, stat.id);
+      const gain = statGain(points, affinity, curve);
+      gains.push({ statId: stat.id, statName: stat.name, affinity, points, gain });
+
+      // A spend the table cannot price is refused here rather than persisted and chipped later.
+      // The points still count towards the spend — they *were* spent, and reporting "10 of 15"
+      // while the Player is looking at 16 in a box would be the wrong number to argue with.
+      if (isFormulaError(gain)) {
+        violations.push({
+          statId: stat.id,
+          statName: stat.name,
+          points,
+          reason: 'unpriceable-gain',
+        });
+      }
+    }
 
     if (points === 0) continue;
 
@@ -179,6 +237,7 @@ export function validateStatAllocation(
     pointBudget,
     pointsRemaining,
     isOverBudget,
+    gains,
     violations,
     unknownStatIds,
   };

@@ -19,11 +19,13 @@ import { isFormulaError } from './formula/errors';
 // Re-export all calculator functions
 export * from './calculators/combatSkillCalculator';
 export * from './calculators/equipmentBonusCalculator';
+export * from './calculators/pointBuy';
 export * from './calculators/skillCalculator';
 export * from './calculators/statCalculator';
 
 import { calculateCombatSkillBonuses } from './calculators/combatSkillCalculator';
 import { calculateEquipmentBonuses } from './calculators/equipmentBonusCalculator';
+import { archetypeOf, pointBuyCurve } from './calculators/pointBuy';
 // Import for the composed entry point
 import { calculateSkills } from './calculators/skillCalculator';
 import { calculateStatTotal, calculateStatValues } from './calculators/statCalculator';
@@ -73,6 +75,10 @@ export function calculateCharacter(
     equipmentBonuses,
     focusStatBonusLevel: config.focusStatBonusLevel,
     source: config,
+    // What a spent point buys, by affinity (TICKET-ARC-02). Resolved here rather than inside the
+    // composition so the calculator stays the one place that reads the whole `Configuration`.
+    archetype: archetypeOf(character, config),
+    pointBuy: pointBuyCurve(config),
   });
 
   // 3. Skill levels and bonuses — weighted stats plus what the Player invested (Concept 02)

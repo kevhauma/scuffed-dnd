@@ -16,6 +16,7 @@ function result(overrides: Partial<StatAllocationResult> = {}): StatAllocationRe
     pointBudget: 15,
     pointsRemaining: 11,
     isOverBudget: false,
+    gains: [],
     violations: [],
     unknownStatIds: [],
     ...overrides,

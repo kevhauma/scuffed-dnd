@@ -4,7 +4,8 @@
  * The composition calculator (Concept 01, TICKET-STAT-01). One function answers "what is this
  * stat worth on this character", for all three kinds of stat, because there is one kind of stat:
  *
- * - **invested** — `race stat block + invested points + equipment`;
+ * - **invested** — `race stat block + what the invested points bought + equipment`, where the
+ *   points are converted through the archetype's `point_buy` column (Concept 03, TICKET-ARC-02);
  * - **resource** — the same sum, read as a *maximum* the character spends against;
  * - **derived** — its `formula`, evaluated over `stats.*` / `const.*` / `curve.*`.
  *
@@ -18,14 +19,14 @@
  * exists, so an allocation, race stat block entry or equipment bonus naming a stat the
  * configuration no longer defines contributes nothing rather than answering for a deleted stat.
  *
- * **Validates: Concepts 01, 04; Concept 00 §7; Requirements 3.4, 3.6, 16.6**
+ * **Validates: Concepts 01, 03, 04; Concept 00 §7; Requirements 3.4, 3.6, 16.6**
  *
  * (Requirement 8.4 — "combine racial bonuses additively" — is deliberately *not* validated here
  * any more: Concept 04's blend supersedes it, TICKET-RACE-02.)
  */
 
 import type { Character } from '../../types/character';
-import type { Constant, Race, Stat, StatModifier } from '../../types/config';
+import type { Archetype, Constant, Curve, Race, Stat, StatModifier } from '../../types/config';
 import type { FormulaContext, FormulaResult } from '../../types/formula';
 import { constantsNamespace } from '../formula/constants';
 import { asNumber, isFormulaError, withSource } from '../formula/errors';
@@ -33,6 +34,7 @@ import { evaluateFormulaString } from '../formula/evaluator';
 import { roundAwayFromZero } from '../formula/functions';
 import type { NamespaceSource } from '../formula/namespaces';
 import { namespacesFor } from '../formula/namespaces';
+import { affinityFor, statGain } from './pointBuy';
 
 /** What the composition needs beyond the stats themselves */
 export interface StatCompositionOptions {
@@ -44,6 +46,10 @@ export interface StatCompositionOptions {
   focusStatBonusLevel?: number;
   /** The ruleset's constants and curves, backing `const.*` and `curve.*(x)` */
   source?: NamespaceSource;
+  /** The character's archetype, whose affinities pick a `point_buy` column (TICKET-ARC-02) */
+  archetype?: Archetype;
+  /** The `point_buy` curve; absent falls the invested term back to 1:1 — see `pointBuy.ts` */
+  pointBuy?: Curve;
 }
 
 /**
@@ -150,18 +156,34 @@ function finish(value: number, stat: Stat): number {
  * The invested side of the composition, before clamping
  *
  * `base` is what the character's races make them (TICKET-RACE-02) — the blend, not a sum of
- * modifiers — and everything else is added to it: the points they spent, what they carry, and the
- * focus bonus ARC-03 retires.
+ * modifiers — and everything else is added to it: what the points they spent *bought*, what they
+ * carry, and the focus bonus ARC-03 retires.
+ *
+ * **The invested term is curve-routed since TICKET-ARC-02.** It is no longer the points themselves
+ * but what the archetype's affinity converts them into, which is why this returns a `FormulaResult`:
+ * the `point_buy` table is User data and can refuse an input (the seed's `outOfRange` is `error`
+ * past 15 points), so a stat whose spend cannot be priced chips rather than answering with a number
+ * nobody derived.
  */
 function investedValue(
   stat: Stat,
   character: Character,
   raceBases: Record<string, number>,
   equipmentBonuses: StatModifier[],
-  focusStatBonusLevel: number
-): number {
+  focusStatBonusLevel: number,
+  archetype: Archetype | undefined,
+  pointBuy: Curve | undefined
+): FormulaResult {
   const base = raceBases[stat.id] ?? 0;
-  const invested = character.investedStatPoints[stat.id] ?? 0; // 1:1 until TICKET-ARC-02 routes it through a curve
+
+  const gain = statGain(
+    character.investedStatPoints[stat.id] ?? 0,
+    affinityFor(archetype, stat.id),
+    pointBuy
+  );
+  if (isFormulaError(gain)) {
+    return withSource(gain, { kind: 'stat', id: stat.id, name: stat.name });
+  }
 
   // Matched by **id** since TICKET-MAT-02, which is what deleted STAT-01's abbreviation bridge:
   // a bonus follows the stat it was attached to, not the spelling it had at the time
@@ -171,7 +193,7 @@ function investedValue(
 
   const focus = character.focusStatCode === stat.abbreviation ? focusStatBonusLevel : 0;
 
-  return base + invested + equipment + focus;
+  return base + gain + equipment + focus;
 }
 
 /**
@@ -194,7 +216,14 @@ export function calculateStatValues(
   character: Character,
   options: StatCompositionOptions = {}
 ): Record<string, FormulaResult> {
-  const { races = [], equipmentBonuses = [], focusStatBonusLevel = 0, source = {} } = options;
+  const {
+    races = [],
+    equipmentBonuses = [],
+    focusStatBonusLevel = 0,
+    source = {},
+    archetype,
+    pointBuy,
+  } = options;
 
   const raceBases = calculateRaceStatBases(races, source.constants);
   const values: Record<string, FormulaResult> = {};
@@ -203,10 +232,18 @@ export function calculateStatValues(
   const derived: Stat[] = [];
   for (const stat of stats) {
     if (stat.formula === undefined) {
-      values[stat.id] = finish(
-        investedValue(stat, character, raceBases, equipmentBonuses, focusStatBonusLevel),
-        stat
+      const composed = investedValue(
+        stat,
+        character,
+        raceBases,
+        equipmentBonuses,
+        focusStatBonusLevel,
+        archetype,
+        pointBuy
       );
+      // A spend the point-buy table could not price is the stat's value now — clamping and
+      // rounding an error would be answering a question that has no answer
+      values[stat.id] = isFormulaError(composed) ? composed : finish(composed, stat);
     } else {
       derived.push(stat);
     }

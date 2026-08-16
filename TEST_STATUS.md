@@ -1,19 +1,19 @@
 # Test Status
 
 _Last verified: 2026-08-16 (`npx vitest run`), after
-[TICKET-ARC-01](docs/v2.0_sheet_core/tickets/TICKET-ARC-01-archetype-concept-and-panel.md)._
+[TICKET-ARC-02](docs/v2.0_sheet_core/tickets/TICKET-ARC-02-curve-routed-stat-gains.md)._
 
 ## Summary
 
-- **Total tests**: 1458
-- **Passing**: 1458 (100%)
+- **Total tests**: 1508
+- **Passing**: 1508 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
 Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's tickets added
 +43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), +11 (FORM-06), +7 (CALC-02),
 +11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02), +64 (CRV-01),
-+32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09), +14 (SKL-02), +36 (SKL-03), +36 (RES-01), +14 (RES-02), +48 (RES-03) and +40 (ARC-01).
++32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09), +14 (SKL-02), +36 (SKL-03), +36 (RES-01), +14 (RES-02), +48 (RES-03), +40 (ARC-01) and +50 (ARC-02).
 **RES-02's +14 is a net figure**: `StatPointBudget.test.tsx` (6) went with the flat pool it
 covered, `configStore.test.ts`'s budget block shrank from 4 cases to 2, and the
 `mainSkillPointBudget` round-trip block became a 4-case retired-field refusal — against which
@@ -30,6 +30,13 @@ new `StatRowsField.test.tsx`, 10 in `validator.test.ts` for the two new rules, 6
 4 in `dependencies.test.ts` for the guarded-delete reference in both directions, and 2 route cases.
 Nine of those came from the `conventions-reviewer` pass, which found `deleteStat` blind to archetype
 affinities — see the ticket.
+**ARC-02's +50** is a new `pointBuy.test.ts` (28, including Concept 03's confirmed 12/7/5 spread
+and three `fast-check` properties), 7 in `calculator.test.ts` for the composition, 12 in
+`skillAllocation.test.ts` for the reported gains and the new `unpriceable-gain` refusal, and 3 on
+the sheet. **The 1:1 fallback is why the suite could not see the sheet's broken breakdown** — no
+fixture carried a `point_buy` curve, while `createFreshConfiguration` seeds one, so every real
+ruleset hit the bug and no test did. The three sheet cases added for the fix carry a curve
+deliberately, and one existing assertion changed with the row's new wording.
 **SKL-02's +14 is a net figure across a very large rewrite**: the source-side reshape landed a
 session ahead of its tests, so 171 tests were failing when the ticket was picked up. 20 tests were
 added in a new `skillCalculator.test.ts` (Concept 02's verified table), a handful more elsewhere,

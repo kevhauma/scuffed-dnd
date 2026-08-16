@@ -75,10 +75,20 @@ export function StatsSection({
               code={stat.abbreviation}
               total={stat.max}
               contributions={[
+                // The **gain** is the term, not the points: since TICKET-ARC-02 the archetype's
+                // affinity decides what a point buys, so `invested 15` against a total of 14 was
+                // the breakdown failing to add up. The label carries the price so the exchange
+                // rate is legible — `invested 15 → +12` — which is what a Player deciding where
+                // to spend actually needs.
+                //
                 // A derived stat takes no points, so a forced `invested +0` would only mislead;
                 // an invested one shows the zero, so "spent nothing" reads apart from "no such
                 // contribution"
-                { label: 'invested', value: stat.invested, alwaysShow: !stat.isDerived },
+                {
+                  label: stat.invested === 0 ? 'invested' : `invested ${stat.invested} →`,
+                  value: stat.gain.value ?? 0,
+                  alwaysShow: !stat.isDerived,
+                },
                 { label: 'race', value: stat.race },
                 { label: 'equipment', value: stat.equipment },
                 { label: 'focus', value: stat.focus },

@@ -243,9 +243,16 @@ Identity rules that the rest of the app depends on:
 `Character` stores only what the player chose: `raceIds`, `investedStatPoints` (**keyed by stat
 id**, so a rename cannot orphan an allocation),
 `investedSkillPoints` (**keyed by skill id**, same reason — TICKET-SKL-02 replaced v1's
-code-keyed `specialitySkillBaseLevels`), `focusStatCode`, `currentResourceValues`, `experience`,
+code-keyed `specialitySkillBaseLevels`), `focusStatCode`, `archetypeId`, `currentResourceValues`,
+`experience`,
 and an `Inventory` (`equippedItems: Record<slotType, itemId>` + `miscItems: itemId[]`). It carries
 `configurationId` so a character is always read against the ruleset it was built on.
+
+**`investedStatPoints` holds points *spent*, not levels gained** (TICKET-ARC-02). The `point_buy`
+curve is the exchange rate between the two, selected by the archetype's affinity for that stat —
+15 points buy 12 on a main-type stat and 5 on a non-type one. Nothing about the stored shape
+changed; what changed is what the number means, so never read an entry as a stat's value. Ask
+`statGain` (or read `validateStatAllocation(...).gains`) instead.
 
 **Derived values are never persisted.** Composed stat values, the stat total, skill levels and
 bonuses, combat bonuses, and equipment bonuses are computed on demand from

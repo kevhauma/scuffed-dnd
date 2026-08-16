@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Character } from '../types/character';
-import type { Configuration } from '../types/config';
+import type { Archetype, Configuration, Curve } from '../types/config';
 import { calculateCharacter, calculateCharacterStats, firstCalculationError } from './calculator';
 import { isFormulaError } from './formula/errors';
 
@@ -1141,5 +1141,125 @@ describe('the flat abbreviation bridge (half retired by TICKET-SKL-02, rest by T
 
     // The skill beside it is keyed by id and does not budge (TICKET-SKL-02)
     expect(stale.skillLevels.STL).toBe(7);
+  });
+});
+
+/**
+ * The archetype changes the exchange rate between points spent and stats gained (Concept 03,
+ * TICKET-ARC-02). Asserted through the composed entry point, because that is where the change has
+ * to be visible — every screen reads `calculateCharacter`.
+ */
+describe('calculateCharacter — curve-routed stat gains (TICKET-ARC-02)', () => {
+  /** The seeded table, cut to the two keys these cases read */
+  const pointBuy: Curve = {
+    id: 'curve-point-buy',
+    name: 'point_buy',
+    displayName: 'Point buy',
+    description: '',
+    keyName: 'points',
+    columns: [
+      { id: 'col-non', name: 'non' },
+      { id: 'col-sub', name: 'sub' },
+      { id: 'col-main', name: 'main' },
+    ],
+    rows: [
+      { key: 0, values: [0, 0, 0] },
+      { key: 10, values: [4, 5, 8.25] },
+      { key: 15, values: [5, 7, 12] },
+    ],
+    interpolation: 'step',
+    outOfRange: 'error',
+    lookupDirection: 'forward',
+  };
+
+  const archetype: Archetype = {
+    id: 'strong',
+    name: 'Strong',
+    description: '',
+    // CON is deliberately untagged, so the default-to-non path is exercised in the composition too
+    statAffinity: { STR: 'main', DEX: 'sub' },
+  };
+
+  /** No races and no equipment, so each stat's value is exactly what its points bought */
+  function bareConfig(overrides: Partial<Configuration> = {}): Configuration {
+    return createFixtureConfig({
+      races: [],
+      curves: [pointBuy],
+      archetypes: [archetype],
+      focusStatBonusLevel: 0,
+      ...overrides,
+    });
+  }
+
+  const bareCharacter = (overrides: Partial<Character> = {}) =>
+    createFixtureCharacter({
+      raceIds: [],
+      investedStatPoints: { STR: 15, DEX: 15, CON: 15 },
+      ...overrides,
+    });
+
+  it('should replace the raw points with what the affinity’s column buys', () => {
+    const result = calculateCharacter(bareCharacter({ archetypeId: 'strong' }), bareConfig());
+
+    // The same 15 points, three different values — the whole point of the concept
+    expect(result.statValues.STR).toBe(12);
+    expect(result.statValues.DEX).toBe(7);
+    expect(result.statValues.CON).toBe(5);
+  });
+
+  it('should route every stat through non for a character with no archetype', () => {
+    const result = calculateCharacter(bareCharacter(), bareConfig());
+
+    expect(result.statValues.STR).toBe(5);
+    expect(result.statValues.DEX).toBe(5);
+    expect(result.statValues.CON).toBe(5);
+  });
+
+  it('should route every stat through non when the archetype was deleted', () => {
+    const result = calculateCharacter(
+      bareCharacter({ archetypeId: 'gone' }),
+      bareConfig({ archetypes: [] })
+    );
+
+    expect(result.statValues.STR).toBe(5);
+  });
+
+  it('should leave the race base and equipment terms untouched', () => {
+    // Elf gives DEX 2; the fixture's cloak is not equipped, so the terms in play are base + gain
+    const result = calculateCharacter(
+      bareCharacter({ archetypeId: 'strong', raceIds: ['elf'] }),
+      bareConfig({ races: createFixtureConfig().races })
+    );
+
+    const base = createFixtureConfig().races.find((race) => race.id === 'elf')?.statValues.DEX ?? 0;
+    expect(result.statValues.DEX).toBe(base + 7);
+  });
+
+  it('should chip a stat whose spend the table cannot price', () => {
+    // 40 points is past the last row, and the seed refuses out-of-range
+    const result = calculateCharacter(
+      bareCharacter({ archetypeId: 'strong', investedStatPoints: { STR: 40 } }),
+      bareConfig()
+    );
+
+    expect(result.statValues.STR).toMatchObject({ kind: 'out-of-range' });
+    // Named, so the sheet's chip says which stat rather than only which curve
+    expect((result.statValues.STR as { source?: { name: string } }).source?.name).toBe('Strength');
+  });
+
+  it('should leave the other stats calculable when one spend cannot be priced', () => {
+    const result = calculateCharacter(
+      bareCharacter({ archetypeId: 'strong', investedStatPoints: { STR: 40, DEX: 15 } }),
+      bareConfig()
+    );
+
+    expect(result.statValues.DEX).toBe(7);
+  });
+
+  it('should fall back to 1:1 for a ruleset with no point_buy curve', () => {
+    // Every ruleset written before TICKET-ARC-02 is this one, and they keep working
+    const result = calculateCharacter(bareCharacter(), bareConfig({ curves: [] }));
+
+    expect(result.statValues.STR).toBe(15);
   });
 });

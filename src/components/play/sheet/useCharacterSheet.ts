@@ -15,6 +15,12 @@ import { useNavigate } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { calculateCharacter } from '../../../engine/calculator';
 import { indexStatModifiers } from '../../../engine/calculators/equipmentBonusCalculator';
+import {
+  affinityFor,
+  archetypeOf,
+  pointBuyCurve,
+  statGain,
+} from '../../../engine/calculators/pointBuy';
 import { calculateRaceStatBases } from '../../../engine/calculators/statCalculator';
 import { calculateCharacterLevel } from '../../../engine/characterSummary';
 import { formatDiceNotation } from '../../../engine/dice/diceSimulator';
@@ -82,8 +88,9 @@ export interface SkillStatContributionView {
  * A stat's contributions, kept apart rather than pre-summed (Requirement 13.4)
  *
  * One shape for all three kinds of stat (TICKET-STAT-01). A derived stat has no invested points
- * and its `max` can carry an error; an invested one cannot fail but can still take a race stat
- * block and equipment modifiers. `current` is only meaningful when `isResource`.
+ * and `current` is only meaningful when `isResource`. **Either kind's `max` can carry an error**:
+ * a derived stat's formula can fail, and since TICKET-ARC-02 an invested stat's spend can be one
+ * the `point_buy` table refuses to price.
  */
 export interface StatBreakdown {
   id: string;
@@ -92,8 +99,21 @@ export interface StatBreakdown {
   isResource: boolean;
   /** Whether the value comes from a formula rather than from points the Player spent */
   isDerived: boolean;
-  /** Points the Player put into it — always 0 for a derived stat */
+  /**
+   * Points the Player put into it — always 0 for a derived stat.
+   *
+   * **This is the price, not the contribution** (TICKET-ARC-02): what those points are worth is
+   * `gain`, and it is `gain` that is a term of `max`. The two are shown together — `invested 15 →
+   * +12` — because a Player deciding where to spend needs the exchange rate, not just its result.
+   */
   invested: number;
+  /**
+   * What the invested points bought, through the archetype's affinity column (TICKET-ARC-02)
+   *
+   * The actual term of the composed value. Equal to `invested` on a ruleset with no `point_buy`
+   * curve, which is the 1:1 fallback showing through.
+   */
+  gain: DerivedValue;
   /** What the character's races supply for this stat, blended (Requirement 8.5, Concept 04) */
   race: number;
   /** Combined modifier from equipped items targeting this stat */
@@ -218,6 +238,11 @@ function buildView(
   // Keyed by stat id since TICKET-MAT-02, so only a stat has an equipment contribution
   const equipmentBonuses = indexStatModifiers(calculated.equipmentBonuses);
 
+  // What the invested points bought (TICKET-ARC-02) — the same call the composition makes, so a
+  // stat's breakdown terms cannot disagree with the total they are terms of
+  const archetype = archetypeOf(character, config);
+  const pointBuy = pointBuyCurve(config);
+
   const orderedStats = [...config.stats].sort((a, b) => a.order - b.order);
   const abbreviationById = new Map(config.stats.map((stat) => [stat.id, stat.abbreviation]));
 
@@ -259,6 +284,7 @@ function buildView(
     stats: orderedStats.map((stat) => {
       const current = character.currentResourceValues[stat.id] ?? 0;
       const max = toDerivedValue(calculated.statValues[stat.id]);
+      const invested = character.investedStatPoints[stat.id] ?? 0;
 
       return {
         id: stat.id,
@@ -266,7 +292,8 @@ function buildView(
         abbreviation: stat.abbreviation,
         isResource: stat.isResource,
         isDerived: stat.formula !== undefined,
-        invested: character.investedStatPoints[stat.id] ?? 0,
+        invested,
+        gain: toDerivedValue(statGain(invested, affinityFor(archetype, stat.id), pointBuy)),
         race: raceBases[stat.id] ?? 0,
         equipment: equipmentBonuses[stat.id] ?? 0,
         focus: focusFor(stat.abbreviation),

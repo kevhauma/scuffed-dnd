@@ -15,9 +15,11 @@
 
 import type { Skill, Stat } from '../../../types/config';
 import { Card } from '../../ui/Card/Card';
+import { ErrorChip } from '../../ui/ErrorChip/ErrorChip';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
+import type { DerivedValue } from '../shared/derivedValue';
 import { PointBudgetSummary } from '../shared/PointBudgetSummary';
 import type { PointBudgetView } from '../shared/pointBudgetView';
 import { SkillBreakdownRow } from '../shared/SkillBreakdownRow';
@@ -34,6 +36,8 @@ export interface SkillAllocationStepProps {
   raceBases: Record<string, number>;
   /** Spent, available and remaining, already spelled for display by the hook */
   budget: PointBudgetView | null;
+  /** What each stat's points bought, keyed by stat id — the engine's, never re-derived here */
+  gains: Record<string, DerivedValue>;
   onChangeInvestedStatPoints: (statId: string, points: number) => void;
   onChangeInvestedSkillPoints: (code: string, level: number) => void;
 }
@@ -44,6 +48,9 @@ function toLevel(value: string): number {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+/** A stat with no reported gain has bought nothing — the engine reports a row for every one */
+const NO_GAIN: DerivedValue = { value: 0, error: null };
+
 export function SkillAllocationStep({
   investableStats,
   derivedStatPreviews,
@@ -52,6 +59,7 @@ export function SkillAllocationStep({
   investedSkillPoints,
   raceBases,
   budget,
+  gains,
   onChangeInvestedStatPoints,
   onChangeInvestedSkillPoints,
 }: SkillAllocationStepProps) {
@@ -79,6 +87,9 @@ export function SkillAllocationStep({
             {investableStats.map((stat) => {
               const allocated = investedStatPoints[stat.id] ?? 0;
               const racial = raceBases[stat.id] ?? 0;
+              // What those points *bought*, from the engine (TICKET-ARC-02). The step used to add
+              // `allocated + racial`, which was right only while the term was 1:1.
+              const bought = gains[stat.id] ?? NO_GAIN;
 
               return (
                 <div key={stat.id} className="flex flex-wrap items-center gap-3">
@@ -97,15 +108,25 @@ export function SkillAllocationStep({
                     className="w-24"
                   />
                   <Text variant="body-small-secondary" as="span">
+                    {/* The exchange rate, shown whenever it is not 1:1 — a Player choosing where
+                        to spend needs to see that their archetype makes this stat cheaper */}
+                    {bought.error === null && bought.value !== allocated && (
+                      <Text variant="highlight" as="span">
+                        {`→ +${bought.value}`}
+                      </Text>
+                    )}
+                    {bought.error !== null && (
+                      <ErrorChip label="unavailable" detail={bought.error} />
+                    )}
                     {racial !== 0 && (
                       <>
                         {' · '}
                         <Text variant="highlight" as="span">
                           {racial > 0 ? `+${racial}` : racial} racial
                         </Text>
-                        {` · total ${allocated + racial}`}
                       </>
                     )}
+                    {bought.error === null && ` · total ${bought.value + racial}`}
                   </Text>
                 </div>
               );

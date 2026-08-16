@@ -16,10 +16,12 @@
  * level 7.5 yielding bonus 2 rather than 1, which is the case that tells Excel's ROUND apart from
  * JavaScript's `Math.round`.
  *
- * **The invested contribution is 1:1 and provisional.** Concept 02 leaves the real conversion
+ * **The invested contribution is 1:1 and still provisional.** Concept 02 leaves the real conversion
  * open — its sample shows `+1.5` for one starting pick, routed through the point-buy curve by the
- * character's archetype affinity — and TICKET-ARC-02 is what closes it. One term changes here when
- * it does.
+ * character's archetype affinity. TICKET-ARC-02 did exactly that for **stats** and deliberately did
+ * not do it for skills: whether skill investment routes through affinity too is a spec open
+ * question, and building it silently alongside the stat change would have answered it by accident.
+ * One term changes here when the User decides.
  *
  * **Validates: Concept 02; Concept 05; Concept 00 §7**
  */
@@ -113,9 +115,10 @@ function levelOf(
  *
  * Narrowed to the one field it reads rather than taking a whole `Character`, so a caller with no
  * player in hand — `FormulaPreview` sampling a ruleset — can supply an honest empty allocation
- * without asserting its way past the type. **When TICKET-ARC-02 routes the invested term through
- * the point-buy curve this signature widens**, and every such caller becomes a compile error
- * rather than a silent `undefined` at runtime.
+ * without asserting its way past the type. **If the open question above is ever answered yes and a
+ * skill's invested term routes through the point-buy curve, this signature widens** to take the
+ * archetype, and every such caller becomes a compile error rather than a silent `undefined` at
+ * runtime — which is how the stat side of it was caught.
  *
  * @param config - The configuration's skills and constants
  * @param statValues - Composed stat values, keyed by stat id

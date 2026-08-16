@@ -39,8 +39,13 @@ export interface Character {
    * same reason a formula stores ids. A derived stat never appears here; an invested stat the
    * Player has not touched reads 0 through the calculator rather than being absent, which is
    * TICKET-CALC-02's invariant carried across.
+   *
+   * **These are points *spent*, not levels gained** (TICKET-ARC-02). The `point_buy` curve is the
+   * exchange rate between the two, selected by the archetype's affinity for that stat: 15 points
+   * buy 12 on a main-type stat and 5 on a non-type one. Never read an entry as a stat's value —
+   * ask `statGain`, or read `validateStatAllocation(...).gains`.
    */
-  investedStatPoints: Record<string, number>; // statId -> points invested
+  investedStatPoints: Record<string, number>; // statId -> points spent
   /**
    * The stat this character focused on, by **abbreviation** — retired by TICKET-ARC-03.
    *
@@ -63,8 +68,10 @@ export interface Character {
    *
    * Replaces v1's `specialitySkillBaseLevels`, which was keyed by a mutable 3-letter code — so a
    * rename orphaned the Player's investment and needed a store action to chase it. An id cannot.
-   * The contribution to `level` is 1:1 for now; Concept 02 leaves the real conversion open
-   * (`+1.5` for one starting pick), and TICKET-ARC-02 routes it through the point-buy curve.
+   * The contribution to `level` is 1:1 and stays that way: Concept 02 leaves the real conversion
+   * open (`+1.5` for one starting pick), and TICKET-ARC-02 routed **stats** through the point-buy
+   * curve while deliberately leaving skills alone — whether skill investment follows is an
+   * unanswered spec question, not an oversight.
    */
   investedSkillPoints: Record<string, number>;
   /**
