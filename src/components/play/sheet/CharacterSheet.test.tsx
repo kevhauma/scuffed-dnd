@@ -35,7 +35,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 5,
+    schemaVersion: 6,
     stats: [
       {
         id: 'STR',
@@ -119,6 +119,25 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
       },
     ],
     currencyTiers: [],
+    // Level is read backwards out of this since TICKET-RES-01
+    curves: [
+      {
+        id: 'curve-xp',
+        name: 'xp_thresholds',
+        displayName: 'XP thresholds',
+        description: '',
+        keyName: 'level',
+        columns: [{ id: 'curve-xp-col', name: 'xp_required' }],
+        rows: [
+          { key: 1, values: [0] },
+          { key: 2, values: [300] },
+          { key: 3, values: [900] },
+        ],
+        interpolation: 'step',
+        outOfRange: 'extrapolate',
+        lookupDirection: 'reverse',
+      },
+    ],
     focusStatBonusLevel: 3,
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
@@ -138,6 +157,7 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     focusStatCode: 'STL',
     investedSkillPoints: { STL: 3 },
     currentResourceValues: { health: 60, mana: 30 },
+    experience: 900,
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
@@ -169,7 +189,9 @@ describe('CharacterSheet', () => {
     render(<CharacterSheet characterId="char1" />);
 
     expect(screen.getByRole('heading', { level: 1, name: 'Aria' })).toBeDefined();
-    expect(screen.getByText(/Level 10 · Elf · focus: STL/)).toBeDefined();
+    // 900 XP is the third threshold; the level no longer follows the points spent (TICKET-RES-01)
+    expect(screen.getByText(/Level 3/)).toBeDefined();
+    expect(screen.getByText(/900 XP · Elf · focus: STL/)).toBeDefined();
 
     for (const section of ['Race Stat Block', 'Stats', 'Skills', 'Combat Skills']) {
       expect(screen.getByRole('heading', { name: section })).toBeDefined();
@@ -291,6 +313,73 @@ describe('CharacterSheet', () => {
     render(<CharacterSheet characterId="char1" />);
 
     expect(screen.queryByText('focus stat')).toBeNull();
+  });
+
+  /**
+   * Experience and the level it derives (Concept 20, TICKET-RES-01)
+   *
+   * Driven through the header's own controls rather than through the store, because the point of
+   * the ticket is that awarding XP at the table moves the level on the sheet.
+   */
+  describe('experience (TICKET-RES-01)', () => {
+    const amountBox = () => screen.getByLabelText('Experience') as HTMLInputElement;
+    const award = () => screen.getByRole('button', { name: 'Award XP' });
+    const deduct = () => screen.getByRole('button', { name: 'Deduct XP' });
+
+    it('should move the level when an award crosses a threshold', () => {
+      render(<CharacterSheet characterId="char1" />);
+      // 900 XP is level 3; the next row does not exist, so extrapolation carries it to 4
+      expect(screen.getByText(/Level 3/)).toBeDefined();
+
+      fireEvent.change(amountBox(), { target: { value: '600' } });
+      fireEvent.click(award());
+
+      expect(screen.getByText(/1500 XP/)).toBeDefined();
+      expect(screen.queryByText(/Level 3 /)).toBeNull();
+    });
+
+    it('should deduct experience through the store', () => {
+      render(<CharacterSheet characterId="char1" />);
+
+      fireEvent.change(amountBox(), { target: { value: '600' } });
+      fireEvent.click(deduct());
+
+      expect(screen.getByText(/300 XP/)).toBeDefined();
+      expect(screen.getByText(/Level 2/)).toBeDefined();
+    });
+
+    it('should clear the amount after an action, so one click is one award', () => {
+      render(<CharacterSheet characterId="char1" />);
+
+      fireEvent.change(amountBox(), { target: { value: '100' } });
+      fireEvent.click(award());
+
+      expect(amountBox().value).toBe('');
+      expect(screen.getByText(/1000 XP/)).toBeDefined();
+    });
+
+    it('should offer no action until a positive amount is entered', () => {
+      render(<CharacterSheet characterId="char1" />);
+
+      expect((award() as HTMLButtonElement).disabled).toBe(true);
+      expect((deduct() as HTMLButtonElement).disabled).toBe(true);
+
+      fireEvent.change(amountBox(), { target: { value: '0' } });
+      expect((award() as HTMLButtonElement).disabled).toBe(true);
+
+      fireEvent.change(amountBox(), { target: { value: '50' } });
+      expect((award() as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it('should chip the level when the ruleset has no xp_thresholds curve', () => {
+      useConfigStore.setState({ config: createConfig({ curves: [] }), isLoaded: true });
+
+      render(<CharacterSheet characterId="char1" />);
+
+      expect(screen.getByRole('img', { name: /xp_thresholds/ })).toBeDefined();
+      // The XP itself is still readable — it is stored, not derived
+      expect(screen.getByText(/900 XP/)).toBeDefined();
+    });
   });
 
   /**

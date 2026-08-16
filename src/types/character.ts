@@ -66,6 +66,21 @@ export interface Character {
    * that is genuinely stored — it is player state, not a derivation.
    */
   currentResourceValues: Record<string, number>; // statId -> current value
+  /**
+   * Total experience the character has accumulated (Concept 20, TICKET-RES-01).
+   *
+   * The **second** sanctioned piece of stored player state, beside `currentResourceValues`. It is
+   * stored rather than derived because nothing else in the app knows it: XP is awarded at the
+   * table, and `level` is what derives *from* it through the `xp_thresholds` curve.
+   *
+   * Accumulate-only in spirit — there is no maximum and it never resets — but deductions are
+   * allowed (the sheet's `exp.gs` has both), floored at 0 by the store action rather than by this
+   * type. A fresh character starts at 0, which the seeded curve reads as level 1.
+   *
+   * **This inverts v1.0**, where level was the *sum of points spent*. The chain now runs
+   * `XP → level → budget → spend` (TICKET-RES-02 closes the budget half).
+   */
+  experience: number;
   inventory: Inventory;
   createdAt: string;
   updatedAt: string;
@@ -130,6 +145,13 @@ export interface CharacterSummary {
   id: string;
   name: string;
   raceIds: string[];
-  level: number; // Derived from invested stat points — TICKET-RES-01 inverts this to derive from XP
+  /**
+   * Derived from accumulated XP through the `xp_thresholds` curve (TICKET-RES-01).
+   *
+   * A `FormulaResult` rather than a number because that curve is the User's data like any other:
+   * they can delete it, or set `outOfRange: 'error'` and leave a character's XP outside the table.
+   * A level that cannot be read says so rather than showing a confident 1 (Concept 00 §7).
+   */
+  level: FormulaResult;
   createdAt: string;
 }

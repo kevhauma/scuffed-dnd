@@ -33,7 +33,7 @@ describe('Import/Export Service', () => {
       id: 'test-config',
       name: 'Test Config',
       version: '1.0.0',
-      schemaVersion: 5,
+      schemaVersion: 6,
       stats: [
         {
           id: 'STR',

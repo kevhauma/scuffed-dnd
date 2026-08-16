@@ -174,6 +174,8 @@ export function useCharacterCreation() {
       id: 'preview',
       configurationId: config.id,
       currentResourceValues: {},
+      // A character being built has earned nothing yet, like the one the store will mint
+      experience: 0,
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '',
       updatedAt: '',

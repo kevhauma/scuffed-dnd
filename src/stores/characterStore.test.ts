@@ -46,6 +46,7 @@ describe('CharacterStore', () => {
           investedStatPoints: { STR: 10 },
           investedSkillPoints: {},
           currentResourceValues: {},
+          experience: 0,
           inventory: { equippedItems: {}, miscItems: [] },
           createdAt: '2024-01-01T00:00:00.000Z',
           updatedAt: '2024-01-01T00:00:00.000Z',
@@ -67,7 +68,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 5,
+      schemaVersion: 6,
       stats: [
         {
           id: 'STR',
@@ -287,6 +288,7 @@ describe('CharacterStore', () => {
         investedStatPoints: {},
         investedSkillPoints: {},
         currentResourceValues: {},
+        experience: 0,
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
@@ -311,6 +313,7 @@ describe('CharacterStore', () => {
         investedStatPoints: {},
         investedSkillPoints: {},
         currentResourceValues: {},
+        experience: 0,
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
@@ -338,6 +341,7 @@ describe('CharacterStore', () => {
         investedStatPoints: {},
         investedSkillPoints: {},
         currentResourceValues: {},
+        experience: 0,
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
@@ -362,6 +366,7 @@ describe('CharacterStore', () => {
         investedStatPoints: {},
         investedSkillPoints: {},
         currentResourceValues: {},
+        experience: 0,
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
@@ -390,7 +395,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 5,
+      schemaVersion: 6,
       stats: [],
       skills: [],
       combatSkills: [],
@@ -422,6 +427,7 @@ describe('CharacterStore', () => {
         investedStatPoints: {},
         investedSkillPoints: {},
         currentResourceValues: {},
+        experience: 0,
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
@@ -642,7 +648,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 5,
+      schemaVersion: 6,
       stats: [
         {
           id: 'STR',
@@ -699,6 +705,7 @@ describe('CharacterStore', () => {
         investedStatPoints: { STR: 10 },
         investedSkillPoints: {},
         currentResourceValues: { health: 100, mana: 50 },
+        experience: 0,
         inventory: { equippedItems: {}, miscItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
@@ -827,6 +834,7 @@ describe('CharacterStore', () => {
             investedSkillPoints: { STL: 3 },
             focusStatCode: 'STR',
             currentResourceValues: {},
+            experience: 0,
             inventory: { equippedItems: {}, miscItems: [] },
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01',
@@ -852,6 +860,139 @@ describe('CharacterStore', () => {
 
       expect(character.investedStatPoints).toEqual({ STR: 6, DEX: 4 });
       expect(character.investedSkillPoints).toEqual({ STL: 3 });
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * Experience (Concept 20, TICKET-RES-01)
+   *
+   * XP is the input the whole progression chain hangs off since level derives from it, so the
+   * rules about what may be written are asserted here rather than in the control that calls them.
+   */
+  describe('Experience', () => {
+    beforeEach(() => {
+      useCharacterStore.setState({
+        characters: [
+          {
+            id: 'char1',
+            name: 'Test',
+            configurationId: 'config1',
+            raceIds: [],
+            investedStatPoints: {},
+            investedSkillPoints: {},
+            currentResourceValues: {},
+            experience: 500,
+            inventory: { equippedItems: {}, miscItems: [] },
+            createdAt: '2024-01-01',
+            updatedAt: '2024-01-01',
+          },
+        ],
+        isLoaded: true,
+      });
+      vi.clearAllMocks();
+    });
+
+    const experienceOf = () => useCharacterStore.getState().characters[0].experience;
+
+    it('should add experience and persist it', () => {
+      useCharacterStore.getState().awardExperience('char1', 300);
+
+      expect(experienceOf()).toBe(800);
+      expect(storage.saveCharacters).toHaveBeenCalledTimes(1);
+    });
+
+    it('should accumulate across awards rather than replacing the total', () => {
+      useCharacterStore.getState().awardExperience('char1', 100);
+      useCharacterStore.getState().awardExperience('char1', 250);
+
+      expect(experienceOf()).toBe(850);
+    });
+
+    it('should have no maximum', () => {
+      useCharacterStore.getState().awardExperience('char1', 10_000_000);
+
+      expect(experienceOf()).toBe(10_000_500);
+    });
+
+    it('should deduct experience and persist it', () => {
+      useCharacterStore.getState().deductExperience('char1', 200);
+
+      expect(experienceOf()).toBe(300);
+      expect(storage.saveCharacters).toHaveBeenCalledTimes(1);
+    });
+
+    it('should allow a deduction down to exactly zero', () => {
+      useCharacterStore.getState().deductExperience('char1', 500);
+
+      expect(experienceOf()).toBe(0);
+    });
+
+    it('should refuse a deduction that would go below zero, writing nothing', () => {
+      // A refusal rather than a clamp to 0: quietly deducting less than asked would leave the
+      // table believing a penalty landed in full
+      useCharacterStore.getState().deductExperience('char1', 501);
+
+      expect(experienceOf()).toBe(500);
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+
+    it.each([0, -100, Number.NaN, Number.POSITIVE_INFINITY])(
+      'should refuse %s as an award amount',
+      (amount) => {
+        useCharacterStore.getState().awardExperience('char1', amount);
+
+        expect(experienceOf()).toBe(500);
+        expect(storage.saveCharacters).not.toHaveBeenCalled();
+      }
+    );
+
+    it.each([0, -100, Number.NaN])('should refuse %s as a deduction amount', (amount) => {
+      // A negative deduction would otherwise be an award that skipped the below-zero check
+      useCharacterStore.getState().deductExperience('char1', amount);
+
+      expect(experienceOf()).toBe(500);
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+
+    it('should never reset experience — no action offers it', () => {
+      // The guard against a future ticket adding one quietly: level derives from XP, so a reset
+      // is a level reset, and that needs a decision rather than a helper
+      expect(
+        Object.keys(useCharacterStore.getState()).filter((key) => /resetExperience/i.test(key))
+      ).toEqual([]);
+    });
+
+    it('should leave other characters untouched', () => {
+      const { characters } = useCharacterStore.getState();
+      useCharacterStore.setState({
+        characters: [...characters, { ...characters[0], id: 'char2', experience: 42 }],
+      });
+
+      useCharacterStore.getState().awardExperience('char1', 100);
+
+      expect(useCharacterStore.getState().characters[1].experience).toBe(42);
+    });
+
+    it('should write nothing for an unknown character', () => {
+      useCharacterStore.getState().awardExperience('nope', 100);
+
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+
+    it('should refuse to compute on a character whose stored total is not a number', () => {
+      // `loadCharacters` filters these out, but a total of `undefined` reaching here would compute
+      // `undefined + amount` and persist `NaN`, which reads as level 1 forever and cannot be undone
+      // from the UI. Refused rather than repaired — inventing a total is inventing a level.
+      const { characters } = useCharacterStore.getState();
+      useCharacterStore.setState({
+        characters: [{ ...characters[0], experience: undefined as unknown as number }],
+      });
+
+      useCharacterStore.getState().awardExperience('char1', 100);
+      useCharacterStore.getState().deductExperience('char1', 100);
+
+      expect(useCharacterStore.getState().characters[0].experience).toBeUndefined();
       expect(storage.saveCharacters).not.toHaveBeenCalled();
     });
   });

@@ -24,6 +24,7 @@ export * from './shared/derivedValue';
 export * from './shared/SkillBreakdownRow';
 export * from './sheet/CharacterSheet';
 export * from './sheet/CombatSkillsSection';
+export * from './sheet/ExperienceControl';
 export * from './sheet/RaceStatBlockSection';
 export * from './sheet/SheetHeader';
 export * from './sheet/SkillsSection';

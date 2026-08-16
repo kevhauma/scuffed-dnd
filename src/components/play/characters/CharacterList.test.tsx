@@ -33,7 +33,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 5,
+    schemaVersion: 6,
     stats: [
       {
         id: 'STR',
@@ -57,6 +57,25 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
       { id: 'human', name: 'Human', description: '', statValues: {} },
     ],
     currencyTiers: [],
+    // Level is read backwards out of this since TICKET-RES-01, so a list fixture needs one
+    curves: [
+      {
+        id: 'curve-xp',
+        name: 'xp_thresholds',
+        displayName: 'XP thresholds',
+        description: '',
+        keyName: 'level',
+        columns: [{ id: 'curve-xp-col', name: 'xp_required' }],
+        rows: [
+          { key: 1, values: [0] },
+          { key: 2, values: [300] },
+          { key: 3, values: [900] },
+        ],
+        interpolation: 'step',
+        outOfRange: 'extrapolate',
+        lookupDirection: 'reverse',
+      },
+    ],
     focusStatBonusLevel: 0,
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
@@ -73,6 +92,7 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     investedStatPoints: { STR: 5 },
     investedSkillPoints: {},
     currentResourceValues: {},
+    experience: 0,
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
@@ -87,15 +107,18 @@ describe('CharacterList', () => {
     useCharacterStore.setState({ characters: [], isLoaded: true });
   });
 
-  it('should render one card per character, with race names and a derived level', () => {
+  it('should render one card per character, with race names and an XP-derived level', () => {
+    // The level follows experience since TICKET-RES-01, not the points spent — Borin has the
+    // larger allocation and the smaller level, which is the inversion stated as a test
     useCharacterStore.setState({
       characters: [
-        createCharacter(),
+        createCharacter({ experience: 900 }),
         createCharacter({
           id: 'char2',
           name: 'Borin',
           raceIds: ['human'],
-          investedStatPoints: { STR: 3 },
+          investedStatPoints: { STR: 30 },
+          experience: 0,
         }),
       ],
     });
@@ -104,8 +127,18 @@ describe('CharacterList', () => {
 
     expect(screen.getByText('Aria')).toBeDefined();
     expect(screen.getByText('Borin')).toBeDefined();
-    expect(screen.getByText(/Level 5 · Elf/)).toBeDefined();
-    expect(screen.getByText(/Level 3 · Human/)).toBeDefined();
+    expect(screen.getByText(/Level 3/)).toBeDefined();
+    expect(screen.getByText(/Level 1/)).toBeDefined();
+  });
+
+  it('should chip the level rather than claim 1 when the ruleset has no xp_thresholds curve', () => {
+    useConfigStore.setState({ config: createConfig({ curves: [] }), isLoaded: true });
+    useCharacterStore.setState({ characters: [createCharacter({ experience: 900 })] });
+
+    render(<CharacterList />);
+
+    expect(screen.getByRole('img', { name: /xp_thresholds/ })).toBeDefined();
+    expect(screen.queryByText(/Level 1/)).toBeNull();
   });
 
   it('should show race names rather than ids, degrading gracefully for a deleted race', () => {

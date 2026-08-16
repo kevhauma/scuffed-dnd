@@ -13,6 +13,7 @@ import { calculateCharacterLevel } from '../../../engine/characterSummary';
 import { useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
 import type { Character } from '../../../types/character';
+import { type DerivedValue, toDerivedValue } from '../shared/derivedValue';
 
 /**
  * A character with everything the list displays already resolved
@@ -21,7 +22,8 @@ export interface CharacterListEntry {
   character: Character;
   /** Race names resolved from the configuration; a deleted race degrades to "Unknown race" */
   raceNames: string[];
-  level: number;
+  /** Curve-derived since TICKET-RES-01, so it can fail the way any derived value can */
+  level: DerivedValue;
 }
 
 export function useCharacterListManager() {
@@ -40,7 +42,7 @@ export function useCharacterListManager() {
     raceNames: character.raceIds.map(
       (raceId) => races.find((race) => race.id === raceId)?.name ?? 'Unknown race'
     ),
-    level: calculateCharacterLevel(character),
+    level: toDerivedValue(config ? calculateCharacterLevel(character, config) : undefined),
   }));
 
   const pendingDeleteCharacter =

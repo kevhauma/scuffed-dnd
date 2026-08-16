@@ -26,7 +26,7 @@ as part of the action. That is the equivalent of a repository layer here.
 
 ## Configuration (the ruleset)
 
-One `Configuration` per browser: id, name, version, **`schemaVersion: 5`**, timestamps,
+One `Configuration` per browser: id, name, version, **`schemaVersion: 6`**, timestamps,
 `focusStatBonusLevel`, the optional
 `mainSkillPointBudget`, plus the entity arrays — `stats`, `skills`,
 `combatSkills`, `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
@@ -99,7 +99,10 @@ into v2, so a conversion would invent a ruleset nobody authored.
 recorded on TICKET-RACE-01). The persisted shape is not stable until v2.0 lands, so a ticket that
 changes an entity's shape raises `SUPPORTED_SCHEMA_VERSION` in the same commit — otherwise stored
 data from a day earlier crashes on the field that moved instead of meeting IO-03's notice. It is
-one line plus a `schemaVersion: N` sweep over the test fixtures and `scripts/build-sheet-import.mjs`.
+one line plus a `schemaVersion: N` sweep over the test fixtures, `scripts/build-sheet-import.mjs`
+**and `examples/demo-ruleset.json`**. The last two have their own guards — `sheetImport.test.ts`
+and `exampleRuleset.test.ts` — so forgetting them fails the suite rather than shipping a corpus the
+app refuses to import; that is what caught them on TICKET-RES-01.
 There is deliberately **no migration path**: the ruleset is regenerable from
 [`docs/imports/`](../../../docs/imports/README.md), and the notice offers a backup before anything
 is cleared.
@@ -218,8 +221,8 @@ Identity rules that the rest of the app depends on:
 `Character` stores only what the player chose: `raceIds`, `investedStatPoints` (**keyed by stat
 id**, so a rename cannot orphan an allocation),
 `investedSkillPoints` (**keyed by skill id**, same reason — TICKET-SKL-02 replaced v1's
-code-keyed `specialitySkillBaseLevels`), `focusStatCode`, `currentResourceValues`, and an `Inventory`
-(`equippedItems: Record<slotType, itemId>` + `miscItems: itemId[]`). It carries
+code-keyed `specialitySkillBaseLevels`), `focusStatCode`, `currentResourceValues`, `experience`,
+and an `Inventory` (`equippedItems: Record<slotType, itemId>` + `miscItems: itemId[]`). It carries
 `configurationId` so a character is always read against the ruleset it was built on.
 
 **Derived values are never persisted.** Composed stat values, the stat total, skill levels and
@@ -232,11 +235,20 @@ derived too** — TICKET-SKL-03 added `skillContributions`, one already-multipli
 `SkillStatContribution` per weight row, so the sheet can label a breakdown without a component
 redoing the arithmetic. When a surface needs to show how a number was reached, widen the calculator's
 return rather than recomputing the terms at the render site. If you find yourself wanting to store a
-computed number on `Character`, the answer is a recalculation call at read time instead. The one deliberate
-exception is `currentResourceValues` — the player's *current* HP/mana, which is state, not
-derivation (its maximum is derived; its current value is not). **Only `isResource` stats appear
+computed number on `Character`, the answer is a recalculation call at read time instead. There are
+exactly **two** deliberate exceptions. `currentResourceValues` — the player's *current* HP/mana,
+which is state, not derivation (its maximum is derived; its current value is not). **Only `isResource` stats appear
 there**, and the store action enforces it: a stat you cannot spend has no current distinct from
 its value, which is what v1 got wrong by giving every stat one.
+
+And `experience` (TICKET-RES-01) — stored because nothing else in the app knows it: XP is awarded
+at the table. **`level` derives *from* it**, through a reverse lookup on the `xp_thresholds` curve
+in [characterSummary.ts](../../../src/engine/characterSummary.ts), which is the single definition
+every screen reads. This inverts v1.0, where level was the sum of points spent; the chain now runs
+`XP → level → budget → spend`. `calculateCharacterLevel(character, config)` returns a
+`FormulaResult`, because the curve is User data that can be deleted or set to refuse out-of-range
+input — a level that cannot be read chips rather than showing a confident 1. Only
+`awardExperience`/`deductExperience` write it; a deduction below 0 is **refused**, not clamped.
 
 **Since TICKET-CALC-02, every *configured* stat has a value; absence is not a state.**
 `calculateStatValues` seeds every stat in `config.stats` before applying investment, racial

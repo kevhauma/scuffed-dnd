@@ -61,7 +61,7 @@ describe('Storage Service', () => {
         id: 'test-config',
         name: 'Test Config',
         version: '1.0.0',
-        schemaVersion: 5,
+        schemaVersion: 6,
         stats: [],
         skills: [],
         combatSkills: [],
@@ -88,7 +88,7 @@ describe('Storage Service', () => {
         id: 'test-config',
         name: 'Test Config',
         version: '1.0.0',
-        schemaVersion: 5,
+        schemaVersion: 6,
         stats: [],
         skills: [],
         combatSkills: [],
@@ -123,7 +123,7 @@ describe('Storage Service', () => {
         id: 'test-config',
         name: 'Test Config',
         version: '1.0.0',
-        schemaVersion: 5,
+        schemaVersion: 6,
         stats: [],
         skills: [],
         combatSkills: [],
@@ -157,7 +157,7 @@ describe('Storage Service', () => {
         id: 'test-config',
         name: 'Test Config',
         version: '1.0.0',
-        schemaVersion: 5,
+        schemaVersion: 6,
         stats: [],
         skills: [],
         combatSkills: [],
@@ -202,6 +202,7 @@ describe('Storage Service', () => {
           investedStatPoints: {},
           investedSkillPoints: {},
           currentResourceValues: {},
+          experience: 0,
           inventory: { equippedItems: {}, miscItems: [] },
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-01T00:00:00Z',
@@ -244,6 +245,7 @@ describe('Storage Service', () => {
           investedStatPoints: {},
           investedSkillPoints: {},
           currentResourceValues: {},
+          experience: 0,
           inventory: { equippedItems: {}, miscItems: [] },
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-01T00:00:00Z',
@@ -368,6 +370,45 @@ describe('Storage Service', () => {
             name: 'Bree',
             investedStatPoints: { 'id-str': 5 },
             currentResourceValues: {},
+            experience: 0,
+          },
+        ])
+      );
+
+      expect(loadCharacters().map((character) => character.id)).toEqual(['new']);
+    });
+
+    /**
+     * A character written before TICKET-RES-01 has no `experience` (TICKET-RES-01)
+     *
+     * Its absence is the *quiet* kind, which is why it is filtered rather than trusted: the
+     * schemaVersion gate reads the **Configuration**, so a characters key beside a fresh or absent
+     * config never meets IO-03's notice (IO-03 implementation note 5). Left through,
+     * `lookupCurve(curve, undefined)` falls past every range check and returns the first row — a
+     * confident level 1 — and an award computes `undefined + n` and persists `NaN`.
+     */
+    it.each([
+      ['absent', undefined],
+      ['null', null],
+      ['not a number', 'lots'],
+      ['NaN', Number.NaN],
+    ])('drops a character whose experience is %s', (_label, experience) => {
+      localStorage.setItem(
+        'dnd_builder_characters',
+        JSON.stringify([
+          {
+            id: 'stale',
+            name: 'Aria',
+            investedStatPoints: { 'id-str': 5 },
+            currentResourceValues: {},
+            ...(experience === undefined ? {} : { experience }),
+          },
+          {
+            id: 'new',
+            name: 'Bree',
+            investedStatPoints: { 'id-str': 5 },
+            currentResourceValues: {},
+            experience: 0,
           },
         ])
       );
@@ -415,7 +456,7 @@ describe('Storage Service', () => {
       id: 'test-config',
       name: 'Test Config',
       version: '1.0.0',
-      schemaVersion: 5,
+      schemaVersion: 6,
       stats: [
         {
           id: 'id-str',

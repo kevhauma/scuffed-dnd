@@ -32,7 +32,7 @@ function createMinimalConfig(): Configuration {
     id: 'test-config',
     name: 'Test Configuration',
     version: '1.0.0',
-    schemaVersion: 5,
+    schemaVersion: 6,
     stats: [
       stat('STR', 'Strength', 'STR'),
       stat('DEX', 'Dexterity', 'DEX'),

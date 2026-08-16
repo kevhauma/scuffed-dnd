@@ -35,6 +35,7 @@ function character(overrides: Partial<Character> = {}): Character {
     investedStatPoints: {},
     investedSkillPoints: {},
     currentResourceValues: {},
+    experience: 0,
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',

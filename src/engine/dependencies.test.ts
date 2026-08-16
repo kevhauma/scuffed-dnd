@@ -16,7 +16,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 5,
+    schemaVersion: 6,
     stats: [
       {
         id: 'id-str',
@@ -120,6 +120,7 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     investedStatPoints: { 'id-str': 5, 'id-dex': 4 },
     investedSkillPoints: { STL: 2 },
     currentResourceValues: { 'id-hp': 30 },
+    experience: 0,
     inventory: { equippedItems: { main_hand: 'axe' }, miscItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',

@@ -212,9 +212,14 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   `formatCurrency(value, tiers)`. Conversion is arithmetic over a configured rate, **not** a
   user-authored expression, so it does not go through the formula engine. Unknown tiers and
   non-positive rates degrade rather than producing `NaN`/`Infinity`.
-- `characterSummary.ts` — `calculateCharacterLevel(character)` and `toCharacterSummary(character)`.
-  **The single definition of "level"**: the sum of `investedStatPoints`, deliberately
-  excluding racial/equipment/focus modifiers. Every screen showing a level reads it from here.
+- `characterSummary.ts` — `calculateCharacterLevel(character, config)` and
+  `toCharacterSummary(character, config)`. **The single definition of "level"**, and since
+  TICKET-RES-01 it is a **reverse lookup on the `xp_thresholds` curve** — accumulated XP in, level
+  out — not the sum of `investedStatPoints` that v1.0 used. Returns a `FormulaResult`: the curve is
+  User data that can be deleted or set to refuse out-of-range input, so a level that cannot be read
+  chips rather than claiming 1. The curve is found **by name**, like `const.bonus_divider` and
+  `const.race_blend_divisor`, so renaming it breaks the link rather than following it. Every screen
+  showing a level reads it from here.
 - `skillAllocation.ts` — `validateStatAllocation(investedStatPoints, config)` → points
   spent/remaining, per-stat violations (`negative-points`, `derived-stat`), verdict. Keyed by stat
   id. The single global point pool (`Configuration.mainSkillPointBudget`,

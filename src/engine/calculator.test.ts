@@ -25,6 +25,7 @@ describe('calculateCharacterStats', () => {
       },
       investedSkillPoints: {},
       currentResourceValues: {},
+      experience: 0,
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
@@ -34,7 +35,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 5,
+      schemaVersion: 6,
       stats: [
         {
           id: 'STR',
@@ -132,6 +133,7 @@ describe('calculateCharacterStats', () => {
       },
       investedSkillPoints: {},
       currentResourceValues: {},
+      experience: 0,
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
@@ -141,7 +143,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 5,
+      schemaVersion: 6,
       stats: [
         {
           id: 'STR',
@@ -224,6 +226,7 @@ describe('calculateCharacterStats', () => {
       },
       investedSkillPoints: {},
       currentResourceValues: {},
+      experience: 0,
       inventory: { equippedItems: {}, miscItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
@@ -233,7 +236,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 5,
+      schemaVersion: 6,
       stats: [
         {
           id: 'STR',
@@ -290,7 +293,7 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
     id: 'config1',
     name: 'Fixture Config',
     version: '1.0',
-    schemaVersion: 5,
+    schemaVersion: 6,
     stats: [
       {
         id: 'STR',
@@ -480,6 +483,7 @@ function createFixtureCharacter(overrides: Partial<Character> = {}): Character {
     investedStatPoints: { STR: 10, DEX: 8, CON: 12 },
     investedSkillPoints: { STL: 2, ARC: 1 },
     currentResourceValues: { health: 40 },
+    experience: 0,
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',

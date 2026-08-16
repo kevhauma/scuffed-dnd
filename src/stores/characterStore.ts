@@ -78,6 +78,18 @@ interface CharacterState {
     values: Record<string, number>,
     config: Configuration
   ) => void;
+
+  // Experience (Concept 20, TICKET-RES-01) — level derives from this, so nothing else may write it
+  /** Add experience. A non-positive or non-finite amount is refused rather than treated as a deduct. */
+  awardExperience: (characterId: string, amount: number) => void;
+  /**
+   * Remove experience, refusing to take a character below 0.
+   *
+   * A **refusal**, not a clamp: `exp.gs` deducts a stated amount, and quietly deducting less than
+   * asked would leave the table believing a penalty landed in full. Nothing is written when the
+   * amount is more than the character has.
+   */
+  deductExperience: (characterId: string, amount: number) => void;
 }
 
 /**
@@ -152,6 +164,8 @@ function createCharacterFromData(data: CharacterCreationData, config: Configurat
     focusStatCode: data.focusStatCode,
     investedSkillPoints: data.investedSkillPoints,
     currentResourceValues: {},
+    // A fresh character has earned nothing, which the seeded curve reads as level 1 (TICKET-RES-01)
+    experience: 0,
     inventory: {
       equippedItems: {},
       miscItems: [],
@@ -237,6 +251,54 @@ function patchInventory(
   );
 
   set({ characters: updated });
+}
+
+/**
+ * Whether an amount is a real, positive quantity of experience
+ *
+ * Award and deduct each state their own direction, so a negative amount is a caller mistake rather
+ * than a way to reverse the operation — accepting it would let `awardExperience(-100)` take XP away
+ * without passing the below-zero refusal.
+ */
+function isAwardableAmount(amount: number): boolean {
+  return Number.isFinite(amount) && amount > 0;
+}
+
+/**
+ * Apply one experience change, then stamp and persist
+ *
+ * The counterpart to `updateCharacterInventory`, and takes its arguments in the same order:
+ * `change` returns the new total, or `undefined` to refuse — in which case nothing is written,
+ * nothing is stamped, and the array identity is unchanged so no subscriber re-renders over a no-op.
+ */
+function applyExperienceChange(
+  set: (partial: Partial<CharacterState>) => void,
+  get: () => CharacterState,
+  characterId: string,
+  change: (experience: number) => number | undefined
+): void {
+  const { characters } = get();
+
+  let changed = false;
+  const next = characters.map((char) => {
+    if (char.id !== characterId) return char;
+
+    // Belt and braces with `loadCharacters`' filter: a character whose stored total is not a
+    // number would compute `undefined + amount` and persist `NaN`, which reads as level 1 forever
+    // and cannot be undone from the UI. Refused rather than repaired — inventing a total is the
+    // same mistake as inventing a level.
+    if (!Number.isFinite(char.experience)) return char;
+
+    const experience = change(char.experience);
+    if (experience === undefined) return char;
+
+    changed = true;
+    return updateTimestamp({ ...char, experience });
+  });
+
+  if (!changed) return;
+
+  set({ characters: autoSave(next) });
 }
 
 /**
@@ -423,5 +485,19 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
       })
     );
     set({ characters: updated });
+  },
+
+  awardExperience: (characterId: string, amount: number) => {
+    applyExperienceChange(set, get, characterId, (experience) =>
+      isAwardableAmount(amount) ? experience + amount : undefined
+    );
+  },
+
+  deductExperience: (characterId: string, amount: number) => {
+    applyExperienceChange(set, get, characterId, (experience) => {
+      if (!isAwardableAmount(amount)) return undefined;
+      // Refused rather than clamped: a partial deduction would read as a penalty that landed
+      return amount > experience ? undefined : experience - amount;
+    });
   },
 }));

@@ -276,6 +276,8 @@ export function useCharacterSheet(characterId: string) {
   const config = useConfigStore((state) => state.config);
   const characters = useCharacterStore((state) => state.characters);
   const updateCurrentStatValue = useCharacterStore((state) => state.updateCurrentStatValue);
+  const awardExperience = useCharacterStore((state) => state.awardExperience);
+  const deductExperience = useCharacterStore((state) => state.deductExperience);
 
   const character = characters.find((candidate) => candidate.id === characterId) ?? null;
 
@@ -295,6 +297,17 @@ export function useCharacterSheet(characterId: string) {
     updateCurrentStatValue(character.id, statId, value, config);
   };
 
+  // One action per click, mirroring the sheet's `exp.gs` — the store decides what is allowed
+  const handleAwardExperience = (amount: number) => {
+    if (!character) return;
+    awardExperience(character.id, amount);
+  };
+
+  const handleDeductExperience = (amount: number) => {
+    if (!character) return;
+    deductExperience(character.id, amount);
+  };
+
   const handleBack = () => {
     navigate({ to: '/play' });
   };
@@ -305,9 +318,15 @@ export function useCharacterSheet(characterId: string) {
     /** The engine result, for callers that need more than the rendered breakdowns (the roller) */
     calculated,
     formulaError: error,
-    level: character ? calculateCharacterLevel(character) : 0,
+    // Curve-derived since TICKET-RES-01, so it carries an error the header chips like any other
+    level: toDerivedValue(
+      character && config ? calculateCharacterLevel(character, config) : undefined
+    ),
+    experience: character?.experience ?? 0,
     ...view,
     handleChangeStatValue,
+    handleAwardExperience,
+    handleDeductExperience,
     handleBack,
   };
 }

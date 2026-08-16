@@ -62,12 +62,15 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     formulaError,
     raceNames,
     level,
+    experience,
     raceContributions,
     skills,
     stats,
     statTotal,
     combatSkills,
     handleChangeStatValue,
+    handleAwardExperience,
+    handleDeductExperience,
     handleBack,
   } = useCharacterSheet(characterId);
 
@@ -133,8 +136,11 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
         name={character.name}
         raceNames={raceNames}
         level={level}
+        experience={experience}
         focusStatCode={character.focusStatCode}
         onBack={handleBack}
+        onAwardExperience={handleAwardExperience}
+        onDeductExperience={handleDeductExperience}
       />
 
       <RaceStatBlockSection raceNames={raceNames} raceContributions={raceContributions} />

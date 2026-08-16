@@ -66,7 +66,7 @@ describe('ConfigStore', () => {
         id: 'test-id',
         name: 'Loaded Config',
         version: '1.0.0',
-        schemaVersion: 5,
+        schemaVersion: 6,
         stats: [],
         skills: [],
         combatSkills: [],
@@ -969,7 +969,7 @@ describe('ConfigStore', () => {
           id: 'config1',
           name: 'Test',
           version: '1.0',
-          schemaVersion: 5,
+          schemaVersion: 6,
           stats: [
             {
               id: 'id-str',
@@ -1030,6 +1030,7 @@ describe('ConfigStore', () => {
             investedStatPoints: {},
             investedSkillPoints: {},
             currentResourceValues: {},
+            experience: 0,
             inventory: { equippedItems: {}, miscItems: [] },
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01',

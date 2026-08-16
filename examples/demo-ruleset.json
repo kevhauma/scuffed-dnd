@@ -2,7 +2,7 @@
   "id": "demo-ruleset-0001",
   "name": "Emberfall Demo Ruleset",
   "version": "1.0.0",
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "focusStatBonusLevel": 2,
   "mainSkillPointBudget": 20,
   "skills": [

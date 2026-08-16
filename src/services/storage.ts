@@ -195,10 +195,18 @@ export function loadCharacters(): Character[] {
     // A character written before TICKET-STAT-01 has no `investedStatPoints` at all, and every
     // read of it would be a crash rather than a number. Dropped rather than converted, for the
     // same reason the configuration is refused: v1 allocations have nowhere faithful to go.
+    //
+    // `experience` joined the filter with TICKET-RES-01 and is the one whose absence is *quiet*
+    // rather than loud: `lookupCurve(curve, undefined)` falls through every range check and
+    // returns the first row — a confident **level 1** — and an award computes `undefined + n` and
+    // persists `NaN`. The schemaVersion gate does not cover it, because it reads the
+    // *Configuration*: a characters key beside a fresh or absent config never meets that notice
+    // (IO-03 implementation note 5). So the shape is checked here as well.
     return characters.filter(
       (character) =>
         character?.investedStatPoints !== undefined &&
-        character?.currentResourceValues !== undefined
+        character?.currentResourceValues !== undefined &&
+        Number.isFinite(character?.experience)
     );
   } catch (error) {
     if (error instanceof SyntaxError) {

@@ -8,6 +8,7 @@
 
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
+import { ErrorChip } from '../../ui/ErrorChip/ErrorChip';
 import { Text } from '../../ui/Text/Text';
 import type { CharacterListEntry } from './useCharacterListManager';
 
@@ -28,8 +29,13 @@ export function CharacterCard({ entry, onOpen, onDelete, className = '' }: Chara
           <Text variant="h5" as="h3" className="mb-1">
             {character.name}
           </Text>
-          <Text variant="body-small-secondary">
-            Level {level}
+          {/*
+            The level is curve-derived since TICKET-RES-01, so it can fail — a ruleset with no
+            `xp_thresholds` curve chips here rather than claiming everyone is level 1.
+          */}
+          <Text variant="body-small-secondary" as="span">
+            {level.error === null ? `Level ${level.value}` : 'Level '}
+            {level.error !== null && <ErrorChip label="unavailable" detail={level.error} />}
             {raceNames.length > 0 && ` · ${raceNames.join(', ')}`}
           </Text>
         </div>

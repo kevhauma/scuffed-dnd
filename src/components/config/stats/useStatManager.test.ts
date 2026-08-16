@@ -26,7 +26,7 @@ const config: Configuration = {
   id: 'config1',
   name: 'Test Config',
   version: '1.0',
-  schemaVersion: 5,
+  schemaVersion: 6,
   stats: [
     {
       id: 'STR',
