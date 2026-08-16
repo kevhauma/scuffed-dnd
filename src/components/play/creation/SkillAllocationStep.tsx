@@ -18,8 +18,8 @@ import { Card } from '../../ui/Card/Card';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
-import type { PointBudgetView } from '../shared/PointBudgetSummary';
 import { PointBudgetSummary } from '../shared/PointBudgetSummary';
+import type { PointBudgetView } from '../shared/pointBudgetView';
 import { SkillBreakdownRow } from '../shared/SkillBreakdownRow';
 import type { DerivedStatPreview } from './useCharacterCreation';
 

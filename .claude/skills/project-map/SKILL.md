@@ -80,7 +80,7 @@ calls the storage service; components and hooks never persist directly.
 |---|---|---|
 | `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), speciality and combat skills, materials + categories, items, equipment slots, races, currency tiers, constants, curves, focus-stat bonus level. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
-| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`) , `updateCurrentStatValue(s)`, `awardExperience`/`deductExperience`, and `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) | `saveCharacters()` on every mutation |
+| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience`, and `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02). `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history | not persisted |
 
 Read the store's own type block (`ConfigState`, `CharacterState`, `UIState`) for the exact action
@@ -327,10 +327,15 @@ decides whether a delete is safe; `configStore`'s delete actions return the refe
 sheet and the wizard's derived-stat preview render — reuse it rather than re-deriving a breakdown
 layout. Its optional `secondary` prop carries a **second** labelled number before the total, for a
 row that has two (a skill's level beside its bonus); it is dropped when it carries an error, leaving
-the total's chip to explain the one cause once. `PointBudgetSummary.tsx` (TICKET-RES-02) is the
-third: `toPointBudgetView(allocation)` turns the engine's verdict into display numbers and the
-component states "N of M points spent · K remaining", chipping instead when the pool cannot be
-priced. The wizard and the sheet both render it, so they cannot drift on what "remaining" means.
+the total's chip to explain the one cause once. `pointBudgetView.ts` +
+`PointBudgetSummary.tsx` (TICKET-RES-02) are the third: `toPointBudgetView(allocation)` turns the
+engine's verdict into display numbers — a pure mapper in its own module, like `derivedValue.ts`, so a
+hook does not import a component to get a function — and the component states "N of M points spent ·
+K remaining", chipping instead when the pool cannot be priced. The wizard and the sheet both render
+it, so they cannot drift on what "remaining" means. `useNumericDraft.ts` (TICKET-RES-03) is the
+fourth: hold a half-typed number, **commit on blur or Enter**, never per keystroke, with opt-in
+`allowRelative` for Concept 20's `+12` / `-7` quick entry. Every editable number on a play surface
+goes through it — reach for it rather than re-rolling a draft `useState`.
 `characters/` holds `CharacterList` + `CharacterCard` + `useCharacterListManager`.
 `creation/` holds the four-step wizard: `CharacterCreationWizard` dispatches on a step index and
 the four step components (`IdentityStep`, `SkillAllocationStep`, `FocusStatStep`, `ReviewStep`)

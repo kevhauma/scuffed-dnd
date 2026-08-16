@@ -549,11 +549,38 @@ describe('CharacterSheet', () => {
   it('should persist a changed current stat value through the store', () => {
     render(<CharacterSheet characterId="char1" />);
 
-    fireEvent.change(within(rowFor('Mana')).getByLabelText('Mana'), { target: { value: '12' } });
+    const mana = within(rowFor('Mana')).getByLabelText('Mana');
+    fireEvent.change(mana, { target: { value: '12' } });
+    // Committed on blur since TICKET-RES-03, not per keystroke
+    fireEvent.blur(mana);
 
     // Requirement 14.2, 14.5 — the store holds it and the sheet re-reads it
     expect(useCharacterStore.getState().characters[0].currentResourceValues.mana).toBe(12);
     expect((within(rowFor('Mana')).getByLabelText('Mana') as HTMLInputElement).value).toBe('12');
+  });
+
+  it('should not persist the digits typed on the way to a value (TICKET-RES-03)', () => {
+    render(<CharacterSheet characterId="char1" />);
+
+    const mana = within(rowFor('Mana')).getByLabelText('Mana');
+    fireEvent.change(mana, { target: { value: '1' } });
+    fireEvent.change(mana, { target: { value: '12' } });
+
+    // `1` was never a write; the pool still reads its stored 30 until the entry is committed
+    expect(useCharacterStore.getState().characters[0].currentResourceValues.mana).toBe(30);
+
+    fireEvent.blur(mana);
+    expect(useCharacterStore.getState().characters[0].currentResourceValues.mana).toBe(12);
+  });
+
+  it('should commit an entry on Enter as well as on blur', () => {
+    render(<CharacterSheet characterId="char1" />);
+
+    const mana = within(rowFor('Mana')).getByLabelText('Mana');
+    fireEvent.change(mana, { target: { value: '8' } });
+    fireEvent.keyDown(mana, { key: 'Enter' });
+
+    expect(useCharacterStore.getState().characters[0].currentResourceValues.mana).toBe(8);
   });
 
   it('should clamp a current stat value at its maximum', () => {
@@ -570,15 +597,16 @@ describe('CharacterSheet', () => {
     );
   });
 
-  it('should allow a negative current stat value', () => {
+  it('should allow a current stat value to go negative', () => {
     render(<CharacterSheet characterId="char1" />);
 
-    fireEvent.change(within(rowFor('Health')).getByLabelText('Health'), {
-      target: { value: '-5' },
-    });
+    const health = within(rowFor('Health')).getByLabelText('Health');
+    // A leading sign is quick entry since TICKET-RES-03, so -70 off a stored 60 is how a pool is
+    // taken below zero — the clamp stays one-sided (Requirement 14.4)
+    fireEvent.change(health, { target: { value: '-70' } });
+    fireEvent.blur(health);
 
-    // Requirement 14.4 — the clamp is one-sided
-    expect(useCharacterStore.getState().characters[0].currentResourceValues.health).toBe(-5);
+    expect(useCharacterStore.getState().characters[0].currentResourceValues.health).toBe(-10);
   });
 
   it('should step a stat down with the decrease control', () => {
@@ -587,6 +615,119 @@ describe('CharacterSheet', () => {
     fireEvent.click(screen.getByLabelText('Decrease Health'));
 
     expect(useCharacterStore.getState().characters[0].currentResourceValues.health).toBe(59);
+  });
+
+  /**
+   * Concept 20's pool behaviours (TICKET-RES-03): quick entry, regain to full, and the rule that a
+   * derived maximum never silently overwrites what the Player is tracking.
+   */
+  describe('resource pool behaviours (TICKET-RES-03)', () => {
+    const health = () => within(rowFor('Health')).getByLabelText('Health');
+    const storedHealth = () =>
+      useCharacterStore.getState().characters[0].currentResourceValues.health;
+
+    it.each([
+      ['-7', 53],
+      ['+12', 60],
+    ])('should apply %s as a delta against the stored value', (entry, expected) => {
+      render(<CharacterSheet characterId="char1" />);
+
+      fireEvent.change(health(), { target: { value: entry } });
+      fireEvent.blur(health());
+
+      // 60 stored, max 60 — so +12 is applied and then clamped, and -7 lands whole
+      expect(storedHealth()).toBe(expected);
+    });
+
+    it('should treat an unsigned entry as an absolute value, not a delta', () => {
+      render(<CharacterSheet characterId="char1" />);
+
+      fireEvent.change(health(), { target: { value: '20' } });
+      fireEvent.blur(health());
+
+      expect(storedHealth()).toBe(20);
+    });
+
+    it('should refill a spent pool to its calculated maximum', () => {
+      useCharacterStore.setState({
+        characters: [createCharacter({ currentResourceValues: { health: 12, mana: 30 } })],
+      });
+
+      render(<CharacterSheet characterId="char1" />);
+      fireEvent.click(screen.getByLabelText('Restore Health to full'));
+
+      expect(storedHealth()).toBe(60);
+    });
+
+    it('should close the refill control when the pool is already full', () => {
+      render(<CharacterSheet characterId="char1" />);
+
+      expect((screen.getByLabelText('Restore Health to full') as HTMLButtonElement).disabled).toBe(
+        true
+      );
+    });
+
+    it('should close the refill control when there is no maximum to fill to', () => {
+      useConfigStore.setState({
+        config: createConfig({
+          stats: createConfig().stats.map((stat) =>
+            stat.id === 'health' ? { ...stat, formula: 'NOPE * 2' } : stat
+          ),
+        }),
+        isLoaded: true,
+      });
+
+      render(<CharacterSheet characterId="char1" />);
+
+      expect((screen.getByLabelText('Restore Health to full') as HTMLButtonElement).disabled).toBe(
+        true
+      );
+    });
+
+    describe('kept-and-flagged when a maximum falls', () => {
+      /** STR drops from 6 to 1, so Health's `STR * 10` maximum falls from 60 to 10 */
+      const shrink = () =>
+        useCharacterStore.setState({
+          characters: [
+            createCharacter({
+              investedStatPoints: { STR: 1, 'dex-id': 4 },
+              currentResourceValues: { health: 60, mana: 30 },
+            }),
+          ],
+        });
+
+      it('should keep the tracked value rather than rewriting it', () => {
+        shrink();
+        render(<CharacterSheet characterId="char1" />);
+
+        // The spec's rule: a derived max must never silently overwrite what the player is tracking
+        expect(storedHealth()).toBe(60);
+        expect((health() as HTMLInputElement).value).toBe('60');
+      });
+
+      it('should flag the mismatch on the sheet', () => {
+        shrink();
+        render(<CharacterSheet characterId="char1" />);
+
+        expect(within(rowFor('Health')).getByText(/Above the current maximum of 10/)).toBeDefined();
+      });
+
+      it('should clamp to the new maximum on the next write', () => {
+        shrink();
+        render(<CharacterSheet characterId="char1" />);
+
+        fireEvent.click(screen.getByLabelText('Decrease Health'));
+
+        // 60 − 1 = 59, clamped to the maximum of 10 — the state resolves as soon as it is touched
+        expect(storedHealth()).toBe(10);
+      });
+
+      it('should not flag a pool that is merely below its maximum', () => {
+        render(<CharacterSheet characterId="char1" />);
+
+        expect(within(rowFor('Mana')).queryByText(/Above the current maximum/)).toBeNull();
+      });
+    });
   });
 
   describe('the unified stats grid (TICKET-STAT-03)', () => {
@@ -721,6 +862,37 @@ describe('CharacterSheet', () => {
 
         expect(screen.getByText(/Points available:/)).toBeDefined();
         expect(screen.queryByText(/points spent/)).toBeNull();
+      });
+
+      it('should close every spend control when the pool cannot be priced', () => {
+        // The store refuses *every* write in this state, so a live control would be a click that
+        // silently did nothing — found by the conventions-reviewer on TICKET-RES-02
+        useConfigStore.setState({ config: createConfig({ curves: [] }), isLoaded: true });
+
+        render(<CharacterSheet characterId="char1" />);
+
+        expect(
+          (screen.getByLabelText('Spend a point on Strength') as HTMLButtonElement).disabled
+        ).toBe(true);
+        expect(
+          (screen.getByLabelText('Remove a point from Strength') as HTMLButtonElement).disabled
+        ).toBe(true);
+        expect((screen.getByLabelText('Points in Strength') as HTMLInputElement).disabled).toBe(
+          true
+        );
+      });
+
+      it('should not persist the digits typed on the way to an unaffordable number', () => {
+        render(<CharacterSheet characterId="char1" />);
+
+        const box = screen.getByLabelText('Points in Strength');
+        // 15-point pool, 10 already spent. Typing 20 used to persist the `2` on the way past and
+        // then refuse the `20`, quietly unspending four points (TICKET-RES-02 review finding).
+        fireEvent.change(box, { target: { value: '2' } });
+        fireEvent.change(box, { target: { value: '20' } });
+        fireEvent.blur(box);
+
+        expect(useCharacterStore.getState().characters[0].investedStatPoints.STR).toBe(6);
       });
     });
   });

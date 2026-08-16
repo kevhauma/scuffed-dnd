@@ -1,24 +1,29 @@
 # Test Status
 
 _Last verified: 2026-08-16 (`npx vitest run`), after
-[TICKET-RES-02](docs/v2.0_sheet_core/tickets/TICKET-RES-02-level-derived-point-budget.md)._
+[TICKET-RES-03](docs/v2.0_sheet_core/tickets/TICKET-RES-03-resource-pool-behaviours.md)._
 
 ## Summary
 
-- **Total tests**: 1370
-- **Passing**: 1370 (100%)
+- **Total tests**: 1418
+- **Passing**: 1418 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
 Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's tickets added
 +43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), +11 (FORM-06), +7 (CALC-02),
 +11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02), +64 (CRV-01),
-+32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09), +14 (SKL-02), +36 (SKL-03), +36 (RES-01) and +14 (RES-02).
++32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09), +14 (SKL-02), +36 (SKL-03), +36 (RES-01), +14 (RES-02) and +48 (RES-03).
 **RES-02's +14 is a net figure**: `StatPointBudget.test.tsx` (6) went with the flat pool it
 covered, `configStore.test.ts`'s budget block shrank from 4 cases to 2, and the
 `mainSkillPointBudget` round-trip block became a 4-case retired-field refusal — against which
 `skillAllocation.test.ts` grew the derived-budget and unavailable-budget groups, `characterStore`
 gained 8 for `setInvestedStatPoints`, and the sheet gained 6 for the pool and its spend surface.
+**RES-03's +48** is purely additive: two new colocated files (`useNumericDraft.test.ts` at 17,
+`pointBudgetView.test.ts` at 5 — both raised by the `conventions-reviewer` on RES-02), 13 more in
+`characterStore.test.ts` for the two new pool actions and creation's affordability refusal, and 13
+on the sheet for quick entry, refill and kept-and-flagged. Three existing sheet cases were rewritten
+rather than added to: commit is on blur now, and `-5` is a delta rather than an absolute.
 **SKL-02's +14 is a net figure across a very large rewrite**: the source-side reshape landed a
 session ahead of its tests, so 171 tests were failing when the ticket was picked up. 20 tests were
 added in a new `skillCalculator.test.ts` (Concept 02's verified table), a handful more elsewhere,

@@ -110,10 +110,83 @@ describe('CharacterStore', () => {
       equipmentSlots: [{ type: 'main_hand', name: 'Main Hand', description: '' }],
       races: [],
       currencyTiers: [],
+      // Since TICKET-RES-02 creation is refused when the derived budget cannot pay for the
+      // allocation, so this block prices a pool generous enough that each case still tests the one
+      // thing it names. The refusal itself has its own cases below.
+      constants: [
+        {
+          id: 'const-ppl',
+          name: 'points_per_level',
+          displayName: 'Points per level',
+          description: '',
+          value: 100,
+        },
+      ],
+      curves: [
+        {
+          id: 'curve-xp',
+          name: 'xp_thresholds',
+          displayName: 'XP thresholds',
+          description: '',
+          keyName: 'level',
+          columns: [{ id: 'curve-xp-col', name: 'xp_required' }],
+          rows: [
+            { key: 1, values: [0] },
+            { key: 2, values: [300] },
+          ],
+          interpolation: 'step',
+          outOfRange: 'extrapolate',
+          lookupDirection: 'reverse',
+        },
+      ],
       focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
+
+    it('should refuse an allocation the derived budget cannot pay for (TICKET-RES-02)', () => {
+      // The wizard's step blocks this too, but the judgement belongs to the store — a second
+      // creation path must not be able to mint an over-budget character
+      const poor: Configuration = {
+        ...testConfig,
+        constants: [
+          {
+            id: 'const-ppl',
+            name: 'points_per_level',
+            displayName: 'Points per level',
+            description: '',
+            value: 3,
+          },
+        ],
+      };
+
+      const refused = useCharacterStore.getState().createCharacter(
+        {
+          name: 'Too Rich',
+          raceIds: [],
+          investedStatPoints: { STR: 10 },
+          investedSkillPoints: {},
+        },
+        poor
+      );
+
+      expect(refused).toBeNull();
+      expect(useCharacterStore.getState().characters).toHaveLength(0);
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+
+    it('should refuse creation entirely when the budget cannot be derived', () => {
+      const noCurve: Configuration = { ...testConfig, curves: [] };
+
+      expect(
+        useCharacterStore
+          .getState()
+          .createCharacter(
+            { name: 'Unpriced', raceIds: [], investedStatPoints: {}, investedSkillPoints: {} },
+            noCurve
+          )
+      ).toBeNull();
+    });
 
     it('should create a new character and save to storage', () => {
       const creationData: CharacterCreationData = {
@@ -173,12 +246,24 @@ describe('CharacterStore', () => {
       const brokenConfig: Configuration = {
         ...testConfig,
         stats: [
+          // STR is kept alongside the broken stat: since TICKET-RES-02 an allocation naming an id
+          // the ruleset does not define is itself a refusal, and this case is about the *formula*
+          {
+            id: 'STR',
+            name: 'Strength',
+            abbreviation: 'STR',
+            description: '',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: false,
+            rounding: 'none',
+          },
           {
             id: 'mana',
             name: 'Mana',
             abbreviation: 'MAN',
             description: '',
-            order: 0,
+            order: 1,
             countsTowardTotal: true,
             isResource: false,
             rounding: 'none',
@@ -805,6 +890,97 @@ describe('CharacterStore', () => {
         const updated = useCharacterStore.getState().characters[0];
         expect(updated.currentResourceValues.health).toBe(100);
         expect(updated.currentResourceValues.mana).toBe(-5);
+      });
+    });
+
+    /** Concept 20's quick entry (TICKET-RES-03) */
+    describe('adjustCurrentStatValue', () => {
+      const health = () => useCharacterStore.getState().characters[0].currentResourceValues.health;
+
+      it('should take a delta off the stored value', () => {
+        useCharacterStore.getState().adjustCurrentStatValue('char-1', 'health', -7, statConfig);
+
+        expect(health()).toBe(93);
+      });
+
+      it('should add a delta, still clamping at the maximum', () => {
+        useCharacterStore.getState().adjustCurrentStatValue('char-1', 'health', -20, statConfig);
+        useCharacterStore.getState().adjustCurrentStatValue('char-1', 'health', 50, statConfig);
+
+        // 80 + 50 = 130, capped at the calculated 100 (Requirement 14.3)
+        expect(health()).toBe(100);
+      });
+
+      it('should allow a delta to take a pool below zero', () => {
+        // Requirement 14.4 — the clamp is one-sided, and quick entry is how a Player gets there
+        useCharacterStore.getState().adjustCurrentStatValue('char-1', 'health', -130, statConfig);
+
+        expect(health()).toBe(-30);
+      });
+
+      it('should apply the delta to what is stored, not to a clamped reading of it', () => {
+        // A pool above a shrunken maximum must lose exactly what was asked for before the clamp
+        useCharacterStore.setState({
+          characters: [{ ...character, currentResourceValues: { health: 400, mana: 50 } }],
+        });
+
+        useCharacterStore.getState().adjustCurrentStatValue('char-1', 'health', -50, statConfig);
+
+        // 400 − 50 = 350, then clamped to 100 — never 100 − 50
+        expect(health()).toBe(100);
+      });
+
+      it('should treat a stat with no stored value as standing at zero', () => {
+        useCharacterStore.setState({
+          characters: [{ ...character, currentResourceValues: {} }],
+        });
+
+        useCharacterStore.getState().adjustCurrentStatValue('char-1', 'health', 5, statConfig);
+
+        expect(health()).toBe(5);
+      });
+
+      it('should ignore a non-finite delta and an unknown character', () => {
+        useCharacterStore
+          .getState()
+          .adjustCurrentStatValue('char-1', 'health', Number.NaN, statConfig);
+        useCharacterStore.getState().adjustCurrentStatValue('missing', 'health', -5, statConfig);
+
+        expect(health()).toBe(100);
+      });
+    });
+
+    /** Concept 20's "Regain mana to full" (TICKET-RES-03) */
+    describe('resetCurrentStatValueToMax', () => {
+      const health = () => useCharacterStore.getState().characters[0].currentResourceValues.health;
+
+      it('should fill a spent pool to its calculated maximum', () => {
+        useCharacterStore.getState().updateCurrentStatValue('char-1', 'health', 12, statConfig);
+        useCharacterStore.getState().resetCurrentStatValueToMax('char-1', 'health', statConfig);
+
+        expect(health()).toBe(100);
+      });
+
+      it('should leave a pool alone when its maximum cannot be calculated', () => {
+        const broken: Configuration = {
+          ...statConfig,
+          stats: statConfig.stats.map((stat) =>
+            stat.id === 'health' ? { ...stat, formula: 'UNKNOWN * 10' } : stat
+          ),
+        };
+
+        useCharacterStore.getState().resetCurrentStatValueToMax('char-1', 'health', broken);
+
+        // Writing 0 would be the one "reset" that empties a pool instead of filling it
+        expect(health()).toBe(100);
+        expect(storage.saveCharacters).not.toHaveBeenCalled();
+      });
+
+      it('should ignore an unknown character and an unknown stat', () => {
+        useCharacterStore.getState().resetCurrentStatValueToMax('missing', 'health', statConfig);
+        useCharacterStore.getState().resetCurrentStatValueToMax('char-1', 'stamina', statConfig);
+
+        expect(health()).toBe(100);
       });
     });
   });

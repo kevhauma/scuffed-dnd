@@ -121,7 +121,7 @@ function previewResult(): string {
  * The stat names in the order the panel lists them
  *
  * Read off the move buttons rather than the headings: one exists per stat card and nowhere else,
- * so the probe cannot pick up a heading from `StatPointBudget` below the list.
+ * so the probe cannot pick up a heading from anything the panel renders around the list.
  */
 function listedStatNames(): string[] {
   return screen

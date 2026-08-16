@@ -70,6 +70,8 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     budget,
     combatSkills,
     handleChangeStatValue,
+    handleAdjustStatValue,
+    handleResetStatValueToMax,
     handleChangeInvestedPoints,
     handleAwardExperience,
     handleDeductExperience,
@@ -152,6 +154,8 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
         statTotal={statTotal}
         budget={budget}
         onChangeStatValue={handleChangeStatValue}
+        onAdjustStatValue={handleAdjustStatValue}
+        onResetStatValueToMax={handleResetStatValueToMax}
         onChangeInvestedPoints={handleChangeInvestedPoints}
       />
 

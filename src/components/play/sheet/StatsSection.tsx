@@ -20,8 +20,8 @@
 import { Fragment } from 'react';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
-import type { PointBudgetView } from '../shared/PointBudgetSummary';
 import { PointBudgetSummary } from '../shared/PointBudgetSummary';
+import type { PointBudgetView } from '../shared/pointBudgetView';
 import { SkillBreakdownRow } from '../shared/SkillBreakdownRow';
 import { InvestedPointsEditor } from './InvestedPointsEditor';
 import { StatEditor } from './StatEditor';
@@ -34,6 +34,9 @@ export interface StatsSectionProps {
   /** The pool every invested stat below spends from, or null when there is none to show */
   budget: PointBudgetView | null;
   onChangeStatValue: (statId: string, value: number) => void;
+  /** Move a pool by an amount — the steppers and Concept 20's quick entry */
+  onAdjustStatValue: (statId: string, delta: number) => void;
+  onResetStatValueToMax: (statId: string) => void;
   onChangeInvestedPoints: (statId: string, points: number) => void;
 }
 
@@ -42,6 +45,8 @@ export function StatsSection({
   statTotal,
   budget,
   onChangeStatValue,
+  onAdjustStatValue,
+  onResetStatValueToMax,
   onChangeInvestedPoints,
 }: StatsSectionProps) {
   return (
@@ -94,7 +99,10 @@ export function StatsSection({
                 name={stat.name}
                 current={stat.current}
                 max={stat.max}
+                isOverMax={stat.isOverMax}
                 onChange={(value) => onChangeStatValue(stat.id, value)}
+                onAdjust={(delta) => onAdjustStatValue(stat.id, delta)}
+                onResetToMax={() => onResetStatValueToMax(stat.id)}
               />
             )}
           </Fragment>

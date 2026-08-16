@@ -82,6 +82,39 @@ RES-01's level in place, this ticket derives the budget and retires the flat poo
    budget until the User decides otherwise, noted in the module JSDoc and in
    [`docs/imports/constants.json`](../../imports/constants.json).
 
+## Conventions review — findings and what was done (landed with TICKET-RES-03)
+
+The `conventions-reviewer` ran on the diff after it was committed and found eight things. All eight
+are fixed; the fixes ride in the RES-03 commit because the tree already held that work when the
+review came back, and the largest of them is the same change RES-03 was making anyway.
+
+1. **Per-keystroke commit silently discarded invested points.** `useNumericDraft` committed every
+   parseable keystroke, and `setInvestedStatPoints` **refuses** rather than clamps — so typing `20`
+   over a `6` persisted the `2` on the way past and then refused the `20`, leaving four points
+   unspent. The extraction caused it: the behaviour was safe on `StatEditor`, whose store action
+   clamps. Fixed by RES-03's commit-on-blur/Enter rewrite of the shared hook, covered by
+   `useNumericDraft.test.ts` and by `should not persist the digits typed on the way to an
+   unaffordable number` on the sheet.
+2. **An unpriceable budget left the `−` button and the input live**, both silently refused by the
+   store. `canEdit` now gates all three controls; asserted by `should close every spend control when
+   the pool cannot be priced`.
+3. **`createCharacter` did not check affordability** — only the wizard's step did, which contradicts
+   this ticket's own rule that the engine decides. It now refuses like the race-count check does,
+   with two store tests. Consequence worth knowing: a ruleset with no `xp_thresholds` curve can no
+   longer mint a character at all, which is consistent with the wizard already blocking on it.
+4. **`toPointBudgetView` lived in a `.tsx` component module**, so two hooks pulled `ErrorChip` and
+   `Text` into their graphs for a pure function. Split to
+   [`shared/pointBudgetView.ts`](../../../src/components/play/shared/pointBudgetView.ts) beside
+   `derivedValue.ts`, with its own test file.
+5. **No colocated tests for the new modules.** `useNumericDraft.test.ts` and `pointBudgetView.test.ts`
+   added. `InvestedPointsEditor` stays covered through `CharacterSheet.test.tsx`, which is how every
+   other row component in `play/sheet/` is tested — the folder has one test file by design.
+6. **`allocation` was dead public surface** on `useCharacterCreation`, re-exported through the play
+   barrel with no consumer. Dropped to a local.
+7. **A stale comment** in `StatsConfigPanel.test.tsx` still explained a constraint imposed by the
+   deleted `StatPointBudget`. Reworded.
+8. **A stray space** in the `project-map` skill's store table. Fixed.
+
 ## Sheet data
 
 No new persisted entity, but [`docs/imports/constants.json`](../../imports/constants.json) is

@@ -22,6 +22,7 @@ export * from './rolls/RollHistoryPanel';
 export * from './rolls/useCombatRoller';
 export * from './shared/derivedValue';
 export * from './shared/PointBudgetSummary';
+export * from './shared/pointBudgetView';
 export * from './shared/SkillBreakdownRow';
 export * from './shared/useNumericDraft';
 export * from './sheet/CharacterSheet';

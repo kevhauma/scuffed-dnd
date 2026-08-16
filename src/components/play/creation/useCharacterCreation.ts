@@ -25,8 +25,8 @@ import type {
 import type { Stat } from '../../../types/config';
 import type { DerivedValue } from '../shared/derivedValue';
 import { toDerivedValue } from '../shared/derivedValue';
-import type { PointBudgetView } from '../shared/PointBudgetSummary';
-import { toPointBudgetView } from '../shared/PointBudgetSummary';
+import type { PointBudgetView } from '../shared/pointBudgetView';
+import { toPointBudgetView } from '../shared/pointBudgetView';
 
 /**
  * The wizard's steps, in order — exposed to callers as the hook's `steps`
@@ -312,7 +312,8 @@ export function useCharacterCreation() {
     raceBases,
     canAddRace,
     maxRaceCount: MAX_RACE_COUNT,
-    allocation,
+    // `allocation` stays local: the step renders `budget`, and re-exporting the raw engine result
+    // through the play barrel would offer supported API nothing consumes
     budget,
     preview,
     previewError,

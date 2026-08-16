@@ -42,7 +42,8 @@ interface CharacterState {
    *
    * Nullable since TICKET-RACE-02: more races than the blend is defined over is the first thing
    * this action refuses outright rather than storing. A caller that gets `null` should stay where
-   * it is — nothing was saved.
+   * it is — nothing was saved. TICKET-RES-02 added the second refusal: an allocation the derived
+   * budget cannot pay for, checked here as well as in the wizard so the rule has one home.
    */
   createCharacter: (data: CharacterCreationData, config: Configuration) => Character | null;
   updateCharacter: (id: string, updates: Partial<Character>) => void;
@@ -96,6 +97,27 @@ interface CharacterState {
     config: Configuration
   ) => void;
 
+  /**
+   * Move a resource pool by a delta rather than setting it (Concept 20's quick entry)
+   *
+   * `-7` off a pool of 30 leaves 23. The delta applies to what is **stored**, not to what is
+   * displayed, so a pool already above a shrunken maximum loses exactly what was asked for. The
+   * write still clamps at the maximum and still allows a negative result (Requirements 14.3, 14.4).
+   */
+  adjustCurrentStatValue: (
+    characterId: string,
+    statId: string,
+    delta: number,
+    config: Configuration
+  ) => void;
+  /**
+   * Fill a resource pool to its calculated maximum — Concept 20's "Regain mana to full"
+   *
+   * The maximum is derived, so this is the one write that reads it: a pool whose formula cannot be
+   * evaluated has no maximum to reset to and is left alone rather than zeroed.
+   */
+  resetCurrentStatValueToMax: (characterId: string, statId: string, config: Configuration) => void;
+
   // Experience (Concept 20, TICKET-RES-01) — level derives from this, so nothing else may write it
   /** Add experience. A non-positive or non-finite amount is refused rather than treated as a deduct. */
   awardExperience: (characterId: string, amount: number) => void;
@@ -142,6 +164,26 @@ function clampToMaxStatValues(
   }
 
   return clamped;
+}
+
+/**
+ * One stat's calculated maximum, or undefined when there isn't one
+ *
+ * The same reading `clampToMaxStatValues` does, for the one action that needs a single stat's
+ * ceiling rather than a batch of them: `undefined` covers an unknown id, a ruleset whose formulas
+ * do not evaluate, and an engine that threw — three ways of having no ceiling, all of which mean
+ * the same thing to a caller.
+ */
+function maxStatValue(
+  character: Character,
+  statId: string,
+  config: Configuration
+): number | undefined {
+  try {
+    return asNumber(calculateCharacter(character, config).statValues[statId]);
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -358,6 +400,13 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     if (!hasBlendableRaces(data.raceIds)) return null;
 
     const character = createCharacterFromData(data, config);
+
+    // The same engine verdict `setInvestedStatPoints` asks for, so creation and the level-up spend
+    // cannot disagree about what is affordable. The wizard's step already blocks this, but the
+    // judgement belongs to the store rather than to a hook — a second creation path, or a bug in
+    // that one, would otherwise mint an over-budget character with nothing to refuse it.
+    if (!validateStatAllocation(character, config).isValid) return null;
+
     const { characters } = get();
     const updated = autoSave([...characters, character]);
     set({ characters: updated });
@@ -502,6 +551,33 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
       })
     );
     set({ characters: updated });
+  },
+
+  adjustCurrentStatValue: (
+    characterId: string,
+    statId: string,
+    delta: number,
+    config: Configuration
+  ) => {
+    const character = get().characters.find((candidate) => candidate.id === characterId);
+    if (!character || !Number.isFinite(delta)) return;
+
+    // Read from the stored value, not from anything a component is showing — a pool left above a
+    // shrunken maximum (TICKET-RES-03's kept-and-flagged rule) must lose exactly what was asked for
+    const current = character.currentResourceValues[statId] ?? 0;
+    get().updateCurrentStatValue(characterId, statId, current + delta, config);
+  },
+
+  resetCurrentStatValueToMax: (characterId: string, statId: string, config: Configuration) => {
+    const character = get().characters.find((candidate) => candidate.id === characterId);
+    if (!character) return;
+
+    const max = maxStatValue(character, statId, config);
+    // No maximum means nothing to fill to. Writing 0 would be the one case where "reset" empties a
+    // pool instead of filling it, which is the opposite of what the control says it does.
+    if (max === undefined) return;
+
+    get().updateCurrentStatValue(characterId, statId, max, config);
   },
 
   setInvestedStatPoints: (

@@ -7,9 +7,17 @@
  * they gain a level.
  *
  * The budget check lives in the store action, not here — this row reports the requested number and
- * renders whatever came back, the same contract `StatEditor` has for current values. The `+` button
- * disables when nothing is left so the common case reads as "you are out" rather than as a click
- * that silently did nothing.
+ * renders whatever came back, the same contract `StatEditor` has for current values. A control that
+ * cannot do anything is **disabled** rather than left live and silently refused: `+` when nothing
+ * remains, `−` at zero, and every control when the pool could not be priced at all (the store
+ * refuses every write in that state, so a live box would be a lie).
+ *
+ * The entry commits on blur or Enter, never per keystroke. That distinction matters more here than
+ * on `StatEditor`: `updateCurrentStatValue` **clamps**, so an intermediate commit lands on the value
+ * the store would have reached anyway, but `setInvestedStatPoints` **refuses** — so typing `20` over
+ * a `6` used to persist the `2` on the way past and then refuse the `20`, leaving four points
+ * silently unspent. Found by the `conventions-reviewer` on TICKET-RES-02 and fixed in the shared
+ * hook, so both editors get it.
  *
  * The label is `Points in <stat>` rather than the bare stat name, because a resource stat renders
  * this row *and* the `StatEditor` — two number boxes one above the other, and two controls both
@@ -42,10 +50,16 @@ export function InvestedPointsEditor({
   onChange,
 }: InvestedPointsEditorProps) {
   const inputId = useId();
-  const draft = useNumericDraft(invested, onChange);
+  // No relative entry here: a pool is moved by deltas at the table, but an investment is a number
+  // the Player decides on, and `-1` in this box means "one point", not "take one away"
+  const draft = useNumericDraft(invested, (entry) => {
+    if (entry.kind === 'absolute') onChange(entry.value);
+  });
 
   const remaining = pointsRemaining.value;
-  const canSpend = remaining !== null && remaining > 0;
+  /** Every write is refused while the pool has no number, so nothing here is usable either */
+  const canEdit = remaining !== null;
+  const canSpend = canEdit && remaining > 0;
 
   return (
     <div className="flex flex-wrap items-center gap-3 border-b border-stone-200 py-2 last:border-b-0">
@@ -57,7 +71,7 @@ export function InvestedPointsEditor({
         variant="secondary"
         size="sm"
         aria-label={`Remove a point from ${name}`}
-        disabled={invested <= 0}
+        disabled={!canEdit || invested <= 0}
         onClick={() => onChange(invested - 1)}
       >
         −
@@ -67,9 +81,11 @@ export function InvestedPointsEditor({
         id={inputId}
         type="number"
         min="0"
+        disabled={!canEdit}
         value={draft.value}
         onChange={(event) => draft.handleChange(event.target.value)}
         onBlur={draft.handleBlur}
+        onKeyDown={draft.handleKeyDown}
         className="w-24"
       />
 

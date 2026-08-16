@@ -13,42 +13,9 @@
  * **Validates: Concept 06; Concept 20; Requirements 16.6, 21.1-21.5**
  */
 
-import type { StatAllocationResult } from '../../../engine/skillAllocation';
 import { ErrorChip } from '../../ui/ErrorChip/ErrorChip';
 import { Text } from '../../ui/Text/Text';
-import type { DerivedValue } from './derivedValue';
-import { toDerivedValue } from './derivedValue';
-
-/**
- * The engine's allocation verdict, spelled for display
- *
- * Built once here rather than in each hook so the wizard and the sheet cannot drift on what
- * "remaining" means — the two surfaces read the same pool.
- */
-export interface PointBudgetView {
-  pointsSpent: number;
-  /** `level × const.points_per_level` */
-  pointBudget: DerivedValue;
-  pointsRemaining: DerivedValue;
-  isOverBudget: boolean;
-}
-
-/**
- * Turn the engine's verdict into the numbers a component renders
- *
- * @param allocation - The engine's result, or null when there is nothing to validate
- * @returns The view, or null when there is no allocation
- */
-export function toPointBudgetView(allocation: StatAllocationResult | null): PointBudgetView | null {
-  if (!allocation) return null;
-
-  return {
-    pointsSpent: allocation.pointsSpent,
-    pointBudget: toDerivedValue(allocation.pointBudget),
-    pointsRemaining: toDerivedValue(allocation.pointsRemaining),
-    isOverBudget: allocation.isOverBudget,
-  };
-}
+import type { PointBudgetView } from './pointBudgetView';
 
 export interface PointBudgetSummaryProps extends PointBudgetView {
   className?: string;

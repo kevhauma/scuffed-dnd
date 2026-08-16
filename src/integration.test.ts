@@ -99,6 +99,34 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
       },
     ],
     currencyTiers: [],
+    // Creation is priced against the derived budget since TICKET-RES-02, so the ruleset has to be
+    // able to say what a level is worth before a character can be minted on it
+    constants: [
+      {
+        id: 'const-ppl',
+        name: 'points_per_level',
+        displayName: 'Points per level',
+        description: '',
+        value: 100,
+      },
+    ],
+    curves: [
+      {
+        id: 'curve-xp',
+        name: 'xp_thresholds',
+        displayName: 'XP thresholds',
+        description: '',
+        keyName: 'level',
+        columns: [{ id: 'curve-xp-col', name: 'xp_required' }],
+        rows: [
+          { key: 1, values: [0] },
+          { key: 2, values: [300] },
+        ],
+        interpolation: 'step',
+        outOfRange: 'extrapolate',
+        lookupDirection: 'reverse',
+      },
+    ],
     focusStatBonusLevel: 0,
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',

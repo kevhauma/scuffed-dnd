@@ -289,7 +289,16 @@ Because the maximum *is* derived,
 `Configuration` and clamp to `calculateCharacter().statValues` inside the action (Req 14.3);
 negatives pass through (Req 14.4). A stat with no calculated maximum — an unknown id, or one whose
 formula produced an error — is written unclamped. Don't clamp in a component; the rule lives in the
-store so no caller can bypass it.
+store so no caller can bypass it. `adjustCurrentStatValue(…, delta, config)` and
+`resetCurrentStatValueToMax(…, config)` (TICKET-RES-03) are the other two writers: a delta applies
+to what is **stored**, not to a clamped reading of it, and a reset leaves the pool alone when the
+maximum cannot be calculated rather than writing 0.
+
+**A derived maximum never silently overwrites a stored current** (Concept 20, TICKET-RES-03). When a
+maximum falls below the value a Player is tracking — an item unequipped, a formula edited — the
+current is **kept** and flagged (`StatBreakdown.isOverMax`), never rewritten. Write-clamping is what
+resolves it, the next time the Player touches the pool. Nothing in the app may reconcile the two
+behind their back.
 
 The same holds for equipment: `equipItem(characterId, slotType, itemId, config)` and
 `moveItemToEquipment(characterId, itemId, slotType, config)` take the `Configuration` and refuse

@@ -25,7 +25,7 @@ import type { CalculatedCharacter, Character } from '../../../types/character';
 import type { Configuration } from '../../../types/config';
 import type { DerivedValue } from '../shared/derivedValue';
 import { toDerivedValue } from '../shared/derivedValue';
-import { toPointBudgetView } from '../shared/PointBudgetSummary';
+import { toPointBudgetView } from '../shared/pointBudgetView';
 
 /**
  * Why the sheet cannot be drawn, or `ready` when it can
@@ -104,6 +104,15 @@ export interface StatBreakdown {
   current: number;
   /** The engine's composed value — the maximum, for a resource */
   max: DerivedValue;
+  /**
+   * A resource whose stored current is above its calculated maximum (TICKET-RES-03)
+   *
+   * Reachable whenever the maximum *falls* — an item unequipped, a formula edited, a race removed.
+   * The current is **kept**: a derived maximum must never silently overwrite what the Player is
+   * tracking, so the sheet flags the mismatch and leaves the number alone. Writes still clamp, so
+   * the state resolves the moment the Player touches the pool.
+   */
+  isOverMax: boolean;
 }
 
 /**
@@ -247,19 +256,26 @@ function buildView(
 
     // One row per stat, invested or derived (TICKET-STAT-01), in the order the User arranged them
     // in the stats panel (TICKET-STAT-03). `current` is meaningful only for a resource.
-    stats: orderedStats.map((stat) => ({
-      id: stat.id,
-      name: stat.name,
-      abbreviation: stat.abbreviation,
-      isResource: stat.isResource,
-      isDerived: stat.formula !== undefined,
-      invested: character.investedStatPoints[stat.id] ?? 0,
-      race: raceBases[stat.id] ?? 0,
-      equipment: equipmentBonuses[stat.id] ?? 0,
-      focus: focusFor(stat.abbreviation),
-      current: character.currentResourceValues[stat.id] ?? 0,
-      max: toDerivedValue(calculated.statValues[stat.id]),
-    })),
+    stats: orderedStats.map((stat) => {
+      const current = character.currentResourceValues[stat.id] ?? 0;
+      const max = toDerivedValue(calculated.statValues[stat.id]);
+
+      return {
+        id: stat.id,
+        name: stat.name,
+        abbreviation: stat.abbreviation,
+        isResource: stat.isResource,
+        isDerived: stat.formula !== undefined,
+        invested: character.investedStatPoints[stat.id] ?? 0,
+        race: raceBases[stat.id] ?? 0,
+        equipment: equipmentBonuses[stat.id] ?? 0,
+        focus: focusFor(stat.abbreviation),
+        current,
+        max,
+        // Compared, never corrected — see `StatBreakdown.isOverMax`
+        isOverMax: stat.isResource && max.value !== null && current > max.value,
+      };
+    }),
 
     statTotal: calculated.statTotal,
 
@@ -278,6 +294,8 @@ export function useCharacterSheet(characterId: string) {
   const config = useConfigStore((state) => state.config);
   const characters = useCharacterStore((state) => state.characters);
   const updateCurrentStatValue = useCharacterStore((state) => state.updateCurrentStatValue);
+  const adjustCurrentStatValue = useCharacterStore((state) => state.adjustCurrentStatValue);
+  const resetCurrentStatValueToMax = useCharacterStore((state) => state.resetCurrentStatValueToMax);
   const setInvestedStatPoints = useCharacterStore((state) => state.setInvestedStatPoints);
   const awardExperience = useCharacterStore((state) => state.awardExperience);
   const deductExperience = useCharacterStore((state) => state.deductExperience);
@@ -309,6 +327,20 @@ export function useCharacterSheet(characterId: string) {
 
     // Persistence — and the max-value clamp — belong to the store action, not to this hook
     updateCurrentStatValue(character.id, statId, value, config);
+  };
+
+  // Concept 20's quick entry and "regain to full" (TICKET-RES-03). The delta is applied and the
+  // maximum is read inside the store, so nothing here does arithmetic on a pool.
+  const handleAdjustStatValue = (statId: string, delta: number) => {
+    if (!character || !config) return;
+
+    adjustCurrentStatValue(character.id, statId, delta, config);
+  };
+
+  const handleResetStatValueToMax = (statId: string) => {
+    if (!character || !config) return;
+
+    resetCurrentStatValueToMax(character.id, statId, config);
   };
 
   // Spending is the level-up mechanic (TICKET-RES-02). The store refuses anything the derived
@@ -349,6 +381,8 @@ export function useCharacterSheet(characterId: string) {
     budget,
     ...view,
     handleChangeStatValue,
+    handleAdjustStatValue,
+    handleResetStatValueToMax,
     handleChangeInvestedPoints,
     handleAwardExperience,
     handleDeductExperience,
