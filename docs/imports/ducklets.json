@@ -12791,5 +12791,19 @@
       "outOfRange": "extrapolate",
       "lookupDirection": "reverse"
     }
+  ],
+  "diceLadders": [
+    {
+      "id": "ladder-standard",
+      "name": "Standard",
+      "description": "The sheet's ladder: a value becomes D20s, then D12s, then D6s, with the leftover as a flat bonus.",
+      "dieSizes": [
+        20,
+        12,
+        6
+      ],
+      "showZeroTerms": true,
+      "remainder": "flat"
+    }
   ]
 }

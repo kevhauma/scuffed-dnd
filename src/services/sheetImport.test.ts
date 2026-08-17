@@ -26,6 +26,7 @@ import {
   readFragments,
   renderConfiguration,
 } from '../../scripts/build-sheet-import.mjs';
+import { decomposeValue } from '../engine/dice/diceLadder';
 import { SUPPORTED_SCHEMA_VERSION } from '../types/config';
 import { importConfiguration, validateConfiguration } from './importExport';
 
@@ -39,6 +40,7 @@ describe('sheet import fragments', () => {
       'constants.json',
       'currency-tiers.json',
       'curves.json',
+      'dice-ladders.json',
       'equipment-slots.json',
       'items.json',
       'materials.json',
@@ -119,6 +121,20 @@ describe('the confirmed derivations survive the round trip', () => {
     for (const row of pointBuy?.rows ?? []) {
       expect(row.values[main]).toBeCloseTo(0.75 * (row.key + 1), 10);
     }
+  });
+
+  it('keeps the dice ladder decomposing the sheet values (Concept 07)', () => {
+    const ladder = config.diceLadders?.[0];
+    if (!ladder) throw new Error('the corpus carries no dice ladder');
+
+    const row = (value: number) => {
+      const { counts, flat } = decomposeValue(value, ladder);
+      return [...counts.map((entry) => entry.count), flat];
+    };
+
+    expect(ladder.dieSizes).toEqual([20, 12, 6]);
+    expect(row(10)).toEqual([0, 0, 1, 4]);
+    expect(row(39)).toEqual([1, 1, 1, 1]);
   });
 
   it('keeps the skill weights Concept 02 confirmed', () => {

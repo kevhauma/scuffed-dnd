@@ -14,6 +14,7 @@ import type {
   Configuration,
   CurrencyTier,
   Curve,
+  DiceLadder,
   EquipmentSlot,
   Item,
   Material,
@@ -1564,6 +1565,75 @@ describe('ConfigStore', () => {
       useConfigStore.getState().addCurveRow('missing', 1);
 
       expect(storage.saveConfiguration).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Dice ladders CRUD (TICKET-ROLL-03)', () => {
+    const standard: DiceLadder = {
+      id: 'ladder-standard',
+      name: 'Standard',
+      description: "The sheet's 20 | 12 | 6 ladder",
+      dieSizes: [20, 12, 6],
+      showZeroTerms: true,
+      remainder: 'flat',
+    };
+
+    /** The fixture ladder as the store currently holds it */
+    const stored = () =>
+      useConfigStore
+        .getState()
+        .config?.diceLadders?.find((candidate) => candidate.id === 'ladder-standard');
+
+    beforeEach(() => {
+      useConfigStore.getState().initializeConfig('Test');
+      vi.clearAllMocks();
+    });
+
+    it('should mint a fresh ruleset with no diceLadders key at all', () => {
+      // Absent means none, like `constants`, `curves` and `archetypes` — ROLL-05 is what seeds one
+      expect(useConfigStore.getState().config?.diceLadders).toBeUndefined();
+    });
+
+    it('should add, update and delete through the store, persisting each time', () => {
+      useConfigStore.getState().addDiceLadder(standard);
+      expect(stored()).toEqual(standard);
+
+      useConfigStore.getState().updateDiceLadder('ladder-standard', { dieSizes: [100, 20, 12, 6] });
+      expect(stored()?.dieSizes).toEqual([100, 20, 12, 6]);
+
+      useConfigStore.getState().deleteDiceLadder('ladder-standard');
+      expect(stored()).toBeUndefined();
+      expect(storage.saveConfiguration).toHaveBeenCalledTimes(3);
+    });
+
+    it('should remove the cap rather than store an undefined maxPerDie', () => {
+      useConfigStore.getState().addDiceLadder({ ...standard, maxPerDie: 2 });
+
+      useConfigStore.getState().updateDiceLadder('ladder-standard', { maxPerDie: undefined });
+
+      expect(stored()).not.toHaveProperty('maxPerDie');
+    });
+
+    it('should round-trip through export and import', () => {
+      useConfigStore.getState().addDiceLadder({ ...standard, maxPerDie: 2 });
+
+      const exported = JSON.stringify(
+        toStoredConfiguration(useConfigStore.getState().config as Configuration)
+      );
+
+      expect(importConfiguration(exported).diceLadders).toEqual([{ ...standard, maxPerDie: 2 }]);
+    });
+
+    it('should refuse an imported ladder whose remainder handling this build does not have', () => {
+      useConfigStore.getState().addDiceLadder(standard);
+      const config = toStoredConfiguration(useConfigStore.getState().config as Configuration);
+      const ladders = config.diceLadders as unknown as Array<Record<string, unknown>>;
+      ladders[0].remainder = 'smallest_die';
+
+      const result = validateConfiguration(config);
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain("diceLadders[0].remainder must be 'flat'");
     });
   });
 });

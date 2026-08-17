@@ -327,6 +327,61 @@ function curveShapeErrors(
 }
 
 /**
+ * Shape errors for one dice ladder of an imported configuration (Concept 07, TICKET-ROLL-03)
+ *
+ * Structure only, extracted for the same reason `curveShapeErrors` is: whether the sizes make a
+ * *walkable* ladder — descending, positive, with a usable cap — is `engine/validator.ts`'s report,
+ * because a ladder can be structurally fine and still decompose in an order nobody expected.
+ *
+ * @param ladder - One element of `config.diceLadders`
+ * @param index - Its position, for the message
+ * @returns The errors found, empty when the shape is sound
+ */
+function diceLadderShapeErrors(ladder: Record<string, unknown>, index: number): string[] {
+  const errors: string[] = [];
+
+  if (typeof ladder.id !== 'string' || ladder.id === '') {
+    errors.push(`diceLadders[${index}].id must be a non-empty string`);
+  }
+
+  // Free text rather than an identifier: a ladder is reached by id from a roll definition, never
+  // spelled in a formula
+  if (typeof ladder.name !== 'string') {
+    errors.push(`diceLadders[${index}].name must be a string`);
+  }
+  if (typeof ladder.description !== 'string') {
+    errors.push(`diceLadders[${index}].description must be a string`);
+  }
+
+  if (
+    !Array.isArray(ladder.dieSizes) ||
+    ladder.dieSizes.some((size: unknown) => typeof size !== 'number' || !Number.isFinite(size))
+  ) {
+    errors.push(`diceLadders[${index}].dieSizes must be an array of numbers`);
+  }
+
+  // Absent is valid and means no cap — the field only exists to express one
+  if (
+    ladder.maxPerDie !== undefined &&
+    (typeof ladder.maxPerDie !== 'number' || !Number.isFinite(ladder.maxPerDie))
+  ) {
+    errors.push(`diceLadders[${index}].maxPerDie must be a finite number when present`);
+  }
+
+  if (typeof ladder.showZeroTerms !== 'boolean') {
+    errors.push(`diceLadders[${index}].showZeroTerms must be a boolean`);
+  }
+
+  // An enum of one (TICKET-ROLL-03's notes), so a file claiming `smallest_die` was written against
+  // rules this build does not have and is refused rather than silently decomposing as `flat`
+  if (ladder.remainder !== 'flat') {
+    errors.push(`diceLadders[${index}].remainder must be 'flat'`);
+  }
+
+  return errors;
+}
+
+/**
  * Validate configuration structure
  *
  * Checks that the imported data has all required fields and correct types.
@@ -627,6 +682,22 @@ export function validateConfiguration(data: unknown): ValidationResult {
           return;
         }
         errors.push(...curveShapeErrors(curve as Record<string, unknown>, index, seenNames));
+      });
+    }
+  }
+
+  // Validate dice ladders (Concept 07, TICKET-ROLL-03) — absent is valid, so files predating
+  // ladders still import
+  if (config.diceLadders !== undefined) {
+    if (!Array.isArray(config.diceLadders)) {
+      errors.push("Field 'diceLadders' must be an array when present");
+    } else {
+      config.diceLadders.forEach((ladder: unknown, index: number) => {
+        if (!ladder || typeof ladder !== 'object') {
+          errors.push(`diceLadders[${index}] must be an object`);
+          return;
+        }
+        errors.push(...diceLadderShapeErrors(ladder as Record<string, unknown>, index));
       });
     }
   }

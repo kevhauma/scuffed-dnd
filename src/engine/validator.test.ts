@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { Configuration, Curve } from '../types/config';
+import type { Configuration, Curve, DiceLadder } from '../types/config';
 import { validateConfiguration } from './validator';
 
 /** A stat with the boring fields filled in */
@@ -1533,6 +1533,92 @@ describe('validateConfiguration', () => {
 
       expect(result.errors).toEqual([]);
       expect(result.warnings).toEqual([]);
+    });
+  });
+
+  describe('dice ladders (TICKET-ROLL-03)', () => {
+    /** The sheet's `[20, 12, 6]` ladder on an otherwise minimal ruleset */
+    function withLadder(overrides: Partial<DiceLadder> = {}): Configuration {
+      const config = createMinimalConfig();
+      config.diceLadders = [
+        {
+          id: 'ladder-standard',
+          name: 'Standard',
+          description: '',
+          dieSizes: [20, 12, 6],
+          showZeroTerms: true,
+          remainder: 'flat',
+          ...overrides,
+        },
+      ];
+      return config;
+    }
+
+    /** Every ladder message, whatever severity it came back under */
+    function ladderIssues(config: Configuration): string[] {
+      const report = validateConfiguration(config);
+      return [...report.errors, ...report.warnings, ...report.information]
+        .filter((issue) => issue.category === 'Dice Ladder Validation')
+        .map((issue) => issue.message);
+    }
+
+    it('should accept the sheet ladder without comment', () => {
+      expect(ladderIssues(withLadder())).toEqual([]);
+    });
+
+    it('should say nothing when the ruleset defines no ladders', () => {
+      const result = validateConfiguration(createMinimalConfig());
+
+      expect(result.errors).toEqual([]);
+      expect(result.information).toEqual([]);
+    });
+
+    it('should name a ladder with no die sizes', () => {
+      const messages = ladderIssues(withLadder({ dieSizes: [] }));
+
+      expect(messages).toHaveLength(1);
+      expect(messages[0]).toContain('"Standard" has no die sizes');
+    });
+
+    it('should name a die size that is not a positive whole number', () => {
+      const messages = ladderIssues(withLadder({ dieSizes: [20, 0] }));
+
+      expect(messages.some((message) => message.includes('not a positive whole number: 0'))).toBe(
+        true
+      );
+    });
+
+    it('should name a ladder that is not sorted largest die first', () => {
+      const messages = ladderIssues(withLadder({ dieSizes: [6, 20] }));
+
+      expect(messages).toContain(
+        'Dice ladder "Standard" is not sorted largest die first: 20 follows 6'
+      );
+    });
+
+    it('should treat a repeated die size as unsorted, since it is not strictly descending', () => {
+      const messages = ladderIssues(withLadder({ dieSizes: [12, 12] }));
+
+      expect(messages.some((message) => message.includes('not sorted largest die first'))).toBe(
+        true
+      );
+    });
+
+    it('should refuse a cap that allows no dice at all', () => {
+      const messages = ladderIssues(withLadder({ maxPerDie: 0 }));
+
+      expect(messages.some((message) => message.includes('caps each die at 0'))).toBe(true);
+    });
+
+    it('should report a large smallest die as information rather than as a defect', () => {
+      const config = withLadder({ dieSizes: [20, 12] });
+      const report = validateConfiguration(config);
+
+      expect(report.errors).toEqual([]);
+      expect(report.isValid).toBe(true);
+      expect(report.information.map((issue) => issue.message)).toEqual([
+        'Dice ladder "Standard" has no die smaller than 12, so up to 11 of any value stays a flat bonus',
+      ]);
     });
   });
 });

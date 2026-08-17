@@ -1,0 +1,40 @@
+{
+  "feature": "dice-ladders",
+  "title": "Dice ladders",
+  "tickets": [
+    "TICKET-ROLL-03"
+  ],
+  "concept": "07 · Dice ladder",
+  "source": {
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit",
+    "exportedAt": "2026-08-09",
+    "ranges": [
+      "Calculator!I16:L16",
+      "Calculator!G17:N20"
+    ]
+  },
+  "confidence": "confirmed",
+  "notes": [
+    "The die sizes are read from the Calculator's literal `20 | 12 | 6` row (Calculator!I16:L16), and confirmed a second time by the six decompositions in Calculator!G17:N20 — 10 → 0D20 + 0D12 + 1D6 + 4 and 39 → 1D20 + 1D12 + 1D6 + 1 among them. Concept 07 calls it the best-confirmed mechanic in the ruleset, and `src/engine/dice/diceLadder.test.ts` pins all six rows.",
+    "`showZeroTerms` is true because the sheet writes `0D20` rather than dropping the rung — a display choice the export makes visibly, not an inference.",
+    "`remainder` is `flat`, which is the only value the type has (TICKET-ROLL-03). Concept 07 lists `smallest_die` and `drop` as alternatives; the sheet uses neither, so nothing is written for them.",
+    "**No `maxPerDie`.** The sheet caps nothing — 100 over this ladder is 5D20 there as it is here — so the key is absent rather than set to a number that would look confirmed.",
+    "One ladder, not one per roll: the sheet feeds every roll through the same `20 | 12 | 6` row. What each roll *puts into* it is a roll definition (Concept 08), which is still combat-skills.json's v1.0 shape until TICKET-ROLL-05."
+  ],
+  "data": {
+    "diceLadders": [
+      {
+        "id": "ladder-standard",
+        "name": "Standard",
+        "description": "The sheet's ladder: a value becomes D20s, then D12s, then D6s, with the leftover as a flat bonus.",
+        "dieSizes": [
+          20,
+          12,
+          6
+        ],
+        "showZeroTerms": true,
+        "remainder": "flat"
+      }
+    ]
+  }
+}

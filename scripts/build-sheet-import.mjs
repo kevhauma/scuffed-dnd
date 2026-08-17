@@ -46,7 +46,7 @@ const REQUIRED_ARRAYS = [
 ];
 
 /** Optional arrays — present only when a fragment supplies them, matching `Configuration` */
-const OPTIONAL_ARRAYS = ['constants', 'curves', 'archetypes'];
+const OPTIONAL_ARRAYS = ['constants', 'curves', 'archetypes', 'diceLadders'];
 
 /**
  * Read every fragment, in a fixed order

@@ -31,17 +31,19 @@ from the fragments without the suite saying so.
 | [`stats.json`](./stats.json) | Stats | STAT-01 | 01 | `Creature stats!A5:A13`, `Charactersheet!E9` |
 | [`constants.json`](./constants.json) | Constants | CST-01, CST-02 | 05 | `Calculator!G13:G14`, `!P2:Q2`, `!P5:Q5`, `Setup!Q6` |
 | [`curves.json`](./curves.json) | Curves | CRV-01…03 | 06 | `Calculator!B2:E54` |
-| [`speciality-skills.json`](./speciality-skills.json) | Skills | v1.0 shape; SKL-02 pending | 02 | `Skills!C12:G59` |
+| [`skills.json`](./skills.json) | Skills | SKL-02, SKL-03 | 02 | `Skills!C12:G59` |
 | [`combat-skills.json`](./combat-skills.json) | Rolls | v1.0 shape; ROLL-05/06 pending | 08 | `Calculator!G17:N20`, `!I16:L16` |
+| [`dice-ladders.json`](./dice-ladders.json) | Dice ladder | ROLL-03 | 07 | `Calculator!I16:L16`, `!G17:N20` |
 | [`materials.json`](./materials.json) | Materials | MAT-01 | 09 | `Components!A5:L295` |
 | [`items.json`](./items.json) | Items | v1.0 shape | 11 | `Equimment!A4:L194` |
 | [`equipment-slots.json`](./equipment-slots.json) | Equipment slots | v1.0 shape | 10 | `Charactersheet!M3:O15` |
 | [`races.json`](./races.json) | Races | RACE-01, RACE-02 | 04 | `Creature stats!B4:K14` |
 | [`currency-tiers.json`](./currency-tiers.json) | Currency | v1.0 shape | 16 | `Charactersheet!Q18:S23` |
+| [`archetypes.json`](./archetypes.json) | Archetypes | ARC-01 | 03 | `Calculator!B2:B7`, `!C2:C7` |
 
-Not here yet, because the feature is not built: archetypes (ARC-01), the dice ladder (ROLL-03),
-roll definitions as records (ROLL-05), XP thresholds (RES-01 — the sheet has none either), and
-every later-milestone concept (creatures, spells, passives, harvest tables, item templates).
+Not here yet, because the feature is not built: roll definitions as records (ROLL-05), XP
+thresholds (RES-01 — the sheet has none either), and every later-milestone concept (creatures,
+spells, passives, harvest tables, item templates).
 
 ## Fragment format
 

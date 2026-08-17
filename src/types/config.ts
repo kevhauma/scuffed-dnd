@@ -75,6 +75,14 @@ export interface Configuration {
    * implementation note 1.
    */
   archetypes?: Archetype[];
+  /**
+   * How a number becomes a dice pool (Concept 07, TICKET-ROLL-03).
+   *
+   * Optional and additive, for the same reason `archetypes` is: a ruleset written before ladders
+   * existed reads as having none, and a build without them ignores the key — nothing *moved*, so
+   * RACE-01's bump-on-every-reshape rule does not apply. Readers write `config.diceLadders ?? []`.
+   */
+  diceLadders?: DiceLadder[];
   createdAt: string;
   updatedAt: string;
 }
@@ -196,6 +204,49 @@ export interface DiceConfig {
   d10: number;
   d12: number;
   d20: number;
+}
+
+/**
+ * What a dice ladder does with the value left over after its smallest die (Concept 07)
+ *
+ * An enum of one on purpose (TICKET-ROLL-03's notes): the sheet's ladder is `flat_bonus` and
+ * nothing else is confirmed, so `smallest_die` and `drop` arrive as new members when a ruleset
+ * needs them rather than as untested branches now.
+ */
+export type LadderRemainder = 'flat';
+
+/**
+ * Dice ladder — how a single number becomes a rollable pool (Concept 07, TICKET-ROLL-03)
+ *
+ * The system's signature mechanic, and it is entirely configuration. A value is walked down
+ * `dieSizes` greedily, largest first, and whatever will not fill another die becomes a flat bonus:
+ * `39` over `[20, 12, 6]` is `1D20 + 1D12 + 1D6 + 1`. Baking the sizes into code — which is what
+ * `DiceConfig`'s six fixed keys do — makes the app useless for any other ruleset, including a
+ * future revision of this one, so a d100 here is data.
+ *
+ * `id` is the identity and everything else renamable display data, as everywhere else
+ * (TICKET-REF-01). A ladder is **not** reachable from a formula, so `name` is free text rather
+ * than an identifier — a roll definition points at one by id (Concept 08, TICKET-ROLL-05).
+ *
+ * `decomposition` is deliberately absent: greedy is the only strategy the sheet has, and adding
+ * `balanced` later is a new field rather than a changed one.
+ */
+export interface DiceLadder {
+  id: string; // Stable identity — assigned on creation, never shown, never reused
+  name: string;
+  description: string;
+  /**
+   * The die sizes to walk, **strictly descending** — `[20, 12, 6]`.
+   *
+   * Descending is what makes the walk greedy; `engine/validator.ts` reports a ladder that is not,
+   * rather than silently producing a decomposition nobody would predict.
+   */
+  dieSizes: number[];
+  /** Optional cap per rung — `2` means never more than 2D20, the excess falling down-ladder */
+  maxPerDie?: number;
+  /** Whether a rung with no dice is still listed — the sheet shows `0D20` (display only) */
+  showZeroTerms: boolean;
+  remainder: LadderRemainder;
 }
 
 /**

@@ -5,4 +5,5 @@
  */
 
 export * from './combatRoll';
+export * from './diceLadder';
 export * from './diceSimulator';

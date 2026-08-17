@@ -8,11 +8,12 @@
  * - No circular dependencies in formulas
  * - Currency tier references are valid
  * - Curve tables are readable — unique, sorted keys with a value per column (Concept 06)
+ * - Dice ladders can be walked — positive, strictly descending die sizes (Concept 07)
  *
- * **Validates: Requirements 18.1, 18.2, 18.3, 18.4, 18.5; Concept 06**
+ * **Validates: Requirements 18.1, 18.2, 18.3, 18.4, 18.5; Concepts 06, 07**
  */
 
-import type { Configuration, Curve, Skill } from '../types/config';
+import type { Configuration, Curve, DiceLadder, Skill } from '../types/config';
 import { POINT_BUY_CURVE_NAME } from '../types/config';
 import type { FormulaScope } from './formula/scoping';
 import { scopeFor } from './formula/scoping';
@@ -464,6 +465,13 @@ export function validateConfiguration(config: Configuration): ValidationReport {
     warnings.push(...curveTableWarnings(curve));
   }
 
+  // Validate dice ladders (Concept 07). A ladder holds no formula, so what can be wrong is the
+  // shape of the walk itself.
+  for (const ladder of config.diceLadders ?? []) {
+    errors.push(...diceLadderErrors(ladder));
+    information.push(...diceLadderObservations(ladder));
+  }
+
   return {
     isValid: errors.length === 0,
     errors,
@@ -681,4 +689,105 @@ function curveTableWarnings(curve: Curve): ValidationIssue[] {
         ]
       : []
   );
+}
+
+/**
+ * The largest flat remainder a ladder is allowed to leave before it is worth mentioning
+ *
+ * Concept 07's own rule, phrased as a number: a ladder whose smallest die is large — `[20, 12]`
+ * leaves up to 11 — turns most of a roll into a flat bonus. The sheet's `6` leaves at most 5, so
+ * anything above that is outside the observed range rather than wrong.
+ */
+const NOTEWORTHY_FLAT_REMAINDER = 5;
+
+/**
+ * Ladder problems that make a decomposition undefined (Concept 07's validation rules)
+ *
+ * All errors rather than warnings: a rung that is not a positive whole number cannot hold dice,
+ * and a ladder that is not strictly descending is not the greedy walk anyone wrote it expecting —
+ * `[6, 20]` takes the 6s first and the d20 never fires. `decomposeValue` stays total over both, so
+ * these report a ruleset the User must fix rather than protecting the engine from a crash.
+ *
+ * @param ladder - The ladder to check
+ * @returns One issue per problem found
+ */
+function diceLadderErrors(ladder: DiceLadder): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  // camelCase, like `stat` / `skill` / `combatSkill` / `archetype` — `ValidationReport` renders the
+  // value verbatim, so the outlier `'Curve'` a few functions up is drift rather than a precedent
+  const entity = { entityType: 'diceLadder', entityId: ladder.id, entityName: ladder.name };
+
+  if (ladder.dieSizes.length === 0) {
+    issues.push({
+      severity: 'error',
+      category: 'Dice Ladder Validation',
+      message: `Dice ladder "${ladder.name}" has no die sizes, so every value it is given stays a flat bonus`,
+      ...entity,
+    });
+  }
+
+  for (const size of ladder.dieSizes) {
+    if (Number.isInteger(size) && size > 0) continue;
+
+    issues.push({
+      severity: 'error',
+      category: 'Dice Ladder Validation',
+      message: `Dice ladder "${ladder.name}" has a die size that is not a positive whole number: ${size}`,
+      ...entity,
+    });
+  }
+
+  for (const [index, size] of ladder.dieSizes.entries()) {
+    if (index === 0 || size < ladder.dieSizes[index - 1]) continue;
+
+    issues.push({
+      severity: 'error',
+      category: 'Dice Ladder Validation',
+      message: `Dice ladder "${ladder.name}" is not sorted largest die first: ${size} follows ${ladder.dieSizes[index - 1]}`,
+      ...entity,
+    });
+  }
+
+  if (
+    ladder.maxPerDie !== undefined &&
+    (!Number.isInteger(ladder.maxPerDie) || ladder.maxPerDie < 1)
+  ) {
+    issues.push({
+      severity: 'error',
+      category: 'Dice Ladder Validation',
+      message: `Dice ladder "${ladder.name}" caps each die at ${ladder.maxPerDie}, which allows no dice at all — remove the cap instead`,
+      ...entity,
+    });
+  }
+
+  return issues;
+}
+
+/**
+ * What a ladder does that is worth stating and is not a defect (Concept 07)
+ *
+ * The page's own wording — a large smallest die "leaves big flat remainders — surfaced as
+ * information, since it may be intended". `information` is TICKET-SKL-03's third severity and this
+ * is exactly what it is for: reporting it as a warning would train the User to ignore warnings.
+ *
+ * @param ladder - The ladder to check
+ * @returns The observations, empty for a ladder in the sheet's range
+ */
+function diceLadderObservations(ladder: DiceLadder): ValidationIssue[] {
+  const smallest = ladder.dieSizes[ladder.dieSizes.length - 1];
+  if (smallest === undefined || !Number.isInteger(smallest) || smallest <= 0) return [];
+
+  const largestRemainder = smallest - 1;
+  if (largestRemainder <= NOTEWORTHY_FLAT_REMAINDER) return [];
+
+  return [
+    {
+      severity: 'information',
+      category: 'Dice Ladder Validation',
+      message: `Dice ladder "${ladder.name}" has no die smaller than ${smallest}, so up to ${largestRemainder} of any value stays a flat bonus`,
+      entityType: 'diceLadder',
+      entityId: ladder.id,
+      entityName: ladder.name,
+    },
+  ];
 }

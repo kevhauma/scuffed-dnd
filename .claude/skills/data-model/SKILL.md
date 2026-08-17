@@ -29,8 +29,8 @@ as part of the action. That is the equivalent of a repository layer here.
 One `Configuration` per browser: id, name, version, **`schemaVersion: 8`**, timestamps,
 plus the entity arrays — `stats`, `skills`,
 `combatSkills`, `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
-`currencyTiers`, the optional `constants` (TICKET-CST-01), and the optional `curves`
-(TICKET-CRV-01).
+`currencyTiers`, the optional `constants` (TICKET-CST-01), `curves` (TICKET-CRV-01),
+`archetypes` (TICKET-ARC-01) and `diceLadders` (TICKET-ROLL-03).
 
 **`Skill` is the sheet's Skill since TICKET-SKL-02**: `{ id, name, description, statWeights:
 [{ statId, weight }], category? }`. It replaced v1's `SpecialitySkill` outright — no `code`, no
@@ -84,8 +84,25 @@ what makes "flatten the archetype advantage" a table edit. Two rules, both load-
 
 **Adding a purely optional field does not need a `SUPPORTED_SCHEMA_VERSION` bump.** RACE-01's
 "bump on every reshape" is about a build *crashing on a field that moved*; an additive optional key
-is readable by both builds, so `archetypes?` and `archetypeId?` shipped at version 7. Bump when a
-field moves or is removed.
+is readable by both builds, so `archetypes?` and `archetypeId?` shipped at version 7, and
+`diceLadders?` at version 8. Bump when a field moves or is removed.
+
+**`DiceLadder` is how a number becomes a pool** (Concept 07, TICKET-ROLL-03):
+`{ id, name, description, dieSizes: number[], maxPerDie?, showZeroTerms, remainder: 'flat' }` on the
+optional `Configuration.diceLadders`. Four things to know:
+
+- **`dieSizes` is arbitrary and strictly descending** — a d100 is data. Descending is what makes the
+  greedy walk in [diceLadder.ts](../../../src/engine/dice/diceLadder.ts) mean anything, so
+  `engine/validator.ts` errors on a ladder that is not, on a non-positive size, and on a
+  `maxPerDie` that would allow no dice. A large smallest die is *information*, not a defect.
+- **`name` is free text, not an identifier.** Unlike a constant or a curve, a ladder is never
+  spelled in a formula — a roll definition points at one by id (Concept 08, TICKET-ROLL-05) — so it
+  is outside `references.ts` entirely.
+- **`remainder` is an enum of one.** A file claiming `smallest_die` is refused rather than silently
+  read as `flat`. **The delete is unguarded until ROLL-05** for the same reason: nothing can point
+  at a ladder yet, and a guard with no possible referrer can never fire.
+- The old `DiceConfig` (six fixed keys on `CombatSkill`) is untouched and still the shape
+  `rollDice` takes; TICKET-ROLL-06 is what removes it.
 
 **`Race` is a stat block, not a bag of bonuses** (TICKET-RACE-01):
 `{ id, name, description, statValues: Record<statId, number> }`, holding the **absolute** value a

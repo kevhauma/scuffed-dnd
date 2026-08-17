@@ -238,6 +238,14 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   "7 points in Char → +9" without touching the curve, and refuses an `unpriceable-gain` rather than
   letting a spend the table cannot value be saved.
 
+- `dice/diceLadder.ts` — `decomposeValue(value, ladder)` → `{ counts: [{ size, count }], flat }`
+  (TICKET-ROLL-03): Concept 07's signature mechanic, turning one number into a dice pool by walking
+  a configured `DiceLadder`'s `dieSizes` greedily, largest first, with the leftover flat —
+  `39` over `[20, 12, 6]` is `1D20 + 1D12 + 1D6 + 1`. **Total**, and it conserves the input: a
+  negative or fractional value, a rungless ladder and a nonsensical `maxPerDie` all come back
+  flat-only rather than throwing, with `engine/validator.ts` reporting the ruleset problem. Every
+  rung is an entry even at zero — `showZeroTerms` is a *display* choice, so the walk never makes it.
+  Rolling the pool and rendering it as notation are TICKET-ROLL-04.
 - `dice/diceSimulator.ts` — `rollDice(diceConfig, rng?)` → `DiceRollResult[]` (one entry per die
   type with a count above zero, carrying every individual roll), plus `rollDie`, `sumDiceResults`,
   `DIE_SIDES`, `DIE_TYPES`, and `formatDiceNotation(dice)` → `"2d6 + 1d20"` (the one definition of

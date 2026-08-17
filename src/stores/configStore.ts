@@ -35,6 +35,7 @@ import type {
   CurrencyTier,
   Curve,
   CurveColumn,
+  DiceLadder,
   EquipmentSlot,
   Item,
   Material,
@@ -176,6 +177,19 @@ interface ConfigState {
   setCurveCell: (curveId: string, key: number, columnName: string, value: number) => void;
   /** Drop a cell's override, putting the generated value back */
   clearCurveOverride: (curveId: string, key: number, columnName: string) => void;
+
+  /**
+   * Dice Ladders CRUD (Concept 07, TICKET-ROLL-03)
+   *
+   * **The delete is unguarded**, unlike every other entity here: nothing in the ruleset can point
+   * at a ladder yet — a roll definition is the only thing that ever will (Concept 08), and it
+   * arrives with TICKET-ROLL-05. A guard with no possible referrer is a check that can never
+   * fire, so ROLL-05 adds the `ReferenceTargetKind` and routes this through `guardedDelete` at
+   * the same time as the thing that makes it falsifiable.
+   */
+  addDiceLadder: (ladder: DiceLadder) => void;
+  updateDiceLadder: (id: string, updates: Partial<DiceLadder>) => void;
+  deleteDiceLadder: (id: string) => void;
 }
 
 /**
@@ -965,5 +979,45 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ config: updated });
 
     return report;
+  },
+
+  // Dice Ladders CRUD (Concept 07, TICKET-ROLL-03)
+  addDiceLadder: (ladder: DiceLadder) => {
+    const { config } = get();
+    if (!config) return;
+
+    // Optional and absent-means-none, like `constants`, `curves` and `archetypes`: the first
+    // ladder creates the array rather than a fresh ruleset shipping an empty one
+    const updated = autoSave({
+      ...config,
+      diceLadders: [...(config.diceLadders ?? []), ladder],
+    });
+    set({ config: updated });
+  },
+
+  updateDiceLadder: (id: string, updates: Partial<DiceLadder>) => {
+    const { config } = get();
+    if (!config) return;
+
+    // `maxPerDie` is optional, so clearing the cap has to remove the key rather than store
+    // `undefined` — the same merge every optional-field editor uses
+    const updated = autoSave({
+      ...config,
+      diceLadders: (config.diceLadders ?? []).map((ladder) =>
+        ladder.id === id ? mergeClearingAbsent(ladder, updates) : ladder
+      ),
+    });
+    set({ config: updated });
+  },
+
+  deleteDiceLadder: (id: string) => {
+    const { config } = get();
+    if (!config) return;
+
+    const updated = autoSave({
+      ...config,
+      diceLadders: (config.diceLadders ?? []).filter((ladder) => ladder.id !== id),
+    });
+    set({ config: updated });
   },
 }));

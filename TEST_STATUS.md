@@ -1,19 +1,19 @@
 # Test Status
 
-_Last verified: 2026-08-16 (`npx vitest run`), after
-[TICKET-ARC-03](docs/v2.0_sheet_core/tickets/TICKET-ARC-03-wizard-step-and-focus-stat-retirement.md)._
+_Last verified: 2026-08-17 (`npx vitest run`), after
+[TICKET-ROLL-03](docs/v2.0_sheet_core/tickets/TICKET-ROLL-03-dice-ladder-engine.md)._
 
 ## Summary
 
-- **Total tests**: 1493
-- **Passing**: 1493 (100%)
+- **Total tests**: 1527
+- **Passing**: 1527 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
 Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's tickets added
 +43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), +11 (FORM-06), +7 (CALC-02),
 +11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02), +64 (CRV-01),
-+32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09), +14 (SKL-02), +36 (SKL-03), +36 (RES-01), +14 (RES-02), +48 (RES-03), +40 (ARC-01), +50 (ARC-02) and **−15 (ARC-03)**.
++32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09), +14 (SKL-02), +36 (SKL-03), +36 (RES-01), +14 (RES-02), +48 (RES-03), +40 (ARC-01), +50 (ARC-02), **−15 (ARC-03)** and +34 (ROLL-03).
 **RES-02's +14 is a net figure**: `StatPointBudget.test.tsx` (6) went with the flat pool it
 covered, `configStore.test.ts`'s budget block shrank from 4 cases to 2, and the
 `mainSkillPointBudget` round-trip block became a 4-case retired-field refusal — against which
@@ -44,6 +44,12 @@ with the focus-specific cases in `calculator.test.ts`, `statCalculator.test.ts`,
 flat-bonus regressions and five in a new `affinityGroups.test.ts` (the `conventions-reviewer`'s
 de-duplication). A ticket whose job is removal should shrink the suite; what matters is that nothing
 was skipped and the remaining cases assert the *absence* rather than falling silent.
+**ROLL-03's +34** is purely additive: a new `diceLadder.test.ts` (19, including Concept 07's six
+confirmed decompositions and two `fast-check` properties — one that the decomposition conserves its
+input, one that the flat remainder stays below the smallest die), 8 in `validator.test.ts` for the
+ladder rules, 5 in `configStore.test.ts` for CRUD and the export round-trip, and 2 in
+`sheetImport.test.ts` — the derivation the new fragment pins, plus one more `it.each(fragments)`
+instance, since the provenance check is parameterised over the corpus.
 **SKL-02's +14 is a net figure across a very large rewrite**: the source-side reshape landed a
 session ahead of its tests, so 171 tests were failing when the ticket was picked up. 20 tests were
 added in a new `skillCalculator.test.ts` (Concept 02's verified table), a handful more elsewhere,
