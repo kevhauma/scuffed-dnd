@@ -10,7 +10,7 @@
  * high stat from spent points without them, which is the question the breakdown exists to answer.
  * Every number comes from the calculator; this section multiplies nothing.
  *
- * **Validates: Concept 02; Requirements 9.3, 13.4, 21.1-21.5**
+ * **Validates: Concept 02; Requirements 13.4, 21.1-21.5**
  */
 
 import { Card } from '../../ui/Card/Card';

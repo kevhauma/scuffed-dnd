@@ -64,7 +64,10 @@ describe('AppShell', () => {
     const names = linkNames();
     expect(names).toContain('Skills');
     expect(names).toContain('Materials');
-    expect(names).toContain('Focus Stat');
+    expect(names).toContain('Archetypes');
+    expect(names).toContain('Curves');
+    // Retired by TICKET-ARC-03 — the archetype replaced it
+    expect(names).not.toContain('Focus Stat');
     expect(names).not.toContain('Characters');
     expect(names).not.toContain('New Character');
   });

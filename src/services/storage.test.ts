@@ -61,7 +61,7 @@ describe('Storage Service', () => {
         id: 'test-config',
         name: 'Test Config',
         version: '1.0.0',
-        schemaVersion: 7,
+        schemaVersion: 8,
         stats: [],
         skills: [],
         combatSkills: [],
@@ -71,7 +71,6 @@ describe('Storage Service', () => {
         equipmentSlots: [],
         races: [],
         currencyTiers: [],
-        focusStatBonusLevel: 2,
         createdAt: '2024-01-01T00:00:00Z',
         updatedAt: '2024-01-01T00:00:00Z',
       };
@@ -88,7 +87,7 @@ describe('Storage Service', () => {
         id: 'test-config',
         name: 'Test Config',
         version: '1.0.0',
-        schemaVersion: 7,
+        schemaVersion: 8,
         stats: [],
         skills: [],
         combatSkills: [],
@@ -98,7 +97,6 @@ describe('Storage Service', () => {
         equipmentSlots: [],
         races: [],
         currencyTiers: [],
-        focusStatBonusLevel: 2,
         createdAt: '2024-01-01T00:00:00Z',
         updatedAt: '2024-01-01T00:00:00Z',
       };
@@ -123,7 +121,7 @@ describe('Storage Service', () => {
         id: 'test-config',
         name: 'Test Config',
         version: '1.0.0',
-        schemaVersion: 7,
+        schemaVersion: 8,
         stats: [],
         skills: [],
         combatSkills: [],
@@ -133,7 +131,6 @@ describe('Storage Service', () => {
         equipmentSlots: [],
         races: [],
         currencyTiers: [],
-        focusStatBonusLevel: 2,
         createdAt: '2024-01-01T00:00:00Z',
         updatedAt: '2024-01-01T00:00:00Z',
       };
@@ -157,7 +154,7 @@ describe('Storage Service', () => {
         id: 'test-config',
         name: 'Test Config',
         version: '1.0.0',
-        schemaVersion: 7,
+        schemaVersion: 8,
         stats: [],
         skills: [],
         combatSkills: [],
@@ -167,7 +164,6 @@ describe('Storage Service', () => {
         equipmentSlots: [],
         races: [],
         currencyTiers: [],
-        focusStatBonusLevel: 2,
         createdAt: '2024-01-01T00:00:00Z',
         updatedAt: '2024-01-01T00:00:00Z',
       };
@@ -341,7 +337,6 @@ describe('Storage Service', () => {
       equipmentSlots: [],
       races: [],
       currencyTiers: [],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -456,7 +451,7 @@ describe('Storage Service', () => {
       id: 'test-config',
       name: 'Test Config',
       version: '1.0.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [
         {
           id: 'id-str',
@@ -488,7 +483,6 @@ describe('Storage Service', () => {
       equipmentSlots: [],
       races: [],
       currencyTiers: [],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };

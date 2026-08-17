@@ -8,7 +8,7 @@
  * Every derived number here comes from `calculateCharacter` / `calculateRaceStatBases` /
  * `indexStatModifiers` — the sheet does no arithmetic of its own.
  *
- * **Validates: Requirements 8.5, 9.3, 13.4, 14.1, 14.2, 14.5, 16.6, 21.1-21.5**
+ * **Validates: Requirements 8.5, 13.4, 14.1, 14.2, 14.5, 16.6, 21.1-21.5**
  */
 
 import { useNavigate } from '@tanstack/react-router';
@@ -118,8 +118,6 @@ export interface StatBreakdown {
   race: number;
   /** Combined modifier from equipped items targeting this stat */
   equipment: number;
-  /** The configured focus bonus, non-zero only on the character's focus stat */
-  focus: number;
   /** Where a resource currently stands; 0 for anything else */
   current: number;
   /** The engine's composed value — the maximum, for a resource */
@@ -161,6 +159,8 @@ export interface CombatSkillBreakdown {
 /** Everything the sheet's sections render, or empty when there is no sheet to draw */
 interface CharacterSheetView {
   raceNames: string[];
+  /** The character's archetype, by name — undefined when they have none (TICKET-ARC-03) */
+  archetypeName?: string;
   raceContributions: RaceContribution[];
   skills: SkillBreakdown[];
   stats: StatBreakdown[];
@@ -246,12 +246,9 @@ function buildView(
   const orderedStats = [...config.stats].sort((a, b) => a.order - b.order);
   const abbreviationById = new Map(config.stats.map((stat) => [stat.id, stat.abbreviation]));
 
-  /** The configured bonus, but only on the skill the character actually spent its focus on */
-  const focusFor = (skillCode: string): number =>
-    character.focusStatCode === skillCode ? config.focusStatBonusLevel : 0;
-
   return {
     raceNames: races.map((race) => race.name),
+    archetypeName: archetype?.name,
 
     // A stat the races say nothing about is left out rather than shown as 0 — the section is
     // "what your lineage gives you", and a zero is not something it gave you
@@ -296,7 +293,6 @@ function buildView(
         gain: toDerivedValue(statGain(invested, affinityFor(archetype, stat.id), pointBuy)),
         race: raceBases[stat.id] ?? 0,
         equipment: equipmentBonuses[stat.id] ?? 0,
-        focus: focusFor(stat.abbreviation),
         current,
         max,
         // Compared, never corrected — see `StatBreakdown.isOverMax`

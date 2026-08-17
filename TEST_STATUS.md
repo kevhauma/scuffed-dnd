@@ -1,19 +1,19 @@
 # Test Status
 
 _Last verified: 2026-08-16 (`npx vitest run`), after
-[TICKET-ARC-02](docs/v2.0_sheet_core/tickets/TICKET-ARC-02-curve-routed-stat-gains.md)._
+[TICKET-ARC-03](docs/v2.0_sheet_core/tickets/TICKET-ARC-03-wizard-step-and-focus-stat-retirement.md)._
 
 ## Summary
 
-- **Total tests**: 1508
-- **Passing**: 1508 (100%)
+- **Total tests**: 1493
+- **Passing**: 1493 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
 Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's tickets added
 +43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), +11 (FORM-06), +7 (CALC-02),
 +11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02), +64 (CRV-01),
-+32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09), +14 (SKL-02), +36 (SKL-03), +36 (RES-01), +14 (RES-02), +48 (RES-03), +40 (ARC-01) and +50 (ARC-02).
++32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09), +14 (SKL-02), +36 (SKL-03), +36 (RES-01), +14 (RES-02), +48 (RES-03), +40 (ARC-01), +50 (ARC-02) and **−15 (ARC-03)**.
 **RES-02's +14 is a net figure**: `StatPointBudget.test.tsx` (6) went with the flat pool it
 covered, `configStore.test.ts`'s budget block shrank from 4 cases to 2, and the
 `mainSkillPointBudget` round-trip block became a 4-case retired-field refusal — against which
@@ -37,6 +37,13 @@ the sheet. **The 1:1 fallback is why the suite could not see the sheet's broken 
 fixture carried a `point_buy` curve, while `createFreshConfiguration` seeds one, so every real
 ruleset hit the bug and no test did. The three sheet cases added for the fix carry a curve
 deliberately, and one existing assertion changed with the row's new wording.
+**ARC-03 is the first negative delta of the milestone, and that is the point**: retiring the focus
+stat deleted `FocusStatConfig.test.tsx` and `useFocusStatManager.test.ts` outright (24 cases) along
+with the focus-specific cases in `calculator.test.ts`, `statCalculator.test.ts`, `CharacterSheet.test.tsx`,
+`configStore.test.ts` and `importExport.test.ts`. Against that, five new archetype-step cases, two
+flat-bonus regressions and five in a new `affinityGroups.test.ts` (the `conventions-reviewer`'s
+de-duplication). A ticket whose job is removal should shrink the suite; what matters is that nothing
+was skipped and the remaining cases assert the *absence* rather than falling silent.
 **SKL-02's +14 is a net figure across a very large rewrite**: the source-side reshape landed a
 session ahead of its tests, so 171 tests were failing when the ticket was picked up. 20 tests were
 added in a new `skillCalculator.test.ts` (Concept 02's verified table), a handful more elsewhere,
@@ -138,7 +145,7 @@ workflow and are documented here so a future regression is distinguishable from 
 | File | Error |
 | --- | --- |
 | `src/components/ui/Button/Button.test.tsx:68` | TS2339 — `.disabled` read off `HTMLElement` |
-| `src/services/importExport.test.ts:747` | TS2352 — `Blob`-shaped literal cast to `File` |
+| `src/services/importExport.test.ts:788` | TS2352 — `Blob`-shaped literal cast to `File` |
 
 Both are test-typing noise. The two `evaluator.ts` errors that stood beside them for five tickets
 are **gone as of TICKET-FORM-07**: `operator` does not exist on type `never` was the switch

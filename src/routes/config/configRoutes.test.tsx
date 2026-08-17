@@ -47,9 +47,6 @@ vi.mock('../../components/config/constants/ConstantsConfigPanel', () => ({
 vi.mock('../../components/config/curves/CurvesConfigPanel', () => ({
   CurvesConfigPanel: () => <div data-testid="curves-config-panel" />,
 }));
-vi.mock('../../components/config/focus/FocusStatConfig', () => ({
-  FocusStatConfig: () => <div data-testid="focus-stat-config" />,
-}));
 
 // The dashboard must not hydrate itself — the root layout owns that (TICKET-IO-01)
 vi.mock('../../services/storage', () => ({
@@ -66,7 +63,6 @@ import { ArchetypesConfig } from './archetypes';
 import { ConstantsConfig } from './constants';
 import { CurrencyConfig } from './currency';
 import { CurvesConfig } from './curves';
-import { FocusConfig } from './focus';
 import { ConfigIndex } from './index';
 import { ItemsConfig } from './items';
 import { MaterialsConfig } from './materials';
@@ -129,12 +125,6 @@ describe('configuration routes', () => {
     expect(screen.getByTestId('curves-config-panel')).toBeDefined();
   });
 
-  it('/config/focus renders the focus stat configuration', () => {
-    render(<FocusConfig />);
-
-    expect(screen.getByTestId('focus-stat-config')).toBeDefined();
-  });
-
   it('/config/archetypes renders the archetypes panel', () => {
     render(<ArchetypesConfig />);
 
@@ -152,7 +142,6 @@ describe('configuration routes', () => {
       CurrencyConfig,
       ConstantsConfig,
       CurvesConfig,
-      FocusConfig,
     ]) {
       const { container, unmount } = render(<Page />);
 

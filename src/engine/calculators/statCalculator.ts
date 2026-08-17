@@ -42,8 +42,6 @@ export interface StatCompositionOptions {
   races?: Race[];
   /** Aggregated bonuses from equipped items, keyed by stat id (TICKET-MAT-02) */
   equipmentBonuses?: StatModifier[];
-  /** Bonus granted when the character's focus stat is this stat — retired by TICKET-ARC-03 */
-  focusStatBonusLevel?: number;
   /** The ruleset's constants and curves, backing `const.*` and `curve.*(x)` */
   source?: NamespaceSource;
   /** The character's archetype, whose affinities pick a `point_buy` column (TICKET-ARC-02) */
@@ -156,8 +154,10 @@ function finish(value: number, stat: Stat): number {
  * The invested side of the composition, before clamping
  *
  * `base` is what the character's races make them (TICKET-RACE-02) — the blend, not a sum of
- * modifiers — and everything else is added to it: what the points they spent *bought*, what they
- * carry, and the focus bonus ARC-03 retires.
+ * modifiers — and everything else is added to it: what the points they spent *bought*, and what
+ * they carry. **Three terms, not four** since TICKET-ARC-03 deleted the focus bonus: a flat adder
+ * on one stat is not something the spec recognises, and the archetype it was standing in for now
+ * shapes the whole sheet through the invested term.
  *
  * **The invested term is curve-routed since TICKET-ARC-02.** It is no longer the points themselves
  * but what the archetype's affinity converts them into, which is why this returns a `FormulaResult`:
@@ -170,7 +170,6 @@ function investedValue(
   character: Character,
   raceBases: Record<string, number>,
   equipmentBonuses: StatModifier[],
-  focusStatBonusLevel: number,
   archetype: Archetype | undefined,
   pointBuy: Curve | undefined
 ): FormulaResult {
@@ -191,9 +190,7 @@ function investedValue(
     .filter((bonus) => bonus.statId === stat.id)
     .reduce((sum, bonus) => sum + bonus.modifier, 0);
 
-  const focus = character.focusStatCode === stat.abbreviation ? focusStatBonusLevel : 0;
-
-  return base + gain + equipment + focus;
+  return base + gain + equipment;
 }
 
 /**
@@ -208,7 +205,8 @@ function investedValue(
  *
  * @param stats - The configuration's stats — the complete set of what exists
  * @param character - The character whose investment and equipment are being applied
- * @param options - Races, equipment, focus bonus, and the ruleset behind `const.*` / `curve.*`
+ * @param options - Races, equipment, the archetype's point-buy routing, and the ruleset behind
+ *   `const.*` / `curve.*`
  * @returns Record of stat id to composed value, or the error explaining why there isn't one
  */
 export function calculateStatValues(
@@ -216,14 +214,7 @@ export function calculateStatValues(
   character: Character,
   options: StatCompositionOptions = {}
 ): Record<string, FormulaResult> {
-  const {
-    races = [],
-    equipmentBonuses = [],
-    focusStatBonusLevel = 0,
-    source = {},
-    archetype,
-    pointBuy,
-  } = options;
+  const { races = [], equipmentBonuses = [], source = {}, archetype, pointBuy } = options;
 
   const raceBases = calculateRaceStatBases(races, source.constants);
   const values: Record<string, FormulaResult> = {};
@@ -237,7 +228,6 @@ export function calculateStatValues(
         character,
         raceBases,
         equipmentBonuses,
-        focusStatBonusLevel,
         archetype,
         pointBuy
       );

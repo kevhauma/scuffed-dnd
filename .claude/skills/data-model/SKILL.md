@@ -26,8 +26,8 @@ as part of the action. That is the equivalent of a repository layer here.
 
 ## Configuration (the ruleset)
 
-One `Configuration` per browser: id, name, version, **`schemaVersion: 7`**, timestamps,
-`focusStatBonusLevel`, plus the entity arrays — `stats`, `skills`,
+One `Configuration` per browser: id, name, version, **`schemaVersion: 8`**, timestamps,
+plus the entity arrays — `stats`, `skills`,
 `combatSkills`, `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
 `currencyTiers`, the optional `constants` (TICKET-CST-01), and the optional `curves`
 (TICKET-CRV-01).
@@ -162,9 +162,9 @@ Identity rules that the rest of the app depends on:
   `validateConfiguration()` for import, `useStatManager`'s save path for User input. Renaming one
   is safe — the stored formula holds the stat's id — and there is **no character half left to
   carry**: `investedStatPoints` and `investedSkillPoints` are both keyed by id, which is why
-  `renameSkillCode` and `useSkillCodeRename` were deleted. One field still escapes it —
-  `focusStatCode` holds an abbreviation, so a rename orphans it, and nothing chases it. Left for
-  TICKET-ARC-03, which retires the focus stat; recorded on TICKET-SKL-02.
+  `renameSkillCode` and `useSkillCodeRename` were deleted. **Nothing escapes it any more**: the last
+  code-keyed character field went with the focus stat in TICKET-ARC-03, so a rename has no character
+  half at all and `combatSkillReferences` stopped taking characters.
 - **A constant's `name` is a lowercase identifier (`^[a-z][a-z0-9_]*$`) and unique.** It is what a
   formula spells as `const.<name>`, and a duplicate splits identity from value — the stored formula
   points at one constant's id while `constantsNamespace` reads the other's number. Enforced in two
@@ -243,7 +243,7 @@ Identity rules that the rest of the app depends on:
 `Character` stores only what the player chose: `raceIds`, `investedStatPoints` (**keyed by stat
 id**, so a rename cannot orphan an allocation),
 `investedSkillPoints` (**keyed by skill id**, same reason — TICKET-SKL-02 replaced v1's
-code-keyed `specialitySkillBaseLevels`), `focusStatCode`, `archetypeId`, `currentResourceValues`,
+code-keyed `specialitySkillBaseLevels`), `archetypeId`, `currentResourceValues`,
 `experience`,
 and an `Inventory` (`equippedItems: Record<slotType, itemId>` + `miscItems: itemId[]`). It carries
 `configurationId` so a character is always read against the ruleset it was built on.
@@ -289,7 +289,7 @@ clamping it — a partial investment would read as one that landed.
 
 **Since TICKET-CALC-02, every *configured* stat has a value; absence is not a state.**
 `calculateStatValues` seeds every stat in `config.stats` before applying investment, racial
-modifiers, equipment and the focus bonus, so `statValues` is the configured namespace in full and
+modifiers and equipment, so `statValues` is the configured namespace in full and
 a stat the character never invested in reads as `0` rather than as an undefined variable in every
 formula naming it. `Undefined variable` is reserved for stats the configuration genuinely does not
 define. Seed in the calculator — never default in a component or back-fill

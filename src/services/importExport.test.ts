@@ -33,7 +33,7 @@ describe('Import/Export Service', () => {
       id: 'test-config',
       name: 'Test Config',
       version: '1.0.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [
         {
           id: 'STR',
@@ -94,7 +94,6 @@ describe('Import/Export Service', () => {
       equipmentSlots: [],
       races: [],
       currencyTiers: [],
-      focusStatBonusLevel: 2,
       createdAt: '2024-01-01T00:00:00Z',
       updatedAt: '2024-01-01T00:00:00Z',
     };
@@ -325,14 +324,6 @@ describe('Import/Export Service', () => {
       expect(result.errors.some((e) => e.includes('name'))).toBe(true);
     });
 
-    it('should validate required number fields', () => {
-      const invalid = { ...validConfig, focusStatBonusLevel: 'not a number' };
-      const result = validateConfiguration(invalid);
-
-      expect(result.isValid).toBe(false);
-      expect(result.errors.some((e) => e.includes('focusStatBonusLevel'))).toBe(true);
-    });
-
     it('should validate required array fields', () => {
       const invalid = { ...validConfig, stats: 'not an array' };
       const result = validateConfiguration(invalid);
@@ -410,7 +401,7 @@ describe('Import/Export Service', () => {
       const invalid = {
         ...validConfig,
         name: 123,
-        focusStatBonusLevel: 'invalid',
+        stats: 'not an array',
         mainSkills: 'not an array',
       };
       const result = validateConfiguration(invalid);
@@ -443,7 +434,7 @@ describe('Import/Export Service', () => {
     });
 
     it('should include validation errors in ValidationError', () => {
-      const invalid = { ...validConfig, name: 123, focusStatBonusLevel: 'invalid' };
+      const invalid = { ...validConfig, name: 123, stats: 'invalid' };
       const json = JSON.stringify(invalid);
 
       try {
@@ -474,7 +465,6 @@ describe('Import/Export Service', () => {
       equipmentSlots: [],
       races: [],
       currencyTiers: [],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     });

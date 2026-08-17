@@ -12,7 +12,7 @@
  * gate on the same number without one importing the other — and so a test that mocks one service
  * cannot change what the other considers current.
  */
-export const SUPPORTED_SCHEMA_VERSION = 7;
+export const SUPPORTED_SCHEMA_VERSION = 8;
 
 /**
  * Main configuration object containing all user-defined game rules
@@ -26,7 +26,9 @@ export interface Configuration {
    *
    * `2` was the unified-stat shape, `3` added TICKET-RACE-01's race stat blocks, `4` is
    * TICKET-MAT-01's per-stat material modifiers, `5` is TICKET-SKL-02's weighted Skill, `6` is
-   * TICKET-RES-01's stored experience, and `7` is TICKET-RES-02 retiring `mainSkillPointBudget`.
+   * TICKET-RES-01's stored experience, `7` is TICKET-RES-02 retiring `mainSkillPointBudget`, and
+   * `8` is TICKET-ARC-03 retiring the focus stat (`focusStatBonusLevel` here, `focusStatCode` on
+   * the character) now that Archetype replaces it.
    * v1 files have no `schemaVersion` at all, which is exactly how they are recognised and refused — the shapes have
    * no faithful mapping between them (a v1 character's focus stat, spend-derived level and
    * speciality base levels have nowhere to go), so they are rejected with a notice rather than
@@ -73,7 +75,6 @@ export interface Configuration {
    * implementation note 1.
    */
   archetypes?: Archetype[];
-  focusStatBonusLevel: number;
   createdAt: string;
   updatedAt: string;
 }

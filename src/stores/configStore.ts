@@ -176,9 +176,6 @@ interface ConfigState {
   setCurveCell: (curveId: string, key: number, columnName: string, value: number) => void;
   /** Drop a cell's override, putting the generated value back */
   clearCurveOverride: (curveId: string, key: number, columnName: string) => void;
-
-  // Focus Stat Configuration
-  setFocusStatBonusLevel: (level: number) => void;
 }
 
 /**
@@ -333,7 +330,6 @@ function createFreshConfiguration(name: string): Configuration {
     currencyTiers: [],
     constants: createSeedConstants(),
     curves: createSeedCurves(),
-    focusStatBonusLevel: 0,
     createdAt: now,
     updatedAt: now,
   };
@@ -969,17 +965,5 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ config: updated });
 
     return report;
-  },
-
-  // Focus Stat Configuration
-  setFocusStatBonusLevel: (level: number) => {
-    const { config } = get();
-    if (!config) return;
-
-    const updated = autoSave({
-      ...config,
-      focusStatBonusLevel: level,
-    });
-    set({ config: updated });
   },
 }));

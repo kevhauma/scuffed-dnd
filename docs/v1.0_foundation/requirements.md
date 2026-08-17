@@ -140,16 +140,26 @@ This document specifies requirements for a custom DnD experience builder - a Rea
 4. WHEN a Character has multiple Races, THE Application SHALL combine bonuses additively
 5. THE Application SHALL display the total racial modifiers on the Character sheet
 
-### Requirement 9: Focus Stats Configuration
+### Requirement 9: Focus Stats Configuration — **RETIRED (TICKET-ARC-03, 2026-08-16)**
 
-**User Story:** As a User, I want to define focus stat mechanics, so that characters can specialize in specific skills.
+**Superseded by Concept 03 · Archetype.** Nothing in `src/` implements this requirement any more,
+and the citations that claimed it were removed with the code. The focus stat was a **flat adder on
+one stat**, which the source spreadsheet does not do; an Archetype instead tags *every* stat
+`main`/`sub`/`non` and that tag selects a column of the `point_buy` curve, so specialisation changes
+the exchange rate between points spent and stats gained rather than granting a bonus.
 
-#### Acceptance Criteria
+Kept here rather than deleted so the numbering of the surrounding requirements stays stable and a
+reader who finds a stale citation can see why. **Do not re-implement.** If a flat-bonus mechanic is
+ever wanted back it returns as an Archetype `starting_bonus` field — additive, not a revival of
+`Configuration.focusStatBonusLevel` / `Character.focusStatCode`, both of which an import now refuses
+by name.
 
-1. THE Application SHALL allow Users to configure focus stat bonus levels
-2. THE Application SHALL allow Characters to select one Main_Skill or Speciality_Skill as their Focus_Stat
-3. WHEN a Character selects a Focus_Stat, THE Application SHALL apply the configured bonus level
-4. THE Application SHALL limit each Character to one Focus_Stat
+The original criteria, for the record:
+
+1. ~~THE Application SHALL allow Users to configure focus stat bonus levels~~
+2. ~~THE Application SHALL allow Characters to select one Main_Skill or Speciality_Skill as their Focus_Stat~~
+3. ~~WHEN a Character selects a Focus_Stat, THE Application SHALL apply the configured bonus level~~
+4. ~~THE Application SHALL limit each Character to one Focus_Stat~~
 
 ### Requirement 10: Currency System Configuration
 
@@ -172,7 +182,7 @@ This document specifies requirements for a custom DnD experience builder - a Rea
 1. THE Application SHALL allow Players to create Characters with names
 2. THE Application SHALL allow Players to select one or more Races for their Character
 3. THE Application SHALL allow Players to allocate points to Main_Skills according to User-defined rules
-4. THE Application SHALL allow Players to select a Focus_Stat
+4. ~~THE Application SHALL allow Players to select a Focus_Stat~~ — **RETIRED (TICKET-ARC-03)**, and replaced by the wizard's archetype step; see Requirement 9
 5. THE Application SHALL calculate all derived Stats, Speciality_Skills, and Combat_Skills automatically
 6. THE Application SHALL initialize an empty Inventory with configured Equipment_Slots
 

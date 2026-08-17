@@ -16,7 +16,7 @@ import { validateConfiguration } from '../../../engine/validator';
 import { useConfigStore } from '../../../stores/configStore';
 import { useUIStore } from '../../../stores/uiStore';
 
-/** The ten configuration areas, in the order the dashboard lists them — reached via `sections` */
+/** The nine configuration areas, in the order the dashboard lists them — reached via `sections` */
 const CONFIG_SECTIONS = [
   // Stats first: they are the atom every other section refers to, and since TICKET-STAT-02 they
   // are also where the old "main skills" live — Skills is the speciality/combat pair only
@@ -45,7 +45,6 @@ const CONFIG_SECTIONS = [
     label: 'Curves',
     description: 'Progressions as tables you can read and tune',
   },
-  { to: '/config/focus', label: 'Focus Stat', description: 'Bonus level granted by a focus stat' },
 ] as const;
 
 export function useConfigDashboard() {

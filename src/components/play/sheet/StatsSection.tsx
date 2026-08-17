@@ -91,7 +91,6 @@ export function StatsSection({
                 },
                 { label: 'race', value: stat.race },
                 { label: 'equipment', value: stat.equipment },
-                { label: 'focus', value: stat.focus },
               ]}
             />
 

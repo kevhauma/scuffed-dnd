@@ -31,7 +31,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 7,
+    schemaVersion: 8,
     stats: [
       {
         id: 'STR',
@@ -127,7 +127,6 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         lookupDirection: 'reverse',
       },
     ],
-    focusStatBonusLevel: 3,
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     ...overrides,
@@ -151,9 +150,16 @@ const next = () => fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 const back = () => fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 const nameField = () => screen.getByLabelText(/Character Name/i);
 
-/** Fill step 1 and advance to step 2 */
-function toSkillsStep(name = 'Aria') {
+/**
+ * Fill the identity step and advance to the allocation step
+ *
+ * Two `next()`s since TICKET-ARC-03 put the archetype step between them. This fixture defines no
+ * archetypes, so that step is always passable — which is itself the RACE-02-shaped rule that a
+ * ruleset may define none.
+ */
+function toStatsStep(name = 'Aria') {
   fireEvent.change(nameField(), { target: { value: name } });
+  next();
   next();
 }
 
@@ -179,12 +185,14 @@ describe('CharacterCreationWizard', () => {
   it('should preserve entered values when moving back and forward', () => {
     render(<CharacterCreationWizard />);
 
-    toSkillsStep('Aria');
+    toStatsStep('Aria');
     fireEvent.change(screen.getByLabelText(/Strength \(STR\)/), { target: { value: '4' } });
 
-    back();
+    back(); // Archetype
+    back(); // Identity
     expect((nameField() as HTMLInputElement).value).toBe('Aria');
 
+    next();
     next();
     expect((screen.getByLabelText(/Strength \(STR\)/) as HTMLInputElement).value).toBe('4');
   });
@@ -238,6 +246,7 @@ describe('CharacterCreationWizard', () => {
     fireEvent.click(screen.getByLabelText('Elf')); // DEX 2
     fireEvent.click(screen.getByLabelText('Human')); // says nothing about DEX
     next();
+    next();
 
     // roundup((2 + 0) / 2) = 1, not the 2 the old additive stacking gave
     expect(screen.getByText(/\+1 racial/)).toBeDefined();
@@ -248,6 +257,7 @@ describe('CharacterCreationWizard', () => {
 
     fireEvent.change(nameField(), { target: { value: 'Aria' } });
     fireEvent.click(screen.getByLabelText('Elf')); // DEX +2
+    next();
     next();
 
     fireEvent.change(screen.getByLabelText(/Dexterity \(DEX\)/), { target: { value: '3' } });
@@ -263,7 +273,7 @@ describe('CharacterCreationWizard', () => {
     // stat clamps its *value*, not what may be invested in it (TICKET-STAT-01)
     render(<CharacterCreationWizard />);
 
-    toSkillsStep();
+    toStatsStep();
     fireEvent.change(screen.getByLabelText(/Strength \(STR\)/), { target: { value: '-1' } });
 
     expect(screen.getByText(/Strength cannot go below 0/)).toBeDefined();
@@ -273,7 +283,7 @@ describe('CharacterCreationWizard', () => {
   it('should block progress when the allocation exceeds the point budget', () => {
     render(<CharacterCreationWizard />);
 
-    toSkillsStep();
+    toStatsStep();
     fireEvent.change(screen.getByLabelText(/Strength \(STR\)/), { target: { value: '10' } });
     fireEvent.change(screen.getByLabelText(/Dexterity \(DEX\)/), { target: { value: '5' } });
 
@@ -285,7 +295,7 @@ describe('CharacterCreationWizard', () => {
   it('should report points spent and remaining from the allocation validator', () => {
     render(<CharacterCreationWizard />);
 
-    toSkillsStep();
+    toStatsStep();
     fireEvent.change(screen.getByLabelText(/Strength \(STR\)/), { target: { value: '4' } });
 
     expect(screen.getByText(/4 of 12 points spent · 8 remaining/)).toBeDefined();
@@ -294,7 +304,7 @@ describe('CharacterCreationWizard', () => {
   describe('the allocation step on unified stats (TICKET-STAT-03)', () => {
     it('should offer an input for an invested stat and none for a derived one', () => {
       render(<CharacterCreationWizard />);
-      toSkillsStep();
+      toStatsStep();
 
       expect(screen.getByLabelText(/Strength \(STR\)/)).toBeDefined();
       expect(screen.getByLabelText(/Dexterity \(DEX\)/)).toBeDefined();
@@ -307,7 +317,7 @@ describe('CharacterCreationWizard', () => {
 
     it("should move a derived stat's preview as points are allocated", () => {
       render(<CharacterCreationWizard />);
-      toSkillsStep();
+      toStatsStep();
 
       expect(within(rowFor('Health (HEA)')).getByText('0')).toBeDefined();
 
@@ -329,7 +339,7 @@ describe('CharacterCreationWizard', () => {
       });
 
       render(<CharacterCreationWizard />);
-      toSkillsStep();
+      toStatsStep();
 
       const labels = screen
         .getAllByText(/^(Strength|Dexterity) \((STR|DEX)\)$/)
@@ -348,7 +358,7 @@ describe('CharacterCreationWizard', () => {
       });
 
       render(<CharacterCreationWizard />);
-      toSkillsStep();
+      toStatsStep();
 
       const health = rowFor('Health (HEA)');
       expect(within(health).queryByText('0')).toBeNull();
@@ -364,27 +374,118 @@ describe('CharacterCreationWizard', () => {
       });
 
       render(<CharacterCreationWizard />);
-      toSkillsStep();
+      toStatsStep();
 
       expect(screen.queryByRole('heading', { name: 'Derived Stats' })).toBeNull();
     });
   });
 
-  it('should offer a focus stat from the stats alone, stating the bonus (TICKET-SKL-02)', () => {
-    // v1 offered speciality skills here too. A `Skill` has no code for the focus to hold, so the
-    // list is stats — every one of them, since TICKET-STAT-01 merged the invested atom into Stat.
-    render(<CharacterCreationWizard />);
+  /**
+   * The archetype step, which replaced the focus-stat step (Concept 03, TICKET-ARC-03)
+   */
+  describe('the archetype step', () => {
+    /** Two archetypes, so a choice is actually offered */
+    const withArchetypes = () =>
+      createConfig({
+        archetypes: [
+          { id: 'strong', name: 'Strong', description: 'Raw force', statAffinity: { STR: 'main' } },
+          { id: 'sneaky', name: 'Sneaky', description: 'Unseen', statAffinity: { DEX: 'main' } },
+        ],
+      });
 
-    toSkillsStep();
-    next();
+    it('should offer no focus-stat control anywhere in the wizard', () => {
+      render(<CharacterCreationWizard />);
 
-    const select = screen.getByLabelText(/Focus stat/i) as HTMLSelectElement;
-    const optionValues = [...select.options].map((option) => option.value);
+      toStatsStep();
+      next();
 
-    expect(optionValues).toContain('STR');
-    expect(optionValues).toContain('DEX');
-    expect(optionValues).not.toContain('STL');
-    expect(screen.getByText(/\+3 levels/)).toBeDefined();
+      expect(screen.queryByLabelText(/Focus stat/i)).toBeNull();
+    });
+
+    it('should say so rather than block when the ruleset defines no archetypes', () => {
+      // The fixture defines none, which is legal — the same rule TICKET-RACE-02 kept for races
+      render(<CharacterCreationWizard />);
+
+      fireEvent.change(nameField(), { target: { value: 'Aria' } });
+      next();
+
+      expect(screen.getByText(/defines no archetypes/)).toBeDefined();
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', false);
+    });
+
+    it('should require a pick when the ruleset offers a choice', () => {
+      useConfigStore.setState({ config: withArchetypes(), isLoaded: true });
+      render(<CharacterCreationWizard />);
+
+      fireEvent.change(nameField(), { target: { value: 'Aria' } });
+      next();
+
+      expect(screen.getByText('Pick an archetype before continuing.')).toBeDefined();
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', true);
+    });
+
+    it('should unblock once one is picked, and show which stats it favours', () => {
+      useConfigStore.setState({ config: withArchetypes(), isLoaded: true });
+      render(<CharacterCreationWizard />);
+
+      fireEvent.change(nameField(), { target: { value: 'Aria' } });
+      next();
+      fireEvent.click(screen.getByRole('button', { name: /Strong/ }));
+
+      expect(screen.getByRole('button', { name: /Strong/ }).getAttribute('aria-pressed')).toBe(
+        'true'
+      );
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', false);
+    });
+
+    it('should re-price the gains preview when the archetype changes', () => {
+      // The whole reason the step comes before allocation: it decides what a point is worth
+      useConfigStore.setState({
+        config: createConfig({
+          archetypes: withArchetypes().archetypes,
+          curves: [
+            ...(createConfig().curves ?? []),
+            {
+              id: 'curve-point-buy',
+              name: 'point_buy',
+              displayName: 'Point buy',
+              description: '',
+              keyName: 'points',
+              columns: [
+                { id: 'col-non', name: 'non' },
+                { id: 'col-sub', name: 'sub' },
+                { id: 'col-main', name: 'main' },
+              ],
+              rows: [
+                { key: 0, values: [0, 0, 0] },
+                { key: 5, values: [2, 3, 4.5] },
+              ],
+              interpolation: 'step',
+              outOfRange: 'error',
+              lookupDirection: 'forward',
+            },
+          ],
+        }),
+        isLoaded: true,
+      });
+      render(<CharacterCreationWizard />);
+
+      fireEvent.change(nameField(), { target: { value: 'Aria' } });
+      next();
+      fireEvent.click(screen.getByRole('button', { name: /Strong/ }));
+      next();
+      fireEvent.change(screen.getByLabelText(/Strength \(STR\)/), { target: { value: '5' } });
+
+      // STR is main for Strong: 5 points buy 4.5
+      expect(screen.getByText('→ +4.5')).toBeDefined();
+
+      back();
+      fireEvent.click(screen.getByRole('button', { name: /Sneaky/ }));
+      next();
+
+      // …and non for Sneaky, so the same 5 points buy 2
+      expect(screen.getByText('→ +2')).toBeDefined();
+    });
   });
 
   it('should show review values that match calculateCharacter for the same data', () => {
@@ -393,10 +494,10 @@ describe('CharacterCreationWizard', () => {
     fireEvent.change(nameField(), { target: { value: 'Aria' } });
     fireEvent.click(screen.getByLabelText('Elf'));
     next();
+    next();
     fireEvent.change(screen.getByLabelText(/Strength \(STR\)/), { target: { value: '5' } });
     // Labelled by name alone — a `Skill` has no code to bracket (TICKET-SKL-02)
     fireEvent.change(screen.getByLabelText('Stealth'), { target: { value: '1' } });
-    next();
     next();
 
     const expected = calculateCharacter(
@@ -434,8 +535,8 @@ describe('CharacterCreationWizard', () => {
     render(<CharacterCreationWizard />);
 
     fireEvent.change(nameField(), { target: { value: 'Aria' } });
-    next(); // Skills — nothing entered
-    next(); // Focus
+    next(); // Archetype — the fixture defines none, so nothing to pick
+    next(); // Stats — nothing entered
     next(); // Review
 
     expect(screen.queryByText(/formula that does not evaluate/)).toBeNull();
@@ -452,10 +553,9 @@ describe('CharacterCreationWizard', () => {
 
     fireEvent.change(nameField(), { target: { value: 'Aria' } });
     fireEvent.click(screen.getByLabelText('Elf'));
+    next(); // Archetype — none defined in this fixture
     next();
     fireEvent.change(screen.getByLabelText(/Strength \(STR\)/), { target: { value: '5' } });
-    next();
-    fireEvent.change(screen.getByLabelText(/Focus stat/i), { target: { value: 'STR' } });
     next();
 
     fireEvent.click(screen.getByRole('button', { name: 'Create Character' }));
@@ -466,7 +566,6 @@ describe('CharacterCreationWizard', () => {
       name: 'Aria',
       raceIds: ['elf'],
       investedStatPoints: { STR: 5 },
-      focusStatCode: 'STR',
       configurationId: 'config1',
     });
     // Empty inventory — slots come from the configuration, not from the character (Req 11.6)
@@ -475,8 +574,9 @@ describe('CharacterCreationWizard', () => {
     // …and the result is a v2 character: points keyed by stat *id*, resources seeded to their
     // calculated maximum, and nothing left of the v1 main-skill map (TICKET-STAT-01, STAT-03)
     expect(Object.keys(characters[0].investedStatPoints)).toEqual(['STR']);
-    // STR is 5 invested + 3 from the focus bonus, and health is `STR * 10`
-    expect(characters[0].currentResourceValues).toEqual({ health: 80 });
+    // STR is exactly the 5 points spent since TICKET-ARC-03 deleted the focus bonus, and health
+    // is `STR * 10`
+    expect(characters[0].currentResourceValues).toEqual({ health: 50 });
     expect(characters[0]).not.toHaveProperty('mainSkillLevels');
 
     expect(navigate).toHaveBeenCalledWith({

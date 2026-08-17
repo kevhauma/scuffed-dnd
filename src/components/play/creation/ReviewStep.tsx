@@ -18,6 +18,8 @@ export interface ReviewStepProps {
   stats: Stat[];
   characterName: string;
   raceNames: string[];
+  /** The chosen archetype's name, or undefined when the ruleset defines none (TICKET-ARC-03) */
+  archetypeName?: string;
   preview: CalculatedCharacter | null;
   /** A formula in the ruleset that does not evaluate, described for display */
   previewError: string | null;
@@ -42,6 +44,7 @@ export function ReviewStep({
   stats,
   characterName,
   raceNames,
+  archetypeName,
   preview,
   previewError,
 }: ReviewStepProps) {
@@ -75,7 +78,7 @@ export function ReviewStep({
         </Text>
         <Text variant="body-small-secondary">
           {raceNames.length > 0 ? raceNames.join(', ') : 'No races'}
-          {preview.focusStatCode && ` · focus: ${preview.focusStatCode}`}
+          {archetypeName && ` · ${archetypeName}`}
         </Text>
       </Card>
 

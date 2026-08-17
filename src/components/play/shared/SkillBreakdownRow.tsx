@@ -2,10 +2,10 @@
  * Skill Breakdown Row
  *
  * One skill's total alongside the contributions that make it up, shown separately rather than
- * pre-summed so a Player can see what their equipment, races and focus stat are actually doing
+ * pre-summed so a Player can see what their equipment, races and spent points are actually doing
  * (Requirement 13.4).
  *
- * **Validates: Requirements 13.4, 8.5, 9.3, 16.6, 21.1-21.5**
+ * **Validates: Requirements 13.4, 8.5, 16.6, 21.1-21.5**
  */
 
 import { ErrorChip } from '../../ui/ErrorChip/ErrorChip';
@@ -51,7 +51,6 @@ export interface SkillBreakdownRowProps {
    * making the Player divide. A stat row leaves it out and is unchanged.
    */
   secondary?: { label: string; value: DerivedValue };
-  isFocusStat?: boolean;
 }
 
 /**
@@ -78,7 +77,6 @@ export function SkillBreakdownRow({
   total,
   contributions,
   secondary,
-  isFocusStat = false,
 }: SkillBreakdownRowProps) {
   const shown = contributions.filter(
     (contribution) => contribution.alwaysShow || contribution.value !== 0
@@ -90,11 +88,6 @@ export function SkillBreakdownRow({
         <Text variant="body-small" as="span">
           {code === undefined ? name : `${name} (${code})`}
         </Text>
-        {isFocusStat && (
-          <Text variant="caption" as="span">
-            focus stat
-          </Text>
-        )}
       </div>
 
       <div className="flex flex-wrap items-baseline gap-2">

@@ -49,7 +49,6 @@ rather than a read-only config UI).
 | `/config/currency` | `routes/config/currency.tsx` | `CurrencyConfigPanel` (which renders `ConversionCalculator` once tiers exist) |
 | `/config/constants` | `routes/config/constants.tsx` | `ConstantsConfigPanel` — named tunables (`const.*`), each card listing the formulas that name it |
 | `/config/curves` | `routes/config/curves.tsx` | `CurvesConfigPanel` — progressions as editable tables (`curve.*(x)`), with per-cell override highlighting and a regenerate action (TICKET-CRV-03) |
-| `/config/focus` | `routes/config/focus.tsx` | `FocusStatConfig` |
 | `/play` | `routes/play/index.tsx` | `CharacterList` — the play-mode entry point |
 | `/play/create` | `routes/play/create.tsx` | `CharacterCreationWizard` — the four-step wizard |
 | `/play/character/$id` | `routes/play/character.$id.tsx` | `CharacterSheet` — takes the route param as `characterId` |
@@ -63,7 +62,7 @@ have a route. Play mode's three routes are all real: `/play` (TICKET-CHAR-01), `
 
 Two things to know about route files here:
 
-- Each page component is **exported by name** (`StatsConfig`, `FocusConfig`, …) so tests can render
+- Each page component is **exported by name** (`StatsConfig`, `ArchetypesConfig`, …) so tests can render
   it. Automatic code splitting rewrites `Route.options.component` into a lazy wrapper whose dynamic
   import Vitest cannot resolve, and TanStack Start omits `autoCodeSplitting` from its accepted
   router config, so importing the named export is the only way to test a route component. See
@@ -79,7 +78,7 @@ calls the storage service; components and hooks never persist directly.
 
 | Store | Owns | Persists to |
 |---|---|---|
-| `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), speciality and combat skills, materials + categories, items, equipment slots, races, currency tiers, constants, curves, focus-stat bonus level. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
+| `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), speciality and combat skills, materials + categories, items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
 | `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience`, and `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02). `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history | not persisted |
@@ -297,7 +296,7 @@ value and neither imports the engine to decide what to draw. Use it rather than 
 
 **`config/` — configuration-mode features**, one folder per domain
 (`skills/{skill,combat,shared}`, `stats/`, `materials/`, `items/`, `races/`,
-`currency/`, `constants/`, `curves/`, `focus/`). Each domain repeats the same four-part shape:
+`currency/`, `constants/`, `curves/`, `archetypes/`). Each domain repeats the same four-part shape:
 
 - `XConfigPanel.tsx` — layout + composition only
 - `XCard.tsx` — one row/entity
@@ -330,6 +329,11 @@ the empty state for a ruleset that has none. A race's stat block and an archetyp
 both render it, passing their own control as a render prop — the shape exists because the ruleset's
 stats decide what an entity has an opinion about, so there is no add/remove control anywhere.
 
+**`components/shared/` holds `affinityGroups.ts`** (TICKET-ARC-03) — an archetype's stats grouped by
+affinity, most favoured first, with the words each group is listed under. Both surfaces that show an
+archetype render it (the config card and the wizard step), and it calls the engine's `affinityFor`
+rather than re-deriving "absent means `non`".
+
 **`config/shared/` also holds `StatRowsField`** (TICKET-ARC-01) — a titled "one row per configured
 stat" block with the no-stats empty state, taking the row's control as a render prop. Both the race
 stat block and the archetype affinity table are that shape, because the ruleset's stats decide what
@@ -359,7 +363,9 @@ fourth: hold a half-typed number, **commit on blur or Enter**, never per keystro
 goes through it — reach for it rather than re-rolling a draft `useState`.
 `characters/` holds `CharacterList` + `CharacterCard` + `useCharacterListManager`.
 `creation/` holds the four-step wizard: `CharacterCreationWizard` dispatches on a step index and
-the four step components (`IdentityStep`, `SkillAllocationStep`, `FocusStatStep`, `ReviewStep`)
+the four step components (`IdentityStep`, `ArchetypeStep`, `SkillAllocationStep`, `ReviewStep` — in
+that order since TICKET-ARC-03, the archetype coming *before* allocation because it decides what a
+point buys)
 are pure props — all state, validation and the submit live in `useCharacterCreation`. That is the
 multi-step pattern to copy. `SkillAllocationStep` takes points for the **invested** stats only and
 previews the derived ones read-only off the same `calculateCharacter` result the review step uses.

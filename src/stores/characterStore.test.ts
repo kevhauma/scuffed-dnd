@@ -68,7 +68,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [
         {
           id: 'STR',
@@ -139,7 +139,6 @@ describe('CharacterStore', () => {
           lookupDirection: 'reverse',
         },
       ],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -193,7 +192,7 @@ describe('CharacterStore', () => {
         name: 'New Character',
         raceIds: ['race-1'],
         investedStatPoints: { STR: 10, DEX: 8 },
-        focusStatCode: 'STR',
+        archetypeId: 'strong',
         investedSkillPoints: { SWD: 5 },
       };
 
@@ -202,7 +201,7 @@ describe('CharacterStore', () => {
       expect(character.name).toBe('New Character');
       expect(character.raceIds).toEqual(['race-1']);
       expect(character.investedStatPoints).toEqual({ STR: 10, DEX: 8 });
-      expect(character.focusStatCode).toBe('STR');
+      expect(character.archetypeId).toBe('strong');
       expect(character.configurationId).toBe('config-1');
       expect(character.id).toBeDefined();
       expect(character.createdAt).toBeDefined();
@@ -480,7 +479,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [],
       skills: [],
       combatSkills: [],
@@ -498,7 +497,6 @@ describe('CharacterStore', () => {
       ],
       races: [],
       currencyTiers: [],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -733,7 +731,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [
         {
           id: 'STR',
@@ -776,7 +774,6 @@ describe('CharacterStore', () => {
       equipmentSlots: [],
       races: [],
       currencyTiers: [],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -992,10 +989,9 @@ describe('CharacterStore', () => {
    * both keyed by an id a rename cannot reach, there is no second half of a rename left to apply
    * and the action deleted itself.
    *
-   * **One code-keyed field survives it**: `focusStatCode` still holds a stat *abbreviation*, so
-   * renaming a stat orphans a character's focus. That is recorded on the ticket rather than
-   * papered over — TICKET-ARC-03 retires the focus stat outright, and re-adding a store action
-   * for a field about to be deleted would be work in the wrong direction.
+   * **And nothing code-keyed survives it.** The one field that did — the focus stat's stored
+   * abbreviation — went with the mechanic in TICKET-ARC-03, so every character field is keyed by
+   * an id a rename cannot reach and the rename problem is closed rather than merely managed.
    */
   /**
    * The level-up mechanic (TICKET-RES-02): points earned by levelling stay spendable, and the
@@ -1007,7 +1003,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [
         {
           id: 'STR',
@@ -1065,7 +1061,6 @@ describe('CharacterStore', () => {
           lookupDirection: 'reverse',
         },
       ],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -1165,7 +1160,6 @@ describe('CharacterStore', () => {
             raceIds: [],
             investedStatPoints: { STR: 6, DEX: 4 },
             investedSkillPoints: { STL: 3 },
-            focusStatCode: 'STR',
             currentResourceValues: {},
             experience: 0,
             inventory: { equippedItems: {}, miscItems: [] },

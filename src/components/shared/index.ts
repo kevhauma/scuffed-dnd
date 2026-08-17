@@ -5,6 +5,7 @@
  */
 
 export * from './AppShell';
+export * from './affinityGroups';
 export * from './IncompatibleDataNotice';
 export * from './StatModifierBadges';
 export * from './StorageNotice';

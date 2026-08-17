@@ -62,7 +62,7 @@ function createConfig(curves: Curve[] = [xpCurve()]): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 7,
+    schemaVersion: 8,
     stats: [],
     skills: [],
     combatSkills: [],
@@ -73,7 +73,6 @@ function createConfig(curves: Curve[] = [xpCurve()]): Configuration {
     races: [],
     currencyTiers: [],
     curves,
-    focusStatBonusLevel: 0,
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
   };

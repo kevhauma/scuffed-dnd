@@ -9,7 +9,7 @@
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
-import { FocusStatStep } from './FocusStatStep';
+import { ArchetypeStep } from './ArchetypeStep';
 import { IdentityStep } from './IdentityStep';
 import { ReviewStep } from './ReviewStep';
 import { SkillAllocationStep } from './SkillAllocationStep';
@@ -42,7 +42,10 @@ export function CharacterCreationWizard() {
     toggleRace,
     setInvestedStatPoints,
     setInvestedSkillPoints,
-    setFocusStatCode,
+    setArchetypeId,
+    archetypes,
+    selectedRaceNames,
+    selectedArchetypeName,
     handleNext,
     handleBack,
     handleCancel,
@@ -71,10 +74,6 @@ export function CharacterCreationWizard() {
       </div>
     );
   }
-
-  const selectedRaceNames = races
-    .filter((race) => values.raceIds.includes(race.id))
-    .map((race) => race.name);
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -105,7 +104,17 @@ export function CharacterCreationWizard() {
         />
       )}
 
+      {/* Before the allocation step on purpose: the archetype decides what a point is worth */}
       {stepIndex === 1 && (
+        <ArchetypeStep
+          archetypes={archetypes}
+          stats={stats}
+          selectedArchetypeId={values.archetypeId}
+          onSelectArchetype={setArchetypeId}
+        />
+      )}
+
+      {stepIndex === 2 && (
         <SkillAllocationStep
           investableStats={investableStats}
           derivedStatPreviews={derivedStatPreviews}
@@ -120,21 +129,13 @@ export function CharacterCreationWizard() {
         />
       )}
 
-      {stepIndex === 2 && (
-        <FocusStatStep
-          stats={config.stats}
-          focusStatBonusLevel={config.focusStatBonusLevel}
-          focusStatCode={values.focusStatCode}
-          onChangeFocusStatCode={setFocusStatCode}
-        />
-      )}
-
       {stepIndex === 3 && (
         <ReviewStep
           config={config}
           stats={stats}
           characterName={values.name.trim()}
           raceNames={selectedRaceNames}
+          archetypeName={selectedArchetypeName}
           preview={preview}
           previewError={previewError}
         />

@@ -18,7 +18,6 @@ import { Route as ConfigSkillsRouteImport } from './routes/config/skills'
 import { Route as ConfigRacesRouteImport } from './routes/config/races'
 import { Route as ConfigMaterialsRouteImport } from './routes/config/materials'
 import { Route as ConfigItemsRouteImport } from './routes/config/items'
-import { Route as ConfigFocusRouteImport } from './routes/config/focus'
 import { Route as ConfigCurvesRouteImport } from './routes/config/curves'
 import { Route as ConfigCurrencyRouteImport } from './routes/config/currency'
 import { Route as ConfigConstantsRouteImport } from './routes/config/constants'
@@ -70,11 +69,6 @@ const ConfigItemsRoute = ConfigItemsRouteImport.update({
   path: '/config/items',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ConfigFocusRoute = ConfigFocusRouteImport.update({
-  id: '/config/focus',
-  path: '/config/focus',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ConfigCurvesRoute = ConfigCurvesRouteImport.update({
   id: '/config/curves',
   path: '/config/curves',
@@ -107,7 +101,6 @@ export interface FileRoutesByFullPath {
   '/config/constants': typeof ConfigConstantsRoute
   '/config/currency': typeof ConfigCurrencyRoute
   '/config/curves': typeof ConfigCurvesRoute
-  '/config/focus': typeof ConfigFocusRoute
   '/config/items': typeof ConfigItemsRoute
   '/config/materials': typeof ConfigMaterialsRoute
   '/config/races': typeof ConfigRacesRoute
@@ -124,7 +117,6 @@ export interface FileRoutesByTo {
   '/config/constants': typeof ConfigConstantsRoute
   '/config/currency': typeof ConfigCurrencyRoute
   '/config/curves': typeof ConfigCurvesRoute
-  '/config/focus': typeof ConfigFocusRoute
   '/config/items': typeof ConfigItemsRoute
   '/config/materials': typeof ConfigMaterialsRoute
   '/config/races': typeof ConfigRacesRoute
@@ -142,7 +134,6 @@ export interface FileRoutesById {
   '/config/constants': typeof ConfigConstantsRoute
   '/config/currency': typeof ConfigCurrencyRoute
   '/config/curves': typeof ConfigCurvesRoute
-  '/config/focus': typeof ConfigFocusRoute
   '/config/items': typeof ConfigItemsRoute
   '/config/materials': typeof ConfigMaterialsRoute
   '/config/races': typeof ConfigRacesRoute
@@ -161,7 +152,6 @@ export interface FileRouteTypes {
     | '/config/constants'
     | '/config/currency'
     | '/config/curves'
-    | '/config/focus'
     | '/config/items'
     | '/config/materials'
     | '/config/races'
@@ -178,7 +168,6 @@ export interface FileRouteTypes {
     | '/config/constants'
     | '/config/currency'
     | '/config/curves'
-    | '/config/focus'
     | '/config/items'
     | '/config/materials'
     | '/config/races'
@@ -195,7 +184,6 @@ export interface FileRouteTypes {
     | '/config/constants'
     | '/config/currency'
     | '/config/curves'
-    | '/config/focus'
     | '/config/items'
     | '/config/materials'
     | '/config/races'
@@ -213,7 +201,6 @@ export interface RootRouteChildren {
   ConfigConstantsRoute: typeof ConfigConstantsRoute
   ConfigCurrencyRoute: typeof ConfigCurrencyRoute
   ConfigCurvesRoute: typeof ConfigCurvesRoute
-  ConfigFocusRoute: typeof ConfigFocusRoute
   ConfigItemsRoute: typeof ConfigItemsRoute
   ConfigMaterialsRoute: typeof ConfigMaterialsRoute
   ConfigRacesRoute: typeof ConfigRacesRoute
@@ -290,13 +277,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfigItemsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/config/focus': {
-      id: '/config/focus'
-      path: '/config/focus'
-      fullPath: '/config/focus'
-      preLoaderRoute: typeof ConfigFocusRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/config/curves': {
       id: '/config/curves'
       path: '/config/curves'
@@ -341,7 +321,6 @@ const rootRouteChildren: RootRouteChildren = {
   ConfigConstantsRoute: ConfigConstantsRoute,
   ConfigCurrencyRoute: ConfigCurrencyRoute,
   ConfigCurvesRoute: ConfigCurvesRoute,
-  ConfigFocusRoute: ConfigFocusRoute,
   ConfigItemsRoute: ConfigItemsRoute,
   ConfigMaterialsRoute: ConfigMaterialsRoute,
   ConfigRacesRoute: ConfigRacesRoute,

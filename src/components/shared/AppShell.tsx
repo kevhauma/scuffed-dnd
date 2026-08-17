@@ -24,7 +24,7 @@ const CONFIG_NAV = [
   { to: '/config/archetypes', label: 'Archetypes' },
   { to: '/config/currency', label: 'Currency' },
   { to: '/config/constants', label: 'Constants' },
-  { to: '/config/focus', label: 'Focus Stat' },
+  { to: '/config/curves', label: 'Curves' },
 ] as const;
 
 /** Screens reachable in play mode (Requirement 19.5) */

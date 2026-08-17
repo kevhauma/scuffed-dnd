@@ -56,7 +56,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 7,
+    schemaVersion: 8,
     stats: [
       {
         id: 'STR',
@@ -100,7 +100,6 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     // 5 points per level, so level 3 buys 15 — the number SKL-01's flat pool used to be set to
     constants: [pointsPerLevel(5)],
     curves: [xpCurve()],
-    focusStatBonusLevel: 0,
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     ...overrides,

@@ -262,18 +262,6 @@ function archetypeAffinityReferences(config: Configuration, statId: string): Ent
     }));
 }
 
-/** Characters whose focus names a code */
-function characterFocusReferences(characters: Character[], code: string): EntityReference[] {
-  return characters
-    .filter((character) => character.focusStatCode === code)
-    .map((character) => ({
-      holderKind: 'Character',
-      holderName: character.name,
-      field: 'focus stat',
-      holderId: character.id,
-    }));
-}
-
 /** Characters who have invested in a skill, by **id** since TICKET-SKL-02 */
 function characterSkillReferences(characters: Character[], skillId: string): EntityReference[] {
   return characters
@@ -306,21 +294,16 @@ function skillEntityReferences(
 }
 
 /** Everything pointing at a combat skill, which still lives in the flat code space */
-function combatSkillReferences(
-  config: Configuration,
-  characters: Character[],
-  code: string
-): EntityReference[] {
+function combatSkillReferences(config: Configuration, code: string): EntityReference[] {
   // A skill's own bonus formula goes with it, so exclude it by id — the codes in the formula are
   // spellings, the identity is not (TICKET-REF-01).
   const own = config.combatSkills.find((skill) => skill.code === code);
 
   // No material lookup here since TICKET-MAT-01: a tier's modifiers name a stat id, so a
-  // speciality or combat code can no longer be one of their targets.
-  return [
-    ...formulaReferences(config, namesSkill(code), own?.id ?? code),
-    ...characterFocusReferences(characters, code),
-  ];
+  // speciality or combat code can no longer be one of their targets. And no character lookup since
+  // TICKET-ARC-03 retired the focus stat, which was the one character field that named a code —
+  // every remaining one is keyed by id, so a formula is all that can point at a combat skill.
+  return formulaReferences(config, namesSkill(code), own?.id ?? code);
 }
 
 /** Everything pointing at a stat */
@@ -428,7 +411,7 @@ export function findReferences(
       return skillEntityReferences(config, characters, target.id);
 
     case 'combat-skill':
-      return combatSkillReferences(config, characters, target.id);
+      return combatSkillReferences(config, target.id);
 
     case 'stat':
       return statReferences(config, characters, target.id);

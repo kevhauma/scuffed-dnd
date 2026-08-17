@@ -18,7 +18,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [
         {
           id: 'STR',
@@ -58,7 +58,6 @@ describe('calculateCombatSkillBonuses', () => {
       equipmentSlots: [],
       races: [],
       currencyTiers: [],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -82,7 +81,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [
         {
           id: 'STR',
@@ -120,7 +119,6 @@ describe('calculateCombatSkillBonuses', () => {
       equipmentSlots: [],
       races: [],
       currencyTiers: [],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -146,7 +144,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [
         {
           id: 'STR',
@@ -176,7 +174,6 @@ describe('calculateCombatSkillBonuses', () => {
       equipmentSlots: [],
       races: [],
       currencyTiers: [],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -199,7 +196,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [
         {
           id: 'STR',
@@ -265,7 +262,6 @@ describe('calculateCombatSkillBonuses', () => {
       equipmentSlots: [],
       races: [],
       currencyTiers: [],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -293,7 +289,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [
         {
           id: 'STR',
@@ -341,7 +337,6 @@ describe('calculateCombatSkillBonuses', () => {
       equipmentSlots: [],
       races: [],
       currencyTiers: [],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -368,7 +363,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [
         {
           id: 'STR',
@@ -398,7 +393,6 @@ describe('calculateCombatSkillBonuses', () => {
       equipmentSlots: [],
       races: [],
       currencyTiers: [],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -422,7 +416,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [
         {
           id: 'STR',
@@ -452,7 +446,6 @@ describe('calculateCombatSkillBonuses', () => {
       equipmentSlots: [],
       races: [],
       currencyTiers: [],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -476,7 +469,7 @@ describe('calculateCombatSkillBonuses', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [],
       skills: [],
       combatSkills: [], // No combat skills
@@ -486,7 +479,6 @@ describe('calculateCombatSkillBonuses', () => {
       equipmentSlots: [],
       races: [],
       currencyTiers: [],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };

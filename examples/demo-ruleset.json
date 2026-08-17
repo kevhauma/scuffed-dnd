@@ -2,8 +2,7 @@
   "id": "demo-ruleset-0001",
   "name": "Emberfall Demo Ruleset",
   "version": "1.0.0",
-  "schemaVersion": 7,
-  "focusStatBonusLevel": 2,
+  "schemaVersion": 8,
   "skills": [
     {
       "id": "skill-stealth",

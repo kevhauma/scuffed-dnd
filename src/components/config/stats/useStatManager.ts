@@ -21,10 +21,8 @@
  * **A rename no longer has a character half.** `investedStatPoints` is keyed by stat id
  * (TICKET-STAT-01) and `investedSkillPoints` by skill id (TICKET-SKL-02), so re-spelling an
  * abbreviation cannot orphan either, and `useSkillCodeRename` was deleted rather than kept for a
- * job that no longer exists. **One field is left behind**: `focusStatCode` still holds an
- * abbreviation, so renaming a stat orphans a character's focus. TICKET-ARC-03 retires the focus
- * stat outright — recorded on TICKET-SKL-02 rather than fixed by re-adding a store action for a
- * field about to be deleted.
+ * job that no longer exists. **And nothing is left behind**: the last code-keyed character field
+ * went with the focus stat in TICKET-ARC-03, so no rename has a character half at all any more.
  *
  * **Validates: Concept 01; Concept 00 §6; Requirements 2.3, 16.5, 16.6**
  */

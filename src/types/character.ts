@@ -47,20 +47,17 @@ export interface Character {
    */
   investedStatPoints: Record<string, number>; // statId -> points spent
   /**
-   * The stat this character focused on, by **abbreviation** — retired by TICKET-ARC-03.
+   * The archetype this character grows along, by **id** (Concept 03).
    *
-   * A stat only, since TICKET-SKL-02: a skill has no code to name it by any more, so a focus on a
-   * skill has nowhere to point. Archetype replaces the whole mechanism, so this is a shrinking
-   * field rather than one to redesign.
-   */
-  focusStatCode?: string;
-  /**
-   * The archetype this character grows along, by **id** (Concept 03, TICKET-ARC-01).
+   * Replaces the focus stat outright (TICKET-ARC-03): that was a flat adder on one stat, which the
+   * spec does not recognise, where an archetype is a shape across the whole sheet. ARC-01 added the
+   * field, ARC-02 made it change a number, and this ticket is what sets it and deletes what it
+   * replaced.
    *
-   * Optional here rather than in ARC-03 for one reason: without it there is nothing that *can*
-   * hold an archetype, so `deleteArchetype`'s guard would return an empty list on every ruleset and
-   * the refusal would be untestable. TICKET-ARC-03 is what sets it — the wizard's archetype step —
-   * and TICKET-ARC-02 is what makes it change a number.
+   * **Optional rather than required, which diverges from the ticket's to-be.** The *wizard* requires
+   * a pick — but only when the ruleset defines archetypes at all, and a ruleset may define none, the
+   * same way TICKET-RACE-02 kept a raceless character legal. A required field would make every such
+   * ruleset unusable to satisfy a rule about rulesets that have archetypes.
    */
   archetypeId?: string;
   /**
@@ -150,7 +147,8 @@ export interface CharacterCreationData {
   name: string;
   raceIds: string[];
   investedStatPoints: Record<string, number>;
-  focusStatCode?: string;
+  /** The archetype the Player picked — the wizard's third step (TICKET-ARC-03) */
+  archetypeId?: string;
   investedSkillPoints: Record<string, number>;
 }
 

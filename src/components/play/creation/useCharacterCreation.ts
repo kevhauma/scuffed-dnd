@@ -4,7 +4,10 @@
  * Owns the wizard: step index, form state, per-step validation, the derived preview, and the
  * submit. The step components are presentational.
  *
- * **Validates: Requirements 11.1, 11.2, 11.3, 11.4, 11.5, 11.6**
+ * **Validates: Concept 03; Requirements 11.1, 11.2, 11.3, 11.5, 11.6**
+ *
+ * (Requirement 11.4 — "select a Focus_Stat" — is dropped rather than left claiming: TICKET-ARC-03
+ * retired the focus stat and the archetype step replaces it. Nothing implements 11.4 now.)
  */
 
 import { useNavigate } from '@tanstack/react-router';
@@ -31,7 +34,7 @@ import { toPointBudgetView } from '../shared/pointBudgetView';
 /**
  * The wizard's steps, in order — exposed to callers as the hook's `steps`
  */
-const CREATION_STEPS = ['Identity', 'Stats', 'Focus', 'Review'] as const;
+const CREATION_STEPS = ['Identity', 'Archetype', 'Stats', 'Review'] as const;
 
 /**
  * One derived stat as the allocation step shows it: the stat, and the value it currently computes
@@ -43,15 +46,16 @@ export interface DerivedStatPreview {
 }
 
 /**
- * The form's shape — `CharacterCreationData` with the optional focus code always present as a
- * string, so the select has something to bind to
+ * The form's shape — `CharacterCreationData` with the optional archetype id always present as a
+ * string, so the step has something to bind to before a pick is made
  */
 export interface CharacterCreationFormData {
   name: string;
   raceIds: string[];
   investedStatPoints: Record<string, number>;
   investedSkillPoints: Record<string, number>;
-  focusStatCode: string;
+  /** Empty until the Player picks one — the form binds a string, the character stores an id */
+  archetypeId: string;
 }
 
 /**
@@ -102,7 +106,7 @@ export function useCharacterCreation() {
       raceIds: [],
       investedStatPoints: {},
       investedSkillPoints: {},
-      focusStatCode: '',
+      archetypeId: '',
     },
   });
 
@@ -117,8 +121,17 @@ export function useCharacterCreation() {
   const derivedStats = stats.filter((stat) => stat.formula !== undefined);
   const skills = config?.skills ?? [];
   const races = config?.races ?? [];
+  const archetypes = config?.archetypes ?? [];
 
   const selectedRaces = races.filter((race) => values.raceIds.includes(race.id));
+
+  // Named here rather than in the wizard's JSX: the review step renders what the Player chose, and
+  // "which archetype is `archetypeId`" is a lookup against the ruleset — the hook's job, not a
+  // panel's (conventions: panels don't hold logic)
+  const selectedRaceNames = selectedRaces.map((race) => race.name);
+  const selectedArchetypeName = archetypes.find(
+    (archetype) => archetype.id === values.archetypeId
+  )?.name;
 
   /**
    * What the chosen races supply, per stat id — shown separately from the invested points
@@ -134,7 +147,7 @@ export function useCharacterCreation() {
     raceIds: values.raceIds,
     investedStatPoints: values.investedStatPoints,
     investedSkillPoints: values.investedSkillPoints,
-    focusStatCode: values.focusStatCode || undefined,
+    archetypeId: values.archetypeId || undefined,
   };
 
   /**
@@ -203,8 +216,8 @@ export function useCharacterCreation() {
     });
   };
 
-  const setFocusStatCode = (code: string) => {
-    form.setValue('focusStatCode', code);
+  const setArchetypeId = (archetypeId: string) => {
+    form.setValue('archetypeId', archetypeId);
   };
 
   /**
@@ -268,10 +281,24 @@ export function useCharacterCreation() {
     return null;
   };
 
+  /**
+   * Why the archetype step cannot be left, or null when it can
+   *
+   * **Required only when the ruleset offers a choice.** A ruleset may define no archetypes, the
+   * same way TICKET-RACE-02 kept a raceless character legal — blocking the wizard there would make
+   * such a ruleset unplayable to enforce a rule about rulesets that have archetypes.
+   */
+  const archetypeStepError = (): string | null => {
+    if (archetypes.length === 0) return null;
+    if (values.archetypeId === '') return 'Pick an archetype before continuing.';
+    return null;
+  };
+
   /** Why the current step cannot be left, or null when it can */
   const stepErrorsByStep: Record<number, string | null> = {
     0: identityStepError(),
-    1: allocationStepError(allocation, budget),
+    1: archetypeStepError(),
+    2: allocationStepError(allocation, budget),
   };
   const stepError = stepErrorsByStep[stepIndex] ?? null;
 
@@ -331,7 +358,10 @@ export function useCharacterCreation() {
     toggleRace,
     setInvestedStatPoints,
     setInvestedSkillPoints,
-    setFocusStatCode,
+    setArchetypeId,
+    archetypes,
+    selectedRaceNames,
+    selectedArchetypeName,
     handleNext,
     handleBack,
     handleCancel,

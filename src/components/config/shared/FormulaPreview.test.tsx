@@ -33,7 +33,7 @@ const config: Configuration = {
   id: 'config1',
   name: 'Test Config',
   version: '1.0',
-  schemaVersion: 7,
+  schemaVersion: 8,
   stats: [stat('str-id', 'Strength', 'STR'), stat('cha-id', 'Charisma', 'CHA')],
   skills: [],
   combatSkills: [],
@@ -52,7 +52,6 @@ const config: Configuration = {
       value: 30,
     },
   ],
-  focusStatBonusLevel: 0,
   createdAt: '2024-01-01',
   updatedAt: '2024-01-01',
 };

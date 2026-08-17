@@ -4,7 +4,7 @@
  * Main entry point for all calculation functions.
  * Re-exports specialized calculators for main skills, stats, speciality skills, and combat skills.
  *
- * **Validates: Requirements 11.5, 13.1, 13.2, 13.3, 3.6, 8.4, 9.3**
+ * **Validates: Requirements 11.5, 13.1, 13.2, 13.3, 3.6, 8.4**
  *
  * (Requirement 6.7 — bonuses and penalties to skills as well as stats — is deliberately no longer
  * validated anywhere: TICKET-MAT-01 removed the shape that could author one and TICKET-MAT-02 the
@@ -73,7 +73,6 @@ export function calculateCharacter(
   const statValues = calculateStatValues(config.stats, character, {
     races,
     equipmentBonuses,
-    focusStatBonusLevel: config.focusStatBonusLevel,
     source: config,
     // What a spent point buys, by affinity (TICKET-ARC-02). Resolved here rather than inside the
     // composition so the calculator stays the one place that reads the whole `Configuration`.

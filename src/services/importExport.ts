@@ -183,6 +183,8 @@ export function downloadConfiguration(config: Configuration, filename?: string):
 const RETIRED_FIELDS: Record<string, string> = {
   mainSkillPointBudget:
     "the point budget is now derived as level × const.points_per_level, so set the 'points_per_level' constant instead (TICKET-RES-02)",
+  focusStatBonusLevel:
+    'the focus stat is retired — an Archetype tags every stat main/sub/non and routes a spent point through the matching point_buy column, which is what replaced the flat bonus (TICKET-ARC-03)',
 };
 
 /**
@@ -355,11 +357,6 @@ export function validateConfiguration(data: unknown): ValidationResult {
     if (typeof config[field] !== 'string') {
       errors.push(`Field '${field}' must be a string`);
     }
-  }
-
-  // Required number fields
-  if (typeof config.focusStatBonusLevel !== 'number') {
-    errors.push("Field 'focusStatBonusLevel' must be a number");
   }
 
   // A field a previous shape carried is a refusal, not something to ignore

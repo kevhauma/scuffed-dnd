@@ -5,7 +5,7 @@
  * skills and combat skills for one character. Layout and composition only — every decision and
  * every number comes from `useCharacterSheet`.
  *
- * **Validates: Requirements 8.5, 9.3, 13.4, 14.1, 14.2, 14.5, 21.1-21.5, 22.1-22.6**
+ * **Validates: Requirements 8.5, 13.4, 14.1, 14.2, 14.5, 21.1-21.5, 22.1-22.6**
  */
 
 import { Button } from '../../ui/Button/Button';
@@ -61,6 +61,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     calculated,
     formulaError,
     raceNames,
+    archetypeName,
     level,
     experience,
     raceContributions,
@@ -141,7 +142,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
         raceNames={raceNames}
         level={level}
         experience={experience}
-        focusStatCode={character.focusStatCode}
+        archetypeName={archetypeName}
         onBack={handleBack}
         onAwardExperience={handleAwardExperience}
         onDeductExperience={handleDeductExperience}

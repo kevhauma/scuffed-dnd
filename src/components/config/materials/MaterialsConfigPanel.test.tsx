@@ -42,7 +42,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 7,
+    schemaVersion: 8,
     stats: [
       stat({ id: 'str-id', name: 'Strength', abbreviation: 'STR', order: 0 }),
       stat({ id: 'mana-id', name: 'Mana', abbreviation: 'MANA', order: 1, isResource: true }),
@@ -78,7 +78,6 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     equipmentSlots: [],
     races: [],
     currencyTiers: [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 10 }],
-    focusStatBonusLevel: 0,
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     ...overrides,

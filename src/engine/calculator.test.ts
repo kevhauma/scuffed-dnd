@@ -35,7 +35,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [
         {
           id: 'STR',
@@ -105,7 +105,6 @@ describe('calculateCharacterStats', () => {
         },
       ],
       currencyTiers: [],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -143,7 +142,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [
         {
           id: 'STR',
@@ -198,7 +197,6 @@ describe('calculateCharacterStats', () => {
         },
       ],
       currencyTiers: [],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -236,7 +234,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 7,
+      schemaVersion: 8,
       stats: [
         {
           id: 'STR',
@@ -268,7 +266,6 @@ describe('calculateCharacterStats', () => {
       equipmentSlots: [],
       races: [],
       currencyTiers: [],
-      focusStatBonusLevel: 0,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -293,7 +290,7 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
     id: 'config1',
     name: 'Fixture Config',
     version: '1.0',
-    schemaVersion: 7,
+    schemaVersion: 8,
     stats: [
       {
         id: 'STR',
@@ -467,7 +464,6 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
       },
     ],
     currencyTiers: [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 10 }],
-    focusStatBonusLevel: 3,
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     ...overrides,
@@ -699,30 +695,27 @@ describe('calculateCharacter', () => {
     expect(after.equipmentBonuses).toEqual([]);
   });
 
-  it('should apply the focus stat bonus to a main skill and to nothing else', () => {
-    const character = createFixtureCharacter({ focusStatCode: 'STR' });
+  it('should apply no flat specialisation bonus to any stat (TICKET-ARC-03)', () => {
+    // The focus stat is gone: it was a flat adder on one stat, which the spec does not recognise,
+    // and an archetype shapes the whole sheet through the invested term instead. A stat is now
+    // exactly `race base + what the points bought + equipment` — three terms, never four.
+    const result = calculateCharacter(createFixtureCharacter(), createFixtureConfig());
 
-    const result = calculateCharacter(character, createFixtureConfig());
-
-    // STR 9 + focus 3
-    expect(result.statValues.STR).toBe(12);
-    expect(result.statValues.DEX).toBe(10);
-    // health follows: 12 * 10 + 12 * 5
-    expect(result.statValues.health).toBe(180);
-    // Skills do not also receive the focus bonus — they move only through DEX and CON
+    expect(result.statValues).toEqual({ STR: 9, DEX: 10, CON: 12, health: 150, evasion: 20 });
     expect(result.skillLevels).toEqual({ STL: 7, ARC: 13 });
   });
 
-  it('should do nothing at all when the focus stat names a skill (TICKET-SKL-02)', () => {
-    // v1 let a focus land on a speciality code. The focus is matched against a stat abbreviation
-    // and a `Skill` has no code, so this names nothing and moves nothing. TICKET-ARC-03 retires
-    // the focus stat outright.
-    const character = createFixtureCharacter({ focusStatCode: 'STL' });
+  it('should give an archetype-less character no specialisation anywhere (TICKET-ARC-03)', () => {
+    // Nothing on a character can single a stat out any more. Picking no archetype routes every
+    // stat through `non`, and with no point_buy curve in this fixture that is the 1:1 fallback —
+    // so the numbers are the same whichever way a Player leaves the wizard.
+    const withArchetype = calculateCharacter(
+      createFixtureCharacter({ archetypeId: 'nonexistent' }),
+      createFixtureConfig()
+    );
+    const without = calculateCharacter(createFixtureCharacter(), createFixtureConfig());
 
-    const result = calculateCharacter(character, createFixtureConfig());
-
-    expect(result.skillLevels).toEqual({ STL: 7, ARC: 13 });
-    expect(result.statValues).toEqual({ STR: 9, DEX: 10, CON: 12, health: 150, evasion: 20 });
+    expect(withArchetype.statValues).toEqual(without.statValues);
   });
 
   // TICKET-FORM-05: these used to assert a throw that aborted the whole calculation. The
@@ -1186,7 +1179,6 @@ describe('calculateCharacter — curve-routed stat gains (TICKET-ARC-02)', () =>
       races: [],
       curves: [pointBuy],
       archetypes: [archetype],
-      focusStatBonusLevel: 0,
       ...overrides,
     });
   }

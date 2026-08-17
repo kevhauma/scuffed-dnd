@@ -1,5 +1,5 @@
 /**
- * Creation Step 2 — Stats
+ * Creation Step 3 — Stats
  *
  * Allocates points across the ruleset's **invested** stats within the budget their level grants —
  * `level × const.points_per_level` since TICKET-RES-02, which at creation is level-at-XP-0 — showing

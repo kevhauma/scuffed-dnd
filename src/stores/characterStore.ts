@@ -220,7 +220,7 @@ function createCharacterFromData(data: CharacterCreationData, config: Configurat
     configurationId: config.id,
     raceIds: data.raceIds,
     investedStatPoints: data.investedStatPoints,
-    focusStatCode: data.focusStatCode,
+    archetypeId: data.archetypeId,
     investedSkillPoints: data.investedSkillPoints,
     currentResourceValues: {},
     // A fresh character has earned nothing, which the seeded curve reads as level 1 (TICKET-RES-01)

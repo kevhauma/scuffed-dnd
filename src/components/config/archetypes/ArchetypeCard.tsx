@@ -11,8 +11,8 @@
  * **Validates: Concept 03; Requirements 21.1-21.5**
  */
 
-import type { Archetype, Stat, StatAffinity } from '../../../types';
-import { DEFAULT_STAT_AFFINITY, STAT_AFFINITIES } from '../../../types';
+import type { Archetype, Stat } from '../../../types';
+import { groupStatsByAffinity } from '../../shared/affinityGroups';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
@@ -24,13 +24,6 @@ export interface ArchetypeCardProps {
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
-
-/** The heading each group is listed under */
-const GROUP_LABELS: Record<StatAffinity, string> = {
-  main: 'Main',
-  sub: 'Sub',
-  non: 'Non',
-};
 
 export function ArchetypeCard({ archetype, availableStats, onEdit, onDelete }: ArchetypeCardProps) {
   return (
@@ -70,26 +63,19 @@ export function ArchetypeCard({ archetype, availableStats, onEdit, onDelete }: A
         </div>
       ) : (
         <div className="space-y-2">
-          {STAT_AFFINITIES.map((affinity) => {
-            const tagged = availableStats.filter(
-              (stat) => (archetype.statAffinity[stat.id] ?? DEFAULT_STAT_AFFINITY) === affinity
-            );
-            if (tagged.length === 0) return null;
-
-            return (
-              <div
-                key={affinity}
-                className="flex items-baseline gap-2 p-2 bg-parchment-100 rounded"
-              >
-                <Text variant="body-small-secondary" className="w-12 shrink-0">
-                  {GROUP_LABELS[affinity]}
-                </Text>
-                <Text variant="body-small" className="font-semibold text-ink-700">
-                  {tagged.map((stat) => stat.abbreviation).join(', ')}
-                </Text>
-              </div>
-            );
-          })}
+          {groupStatsByAffinity(archetype, availableStats).map((group) => (
+            <div
+              key={group.affinity}
+              className="flex items-baseline gap-2 p-2 bg-parchment-100 rounded"
+            >
+              <Text variant="body-small-secondary" className="w-12 shrink-0">
+                {group.label}
+              </Text>
+              <Text variant="body-small" className="font-semibold text-ink-700">
+                {group.stats.map((stat) => stat.abbreviation).join(', ')}
+              </Text>
+            </div>
+          ))}
         </div>
       )}
     </Card>

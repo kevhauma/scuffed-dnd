@@ -332,7 +332,7 @@ describe('calculateStatValues', () => {
       expect(values.hp).toBe(70);
     });
 
-    it('should apply the focus bonus only to the focused stat', () => {
+    it('should single no stat out, the focus bonus being gone (TICKET-ARC-03)', () => {
       const stats = [
         stat({ id: 'str', name: 'Strength', abbreviation: 'STR' }),
         stat({ id: 'dex', name: 'Dexterity', abbreviation: 'DEX' }),
@@ -340,11 +340,11 @@ describe('calculateStatValues', () => {
 
       const values = calculateStatValues(
         stats,
-        character({ investedStatPoints: { str: 1, dex: 1 }, focusStatCode: 'STR' }),
-        { focusStatBonusLevel: 4 }
+        character({ investedStatPoints: { str: 1, dex: 1 } })
       );
 
-      expect(values.str).toBe(5);
+      // Equal spends, equal values — there is no longer any term that can favour one stat
+      expect(values.str).toBe(1);
       expect(values.dex).toBe(1);
     });
   });

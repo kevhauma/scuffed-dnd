@@ -41,7 +41,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 7,
+    schemaVersion: 8,
     stats: [
       {
         id: 'STR',
@@ -80,7 +80,6 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     equipmentSlots: [],
     races: [],
     currencyTiers: [],
-    focusStatBonusLevel: 0,
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     ...overrides,

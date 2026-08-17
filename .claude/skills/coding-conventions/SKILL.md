@@ -99,8 +99,9 @@ and adding a component means adding its barrel line in the same change.
   would hide that kind of difference instead of sharing the frame.
 - **Panels don't hold logic.** Store selectors, `react-hook-form` state, and handlers live in the
   `useXManager` hook; the panel destructures the hook and renders. **Every configuration domain now
-  follows this** — `FocusStatConfig` was the last exception and gained `useFocusStatManager` in
-  TICKET-DX-03, so there is no precedent left for putting store selectors or `useState` in a panel.
+  follows this** — the last exception, `FocusStatConfig`, was brought into line by TICKET-DX-03 and
+  then deleted outright with the focus stat by TICKET-ARC-03, so there is no precedent left for
+  putting store selectors or `useState` in a panel.
   Copy
   [useRaceManager.ts](../../../src/components/config/races/useRaceManager.ts) as the exemplar.
 - Forms use `react-hook-form` (`useForm`, `form.reset(...)` on open) — no hand-rolled field state.

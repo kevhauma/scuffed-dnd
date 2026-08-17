@@ -4,7 +4,7 @@
  * Navigation is mocked at the router boundary; the stores are real, with storage mocked, so an
  * edit really goes through the store action and back out as rendered state.
  *
- * **Validates: Requirements 8.5, 9.3, 13.4, 14.1, 14.2, 14.3, 14.4, 14.5, 21.1-21.5**
+ * **Validates: Requirements 8.5, 13.4, 14.1, 14.2, 14.3, 14.4, 14.5, 21.1-21.5**
  */
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
@@ -35,7 +35,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 7,
+    schemaVersion: 8,
     stats: [
       {
         id: 'STR',
@@ -149,7 +149,6 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         lookupDirection: 'reverse',
       },
     ],
-    focusStatBonusLevel: 3,
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     ...overrides,
@@ -163,9 +162,6 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     configurationId: 'config1',
     raceIds: ['elf'],
     investedStatPoints: { STR: 6, 'dex-id': 4 },
-    // Names a skill, which is to say nothing: the focus is matched against a stat abbreviation
-    // and a `Skill` has no code since TICKET-SKL-02, so no stat receives the bonus
-    focusStatCode: 'STL',
     investedSkillPoints: { STL: 3 },
     currentResourceValues: { health: 60, mana: 30 },
     experience: 900,
@@ -202,7 +198,7 @@ describe('CharacterSheet', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Aria' })).toBeDefined();
     // 900 XP is the third threshold; the level no longer follows the points spent (TICKET-RES-01)
     expect(screen.getByText(/Level 3/)).toBeDefined();
-    expect(screen.getByText(/900 XP · Elf · focus: STL/)).toBeDefined();
+    expect(screen.getByText(/900 XP · Elf/)).toBeDefined();
 
     for (const section of ['Race Stat Block', 'Stats', 'Skills', 'Combat Skills']) {
       expect(screen.getByRole('heading', { name: section })).toBeDefined();
@@ -359,41 +355,26 @@ describe('CharacterSheet', () => {
     });
   });
 
-  it('should show the focus bonus as its own term on the stat that receives it', () => {
-    // The focus lands on a **stat** — it is matched against an abbreviation, and a `Skill` has no
-    // code to be named by since TICKET-SKL-02
-    useCharacterStore.setState({ characters: [createCharacter({ focusStatCode: 'STR' })] });
-
-    render(<CharacterSheet characterId="char1" />);
-
-    expect(within(rowFor(/Strength \(STR\)/)).getByText('focus +3')).toBeDefined();
-  });
-
-  it('should give the focus nothing to land on when it names a skill (TICKET-SKL-02)', () => {
-    // The base fixture's `focusStatCode: 'STL'` is a skill id, which matches no abbreviation, so
-    // no stat gains the bonus and the header is the only place the code appears at all
+  it('should show no focus term on any stat, the mechanic being gone (TICKET-ARC-03)', () => {
     render(<CharacterSheet characterId="char1" />);
 
     expect(within(rowFor(/Strength \(STR\)/)).queryByText(/focus/)).toBeNull();
     expect(within(rowFor(/Stealth/)).queryByText(/focus/)).toBeNull();
+    expect(screen.queryByText('focus stat')).toBeNull();
   });
 
-  /**
-   * The `focus stat` badge has no caller (TICKET-SKL-02)
-   *
-   * `SkillBreakdownRow` still accepts `isFocusStat`, but the only section that ever passed it was
-   * the speciality-skills one this ticket deleted — a skill cannot be a focus now, and the stats
-   * grid never marked one. So the badge is unreachable rather than merely unused here.
-   *
-   * Left in place rather than removed: TICKET-ARC-03 retires the focus stat outright, prop and
-   * badge included, and deleting half of it now would only make that ticket's diff harder to read.
-   */
-  it('marks no row as the focus stat, because nothing passes the flag any more', () => {
-    useCharacterStore.setState({ characters: [createCharacter({ focusStatCode: 'STR' })] });
+  it('should name the character’s archetype in the header instead (TICKET-ARC-03)', () => {
+    useConfigStore.setState({
+      config: createConfig({
+        archetypes: [{ id: 'strong', name: 'Strong', description: '', statAffinity: {} }],
+      }),
+      isLoaded: true,
+    });
+    useCharacterStore.setState({ characters: [createCharacter({ archetypeId: 'strong' })] });
 
     render(<CharacterSheet characterId="char1" />);
 
-    expect(screen.queryByText('focus stat')).toBeNull();
+    expect(screen.getByText(/900 XP · Elf · Strong/)).toBeDefined();
   });
 
   /**

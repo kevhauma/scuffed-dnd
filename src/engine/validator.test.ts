@@ -32,7 +32,7 @@ function createMinimalConfig(): Configuration {
     id: 'test-config',
     name: 'Test Configuration',
     version: '1.0.0',
-    schemaVersion: 7,
+    schemaVersion: 8,
     stats: [
       stat('STR', 'Strength', 'STR'),
       stat('DEX', 'Dexterity', 'DEX'),
@@ -46,7 +46,6 @@ function createMinimalConfig(): Configuration {
     equipmentSlots: [],
     races: [],
     currencyTiers: [],
-    focusStatBonusLevel: 1,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };

@@ -58,7 +58,6 @@ describe('ConfigStore', () => {
       expect(config?.equipmentSlots).toEqual([]);
       expect(config?.races).toEqual([]);
       expect(config?.currencyTiers).toEqual([]);
-      expect(config?.focusStatBonusLevel).toBe(0);
       expect(storage.saveConfiguration).toHaveBeenCalledWith(config);
     });
 
@@ -67,7 +66,7 @@ describe('ConfigStore', () => {
         id: 'test-id',
         name: 'Loaded Config',
         version: '1.0.0',
-        schemaVersion: 7,
+        schemaVersion: 8,
         stats: [],
         skills: [],
         combatSkills: [],
@@ -77,7 +76,6 @@ describe('ConfigStore', () => {
         equipmentSlots: [],
         races: [],
         currencyTiers: [],
-        focusStatBonusLevel: 5,
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
       } as Configuration;
@@ -101,14 +99,14 @@ describe('ConfigStore', () => {
         ...original,
         id: 'imported-id',
         name: 'Imported',
-        focusStatBonusLevel: 4,
+        version: '9.9.9',
       });
 
       // Applying an import discards the current ruleset — the app holds exactly one
       const { config, isLoaded } = useConfigStore.getState();
       expect(config?.id).toBe('imported-id');
       expect(config?.name).toBe('Imported');
-      expect(config?.focusStatBonusLevel).toBe(4);
+      expect(config?.version).toBe('9.9.9');
       expect(isLoaded).toBe(true);
       expect(storage.saveConfiguration).toHaveBeenCalledWith(config);
     });
@@ -122,7 +120,7 @@ describe('ConfigStore', () => {
       const after = useConfigStore.getState().config;
       expect(after?.name).toBe('Grimdark Hollow');
       expect(after?.id).toBe(before?.id);
-      expect(after?.focusStatBonusLevel).toBe(before?.focusStatBonusLevel);
+      expect(after?.constants).toEqual(before?.constants);
       expect(storage.saveConfiguration).toHaveBeenCalledWith(after);
     });
 
@@ -840,18 +838,16 @@ describe('ConfigStore', () => {
     });
   });
 
-  describe('Focus Stat Configuration', () => {
+  describe('Focus stat (retired by TICKET-ARC-03)', () => {
     beforeEach(() => {
       useConfigStore.getState().initializeConfig('Test');
       vi.clearAllMocks();
     });
 
-    it('should set focus stat bonus level', () => {
-      useConfigStore.getState().setFocusStatBonusLevel(5);
-
+    it('should mint a ruleset with no focus-stat field at all', () => {
       const { config } = useConfigStore.getState();
-      expect(config?.focusStatBonusLevel).toBe(5);
-      expect(storage.saveConfiguration).toHaveBeenCalled();
+
+      expect(config && 'focusStatBonusLevel' in config).toBe(false);
     });
   });
 
@@ -888,7 +884,7 @@ describe('ConfigStore', () => {
 
       // Wait a bit to ensure timestamp changes
       setTimeout(() => {
-        useConfigStore.getState().setFocusStatBonusLevel(10);
+        useConfigStore.getState().renameConfig('Renamed');
 
         const updatedConfig = useConfigStore.getState().config;
         expect(updatedConfig?.updatedAt).not.toBe(initialTimestamp);
@@ -1017,7 +1013,7 @@ describe('ConfigStore', () => {
           id: 'config1',
           name: 'Test',
           version: '1.0',
-          schemaVersion: 7,
+          schemaVersion: 8,
           stats: [
             {
               id: 'id-str',
@@ -1049,7 +1045,6 @@ describe('ConfigStore', () => {
           equipmentSlots: [],
           races: [{ id: 'dwarf', name: 'Dwarf', description: '', statValues: {} }],
           currencyTiers: [],
-          focusStatBonusLevel: 0,
           createdAt: '2024-01-01',
           updatedAt: '2024-01-01',
         },

@@ -23,7 +23,8 @@ export interface SheetHeaderProps {
   /** Curve-derived, so it can fail — a ruleset with no `xp_thresholds` curve chips here */
   level: DerivedValue;
   experience: number;
-  focusStatCode?: string;
+  /** The character's archetype, by name — what replaced the focus stat (TICKET-ARC-03) */
+  archetypeName?: string;
   onBack: () => void;
   onAwardExperience: (amount: number) => void;
   onDeductExperience: (amount: number) => void;
@@ -34,7 +35,7 @@ export function SheetHeader({
   raceNames,
   level,
   experience,
-  focusStatCode,
+  archetypeName,
   onBack,
   onAwardExperience,
   onDeductExperience,
@@ -51,7 +52,7 @@ export function SheetHeader({
             {level.error !== null && <ErrorChip label="unavailable" detail={level.error} />}
             {` · ${experience} XP · `}
             {raceNames.length > 0 ? raceNames.join(', ') : 'No races'}
-            {focusStatCode && ` · focus: ${focusStatCode}`}
+            {archetypeName && ` · ${archetypeName}`}
           </Text>
         </div>
         <Button variant="secondary" onClick={onBack}>
