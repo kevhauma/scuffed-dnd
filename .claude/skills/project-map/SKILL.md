@@ -245,7 +245,13 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   negative or fractional value, a rungless ladder and a nonsensical `maxPerDie` all come back
   flat-only rather than throwing, with `engine/validator.ts` reporting the ruleset problem. Every
   rung is an entry even at zero — `showZeroTerms` is a *display* choice, so the walk never makes it.
-  Rolling the pool and rendering it as notation are TICKET-ROLL-04.
+  Also `rollDecomposition(decomposition, rng?)` and `formatLadderNotation(decomposition, ladder)`
+  (TICKET-ROLL-04). The roller takes a **decomposition**, not a value and a ladder, so a roll cannot
+  disagree with what the sheet displayed, and it reuses `rollDie`/`RandomSource` from
+  `diceSimulator.ts` rather than redefining them. The formatter is the single notation definition
+  for ladder pools — `0D20 + 0D12 + 1D6 + 4`, descending, uppercase `D`, flat always rendered —
+  which is the opposite of `formatDiceNotation` on every count; both live until ROLL-06 deletes the
+  older one. It never sorts: a misordered ladder is the validator's error to report.
 - `dice/diceSimulator.ts` — `rollDice(diceConfig, rng?)` → `DiceRollResult[]` (one entry per die
   type with a count above zero, carrying every individual roll), plus `rollDie`, `sumDiceResults`,
   `DIE_SIDES`, `DIE_TYPES`, and `formatDiceNotation(dice)` → `"2d6 + 1d20"` (the one definition of
