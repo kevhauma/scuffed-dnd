@@ -17,7 +17,7 @@ import {
   toStoredConfiguration,
 } from '../engine/formula/references';
 import type { Configuration } from '../types/config';
-import { STAT_AFFINITIES, SUPPORTED_SCHEMA_VERSION } from '../types/config';
+import { ROLL_CATEGORIES, STAT_AFFINITIES, SUPPORTED_SCHEMA_VERSION } from '../types/config';
 import { readStoredSnapshot } from './storage';
 
 /**
@@ -208,6 +208,9 @@ const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/;
 /** The affinity values an archetype may tag a stat with (Concept 03) */
 const AFFINITY_VALUES = new Set<string>(STAT_AFFINITIES);
 
+/** The categories a roll may be sorted into (Concept 08) */
+const ROLL_CATEGORY_VALUES = new Set<string>(ROLL_CATEGORIES);
+
 /** The enum values a curve's three modes accept (Concept 06) */
 const CURVE_MODES = {
   interpolation: ['step', 'linear'],
@@ -376,6 +379,50 @@ function diceLadderShapeErrors(ladder: Record<string, unknown>, index: number): 
   // rules this build does not have and is refused rather than silently decomposing as `flat`
   if (ladder.remainder !== 'flat') {
     errors.push(`diceLadders[${index}].remainder must be 'flat'`);
+  }
+
+  return errors;
+}
+
+/**
+ * Shape errors for one roll definition of an imported configuration (Concept 08, TICKET-ROLL-05)
+ *
+ * Structure only. Whether the `input` *computes* and whether `ladderId` names a ladder that exists
+ * are `engine/validator.ts`'s report, for the reason every other entity here has one: a roll can be
+ * structurally perfect and still point at a ladder somebody deleted.
+ *
+ * @param roll - One element of `config.rollDefinitions`
+ * @param index - Its position, for the message
+ * @returns The errors found, empty when the shape is sound
+ */
+function rollDefinitionShapeErrors(roll: Record<string, unknown>, index: number): string[] {
+  const errors: string[] = [];
+
+  if (typeof roll.id !== 'string' || roll.id === '') {
+    errors.push(`rollDefinitions[${index}].id must be a non-empty string`);
+  }
+  if (typeof roll.name !== 'string') {
+    errors.push(`rollDefinitions[${index}].name must be a string`);
+  }
+  if (typeof roll.description !== 'string') {
+    errors.push(`rollDefinitions[${index}].description must be a string`);
+  }
+  if (typeof roll.input !== 'string') {
+    errors.push(`rollDefinitions[${index}].input must be a formula string`);
+  }
+  // Required, unlike most references here: a roll with no ladder has nothing to decompose with,
+  // so there is no sensible default to fall back to
+  if (typeof roll.ladderId !== 'string' || roll.ladderId === '') {
+    errors.push(`rollDefinitions[${index}].ladderId must be a dice ladder id`);
+  }
+  if (typeof roll.order !== 'number') {
+    errors.push(`rollDefinitions[${index}].order must be a number`);
+  }
+  // Absent is valid — a ruleset may decline to sort its rolls at all (Concept 08)
+  if (roll.category !== undefined && !ROLL_CATEGORY_VALUES.has(roll.category as string)) {
+    errors.push(
+      `rollDefinitions[${index}].category must be one of ${[...ROLL_CATEGORY_VALUES].join(', ')} when present`
+    );
   }
 
   return errors;
@@ -698,6 +745,22 @@ export function validateConfiguration(data: unknown): ValidationResult {
           return;
         }
         errors.push(...diceLadderShapeErrors(ladder as Record<string, unknown>, index));
+      });
+    }
+  }
+
+  // Validate roll definitions (Concept 08, TICKET-ROLL-05) — absent is valid, so files predating
+  // rolls still import
+  if (config.rollDefinitions !== undefined) {
+    if (!Array.isArray(config.rollDefinitions)) {
+      errors.push("Field 'rollDefinitions' must be an array when present");
+    } else {
+      config.rollDefinitions.forEach((roll: unknown, index: number) => {
+        if (!roll || typeof roll !== 'object') {
+          errors.push(`rollDefinitions[${index}] must be an object`);
+          return;
+        }
+        errors.push(...rollDefinitionShapeErrors(roll as Record<string, unknown>, index));
       });
     }
   }

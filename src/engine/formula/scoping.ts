@@ -18,7 +18,7 @@ import { skillMemberName, statMemberName } from './references';
  * This milestone's slice of the Concept 00 §5 context table — the attachment points that exist
  * today. Later tickets add rows (constants-as-formulas, roll inputs); they do not add branches.
  */
-export type FormulaOwner = 'stat' | 'combat-skill' | 'curve-generator';
+export type FormulaOwner = 'stat' | 'combat-skill' | 'curve-generator' | 'roll-input';
 
 /**
  * Every namespace the engine knows about, regardless of context.
@@ -65,6 +65,11 @@ export const NAMESPACE_SCOPES: Record<FormulaOwner, readonly FormulaNamespace[]>
   // else. Deliberately not `curve` — a table generated from another table is a cycle waiting to
   // happen, and no seed needs it (TICKET-CRV-02).
   'curve-generator': ['const'],
+  // A roll's input expression (Concept 08, TICKET-ROLL-05): everything a character *is*, which is
+  // the same set a derived stat sees — a roll is another reading of the character, not a different
+  // kind of thing. `stats.dex + skills.dodging.bonus` is the shape Concept 08's editing scenarios
+  // are written in.
+  'roll-input': ['stats', 'skills', 'const', 'curve'],
 };
 
 /**
@@ -81,6 +86,7 @@ const LEGACY_CODE_SCOPES: Record<FormulaOwner, readonly 'stat'[]> = {
   'combat-skill': ['stat'],
   // A generator sees no skill at all — it fills a table, not a character (TICKET-CRV-02)
   'curve-generator': [],
+  'roll-input': ['stat'],
 };
 
 /**
@@ -94,6 +100,8 @@ const CONTEXT_CODES: Record<FormulaOwner, readonly string[]> = {
   stat: [],
   'combat-skill': [],
   'curve-generator': ['KEY'],
+  // A roll input is handed nothing of its own — everything it reads is the character (Concept 08)
+  'roll-input': [],
 };
 
 /**

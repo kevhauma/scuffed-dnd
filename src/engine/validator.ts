@@ -9,11 +9,12 @@
  * - Currency tier references are valid
  * - Curve tables are readable — unique, sorted keys with a value per column (Concept 06)
  * - Dice ladders can be walked — positive, strictly descending die sizes (Concept 07)
+ * - Roll definitions compute and point at a ladder that exists (Concept 08)
  *
- * **Validates: Requirements 18.1, 18.2, 18.3, 18.4, 18.5; Concepts 06, 07**
+ * **Validates: Requirements 18.1, 18.2, 18.3, 18.4, 18.5; Concepts 06, 07, 08**
  */
 
-import type { Configuration, Curve, DiceLadder, Skill } from '../types/config';
+import type { Configuration, Curve, DiceLadder, RollDefinition, Skill } from '../types/config';
 import { POINT_BUY_CURVE_NAME } from '../types/config';
 import type { FormulaScope } from './formula/scoping';
 import { scopeFor } from './formula/scoping';
@@ -472,6 +473,14 @@ export function validateConfiguration(config: Configuration): ValidationReport {
     information.push(...diceLadderObservations(ladder));
   }
 
+  // Validate roll definitions (Concept 08, TICKET-ROLL-05). An input is a formula like any other,
+  // judged against its own row of the scoping table; the ladder is a plain id reference.
+  const rollScope = scopeFor(config, 'roll-input');
+  const ladderIds = new Set((config.diceLadders ?? []).map((ladder) => ladder.id));
+  for (const roll of config.rollDefinitions ?? []) {
+    errors.push(...rollDefinitionErrors(roll, rollScope, ladderIds));
+  }
+
   return {
     isValid: errors.length === 0,
     errors,
@@ -756,6 +765,48 @@ function diceLadderErrors(ladder: DiceLadder): ValidationIssue[] {
       severity: 'error',
       category: 'Dice Ladder Validation',
       message: `Dice ladder "${ladder.name}" caps each die at ${ladder.maxPerDie}, which allows no dice at all — remove the cap instead`,
+      ...entity,
+    });
+  }
+
+  return issues;
+}
+
+/**
+ * Roll definition problems (Concept 08's validation rules, TICKET-ROLL-05)
+ *
+ * Two things can be wrong with a roll: its input does not compute, or its ladder is not there. Both
+ * are errors — a roll that cannot produce a number has nothing to decompose, and a roll pointing at
+ * a deleted ladder has nothing to decompose *with*. The guarded delete in `dependencies.ts` is what
+ * normally stops the second; this catches the import that arrives with it already broken.
+ *
+ * @param roll - The definition to check
+ * @param scope - What a roll input on this ruleset may reference
+ * @param ladderIds - Every ladder the ruleset defines
+ * @returns One issue per problem found
+ */
+function rollDefinitionErrors(
+  roll: RollDefinition,
+  scope: FormulaScope,
+  ladderIds: ReadonlySet<string>
+): ValidationIssue[] {
+  const entity = { entityType: 'rollDefinition', entityId: roll.id, entityName: roll.name };
+
+  const formula = validateFormula(roll.input, scope.codes, scope);
+  const issues: ValidationIssue[] = formula.isValid
+    ? []
+    : formula.errors.map((error) => ({
+        severity: 'error' as const,
+        category: 'Formula Validation',
+        message: `Roll "${roll.name}": ${error}`,
+        ...entity,
+      }));
+
+  if (!ladderIds.has(roll.ladderId)) {
+    issues.push({
+      severity: 'error',
+      category: 'Reference Validation',
+      message: `Roll "${roll.name}" uses a dice ladder that does not exist: ${roll.ladderId}`,
       ...entity,
     });
   }

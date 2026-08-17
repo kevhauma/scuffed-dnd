@@ -258,6 +258,7 @@ describe('ConfigDashboard', () => {
       'Items',
       'Races',
       'Archetypes',
+      'Rolls',
       'Currency',
       'Constants',
       'Curves',

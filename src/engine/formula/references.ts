@@ -447,6 +447,16 @@ function translateConfiguration(
           })),
         }
       : {}),
+    // A roll's input is user-authored formula text like any other (TICKET-ROLL-05), so renaming a
+    // stat re-spells every roll reading it. Absent stays absent, as everywhere else.
+    ...(config.rollDefinitions
+      ? {
+          rollDefinitions: config.rollDefinitions.map((roll) => ({
+            ...roll,
+            input: translateFormula(roll.input, index),
+          })),
+        }
+      : {}),
   };
 }
 

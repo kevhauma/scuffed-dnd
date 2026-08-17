@@ -35,6 +35,13 @@ vi.mock('../../components/config/items/EquipmentSlotsConfigPanel', () => ({
 vi.mock('../../components/config/archetypes/ArchetypesConfigPanel', () => ({
   ArchetypesConfigPanel: () => <div data-testid="archetypes-config-panel" />,
 }));
+
+vi.mock('../../components/config/rolls/RollsConfigPanel', () => ({
+  RollsConfigPanel: () => <div data-testid="rolls-config-panel" />,
+}));
+vi.mock('../../components/config/rolls/DiceLaddersConfigPanel', () => ({
+  DiceLaddersConfigPanel: () => <div data-testid="dice-ladders-config-panel" />,
+}));
 vi.mock('../../components/config/races/RacesConfigPanel', () => ({
   RacesConfigPanel: () => <div data-testid="races-config-panel" />,
 }));
@@ -67,6 +74,7 @@ import { ConfigIndex } from './index';
 import { ItemsConfig } from './items';
 import { MaterialsConfig } from './materials';
 import { RacesConfig } from './races';
+import { RollsConfig } from './rolls';
 import { SkillsConfig } from './skills';
 import { StatsConfig } from './stats';
 
@@ -131,6 +139,13 @@ describe('configuration routes', () => {
     expect(screen.getByTestId('archetypes-config-panel')).toBeDefined();
   });
 
+  it('/config/rolls renders the rolls and dice ladders panels', () => {
+    render(<RollsConfig />);
+
+    expect(screen.getByTestId('rolls-config-panel')).toBeDefined();
+    expect(screen.getByTestId('dice-ladders-config-panel')).toBeDefined();
+  });
+
   it('no config route renders the scaffold placeholder copy', () => {
     for (const Page of [
       SkillsConfig,
@@ -139,6 +154,7 @@ describe('configuration routes', () => {
       ItemsConfig,
       RacesConfig,
       ArchetypesConfig,
+      RollsConfig,
       CurrencyConfig,
       ConstantsConfig,
       CurvesConfig,

@@ -30,7 +30,8 @@ One `Configuration` per browser: id, name, version, **`schemaVersion: 8`**, time
 plus the entity arrays — `stats`, `skills`,
 `combatSkills`, `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
 `currencyTiers`, the optional `constants` (TICKET-CST-01), `curves` (TICKET-CRV-01),
-`archetypes` (TICKET-ARC-01) and `diceLadders` (TICKET-ROLL-03).
+`archetypes` (TICKET-ARC-01), `diceLadders` (TICKET-ROLL-03) and `rollDefinitions`
+(TICKET-ROLL-05).
 
 **`Skill` is the sheet's Skill since TICKET-SKL-02**: `{ id, name, description, statWeights:
 [{ statId, weight }], category? }`. It replaced v1's `SpecialitySkill` outright — no `code`, no
@@ -99,10 +100,28 @@ optional `Configuration.diceLadders`. Four things to know:
   spelled in a formula — a roll definition points at one by id (Concept 08, TICKET-ROLL-05) — so it
   is outside `references.ts` entirely.
 - **`remainder` is an enum of one.** A file claiming `smallest_die` is refused rather than silently
-  read as `flat`. **The delete is unguarded until ROLL-05** for the same reason: nothing can point
-  at a ladder yet, and a guard with no possible referrer can never fire.
+  read as `flat`. The delete shipped **unguarded** and was guarded by TICKET-ROLL-05, which brought
+  the first thing that can point at a ladder — a guard with no possible referrer can never fire.
 - The old `DiceConfig` (six fixed keys on `CombatSkill`) is untouched and still the shape
   `rollDice` takes; TICKET-ROLL-06 is what removes it.
+
+**`RollDefinition` is a named, rollable line** (Concept 08, TICKET-ROLL-05):
+`{ id, name, description, input, ladderId, category?, order }` on the optional
+`Configuration.rollDefinitions`. It replaces `CombatSkill` in ROLL-06, and the difference is the
+whole point: a combat skill hand-types six dice counts and bolts a formula on as a flat bonus; a
+roll *derives* its pool by feeding `input` down `ladderId`.
+
+- **`input` is user-authored formula text** at the `roll-input` attachment point — a row in
+  `scoping.ts`, sharing a derived stat's namespaces (`stats` / `skills` / `const` / `curve`) and its
+  stat abbreviations, because a roll is another reading of the character. It round-trips through
+  `references.ts` like every other formula, so renaming a stat re-spells every roll reading it.
+- **A roll is a leaf.** Nothing can name one: there is no `rolls` namespace (a roll produces dice,
+  and a formula carries no randomness), and history is session state in `useUIStore`. So
+  `deleteRollDefinition` is guarded but always succeeds, and a roll input cannot be in a cycle.
+- **A fresh ruleset seeds four rolls with `input: '0'`**, not the stat expressions Concept 08 shows.
+  A new configuration has no stats, so those would name missing members and open with four errors;
+  the descriptions say what the sheet reads and the corpus carries the real expressions. Copy that
+  when seeding anything whose formula references entities a fresh ruleset does not have.
 
 **`Race` is a stat block, not a bag of bonuses** (TICKET-RACE-01):
 `{ id, name, description, statValues: Record<statId, number> }`, holding the **absolute** value a

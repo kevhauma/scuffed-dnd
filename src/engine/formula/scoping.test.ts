@@ -75,6 +75,7 @@ describe('formula scoping tables', () => {
     expect(Object.keys(NAMESPACE_SCOPES).sort()).toEqual([
       'combat-skill',
       'curve-generator',
+      'roll-input',
       'stat',
     ]);
   });
@@ -134,6 +135,15 @@ describe('scopeFor', () => {
     const scope = scopeFor(createConfig(), 'stat');
     expect(scope.namespaces.const?.size).toBe(0);
     expect(scope.namespaces.curve?.size).toBe(0);
+  });
+
+  it('gives a roll input everything a character is, like a derived stat (TICKET-ROLL-05)', () => {
+    const config = createConfig();
+    const scope = scopeFor(config, 'roll-input');
+
+    // A roll is another reading of the character, so it sees the same set a derived stat does
+    expect(Object.keys(scope.namespaces).sort()).toEqual(['const', 'curve', 'skills', 'stats']);
+    expect([...scope.codes]).toEqual([...scopeFor(config, 'stat').codes]);
   });
 
   it('gives a curve generator the row key and the constants, and nothing else (TICKET-CRV-02)', () => {

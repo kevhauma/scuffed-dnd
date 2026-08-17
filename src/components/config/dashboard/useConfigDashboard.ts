@@ -16,7 +16,7 @@ import { validateConfiguration } from '../../../engine/validator';
 import { useConfigStore } from '../../../stores/configStore';
 import { useUIStore } from '../../../stores/uiStore';
 
-/** The nine configuration areas, in the order the dashboard lists them — reached via `sections` */
+/** The ten configuration areas, in the order the dashboard lists them — reached via `sections` */
 const CONFIG_SECTIONS = [
   // Stats first: they are the atom every other section refers to, and since TICKET-STAT-02 they
   // are also where the old "main skills" live — Skills is the speciality/combat pair only
@@ -33,6 +33,11 @@ const CONFIG_SECTIONS = [
     to: '/config/archetypes',
     label: 'Archetypes',
     description: 'What a character is good at growing, per stat',
+  },
+  {
+    to: '/config/rolls',
+    label: 'Rolls',
+    description: 'What a character rolls, and the dice ladders they run down',
   },
   { to: '/config/currency', label: 'Currency', description: 'Currency tiers and conversion rates' },
   {

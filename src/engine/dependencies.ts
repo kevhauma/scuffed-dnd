@@ -32,6 +32,8 @@ export type ReferenceTargetKind =
   | 'curve-column'
   | 'skill'
   | 'combat-skill'
+  | 'dice-ladder'
+  | 'roll-definition'
   | 'stat'
   | 'race'
   | 'archetype'
@@ -77,6 +79,9 @@ export interface EntityReference {
  * stat is what keeps one from blocking the other's delete.
  */
 type ReferenceMatcher = (formula: string) => boolean;
+
+/** How a roll names itself in a reference list — the entity's own name, like `Combat Skill` */
+const ROLL_HOLDER_KIND = 'Roll Definition';
 
 /** A skill: named bare (`STR`) or through its namespace (`skills.STL`) */
 function namesSkill(code: string): ReferenceMatcher {
@@ -165,6 +170,18 @@ function formulaSources(config: Configuration): { reference: EntityReference; fo
           formula: column.generator as string,
         }))
     ),
+    // A roll's input is persisted formula text (TICKET-ROLL-05), so a stat named only by a roll
+    // still blocks that stat's delete — the roll would otherwise start reporting an undefined
+    // variable the moment somebody pressed it
+    ...(config.rollDefinitions ?? []).map((roll) => ({
+      reference: {
+        holderKind: ROLL_HOLDER_KIND,
+        holderName: roll.name,
+        field: 'input',
+        holderId: roll.id,
+      },
+      formula: roll.input,
+    })),
   ];
 }
 
@@ -466,6 +483,26 @@ export function findReferences(
           field: 'archetypeId',
           holderId: character.id,
         }));
+
+    case 'dice-ladder':
+      // The guard TICKET-ROLL-03 deferred, arriving with the first thing that can point at a
+      // ladder. A definition names one by **id**, so no rename can defeat it, and there is no
+      // formula to scan: a ladder is not spelled in the formula space at all.
+      return (config.rollDefinitions ?? [])
+        .filter((roll) => roll.ladderId === target.id)
+        .map((roll) => ({
+          holderKind: ROLL_HOLDER_KIND,
+          holderName: roll.name,
+          field: 'ladderId',
+          holderId: roll.id,
+        }));
+
+    case 'roll-definition':
+      // Deliberately nothing. No formula can name a roll — there is no `rolls` namespace, because
+      // a roll produces dice rather than a number, and a formula carries no randomness (spec §5).
+      // Roll history is session state in `useUIStore`, so it does not survive to hold a reference
+      // either. A roll is a leaf, and this case exists to say so rather than to be forgotten.
+      return [];
 
     case 'item':
       return itemReferences(characters, target.id);

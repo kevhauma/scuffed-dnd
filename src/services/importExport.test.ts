@@ -647,6 +647,74 @@ describe('Import/Export Service', () => {
     });
   });
 
+  describe('roll definitions (TICKET-ROLL-05)', () => {
+    const melee = {
+      id: 'roll-melee',
+      name: 'Melee',
+      description: '',
+      input: 'STR',
+      ladderId: 'ladder-standard',
+      category: 'offence' as const,
+      order: 0,
+    };
+
+    it('should accept a file with no rollDefinitions key — absent means none', () => {
+      expect(validateConfiguration(validConfig).isValid).toBe(true);
+      expect('rollDefinitions' in validConfig).toBe(false);
+    });
+
+    it('should round-trip a roll unchanged', async () => {
+      const withRoll: Configuration = { ...validConfig, rollDefinitions: [melee] };
+
+      const imported = importConfiguration(await exportConfiguration(withRoll).text());
+
+      expect(imported.rollDefinitions).toEqual([melee]);
+    });
+
+    it('should round-trip a roll with no category', async () => {
+      const uncategorised = { ...melee, category: undefined };
+      const withRoll: Configuration = { ...validConfig, rollDefinitions: [uncategorised] };
+
+      const imported = importConfiguration(await exportConfiguration(withRoll).text());
+
+      expect(imported.rollDefinitions?.[0]).not.toHaveProperty('category');
+    });
+
+    it('should reject rollDefinitions that is not an array', () => {
+      const result = validateConfiguration({ ...validConfig, rollDefinitions: 'four' });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors.join(' ')).toContain('rollDefinitions');
+    });
+
+    it('should reject a roll with no ladder to decompose down', () => {
+      const result = validateConfiguration({
+        ...validConfig,
+        rollDefinitions: [{ ...melee, ladderId: undefined }],
+      });
+
+      expect(result.errors).toContain('rollDefinitions[0].ladderId must be a dice ladder id');
+    });
+
+    it('should reject a roll whose input is not a formula string', () => {
+      const result = validateConfiguration({
+        ...validConfig,
+        rollDefinitions: [{ ...melee, input: 12 }],
+      });
+
+      expect(result.errors).toContain('rollDefinitions[0].input must be a formula string');
+    });
+
+    it('should reject a category this build does not have', () => {
+      const result = validateConfiguration({
+        ...validConfig,
+        rollDefinitions: [{ ...melee, category: 'sneaky' }],
+      });
+
+      expect(result.errors.join(' ')).toContain('rollDefinitions[0].category must be one of');
+    });
+  });
+
   describe('archetypes (TICKET-ARC-01)', () => {
     const strong = {
       id: 'strong',

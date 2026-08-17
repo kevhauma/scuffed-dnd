@@ -46,6 +46,7 @@ rather than a read-only config UI).
 | `/config/items` | `routes/config/items.tsx` | `ItemsConfigPanel` + `EquipmentSlotsConfigPanel` |
 | `/config/races` | `routes/config/races.tsx` | `RacesConfigPanel` |
 | `/config/archetypes` | `routes/config/archetypes.tsx` | `ArchetypesConfigPanel` — what a character is good at growing: `main`/`sub`/`non` per stat, which selects a `point_buy` column (TICKET-ARC-01) |
+| `/config/rolls` | `routes/config/rolls.tsx` | `RollsConfigPanel` + `DiceLaddersConfigPanel` (TICKET-ROLL-05) — a roll is an input formula fed down a ladder; the two are separate entities, so two panels, like `/config/items` and `/config/skills` |
 | `/config/currency` | `routes/config/currency.tsx` | `CurrencyConfigPanel` (which renders `ConversionCalculator` once tiers exist) |
 | `/config/constants` | `routes/config/constants.tsx` | `ConstantsConfigPanel` — named tunables (`const.*`), each card listing the formulas that name it |
 | `/config/curves` | `routes/config/curves.tsx` | `CurvesConfigPanel` — progressions as editable tables (`curve.*(x)`), with per-cell override highlighting and a regenerate action (TICKET-CRV-03) |
@@ -147,7 +148,9 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   `KNOWN_NAMESPACES`, and `scopeFor(config, owner)`. A new attachment point is a **new row here**,
   never a branch — there is no `switch` on owner kind in the engine, and a test enforces that
   every owner has a row. `curve`'s members are the ruleset's curve names (TICKET-CRV-01); a
-  column is a property segment, checked at evaluation rather than here.
+  column is a property segment, checked at evaluation rather than here. The owners are `stat`,
+  `combat-skill`, `curve-generator` and `roll-input` (TICKET-ROLL-05 — a roll sees exactly what a
+  derived stat sees, because a roll is another reading of the character).
 - `formula/validator.ts` — `validateFormula(formula, availableCodes?, scope?)`,
   `validateFormulaCollection`, `detectCircularDependencies`, `dependencyKeysOf`,
   `toFormulaDependency`, plus a private `walkFormula(ast, visit)` that is the single place knowing
@@ -310,7 +313,8 @@ value and neither imports the engine to decide what to draw. Use it rather than 
 
 **`config/` — configuration-mode features**, one folder per domain
 (`skills/{skill,combat,shared}`, `stats/`, `materials/`, `items/`, `races/`,
-`currency/`, `constants/`, `curves/`, `archetypes/`). Each domain repeats the same four-part shape:
+`currency/`, `constants/`, `curves/`, `archetypes/`, `rolls/`). Each domain repeats the same
+four-part shape:
 
 - `XConfigPanel.tsx` — layout + composition only
 - `XCard.tsx` — one row/entity
@@ -319,9 +323,13 @@ value and neither imports the engine to decide what to draw. Use it rather than 
 
 **A panel's frame comes from `ConfigPanelShell`** (`config/shared/`, TICKET-DX-05) — the header
 card with its title, description and `actions`, the amber `prerequisites` notes, and the
-`BlockedDeleteDialog`. All eleven config components compose it, so a new section is
+`BlockedDeleteDialog`. All thirteen config components compose it, so a new section is
 `if (!config) return <NoConfigurationNotice />` plus one `<ConfigPanelShell>` — never a
-hand-written header. Its siblings are `ConfigEmptyState` (the "No X configured yet" card, next to
+hand-written header. **Two entities on one route means two panels composed at the route**
+(`/config/items`, `/config/skills`, `/config/rolls`), each with its own shell and its own
+blocked-delete dialog — not one panel with two managers, which forces the second entity's header to
+be hand-written at a different heading level than the shell emits. Its siblings are
+`ConfigEmptyState` (the "No X configured yet" card, next to
 a list rather than a shell prop, because a section can have more than one list) and
 `NoConfigurationNotice`. Panel-specific content goes in `headerExtra` or `children`; **don't add a
 prop per panel.**

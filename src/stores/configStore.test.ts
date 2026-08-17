@@ -6,6 +6,9 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { toStoredConfiguration } from '../engine/formula/references';
+// Two functions named `validateConfiguration`: this one checks *imported JSON shape*, the engine's
+// checks a loaded ruleset's referential integrity. The alias keeps both usable in one file.
+import { validateConfiguration as validateEngineConfiguration } from '../engine/validator';
 import { importConfiguration, validateConfiguration } from '../services/importExport';
 import * as storage from '../services/storage';
 import type {
@@ -20,6 +23,7 @@ import type {
   Material,
   MaterialCategory,
   Race,
+  RollDefinition,
   Skill,
   Stat,
 } from '../types/config';
@@ -1589,9 +1593,13 @@ describe('ConfigStore', () => {
       vi.clearAllMocks();
     });
 
-    it('should mint a fresh ruleset with no diceLadders key at all', () => {
-      // Absent means none, like `constants`, `curves` and `archetypes` — ROLL-05 is what seeds one
-      expect(useConfigStore.getState().config?.diceLadders).toBeUndefined();
+    it('should mint a fresh ruleset carrying the sheet ladder (TICKET-ROLL-05)', () => {
+      // ROLL-03 shipped `diceLadders` absent-means-none and said ROLL-05 would seed one; this is
+      // that. `[20, 12, 6]` is the best-confirmed thing in the source sheet, so it is seeded flatly
+      const seeded = useConfigStore.getState().config?.diceLadders;
+
+      expect(seeded).toHaveLength(1);
+      expect(seeded?.[0].dieSizes).toEqual([20, 12, 6]);
     });
 
     it('should add, update and delete through the store, persisting each time', () => {
@@ -1601,7 +1609,7 @@ describe('ConfigStore', () => {
       useConfigStore.getState().updateDiceLadder('ladder-standard', { dieSizes: [100, 20, 12, 6] });
       expect(stored()?.dieSizes).toEqual([100, 20, 12, 6]);
 
-      useConfigStore.getState().deleteDiceLadder('ladder-standard');
+      expect(useConfigStore.getState().deleteDiceLadder('ladder-standard')).toEqual([]);
       expect(stored()).toBeUndefined();
       expect(storage.saveConfiguration).toHaveBeenCalledTimes(3);
     });
@@ -1621,7 +1629,10 @@ describe('ConfigStore', () => {
         toStoredConfiguration(useConfigStore.getState().config as Configuration)
       );
 
-      expect(importConfiguration(exported).diceLadders).toEqual([{ ...standard, maxPerDie: 2 }]);
+      // The seeded ladder rides along, so this asserts the added one specifically
+      expect(
+        importConfiguration(exported).diceLadders?.find((ladder) => ladder.id === 'ladder-standard')
+      ).toEqual({ ...standard, maxPerDie: 2 });
     });
 
     it('should refuse an imported ladder whose remainder handling this build does not have', () => {
@@ -1634,6 +1645,134 @@ describe('ConfigStore', () => {
 
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain("diceLadders[0].remainder must be 'flat'");
+    });
+
+    it('should refuse to delete a ladder a roll still points at (TICKET-ROLL-05)', () => {
+      // The guard ROLL-03 deferred until something could reference a ladder
+      const seeded = useConfigStore.getState().config?.diceLadders?.[0];
+      if (!seeded) throw new Error('a fresh ruleset should seed a ladder');
+
+      const references = useConfigStore.getState().deleteDiceLadder(seeded.id);
+
+      expect(references.map((reference) => reference.holderName)).toEqual([
+        'Melee',
+        'Ranged',
+        'Evasion',
+        'Endure',
+      ]);
+      expect(useConfigStore.getState().config?.diceLadders).toHaveLength(1);
+    });
+  });
+
+  describe('Roll definitions CRUD (TICKET-ROLL-05)', () => {
+    /** The ladder a fresh ruleset seeds, which the seeded rolls all point at */
+    const seededLadderId = () => useConfigStore.getState().config?.diceLadders?.[0].id ?? '';
+
+    const rollsNow = () => useConfigStore.getState().config?.rollDefinitions ?? [];
+
+    beforeEach(() => {
+      useConfigStore.getState().initializeConfig('Test');
+      useCharacterStore.setState({ characters: [], isLoaded: true });
+      vi.clearAllMocks();
+    });
+
+    it('should seed the sheet four rolls, all down one ladder', () => {
+      expect(rollsNow().map((roll) => roll.name)).toEqual(['Melee', 'Ranged', 'Evasion', 'Endure']);
+      expect(new Set(rollsNow().map((roll) => roll.ladderId))).toEqual(new Set([seededLadderId()]));
+    });
+
+    it('should seed inputs that compute on a ruleset with no stats yet', () => {
+      // The to-be asked for `stats.str` and friends; a fresh ruleset has no stats, so those would
+      // name members that do not exist and a brand-new configuration would open reporting errors
+      expect(rollsNow().map((roll) => roll.input)).toEqual(['0', '0', '0', '0']);
+      expect(
+        validateEngineConfiguration(useConfigStore.getState().config as Configuration).errors
+      ).toEqual([]);
+    });
+
+    it('should say in every seeded description that the input is a placeholder', () => {
+      for (const roll of rollsNow()) {
+        expect(roll.description).toContain('Placeholder');
+      }
+    });
+
+    it('should add, update and delete through the store, persisting each time', () => {
+      const roll: RollDefinition = {
+        id: 'roll-initiative',
+        name: 'Initiative',
+        description: '',
+        input: '0',
+        ladderId: seededLadderId(),
+        order: 4,
+      };
+
+      useConfigStore.getState().addRollDefinition(roll);
+      expect(rollsNow()).toHaveLength(5);
+
+      useConfigStore.getState().updateRollDefinition('roll-initiative', { name: 'Init' });
+      expect(rollsNow().find((candidate) => candidate.id === 'roll-initiative')?.name).toBe('Init');
+
+      // Nothing can point at a roll — no `rolls` namespace, and history is session state
+      expect(useConfigStore.getState().deleteRollDefinition('roll-initiative')).toEqual([]);
+      expect(rollsNow()).toHaveLength(4);
+      expect(storage.saveConfiguration).toHaveBeenCalledTimes(3);
+    });
+
+    it('should remove the category rather than store an undefined one', () => {
+      const melee = rollsNow()[0];
+      expect(melee.category).toBe('offence');
+
+      useConfigStore.getState().updateRollDefinition(melee.id, { category: undefined });
+
+      expect(rollsNow()[0]).not.toHaveProperty('category');
+    });
+
+    it("should re-spell a roll's input when the stat it reads is renamed", () => {
+      useConfigStore.getState().addStat({
+        id: 'id-dex',
+        name: 'Dexterity',
+        abbreviation: 'DEX',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      });
+      const melee = rollsNow()[0];
+      useConfigStore.getState().updateRollDefinition(melee.id, { input: 'stats.dexterity' });
+
+      useConfigStore.getState().updateStat('id-dex', { name: 'Agility' });
+
+      expect(rollsNow()[0].input).toBe('stats.agility');
+    });
+
+    it('should refuse to delete a stat a roll still reads', () => {
+      useConfigStore.getState().addStat({
+        id: 'id-str',
+        name: 'Strength',
+        abbreviation: 'STR',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      });
+      const melee = rollsNow()[0];
+      useConfigStore.getState().updateRollDefinition(melee.id, { input: 'stats.strength' });
+
+      const references = useConfigStore.getState().deleteStat('id-str');
+
+      expect(references).toEqual([
+        { holderKind: 'Roll Definition', holderName: 'Melee', field: 'input', holderId: melee.id },
+      ]);
+    });
+
+    it('should round-trip through export and import', () => {
+      const exported = JSON.stringify(
+        toStoredConfiguration(useConfigStore.getState().config as Configuration)
+      );
+
+      expect(importConfiguration(exported).rollDefinitions).toEqual(rollsNow());
     });
   });
 });

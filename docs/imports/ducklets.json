@@ -12805,5 +12805,43 @@
       "showZeroTerms": true,
       "remainder": "flat"
     }
+  ],
+  "rollDefinitions": [
+    {
+      "id": "rolldef-melee",
+      "name": "mele",
+      "description": "Melee attack. Input is the raw Strenght stat — confirmed: input 10 at Str 10 gives 0D20 + 0D12 + 1D6 + 4.",
+      "input": "stats.strenght",
+      "ladderId": "ladder-standard",
+      "category": "offence",
+      "order": 0
+    },
+    {
+      "id": "rolldef-ranged",
+      "name": "Ranged",
+      "description": "Ranged attack. Input is the raw Dex stat — confirmed: input 11 at Dex 11 gives 0D20 + 0D12 + 1D6 + 5.",
+      "input": "stats.dex",
+      "ladderId": "ladder-standard",
+      "category": "offence",
+      "order": 1
+    },
+    {
+      "id": "rolldef-evasion",
+      "name": "evasion",
+      "description": "Dodging. The sheet's input is 18 against Dex 11 — the extra 7 is unexplained (Concept 08 open question), so this reads the raw stat and is 7 short.",
+      "input": "stats.dex",
+      "ladderId": "ladder-standard",
+      "category": "defence",
+      "order": 2
+    },
+    {
+      "id": "rolldef-endure",
+      "name": "endure",
+      "description": "Soaking. The sheet's input is 16 against Con 12 — the extra 4 is unexplained (Concept 08 open question), so this reads the raw stat and is 4 short.",
+      "input": "stats.con",
+      "ladderId": "ladder-standard",
+      "category": "defence",
+      "order": 3
+    }
   ]
 }

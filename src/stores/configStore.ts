@@ -41,6 +41,8 @@ import type {
   Material,
   MaterialCategory,
   Race,
+  RollCategory,
+  RollDefinition,
   Skill,
   Stat,
 } from '../types/config';
@@ -181,15 +183,25 @@ interface ConfigState {
   /**
    * Dice Ladders CRUD (Concept 07, TICKET-ROLL-03)
    *
-   * **The delete is unguarded**, unlike every other entity here: nothing in the ruleset can point
-   * at a ladder yet — a roll definition is the only thing that ever will (Concept 08), and it
-   * arrives with TICKET-ROLL-05. A guard with no possible referrer is a check that can never
-   * fire, so ROLL-05 adds the `ReferenceTargetKind` and routes this through `guardedDelete` at
-   * the same time as the thing that makes it falsifiable.
+   * The delete is guarded like every other one as of TICKET-ROLL-05, which brought the first thing
+   * that can point at a ladder. It shipped unguarded deliberately: a `ReferenceTargetKind` with no
+   * possible referrer is a check that can never fire.
    */
   addDiceLadder: (ladder: DiceLadder) => void;
   updateDiceLadder: (id: string, updates: Partial<DiceLadder>) => void;
-  deleteDiceLadder: (id: string) => void;
+  deleteDiceLadder: (id: string, options?: DeleteOptions) => EntityReference[];
+
+  /**
+   * Roll Definitions CRUD (Concept 08, TICKET-ROLL-05)
+   *
+   * **No `applyRenameSafely`**, unlike the five update actions that have it. Those exist because
+   * the entity's own display spelling lives in a formula namespace, so editing it has to re-spell
+   * everything pointing at it. A roll's name is in no namespace — nothing can reference a roll —
+   * so the round trip would be a no-op over the whole ruleset on every edit.
+   */
+  addRollDefinition: (roll: RollDefinition) => void;
+  updateRollDefinition: (id: string, updates: Partial<RollDefinition>) => void;
+  deleteRollDefinition: (id: string, options?: DeleteOptions) => EntityReference[];
 }
 
 /**
@@ -321,13 +333,77 @@ function createSeedCurves(): Curve[] {
 }
 
 /**
+ * The dice ladder and rolls a fresh ruleset starts with (Concepts 07 and 08)
+ *
+ * The **ladder** is the best-confirmed thing in the source sheet — `[20, 12, 6]`, read from the
+ * Calculator's own literal row and confirmed again by six decompositions — so it is seeded flatly.
+ *
+ * The **rolls** are the sheet's four names, each with a **placeholder input of `0`** and a
+ * description saying what the sheet reads there. The to-be asked for `stats.str` and friends, and
+ * that is not seedable: a fresh ruleset has no stats, so those four expressions would name members
+ * that do not exist and a brand-new configuration would open reporting four errors. `0` always
+ * computes, so the seed states the ruleset's *shape* — four named rolls down one ladder — without
+ * claiming an expression the User has not written yet.
+ *
+ * The descriptions carry what the export actually proves: melee and ranged are the raw stat;
+ * evasion and endure carry an extra term the sheet does not explain, which is Concept 08's open
+ * question and is named as unknown rather than invented.
+ *
+ * Returned as a pair because the rolls point at the ladder by id, so the two cannot be minted
+ * independently without one re-deriving the other's identity.
+ */
+function createSeedRolls(): { ladders: DiceLadder[]; rolls: RollDefinition[] } {
+  const ladder: DiceLadder = {
+    id: crypto.randomUUID(),
+    name: 'Standard',
+    description:
+      "The sheet's ladder: a value becomes D20s, then D12s, then D6s, with the leftover as a flat bonus.",
+    dieSizes: [20, 12, 6],
+    showZeroTerms: true,
+    remainder: 'flat',
+  };
+
+  // The second sentence states what the *source sheet* reads, which stays true whatever the User
+  // writes; only the "Placeholder input" label goes stale, and it has to be there — four rolls that
+  // silently produce 0 with nothing saying why is worse than a label somebody edits away.
+  const seeds: Array<[name: string, category: RollCategory, reads: string]> = [
+    ['Melee', 'offence', 'The source sheet reads the raw Strength stat.'],
+    ['Ranged', 'offence', 'The source sheet reads the raw Dexterity stat.'],
+    [
+      'Evasion',
+      'defence',
+      'The source sheet reads Dexterity plus a term its export does not explain.',
+    ],
+    [
+      'Endure',
+      'defence',
+      'The source sheet reads Constitution plus a term its export does not explain.',
+    ],
+  ];
+
+  return {
+    ladders: [ladder],
+    rolls: seeds.map(([name, category, reads], index) => ({
+      id: crypto.randomUUID(),
+      name,
+      description: `Placeholder input. ${reads}`,
+      input: '0',
+      ladderId: ladder.id,
+      category,
+      order: index,
+    })),
+  };
+}
+
+/**
  * Create a fresh configuration
  *
- * Not "empty": a new ruleset arrives with Concept 05's seed constants and Concept 06's seed
- * curves already in it.
+ * Not "empty": a new ruleset arrives with Concept 05's seed constants, Concept 06's seed curves and
+ * Concept 07/08's ladder and four rolls already in it.
  */
 function createFreshConfiguration(name: string): Configuration {
   const now = new Date().toISOString();
+  const { ladders, rolls } = createSeedRolls();
   return {
     id: crypto.randomUUID(),
     name,
@@ -344,6 +420,8 @@ function createFreshConfiguration(name: string): Configuration {
     currencyTiers: [],
     constants: createSeedConstants(),
     curves: createSeedCurves(),
+    diceLadders: ladders,
+    rollDefinitions: rolls,
     createdAt: now,
     updatedAt: now,
   };
@@ -1010,14 +1088,41 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ config: updated });
   },
 
-  deleteDiceLadder: (id: string) => {
+  deleteDiceLadder: (id: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'dice-ladder', id, options, (config) => ({
+      ...config,
+      diceLadders: (config.diceLadders ?? []).filter((ladder) => ladder.id !== id),
+    })),
+
+  // Roll Definitions CRUD (Concept 08, TICKET-ROLL-05)
+  addRollDefinition: (roll: RollDefinition) => {
     const { config } = get();
     if (!config) return;
 
     const updated = autoSave({
       ...config,
-      diceLadders: (config.diceLadders ?? []).filter((ladder) => ladder.id !== id),
+      rollDefinitions: [...(config.rollDefinitions ?? []), roll],
     });
     set({ config: updated });
   },
+
+  updateRollDefinition: (id: string, updates: Partial<RollDefinition>) => {
+    const { config } = get();
+    if (!config) return;
+
+    // `category` is optional, so clearing it removes the key rather than storing `undefined`
+    const updated = autoSave({
+      ...config,
+      rollDefinitions: (config.rollDefinitions ?? []).map((roll) =>
+        roll.id === id ? mergeClearingAbsent(roll, updates) : roll
+      ),
+    });
+    set({ config: updated });
+  },
+
+  deleteRollDefinition: (id: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'roll-definition', id, options, (config) => ({
+      ...config,
+      rollDefinitions: (config.rollDefinitions ?? []).filter((roll) => roll.id !== id),
+    })),
 }));

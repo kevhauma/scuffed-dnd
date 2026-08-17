@@ -83,6 +83,14 @@ export interface Configuration {
    * RACE-01's bump-on-every-reshape rule does not apply. Readers write `config.diceLadders ?? []`.
    */
   diceLadders?: DiceLadder[];
+  /**
+   * The named rolls a sheet offers — melee, ranged, evasion, endure (Concept 08, TICKET-ROLL-05).
+   *
+   * Optional and additive like `diceLadders`, so a ruleset written before rolls existed reads as
+   * having none. A fresh ruleset seeds four, which is not the same thing: absent means none and
+   * stays absent, and only `createFreshConfiguration` puts any there.
+   */
+  rollDefinitions?: RollDefinition[];
   createdAt: string;
   updatedAt: string;
 }
@@ -247,6 +255,52 @@ export interface DiceLadder {
   /** Whether a rung with no dice is still listed — the sheet shows `0D20` (display only) */
   showZeroTerms: boolean;
   remainder: LadderRemainder;
+}
+
+/**
+ * What a roll is for, which is what a view groups by (Concept 08)
+ *
+ * Optional on the definition: the sheet's own four rolls are two offence and two defence, but a
+ * ruleset may reasonably decline to sort its rolls at all, and a required field would force a
+ * meaningless answer.
+ */
+export type RollCategory = 'offence' | 'defence' | 'utility';
+
+/** Every category, in the order an editor offers them */
+export const ROLL_CATEGORIES: readonly RollCategory[] = ['offence', 'defence', 'utility'];
+
+/**
+ * Roll definition — a named, rollable line on a sheet (Concept 08, TICKET-ROLL-05)
+ *
+ * The sheet has four rolls hardwired into two layouts as duplicated formula blocks, so "add
+ * initiative" means editing both layouts and both formula sets and keeping them in step forever.
+ * Here it is one record: an **input expression** and a **ladder**, and the pool falls out of
+ * TICKET-ROLL-03's decomposition.
+ *
+ * That is the whole difference from `CombatSkill`, which this replaces in TICKET-ROLL-06: a combat
+ * skill hand-types six dice counts and bolts a formula on afterwards as a flat bonus, which is a
+ * different distribution from the sheet's. Here the formula *is* the roll.
+ *
+ * `input` is user-authored formula text like a stat's, evaluated at the `roll-input` attachment
+ * point (`engine/formula/scoping.ts`) — `stats.*`, `skills.*`, `const.*` and `curve.*` — so
+ * "evasion reads Dex and armour" is a formula edit rather than a shape change. It carries no
+ * randomness: a formula is deterministic and reproducible, and the dice happen in one auditable
+ * place afterwards (spec §5).
+ *
+ * `applies_to` and `visibility` are Concept 08 fields deferred until there is a creature and a
+ * second view to need them; both are additive.
+ */
+export interface RollDefinition {
+  id: string; // Stable identity — assigned on creation, never shown, never reused
+  name: string;
+  description: string;
+  /** Formula producing the number fed to the ladder — `stats.dex + skills.dodging.bonus` */
+  input: string;
+  /** References `DiceLadder.id`; a roll without a readable ladder is a validation error */
+  ladderId: string;
+  category?: RollCategory;
+  /** Display order on the sheet and in the panel; ties fall back to definition order */
+  order: number;
 }
 
 /**

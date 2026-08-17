@@ -15,6 +15,7 @@ import { Route as ConfigIndexRouteImport } from './routes/config/index'
 import { Route as PlayCreateRouteImport } from './routes/play/create'
 import { Route as ConfigStatsRouteImport } from './routes/config/stats'
 import { Route as ConfigSkillsRouteImport } from './routes/config/skills'
+import { Route as ConfigRollsRouteImport } from './routes/config/rolls'
 import { Route as ConfigRacesRouteImport } from './routes/config/races'
 import { Route as ConfigMaterialsRouteImport } from './routes/config/materials'
 import { Route as ConfigItemsRouteImport } from './routes/config/items'
@@ -52,6 +53,11 @@ const ConfigStatsRoute = ConfigStatsRouteImport.update({
 const ConfigSkillsRoute = ConfigSkillsRouteImport.update({
   id: '/config/skills',
   path: '/config/skills',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfigRollsRoute = ConfigRollsRouteImport.update({
+  id: '/config/rolls',
+  path: '/config/rolls',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfigRacesRoute = ConfigRacesRouteImport.update({
@@ -104,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/config/items': typeof ConfigItemsRoute
   '/config/materials': typeof ConfigMaterialsRoute
   '/config/races': typeof ConfigRacesRoute
+  '/config/rolls': typeof ConfigRollsRoute
   '/config/skills': typeof ConfigSkillsRoute
   '/config/stats': typeof ConfigStatsRoute
   '/play/create': typeof PlayCreateRoute
@@ -120,6 +127,7 @@ export interface FileRoutesByTo {
   '/config/items': typeof ConfigItemsRoute
   '/config/materials': typeof ConfigMaterialsRoute
   '/config/races': typeof ConfigRacesRoute
+  '/config/rolls': typeof ConfigRollsRoute
   '/config/skills': typeof ConfigSkillsRoute
   '/config/stats': typeof ConfigStatsRoute
   '/play/create': typeof PlayCreateRoute
@@ -137,6 +145,7 @@ export interface FileRoutesById {
   '/config/items': typeof ConfigItemsRoute
   '/config/materials': typeof ConfigMaterialsRoute
   '/config/races': typeof ConfigRacesRoute
+  '/config/rolls': typeof ConfigRollsRoute
   '/config/skills': typeof ConfigSkillsRoute
   '/config/stats': typeof ConfigStatsRoute
   '/play/create': typeof PlayCreateRoute
@@ -155,6 +164,7 @@ export interface FileRouteTypes {
     | '/config/items'
     | '/config/materials'
     | '/config/races'
+    | '/config/rolls'
     | '/config/skills'
     | '/config/stats'
     | '/play/create'
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/config/items'
     | '/config/materials'
     | '/config/races'
+    | '/config/rolls'
     | '/config/skills'
     | '/config/stats'
     | '/play/create'
@@ -187,6 +198,7 @@ export interface FileRouteTypes {
     | '/config/items'
     | '/config/materials'
     | '/config/races'
+    | '/config/rolls'
     | '/config/skills'
     | '/config/stats'
     | '/play/create'
@@ -204,6 +216,7 @@ export interface RootRouteChildren {
   ConfigItemsRoute: typeof ConfigItemsRoute
   ConfigMaterialsRoute: typeof ConfigMaterialsRoute
   ConfigRacesRoute: typeof ConfigRacesRoute
+  ConfigRollsRoute: typeof ConfigRollsRoute
   ConfigSkillsRoute: typeof ConfigSkillsRoute
   ConfigStatsRoute: typeof ConfigStatsRoute
   PlayCreateRoute: typeof PlayCreateRoute
@@ -254,6 +267,13 @@ declare module '@tanstack/react-router' {
       path: '/config/skills'
       fullPath: '/config/skills'
       preLoaderRoute: typeof ConfigSkillsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/config/rolls': {
+      id: '/config/rolls'
+      path: '/config/rolls'
+      fullPath: '/config/rolls'
+      preLoaderRoute: typeof ConfigRollsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/config/races': {
@@ -324,6 +344,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConfigItemsRoute: ConfigItemsRoute,
   ConfigMaterialsRoute: ConfigMaterialsRoute,
   ConfigRacesRoute: ConfigRacesRoute,
+  ConfigRollsRoute: ConfigRollsRoute,
   ConfigSkillsRoute: ConfigSkillsRoute,
   ConfigStatsRoute: ConfigStatsRoute,
   PlayCreateRoute: PlayCreateRoute,

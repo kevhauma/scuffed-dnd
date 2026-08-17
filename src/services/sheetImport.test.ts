@@ -27,6 +27,8 @@ import {
   renderConfiguration,
 } from '../../scripts/build-sheet-import.mjs';
 import { decomposeValue } from '../engine/dice/diceLadder';
+import { statMemberName } from '../engine/formula/references';
+import { validateFormula } from '../engine/formula/validator';
 import { SUPPORTED_SCHEMA_VERSION } from '../types/config';
 import { importConfiguration, validateConfiguration } from './importExport';
 
@@ -45,6 +47,7 @@ describe('sheet import fragments', () => {
       'items.json',
       'materials.json',
       'races.json',
+      'roll-definitions.json',
       'skills.json',
       'stats.json',
     ]);
@@ -135,6 +138,34 @@ describe('the confirmed derivations survive the round trip', () => {
     expect(ladder.dieSizes).toEqual([20, 12, 6]);
     expect(row(10)).toEqual([0, 0, 1, 4]);
     expect(row(39)).toEqual([1, 1, 1, 1]);
+  });
+
+  it('keeps every roll reading a stat down a ladder that exists (Concept 08)', () => {
+    // The two references a roll holds, checked against what the corpus actually defines: the
+    // ladder by id, and the input's `stats.<slug>` against the stats fragment
+    const ladderIds = new Set((config.diceLadders ?? []).map((ladder) => ladder.id));
+    const slugs = new Set(config.stats.map((stat) => statMemberName(stat)));
+
+    expect(config.rollDefinitions).toHaveLength(4);
+    for (const roll of config.rollDefinitions ?? []) {
+      expect(ladderIds.has(roll.ladderId), `${roll.name} names a missing ladder`).toBe(true);
+      for (const reference of validateFormula(roll.input).namespacedReferences) {
+        expect(slugs.has(reference.member), `${roll.name} reads a missing stat`).toBe(true);
+      }
+    }
+  });
+
+  it('keeps the two roll inputs Concept 08 confirmed, and only those two', () => {
+    const inputOf = (name: string) =>
+      config.rollDefinitions?.find((roll) => roll.name === name)?.input;
+
+    // Confirmed: input 10 at Str 10, input 11 at Dex 11
+    expect(inputOf('mele')).toBe('stats.strenght');
+    expect(inputOf('Ranged')).toBe('stats.dex');
+    // NOT confirmed — the sheet's 18 and 16 carry an unexplained term, so the corpus ships the raw
+    // stat and says so rather than fitting a constant nobody can source
+    expect(inputOf('evasion')).toBe('stats.dex');
+    expect(inputOf('endure')).toBe('stats.con');
   });
 
   it('keeps the skill weights Concept 02 confirmed', () => {

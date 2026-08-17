@@ -1610,6 +1610,62 @@ describe('validateConfiguration', () => {
       expect(messages.some((message) => message.includes('caps each die at 0'))).toBe(true);
     });
 
+    it('should refuse a roll whose ladder does not exist (TICKET-ROLL-05)', () => {
+      const config = withLadder();
+      config.rollDefinitions = [
+        {
+          id: 'roll-melee',
+          name: 'Melee',
+          description: '',
+          input: 'STR',
+          ladderId: 'ladder-that-went-away',
+          order: 0,
+        },
+      ];
+
+      const { errors } = validateConfiguration(config);
+
+      expect(errors.map((issue) => issue.message)).toContain(
+        'Roll "Melee" uses a dice ladder that does not exist: ladder-that-went-away'
+      );
+    });
+
+    it('should validate a roll input at its own attachment point (TICKET-ROLL-05)', () => {
+      const config = withLadder();
+      config.rollDefinitions = [
+        {
+          id: 'roll-melee',
+          name: 'Melee',
+          description: '',
+          input: 'STR + NOPE',
+          ladderId: 'ladder-standard',
+          order: 0,
+        },
+      ];
+
+      const { errors, isValid } = validateConfiguration(config);
+
+      expect(isValid).toBe(false);
+      expect(errors.some((issue) => issue.message.startsWith('Roll "Melee":'))).toBe(true);
+    });
+
+    it('should accept a roll reading a stat down a ladder that exists', () => {
+      const config = withLadder();
+      config.rollDefinitions = [
+        {
+          id: 'roll-melee',
+          name: 'Melee',
+          description: '',
+          input: 'stats.strength + 2',
+          ladderId: 'ladder-standard',
+          category: 'offence',
+          order: 0,
+        },
+      ];
+
+      expect(validateConfiguration(config).errors).toEqual([]);
+    });
+
     it('should report a large smallest die as information rather than as a defect', () => {
       const config = withLadder({ dieSizes: [20, 12] });
       const report = validateConfiguration(config);
