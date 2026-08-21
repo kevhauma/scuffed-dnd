@@ -2,8 +2,9 @@
  * Roll Definition Form Dialog
  *
  * A roll is an input expression plus a ladder (Concept 08), and this is that and nothing else —
- * conspicuously, there are no dice-count boxes. That is the entity's argument: `CombatSkillFormDialog`
- * asks for six counts *and* a formula, which is a pool that cannot be derived from the character.
+ * conspicuously, there are no dice-count boxes. That is the entity's argument: the combat skill it
+ * replaced asked for six hand-typed counts *and* a formula, a pool that could not be derived from
+ * the character. That dialog went with the entity in TICKET-ROLL-06.
  *
  * The input renders `FormulaPreview` at the `roll-input` attachment point, per CLAUDE.md's standing
  * rule that every User-authored formula field ships a preview.

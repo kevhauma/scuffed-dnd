@@ -13,10 +13,10 @@
  * Concept 01 says a resource with no ceiling is worth telling the User about, not worth refusing,
  * because the ruleset is still coherent — the sheet just cannot draw a bar for it.
  *
- * One rule moved here with the merge: **an abbreviation is a formula spelling**, and it shares one
- * flat namespace with the combat skill codes, so it has to be identifier-shaped and unique against
- * both — the rule the combat skill manager already enforces from its side. (A `Skill` left that
- * namespace with its code in TICKET-SKL-02, so there is no third space to be unique against.)
+ * One rule moved here with the merge: **an abbreviation is a formula spelling**, so it has to be
+ * identifier-shaped and unique. It shared that flat namespace with the combat skill codes until
+ * TICKET-ROLL-06 retired them, and with the speciality codes until TICKET-SKL-02 — the space holds
+ * stat abbreviations and nothing else now, so this manager is the only side enforcing the rule.
  *
  * **A rename no longer has a character half.** `investedStatPoints` is keyed by stat id
  * (TICKET-STAT-01) and `investedSkillPoints` by skill id (TICKET-SKL-02), so re-spelling an

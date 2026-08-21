@@ -2,7 +2,7 @@
  * Calculation Engine
  *
  * Main entry point for all calculation functions.
- * Re-exports specialized calculators for main skills, stats, speciality skills, and combat skills.
+ * Re-exports the specialized calculators for stats, skills, equipment and rolls.
  *
  * **Validates: Requirements 11.5, 13.1, 13.2, 13.3, 3.6, 8.4**
  *
@@ -44,7 +44,8 @@ import { calculateStatTotal, calculateStatValues } from './calculators/statCalcu
  *    reads them, so an equipped `STR +2` moves every stat and skill derived from `STR`
  *    (Requirement 13.3);
  * 3. **skills** — `Σ(weight × stat) + invested`, and the bonus that rounds off it (Concept 02);
- * 4. **combat skills** — formula over stats and skills, both already computed.
+ * 4. **roll inputs** — each roll definition's expression over stats and skills, both already
+ *    computed (TICKET-ROLL-06, which replaced the combat skill that used to sit here).
  *
  * **Equipment is applied exactly once, at step 2** (TICKET-MAT-02). A tier modifier names a stat,
  * so steps 3 and 4 have no equipment term to claim a second share with — they read stats the

@@ -1,9 +1,9 @@
 /**
  * Character Sheet
  *
- * Play mode's main screen: identity, racial modifiers, main skills, current/max stats, speciality
- * skills and combat skills for one character. Layout and composition only — every decision and
- * every number comes from `useCharacterSheet`.
+ * Play mode's main screen: identity, race stat blocks, current/max stats, skills and the rolls the
+ * ruleset defines, for one character. Layout and composition only — every decision and every
+ * number comes from `useCharacterSheet`.
  *
  * **Validates: Requirements 8.5, 13.4, 14.1, 14.2, 14.5, 21.1-21.5, 22.1-22.6**
  */

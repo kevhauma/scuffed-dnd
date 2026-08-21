@@ -262,8 +262,9 @@ export function validateFormula(
  *
  * The namespace is deliberately dropped, which is what makes that parity work — the cost is that
  * `stats.x` and `skills.x` would share a node and could report a phantom cycle. Not reachable
- * today (stat ids are lowercase slugs, skill codes are 3-letter uppercase) but worth knowing
- * before TICKET-STAT-01 reshapes either key space.
+ * today (stat ids are lowercase slugs, stat abbreviations uppercase identifiers, and a skill is
+ * reached as `skills.<name-slug>` since its code retired in TICKET-SKL-02) but worth knowing
+ * before either key space is reshaped again.
  *
  * @param result - A result from `validateFormula`
  * @returns Unique graph keys the formula references

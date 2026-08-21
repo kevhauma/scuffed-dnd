@@ -2,7 +2,7 @@
  * Rolls Configuration Panel
  *
  * The named rolls a sheet offers (Concept 08): each an input expression fed down a dice ladder,
- * rather than the six hand-typed dice counts `CombatSkill` asks for.
+ * rather than the six hand-typed dice counts the retired `CombatSkill` asked for.
  *
  * The ladders themselves are `DiceLaddersConfigPanel`, mounted beside this one at `/config/rolls`
  * — the two-panels-one-route shape `/config/items` and `/config/skills` use.

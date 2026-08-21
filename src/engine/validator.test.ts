@@ -376,6 +376,20 @@ describe('validateConfiguration', () => {
       expect(result.errors[0].category).toBe('Formula Validation');
     });
 
+    it('should name what a duplicate abbreviation actually is (CR-38)', () => {
+      const config = createMinimalConfig();
+      config.stats = [stat('str', 'Strength', 'STR'), stat('stm', 'Stamina', 'STR')];
+
+      const result = validateConfiguration(config);
+      const duplicate = result.errors.find((error) => error.message.includes('STR'));
+
+      // Skill codes retired in TICKET-SKL-02; this check reads stats and must say so
+      expect(duplicate?.message).toBe(
+        'Duplicate stat abbreviation "STR" used by: Stat "Strength", Stat "Stamina"'
+      );
+      expect(duplicate?.category).toBe('Uniqueness Validation');
+    });
+
     it('should detect empty formulas', () => {
       const config = createMinimalConfig();
       config.stats = [

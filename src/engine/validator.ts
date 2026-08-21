@@ -418,27 +418,30 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   // Validate unique abbreviations. The flat formula space holds **stats and nothing else** since
   // TICKET-ROLL-06, so this is now a check within one list rather than across two — kept because a
   // duplicate abbreviation still splits a formula's identity from the value it reads.
-  const allCodes = config.stats.map((s) => ({
-    code: s.abbreviation,
+  const abbreviations = config.stats.map((s) => ({
+    abbreviation: s.abbreviation,
     type: 'Stat',
     name: s.name,
   }));
 
-  const codeMap = new Map<string, Array<{ type: string; name: string }>>();
-  for (const { code, type, name } of allCodes) {
-    if (!codeMap.has(code)) {
-      codeMap.set(code, []);
+  const byAbbreviation = new Map<string, Array<{ type: string; name: string }>>();
+  for (const { abbreviation, type, name } of abbreviations) {
+    if (!byAbbreviation.has(abbreviation)) {
+      byAbbreviation.set(abbreviation, []);
     }
-    codeMap.get(code)?.push({ type, name });
+    byAbbreviation.get(abbreviation)?.push({ type, name });
   }
 
-  for (const [code, skills] of codeMap.entries()) {
-    if (skills.length > 1) {
-      const skillList = skills.map((s) => `${s.type} "${s.name}"`).join(', ');
+  for (const [abbreviation, owners] of byAbbreviation.entries()) {
+    if (owners.length > 1) {
+      // "stat abbreviation", not "skill code" (CR-38): skill codes retired in TICKET-SKL-02 and the
+      // combat codes with the entity in ROLL-06, so the old message named something that no
+      // longer exists — to a User staring at two stats
+      const ownerList = owners.map((s) => `${s.type} "${s.name}"`).join(', ');
       errors.push({
         severity: 'error',
         category: 'Uniqueness Validation',
-        message: `Duplicate skill code "${code}" used by: ${skillList}`,
+        message: `Duplicate stat abbreviation "${abbreviation}" used by: ${ownerList}`,
       });
     }
   }

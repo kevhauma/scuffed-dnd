@@ -2,8 +2,8 @@
  * Roll Definition Manager Hook
  *
  * Roll CRUD and form state (Concept 08, TICKET-ROLL-05). A roll is an input expression plus a
- * ladder, so this is the `useCombatSkillManager` shape minus the six hand-typed dice counts —
- * which is the point of the entity.
+ * ladder, so this is the shape the retired combat-skill manager had minus the six hand-typed dice
+ * counts — which is the point of the entity.
  *
  * The input is refused at save time if it would not compute, through the same
  * `validateFormulaChange` guard every other formula-owning editor uses; the attachment point is

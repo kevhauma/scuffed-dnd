@@ -29,7 +29,7 @@ export interface SkillBreakdownRowProps {
    * The short spelling shown beside the name, when the entity has one.
    *
    * Optional since TICKET-SKL-02: a `Skill` is named and nothing else — its code retired with the
-   * flat-space spelling it existed for — while a stat and a combat skill still carry one.
+   * flat-space spelling it existed for — while a stat still carries an abbreviation.
    */
   code?: string;
   /**
