@@ -186,7 +186,9 @@ v2 config gets no notice and no backup offer (TICKET-IO-03 implementation note 5
 what a stat does: no `formula` means **invested**; `isResource` additionally means the value is a
 *maximum* the character spends against; a `formula` makes it **derived** and it accepts no
 investment. It also carries `abbreviation`, `order`, `countsTowardTotal`, optional `min`/`max`,
-and `rounding` (`none` | `nearest` | `up` | `down`, applied after the clamp).
+and `rounding` (`none` | `nearest` | `up` | `down`, applied after the clamp — and the clamp is
+re-applied after it, so a fractional bound wins over the rounding mode rather than being rounded
+past, CR-41).
 
 Identity rules that the rest of the app depends on:
 

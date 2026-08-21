@@ -257,6 +257,31 @@ describe('calculateStatValues', () => {
 
       expect(values.s).toBe(9);
     });
+
+    it('should not let rounding carry a value past a fractional bound (CR-41)', () => {
+      // The clamp lands on the bound itself, and the rounding mode would then move it outside the
+      // range the ruleset declared — so it is clamped again afterwards
+      const ceiling = calculateStatValues(
+        [
+          stat({
+            id: 's',
+            name: 'S',
+            abbreviation: 'S',
+            formula: '12',
+            max: 10.6,
+            rounding: 'nearest',
+          }),
+        ],
+        character()
+      );
+      const floor = calculateStatValues(
+        [stat({ id: 's', name: 'S', abbreviation: 'S', formula: '0', min: 2.4, rounding: 'down' })],
+        character()
+      );
+
+      expect(ceiling.s).toBe(10.6);
+      expect(floor.s).toBe(2.4);
+    });
   });
 
   describe('composition terms', () => {

@@ -133,19 +133,34 @@ export function calculateRaceStatBases(
   return bases;
 }
 
-/** Clamp to the stat's bounds, then round the way it asks to be rounded */
+/**
+ * Clamp to the stat's bounds, round the way it asks, then clamp again (CR-41)
+ *
+ * The second clamp is what keeps a **fractional** bound honest: `max: 10.6` with `rounding:
+ * 'nearest'` clamped a raw 12 to 10.6 and then rounded it *up* to 11, which is outside the range
+ * the ruleset declared. Rounding before clamping would be the other way round — it would pull a
+ * value that legitimately sits at the bound off it — so the conservative order is clamp, round,
+ * clamp, and a fractional bound simply wins over the rounding mode.
+ *
+ * A ruleset with integer bounds, which is nearly all of them, cannot tell the difference.
+ */
 function finish(value: number, stat: Stat): number {
-  let bounded = value;
-  if (stat.min !== undefined) bounded = Math.max(stat.min, bounded);
-  if (stat.max !== undefined) bounded = Math.min(stat.max, bounded);
+  const clamp = (input: number): number => {
+    let bounded = input;
+    if (stat.min !== undefined) bounded = Math.max(stat.min, bounded);
+    if (stat.max !== undefined) bounded = Math.min(stat.max, bounded);
+    return bounded;
+  };
+
+  const bounded = clamp(value);
 
   switch (stat.rounding) {
     case 'nearest':
-      return Math.round(bounded);
+      return clamp(Math.round(bounded));
     case 'up':
-      return Math.ceil(bounded);
+      return clamp(Math.ceil(bounded));
     case 'down':
-      return Math.floor(bounded);
+      return clamp(Math.floor(bounded));
     default:
       return bounded;
   }

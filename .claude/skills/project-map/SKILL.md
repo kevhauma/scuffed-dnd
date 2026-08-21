@@ -174,7 +174,8 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 - `calculators/statCalculator.ts` — **the composition calculator** (TICKET-STAT-01):
   `calculateStatValues(stats, character, options)` answers "what is this stat worth" for all three
   kinds — invested (`race stat block + points + equipment`), resource (the same sum, read as a
-  maximum) and derived (its formula) — then clamps to `min`/`max` and rounds. Plus
+  maximum) and derived (its formula) — then clamps to `min`/`max`, rounds, and clamps again so a
+  **fractional** bound cannot be rounded past (CR-41). Plus
   `calculateStatTotal`, `statVariables` (the flat map keyed by abbreviation, for the downstream
   formulas), `calculateRaceStatBases` (the races' **blended** stat block on its own, keyed by stat
   **id**, for display — TICKET-RACE-01/02) and `MAX_RACE_COUNT`, the one place the 1–2 race
