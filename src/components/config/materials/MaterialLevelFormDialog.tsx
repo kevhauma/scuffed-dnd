@@ -122,21 +122,27 @@ export function MaterialLevelFormDialog({
 
           {fields.map((field, index) => (
             <div key={field.id} className="flex gap-2 items-start">
+              {/*
+                `register`, not watch/setValue (CR-35): the archetype dialog proves the primitive
+                takes it, and rhf's dirty tracking only sees a registered field. The rows repeat, so
+                each control names its own row — there is no visible label to point `htmlFor` at.
+              */}
               <div className="flex-1">
                 <Select
-                  value={watch(`bonuses.${index}.statId`)}
-                  onChange={(e) => form.setValue(`bonuses.${index}.statId`, e.target.value)}
+                  aria-label={`Stat for bonus row ${index + 1}`}
                   options={modifiableStats.map((stat) => ({
                     value: stat.id,
                     label: `${stat.name} (${stat.abbreviation})`,
                   }))}
                   className="w-full"
+                  {...register(`bonuses.${index}.statId` as const)}
                 />
               </div>
               <div className="flex-1">
                 <Input
                   type="number"
                   placeholder="Modifier (+ or -)"
+                  aria-label={`Modifier for bonus row ${index + 1}`}
                   className="w-full"
                   {...register(`bonuses.${index}.modifier`, {
                     valueAsNumber: true,

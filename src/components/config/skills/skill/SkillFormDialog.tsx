@@ -46,8 +46,6 @@ export function SkillFormDialog({
     register,
     control,
     formState: { errors },
-    watch,
-    setValue,
   } = form;
   const { fields, append, remove } = useFieldArray({ control, name: 'statWeights' });
 
@@ -102,15 +100,20 @@ export function SkillFormDialog({
 
           {fields.map((field, index) => (
             <div key={field.id} className="flex gap-2 items-start">
+              {/*
+                `register`, not watch/setValue (CR-35): the archetype dialog proves the primitive
+                takes it, and rhf's dirty tracking only sees a registered field. The rows repeat, so
+                each control names its own row — there is no visible label to point `htmlFor` at.
+              */}
               <div className="flex-1">
                 <Select
-                  value={watch(`statWeights.${index}.statId`)}
-                  onChange={(event) => setValue(`statWeights.${index}.statId`, event.target.value)}
+                  aria-label={`Stat for weight row ${index + 1}`}
                   options={weightableStats.map((stat) => ({
                     value: stat.id,
                     label: `${stat.name} (${stat.abbreviation})`,
                   }))}
                   className="w-full"
+                  {...register(`statWeights.${index}.statId` as const)}
                 />
               </div>
               <div className="flex-1">
@@ -118,6 +121,7 @@ export function SkillFormDialog({
                   type="number"
                   step="0.1"
                   placeholder="Weight"
+                  aria-label={`Weight for row ${index + 1}`}
                   className="w-full"
                   {...register(`statWeights.${index}.weight`, { valueAsNumber: true })}
                 />

@@ -168,6 +168,19 @@ describe('SkillsPanel', () => {
     );
   });
 
+  it('should name every weight-row control by its row (CR-35)', async () => {
+    render(<SkillsPanel />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Stat' }));
+    await waitFor(() => expect(weightRows().pickers).toHaveLength(2));
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('combobox', { name: 'Stat for weight row 1' })).toBeDefined();
+    expect(within(dialog).getByRole('combobox', { name: 'Stat for weight row 2' })).toBeDefined();
+    expect(within(dialog).getByRole('spinbutton', { name: 'Weight for row 2' })).toBeDefined();
+  });
+
   it('should create a new skill with a weight row from the Add flow', async () => {
     render(<SkillsPanel />);
 
