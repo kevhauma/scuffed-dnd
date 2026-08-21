@@ -19,7 +19,7 @@ import { useConfigStore } from '../../../stores/configStore';
 import type { RollCategory, RollDefinition } from '../../../types';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
-interface RollFormData {
+export interface RollFormData {
   name: string;
   description: string;
   input: string;

@@ -12,7 +12,7 @@ import { useConfigStore } from '../../../stores/configStore';
 import type { Race } from '../../../types';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
-interface RaceFormData {
+export interface RaceFormData {
   name: string;
   description: string;
   /** Absolute value per stat id (TICKET-RACE-01) */

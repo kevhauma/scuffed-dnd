@@ -15,7 +15,7 @@ import { useConfigStore } from '../../../stores/configStore';
 import type { DiceLadder } from '../../../types';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
-interface LadderFormData {
+export interface LadderFormData {
   name: string;
   description: string;
   /** Comma- or space-separated sizes, exactly as the sheet writes them: `20, 12, 6` */

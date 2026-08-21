@@ -12,11 +12,7 @@ import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
-
-interface CurrencyFormData {
-  name: string;
-  conversionToNext: number;
-}
+import type { CurrencyFormData } from './useCurrencyManager';
 
 interface CurrencyFormDialogProps {
   isOpen: boolean;

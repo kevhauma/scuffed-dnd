@@ -12,7 +12,7 @@ import { useConfigStore } from '../../../stores/configStore';
 import type { EquipmentSlot } from '../../../types';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
-interface EquipmentSlotFormData {
+export interface EquipmentSlotFormData {
   type: string;
   name: string;
   description: string;

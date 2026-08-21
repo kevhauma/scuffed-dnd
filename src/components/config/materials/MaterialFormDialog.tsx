@@ -10,11 +10,7 @@ import type { UseFormReturn } from 'react-hook-form';
 import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
-
-interface MaterialFormData {
-  name: string;
-  description: string;
-}
+import type { MaterialFormData } from './useMaterialManager';
 
 interface MaterialFormDialogProps {
   isOpen: boolean;

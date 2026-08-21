@@ -21,12 +21,7 @@ import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
 import { Select } from '../../ui/Select/Select';
 import { StatRowsField } from '../shared/StatRowsField';
-
-interface ArchetypeFormData {
-  name: string;
-  description: string;
-  statAffinity: Record<string, StatAffinity>;
-}
+import type { ArchetypeFormData } from './useArchetypeManager';
 
 export interface ArchetypeFormDialogProps {
   isOpen: boolean;

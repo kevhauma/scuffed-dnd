@@ -15,15 +15,7 @@ import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Select } from '../../ui/Select/Select';
 import { Textarea } from '../../ui/Textarea/Textarea';
-
-interface ItemFormData {
-  name: string;
-  description: string;
-  categoryId: string;
-  materialId: string;
-  materialLevel: number;
-  equipmentSlotType: string;
-}
+import type { ItemFormData } from './useItemManager';
 
 interface ItemFormDialogProps {
   isOpen: boolean;

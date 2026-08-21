@@ -15,7 +15,7 @@ import type { Archetype, StatAffinity } from '../../../types';
 import { DEFAULT_STAT_AFFINITY } from '../../../types';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
-interface ArchetypeFormData {
+export interface ArchetypeFormData {
   name: string;
   description: string;
   /** Affinity per stat id — dense in the form, pruned to sparse on save */

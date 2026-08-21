@@ -12,7 +12,7 @@ import { useConfigStore } from '../../../stores/configStore';
 import type { CurrencyTier } from '../../../types';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
-interface CurrencyFormData {
+export interface CurrencyFormData {
   name: string;
   conversionToNext: number;
 }

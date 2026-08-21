@@ -13,12 +13,7 @@ import { Dialog } from '../../ui/Dialog/Dialog';
 import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Textarea } from '../../ui/Textarea/Textarea';
-
-interface EquipmentSlotFormData {
-  type: string;
-  name: string;
-  description: string;
-}
+import type { EquipmentSlotFormData } from './useEquipmentSlotManager';
 
 interface EquipmentSlotFormDialogProps {
   isOpen: boolean;

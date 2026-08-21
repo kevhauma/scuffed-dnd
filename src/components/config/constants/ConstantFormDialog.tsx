@@ -20,14 +20,7 @@ import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
 import { Textarea } from '../../ui/Textarea/Textarea';
-
-interface ConstantFormData {
-  name: string;
-  displayName: string;
-  description: string;
-  value: number;
-  unit: string;
-}
+import type { ConstantFormData } from './useConstantManager';
 
 interface ConstantFormDialogProps {
   isOpen: boolean;

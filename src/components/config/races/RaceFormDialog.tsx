@@ -20,12 +20,7 @@ import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
 import { Input } from '../../ui/Input/Input';
 import { StatRowsField } from '../shared/StatRowsField';
-
-interface RaceFormData {
-  name: string;
-  description: string;
-  statValues: Record<string, number>;
-}
+import type { RaceFormData } from './useRaceManager';
 
 interface RaceFormDialogProps {
   isOpen: boolean;

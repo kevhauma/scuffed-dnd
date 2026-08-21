@@ -12,7 +12,7 @@
 
 import { useId } from 'react';
 import { type UseFormReturn, useFieldArray } from 'react-hook-form';
-import type { CurrencyTier, Stat, StatModifier } from '../../../types';
+import type { CurrencyTier, Stat } from '../../../types';
 import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
@@ -20,14 +20,7 @@ import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
-
-interface LevelFormData {
-  level: number;
-  name: string;
-  bonuses: StatModifier[];
-  tierId: string;
-  amount: number;
-}
+import type { LevelFormData } from './useMaterialManager';
 
 interface MaterialLevelFormDialogProps {
   isOpen: boolean;

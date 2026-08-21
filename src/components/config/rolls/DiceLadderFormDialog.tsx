@@ -16,14 +16,7 @@ import { Button } from '../../ui/Button/Button';
 import { Checkbox } from '../../ui/Checkbox/Checkbox';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
-
-interface LadderFormData {
-  name: string;
-  description: string;
-  dieSizes: string;
-  maxPerDie: string;
-  showZeroTerms: boolean;
-}
+import type { LadderFormData } from './useDiceLadderManager';
 
 export interface DiceLadderFormDialogProps {
   isOpen: boolean;

@@ -13,7 +13,7 @@
 
 import { useId } from 'react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
-import type { Configuration, DiceLadder, RollCategory } from '../../../types';
+import type { Configuration, DiceLadder } from '../../../types';
 import { ROLL_CATEGORIES } from '../../../types';
 import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
@@ -23,14 +23,7 @@ import { Label } from '../../ui/Label/Label';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
 import { FormulaPreview } from '../shared/FormulaPreview';
-
-interface RollFormData {
-  name: string;
-  description: string;
-  input: string;
-  ladderId: string;
-  category: RollCategory | '';
-}
+import type { RollFormData } from './useRollManager';
 
 export interface RollDefinitionFormDialogProps {
   isOpen: boolean;

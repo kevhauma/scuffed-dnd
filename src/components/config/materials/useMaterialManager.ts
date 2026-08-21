@@ -12,17 +12,17 @@ import { useConfigStore } from '../../../stores/configStore';
 import type { Material, MaterialCategory, MaterialLevel, StatModifier } from '../../../types';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
-interface CategoryFormData {
+export interface CategoryFormData {
   name: string;
   description: string;
 }
 
-interface MaterialFormData {
+export interface MaterialFormData {
   name: string;
   description: string;
 }
 
-interface LevelFormData {
+export interface LevelFormData {
   level: number;
   name: string;
   bonuses: StatModifier[];

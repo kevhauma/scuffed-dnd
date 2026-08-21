@@ -27,7 +27,7 @@ import { useGuardedDelete } from '../shared/useGuardedDelete';
 /** A constant's identifier as the formula parser reads it — `bonus_divider`, never `Bonus Divider` */
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/;
 
-interface ConstantFormData {
+export interface ConstantFormData {
   name: string;
   displayName: string;
   description: string;

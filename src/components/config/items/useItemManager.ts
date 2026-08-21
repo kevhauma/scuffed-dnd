@@ -11,20 +11,17 @@ import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../stores/configStore';
 import type { EquipmentSlot, Item } from '../../../types';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
+// The slot half of this hook duplicates `useEquipmentSlotManager` (CR-20); until that is resolved
+// the two at least share one form shape rather than three declarations of it
+import type { EquipmentSlotFormData } from './useEquipmentSlotManager';
 
-interface ItemFormData {
+export interface ItemFormData {
   name: string;
   description: string;
   categoryId: string;
   materialId: string;
   materialLevel: number;
   equipmentSlotType: string;
-}
-
-interface EquipmentSlotFormData {
-  type: string;
-  name: string;
-  description: string;
 }
 
 export function useItemManager() {
