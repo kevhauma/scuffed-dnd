@@ -1,5 +1,7 @@
+// The three constants below are local: `buttonStyles` is what a caller composes (CR-28), so
+// exporting the pieces as well would be a second way to say the same thing
 // Base styles - intrinsic only (no margin/positioning)
-export const baseStyles = [
+const baseStyles = [
   'inline-flex items-center justify-center',
   'font-heading font-semibold',
   'border-2',
@@ -10,7 +12,7 @@ export const baseStyles = [
 ].join(' ');
 
 // Variant styles
-export const variantStyles = {
+const variantStyles = {
   primary: [
     'bg-royal text-parchment-50',
     'border-royal',
@@ -41,7 +43,7 @@ export const variantStyles = {
 };
 
 // Size styles (padding and font size only)
-export const sizeStyles = {
+const sizeStyles = {
   sm: 'px-3 py-1.5 text-sm',
   md: 'px-4 py-2 text-base',
   lg: 'px-6 py-3 text-lg',

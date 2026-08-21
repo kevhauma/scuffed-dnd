@@ -1,13 +1,15 @@
 # Test Status
 
-_Last verified: 2026-08-21 (`npx vitest run`), after
-[TICKET-DX-04](docs/v2.0_sheet_core/tickets/TICKET-DX-04-golden-fixtures-from-the-sheet.md) —
-**the v2.0 milestone's closing checkpoint**._
+_Last verified: 2026-08-21 (`npx vitest run`), after the
+[v2.1 code review](docs/v2.1_code_review/overview.md)'s **low-priority findings** (CR-21, CR-26 to
+CR-43) — the previous checkpoint was
+[TICKET-DX-04](docs/v2.0_sheet_core/tickets/TICKET-DX-04-golden-fixtures-from-the-sheet.md), which
+closed the v2.0 milestone._
 
 ## Summary
 
-- **Total tests**: 1618
-- **Passing**: 1618 (100%)
+- **Total tests**: 1640
+- **Passing**: 1640 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
@@ -99,6 +101,14 @@ rewrote assertions across ~30 fixture files. FORM-05 also **rewrote** ~14 assert
 and FORM-06 replaced one sheet test that asserted the whole-sheet error page it removed — see
 those tickets' implementation notes.
 
+**The v2.1 review's low-priority findings added +22**, all in existing files except a new
+`Text.test.tsx` (4) — the primitive had none: +5 (CR-26 `namedConstant`), +1 (CR-30 clearing an
+optional field on skills, +1 more on items), +1 (CR-32 Select error, +1 Textarea error, +4 Text),
++2 (CR-33 prop-driven formula validation, one of them the case TICKET-DX-01 removed over the bug),
++1 (CR-34 static rows), +1 (CR-35 named row controls), +1 (CR-36 the arrow colour pinned to its
+token), +1 (CR-38 the duplicate-abbreviation message), +1 (CR-39 `clearAllData` touching only the
+app's keys), +1 (CR-41 fractional bounds) and +1 (CR-43 clearing a refused generator).
+
 **The suite is green. The bar is "the suite passes", not "no new failures beyond a documented
 list".** Any failing test is a regression.
 
@@ -185,7 +195,7 @@ workflow and are documented here so a future regression is distinguishable from 
 | File | Error |
 | --- | --- |
 | `src/components/ui/Button/Button.test.tsx:68` | TS2339 — `.disabled` read off `HTMLElement` |
-| `src/services/importExport.test.ts:788` | TS2352 — `Blob`-shaped literal cast to `File` |
+| `src/services/importExport.test.ts:870` | TS2352 — `Blob`-shaped literal cast to `File` |
 
 Both are test-typing noise. The two `evaluator.ts` errors that stood beside them for five tickets
 are **gone as of TICKET-FORM-07**: `operator` does not exist on type `never` was the switch

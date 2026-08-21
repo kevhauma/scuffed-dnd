@@ -31,8 +31,12 @@ const relative = (file: string) => file.slice(UI_ROOT.length + 1).replace(/\\/g,
 /**
  * Style constants naming a component's outermost element. `Dialog`'s inner panel and
  * `FormulaEditor`'s popover own their own placement, which the library explicitly allows.
+ *
+ * The `export` is optional in the pattern: `Button.style.ts` keeps its pieces local behind
+ * `buttonStyles` (CR-28), and a constant that stops being exported must not silently stop being
+ * checked.
  */
-const ROOT_STYLE_EXPORTS = /export const (baseStyles|containerStyles|checkboxStyles)\b/;
+const ROOT_STYLE_EXPORTS = /(?:export )?const (baseStyles|containerStyles|checkboxStyles)\b/;
 
 describe('base component library conventions', () => {
   it('should have a .style.ts beside every component', () => {
@@ -53,7 +57,7 @@ describe('base component library conventions', () => {
 
       // Only inspect the root-element constant, not the component's inner pieces
       const match = source.match(
-        /export const (?:baseStyles|containerStyles|checkboxStyles)[\s\S]*?(?:\.join\(' '\);|';)/
+        /(?:export )?const (?:baseStyles|containerStyles|checkboxStyles)[\s\S]*?(?:\.join\(' '\);|';)/
       );
       const rootStyles = match?.[0] ?? '';
 
