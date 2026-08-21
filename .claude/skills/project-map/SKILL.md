@@ -356,12 +356,11 @@ a list rather than a shell prop, because a section can have more than one list) 
 `NoConfigurationNotice`. Panel-specific content goes in `headerExtra` or `children`; **don't add a
 prop per panel.**
 
-`config/index.ts` re-exports all of it. `skills/shared/` holds what the three skill kinds share:
-`BaseSkillPanel.tsx` — now the *skills specialisation* of `ConfigPanelShell` (a `code`-keyed list
-in a three-column grid) rather than a second frame — plus `SkillFormFields.tsx` and
-`skillIdentity.ts` (`resolveSkillId` alone — TICKET-REF-01; `useSkillCodeRename` was deleted in
-TICKET-SKL-02 once both character investment maps became id-keyed, and `resolveSkillId` now serves
-the combat manager only — and that manager went with `CombatSkill` in TICKET-ROLL-06, so `resolveSkillId` now has no caller left in config).
+`config/index.ts` re-exports all of it. **`skills/shared/` is gone** (CR-37): there is one kind of
+skill left, so `BaseSkillPanel.tsx` — a one-caller render-prop wrapper over `ConfigPanelShell` —
+was inlined into `SkillsPanel.tsx`, and `SkillFormFields.tsx`, unreachable since TICKET-SKL-02
+retired the `code` field it still registered, was deleted with it. `skills/skill/` is the whole
+folder now.
 
 **`config/shared/` also holds `FormulaPreview`** (TICKET-FORM-08) — the one preview for any
 User-authored formula field: editable sample values plus a fixed 1–50 level ladder, taking the
