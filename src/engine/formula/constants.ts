@@ -56,3 +56,32 @@ export function constantsNamespace(constants: Constant[] = []): NamespaceResolve
     },
   };
 }
+
+/**
+ * Read one constant by name for the engine's own arithmetic, with a seeded fallback
+ *
+ * The system's own numbers — `race_blend_divisor`, `bonus_divider`, `points_per_level` — are read
+ * by name rather than through a User formula, so there is nothing for `references.ts` to re-spell
+ * and renaming one is a retuning rather than a breakage: the fallback takes over.
+ *
+ * Routed through `constantsNamespace` on purpose (CR-26): a duplicate name that arrives by import
+ * must mean the same constant here as it does in every formula, and a rule added to that
+ * resolution reaches every caller instead of the one that happened to use it.
+ *
+ * @param constants - The configuration's constants; absent is the same as none
+ * @param name - The constant's name, as a formula would spell it after `const.`
+ * @param fallback - The seeded value used when the constant is absent or unusable
+ * @param accepts - What counts as usable, beyond being a finite number (e.g. a divisor must be
+ *   positive, while zero points per level is a legitimate ruleset)
+ * @returns The ruleset's number, or the fallback
+ */
+export function namedConstant(
+  constants: Constant[] | undefined,
+  name: string,
+  fallback: number,
+  accepts: (value: number) => boolean
+): number {
+  const value = constantsNamespace(constants).resolve(name);
+
+  return typeof value === 'number' && Number.isFinite(value) && accepts(value) ? value : fallback;
+}

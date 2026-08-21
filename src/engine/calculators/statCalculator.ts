@@ -28,7 +28,7 @@
 import type { Character } from '../../types/character';
 import type { Archetype, Constant, Curve, Race, Stat, StatModifier } from '../../types/config';
 import type { FormulaContext, FormulaResult } from '../../types/formula';
-import { constantsNamespace } from '../formula/constants';
+import { namedConstant } from '../formula/constants';
 import { asNumber, isFormulaError, withSource } from '../formula/errors';
 import { evaluateFormulaString } from '../formula/evaluator';
 import { roundAwayFromZero } from '../formula/functions';
@@ -72,18 +72,19 @@ const DEFAULT_RACE_BLEND_DIVISOR = 2;
  * the engine stop finding it — the fallback is what keeps that a retuning rather than a breakage,
  * and the constants panel shows the name that matters.
  *
- * Resolved through `constantsNamespace` rather than a second `find`, so a duplicate name imported
+ * Resolved through `namedConstant` rather than a second `find`, so a duplicate name imported
  * into a ruleset means the same constant here as it does in every formula.
  *
  * A zero, negative or non-finite divisor would turn every base into `Infinity` or `NaN`, which is
  * a worse answer than the seed (TICKET-FORM-07's rule, applied outside the evaluator).
  */
 function raceBlendDivisor(constants: Constant[] = []): number {
-  const value = constantsNamespace(constants).resolve(RACE_BLEND_DIVISOR_NAME);
-
-  return typeof value === 'number' && Number.isFinite(value) && value > 0
-    ? value
-    : DEFAULT_RACE_BLEND_DIVISOR;
+  return namedConstant(
+    constants,
+    RACE_BLEND_DIVISOR_NAME,
+    DEFAULT_RACE_BLEND_DIVISOR,
+    (value) => value > 0
+  );
 }
 
 /**

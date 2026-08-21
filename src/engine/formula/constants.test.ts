@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Constant } from '../../types/config';
 import type { FormulaError } from '../../types/formula';
-import { constantsNamespace } from './constants';
+import { constantsNamespace, namedConstant } from './constants';
 import { describeFormulaError, isFormulaError } from './errors';
 import { evaluateFormulaString } from './evaluator';
 
@@ -79,5 +79,44 @@ describe('constantsNamespace', () => {
     ];
 
     expect(evaluate('const.bonus_divider', duplicated)).toBe(5);
+  });
+});
+
+describe('namedConstant', () => {
+  const positive = (value: number) => value > 0;
+
+  it('reads the ruleset value when it is usable', () => {
+    expect(namedConstant(constants, 'bonus_divider', 5, positive)).toBe(5);
+    expect(namedConstant(constants, 'apt_value', 1, positive)).toBe(30);
+  });
+
+  it('falls back when the constant is absent, so renaming retunes rather than breaks', () => {
+    expect(namedConstant(constants, 'race_blend_divisor', 2, positive)).toBe(2);
+    expect(namedConstant(undefined, 'bonus_divider', 5, positive)).toBe(5);
+    expect(namedConstant([], 'bonus_divider', 5, positive)).toBe(5);
+  });
+
+  it('falls back on a value the caller cannot use', () => {
+    const unusable = (value: number): Constant[] => [{ ...constants[0], value }];
+
+    expect(namedConstant(unusable(0), 'bonus_divider', 5, positive)).toBe(5);
+    expect(namedConstant(unusable(-3), 'bonus_divider', 5, positive)).toBe(5);
+    expect(namedConstant(unusable(Number.NaN), 'bonus_divider', 5, positive)).toBe(5);
+    expect(namedConstant(unusable(Number.POSITIVE_INFINITY), 'bonus_divider', 5, positive)).toBe(5);
+  });
+
+  it('lets the caller decide what usable means — zero points per level is a ruleset', () => {
+    const zeroed: Constant[] = [{ ...constants[0], value: 0 }];
+
+    expect(namedConstant(zeroed, 'bonus_divider', 3, (value) => value >= 0)).toBe(0);
+  });
+
+  it('resolves duplicates the way a formula does, not the way a bare find would', () => {
+    const duplicated: Constant[] = [
+      { ...constants[0], id: 'id-first', value: 7 },
+      { ...constants[0], id: 'id-second', value: 99 },
+    ];
+
+    expect(namedConstant(duplicated, 'bonus_divider', 5, positive)).toBe(7);
   });
 });

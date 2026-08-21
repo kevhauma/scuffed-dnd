@@ -129,7 +129,11 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 - `formula/constants.ts` — `constantsNamespace(constants)` → the `const.*` resolver
   (TICKET-CST-01). **The exemplar `NamespaceResolver` to copy**: resolution is by
   display name, the stored formula holds the id, and an unknown member or a property access comes
-  back as a distinct error value rather than a zero.
+  back as a distinct error value rather than a zero. Also `namedConstant(constants, name, fallback,
+  accepts)` (CR-26) — **the one way the engine reads its own numbers** (`race_blend_divisor`,
+  `bonus_divider`, `points_per_level`): it routes through the resolver above, so a duplicate name
+  means the same constant here as in a formula, and falls back to the seed when the value is
+  absent or unusable. Never a bare `constants.find(...)`.
 - `formula/stats.ts` — `statsNamespace(stats, values)` → the `stats.*` resolver (TICKET-STAT-01).
   Resolution is by the stat's **name slug**, not its abbreviation; a stat with no value *yet* comes
   back as a `not-evaluable` error rather than as absent, which is what lets the composition decide

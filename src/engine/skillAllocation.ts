@@ -40,6 +40,7 @@ import type { Configuration, StatAffinity } from '../types/config';
 import type { FormulaResult } from '../types/formula';
 import { affinityFor, archetypeOf, pointBuyCurve, statGain } from './calculators/pointBuy';
 import { calculateCharacterLevel } from './characterSummary';
+import { namedConstant } from './formula/constants';
 import { isFormulaError } from './formula/errors';
 
 /**
@@ -73,20 +74,19 @@ const DEFAULT_POINTS_PER_LEVEL = 3;
 /**
  * The ruleset's points-per-level, or Concept 05's seeded 3
  *
- * Read **by name**, like `const.bonus_divider` and `const.race_blend_divisor` and with the same
- * consequence: this is system arithmetic rather than a User formula, so there is nothing for
- * `references.ts` to re-spell and renaming the constant falls back to the seed rather than
- * following. Zero is a legitimate ruleset ("levels grant no points"), so only a negative or
- * non-finite value falls back.
+ * Read **by name** through `namedConstant`, like `const.bonus_divider` and
+ * `const.race_blend_divisor` and with the same consequence: this is system arithmetic rather than
+ * a User formula, so there is nothing for `references.ts` to re-spell and renaming the constant
+ * falls back to the seed rather than following. Zero is a legitimate ruleset ("levels grant no
+ * points"), so only a negative or non-finite value falls back.
  */
 function pointsPerLevel(config: Configuration): number {
-  const value = (config.constants ?? []).find(
-    (constant) => constant.name === POINTS_PER_LEVEL_NAME
-  )?.value;
-
-  return value !== undefined && Number.isFinite(value) && value >= 0
-    ? value
-    : DEFAULT_POINTS_PER_LEVEL;
+  return namedConstant(
+    config.constants,
+    POINTS_PER_LEVEL_NAME,
+    DEFAULT_POINTS_PER_LEVEL,
+    (value) => value >= 0
+  );
 }
 
 /**

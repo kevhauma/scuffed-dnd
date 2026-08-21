@@ -29,6 +29,7 @@
 import type { Character, SkillStatContribution } from '../../types/character';
 import type { Configuration, Skill } from '../../types/config';
 import type { FormulaResult } from '../../types/formula';
+import { namedConstant } from '../formula/constants';
 import { asNumber, formulaError, isFormulaError, withSource } from '../formula/errors';
 import { roundHalfAwayFromZero } from '../formula/functions';
 
@@ -52,17 +53,19 @@ export interface CalculatedSkills {
 /**
  * The ruleset's bonus divider, or Concept 05's seeded 5
  *
- * Read by name, like the race blend's divisor and with the same consequence: this is system
- * arithmetic rather than a User formula, so there is nothing for `references.ts` to re-spell and
- * renaming the constant falls back rather than following. A zero, negative or non-finite divider
- * would make every bonus `Infinity` or `NaN`, which is a worse answer than the seed.
+ * Read by name through `namedConstant`, like the race blend's divisor and with the same
+ * consequence: this is system arithmetic rather than a User formula, so there is nothing for
+ * `references.ts` to re-spell and renaming the constant falls back rather than following. A zero,
+ * negative or non-finite divider would make every bonus `Infinity` or `NaN`, which is a worse
+ * answer than the seed.
  */
 function bonusDivider(config: Configuration): number {
-  const value = (config.constants ?? []).find(
-    (constant) => constant.name === BONUS_DIVIDER_NAME
-  )?.value;
-
-  return value !== undefined && Number.isFinite(value) && value > 0 ? value : DEFAULT_BONUS_DIVIDER;
+  return namedConstant(
+    config.constants,
+    BONUS_DIVIDER_NAME,
+    DEFAULT_BONUS_DIVIDER,
+    (value) => value > 0
+  );
 }
 
 /**
