@@ -12,6 +12,7 @@ import {
   emptyStateStyles,
   entityInfoStyles,
   headerStyles,
+  issueItemInteractiveStyles,
   issueItemStyles,
   issueListStyles,
   messageStyles,
@@ -48,6 +49,12 @@ export function ValidationReport({ issues, onIssueClick, className = '' }: Valid
       onIssueClick(issue);
     }
   };
+
+  // The pointer, hover and focus ring go on under exactly the condition `interactionProps` uses
+  // (CR-34), so a row cannot look clickable while behaving — and announcing itself — as static
+  const rowStyles = onIssueClick
+    ? `${issueItemStyles} ${issueItemInteractiveStyles}`
+    : issueItemStyles;
 
   /**
    * Interaction props, attached only when the row is actually interactive
@@ -99,7 +106,7 @@ export function ValidationReport({ issues, onIssueClick, className = '' }: Valid
           {sectionIssues.map((issue) => (
             <div
               key={`${issue.category}-${issue.entityId ?? issue.entityName ?? ''}-${issue.message}`}
-              className={issueItemStyles}
+              className={rowStyles}
               {...interactionProps(issue)}
             >
               <span className={severityStyles[severity].icon}>

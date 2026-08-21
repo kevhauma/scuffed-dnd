@@ -104,6 +104,19 @@ describe('ValidationReport', () => {
     }
   });
 
+  it('advertises a click only when there is one to make (CR-34)', () => {
+    const row = () =>
+      screen.getByText('Undefined variable XYZ').parentElement?.parentElement as HTMLElement;
+
+    const { rerender } = render(<ValidationReport issues={[errorIssue]} />);
+    expect(row().className).not.toContain('cursor-pointer');
+    expect(row().getAttribute('role')).toBeNull();
+
+    rerender(<ValidationReport issues={[errorIssue]} onIssueClick={() => {}} />);
+    expect(row().className).toContain('cursor-pointer');
+    expect(row().getAttribute('role')).toBe('button');
+  });
+
   it('accepts className prop for positioning', () => {
     const { container } = render(<ValidationReport issues={[]} className="mb-4" />);
     const card = container.firstChild as HTMLElement;

@@ -15,7 +15,7 @@ export const summaryStyles = ['flex gap-4', 'text-sm'].join(' ');
 // Issue list styles
 export const issueListStyles = ['space-y-2'].join(' ');
 
-// Issue item styles
+// Issue item styles — what every row wears, clickable or not
 export const issueItemStyles = [
   'flex items-start gap-3',
   'p-3',
@@ -23,6 +23,16 @@ export const issueItemStyles = [
   'border border-stone-200',
   'rounded',
   'transition-colors duration-150',
+].join(' ');
+
+/**
+ * What a row wears *in addition* when it can actually be activated (CR-34)
+ *
+ * Separate because the pointer, hover and focus ring were baked into every row, so a static row
+ * advertised a click that does nothing — the visuals disagreeing with the `role`/`tabIndex` the
+ * component already withholds.
+ */
+export const issueItemInteractiveStyles = [
   'hover:bg-parchment-200',
   'cursor-pointer',
   'focus:outline-none focus:ring-2 focus:ring-amber focus:ring-offset-2',
