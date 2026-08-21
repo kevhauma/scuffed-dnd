@@ -679,7 +679,9 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const updated = autoSave(
       applyRenameSafely(config, (current) => ({
         ...current,
-        skills: current.skills.map((skill) => (skill.id === id ? { ...skill, ...updates } : skill)),
+        skills: current.skills.map((skill) =>
+          skill.id === id ? mergeClearingAbsent(skill, updates) : skill
+        ),
       }))
     );
     set({ config: updated });
@@ -771,7 +773,9 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 
     const updated = autoSave({
       ...config,
-      items: config.items.map((item) => (item.id === id ? { ...item, ...updates } : item)),
+      items: config.items.map((item) =>
+        item.id === id ? mergeClearingAbsent(item, updates) : item
+      ),
     });
     set({ config: updated });
   },
@@ -801,7 +805,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const updated = autoSave({
       ...config,
       equipmentSlots: config.equipmentSlots.map((slot) =>
-        slot.type === type ? { ...slot, ...updates } : slot
+        slot.type === type ? mergeClearingAbsent(slot, updates) : slot
       ),
     });
     set({ config: updated });

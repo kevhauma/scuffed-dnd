@@ -48,7 +48,7 @@ size limit — several findings here will split into more than one ticket) and b
 - [x] [CR-27 Level line duplicated in SheetHeader/CharacterCard](findings/CR-27-level-line-duplicated.md) *(play)*
 - [x] [CR-28 Landing link hand-copies Button styles](findings/CR-28-landing-link-copies-button-styles.md) — Button can't render as a Link. *(routes/ui)*
 - [x] [CR-29 FormData interfaces declared twice in eight features](findings/CR-29-formdata-interfaces-declared-twice.md) *(config)*
-- [ ] [CR-30 Three update actions skip `mergeClearingAbsent`](findings/CR-30-update-actions-skip-mergeclearingabsent.md) *(stores)*
+- [x] [CR-30 Three update actions skip `mergeClearingAbsent`](findings/CR-30-update-actions-skip-mergeclearingabsent.md) *(stores)*
 - [ ] [CR-31 `FormField` error prop invites `[object Object]`](findings/CR-31-formfield-error-type-too-wide.md) *(ui)*
 - [ ] [CR-32 ui primitive prop-API gaps](findings/CR-32-ui-primitive-prop-api-gaps.md) — no error state on Select/Textarea; `Text` swallows rest props. *(ui)*
 - [ ] [CR-33 `FormulaEditor` stale validation](findings/CR-33-formulaeditor-stale-validation.md) — validates only on typing, never on props. *(ui)*

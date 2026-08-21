@@ -350,6 +350,14 @@ describe('ConfigStore', () => {
       expect(config?.skills[0].statWeights).toEqual(melee.statWeights);
     });
 
+    it('should remove the category rather than store an undefined one (CR-30)', () => {
+      useConfigStore.getState().addSkill({ ...melee, category: 'Combat' });
+
+      useConfigStore.getState().updateSkill('MEL', { category: undefined });
+
+      expect(useConfigStore.getState().config?.skills[0]).not.toHaveProperty('category');
+    });
+
     it('should delete a skill', () => {
       useConfigStore.getState().addSkill(melee);
       vi.clearAllMocks();
@@ -520,6 +528,25 @@ describe('ConfigStore', () => {
       const { config } = useConfigStore.getState();
       expect(config?.items[0].name).toBe('Longsword');
       expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+
+    it('should unequip an item rather than store an undefined slot type (CR-30)', () => {
+      useConfigStore.getState().addItem({
+        id: 'sword',
+        name: 'Sword',
+        description: 'A sharp blade',
+        equipmentSlotType: 'main_hand',
+        materialId: 'iron',
+      });
+
+      useConfigStore.getState().updateItem('sword', {
+        equipmentSlotType: undefined,
+        materialId: undefined,
+      });
+
+      const item = useConfigStore.getState().config?.items[0];
+      expect(item).not.toHaveProperty('equipmentSlotType');
+      expect(item).not.toHaveProperty('materialId');
     });
 
     it('should delete item', () => {
