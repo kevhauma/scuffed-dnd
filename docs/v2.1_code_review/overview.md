@@ -58,7 +58,7 @@ size limit — several findings here will split into more than one ticket) and b
 - [x] [CR-37 Dead `SkillFormFields`; one-caller `BaseSkillPanel`](findings/CR-37-dead-skillformfields-and-baseskillpanel.md) *(config)*
 - [x] [CR-38 Stale combat-skill copy](findings/CR-38-stale-combat-skill-copy.md) — landing page, dashboard card, validator message, doc comments. *(various)*
 - [x] [CR-39 Unused exports and a storage key nothing writes](findings/CR-39-unused-exports-and-storage-key.md) *(engine/stores/services)*
-- [ ] [CR-40 Dependency placement](findings/CR-40-dependency-placement.md) — one unused, one misfiled. *(package.json)*
+- [x] [CR-40 Dependency placement](findings/CR-40-dependency-placement.md) — one unused, one misfiled. *(package.json)*
 - [ ] [CR-41 Clamp-then-round can exceed fractional bounds](findings/CR-41-clamp-then-round-exceeds-bounds.md) *(engine)*
 - [ ] [CR-42 Naming drift: id vs retired code](findings/CR-42-naming-drift-id-vs-code.md) *(config/play)*
 - [ ] [CR-43 Minor consistency sweep](findings/CR-43-minor-consistency-sweep.md) — five grouped one-liners. *(various)*
