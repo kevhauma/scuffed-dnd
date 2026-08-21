@@ -24,7 +24,7 @@ export function SkillsPanel() {
     weightableStats,
     isDialogOpen,
     setIsDialogOpen,
-    editingSkill,
+    editingSkillId,
     blocked,
     dismissBlocked,
     form,
@@ -68,7 +68,7 @@ export function SkillsPanel() {
 
       <SkillFormDialog
         isOpen={isDialogOpen}
-        isEditing={!!editingSkill}
+        isEditing={!!editingSkillId}
         form={form}
         weightableStats={weightableStats}
         onClose={() => setIsDialogOpen(false)}

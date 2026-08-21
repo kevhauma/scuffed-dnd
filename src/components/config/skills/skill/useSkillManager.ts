@@ -35,7 +35,8 @@ export function useSkillManager() {
   const deleteSkill = useConfigStore((state) => state.deleteSkill);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingSkill, setEditingSkill] = useState<string | null>(null);
+  // `…Id`, like every sibling manager (CR-42): it holds the id being edited, not the skill
+  const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
   const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
   const form = useForm<SkillFormData>({ defaultValues: EMPTY_FORM });
@@ -46,7 +47,7 @@ export function useSkillManager() {
   const weightableStats = [...(config?.stats ?? [])].sort((a, b) => a.order - b.order);
 
   const handleAdd = () => {
-    setEditingSkill(null);
+    setEditingSkillId(null);
     form.reset(EMPTY_FORM);
     setIsDialogOpen(true);
   };
@@ -55,7 +56,7 @@ export function useSkillManager() {
     const skill = currentSkills.find((candidate) => candidate.id === id);
     if (!skill) return;
 
-    setEditingSkill(id);
+    setEditingSkillId(id);
     form.reset({
       name: skill.name,
       description: skill.description,
@@ -73,7 +74,7 @@ export function useSkillManager() {
     if (!config) return;
 
     const skill: Skill = {
-      id: editingSkill ?? crypto.randomUUID(),
+      id: editingSkillId ?? crypto.randomUUID(),
       name: data.name,
       description: data.description,
       // A weight row pointing at nothing is dropped rather than stored: the picker only offers
@@ -87,8 +88,8 @@ export function useSkillManager() {
         .map((row) => ({ ...row, weight: Number.isFinite(row.weight) ? row.weight : 0 })),
     };
 
-    if (editingSkill) {
-      updateSkill(editingSkill, skill);
+    if (editingSkillId) {
+      updateSkill(editingSkillId, skill);
     } else {
       addSkill(skill);
     }
@@ -102,7 +103,7 @@ export function useSkillManager() {
     weightableStats,
     isDialogOpen,
     setIsDialogOpen,
-    editingSkill,
+    editingSkillId,
     blocked,
     dismissBlocked,
     form,

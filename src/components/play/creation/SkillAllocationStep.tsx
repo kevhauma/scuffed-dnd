@@ -39,7 +39,9 @@ export interface SkillAllocationStepProps {
   /** What each stat's points bought, keyed by stat id — the engine's, never re-derived here */
   gains: Record<string, DerivedValue>;
   onChangeInvestedStatPoints: (statId: string, points: number) => void;
-  onChangeInvestedSkillPoints: (code: string, level: number) => void;
+  /** Keyed by skill **id** — the parameter was called `code` until CR-42; skills lost theirs in
+   * TICKET-SKL-02 */
+  onChangeInvestedSkillPoints: (skillId: string, level: number) => void;
 }
 
 /** Parse a number input, treating a cleared field as zero rather than NaN */
