@@ -6,10 +6,10 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { toStoredConfiguration } from '../engine/formula/references';
-// Two functions named `validateConfiguration`: this one checks *imported JSON shape*, the engine's
-// checks a loaded ruleset's referential integrity. The alias keeps both usable in one file.
-import { validateConfiguration as validateEngineConfiguration } from '../engine/validator';
-import { importConfiguration, validateConfiguration } from '../services/importExport';
+// Two complementary validators, both used here: the engine's checks a loaded ruleset's referential
+// integrity, the service's checks *imported JSON shape* (CR-21 gave them names that say which).
+import { validateConfiguration } from '../engine/validator';
+import { importConfiguration, validateConfigurationShape } from '../services/importExport';
 import * as storage from '../services/storage';
 import type {
   Archetype,
@@ -1415,7 +1415,7 @@ describe('ConfigStore', () => {
       // will actually cross — a shared ruleset file (TICKET-CRV-03)
       const exported = JSON.stringify(toStoredConfiguration(config), null, 2);
 
-      expect(validateConfiguration(config).isValid).toBe(true);
+      expect(validateConfigurationShape(config).isValid).toBe(true);
       expect(importConfiguration(exported)).toEqual(config);
     });
 
@@ -1581,7 +1581,7 @@ describe('ConfigStore', () => {
       const ladders = config.diceLadders as unknown as Array<Record<string, unknown>>;
       ladders[0].remainder = 'smallest_die';
 
-      const result = validateConfiguration(config);
+      const result = validateConfigurationShape(config);
 
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain("diceLadders[0].remainder must be 'flat'");
@@ -1626,7 +1626,7 @@ describe('ConfigStore', () => {
       // name members that do not exist and a brand-new configuration would open reporting errors
       expect(rollsNow().map((roll) => roll.input)).toEqual(['0', '0', '0', '0']);
       expect(
-        validateEngineConfiguration(useConfigStore.getState().config as Configuration).errors
+        validateConfiguration(useConfigStore.getState().config as Configuration).errors
       ).toEqual([]);
     });
 

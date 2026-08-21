@@ -435,6 +435,11 @@ function rollDefinitionShapeErrors(roll: Record<string, unknown>, index: number)
  *
  * Checks that the imported data has all required fields and correct types.
  *
+ * The `Shape` suffix is load-bearing (CR-21): `engine/validator.ts` exports a `validateConfiguration`
+ * that answers the *other* half of the question — whether the references resolve, the formulas
+ * evaluate and the tables read. This one only asks whether the untrusted JSON has the right fields
+ * of the right types; the two are complementary and both run on an import.
+ *
  * The **version** is not checked here — `importConfiguration` gates on it first (TICKET-IO-03), so
  * by the time this runs the file has already claimed to be the current shape and every error it
  * reports is a real structural one.
@@ -446,7 +451,7 @@ function rollDefinitionShapeErrors(roll: Record<string, unknown>, index: number)
  * @param data Unknown data to validate
  * @returns Validation result with errors if any
  */
-export function validateConfiguration(data: unknown): ValidationResult {
+export function validateConfigurationShape(data: unknown): ValidationResult {
   const errors: string[] = [];
 
   if (!data || typeof data !== 'object') {
@@ -802,7 +807,7 @@ export function importConfiguration(json: string): Configuration {
       );
     }
 
-    const validation = validateConfiguration(data);
+    const validation = validateConfigurationShape(data);
 
     if (!validation.isValid) {
       throw new ValidationError('Configuration validation failed', validation.errors);

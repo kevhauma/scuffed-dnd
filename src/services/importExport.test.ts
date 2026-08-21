@@ -17,7 +17,7 @@ import {
   importConfigurationFromFile,
   SchemaVersionError,
   ValidationError,
-  validateConfiguration,
+  validateConfigurationShape,
 } from './importExport';
 
 /** The JSON an export writes, without going through FileReader */
@@ -271,16 +271,16 @@ describe('Import/Export Service', () => {
     });
   });
 
-  describe('validateConfiguration', () => {
+  describe('validateConfigurationShape', () => {
     it('should validate correct configuration', () => {
-      const result = validateConfiguration(validConfig);
+      const result = validateConfigurationShape(validConfig);
 
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
     describe('race stat blocks (TICKET-RACE-01)', () => {
-      const withRaces = (races: unknown) => validateConfiguration({ ...validConfig, races });
+      const withRaces = (races: unknown) => validateConfigurationShape({ ...validConfig, races });
 
       it('should accept a block keyed by stat id, and an empty one', () => {
         const result = withRaces([
@@ -316,14 +316,14 @@ describe('Import/Export Service', () => {
     });
 
     it('should reject non-object data', () => {
-      const result = validateConfiguration('not an object');
+      const result = validateConfigurationShape('not an object');
 
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain('Configuration must be an object');
     });
 
     it('should reject null data', () => {
-      const result = validateConfiguration(null);
+      const result = validateConfigurationShape(null);
 
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain('Configuration must be an object');
@@ -331,7 +331,7 @@ describe('Import/Export Service', () => {
 
     it('should validate required string fields', () => {
       const invalid = { ...validConfig, name: 123 };
-      const result = validateConfiguration(invalid);
+      const result = validateConfigurationShape(invalid);
 
       expect(result.isValid).toBe(false);
       expect(result.errors.some((e) => e.includes('name'))).toBe(true);
@@ -339,7 +339,7 @@ describe('Import/Export Service', () => {
 
     it('should validate required array fields', () => {
       const invalid = { ...validConfig, stats: 'not an array' };
-      const result = validateConfiguration(invalid);
+      const result = validateConfigurationShape(invalid);
 
       expect(result.isValid).toBe(false);
       expect(result.errors.some((e) => e.includes('stats'))).toBe(true);
@@ -352,7 +352,7 @@ describe('Import/Export Service', () => {
         ...validConfig,
         stats: [{ id: 'test', name: 'Test' }],
       };
-      const result = validateConfiguration(invalid);
+      const result = validateConfigurationShape(invalid);
 
       expect(result.isValid).toBe(false);
       expect(result.errors.some((e) => e.includes('abbreviation'))).toBe(true);
@@ -360,7 +360,7 @@ describe('Import/Export Service', () => {
     });
 
     it('should accept a stat with no formula — that is what makes it invested', () => {
-      const result = validateConfiguration(validConfig);
+      const result = validateConfigurationShape(validConfig);
 
       expect(result.isValid).toBe(true);
     });
@@ -372,7 +372,7 @@ describe('Import/Export Service', () => {
         ...validConfig,
         skills: [{ code: 'AB', name: 'Invalid', bonusFormula: 'STR' }],
       };
-      const result = validateConfiguration(invalid);
+      const result = validateConfigurationShape(invalid);
 
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain('skills[0].statWeights must be an array');
@@ -390,7 +390,7 @@ describe('Import/Export Service', () => {
           },
         ],
       };
-      const result = validateConfiguration(invalid);
+      const result = validateConfigurationShape(invalid);
 
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain('skills[0].statWeights[0].statId must be a stat id');
@@ -400,7 +400,7 @@ describe('Import/Export Service', () => {
     it('should refuse a file still carrying combatSkills (TICKET-ROLL-06)', () => {
       // Retired, so **refused rather than ignored** — a file authored against the old shape plays
       // differently from the one this build would import, and the message names the replacement
-      const result = validateConfiguration({ ...validConfig, combatSkills: [] });
+      const result = validateConfigurationShape({ ...validConfig, combatSkills: [] });
 
       expect(result.isValid).toBe(false);
       expect(result.errors.join(' ')).toContain('rollDefinitions');
@@ -413,7 +413,7 @@ describe('Import/Export Service', () => {
         stats: 'not an array',
         mainSkills: 'not an array',
       };
-      const result = validateConfiguration(invalid);
+      const result = validateConfigurationShape(invalid);
 
       expect(result.isValid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(1);
@@ -673,7 +673,7 @@ describe('Import/Export Service', () => {
       delete noRolls.rollDefinitions;
       delete noRolls.diceLadders;
 
-      expect(validateConfiguration(noRolls).isValid).toBe(true);
+      expect(validateConfigurationShape(noRolls).isValid).toBe(true);
       expect('rollDefinitions' in noRolls).toBe(false);
     });
 
@@ -695,14 +695,14 @@ describe('Import/Export Service', () => {
     });
 
     it('should reject rollDefinitions that is not an array', () => {
-      const result = validateConfiguration({ ...validConfig, rollDefinitions: 'four' });
+      const result = validateConfigurationShape({ ...validConfig, rollDefinitions: 'four' });
 
       expect(result.isValid).toBe(false);
       expect(result.errors.join(' ')).toContain('rollDefinitions');
     });
 
     it('should reject a roll with no ladder to decompose down', () => {
-      const result = validateConfiguration({
+      const result = validateConfigurationShape({
         ...validConfig,
         rollDefinitions: [{ ...melee, ladderId: undefined }],
       });
@@ -711,7 +711,7 @@ describe('Import/Export Service', () => {
     });
 
     it('should reject a roll whose input is not a formula string', () => {
-      const result = validateConfiguration({
+      const result = validateConfigurationShape({
         ...validConfig,
         rollDefinitions: [{ ...melee, input: 12 }],
       });
@@ -720,7 +720,7 @@ describe('Import/Export Service', () => {
     });
 
     it('should reject a category this build does not have', () => {
-      const result = validateConfiguration({
+      const result = validateConfigurationShape({
         ...validConfig,
         rollDefinitions: [{ ...melee, category: 'sneaky' }],
       });
@@ -738,7 +738,7 @@ describe('Import/Export Service', () => {
     };
 
     it('should accept a file with no archetypes key — absent means none', () => {
-      expect(validateConfiguration(validConfig).isValid).toBe(true);
+      expect(validateConfigurationShape(validConfig).isValid).toBe(true);
       expect('archetypes' in validConfig).toBe(false);
     });
 
@@ -751,14 +751,14 @@ describe('Import/Export Service', () => {
     });
 
     it('should reject archetypes that is not an array', () => {
-      const result = validateConfiguration({ ...validConfig, archetypes: 'lots' });
+      const result = validateConfigurationShape({ ...validConfig, archetypes: 'lots' });
 
       expect(result.isValid).toBe(false);
       expect(result.errors.join(' ')).toContain('archetypes');
     });
 
     it('should reject an archetype missing its identity fields', () => {
-      const result = validateConfiguration({
+      const result = validateConfigurationShape({
         ...validConfig,
         archetypes: [{ statAffinity: {} }],
       });
@@ -768,7 +768,7 @@ describe('Import/Export Service', () => {
     });
 
     it('should reject a statAffinity that is not an object keyed by stat id', () => {
-      const result = validateConfiguration({
+      const result = validateConfigurationShape({
         ...validConfig,
         archetypes: [{ ...strong, statAffinity: ['main'] }],
       });
@@ -777,7 +777,7 @@ describe('Import/Export Service', () => {
     });
 
     it('should reject an affinity outside the three Concept 03 values', () => {
-      const result = validateConfiguration({
+      const result = validateConfigurationShape({
         ...validConfig,
         archetypes: [{ ...strong, statAffinity: { 'str-id': 'favourite' } }],
       });
@@ -791,7 +791,7 @@ describe('Import/Export Service', () => {
     it('should reject a file still carrying mainSkillPointBudget rather than ignoring it', () => {
       const withRetiredField = { ...validConfig, mainSkillPointBudget: 25 };
 
-      const result = validateConfiguration(withRetiredField);
+      const result = validateConfigurationShape(withRetiredField);
 
       expect(result.isValid).toBe(false);
       expect(result.errors.join(' ')).toContain('mainSkillPointBudget');
@@ -801,7 +801,7 @@ describe('Import/Export Service', () => {
     it('should name what replaced the field, not just refuse it', () => {
       const withRetiredField = { ...validConfig, mainSkillPointBudget: 25 };
 
-      expect(validateConfiguration(withRetiredField).errors.join(' ')).toContain(
+      expect(validateConfigurationShape(withRetiredField).errors.join(' ')).toContain(
         'points_per_level'
       );
     });
@@ -809,13 +809,13 @@ describe('Import/Export Service', () => {
     it('should reject a retired field whatever its value, including zero', () => {
       // The old shape allowed 0 ("no points"), so a file holding it is exactly as stale as one
       // holding 25 — a falsy value must not slip through the presence check
-      expect(validateConfiguration({ ...validConfig, mainSkillPointBudget: 0 }).isValid).toBe(
+      expect(validateConfigurationShape({ ...validConfig, mainSkillPointBudget: 0 }).isValid).toBe(
         false
       );
     });
 
     it('should accept a file on the current shape, which carries no such field', () => {
-      expect(validateConfiguration(validConfig).isValid).toBe(true);
+      expect(validateConfigurationShape(validConfig).isValid).toBe(true);
       expect('mainSkillPointBudget' in validConfig).toBe(false);
     });
   });
@@ -921,7 +921,7 @@ describe('Import/Export Service', () => {
     it('accepts a file that predates the entity, leaving it absent', () => {
       const { constants: _dropped, ...legacy } = withConstants();
 
-      expect(validateConfiguration(legacy).isValid).toBe(true);
+      expect(validateConfigurationShape(legacy).isValid).toBe(true);
     });
 
     it('rejects a constant with no description, a bad identifier, or a non-numeric value', () => {
@@ -934,7 +934,7 @@ describe('Import/Export Service', () => {
         ],
       };
 
-      const result = validateConfiguration(broken);
+      const result = validateConfigurationShape(broken);
 
       expect(result.isValid).toBe(false);
       expect(result.errors).toEqual([
@@ -996,7 +996,7 @@ describe('Import/Export Service', () => {
     it('accepts a file that predates the entity, leaving it absent', () => {
       const { curves: _dropped, ...legacy } = withCurves();
 
-      expect(validateConfiguration(legacy).isValid).toBe(true);
+      expect(validateConfigurationShape(legacy).isValid).toBe(true);
     });
 
     it('rejects a curve with a bad identifier, an unknown mode, or a mis-sized row', () => {
@@ -1011,7 +1011,7 @@ describe('Import/Export Service', () => {
         ],
       };
 
-      const result = validateConfiguration(broken);
+      const result = validateConfigurationShape(broken);
 
       expect(result.isValid).toBe(false);
       expect(result.errors).toEqual([
@@ -1027,7 +1027,7 @@ describe('Import/Export Service', () => {
       const [sound] = withCurves().curves ?? [];
       const { keyName: _dropped, ...noKeyName } = sound;
 
-      const result = validateConfiguration({
+      const result = validateConfigurationShape({
         ...withCurves(),
         curves: [
           noKeyName,
@@ -1057,13 +1057,13 @@ describe('Import/Export Service', () => {
         ],
       };
 
-      expect(validateConfiguration(config).isValid).toBe(true);
+      expect(validateConfigurationShape(config).isValid).toBe(true);
       expect(importConfiguration(exportedText(config))).toEqual(config);
     });
 
     it('rejects a non-string generator or a non-boolean override flag', () => {
       const [sound] = withCurves().curves ?? [];
-      const result = validateConfiguration({
+      const result = validateConfigurationShape({
         ...withCurves(),
         curves: [
           { ...sound, columns: [{ ...sound.columns[0], generator: 42 }] },
@@ -1084,7 +1084,7 @@ describe('Import/Export Service', () => {
 
     it('rejects an override flag for a column that does not exist', () => {
       const [sound] = withCurves().curves ?? [];
-      const result = validateConfiguration({
+      const result = validateConfigurationShape({
         ...withCurves(),
         // One column, two flags — the extra one would be silently dropped
         curves: [{ ...sound, rows: [{ key: 1, values: [0], overridden: [true, true] }] }],
@@ -1123,7 +1123,7 @@ describe('Import/Export Service', () => {
 
     it('rejects two curves claiming the same name', () => {
       const [sound] = withCurves().curves ?? [];
-      const result = validateConfiguration({
+      const result = validateConfigurationShape({
         ...withCurves(),
         curves: [sound, { ...sound, id: 'other' }],
       });

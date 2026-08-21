@@ -298,10 +298,10 @@ id-resolved references, what they hand back holds the ruleset's current spelling
   See the **data-model** skill.
 - `importExport.ts` — `exportConfiguration` (Blob), `downloadConfiguration`,
   `downloadStoredBackup` (the raw-bytes backup behind `IncompatibleDataNotice`),
-  `validateConfiguration` (shape check on untrusted JSON, returns `ValidationResult`),
+  `validateConfigurationShape` (shape check on untrusted JSON, returns `ValidationResult`),
   `importConfiguration`, plus the `ValidationError` / `SchemaVersionError` classes.
-  Note the name collision: this `validateConfiguration` checks *imported JSON shape*;
-  `engine/validator.ts`'s checks *referential integrity of a loaded config*.
+  The `Shape` suffix (CR-21) separates it from `engine/validator.ts`'s `validateConfiguration`,
+  which checks *referential integrity of a loaded config*. Complementary, both run on an import.
 
 ## Scripts (`scripts/`)
 

@@ -6,7 +6,7 @@
  * without `tsc --noEmit` falling back to `any`.
  *
  * `Configuration` is deliberately not imported here: the script's job is to produce untrusted JSON
- * that `validateConfiguration` then checks. Typing its output as an already-valid `Configuration`
+ * that `validateConfigurationShape` then checks. Typing its output as an already-valid `Configuration`
  * would assume the very thing the test proves.
  */
 

@@ -310,10 +310,10 @@ carrying a user story, the as-is / to-be, and acceptance criteria.
   to defer those checks) — see "What is not done" in
   [overview.md](docs/v1.0_foundation/overview.md). Don't mistake the ticked lines for "verified
   in a browser".
-- **Name collision to be aware of**: there are two functions called `validateConfiguration` —
-  `services/importExport.ts`'s checks the *structure* of untrusted imported JSON;
-  `engine/validator.ts`'s checks the *referential integrity* of a loaded config. They are not
-  interchangeable.
+- **Two validators, not one**: `services/importExport.ts`'s `validateConfigurationShape` checks
+  the *structure* of untrusted imported JSON; `engine/validator.ts`'s `validateConfiguration`
+  checks the *referential integrity* of a loaded config. They are complementary, not
+  interchangeable — they shared a name until CR-21 renamed the service one.
 
 ---
 

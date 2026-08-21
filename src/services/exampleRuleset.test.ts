@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { validateConfiguration as validateRuleset } from '../engine/validator';
 import { SUPPORTED_SCHEMA_VERSION } from '../types/config';
-import { importConfiguration, validateConfiguration } from './importExport';
+import { importConfiguration, validateConfigurationShape } from './importExport';
 
 const EXAMPLE_FILE = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -37,7 +37,10 @@ const contents = readFileSync(EXAMPLE_FILE, 'utf-8');
 
 describe('the shipped example ruleset', () => {
   it('passes the importer the app itself uses', () => {
-    expect(validateConfiguration(JSON.parse(contents))).toEqual({ isValid: true, errors: [] });
+    expect(validateConfigurationShape(JSON.parse(contents))).toEqual({
+      isValid: true,
+      errors: [],
+    });
   });
 
   it('imports at the current schema version', () => {

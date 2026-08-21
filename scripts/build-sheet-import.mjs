@@ -11,7 +11,7 @@
  * the export date, so regenerating an unchanged tree produces a byte-identical file.
  *
  * `src/services/sheetImport.test.ts` is the guard — it re-runs this merge in memory, fails if the
- * committed output has drifted, and puts the result through the real `validateConfiguration`.
+ * committed output has drifted, and puts the result through the real `validateConfigurationShape`.
  */
 
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';

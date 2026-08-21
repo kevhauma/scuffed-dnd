@@ -5,7 +5,7 @@
  * source spreadsheet, and `docs/imports/ducklets.json` is the merge of all of them. This suite is
  * what makes those files trustworthy: the envelope is present on every fragment, the committed
  * merge matches what the fragments currently say, and the result passes the same
- * `validateConfiguration` the app's Import button runs.
+ * `validateConfigurationShape` the app's Import button runs.
  *
  * A failure here means one of three things, in rough order of likelihood: a fragment changed and
  * `yarn run sheet:import` was not re-run; a fragment was hand-edited into a shape the importer
@@ -30,7 +30,7 @@ import { decomposeValue } from '../engine/dice/diceLadder';
 import { statMemberName } from '../engine/formula/references';
 import { validateFormula } from '../engine/formula/validator';
 import { SUPPORTED_SCHEMA_VERSION } from '../types/config';
-import { importConfiguration, validateConfiguration } from './importExport';
+import { importConfiguration, validateConfigurationShape } from './importExport';
 
 const fragments = readFragments();
 
@@ -81,7 +81,10 @@ describe('the merged ruleset', () => {
   });
 
   it('passes the importer the app itself uses', () => {
-    expect(validateConfiguration(JSON.parse(committed))).toEqual({ isValid: true, errors: [] });
+    expect(validateConfigurationShape(JSON.parse(committed))).toEqual({
+      isValid: true,
+      errors: [],
+    });
   });
 
   it('imports at the current schema version, with the sheet in it', () => {

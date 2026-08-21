@@ -47,7 +47,7 @@ without growing an empty array; every reader writes `config.constants ?? []`.
 
 **A field that is retired is refused, not ignored** (TICKET-RES-02). `RETIRED_FIELDS` in
 [importExport.ts](../../../src/services/importExport.ts) maps each removed key to what replaced it,
-and `validateConfiguration()` errors when an imported file still carries one — importing a ruleset
+and `validateConfigurationShape()` errors when an imported file still carries one — importing a ruleset
 that plays differently from the one the User exported is worse than refusing it. Add to that map
 when you delete a persisted field, and bump `SUPPORTED_SCHEMA_VERSION` in the same change.
 
@@ -172,7 +172,7 @@ The refusal has three surfaces, and they behave differently on purpose:
 | **Load** (`loadConfiguration()`) | throws `StorageSchemaError`; **nothing is loaded and nothing is deleted**. `useAppHydration` turns it into `incompatibleData`, and `RootLayout` renders `IncompatibleDataNotice` *instead of* the routes — so no route can mint a fresh ruleset and save it over the old data. |
 | **Backup** | `downloadStoredBackup()` in `importExport.ts` reads `readStoredSnapshot()` and splices both raw strings into one envelope by concatenation, so the file's bytes are the stored bytes; a blob that does not parse is embedded as a JSON string instead. |
 | **Start fresh** | `useConfigStore.discardStoredData()` — the **only** path that calls `clearAllData()`. It clears both keys, empties both stores, and writes no replacement. |
-| **Import** (`importConfiguration()`) | throws `SchemaVersionError` *before* `validateConfiguration()` runs, so a v1 file gets one version sentence rather than a field-by-field report. |
+| **Import** (`importConfiguration()`) | throws `SchemaVersionError` *before* `validateConfigurationShape()` runs, so a v1 file gets one version sentence rather than a field-by-field report. |
 
 `loadCharacters()` separately drops any character with no `investedStatPoints`. **Known gap**: that
 filter is silent when `loadConfiguration()` did not throw — a v1 characters key beside an absent or
@@ -195,7 +195,7 @@ Identity rules that the rest of the app depends on:
 - **A stat's `abbreviation` is an uppercase identifier and unique across the one flat formula
   space** (TICKET-STAT-01), which holds **stat abbreviations and nothing else**: the speciality
   half left with the code in TICKET-SKL-02, the combat codes with the entity in ROLL-06. Enforced in both places the rule needs:
-  `validateConfiguration()` for import, `useStatManager`'s save path for User input. Renaming one
+  `validateConfigurationShape()` for import, `useStatManager`'s save path for User input. Renaming one
   is safe — the stored formula holds the stat's id — and there is **no character half left to
   carry**: `investedStatPoints` and `investedSkillPoints` are both keyed by id, which is why
   `renameSkillCode` and `useSkillCodeRename` were deleted. **Nothing escapes it any more**: the last
@@ -204,14 +204,14 @@ Identity rules that the rest of the app depends on:
 - **A constant's `name` is a lowercase identifier (`^[a-z][a-z0-9_]*$`) and unique.** It is what a
   formula spells as `const.<name>`, and a duplicate splits identity from value — the stored formula
   points at one constant's id while `constantsNamespace` reads the other's number. Enforced in two
-  places, both required: `validateConfiguration()` for untrusted import, and `useConstantManager`'s
+  places, both required: `validateConfigurationShape()` for untrusted import, and `useConstantManager`'s
   save path for User input (TICKET-CST-02).
 - **A curve's `name` follows the same identifier rule as a constant's**, and so does each of its
   **column names**, which are formula segments (`curve.point_buy.main_type(3)`). Its `rows` must
   carry unique keys sorted ascending with one value per column, and a `reverse` curve's value
   column must not decrease — `engine/validator.ts` reports each as an error, and a `step` curve
   with a gap wider than its average step as a warning (TICKET-CRV-01). Both rules are enforced in
-  two places: `validateConfiguration()` for import and `useCurveManager`'s save paths for User
+  two places: `validateConfigurationShape()` for import and `useCurveManager`'s save paths for User
   input (TICKET-CRV-03). **A column name is rename-safe too** — the one property segment that is
   id-resolved, because it is the one the User named. `references.ts` keys it by
   `curveId + columnName` (spellings are unique only within a curve) and the stored form is
@@ -382,7 +382,7 @@ concern, so:
   Bumping `Configuration.version` alone changes nothing — nothing reads it yet; if you start
   relying on it, wire it into the load path in the same change.
 - **Import/export is a public boundary.** `importConfiguration()` gates on `schemaVersion` first
-  (`SchemaVersionError`), then `validateConfiguration()` inspects untrusted JSON before it is
+  (`SchemaVersionError`), then `validateConfigurationShape()` inspects untrusted JSON before it is
   applied; any new required field must be added to that check, or a file exported by an older
   build will be accepted and then break at render time.
   Import validates **twice**, and the two are not interchangeable: `importExport.ts` checks
@@ -414,5 +414,5 @@ concern, so:
 4. **Equipment change** — inventory action updates `Inventory` → next `calculateCharacter()` call
    picks up the changed bonuses on main, speciality *and* combat skills (wiring this to the sheet
    is task 14.1).
-5. **Import** — file → `validateConfiguration()` → `importConfiguration()` → store replaces config
+5. **Import** — file → `validateConfigurationShape()` → `importConfiguration()` → store replaces config
    → persisted. Invalid files are rejected before anything is overwritten.
