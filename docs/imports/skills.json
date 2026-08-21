@@ -20,7 +20,7 @@
     "`maxBaseLevel` and the 3-letter `code` are **gone**. The sheet has no level cap, and the code only ever existed so a formula could name a skill in the flat variable space — a formula reaches one as `skills.<name-slug>` now, so there is nothing left for a code to do.",
     "Duplicate name kept deliberately (Concept 02 import note): Skinning appears twice in the sheet with different levels, so they are two records until the User merges them. They slug the same way, so the first one wins any `skills.skinning` reference — which is exactly the ambiguity the merge is there to settle.",
     "Verified against Concept 02: Charm = CHA × 0.3 (11.7 at Char 39), Brewing = WIS × 0.3, Black smithing = STR × 0.2, alchemy = INT × 0.2, Trading = CHA × 0.3.",
-    "One divergence from Concept 02, and the sheet wins: the page has Persuasion at Char × 0.3, the live Skills tab has Char × 0.2 + Strenght × 0.1 (Skills!D31:G31). The page's 11.7 for Persuasion is Charm's number. Worth a look before the golden fixtures pin it (TICKET-DX-04)."
+    "One divergence from Concept 02, and the sheet wins: the page has Persuasion at Char × 0.3, the live Skills tab has Char × 0.2 + Strenght × 0.1 (Skills!D31:G31). The page's 11.7 for Persuasion is Charm's number. SETTLED by TICKET-DX-04: the golden suite pins Persuasion at 8.8 (the live weights, range cited) and pins the page's 13.2 -> bonus 3 on Charm, where the weights that produce it live, with the inferred +1.5 tagged as inferred."
   ],
   "data": {
     "skills": [

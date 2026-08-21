@@ -1,19 +1,26 @@
 # Test Status
 
-_Last verified: 2026-08-17 (`npx vitest run`), after
-[TICKET-ROLL-06](docs/v2.0_sheet_core/tickets/TICKET-ROLL-06-sheet-rolls-and-combat-skill-removal.md)._
+_Last verified: 2026-08-21 (`npx vitest run`), after
+[TICKET-DX-04](docs/v2.0_sheet_core/tickets/TICKET-DX-04-golden-fixtures-from-the-sheet.md) —
+**the v2.0 milestone's closing checkpoint**._
 
 ## Summary
 
-- **Total tests**: 1554
-- **Passing**: 1554 (100%)
+- **Total tests**: 1618
+- **Passing**: 1618 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
 Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's tickets added
 +43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), +11 (FORM-06), +7 (CALC-02),
 +11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02), +64 (CRV-01),
-+32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09), +14 (SKL-02), +36 (SKL-03), +36 (RES-01), +14 (RES-02), +48 (RES-03), +40 (ARC-01), +50 (ARC-02), **−15 (ARC-03)**, +34 (ROLL-03), +9 (ROLL-04), +36 (ROLL-05) and **−18 (ROLL-06)**.
++32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09), +14 (SKL-02), +36 (SKL-03), +36 (RES-01), +14 (RES-02), +48 (RES-03), +40 (ARC-01), +50 (ARC-02), **−15 (ARC-03)**, +34 (ROLL-03), +9 (ROLL-04), +36 (ROLL-05), **−18 (ROLL-06)** and +64 (DX-04).
+**DX-04's +64** is one new file, `src/engine/golden/golden.test.ts`, and it is purely additive —
+nothing existing was touched, because the milestone's parity gate went green on its first run.
+Sixty-two of the sixty-four are fixture rows driven by `it.each` over
+`src/engine/golden/fixtures.ts`; the other two are the suite's own guards, one asserting every row
+carries a citation and one pinning **which** rows are 🔍-inferred, so a confirmed derivation cannot
+be re-tagged as inferred to make a failure go away.
 **RES-02's +14 is a net figure**: `StatPointBudget.test.tsx` (6) went with the flat pool it
 covered, `configStore.test.ts`'s budget block shrank from 4 cases to 2, and the
 `mainSkillPointBudget` round-trip block became a 4-case retired-field refusal — against which

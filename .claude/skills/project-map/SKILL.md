@@ -271,6 +271,20 @@ per-die results, flat, total, notation) because the point of the ladder is that 
 visible. `DieRollResult` lives there too, keyed by **size**: `types/` cannot import from `engine/`,
 and a d100 is data. Don't reintroduce a second one.
 
+### `engine/golden/` — the parity gate (TICKET-DX-04)
+
+Test infrastructure, not engine code, and the only folder under `engine/` that is. It holds every
+✅-confirmed derivation from the concept pages as citation-carrying data and runs the real engine
+over the real `docs/imports/` corpus. Read
+[its README](../../../src/engine/golden/README.md) before touching it — especially the rule that a
+failing fixture is never fixed by editing the fixture.
+
+- `fixtures.ts` — the rows (`GoldenFixture` + one interface per group, `describeCitation`).
+  **Imports types only**, deliberately, so it stays inside the layering.
+- `golden.test.ts` — the suite, **plus the sample ruleset/character builder**, which lives here
+  rather than beside the fixtures because it reaches `importConfiguration` and both stores and
+  `engine/` is pure. Adding a coverage group is a new array in `fixtures.ts` and one `describe`.
+
 ## Services (`src/services/`)
 
 Both service modules are the **reference-form boundary** (TICKET-REF-01): what they write holds

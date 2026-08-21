@@ -102,10 +102,16 @@ proves the **engine** computes the sheet's numbers from it.
 
 ## Open questions this corpus surfaced
 
-- **Persuasion's weights.** Concept 02 has `Char × 0.3`; the live `Skills!D31:G31` has
-  `Char × 0.2 + Strenght × 0.1`. The page's 11.7 is Charm's number. Worth settling before DX-04
-  pins it.
+- ~~**Persuasion's weights.**~~ **Settled by
+  [TICKET-DX-04](../v2.0_sheet_core/tickets/TICKET-DX-04-golden-fixtures-from-the-sheet.md).** The
+  sheet wins, as the rules above say it must: `Skills!D31:G31` is `Char × 0.2 + Strenght × 0.1`,
+  which is 8.8 at Char 39, and the golden suite pins that with the range cited. Concept 02's
+  `13.2 → bonus 3` is a real derivation whose 11.7 is **Charm's** number copied a row down, so it
+  is pinned on Charm with the inferred `+1.5`. Both halves kept, neither invented.
 - **Currency exchange rates.** Absent from the sheet entirely (Concept 16). Every value in the
   corpus is quoted in Copper on the inference that item prices are large integers.
 - **Evasion and endure inputs.** 18 and 16 for the sample character, against Dex 11 and Con 12
-  (Concept 08). The fragment carries the raw stat only.
+  (Concept 08). The fragment carries the raw stat only. **Still open** — TICKET-DX-04 deliberately
+  left it open rather than closing it by fiat: pinning those inputs in the golden suite would pin a
+  *gap* as though it were a derivation, so only `mele` and `Ranged` run end to end there. The two
+  decompositions are pinned, since the ladder is confirmed whatever produces the number.
