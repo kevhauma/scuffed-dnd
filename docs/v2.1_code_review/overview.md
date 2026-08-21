@@ -63,6 +63,27 @@ size limit — several findings here will split into more than one ticket) and b
 - [x] [CR-42 Naming drift: id vs retired code](findings/CR-42-naming-drift-id-vs-code.md) *(config/play)*
 - [x] [CR-43 Minor consistency sweep](findings/CR-43-minor-consistency-sweep.md) — five grouped one-liners. *(various)*
 
+**All nineteen Low findings are done** (2026-08-21), one commit each, verified together at the end:
+`npx vitest run` 1640 passing / 0 failing / 0 skipped, `npx tsc --noEmit` at its 2 known errors,
+`yarn run check` clean, `fallow audit --base 63ad919` reporting `dead_code_introduced: 0`, and a
+live browser pass on the dev server. What the browser confirmed: the landing-page CTA now carries
+`Button`'s secondary classes verbatim at the same full-card width (CR-28) with the rewritten copy
+(CR-38); the dashboard card reads "Competences weighted over stats" (CR-38); rename drafts commit
+and release from the hook (CR-43); LocalStorage holds only the two keys (CR-39); both field-array
+row sets register their selects with a per-row `aria-label` and save the right stat id (CR-35); the
+items empty state is the shared card (CR-43); the sheet reads "Level 1 · 0 XP · No races" and the
+list card "Level 1" from one component (CR-27); and a duplicate abbreviation reports
+`Duplicate stat abbreviation "STR" used by: …` in a row with `cursor: auto`, no `role` and no tab
+stop (CR-38 + CR-34). No console errors on any screen.
+
+Two things the audit surfaced and this pass deliberately did **not** widen into: the
+`validateConfigurationShape` complexity finding is the pre-existing one CR-22 owns (fallow reads
+the CR-21 rename as a new function), and the two new duplication groups between
+`SkillFormDialog` and `MaterialLevelFormDialog` are the field-array rows becoming *identical* now
+that both follow the same correct pattern — consolidating them belongs with
+[CR-23](findings/CR-23-two-generations-of-form-dialogs.md) /
+[CR-24](findings/CR-24-manager-hook-dialog-lifecycle-duplication.md).
+
 ## Suggested pickup order
 
 Data-integrity first: **CR-01/CR-08** (one ticket — the cycle detector), **CR-03** (+ optionally
