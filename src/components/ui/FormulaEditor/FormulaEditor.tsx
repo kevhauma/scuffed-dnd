@@ -6,7 +6,7 @@
  * **Validates: Requirements 16.4, 16.6, 21.1, 21.2, 21.3, 21.6, 21.7, 22.1-22.6**
  */
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { validateFormula as validateFormulaSyntax } from '../../../engine/formula/validator';
 import { Input } from '../Input/Input';
 import { Label } from '../Label/Label';
@@ -36,39 +36,38 @@ export function FormulaEditor({
   placeholder = 'Enter formula (e.g., STR * 2 + DEX)',
   className = '',
 }: FormulaEditorProps) {
-  const [error, setError] = useState<string | undefined>();
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
-  // Validate through the formula engine. Never scan the string here: a regex over
+  // Derived from the props rather than written by the change handler (CR-33), which removes the
+  // staleness class rather than patching triggers: a formula that arrives invalid — an edit dialog
+  // opening on one, or a stat renamed out from under it — reports at once instead of waiting for
+  // an unrelated keystroke.
+  //
+  // Validation goes through the formula engine. Never scan the string here: a regex over
   // `skills.STL + 1` sees a bare `STL` that isn't there, and only the parser knows the
   // difference between a bare code and a namespace member.
-  const validate = (formulaValue: string) => {
-    if (!formulaValue.trim()) {
-      setError(undefined);
-      onValidate?.(true);
-      return;
-    }
+  const { isValid, error } = useMemo<{ isValid: boolean; error?: string }>(() => {
+    if (!value.trim()) return { isValid: true };
 
-    const result = validateFormulaSyntax(formulaValue, new Set(availableVariables));
+    const result = validateFormulaSyntax(value, new Set(availableVariables));
 
-    if (result.isValid) {
-      setError(undefined);
-      onValidate?.(true);
-      return;
-    }
+    return result.isValid ? { isValid: true } : { isValid: false, error: result.errors.join('; ') };
+  }, [value, availableVariables]);
 
-    const errorMsg = result.errors.join('; ');
-    setError(errorMsg);
-    onValidate?.(false, errorMsg);
-  };
+  // The parent hears the verdict when it *changes*, not on every keystroke. Held in a ref so an
+  // inline `onValidate` closure — a new function each render — cannot re-fire the effect.
+  const notify = useRef(onValidate);
+  useEffect(() => {
+    notify.current = onValidate;
+  });
+  useEffect(() => {
+    notify.current?.(isValid, error);
+  }, [isValid, error]);
 
-  // Handle autocomplete suggestions and validation
+  // Handle autocomplete suggestions
   const handleInputChange = (newValue: string) => {
     onChange(newValue);
-
-    // Validate the new value
-    validate(newValue);
 
     // Get the last word being typed
     // `^` belongs here with the other operators (TICKET-FORM-07): without it `STR^D` is one

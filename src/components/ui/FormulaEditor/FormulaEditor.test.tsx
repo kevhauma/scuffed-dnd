@@ -25,11 +25,48 @@ describe('FormulaEditor', () => {
     expect(onChange).toHaveBeenCalled();
   });
 
-  // REMOVED (TICKET-DX-01): 'validates formula and shows error for undefined variables'.
-  // It drove `value` via rerender and expected onValidate to fire. FormulaEditor only
-  // validates inside handleInputChange, so prop-driven value changes leave `error` stale.
-  // That is a real component bug, not a test bug — it is tracked separately rather than
-  // fixed here, because the fix touches a base primitive used by three form dialogs.
+  // RESTORED (CR-33): validation is derived from the props now, so a prop-driven `value` change
+  // reports rather than leaving the previous verdict on screen. It was removed in TICKET-DX-01
+  // because the component only validated inside its change handler.
+  it('validates a formula that arrives by prop, not only one that is typed', () => {
+    const onValidate = vi.fn();
+    const { rerender } = render(
+      <FormulaEditor
+        value="STR + 1"
+        onChange={() => {}}
+        availableVariables={availableVariables}
+        onValidate={onValidate}
+      />
+    );
+
+    expect(onValidate).toHaveBeenLastCalledWith(true, undefined);
+    expect(screen.queryByText(/Unknown variable/i)).toBeNull();
+
+    rerender(
+      <FormulaEditor
+        value="WIS + 1"
+        onChange={() => {}}
+        availableVariables={availableVariables}
+        onValidate={onValidate}
+      />
+    );
+
+    expect(screen.getByText(/WIS/)).toBeDefined();
+    expect(onValidate).toHaveBeenLastCalledWith(false, expect.stringContaining('WIS'));
+  });
+
+  it('revalidates when the available variables change under it (CR-33)', () => {
+    const { rerender } = render(
+      <FormulaEditor value="STR + 1" onChange={() => {}} availableVariables={availableVariables} />
+    );
+    expect(screen.getByDisplayValue('STR + 1').className).not.toContain('border-crimson');
+
+    // The stat was renamed elsewhere: the displayed formula is invalid now and must say so
+    rerender(<FormulaEditor value="STR + 1" onChange={() => {}} availableVariables={['MIGHT']} />);
+
+    expect(screen.getByText(/STR/)).toBeDefined();
+    expect(screen.getByDisplayValue('STR + 1').className).toContain('border-crimson');
+  });
 
   it('accepts className prop for positioning', () => {
     render(
