@@ -12,8 +12,8 @@
 
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
-import { ErrorChip } from '../../ui/ErrorChip/ErrorChip';
 import { Text } from '../../ui/Text/Text';
+import { CharacterSummaryLine } from '../shared/CharacterSummaryLine';
 import type { DerivedValue } from '../shared/derivedValue';
 import { ExperienceControl } from './ExperienceControl';
 
@@ -47,13 +47,13 @@ export function SheetHeader({
           <Text variant="h2" as="h1" className="mb-1">
             {name}
           </Text>
-          <Text variant="body-small-secondary" as="span">
-            {level.error === null ? `Level ${level.value}` : 'Level '}
-            {level.error !== null && <ErrorChip label="unavailable" detail={level.error} />}
-            {` · ${experience} XP · `}
-            {raceNames.length > 0 ? raceNames.join(', ') : 'No races'}
-            {archetypeName && ` · ${archetypeName}`}
-          </Text>
+          <CharacterSummaryLine
+            level={level}
+            raceNames={raceNames}
+            experience={experience}
+            archetypeName={archetypeName}
+            noRacesLabel="No races"
+          />
         </div>
         <Button variant="secondary" onClick={onBack}>
           Back to Characters

@@ -20,6 +20,7 @@ export * from './inventory/useInventoryManager';
 export * from './rolls/RollBreakdown';
 export * from './rolls/RollHistoryPanel';
 export * from './rolls/useRoller';
+export * from './shared/CharacterSummaryLine';
 export * from './shared/derivedValue';
 export * from './shared/PointBudgetSummary';
 export * from './shared/pointBudgetView';

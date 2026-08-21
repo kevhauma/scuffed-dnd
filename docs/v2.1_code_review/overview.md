@@ -45,7 +45,7 @@ size limit — several findings here will split into more than one ticket) and b
 
 - [x] [CR-21 `validateConfiguration` name collision](findings/CR-21-validateconfiguration-name-collision.md) — complementary validators, one name; rename the service one. *(engine/services)*
 - [x] [CR-26 Constant lookup: two idioms](findings/CR-26-constant-lookup-two-idioms.md) *(engine)*
-- [ ] [CR-27 Level line duplicated in SheetHeader/CharacterCard](findings/CR-27-level-line-duplicated.md) *(play)*
+- [x] [CR-27 Level line duplicated in SheetHeader/CharacterCard](findings/CR-27-level-line-duplicated.md) *(play)*
 - [ ] [CR-28 Landing link hand-copies Button styles](findings/CR-28-landing-link-copies-button-styles.md) — Button can't render as a Link. *(routes/ui)*
 - [ ] [CR-29 FormData interfaces declared twice in eight features](findings/CR-29-formdata-interfaces-declared-twice.md) *(config)*
 - [ ] [CR-30 Three update actions skip `mergeClearingAbsent`](findings/CR-30-update-actions-skip-mergeclearingabsent.md) *(stores)*
