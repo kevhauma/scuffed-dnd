@@ -30,7 +30,7 @@ vi.mock('../../../services/storage', () => ({
 
 import { useConfigStore } from '../../../stores/configStore';
 import { CurvesConfigPanel } from '../curves/CurvesConfigPanel';
-import { CombatSkillsPanel } from '../skills/combat/CombatSkillsPanel';
+import { RollsConfigPanel } from '../rolls/RollsConfigPanel';
 import { SkillsPanel } from '../skills/skill/SkillsPanel';
 
 function stat(id: string, name: string, abbreviation: string): Stat {
@@ -63,26 +63,27 @@ const config: Configuration = {
   id: 'config1',
   name: 'Test Config',
   version: '1.0',
-  schemaVersion: 8,
+  schemaVersion: 9,
   stats: [stat('str-id', 'Strength', 'STR'), stat('cha-id', 'Charisma', 'CHA')],
   skills: [
     {
       id: 'stl-id',
       name: 'Stealth',
       description: '',
-      // Weighted on CHA, **not** STR: the combat formulas below name STR bare, so a skill sharing
+      // Weighted on CHA, **not** STR: the roll inputs below name STR bare, so a skill sharing
       // that stat would let a missing skills-namespace box pass unnoticed (TICKET-SKL-02)
       statWeights: [{ statId: 'cha-id', weight: 1 }],
     },
   ],
-  combatSkills: [
+  // A roll needs a ladder before the panel will offer to add one (TICKET-ROLL-05)
+  diceLadders: [
     {
-      id: 'mel-id',
-      code: 'MEL',
-      name: 'Melee',
+      id: 'ladder-id',
+      name: 'Standard',
       description: '',
-      dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-      bonusFormula: 'STR',
+      dieSizes: [20, 12, 6],
+      showZeroTerms: true,
+      remainder: 'flat',
     },
   ],
   materials: [],
@@ -137,12 +138,12 @@ describe('FormulaPreview placements (TICKET-FORM-09)', () => {
     });
   });
 
-  describe('the combat skill dialog', () => {
+  describe('the roll dialog', () => {
     it('should preview a formula naming a skill, which this owner may name', () => {
-      render(<CombatSkillsPanel />);
-      fireEvent.click(screen.getByRole('button', { name: 'Add Combat Skill' }));
+      render(<RollsConfigPanel />);
+      fireEvent.click(screen.getByRole('button', { name: 'Add Roll' }));
 
-      fireEvent.change(dialog().getByPlaceholderText(/STR \+ MEL/), {
+      fireEvent.change(dialog().getByPlaceholderText(/stats\.dexterity/), {
         target: { value: 'STR + skills.stealth' },
       });
 
@@ -154,10 +155,10 @@ describe('FormulaPreview placements (TICKET-FORM-09)', () => {
       // A skill has no value of its own to put in a box, and offering none at all would preview a
       // confident 0: `calculateSkills` skips a weight whose stat is missing from `statValues`.
       // Stealth is CHA × 1 here, so previewing it alone must still surface a CHA box and a ladder.
-      render(<CombatSkillsPanel />);
-      fireEvent.click(screen.getByRole('button', { name: 'Add Combat Skill' }));
+      render(<RollsConfigPanel />);
+      fireEvent.click(screen.getByRole('button', { name: 'Add Roll' }));
 
-      fireEvent.change(dialog().getByPlaceholderText(/STR \+ MEL/), {
+      fireEvent.change(dialog().getByPlaceholderText(/stats\.dexterity/), {
         target: { value: 'skills.stealth * 2' },
       });
 
@@ -168,11 +169,11 @@ describe('FormulaPreview placements (TICKET-FORM-09)', () => {
     });
 
     it('should say once, not nine times, what it cannot resolve', () => {
-      render(<CombatSkillsPanel />);
-      fireEvent.click(screen.getByRole('button', { name: 'Add Combat Skill' }));
+      render(<RollsConfigPanel />);
+      fireEvent.click(screen.getByRole('button', { name: 'Add Roll' }));
 
       // `skills` resolves since TICKET-SKL-02, but `nope` is not a member of it
-      fireEvent.change(dialog().getByPlaceholderText(/STR \+ MEL/), {
+      fireEvent.change(dialog().getByPlaceholderText(/stats\.dexterity/), {
         target: { value: 'STR + skills.nope' },
       });
 

@@ -7,19 +7,22 @@
  */
 
 import { createFileRoute } from '@tanstack/react-router';
-import { CombatSkillsPanel } from '../../components/config/skills/combat/CombatSkillsPanel';
 import { SkillsPanel } from '../../components/config/skills/skill/SkillsPanel';
 
 export const Route = createFileRoute('/config/skills')({
   component: SkillsConfig,
 });
 
-/** Exported for tests: automatic code splitting makes `Route.options.component` a lazy wrapper. */
+/**
+ * Exported for tests: automatic code splitting makes `Route.options.component` a lazy wrapper.
+ *
+ * One panel since TICKET-ROLL-06 — the combat half moved to `/config/rolls` as roll definitions,
+ * which is where a thing that produces dice belongs.
+ */
 export function SkillsConfig() {
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-8">
+    <div className="max-w-7xl mx-auto p-6">
       <SkillsPanel />
-      <CombatSkillsPanel />
     </div>
   );
 }

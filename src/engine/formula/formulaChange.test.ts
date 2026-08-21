@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { CombatSkill, Configuration } from '../../types/config';
+import type { Configuration, Stat } from '../../types/config';
 import { validateFormulaChange } from './formulaChange';
 
 function createConfig(overrides: Partial<Configuration> = {}): Configuration {
@@ -13,7 +13,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 8,
+    schemaVersion: 9,
     stats: [
       {
         id: 'STR',
@@ -58,24 +58,15 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
       },
     ],
     // A `Skill` carries weight rows rather than a formula, so it is neither an attachment point
-    // nor a node in the dependency graph (TICKET-SKL-02) — every cycle case below is therefore
-    // written over stats and combat skills, the two things that still hold a formula.
+    // nor a node in the dependency graph (TICKET-SKL-02), and a combat skill no longer exists
+    // (TICKET-ROLL-06) — so every cycle case below is written over **derived stats**, the one
+    // formula-carrying entity the model still has.
     skills: [
       {
         id: 'STL',
         name: 'Stealth',
         description: '',
         statWeights: [{ statId: 'DEX', weight: 0.3 }],
-      },
-    ],
-    combatSkills: [
-      {
-        id: 'MEL',
-        code: 'MEL',
-        name: 'Melee',
-        description: '',
-        dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-        bonusFormula: 'STR + skills.stealth',
       },
     ],
     materials: [],
@@ -90,22 +81,32 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
   };
 }
 
-/** A combat skill, the shortest formula-carrying entity keyed by the graph key it uses */
-function combatSkill(code: string, bonusFormula: string): CombatSkill {
+/**
+ * A derived stat, keyed by the graph key it uses
+ *
+ * **The only formula-carrying entity left** since TICKET-ROLL-06 retired combat skills, which is
+ * what every cycle case below is now written over. `id` and `abbreviation` are the same string so
+ * the graph key and the spelling a formula names it by line up, which is what makes a one-step
+ * cycle readable as `MEL → MEL`.
+ */
+function derivedStat(code: string, formula: string): Stat {
   return {
     id: code,
-    code,
     name: code,
+    abbreviation: code,
     description: '',
-    dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-    bonusFormula,
+    order: 0,
+    countsTowardTotal: true,
+    isResource: false,
+    rounding: 'none',
+    formula,
   };
 }
 
 describe('validateFormulaChange', () => {
   it('should refuse a formula that references its own entity, naming the cycle', () => {
     const result = validateFormulaChange(createConfig(), {
-      owner: 'combat-skill',
+      owner: 'stat',
       id: 'MEL',
       formula: 'MEL + 1',
       previousId: 'MEL',
@@ -116,14 +117,14 @@ describe('validateFormulaChange', () => {
   });
 
   it('should refuse an indirect cycle and name the whole chain', () => {
-    // A configuration that could only have arrived by import: two combat skills that reference
+    // A configuration that could only have arrived by import: two derived stats that reference
     // each other. Saving an edit to either one must be refused.
     const config = createConfig({
-      combatSkills: [combatSkill('MEL', 'RNG'), combatSkill('RNG', 'DEX')],
+      stats: [...createConfig().stats, derivedStat('MEL', 'RNG'), derivedStat('RNG', 'DEX')],
     });
 
     const result = validateFormulaChange(config, {
-      owner: 'combat-skill',
+      owner: 'stat',
       id: 'RNG',
       formula: 'MEL + 1',
       previousId: 'RNG',
@@ -137,12 +138,12 @@ describe('validateFormulaChange', () => {
 
   it('should evaluate the post-save state, catching an edit that turns a valid formula circular', () => {
     const config = createConfig({
-      combatSkills: [combatSkill('MEL', 'RNG'), combatSkill('RNG', 'DEX')],
+      stats: [...createConfig().stats, derivedStat('MEL', 'RNG'), derivedStat('RNG', 'DEX')],
     });
 
     // As it stands the configuration is acyclic — the cycle only exists after the edit
     const before = validateFormulaChange(config, {
-      owner: 'combat-skill',
+      owner: 'stat',
       id: 'RNG',
       formula: 'DEX + 1',
       previousId: 'RNG',
@@ -150,7 +151,7 @@ describe('validateFormulaChange', () => {
     expect(before.isValid).toBe(true);
 
     const after = validateFormulaChange(config, {
-      owner: 'combat-skill',
+      owner: 'stat',
       id: 'RNG',
       formula: 'MEL',
       previousId: 'RNG',
@@ -171,9 +172,9 @@ describe('validateFormulaChange', () => {
     expect(result.referencedVariables.sort()).toEqual(['CON', 'DEX', 'STR']);
   });
 
-  it('should accept a combat formula referencing a skill (TICKET-SKL-02)', () => {
+  it('should accept a stat formula referencing a skill (TICKET-SKL-02)', () => {
     const result = validateFormulaChange(createConfig(), {
-      owner: 'combat-skill',
+      owner: 'stat',
       id: 'RNG',
       formula: 'DEX + skills.stealth',
     });
@@ -232,11 +233,11 @@ describe('validateFormulaChange', () => {
     // Editing MEL and renaming it to AGI: the old MEL entry must not linger in the graph and
     // collide with the new formula
     const config = createConfig({
-      combatSkills: [combatSkill('MEL', 'AGI'), combatSkill('AGI', 'DEX')],
+      stats: [...createConfig().stats, derivedStat('MEL', 'AGI'), derivedStat('AGI', 'DEX')],
     });
 
     const result = validateFormulaChange(config, {
-      owner: 'combat-skill',
+      owner: 'stat',
       id: 'AGI',
       formula: 'DEX / 2',
       previousId: 'MEL',
@@ -379,9 +380,9 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
     });
 
     it('leaves an acyclic chain written in namespaced syntax alone', () => {
-      // A combat skill reading a skill is a chain, not a cycle — and a skill is not a node at all
+      // A stat reading a skill is a chain, not a cycle — and a skill is not a node at all
       const result = validateFormulaChange(createConfig(), {
-        owner: 'combat-skill',
+        owner: 'stat',
         id: 'RNG',
         formula: 'skills.stealth + 1',
       });
@@ -408,7 +409,6 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
             formula: 'skills.stealth',
           },
         ],
-        combatSkills: [],
       });
 
       const result = validateFormulaChange(config, {
@@ -437,7 +437,7 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
     it('refuses any formula naming a skill by a bare code (TICKET-SKL-02)', () => {
       // v1 gave a speciality skill a 3-letter code in this flat space. A `Skill` has none, so the
       // spelling is undefined for every attachment point rather than merely out of scope for some.
-      for (const owner of ['stat', 'combat-skill'] as const) {
+      for (const owner of ['stat', 'roll-input'] as const) {
         const result = validateFormulaChange(createConfig(), {
           owner,
           id: 'armour',
@@ -449,9 +449,9 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
       }
     });
 
-    it('still lets a combat skill name a stat by its abbreviation', () => {
+    it('still lets a formula name a stat by its abbreviation', () => {
       const result = validateFormulaChange(createConfig(), {
-        owner: 'combat-skill',
+        owner: 'stat',
         id: 'RNG',
         formula: 'DEX + CON',
       });

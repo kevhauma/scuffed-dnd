@@ -33,7 +33,7 @@ describe('Import/Export Service', () => {
       id: 'test-config',
       name: 'Test Config',
       version: '1.0.0',
-      schemaVersion: 8,
+      schemaVersion: 9,
       stats: [
         {
           id: 'STR',
@@ -78,14 +78,26 @@ describe('Import/Export Service', () => {
           ],
         },
       ],
-      combatSkills: [
+      // A roll's `input` is the **second** persisted formula field (TICKET-ROLL-06), so the
+      // round-trip below exercises `references.ts`'s roll branch as well as the stat one
+      diceLadders: [
         {
-          id: 'ATK',
-          code: 'ATK',
-          name: 'Attack',
-          description: 'Basic attack',
-          dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 1 },
-          bonusFormula: 'STR + skills.melee',
+          id: 'ladder',
+          name: 'Standard',
+          description: '',
+          dieSizes: [20, 12, 6],
+          showZeroTerms: true,
+          remainder: 'flat',
+        },
+      ],
+      rollDefinitions: [
+        {
+          id: 'roll-melee',
+          name: 'Melee',
+          description: '',
+          input: 'STR + skills.melee',
+          ladderId: 'ladder',
+          order: 0,
         },
       ],
       materials: [],
@@ -124,8 +136,9 @@ describe('Import/Export Service', () => {
             stats: validConfig.stats.map((stat) =>
               stat.formula ? { ...stat, formula: '[STR] * 10' } : stat
             ),
-            combatSkills: [
-              { ...validConfig.combatSkills[0], bonusFormula: '[STR] + skills.[MEL]' },
+            // Both persisted formula fields are id-resolved on the way out (TICKET-ROLL-06)
+            rollDefinitions: [
+              { ...validConfig.rollDefinitions?.[0], input: '[STR] + skills.[MEL]' },
             ],
           });
 
@@ -384,17 +397,13 @@ describe('Import/Export Service', () => {
       expect(result.errors).toContain('skills[0].statWeights[0].weight must be a finite number');
     });
 
-    it('should validate combat skill structure', () => {
-      const invalid = {
-        ...validConfig,
-        combatSkills: [
-          { code: 'ATK', name: 'Attack', bonusFormula: 'STR' }, // Missing dice
-        ],
-      };
-      const result = validateConfiguration(invalid);
+    it('should refuse a file still carrying combatSkills (TICKET-ROLL-06)', () => {
+      // Retired, so **refused rather than ignored** — a file authored against the old shape plays
+      // differently from the one this build would import, and the message names the replacement
+      const result = validateConfiguration({ ...validConfig, combatSkills: [] });
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e) => e.includes('dice'))).toBe(true);
+      expect(result.errors.join(' ')).toContain('rollDefinitions');
     });
 
     it('should collect multiple errors', () => {
@@ -458,7 +467,6 @@ describe('Import/Export Service', () => {
       mainSkills: [{ id: 'id-str', code: 'STR', name: 'Strength', description: '', maxLevel: 20 }],
       stats: [{ id: 'id-hp', name: 'Health', description: '', formula: 'STR * 10' }],
       skills: [],
-      combatSkills: [],
       materials: [],
       materialCategories: [],
       items: [],
@@ -659,8 +667,14 @@ describe('Import/Export Service', () => {
     };
 
     it('should accept a file with no rollDefinitions key — absent means none', () => {
-      expect(validateConfiguration(validConfig).isValid).toBe(true);
-      expect('rollDefinitions' in validConfig).toBe(false);
+      // `validConfig` carries rolls now, so the absent case is stated by taking them away — the
+      // keys have to be *deleted*, since a present key holding `undefined` is not absence
+      const noRolls: Record<string, unknown> = { ...validConfig };
+      delete noRolls.rollDefinitions;
+      delete noRolls.diceLadders;
+
+      expect(validateConfiguration(noRolls).isValid).toBe(true);
+      expect('rollDefinitions' in noRolls).toBe(false);
     });
 
     it('should round-trip a roll unchanged', async () => {

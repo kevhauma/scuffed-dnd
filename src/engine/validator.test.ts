@@ -32,14 +32,13 @@ function createMinimalConfig(): Configuration {
     id: 'test-config',
     name: 'Test Configuration',
     version: '1.0.0',
-    schemaVersion: 8,
+    schemaVersion: 9,
     stats: [
       stat('STR', 'Strength', 'STR'),
       stat('DEX', 'Dexterity', 'DEX'),
       stat('CON', 'Constitution', 'CON'),
     ],
     skills: [],
-    combatSkills: [],
     materials: [],
     materialCategories: [],
     items: [],
@@ -123,7 +122,7 @@ describe('validateConfiguration', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should validate combat skills referencing stats and skills', () => {
+    it('should validate a roll input referencing stats and skills (TICKET-ROLL-06)', () => {
       const config = createMinimalConfig();
       config.skills = [
         {
@@ -133,14 +132,24 @@ describe('validateConfiguration', () => {
           statWeights: [{ statId: 'STR', weight: 0.2 }],
         },
       ];
-      config.combatSkills = [
+      config.diceLadders = [
+        {
+          id: 'ladder',
+          name: 'Standard',
+          description: '',
+          dieSizes: [20, 12, 6],
+          showZeroTerms: true,
+          remainder: 'flat',
+        },
+      ];
+      config.rollDefinitions = [
         {
           id: 'SWD',
-          code: 'SWD',
           name: 'Sword',
           description: '',
-          dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-          bonusFormula: 'STR + skills.melee',
+          input: 'STR + skills.melee',
+          ladderId: 'ladder',
+          order: 0,
         },
       ];
 
@@ -283,16 +292,26 @@ describe('validateConfiguration', () => {
       expect(result.warnings.some((w) => w.message.includes('no stat weights'))).toBe(true);
     });
 
-    it('should detect undefined variable in combat skill formula', () => {
+    it('should detect undefined variable in a roll input (TICKET-ROLL-06)', () => {
       const config = createMinimalConfig();
-      config.combatSkills = [
+      config.diceLadders = [
+        {
+          id: 'ladder',
+          name: 'Standard',
+          description: '',
+          dieSizes: [20, 12, 6],
+          showZeroTerms: true,
+          remainder: 'flat',
+        },
+      ];
+      config.rollDefinitions = [
         {
           id: 'SWD',
-          code: 'SWD',
           name: 'Sword',
           description: '',
-          dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-          bonusFormula: 'STR + NOTFOUND',
+          input: 'STR + NOTFOUND',
+          ladderId: 'ladder',
+          order: 0,
         },
       ];
 
@@ -427,18 +446,9 @@ describe('validateConfiguration', () => {
           statWeights: [{ statId: 'STR', weight: 0.2 }],
         },
       ];
-      // A combat skill reading a skill is a chain, not a cycle: the skill's weights point at
+      // A derived stat reading a skill is a chain, not a cycle: the skill's weights point at
       // stats and nothing points back
-      config.combatSkills = [
-        {
-          id: 'SWD',
-          code: 'SWD',
-          name: 'Sword',
-          description: '',
-          dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-          bonusFormula: 'skills.melee',
-        },
-      ];
+      config.stats = [...config.stats, stat('agility', 'Agility', 'AGI', 'skills.melee')];
 
       const result = validateConfiguration(config);
 
@@ -676,20 +686,12 @@ describe('validateConfiguration', () => {
   });
 
   describe('Uniqueness validation', () => {
-    it('should detect a combat code colliding with a stat abbreviation', () => {
-      // The flat space holds stat abbreviations and combat codes since TICKET-SKL-02 — a `Skill`
-      // has no code, so it cannot collide with anything
+    it('should detect two stats sharing an abbreviation', () => {
+      // The flat space holds **stat abbreviations and nothing else** since TICKET-ROLL-06: a
+      // `Skill` left it in SKL-02 and the combat codes went with the entity, so the only collision
+      // left to detect is between two stats
       const config = createMinimalConfig();
-      config.combatSkills = [
-        {
-          id: 'strike',
-          code: 'STR',
-          name: 'Strike',
-          description: '',
-          dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-          bonusFormula: '5',
-        },
-      ];
+      config.stats = [...config.stats, stat('strike', 'Strike', 'STR')];
 
       const result = validateConfiguration(config);
 

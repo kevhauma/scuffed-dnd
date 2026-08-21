@@ -13,7 +13,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 8,
+    schemaVersion: 9,
     stats: [
       {
         id: 'STR',
@@ -55,7 +55,6 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         statWeights: [{ statId: 'DEX', weight: 0.3 }],
       },
     ],
-    combatSkills: [],
     materials: [],
     materialCategories: [],
     items: [],
@@ -70,14 +69,10 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
 
 describe('formula scoping tables', () => {
   it('declares a namespace row for every attachment point', () => {
-    // No skill row since TICKET-SKL-02: a `Skill` carries weight rows rather than a formula
-    // string, so it is not an attachment point at all
-    expect(Object.keys(NAMESPACE_SCOPES).sort()).toEqual([
-      'combat-skill',
-      'curve-generator',
-      'roll-input',
-      'stat',
-    ]);
+    // No skill row since TICKET-SKL-02 (a `Skill` carries weight rows rather than a formula, so it
+    // is not an attachment point at all) and no combat-skill row since TICKET-ROLL-06 took the
+    // entity — a row goes when the thing it describes does
+    expect(Object.keys(NAMESPACE_SCOPES).sort()).toEqual(['curve-generator', 'roll-input', 'stat']);
   });
 
   it('only lists namespaces the engine knows about', () => {
@@ -93,7 +88,7 @@ describe('formula scoping tables', () => {
     // back undefined and silently turn every reference into "Unknown member".
     const config = createConfig();
     for (const namespace of KNOWN_NAMESPACES) {
-      const owner = NAMESPACE_SCOPES.stat.includes(namespace) ? 'stat' : 'combat-skill';
+      const owner = NAMESPACE_SCOPES.stat.includes(namespace) ? 'stat' : 'roll-input';
       const scope = scopeFor(config, owner);
       expect(scope.namespaces[namespace], `${namespace} has no member source`).toBeDefined();
     }
@@ -107,10 +102,10 @@ describe('scopeFor', () => {
     expect(Array.from(scope.codes).sort()).toEqual(['DEX', 'HEA', 'STR']);
   });
 
-  it('gives a combat skill the stat abbreviations only (Requirement 5.4)', () => {
-    // v1 put speciality codes in this flat space too. A `Skill` has no code since TICKET-SKL-02,
-    // so a combat formula reaches one as `skills.<name>` and the bare space is stats alone.
-    const scope = scopeFor(createConfig(), 'combat-skill');
+  it('gives a roll input the stat abbreviations only (Requirement 5.4)', () => {
+    // v1 put speciality codes in this flat space, and TICKET-ROLL-06 took the combat codes out of
+    // it too — a skill is reached as `skills.<name>` and the bare space is stats alone.
+    const scope = scopeFor(createConfig(), 'roll-input');
     expect(Array.from(scope.codes).sort()).toEqual(['DEX', 'HEA', 'STR']);
   });
 
@@ -121,7 +116,7 @@ describe('scopeFor', () => {
 
   it('exposes each skill by its name slug as a member of the skills namespace (TICKET-SKL-02)', () => {
     // Not the 3-letter code v1 published here — a skill is spelled `skills.stealth` now
-    const scope = scopeFor(createConfig(), 'combat-skill');
+    const scope = scopeFor(createConfig(), 'roll-input');
     expect(Array.from(scope.namespaces.skills ?? [])).toEqual(['stealth']);
   });
 

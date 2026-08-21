@@ -136,7 +136,15 @@ export interface CalculatedCharacter extends Character {
    * multiplication (TICKET-SKL-03). Derived like the rest — never persisted.
    */
   skillContributions: Record<string, SkillStatContribution[]>;
-  combatSkillBonuses: Record<string, FormulaResult>; // Calculated from formulas
+  /**
+   * Each roll's **input** — the number fed to its dice ladder — keyed by roll id (Concept 08).
+   *
+   * Replaced `combatSkillBonuses` in TICKET-ROLL-06, and the swap is the entity's whole argument:
+   * that was a bonus added to a hand-typed pool, this is the value a pool is *derived* from. Both
+   * the sheet's button label and `rollRollDefinition` read this map, which is what makes "a roll
+   * can never disagree with the sheet" structural rather than a promise.
+   */
+  rollInputs: Record<string, FormulaResult>;
   equipmentBonuses: StatModifier[]; // From equipped items, keyed by stat id (TICKET-MAT-02)
 }
 

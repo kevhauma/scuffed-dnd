@@ -122,16 +122,18 @@ export function ReviewStep({
           </Card>
         )}
 
-        {config.combatSkills.length > 0 && (
+        {(config.rollDefinitions ?? []).length > 0 && (
           <Card className="p-6">
             <Text variant="h5" as="h3" className="mb-3">
-              Combat Bonuses
+              Roll Inputs
             </Text>
-            {config.combatSkills.map((skill) => (
+            {/* The number each roll feeds its ladder (TICKET-ROLL-06) — the pool itself belongs on
+                the sheet, where the Player can actually roll it */}
+            {(config.rollDefinitions ?? []).map((roll) => (
               <SummaryRow
-                key={skill.code}
-                label={`${skill.name} (${skill.code})`}
-                value={numberOr(preview.combatSkillBonuses[skill.code], 0)}
+                key={roll.id}
+                label={roll.name}
+                value={numberOr(preview.rollInputs[roll.id], 0)}
               />
             ))}
           </Card>

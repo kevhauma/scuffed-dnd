@@ -35,7 +35,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 8,
+    schemaVersion: 9,
     stats: [
       {
         id: 'STR',
@@ -90,14 +90,27 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         statWeights: [{ statId: 'dex-id', weight: 0.5 }],
       },
     ],
-    combatSkills: [
+    diceLadders: [
       {
-        id: 'MEL',
-        code: 'MEL',
+        id: 'ladder',
+        name: 'Standard',
+        description: '',
+        dieSizes: [20, 12, 6],
+        showZeroTerms: true,
+        remainder: 'flat',
+      },
+    ],
+    // A combat skill's bonus formula is a roll's input since TICKET-ROLL-06 — the number goes
+    // *into* the ladder rather than being added after the dice
+    rollDefinitions: [
+      {
+        id: 'mel-id',
         name: 'Melee',
         description: '',
-        dice: { d4: 0, d6: 2, d8: 0, d10: 0, d12: 0, d20: 1 },
-        bonusFormula: 'STR + skills.stealth',
+        input: 'STR + skills.stealth',
+        ladderId: 'ladder',
+        category: 'offence',
+        order: 0,
       },
     ],
     materials: [],
@@ -200,7 +213,7 @@ describe('CharacterSheet', () => {
     expect(screen.getByText(/Level 3/)).toBeDefined();
     expect(screen.getByText(/900 XP · Elf/)).toBeDefined();
 
-    for (const section of ['Race Stat Block', 'Stats', 'Skills', 'Combat Skills']) {
+    for (const section of ['Race Stat Block', 'Stats', 'Skills', 'Rolls']) {
       expect(screen.getByRole('heading', { name: section })).toBeDefined();
     }
   });
@@ -572,17 +585,21 @@ describe('CharacterSheet', () => {
       within(rowFor(/Stealth/)).getByText(`level ${String(expected.skillLevels.STL)}`)
     ).toBeDefined();
     expect(
-      within(rowFor(/Melee \(MEL\)/)).getByText(`+${expected.combatSkillBonuses.MEL}`)
+      within(rowFor(/^Melee$/)).getByText(`input ${expected.rollInputs['mel-id']}`)
     ).toBeDefined();
     expect(
       within(rowFor('Health')).getByText(`of ${expected.statValues.health} max`)
     ).toBeDefined();
   });
 
-  it('should list each combat skill with its dice notation and bonus', () => {
+  it('should label each roll with the pool its input decomposes into (TICKET-ROLL-06)', () => {
     render(<CharacterSheet characterId="char1" />);
 
-    expect(within(rowFor(/Melee \(MEL\)/)).getByText('2d6 + 1d20')).toBeDefined();
+    // The button carries the **pool**, not a bonus — that is the whole ticket. STR 6 + Stealth 6
+    // is 12, which the [20, 12, 6] ladder walks to 0D20 + 1D12 + 0D6 + 0
+    expect(
+      within(rowFor(/^Melee$/)).getByRole('button', { name: 'Roll 0D20 + 1D12 + 0D6 + 0' })
+    ).toBeDefined();
   });
 
   it('should show both current and maximum values for every stat', () => {
@@ -1054,7 +1071,7 @@ describe('CharacterSheet', () => {
       ).toBeNull();
     });
 
-    it('should chip a broken skill level and the combat skill that reads it', () => {
+    it('should chip a broken skill level and the roll that reads it', () => {
       // Melee is `STR + skills.stealth`, and Stealth is weighted on a derived stat that cannot
       // compute — so breaking that stat breaks Stealth and Melee in turn, and Melee's chip must
       // name Stealth as the cause, which is the whole point of the chain (TICKET-SKL-02).
@@ -1095,24 +1112,24 @@ describe('CharacterSheet', () => {
       expect(stealthChip.getAttribute('aria-label')).toContain('Skill "Stealth"');
 
       // …and Melee's chip names Stealth as the upstream cause
-      const meleeChip = within(rowFor(/Melee \(MEL\)/)).getByRole('img', { name: /Stealth/ });
+      const meleeChip = within(rowFor(/^Melee$/)).getByRole('img', { name: /Stealth/ });
       const chain = meleeChip.getAttribute('aria-label') ?? '';
-      expect(chain).toContain('Combat Skill "Melee"');
+      expect(chain).toContain('Roll "Melee"');
       expect(chain).toContain('Skill "Stealth"');
       expect(chain).toContain('Undefined variable: MAG');
     });
 
-    it('should refuse to roll a combat skill whose bonus could not be calculated', () => {
+    it('should refuse to roll a roll whose input could not be calculated', () => {
       useConfigStore.setState({
         config: createConfig({
-          combatSkills: [
+          rollDefinitions: [
             {
-              id: 'MEL',
-              code: 'MEL',
+              id: 'mel-id',
               name: 'Melee',
               description: '',
-              dice: { d4: 0, d6: 2, d8: 0, d10: 0, d12: 0, d20: 1 },
-              bonusFormula: 'MAG',
+              input: 'MAG',
+              ladderId: 'ladder',
+              order: 0,
             },
           ],
         }),
@@ -1121,7 +1138,8 @@ describe('CharacterSheet', () => {
 
       render(<CharacterSheet characterId="char1" />);
 
-      const rollButton = within(rowFor(/Melee \(MEL\)/)).getByRole('button', { name: 'Roll MEL' });
+      // No pool to put on the label, so the button falls back to the roll's name and is disabled
+      const rollButton = within(rowFor(/^Melee$/)).getByRole('button', { name: 'Roll Melee' });
       expect((rollButton as HTMLButtonElement).disabled).toBe(true);
     });
 

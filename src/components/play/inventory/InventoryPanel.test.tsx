@@ -36,7 +36,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 8,
+    schemaVersion: 9,
     stats: [
       {
         id: 'STR',
@@ -61,14 +61,27 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
       },
     ],
     skills: [],
-    combatSkills: [
+    diceLadders: [
       {
-        id: 'MEL',
-        code: 'MEL',
+        id: 'ladder',
+        name: 'Standard',
+        description: '',
+        dieSizes: [20, 12, 6],
+        showZeroTerms: true,
+        remainder: 'flat',
+      },
+    ],
+    // A combat skill's bonus formula is a roll's input since TICKET-ROLL-06 — the number goes
+    // *into* the ladder rather than being added after the dice
+    rollDefinitions: [
+      {
+        id: 'mel-id',
         name: 'Melee',
         description: '',
-        dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-        bonusFormula: 'STR',
+        input: 'STR',
+        ladderId: 'ladder',
+        category: 'offence',
+        order: 0,
       },
     ],
     materials: [
@@ -321,13 +334,13 @@ describe('equipment bonuses on the sheet', () => {
     expect(within(rowFor(/Strength \(STR\)/)).getByText('equipment +5')).toBeDefined();
   });
 
-  it('should carry the equipment bonus through to stats and combat skills', () => {
+  it('should carry the equipment bonus through to stats and roll inputs', () => {
     render(<CharacterSheet characterId="char1" />);
 
     fireEvent.change(screen.getByLabelText('Equip into Helmet'), { target: { value: 'helm' } });
 
-    // Requirement 13.3 — STR 7 drives Health (STR * 10) and the Melee bonus (STR)
+    // Requirement 13.3 — STR 7 drives Health (STR * 10) and the Melee roll's input (STR)
     expect(within(rowFor('Health')).getByText('of 70 max')).toBeDefined();
-    expect(within(rowFor(/Melee \(MEL\)/)).getByText('+7')).toBeDefined();
+    expect(within(rowFor(/^Melee$/)).getByText('input 7')).toBeDefined();
   });
 });

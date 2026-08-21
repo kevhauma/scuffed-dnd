@@ -29,7 +29,6 @@ import { toDisplayConfiguration, toStoredConfiguration } from '../engine/formula
 import { clearAllData, loadConfiguration, saveConfiguration } from '../services/storage';
 import type {
   Archetype,
-  CombatSkill,
   Configuration,
   Constant,
   CurrencyTier,
@@ -102,11 +101,6 @@ interface ConfigState {
   addSkill: (skill: Skill) => void;
   updateSkill: (id: string, updates: Partial<Skill>) => void;
   deleteSkill: (id: string, options?: DeleteOptions) => EntityReference[];
-
-  // Combat Skills CRUD
-  addCombatSkill: (skill: CombatSkill) => void;
-  updateCombatSkill: (code: string, updates: Partial<CombatSkill>) => void;
-  deleteCombatSkill: (code: string, options?: DeleteOptions) => EntityReference[];
 
   // Material Categories CRUD
   addMaterialCategory: (category: MaterialCategory) => void;
@@ -411,7 +405,6 @@ function createFreshConfiguration(name: string): Configuration {
     schemaVersion: SUPPORTED_SCHEMA_VERSION,
     stats: [],
     skills: [],
-    combatSkills: [],
     materials: [],
     materialCategories: [],
     items: [],
@@ -696,39 +689,6 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     guardedDelete(set, get, 'skill', id, options, (config) => ({
       ...config,
       skills: config.skills.filter((skill) => skill.id !== id),
-    })),
-
-  // Combat Skills CRUD
-  addCombatSkill: (skill: CombatSkill) => {
-    const { config } = get();
-    if (!config) return;
-
-    const updated = autoSave({
-      ...config,
-      combatSkills: [...config.combatSkills, skill],
-    });
-    set({ config: updated });
-  },
-
-  updateCombatSkill: (code: string, updates: Partial<CombatSkill>) => {
-    const { config } = get();
-    if (!config) return;
-
-    const updated = autoSave(
-      applyRenameSafely(config, (current) => ({
-        ...current,
-        combatSkills: current.combatSkills.map((skill) =>
-          skill.code === code ? { ...skill, ...updates } : skill
-        ),
-      }))
-    );
-    set({ config: updated });
-  },
-
-  deleteCombatSkill: (code: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'combat-skill', code, options, (config) => ({
-      ...config,
-      combatSkills: config.combatSkills.filter((skill) => skill.code !== code),
     })),
 
   // Material Categories CRUD

@@ -76,10 +76,10 @@ describe('the example carries each reshaped entity in its current form', () => {
     expect(config.skills.every((skill) => skill.statWeights.length > 0)).toBe(true);
   });
 
-  it('reaches a skill from a combat formula by name slug, not by a 3-letter code', () => {
-    const melee = config.combatSkills.find((skill) => skill.code === 'MEL');
+  it('reaches a skill from a roll input by name slug, not by a 3-letter code', () => {
+    const melee = config.rollDefinitions?.find((roll) => roll.name === 'Melee');
 
-    expect(melee?.bonusFormula).toBe('STR + skills.athletics / 2');
+    expect(melee?.input).toBe('STR + skills.athletics / 2');
   });
 
   it('gives every race a stat block keyed by stat id (TICKET-RACE-01)', () => {

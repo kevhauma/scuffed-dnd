@@ -68,7 +68,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 8,
+      schemaVersion: 9,
       stats: [
         {
           id: 'STR',
@@ -103,7 +103,6 @@ describe('CharacterStore', () => {
         },
       ],
       skills: [],
-      combatSkills: [],
       materials: [],
       materialCategories: [],
       items: [],
@@ -479,10 +478,9 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 8,
+      schemaVersion: 9,
       stats: [],
       skills: [],
-      combatSkills: [],
       materials: [],
       materialCategories: [],
       items: [
@@ -731,7 +729,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 8,
+      schemaVersion: 9,
       stats: [
         {
           id: 'STR',
@@ -767,7 +765,6 @@ describe('CharacterStore', () => {
         },
       ],
       skills: [],
-      combatSkills: [],
       materials: [],
       materialCategories: [],
       items: [],
@@ -1003,7 +1000,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 8,
+      schemaVersion: 9,
       stats: [
         {
           id: 'STR',
@@ -1028,7 +1025,6 @@ describe('CharacterStore', () => {
         },
       ],
       skills: [],
-      combatSkills: [],
       materials: [],
       materialCategories: [],
       items: [],

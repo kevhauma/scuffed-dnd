@@ -32,7 +32,7 @@ const config: Configuration = {
   id: 'config1',
   name: 'Test Config',
   version: '1.0',
-  schemaVersion: 8,
+  schemaVersion: 9,
   stats: [
     {
       id: 'str-id',
@@ -73,16 +73,6 @@ const config: Configuration = {
       name: 'Healing',
       description: '',
       statWeights: [{ statId: 'str-id', weight: 0.2 }],
-    },
-  ],
-  combatSkills: [
-    {
-      id: 'heal-combat-id',
-      code: 'HEA',
-      name: 'Healing strike',
-      description: '',
-      dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-      bonusFormula: 'STR',
     },
   ],
   materials: [],
@@ -247,13 +237,13 @@ describe('StatsConfigPanel', () => {
     it('should refuse an abbreviation already taken in the flat formula space', async () => {
       render(<StatsConfigPanel />);
 
-      // `HEA` belongs to the Healing strike combat skill — one flat space shared by stat
-      // abbreviations and combat codes, so it is not free here (a `Skill` has no code at all
-      // since TICKET-SKL-02, and so cannot take a spelling)
-      openAddDialogWith('Health', 'HEA');
+      // `MAN` belongs to the Mana stat. The flat space holds **stat abbreviations and nothing
+      // else** since TICKET-ROLL-06 took the combat codes out with the entity — a `Skill` left it
+      // in SKL-02, and a roll was never in it — so the only collision left is stat against stat.
+      openAddDialogWith('Mana Pool', 'MAN');
       fireEvent.click(dialog().getByRole('button', { name: 'Add Stat' }));
 
-      expect(await screen.findByText('HEA is already in use')).toBeDefined();
+      expect(await screen.findByText('MAN is already in use')).toBeDefined();
       // Refused, not saved
       expect(useConfigStore.getState().config?.stats).toHaveLength(3);
     });

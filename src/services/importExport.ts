@@ -185,6 +185,8 @@ const RETIRED_FIELDS: Record<string, string> = {
     "the point budget is now derived as level × const.points_per_level, so set the 'points_per_level' constant instead (TICKET-RES-02)",
   focusStatBonusLevel:
     'the focus stat is retired — an Archetype tags every stat main/sub/non and routes a spent point through the matching point_buy column, which is what replaced the flat bonus (TICKET-ARC-03)',
+  combatSkills:
+    "combat skills are retired — a roll is a 'rollDefinitions' entry now, an input formula fed down a dice ladder rather than a hand-typed pool with a bonus bolted on, so rebuild each one under Rolls (TICKET-ROLL-06)",
 };
 
 /**
@@ -468,7 +470,6 @@ export function validateConfiguration(data: unknown): ValidationResult {
   const requiredArrays = [
     'stats',
     'skills',
-    'combatSkills',
     'materials',
     'materialCategories',
     'items',
@@ -763,29 +764,6 @@ export function validateConfiguration(data: unknown): ValidationResult {
         errors.push(...rollDefinitionShapeErrors(roll as Record<string, unknown>, index));
       });
     }
-  }
-
-  // Validate combat skills structure
-  if (Array.isArray(config.combatSkills)) {
-    config.combatSkills.forEach((skill: unknown, index: number) => {
-      if (!skill || typeof skill !== 'object') {
-        errors.push(`combatSkills[${index}] must be an object`);
-        return;
-      }
-      const s = skill as Record<string, unknown>;
-      if (typeof s.code !== 'string' || s.code.length !== 3) {
-        errors.push(`combatSkills[${index}].code must be a 3-letter string`);
-      }
-      if (typeof s.name !== 'string') {
-        errors.push(`combatSkills[${index}].name must be a string`);
-      }
-      if (!s.dice || typeof s.dice !== 'object') {
-        errors.push(`combatSkills[${index}].dice must be an object`);
-      }
-      if (typeof s.bonusFormula !== 'string') {
-        errors.push(`combatSkills[${index}].bonusFormula must be a string`);
-      }
-    });
   }
 
   return {

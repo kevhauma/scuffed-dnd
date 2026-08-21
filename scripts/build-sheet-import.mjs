@@ -36,7 +36,6 @@ const EXPORTED_AT = '2026-08-09T00:00:00.000Z';
 const REQUIRED_ARRAYS = [
   'stats',
   'skills',
-  'combatSkills',
   'materials',
   'materialCategories',
   'items',
@@ -106,7 +105,7 @@ export function buildConfiguration(entries) {
     // Must track `SUPPORTED_SCHEMA_VERSION` in src/types/config.ts, which this script cannot
     // import (it is TypeScript). `exampleRuleset.test.ts` asserts the two agree, so drift fails
     // the suite rather than producing a corpus the app then refuses to import.
-    schemaVersion: 8,
+    schemaVersion: 9,
     createdAt: EXPORTED_AT,
     updatedAt: EXPORTED_AT,
   };
@@ -152,13 +151,12 @@ export function collisions(config) {
     }
   }
 
-  // A stat abbreviation and a roll code share one flat formula namespace (TICKET-STAT-01). A
-  // `Skill` left it with TICKET-SKL-02 — it is reached as `skills.<name-slug>` instead.
+  // The flat formula namespace holds **stat abbreviations and nothing else** (TICKET-ROLL-06). A
+  // `Skill` left it with TICKET-SKL-02 — reached as `skills.<name-slug>` — and the roll codes went
+  // with `CombatSkill`. Kept as a loop rather than collapsed to a set difference so adding a second
+  // contributor back is one line here.
   const spellings = new Map();
-  const namespace = [
-    ...config.stats.map((stat) => [stat.abbreviation, `stat '${stat.name}'`]),
-    ...config.combatSkills.map((skill) => [skill.code, `roll '${skill.name}'`]),
-  ];
+  const namespace = config.stats.map((stat) => [stat.abbreviation, `stat '${stat.name}'`]);
   for (const [spelling, owner] of namespace) {
     const first = spellings.get(spelling);
     if (first) {

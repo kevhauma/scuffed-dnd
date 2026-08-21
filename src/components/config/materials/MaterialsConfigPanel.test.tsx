@@ -42,7 +42,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 8,
+    schemaVersion: 9,
     stats: [
       stat({ id: 'str-id', name: 'Strength', abbreviation: 'STR', order: 0 }),
       stat({ id: 'mana-id', name: 'Mana', abbreviation: 'MANA', order: 1, isResource: true }),
@@ -56,7 +56,6 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         statWeights: [{ statId: 'str-id', weight: 0.2 }],
       },
     ],
-    combatSkills: [],
     materials: [
       {
         id: 'fur',

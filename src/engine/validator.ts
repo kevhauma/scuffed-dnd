@@ -97,7 +97,6 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   // Validate formulas against the same scoping table the save-time guard uses, so an imported
   // ruleset is judged by exactly the rules a panel would have enforced (Concept 00 §5).
   const statScope = scopeFor(config, 'stat');
-  const combatScope = scopeFor(config, 'combat-skill');
 
   // Validate stat formulas — only derived stats have one (TICKET-STAT-01)
   for (const stat of config.stats) {
@@ -174,32 +173,15 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   // usual cause is one skill entered twice, and only the User can tell that from the sheet's case.
   warnings.push(...nearDuplicateSkillNameWarnings(config.skills));
 
-  // Validate combat skill formulas
-  for (const skill of config.combatSkills) {
-    const result = validateFormula(skill.bonusFormula, combatScope.codes, combatScope);
-
-    if (!result.isValid) {
-      for (const error of result.errors) {
-        errors.push({
-          severity: 'error',
-          category: 'Formula Validation',
-          message: `Combat Skill "${skill.name}": ${error}`,
-          entityType: 'combatSkill',
-          entityId: skill.code,
-          entityName: skill.name,
-        });
-      }
-    }
-  }
-
   // Validate circular dependencies in formulas. `toFormulaDependency` is the one place that
   // decides what an edge is, so bare codes and dotted references land on the same graph nodes.
-  const formulaDependencies: FormulaDependency[] = [
-    ...config.stats
-      .filter((stat) => stat.formula !== undefined)
-      .map((stat) => toFormulaDependency(stat.id, stat.formula as string)),
-    ...config.combatSkills.map((skill) => toFormulaDependency(skill.code, skill.bonusFormula)),
-  ];
+  //
+  // **Derived stats are the only nodes** since TICKET-ROLL-06: a combat skill was the other kind
+  // and went with the entity, and neither a `Skill` (weight rows) nor a `RollDefinition` (nothing
+  // can name one) can be part of a cycle.
+  const formulaDependencies: FormulaDependency[] = config.stats
+    .filter((stat) => stat.formula !== undefined)
+    .map((stat) => toFormulaDependency(stat.id, stat.formula as string));
 
   const circularResult = validateFormulaCollection(formulaDependencies);
   if (!circularResult.isValid) {
@@ -433,11 +415,14 @@ export function validateConfiguration(config: Configuration): ValidationReport {
     }
   }
 
-  // Validate unique skill codes
-  const allCodes = [
-    ...config.stats.map((s) => ({ code: s.abbreviation, type: 'Stat', name: s.name })),
-    ...config.combatSkills.map((s) => ({ code: s.code, type: 'Combat Skill', name: s.name })),
-  ];
+  // Validate unique abbreviations. The flat formula space holds **stats and nothing else** since
+  // TICKET-ROLL-06, so this is now a check within one list rather than across two — kept because a
+  // duplicate abbreviation still splits a formula's identity from the value it reads.
+  const allCodes = config.stats.map((s) => ({
+    code: s.abbreviation,
+    type: 'Stat',
+    name: s.name,
+  }));
 
   const codeMap = new Map<string, Array<{ type: string; name: string }>>();
   for (const { code, type, name } of allCodes) {

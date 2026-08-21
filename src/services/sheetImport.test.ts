@@ -38,7 +38,6 @@ describe('sheet import fragments', () => {
   it('finds a fragment for every built feature', () => {
     expect(fragments.map((entry) => entry.name)).toEqual([
       'archetypes.json',
-      'combat-skills.json',
       'constants.json',
       'currency-tiers.json',
       'curves.json',

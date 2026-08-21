@@ -40,7 +40,7 @@ rather than a read-only config UI).
 |---|---|---|
 | `/` | `routes/index.tsx` | landing page, feature overview |
 | `/config` | `routes/config/index.tsx` | `ConfigDashboard` (components/config/dashboard/) — validation status, the "Validate Configuration" action, the `ConfigTransferPanel` (rename/export/import), and a card index of the nine sections below |
-| `/config/skills` | `routes/config/skills.tsx` | `SkillsPanel` + `CombatSkillsPanel` (main skills merged into stats — TICKET-STAT-01; the speciality panel became the weighted `SkillsPanel` — TICKET-SKL-02) |
+| `/config/skills` | `routes/config/skills.tsx` | `SkillsPanel` alone (main skills merged into stats — TICKET-STAT-01; the speciality panel became the weighted `SkillsPanel` — TICKET-SKL-02; the combat panel moved to `/config/rolls` as roll definitions — TICKET-ROLL-06) |
 | `/config/stats` | `routes/config/stats.tsx` | `StatsConfigPanel` — the unified Stat: invested, resource and derived alike, every field in one editor with drag/arrow reordering (TICKET-STAT-02). The flat point-budget field is gone — TICKET-RES-02 derives it |
 | `/config/materials` | `routes/config/materials.tsx` | `MaterialsConfigPanel` |
 | `/config/items` | `routes/config/items.tsx` | `ItemsConfigPanel` + `EquipmentSlotsConfigPanel` |
@@ -79,7 +79,7 @@ calls the storage service; components and hooks never persist directly.
 
 | Store | Owns | Persists to |
 |---|---|---|
-| `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), speciality and combat skills, materials + categories, items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
+| `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), skills, roll definitions, dice ladders, materials + categories, items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
 | `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience`, and `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02). `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history | not persisted |
@@ -98,7 +98,7 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   function calls `name(arg, …)`, dotted namespaced references (`stats.speed`, `skills.healing.level`,
   `curve.cr(x)`), bracketed id references (`[b1f0…]`, `stats.[b1f0…]` — the persisted form,
   TICKET-REF-01), and bare variable refs (**deprecated** — the flat space holds stat
-  abbreviations plus combat codes; TICKET-SKL-02 took the speciality half out, ROLL-05/06 takes the rest).
+  abbreviations and **nothing else** since TICKET-ROLL-06 — SKL-02 took the speciality half out and the combat codes went with the entity; a roll is in no namespace at all).
   Identifiers are `[A-Za-z][A-Za-z0-9_]*`. **Full grammar lives in the module JSDoc** — read it
   there rather than restating it. Also exports `tokenizeFormula(src)` — the lexer alone, for
   rewriting reference tokens in place.
@@ -149,7 +149,7 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   never a branch — there is no `switch` on owner kind in the engine, and a test enforces that
   every owner has a row. `curve`'s members are the ruleset's curve names (TICKET-CRV-01); a
   column is a property segment, checked at evaluation rather than here. The owners are `stat`,
-  `combat-skill`, `curve-generator` and `roll-input` (TICKET-ROLL-05 — a roll sees exactly what a
+  `curve-generator` and `roll-input` (TICKET-ROLL-05 — a roll sees exactly what a
   derived stat sees, because a roll is another reading of the character).
 - `formula/validator.ts` — `validateFormula(formula, availableCodes?, scope?)`,
   `validateFormulaCollection`, `detectCircularDependencies`, `dependencyKeysOf`,
@@ -175,11 +175,11 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   **id**, for display — TICKET-RACE-01/02) and `MAX_RACE_COUNT`, the one place the 1–2 race
   cardinality is written.
 - `calculators/skillCalculator.ts` — `calculateSkills(config, statValues, character)` → `{ levels, bonuses, contributions }`, all keyed by skill id (TICKET-SKL-02; `contributions` added by TICKET-SKL-03 — one `SkillStatContribution` per weight row with `weight × statValue` **already multiplied**, so the sheet labels terms it never recomputes; empty for a level that failed). `level = Σ(weight × stat) + invested`, `bonus = round(level / const.bonus_divider)` half-away-from-zero, with the divider read **by name** and falling back to Concept 05's seeded 5. A weight naming a stat that no longer exists contributes nothing; a stat whose own formula failed yields an `upstream` error naming it, with the original as `cause`. The invested term is 1:1 and **provisional** — TICKET-ARC-02 routes it through the point-buy curve.
-- `calculators/combatSkillCalculator.ts` — `calculateCombatSkillBonuses` (the formula, and nothing else). **No equipment term** since TICKET-MAT-02.
+- `calculators/rollCalculator.ts` — `calculateRollInputs(config, statValues, skills)` → `Record<rollId, FormulaResult>` (TICKET-ROLL-06). Each roll definition's input expression over the composed numbers — the value fed to the ladder. Replaced `combatSkillCalculator`, and the swap is the entity's argument: that produced a *bonus* added to a hand-typed pool, this produces the *input* a pool is derived from. Keyed by roll **id**; no equipment term (TICKET-MAT-02).
 - `calculators/equipmentBonusCalculator.ts` — `calculateEquipmentBonuses` (aggregates equipped items' material tier modifiers into one `StatModifier[]`, keyed by stat **id**) and `indexStatModifiers(modifiers)` → `Record<statId, number>` (any `StatModifier[]` as a per-stat lookup, for showing a stat's equipment contribution on its own).
 - `calculator.ts` — re-exports the calculators, plus **`calculateCharacter(character, config):
   CalculatedCharacter`**, the single composed entry point (equipment → stats → skills →
-  combat, in that order). Call it for any derived number; don't compose the calculators by hand.
+  roll inputs, in that order). Call it for any derived number; don't compose the calculators by hand.
   `calculateCharacterStats()` remains as a thin documented wrapper returning just `.statValues`.
   **Equipment applies exactly once, at the stat composition** (TICKET-MAT-02): a tier modifier
   names a stat, so the skill steps have no equipment term to claim a second share with — they read
@@ -255,17 +255,21 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   for ladder pools — `0D20 + 0D12 + 1D6 + 4`, descending, uppercase `D`, flat always rendered —
   which is the opposite of `formatDiceNotation` on every count; both live until ROLL-06 deletes the
   older one. It never sorts: a misordered ladder is the validator's error to report.
-- `dice/diceSimulator.ts` — `rollDice(diceConfig, rng?)` → `DiceRollResult[]` (one entry per die
-  type with a count above zero, carrying every individual roll), plus `rollDie`, `sumDiceResults`,
-  `DIE_SIDES`, `DIE_TYPES`, and `formatDiceNotation(dice)` → `"2d6 + 1d20"` (the one definition of
-  dice notation — the sheet and the roller share it).
-- `dice/combatRoll.ts` — `rollCombatSkill(skill, calculatedCharacter, config, rng?, timestamp?)` →
-  `CombatRollResult`. Takes its bonus from `calculateCombatSkillBonuses()`, so a roll can never
-  disagree with the sheet. Both take an injectable `RandomSource`, defaulting to `Math.random`;
-  production callers pass nothing. Barrelled by `dice/index.ts`.
+- `dice/diceSimulator.ts` — `rollDie(sides, rng?)` and the `RandomSource` type, and **nothing
+  else**. `rollDice`, `DIE_SIDES`, `DIE_TYPES` and `formatDiceNotation` all keyed off `DiceConfig`'s
+  fixed six-die record and went with it in TICKET-ROLL-06.
+- `dice/rollDefinition.ts` — `rollRollDefinition(roll, calculatedCharacter, config, rng?,
+  timestamp?)` → `RollOutcome | FormulaError` (TICKET-ROLL-06). Runs one roll end to end: read the
+  input, decompose down its ladder, roll the pool. **It reads `character.rollInputs` rather than
+  re-evaluating the formula** — that is what makes "a roll can never disagree with the sheet"
+  structural, since the button label comes from the same map. Injectable `RandomSource` defaulting
+  to `Math.random`; production callers pass nothing. Barrelled by `dice/index.ts`.
 
-`CombatRollResult` (`types/formula.ts`) is the **only** dice-result shape — `useUIStore`'s
-`RollResult` extends it and adds `id`/`characterId`/`characterName`. Don't reintroduce a second one.
+`RollOutcome` (`types/formula.ts`) is the **only** dice-result shape — `useUIStore`'s `RollResult`
+extends it and adds `id`/`characterId`/`characterName`. It carries the whole chain (input, pool,
+per-die results, flat, total, notation) because the point of the ladder is that the chain is
+visible. `DieRollResult` lives there too, keyed by **size**: `types/` cannot import from `engine/`,
+and a d100 is data. Don't reintroduce a second one.
 
 ## Services (`src/services/`)
 
@@ -312,7 +316,7 @@ value and neither imports the engine to decide what to draw. Use it rather than 
 `FormulaResult` in a component.
 
 **`config/` — configuration-mode features**, one folder per domain
-(`skills/{skill,combat,shared}`, `stats/`, `materials/`, `items/`, `races/`,
+(`skills/{skill,shared}`, `stats/`, `materials/`, `items/`, `races/`,
 `currency/`, `constants/`, `curves/`, `archetypes/`, `rolls/`). Each domain repeats the same
 four-part shape:
 
@@ -339,7 +343,7 @@ prop per panel.**
 in a three-column grid) rather than a second frame — plus `SkillFormFields.tsx` and
 `skillIdentity.ts` (`resolveSkillId` alone — TICKET-REF-01; `useSkillCodeRename` was deleted in
 TICKET-SKL-02 once both character investment maps became id-keyed, and `resolveSkillId` now serves
-the combat manager only, the last kind still addressed by a code).
+the combat manager only — and that manager went with `CombatSkill` in TICKET-ROLL-06, so `resolveSkillId` now has no caller left in config).
 
 **`config/shared/` also holds `FormulaPreview`** (TICKET-FORM-08) — the one preview for any
 User-authored formula field: editable sample values plus a fixed 1–50 level ladder, taking the
@@ -401,15 +405,17 @@ value, the points editor spends the level-derived pool; TICKET-STAT-03, TICKET-R
 `SkillsSection` (one row per
 skill carrying **both** of Concept 02's numbers since TICKET-SKL-03 — the bonus as the row's total,
 the level in `SkillBreakdownRow`'s `secondary` slot — over a breakdown of `STR × 0.2 +2` terms plus
-the points invested) and `CombatSkillsSection` as pure props.
+the points invested) and `RollsSection` as pure props. **`RollsSection`** (TICKET-ROLL-06) groups
+by `category` and labels each button with the **pool** rather than a bonus — `Roll 1D20 + 1D12 +
+1D6 + 1` — which is the whole ticket in one line: raise a stat and the label changes, because the
+dice are derived from the character.
 `inventory/` holds `InventoryPanel` (mounted by the sheet, taking only a `characterId`) with
 `EquipmentSlotRow`, `MiscItemRow` and `useInventoryManager`. Equipping needs no recalculation call:
 `calculateCharacter` reads `inventory.equippedItems` at render time.
-`rolls/` holds `useCombatRoller` (the one caller of `rollCombatSkill`, taking the sheet's
+`rolls/` holds `useRoller` (the one caller of `rollRollDefinition`, taking the sheet's
 `CalculatedCharacter` so the roll is not calculated twice), `RollBreakdown` and `RollHistoryPanel`.
-The roll button and the last result live in `CombatSkillsSection`; the history is its own panel.
-Randomness is injectable via `useCombatRoller(id, calculated, { rng })` — never spy on
-`Math.random`.
+The roll button and the last result live in `RollsSection`; the history is its own panel.
+Randomness is injectable via `useRoller(id, calculated, { rng })` — never spy on `Math.random`.
 
 **`shared/`** — cross-mode components and hooks, barrelled by `shared/index.ts`:
 `AppShell.tsx` (the medieval frame + mode switcher + per-mode nav), `useAppMode.ts` (route↔mode

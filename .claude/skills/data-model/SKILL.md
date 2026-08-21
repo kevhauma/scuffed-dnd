@@ -26,9 +26,9 @@ as part of the action. That is the equivalent of a repository layer here.
 
 ## Configuration (the ruleset)
 
-One `Configuration` per browser: id, name, version, **`schemaVersion: 8`**, timestamps,
+One `Configuration` per browser: id, name, version, **`schemaVersion: 9`**, timestamps,
 plus the entity arrays — `stats`, `skills`,
-`combatSkills`, `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
+`materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
 `currencyTiers`, the optional `constants` (TICKET-CST-01), `curves` (TICKET-CRV-01),
 `archetypes` (TICKET-ARC-01), `diceLadders` (TICKET-ROLL-03) and `rollDefinitions`
 (TICKET-ROLL-05).
@@ -102,12 +102,12 @@ optional `Configuration.diceLadders`. Four things to know:
 - **`remainder` is an enum of one.** A file claiming `smallest_die` is refused rather than silently
   read as `flat`. The delete shipped **unguarded** and was guarded by TICKET-ROLL-05, which brought
   the first thing that can point at a ladder — a guard with no possible referrer can never fire.
-- The old `DiceConfig` (six fixed keys on `CombatSkill`) is untouched and still the shape
-  `rollDice` takes; TICKET-ROLL-06 is what removes it.
+- `DiceConfig` and `CombatSkill` are **gone** (TICKET-ROLL-06), and with them `rollDice`,
+  `DIE_SIDES` and `formatDiceNotation`. A pool is derived from a character now, never typed.
 
 **`RollDefinition` is a named, rollable line** (Concept 08, TICKET-ROLL-05):
 `{ id, name, description, input, ladderId, category?, order }` on the optional
-`Configuration.rollDefinitions`. It replaces `CombatSkill` in ROLL-06, and the difference is the
+`Configuration.rollDefinitions`. It replaced `CombatSkill` outright in ROLL-06, and the difference is the
 whole point: a combat skill hand-types six dice counts and bolts a formula on as a flat bonus; a
 roll *derives* its pool by feeding `input` down `ladderId`.
 
@@ -187,14 +187,14 @@ and `rounding` (`none` | `nearest` | `up` | `down`, applied after the clamp).
 Identity rules that the rest of the app depends on:
 
 - **Every referenceable entity carries a stable `id`.** Since TICKET-REF-01 that includes stats
-  and both skill kinds, whose `abbreviation` / `code` is renamable display data rather than the
+  and both skill kinds, whose `abbreviation` is renamable display data rather than the
   identity. **`updateSkill`/`deleteSkill` take the id** (TICKET-SKL-02 — a `Skill` has no code to
-  address it by); the combat actions still *address* by code (`updateCombatSkill('MEL', …)`),
-  which is a lookup argument, not the key, until ROLL-05/06. `EquipmentSlot` is still keyed by
-  `type`.
+  address it by), and so do the roll and ladder actions. **No entity is addressed by a code**
+  any more — the last one, `CombatSkill`, went in TICKET-ROLL-06. `EquipmentSlot` is still
+  keyed by `type`.
 - **A stat's `abbreviation` is an uppercase identifier and unique across the one flat formula
-  space** it shares with the combat codes (TICKET-STAT-01; the speciality half of that space left
-  with the code in TICKET-SKL-02). Enforced in both places the rule needs:
+  space** (TICKET-STAT-01), which holds **stat abbreviations and nothing else**: the speciality
+  half left with the code in TICKET-SKL-02, the combat codes with the entity in ROLL-06. Enforced in both places the rule needs:
   `validateConfiguration()` for import, `useStatManager`'s save path for User input. Renaming one
   is safe — the stored formula holds the stat's id — and there is **no character half left to
   carry**: `investedStatPoints` and `investedSkillPoints` are both keyed by id, which is why
@@ -246,7 +246,7 @@ Identity rules that the rest of the app depends on:
   index is **derived on every call and never persisted**.
   A `stats.*` member is a slug of the stat's name (`Max Health` → `stats.max_health`) until
   TICKET-STAT-01 gives stats a real code.
-- **Formulas are strings** on `Stat.formula`, `CombatSkill.bonusFormula`, and
+- **Formulas are strings** on `Stat.formula`, `RollDefinition.input`, and
   `CurveColumn.generator`. **A `Skill` carries none** — weight rows replaced the string in
   TICKET-SKL-02, which is also why there is no `skill` attachment point in `scoping.ts` and why a
   skill cannot be a node in the dependency graph. They are parsed by the formula engine, never `eval`'d, and a bare
@@ -291,7 +291,7 @@ changed; what changed is what the number means, so never read an entry as a stat
 `statGain` (or read `validateStatAllocation(...).gains`) instead.
 
 **Derived values are never persisted.** Composed stat values, the stat total, skill levels and
-bonuses, combat bonuses, and equipment bonuses are computed on demand from
+bonuses, roll inputs, and equipment bonuses are computed on demand from
 `src/engine/`. `calculateCharacter(character, config)` in
 [calculator.ts](../../../src/engine/calculator.ts) is the single entry point that produces a
 `CalculatedCharacter` with every derived field populated; `calculateCharacterStats()` is a thin
@@ -337,7 +337,7 @@ value — the composition terminates rather than reporting a cycle the validator
 names.
 
 **Since TICKET-FORM-05 the formula-derived maps hold `FormulaResult` — a number *or* a
-`FormulaError`** (`statValues`, `skillLevels`, `skillBonuses`, `combatSkillBonuses`; `statTotal` is
+`FormulaError`** (`statValues`, `skillLevels`, `skillBonuses`, `rollInputs`; `statTotal` is
 a plain number, and a stat that failed contributes nothing to it rather than poisoning it).
 `calculateCharacter` **always returns**: a broken formula poisons its own entry and nothing else
 (Concept 00 §7). Read entries with `numberOr(result, fallback)` or `asNumber(result)` from

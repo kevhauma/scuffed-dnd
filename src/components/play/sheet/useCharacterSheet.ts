@@ -23,7 +23,8 @@ import {
 } from '../../../engine/calculators/pointBuy';
 import { calculateRaceStatBases } from '../../../engine/calculators/statCalculator';
 import { calculateCharacterLevel } from '../../../engine/characterSummary';
-import { formatDiceNotation } from '../../../engine/dice/diceSimulator';
+import { rollPool } from '../../../engine/dice/rollDefinition';
+import { describeFormulaError, isFormulaError } from '../../../engine/formula/errors';
 import { validateStatAllocation } from '../../../engine/skillAllocation';
 import { useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
@@ -147,13 +148,32 @@ export interface RaceContribution {
 }
 
 /**
- * A combat skill's dice and calculated bonus
+ * A roll's derived pool, ready for its button (Concept 08, TICKET-ROLL-06)
+ *
+ * `input` is the number the definition's expression produced; `notation` is the pool that number
+ * decomposes into, carrying the same `text`/`error` pair every other derived display value uses so
+ * a broken input chips rather than rendering a confident empty pool.
  */
-export interface CombatSkillBreakdown {
-  code: string;
+export interface RollPool {
+  id: string;
   name: string;
-  diceNotation: string;
-  bonus: DerivedValue;
+  /** What the definition's input evaluated to */
+  input: DerivedValue;
+  /** The pool as `1D20 + 1D12 + 1D6 + 1`, or the reason there isn't one */
+  notation: DerivedNotation;
+}
+
+/** A rendered pool string, or the error that stopped it being one */
+export interface DerivedNotation {
+  text: string | null;
+  error: string | null;
+}
+
+/** Rolls sharing a `category`, in the order the ruleset lists them */
+export interface RollGroup {
+  /** The category, or `other` for rolls the ruleset did not sort */
+  label: string;
+  rolls: RollPool[];
 }
 
 /** Everything the sheet's sections render, or empty when there is no sheet to draw */
@@ -166,7 +186,7 @@ interface CharacterSheetView {
   stats: StatBreakdown[];
   /** Sum of the stats flagged as counting toward the character's total */
   statTotal: number;
-  combatSkills: CombatSkillBreakdown[];
+  rollGroups: RollGroup[];
 }
 
 const EMPTY_VIEW: CharacterSheetView = {
@@ -175,8 +195,54 @@ const EMPTY_VIEW: CharacterSheetView = {
   skills: [],
   stats: [],
   statTotal: 0,
-  combatSkills: [],
+  rollGroups: [],
 };
+
+/** What a roll with no category is listed under (Concept 08 makes the field optional) */
+const UNCATEGORISED_ROLLS = 'other';
+
+/**
+ * Every roll's pool, grouped by category and ordered by `order`
+ *
+ * The notation comes from the **engine** — `decomposeValue` then `formatLadderNotation`, the same
+ * pair `rollRollDefinition` uses — so the label on the button and the dice that actually get rolled
+ * are the same computation, not two that agree by inspection.
+ *
+ * A group is built in first-appearance order rather than against a fixed category list, so a
+ * ruleset that uses only `utility` does not render two empty headings.
+ */
+function buildRollGroups(config: Configuration, calculated: CalculatedCharacter): RollGroup[] {
+  const groups = new Map<string, RollPool[]>();
+
+  const ordered = [...(config.rollDefinitions ?? [])].sort((a, b) => a.order - b.order);
+
+  for (const roll of ordered) {
+    const input = toDerivedValue(calculated.rollInputs[roll.id]);
+
+    // `rollPool` is the same call `rollRollDefinition` makes, so the label on the button and the
+    // dice that get thrown are one derivation rather than two that agree by inspection
+    const pool = input.error !== null ? null : rollPool(roll, input.value as number, config);
+
+    const notation: DerivedNotation =
+      pool === null
+        ? { text: null, error: input.error }
+        : isFormulaError(pool)
+          ? { text: null, error: describeFormulaError(pool) }
+          : { text: pool.notation, error: null };
+
+    const label = roll.category ?? UNCATEGORISED_ROLLS;
+    const group = groups.get(label);
+    const entry: RollPool = { id: roll.id, name: roll.name, input, notation };
+
+    if (group) {
+      group.push(entry);
+    } else {
+      groups.set(label, [entry]);
+    }
+  }
+
+  return [...groups.entries()].map(([label, rolls]) => ({ label, rolls }));
+}
 
 /** The engine result plus the reason it could not be produced */
 interface CalculationOutcome {
@@ -302,12 +368,7 @@ function buildView(
 
     statTotal: calculated.statTotal,
 
-    combatSkills: config.combatSkills.map((skill) => ({
-      code: skill.code,
-      name: skill.name,
-      diceNotation: formatDiceNotation(skill.dice),
-      bonus: toDerivedValue(calculated.combatSkillBonuses[skill.code]),
-    })),
+    rollGroups: buildRollGroups(config, calculated),
   };
 }
 

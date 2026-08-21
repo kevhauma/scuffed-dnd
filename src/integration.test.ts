@@ -27,7 +27,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Integration Ruleset',
     version: '1.0',
-    schemaVersion: 8,
+    schemaVersion: 9,
     stats: [
       {
         id: 'STR',
@@ -70,14 +70,26 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         statWeights: [{ statId: 'DEX', weight: 1 }],
       },
     ],
-    combatSkills: [
+    diceLadders: [
+      {
+        id: 'ladder',
+        name: 'Standard',
+        description: '',
+        dieSizes: [20, 12, 6],
+        showZeroTerms: true,
+        remainder: 'flat',
+      },
+    ],
+    // The combat skill's `bonusFormula` became a roll's `input` in TICKET-ROLL-06 — same
+    // expression, but the number it produces is decomposed into dice rather than added after them
+    rollDefinitions: [
       {
         id: 'MEL',
-        code: 'MEL',
         name: 'Melee',
         description: '',
-        dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-        bonusFormula: 'STR + skills.stealth',
+        input: 'STR + skills.stealth',
+        ladderId: 'ladder',
+        order: 0,
       },
     ],
     materials: [],
@@ -277,7 +289,7 @@ describe('recalculation flows', () => {
     expect(numberOr(after.skillLevels.STL, 0) - numberOr(before.skillLevels.STL, 0)).toBe(6);
   });
 
-  it('should move a combat bonus when the skills it names change (Req 5.4)', () => {
+  it('should move a roll input when the skills it names change (Req 5.4)', () => {
     // Melee is STR + STL, and STL itself depends on DEX — so this proves the chain, not one hop
     const before = calculateCharacter(
       createCharacter({ investedStatPoints: { STR: 5, DEX: 4 } }),
@@ -288,9 +300,7 @@ describe('recalculation flows', () => {
       config
     );
 
-    expect(
-      numberOr(after.combatSkillBonuses.MEL, 0) - numberOr(before.combatSkillBonuses.MEL, 0)
-    ).toBe(2);
+    expect(numberOr(after.rollInputs.MEL, 0) - numberOr(before.rollInputs.MEL, 0)).toBe(2);
   });
 
   it('should blend two races through the whole chain rather than stacking them (Req 8.3, 8.4)', () => {
@@ -337,7 +347,7 @@ describe('recalculation flows', () => {
     expect(Object.keys(reloadedConfig.races[0].statValues)).toEqual(['DEX']);
     expect(after.statValues).toEqual(before.statValues);
     expect(after.skillLevels).toEqual(before.skillLevels);
-    expect(after.combatSkillBonuses).toEqual(before.combatSkillBonuses);
+    expect(after.rollInputs).toEqual(before.rollInputs);
   });
   it('turns a force-deleted skill into error values, never silent zeros (TICKET-REF-02)', () => {
     const config = createConfig();
@@ -358,8 +368,8 @@ describe('recalculation flows', () => {
     expect(isFormulaError(health)).toBe(true);
     expect(describeFormulaError(health as FormulaError)).toContain('Undefined variable: STR');
 
-    // The combat skill reading STR fails the same way, and nothing threw on the way here
-    expect(isFormulaError(after.combatSkillBonuses.MEL)).toBe(true);
+    // The roll input reading STR fails the same way, and nothing threw on the way here
+    expect(isFormulaError(after.rollInputs.MEL)).toBe(true);
     // Everything that did not name it still computes
     expect(numberOr(after.skillLevels.STL, -1)).toBe(6);
   });

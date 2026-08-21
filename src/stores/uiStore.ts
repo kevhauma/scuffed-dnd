@@ -9,7 +9,7 @@
 
 import { create } from 'zustand';
 import type { ValidationReport } from '../engine/validator';
-import type { CombatRollResult } from '../types/formula';
+import type { RollOutcome } from '../types/formula';
 
 /**
  * Application mode
@@ -28,10 +28,10 @@ export interface DialogState {
 /**
  * Dice roll result for history tracking
  *
- * A `CombatRollResult` straight from `engine/dice`, tagged with who rolled it. The roll's own
- * shape is not restated here — one dice-result shape exists in the codebase, not two.
+ * A `RollOutcome` straight from `engine/dice`, tagged with who rolled it. The roll's own shape is
+ * not restated here — one dice-result shape exists in the codebase, not two.
  */
-export interface RollResult extends CombatRollResult {
+export interface RollResult extends RollOutcome {
   id: string;
   characterId: string;
   characterName: string;

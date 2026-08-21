@@ -32,7 +32,6 @@ from the fragments without the suite saying so.
 | [`constants.json`](./constants.json) | Constants | CST-01, CST-02 | 05 | `Calculator!G13:G14`, `!P2:Q2`, `!P5:Q5`, `Setup!Q6` |
 | [`curves.json`](./curves.json) | Curves | CRV-01…03 | 06 | `Calculator!B2:E54` |
 | [`skills.json`](./skills.json) | Skills | SKL-02, SKL-03 | 02 | `Skills!C12:G59` |
-| [`combat-skills.json`](./combat-skills.json) | Rolls (v1.0 shape, **superseded**) | ROLL-06 deletes it | 08 | `Calculator!G17:N20`, `!I16:L16` |
 | [`dice-ladders.json`](./dice-ladders.json) | Dice ladder | ROLL-03 | 07 | `Calculator!I16:L16`, `!G17:N20` |
 | [`roll-definitions.json`](./roll-definitions.json) | Roll definitions | ROLL-05 | 08 | `Calculator!G17:N20`, `Charactersheet!D12:H14` |
 | [`materials.json`](./materials.json) | Materials | MAT-01 | 09 | `Components!A5:L295` |
@@ -81,8 +80,8 @@ have it). Where a fragment is mixed, the field says which part is which.
   exchange rates, XP thresholds, a skill's max base level — the field takes a neutral value and a
   note says so. A plausible guess in the User's ruleset is worse than an obvious gap.
 - **Where the current shape cannot hold the sheet's data, say so in `notes`** and put in what
-  fits. `combat-skills.json` ships zero dice because the sheet has no fixed pools; `items.json`
-  keeps base values in the description because `Item` has no value field. The note is what lets
+  fits. `items.json` keeps base values in the description because `Item` has no value field, and
+  `roll-definitions.json` ships evasion and endure short of the sheet. The note is what lets
   the later ticket lift the data across.
 - **`ducklets.json` is generated.** Edit a fragment, run `yarn run sheet:import`, commit both.
 - **A failing `sheetImport.test.ts` is never fixed by editing the corpus to match the code** unless

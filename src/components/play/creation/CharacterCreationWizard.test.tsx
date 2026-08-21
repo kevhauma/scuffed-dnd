@@ -31,7 +31,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 8,
+    schemaVersion: 9,
     stats: [
       {
         id: 'STR',
@@ -74,14 +74,27 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         statWeights: [{ statId: 'DEX', weight: 0.5 }],
       },
     ],
-    combatSkills: [
+    diceLadders: [
+      {
+        id: 'ladder',
+        name: 'Standard',
+        description: '',
+        dieSizes: [20, 12, 6],
+        showZeroTerms: true,
+        remainder: 'flat',
+      },
+    ],
+    // A combat skill's bonus formula is a roll's input since TICKET-ROLL-06 — the number goes
+    // *into* the ladder rather than being added after the dice
+    rollDefinitions: [
       {
         id: 'MEL',
-        code: 'MEL',
         name: 'Melee',
         description: '',
-        dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-        bonusFormula: 'STR + skills.stealth',
+        input: 'STR + skills.stealth',
+        ladderId: 'ladder',
+        category: 'offence',
+        order: 0,
       },
     ],
     materials: [],
@@ -524,7 +537,8 @@ describe('CharacterCreationWizard', () => {
     expect(rowValue('Health (HEA)')).toBe(`Health (HEA)${expected.statValues.health}`);
     // The review shows the **bonus** a Player rolls with, not the level (Concept 02)
     expect(rowValue('Stealth')).toBe(`Stealth${expected.skillBonuses.STL}`);
-    expect(rowValue('Melee (MEL)')).toBe(`Melee (MEL)${expected.combatSkillBonuses.MEL}`);
+    // A roll shows its **input** — the number fed to the ladder (TICKET-ROLL-06)
+    expect(rowValue('Melee')).toBe(`Melee${expected.rollInputs.MEL}`);
     expect(rowValue('Dexterity (DEX)')).toBe(`Dexterity (DEX)${expected.statValues.DEX}`);
   });
 
@@ -545,7 +559,7 @@ describe('CharacterCreationWizard', () => {
 
     expect(rowValue('Strength (STR)')).toBe('Strength (STR)0');
     expect(rowValue('Health (HEA)')).toBe('Health (HEA)0'); // STR 0 * 10
-    expect(rowValue('Melee (MEL)')).toBe('Melee (MEL)0'); // STR 0 + STL 0
+    expect(rowValue('Melee')).toBe('Melee0'); // STR 0 + STL 0
   });
 
   it('should create the character once and navigate to its sheet', () => {

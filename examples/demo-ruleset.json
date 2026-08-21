@@ -2,7 +2,7 @@
   "id": "demo-ruleset-0001",
   "name": "Emberfall Demo Ruleset",
   "version": "1.0.0",
-  "schemaVersion": 8,
+  "schemaVersion": 9,
   "skills": [
     {
       "id": "skill-stealth",
@@ -78,53 +78,6 @@
           "weight": 0.5
         }
       ]
-    }
-  ],
-  "combatSkills": [
-    {
-      "id": "combat-melee-strike",
-      "code": "MEL",
-      "name": "Melee Strike",
-      "description": "A close-quarters weapon attack.",
-      "dice": {
-        "d4": 0,
-        "d6": 0,
-        "d8": 1,
-        "d10": 0,
-        "d12": 0,
-        "d20": 0
-      },
-      "bonusFormula": "STR + skills.athletics / 2"
-    },
-    {
-      "id": "combat-ranged-shot",
-      "code": "RNG",
-      "name": "Ranged Shot",
-      "description": "A bow or thrown-weapon attack from distance.",
-      "dice": {
-        "d4": 0,
-        "d6": 2,
-        "d8": 0,
-        "d10": 0,
-        "d12": 0,
-        "d20": 0
-      },
-      "bonusFormula": "DEX + skills.survival / 2"
-    },
-    {
-      "id": "combat-arcane-bolt",
-      "code": "ARC",
-      "name": "Arcane Bolt",
-      "description": "A crackling missile of raw magic.",
-      "dice": {
-        "d4": 0,
-        "d6": 0,
-        "d8": 0,
-        "d10": 1,
-        "d12": 0,
-        "d20": 0
-      },
-      "bonusFormula": "INT + skills.lore / 2"
     }
   ],
   "materialCategories": [
@@ -552,6 +505,49 @@
       "isResource": true,
       "rounding": "nearest",
       "formula": "(CON + DEX) * 5"
+    }
+  ],
+  "diceLadders": [
+    {
+      "id": "ladder-standard",
+      "name": "Standard",
+      "description": "A value becomes D20s, then D12s, then D6s, with the leftover as a flat bonus.",
+      "dieSizes": [
+        20,
+        12,
+        6
+      ],
+      "showZeroTerms": true,
+      "remainder": "flat"
+    }
+  ],
+  "rollDefinitions": [
+    {
+      "id": "roll-melee-strike",
+      "name": "Melee",
+      "description": "A close-quarters weapon attack.",
+      "input": "STR + skills.athletics / 2",
+      "ladderId": "ladder-standard",
+      "category": "offence",
+      "order": 0
+    },
+    {
+      "id": "roll-ranged-shot",
+      "name": "Ranged",
+      "description": "A bow or thrown-weapon attack from distance.",
+      "input": "DEX + skills.survival / 2",
+      "ladderId": "ladder-standard",
+      "category": "offence",
+      "order": 1
+    },
+    {
+      "id": "roll-arcane-bolt",
+      "name": "Arcane",
+      "description": "A crackling missile of raw magic.",
+      "input": "INT + skills.lore / 2",
+      "ladderId": "ladder-standard",
+      "category": "offence",
+      "order": 2
     }
   ]
 }

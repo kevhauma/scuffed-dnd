@@ -31,7 +31,6 @@ export type ReferenceTargetKind =
   | 'curve'
   | 'curve-column'
   | 'skill'
-  | 'combat-skill'
   | 'dice-ladder'
   | 'roll-definition'
   | 'stat'
@@ -83,17 +82,16 @@ type ReferenceMatcher = (formula: string) => boolean;
 /** How a roll names itself in a reference list — the entity's own name, like `Combat Skill` */
 const ROLL_HOLDER_KIND = 'Roll Definition';
 
-/** A skill: named bare (`STR`) or through its namespace (`skills.STL`) */
-function namesSkill(code: string): ReferenceMatcher {
-  return (formula) => {
-    const result = validateFormula(formula);
-    return (
-      result.referencedVariables.includes(code) ||
-      result.namespacedReferences.some(
-        (reference) => reference.namespace === 'skills' && reference.member === code
-      )
-    );
-  };
+/**
+ * A bare code in the flat formula space — `STR`
+ *
+ * Since TICKET-ROLL-06 that space holds **stat abbreviations and nothing else**: the combat skill
+ * codes that shared it went with the entity, and a `Skill` left it in TICKET-SKL-02. So this had a
+ * second clause matching `skills.<code>`, which is now unreachable — a skill is named by slug, and
+ * the stat branch already matches `stats.<slug>` separately — and it is gone with the codes.
+ */
+function namesBareCode(code: string): ReferenceMatcher {
+  return (formula) => validateFormula(formula).referencedVariables.includes(code);
 }
 
 /**
@@ -146,15 +144,6 @@ function formulaSources(config: Configuration): { reference: EntityReference; fo
         },
         formula: stat.formula as string,
       })),
-    ...config.combatSkills.map((skill) => ({
-      reference: {
-        holderKind: 'Combat Skill',
-        holderName: skill.name,
-        field: 'bonusFormula',
-        holderId: skill.id,
-      },
-      formula: skill.bonusFormula,
-    })),
     // A curve column's generator is user-authored formula text like any other (TICKET-CRV-02),
     // so a constant named only from one still blocks that constant's delete
     ...(config.curves ?? []).flatMap((curve) =>
@@ -310,19 +299,6 @@ function skillEntityReferences(
   ];
 }
 
-/** Everything pointing at a combat skill, which still lives in the flat code space */
-function combatSkillReferences(config: Configuration, code: string): EntityReference[] {
-  // A skill's own bonus formula goes with it, so exclude it by id — the codes in the formula are
-  // spellings, the identity is not (TICKET-REF-01).
-  const own = config.combatSkills.find((skill) => skill.code === code);
-
-  // No material lookup here since TICKET-MAT-01: a tier's modifiers name a stat id, so a
-  // speciality or combat code can no longer be one of their targets. And no character lookup since
-  // TICKET-ARC-03 retired the focus stat, which was the one character field that named a code —
-  // every remaining one is keyed by id, so a formula is all that can point at a combat skill.
-  return formulaReferences(config, namesSkill(code), own?.id ?? code);
-}
-
 /** Everything pointing at a stat */
 function statReferences(
   config: Configuration,
@@ -339,7 +315,7 @@ function statReferences(
         config,
         (formula) =>
           namesMember('stats', statMemberName(stat))(formula) ||
-          namesSkill(stat.abbreviation.toUpperCase())(formula),
+          namesBareCode(stat.abbreviation.toUpperCase())(formula),
         id
       )
     : [];
@@ -426,9 +402,6 @@ export function findReferences(
   switch (target.kind) {
     case 'skill':
       return skillEntityReferences(config, characters, target.id);
-
-    case 'combat-skill':
-      return combatSkillReferences(config, target.id);
 
     case 'stat':
       return statReferences(config, characters, target.id);

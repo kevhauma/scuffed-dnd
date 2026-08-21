@@ -56,7 +56,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 8,
+    schemaVersion: 9,
     stats: [
       {
         id: 'STR',
@@ -90,7 +90,6 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
       },
     ],
     skills: [],
-    combatSkills: [],
     materials: [],
     materialCategories: [],
     items: [],

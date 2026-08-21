@@ -12,6 +12,7 @@
  */
 
 import type { DiceLadder } from '../../types/config';
+import type { DieRollResult } from '../../types/formula';
 import { type RandomSource, rollDie } from './diceSimulator';
 
 /**
@@ -83,20 +84,11 @@ export function decomposeValue(value: number, ladder: DiceLadder): LadderDecompo
 }
 
 /**
- * What one rung of a ladder actually rolled
- *
- * Keyed by `size` rather than by a die-type name, which is the whole point of the ladder: a d100
- * is data here, and `DiceRollResult`'s six-name union cannot say it.
- */
-export interface DieRollResult {
-  size: number;
-  /** Every individual die, so a Player can see the roll rather than only its sum */
-  rolls: number[];
-  total: number;
-}
-
-/**
  * A rolled pool: what each rung produced, the flat it carries, and the number that matters
+ *
+ * `DieRollResult` lives in `types/formula.ts` since TICKET-ROLL-06, because `RollOutcome` carries
+ * it and `types/` cannot import from `engine/`. It replaced the old six-name `DiceRollResult`
+ * union outright — there is one dice-result shape.
  */
 export interface LadderRollResult {
   /** One entry per rung of the decomposition, in ladder order — a rung with no dice included */

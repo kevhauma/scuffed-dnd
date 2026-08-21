@@ -34,7 +34,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 8,
+    schemaVersion: 9,
     stats: [
       {
         id: 'STR',
@@ -69,7 +69,6 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
       },
     ],
     skills: [],
-    combatSkills: [],
     materials: [],
     materialCategories: [{ id: 'metal', name: 'Metal', description: '' }],
     items: [],
@@ -173,24 +172,31 @@ describe('ConfigDashboard', () => {
   it('should report a circular dependency between formulas', () => {
     useConfigStore.setState({
       config: createConfig({
-        // Written over combat skills since TICKET-SKL-02: a `Skill` holds weight rows rather
-        // than a formula, so two of them cannot reference each other at all
-        combatSkills: [
+        // Written over **derived stats** since TICKET-ROLL-06: they are the only formula nodes
+        // left, now that combat skills are gone. A `Skill` holds weight rows and a `RollDefinition`
+        // cannot be referenced, so neither can be part of a cycle.
+        stats: [
           {
             id: 'AAA',
-            code: 'AAA',
             name: 'A',
+            abbreviation: 'AAA',
             description: '',
-            dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-            bonusFormula: 'BBB',
+            order: 0,
+            countsTowardTotal: true,
+            isResource: false,
+            rounding: 'none',
+            formula: 'BBB',
           },
           {
             id: 'BBB',
-            code: 'BBB',
             name: 'B',
+            abbreviation: 'BBB',
             description: '',
-            dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-            bonusFormula: 'AAA',
+            order: 1,
+            countsTowardTotal: true,
+            isResource: false,
+            rounding: 'none',
+            formula: 'AAA',
           },
         ],
       }),

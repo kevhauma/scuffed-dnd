@@ -26,7 +26,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 8,
+    schemaVersion: 9,
     stats: [
       {
         id: 'id-str',
@@ -68,15 +68,26 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         statWeights: [{ statId: 'id-dex', weight: 0.3 }],
       },
     ],
-    combatSkills: [
+    // A roll's input is the second persisted formula field, the one that replaced the combat
+    // skill's `bonusFormula` (TICKET-ROLL-06) — so the rename cases still cover two of them
+    diceLadders: [
       {
-        id: 'id-atk',
-        code: 'ATK',
-        name: 'Attack',
+        id: 'id-ladder',
+        name: 'Standard',
         description: '',
-        dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-        // `skills.<name>` rather than v1's bare `STL` — a `Skill` has no code (TICKET-SKL-02)
-        bonusFormula: 'STR + skills.stealth',
+        dieSizes: [20, 12, 6],
+        showZeroTerms: true,
+        remainder: 'flat',
+      },
+    ],
+    rollDefinitions: [
+      {
+        id: 'id-mel',
+        name: 'Melee',
+        description: '',
+        input: 'STR + skills.stealth',
+        ladderId: 'id-ladder',
+        order: 0,
       },
     ],
     materials: [],
@@ -126,11 +137,12 @@ describe('statMemberName', () => {
 });
 
 describe('buildReferenceIndex', () => {
-  it('puts stat abbreviations and combat codes in the one flat code space', () => {
+  it('puts stat abbreviations, and only those, in the flat code space (TICKET-ROLL-06)', () => {
     const index = buildReferenceIndex(createConfig());
 
     expect(index.toId.bare.get('STR')).toBe('id-str');
-    expect(index.toId.bare.get('ATK')).toBe('id-atk');
+    // The combat codes that used to share this space went with the entity; a roll was never in it
+    expect([...index.toId.bare.keys()].sort()).toEqual(['DEX', 'MAX', 'STR']);
   });
 
   it('keeps a skill out of the flat space entirely (TICKET-SKL-02)', () => {
@@ -251,9 +263,9 @@ describe('the rename test (Concept 00 §6)', () => {
     const after = calculateCharacter(character, renamed);
 
     expect(renamed.stats.find((candidate) => candidate.formula)?.formula).toBe('STG * 10');
-    expect(renamed.combatSkills[0].bonusFormula).toBe('STG + skills.stealth');
+    expect(renamed.rollDefinitions?.[0].input).toBe('STG + skills.stealth');
     expect(after.statValues).toEqual(before.statValues);
-    expect(after.combatSkillBonuses).toEqual(before.combatSkillBonuses);
+    expect(after.rollInputs).toEqual(before.rollInputs);
   });
 
   it('re-spells a skill everywhere it is named when the skill is renamed (TICKET-SKL-02)', () => {
@@ -283,7 +295,7 @@ describe('the rename test (Concept 00 §6)', () => {
     expect(renamed.stats.find((candidate) => candidate.formula)?.formula).toBe(
       'skills.sneaking.bonus'
     );
-    expect(renamed.combatSkills[0].bonusFormula).toBe('STR + skills.sneaking');
+    expect(renamed.rollDefinitions?.[0].input).toBe('STR + skills.sneaking');
   });
 
   it('keeps a skill computing the same level when a stat it weights is renamed (TICKET-SKL-02)', () => {
@@ -307,14 +319,14 @@ describe('the rename test (Concept 00 §6)', () => {
 
   it('re-spells a stat named in another formula when the stat is renamed', () => {
     const config = createConfig({
-      combatSkills: [
+      rollDefinitions: [
         {
-          id: 'id-atk',
-          code: 'ATK',
-          name: 'Attack',
+          id: 'id-mel',
+          name: 'Melee',
           description: '',
-          dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-          bonusFormula: 'stats.max_health / 10',
+          input: 'stats.max_health / 10',
+          ladderId: 'id-ladder',
+          order: 0,
         },
       ],
     });
@@ -326,7 +338,7 @@ describe('the rename test (Concept 00 §6)', () => {
       ),
     }));
 
-    expect(renamed.combatSkills[0].bonusFormula).toBe('stats.vitality / 10');
+    expect(renamed.rollDefinitions?.[0].input).toBe('stats.vitality / 10');
   });
 
   it('re-spells a curve column when the column is renamed (TICKET-CRV-03)', () => {

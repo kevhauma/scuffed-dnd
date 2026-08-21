@@ -17,9 +17,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../../components/config/skills/skill/SkillsPanel', () => ({
   SkillsPanel: () => <div data-testid="skills-panel" />,
 }));
-vi.mock('../../components/config/skills/combat/CombatSkillsPanel', () => ({
-  CombatSkillsPanel: () => <div data-testid="combat-skills-panel" />,
-}));
 vi.mock('../../components/config/stats/StatsConfigPanel', () => ({
   StatsConfigPanel: () => <div data-testid="stats-config-panel" />,
 }));
@@ -79,15 +76,15 @@ import { SkillsConfig } from './skills';
 import { StatsConfig } from './stats';
 
 describe('configuration routes', () => {
-  it('/config/skills renders the two skills panels and no main-skills surface', () => {
-    // Main skills went with TICKET-STAT-01 — the invested atom is a stat, edited at /config/stats
+  it('/config/skills renders one skills panel, with no main-skills or combat surface', () => {
+    // Main skills went with TICKET-STAT-01 and combat skills with TICKET-ROLL-06 — the invested
+    // atom is a stat (/config/stats) and a thing that produces dice is a roll (/config/rolls)
     const { container } = render(<SkillsConfig />);
 
     expect(screen.getByTestId('skills-panel')).toBeDefined();
-    expect(screen.getByTestId('combat-skills-panel')).toBeDefined();
-    // The merge is complete (TICKET-STAT-02): two panels here, and neither is about main skills
-    expect(container.querySelectorAll('[data-testid$="-panel"]')).toHaveLength(2);
+    expect(container.querySelectorAll('[data-testid$="-panel"]')).toHaveLength(1);
     expect(screen.queryByTestId('main-skills-panel')).toBeNull();
+    expect(screen.queryByTestId('combat-skills-panel')).toBeNull();
   });
 
   it('/config/stats renders the stats panel', () => {

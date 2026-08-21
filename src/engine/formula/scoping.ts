@@ -16,9 +16,10 @@ import { skillMemberName, statMemberName } from './references';
  * Where a formula is attached. One row of the scoping tables below.
  *
  * This milestone's slice of the Concept 00 §5 context table — the attachment points that exist
- * today. Later tickets add rows (constants-as-formulas, roll inputs); they do not add branches.
+ * today. Later tickets add rows (constants-as-formulas); they do not add branches. A row goes when
+ * the thing it describes does — `combat-skill` left with the entity in TICKET-ROLL-06.
  */
-export type FormulaOwner = 'stat' | 'combat-skill' | 'curve-generator' | 'roll-input';
+export type FormulaOwner = 'stat' | 'curve-generator' | 'roll-input';
 
 /**
  * Every namespace the engine knows about, regardless of context.
@@ -59,8 +60,6 @@ export function isKnownNamespace(name: string): name is FormulaNamespace {
 export const NAMESPACE_SCOPES: Record<FormulaOwner, readonly FormulaNamespace[]> = {
   // Character derived field
   stat: ['stats', 'skills', 'const', 'curve'],
-  // Roll input, on its way to becoming a roll definition (TICKET-ROLL-05)
-  'combat-skill': ['stats', 'skills', 'const', 'curve'],
   // A curve column's generator (Concept 06): the row's key and the ruleset's tunables, nothing
   // else. Deliberately not `curve` — a table generated from another table is a cycle waiting to
   // happen, and no seed needs it (TICKET-CRV-02).
@@ -78,12 +77,11 @@ export const NAMESPACE_SCOPES: Record<FormulaOwner, readonly FormulaNamespace[]>
  * What is left of the v1.0 rules: every attachment point that sees anything sees **stat
  * abbreviations**, so a derived stat can be written either way — `STR * 10` or
  * `stats.strength * 10` — which is what the source sheet's formulas look like. The speciality half
- * retired with the code it named: a `Skill` has none since TICKET-SKL-02, and a combat formula
- * reaches one as `skills.<name>` instead.
+ * retired with the code it named (TICKET-SKL-02), and the combat codes went with `CombatSkill`
+ * (TICKET-ROLL-06) — so this space is stat abbreviations and nothing else.
  */
 const LEGACY_CODE_SCOPES: Record<FormulaOwner, readonly 'stat'[]> = {
   stat: ['stat'],
-  'combat-skill': ['stat'],
   // A generator sees no skill at all — it fills a table, not a character (TICKET-CRV-02)
   'curve-generator': [],
   'roll-input': ['stat'],
@@ -98,7 +96,6 @@ const LEGACY_CODE_SCOPES: Record<FormulaOwner, readonly 'stat'[]> = {
  */
 const CONTEXT_CODES: Record<FormulaOwner, readonly string[]> = {
   stat: [],
-  'combat-skill': [],
   'curve-generator': ['KEY'],
   // A roll input is handed nothing of its own — everything it reads is the character (Concept 08)
   'roll-input': [],

@@ -120,7 +120,7 @@ export type FormulaErrorKind =
  * The entity whose formula produced an error, for display and jump-to
  */
 export interface FormulaErrorSource {
-  kind: 'stat' | 'skill' | 'combat-skill';
+  kind: 'stat' | 'skill' | 'roll';
   id: string;
   name: string;
 }
@@ -182,7 +182,7 @@ export interface NamespaceResolver {
  * from one formula to the next.
  */
 export interface FormulaContext {
-  variables: Record<string, FormulaResult>; // skillCode -> value or error
+  variables: Record<string, FormulaResult>; // stat abbreviation -> value or error
   namespaces?: Record<string, NamespaceResolver>;
 }
 
@@ -206,23 +206,47 @@ export interface FormulaValidationResult {
 }
 
 /**
- * Dice roll result for a single die type
+ * What one rung of a dice ladder rolled (Concept 07)
+ *
+ * Keyed by `size` rather than by a die-type name, which is the ladder's whole point: a d100 is
+ * data. It replaced a six-name union (`'d4' | … | 'd20'`) in TICKET-ROLL-06, with `DiceConfig`.
+ *
+ * Lives here rather than beside `decomposeValue` because `RollOutcome` carries it and `types/`
+ * cannot import from `engine/`.
  */
-export interface DiceRollResult {
-  dieType: 'd4' | 'd6' | 'd8' | 'd10' | 'd12' | 'd20';
-  rolls: number[]; // Individual die results
-  total: number; // Sum of all rolls for this die type
+export interface DieRollResult {
+  size: number;
+  /** Every individual die, so a Player can see the roll rather than only its sum */
+  rolls: number[];
+  total: number;
 }
 
 /**
- * Complete combat roll result with breakdown
+ * One roll of a roll definition, spelled out (Concept 08, TICKET-ROLL-06)
+ *
+ * **The only dice-result shape in the app** — `useUIStore`'s `RollResult` extends it and adds who
+ * rolled it. Don't reintroduce a second one.
+ *
+ * It carries the whole chain, because the point of the ladder is that the chain is visible: the
+ * number the input evaluated to, the pool that number decomposed into, what each rung actually
+ * rolled, and the flat the ladder could not fill a die with. `total` is `diceTotal + flat`, and
+ * `notation` is the same string the button showed — kept on the result rather than re-derived, so
+ * a history entry cannot drift from the roll it records.
  */
-export interface CombatRollResult {
-  skillCode: string;
-  skillName: string;
-  diceResults: DiceRollResult[];
-  diceTotal: number; // Sum of all dice
-  bonus: number; // Calculated from formula
-  total: number; // diceTotal + bonus
+export interface RollOutcome {
+  rollId: string;
+  rollName: string;
+  /** What the definition's input evaluated to — the number fed to the ladder */
+  input: number;
+  /** One entry per rung, in ladder order; a rung with no dice is still here */
+  dice: DieRollResult[];
+  /** Sum of every die */
+  diceTotal: number;
+  /** What no die could take (Concept 07's remainder) */
+  flat: number;
+  /** `diceTotal + flat` */
+  total: number;
+  /** The pool as the sheet showed it — `1D20 + 1D12 + 1D6 + 1` */
+  notation: string;
   timestamp: string;
 }

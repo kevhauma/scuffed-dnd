@@ -43,11 +43,11 @@ export function RollHistoryPanel({ history, onClear }: RollHistoryPanelProps) {
             className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-stone-200 py-2 last:border-b-0"
           >
             <Text variant="body-small" as="span">
-              {roll.skillName} ({roll.skillCode})
+              {roll.rollName}
             </Text>
             <div className="flex flex-wrap items-baseline gap-2">
               <Text variant="caption" as="span">
-                dice {roll.diceTotal} · bonus {roll.bonus > 0 ? `+${roll.bonus}` : roll.bonus}
+                {roll.input} → {roll.notation}
               </Text>
               <Text variant="highlight" as="span">
                 {roll.total}

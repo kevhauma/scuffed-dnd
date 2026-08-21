@@ -160,15 +160,20 @@ describe('UIStore', () => {
       id: 'roll-1',
       characterId: 'char-1',
       characterName: 'Test Character',
-      skillCode: 'MEL',
-      skillName: 'Melee',
-      diceResults: [
-        { dieType: 'd6', rolls: [3, 4], total: 7 },
-        { dieType: 'd20', rolls: [15], total: 15 },
+      rollId: 'mel-id',
+      rollName: 'Melee',
+      // The reshaped result (TICKET-ROLL-06): a die is identified by **size**, and the character's
+      // number went into the pool as `input` rather than being added after it as a bonus
+      input: 27,
+      dice: [
+        { size: 20, rolls: [15], total: 15 },
+        { size: 12, rolls: [], total: 0 },
+        { size: 6, rolls: [3], total: 3 },
       ],
-      diceTotal: 22,
-      bonus: 5,
-      total: 27,
+      diceTotal: 18,
+      flat: 1,
+      total: 19,
+      notation: '1D20 + 0D12 + 1D6 + 1',
       timestamp: '2024-01-01T00:00:00.000Z',
       ...overrides,
     });

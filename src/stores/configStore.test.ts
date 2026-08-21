@@ -13,7 +13,6 @@ import { importConfiguration, validateConfiguration } from '../services/importEx
 import * as storage from '../services/storage';
 import type {
   Archetype,
-  CombatSkill,
   Configuration,
   CurrencyTier,
   Curve,
@@ -56,7 +55,6 @@ describe('ConfigStore', () => {
       expect(config?.name).toBe('Test Config');
       expect(config?.stats).toEqual([]);
       expect(config?.skills).toEqual([]);
-      expect(config?.combatSkills).toEqual([]);
       expect(config?.materials).toEqual([]);
       expect(config?.materialCategories).toEqual([]);
       expect(config?.items).toEqual([]);
@@ -71,10 +69,9 @@ describe('ConfigStore', () => {
         id: 'test-id',
         name: 'Loaded Config',
         version: '1.0.0',
-        schemaVersion: 8,
+        schemaVersion: 9,
         stats: [],
         skills: [],
-        combatSkills: [],
         materials: [],
         materialCategories: [],
         items: [],
@@ -361,73 +358,6 @@ describe('ConfigStore', () => {
 
       const { config } = useConfigStore.getState();
       expect(config?.skills).toHaveLength(0);
-      expect(storage.saveConfiguration).toHaveBeenCalled();
-    });
-  });
-
-  describe('Combat Skills CRUD', () => {
-    beforeEach(() => {
-      useConfigStore.getState().initializeConfig('Test');
-      vi.clearAllMocks();
-    });
-
-    it('should add combat skill', () => {
-      const skill: CombatSkill = {
-        id: 'ATK',
-        code: 'ATK',
-        name: 'Attack',
-        description: 'Basic attack',
-        dice: { d4: 0, d6: 2, d8: 0, d10: 0, d12: 0, d20: 0 },
-        bonusFormula: 'STR + MEL',
-      };
-
-      useConfigStore.getState().addCombatSkill(skill);
-
-      const { config } = useConfigStore.getState();
-      expect(config?.combatSkills).toHaveLength(1);
-      expect(config?.combatSkills[0]).toEqual(skill);
-      expect(storage.saveConfiguration).toHaveBeenCalled();
-    });
-
-    it('should update combat skill', () => {
-      const skill: CombatSkill = {
-        id: 'ATK',
-        code: 'ATK',
-        name: 'Attack',
-        description: 'Basic attack',
-        dice: { d4: 0, d6: 2, d8: 0, d10: 0, d12: 0, d20: 0 },
-        bonusFormula: 'STR + MEL',
-      };
-
-      useConfigStore.getState().addCombatSkill(skill);
-      vi.clearAllMocks();
-
-      useConfigStore.getState().updateCombatSkill('ATK', {
-        dice: { d4: 0, d6: 0, d8: 2, d10: 0, d12: 0, d20: 0 },
-      });
-
-      const { config } = useConfigStore.getState();
-      expect(config?.combatSkills[0].dice.d8).toBe(2);
-      expect(storage.saveConfiguration).toHaveBeenCalled();
-    });
-
-    it('should delete combat skill', () => {
-      const skill: CombatSkill = {
-        id: 'ATK',
-        code: 'ATK',
-        name: 'Attack',
-        description: 'Basic attack',
-        dice: { d4: 0, d6: 2, d8: 0, d10: 0, d12: 0, d20: 0 },
-        bonusFormula: 'STR + MEL',
-      };
-
-      useConfigStore.getState().addCombatSkill(skill);
-      vi.clearAllMocks();
-
-      useConfigStore.getState().deleteCombatSkill('ATK');
-
-      const { config } = useConfigStore.getState();
-      expect(config?.combatSkills).toHaveLength(0);
       expect(storage.saveConfiguration).toHaveBeenCalled();
     });
   });
@@ -948,13 +878,23 @@ describe('ConfigStore', () => {
         description: '',
         statWeights: [{ statId: 'id-str', weight: 0.5 }],
       });
-      useConfigStore.getState().addCombatSkill({
+      // A roll's input is the second persisted formula field since TICKET-ROLL-06 replaced the
+      // combat skill's `bonusFormula` — so the rename cases below still cover two of them
+      useConfigStore.getState().addDiceLadder({
+        id: 'id-ladder',
+        name: 'Standard',
+        description: '',
+        dieSizes: [20, 12, 6],
+        showZeroTerms: true,
+        remainder: 'flat',
+      });
+      useConfigStore.getState().addRollDefinition({
         id: 'id-mel',
-        code: 'MEL',
         name: 'Melee',
         description: '',
-        dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-        bonusFormula: 'STR / 2',
+        input: 'STR / 2',
+        ladderId: 'id-ladder',
+        order: 0,
       });
       useConfigStore.getState().addRace({
         id: 'race1',
@@ -970,7 +910,7 @@ describe('ConfigStore', () => {
 
       const { config } = useConfigStore.getState();
       expect(config?.stats.find((candidate) => candidate.formula)?.formula).toBe('STG * 10');
-      expect(config?.combatSkills[0].bonusFormula).toBe('STG / 2');
+      expect(config?.rollDefinitions?.find((roll) => roll.id === 'id-mel')?.input).toBe('STG / 2');
       // …and needs to rewrite nothing at all in a race's stat block, which is keyed by stat id
       // and so was never spelled in the first place (TICKET-RACE-01) — nor in a skill's weight
       // rows, which are keyed the same way (TICKET-SKL-02)
@@ -989,12 +929,13 @@ describe('ConfigStore', () => {
     });
 
     it('re-slugs a stat named in another formula when the stat is renamed', () => {
-      useConfigStore.getState().updateCombatSkill('MEL', { bonusFormula: 'stats.health / 4' });
+      useConfigStore.getState().updateRollDefinition('id-mel', { input: 'stats.health / 4' });
       useConfigStore.getState().updateStat('id-hp', { name: 'Vitality' });
 
-      expect(useConfigStore.getState().config?.combatSkills[0].bonusFormula).toBe(
-        'stats.vitality / 4'
-      );
+      expect(
+        useConfigStore.getState().config?.rollDefinitions?.find((roll) => roll.id === 'id-mel')
+          ?.input
+      ).toBe('stats.vitality / 4');
     });
 
     it('leaves an edit that renames nothing untouched', () => {
@@ -1007,7 +948,7 @@ describe('ConfigStore', () => {
       expect(after?.stats.map((stat) => stat.formula)).toEqual(
         before?.stats.map((stat) => stat.formula)
       );
-      expect(after?.combatSkills).toEqual(before?.combatSkills);
+      expect(after?.rollDefinitions).toEqual(before?.rollDefinitions);
       expect(after?.skills).toEqual(before?.skills);
     });
   });
@@ -1018,7 +959,7 @@ describe('ConfigStore', () => {
           id: 'config1',
           name: 'Test',
           version: '1.0',
-          schemaVersion: 8,
+          schemaVersion: 9,
           stats: [
             {
               id: 'id-str',
@@ -1043,7 +984,6 @@ describe('ConfigStore', () => {
             },
           ],
           skills: [],
-          combatSkills: [],
           materials: [],
           materialCategories: [],
           items: [],

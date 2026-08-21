@@ -225,13 +225,13 @@ export function useStatManager() {
       };
     }
 
-    // One flat space, shared with the combat skill codes (CLAUDE.md): a collision would split a
-    // formula's identity from the value it reads. A `Skill` is not in it — TICKET-SKL-02 gave it
-    // a name slug under `skills.*` instead of a code.
-    const taken =
-      currentStats.some(
-        (stat) => stat.abbreviation.toUpperCase() === abbreviation && stat.id !== editingStatId
-      ) || config.combatSkills.some((skill) => skill.code.toUpperCase() === abbreviation);
+    // The flat formula space holds **stat abbreviations and nothing else** since TICKET-ROLL-06
+    // retired the combat skill codes that used to share it. A `Skill` left it in TICKET-SKL-02
+    // (`skills.<name-slug>`) and a `RollDefinition` was never in it — nothing names a roll.
+    // A collision here would still split a formula's identity from the value it reads.
+    const taken = currentStats.some(
+      (stat) => stat.abbreviation.toUpperCase() === abbreviation && stat.id !== editingStatId
+    );
 
     if (taken) {
       return { field: 'abbreviation', message: `${abbreviation} is already in use` };

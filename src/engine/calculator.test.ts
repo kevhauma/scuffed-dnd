@@ -35,7 +35,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 8,
+      schemaVersion: 9,
       stats: [
         {
           id: 'STR',
@@ -91,7 +91,6 @@ describe('calculateCharacterStats', () => {
         },
       ],
       skills: [],
-      combatSkills: [],
       materials: [],
       materialCategories: [],
       items: [],
@@ -142,7 +141,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 8,
+      schemaVersion: 9,
       stats: [
         {
           id: 'STR',
@@ -177,7 +176,6 @@ describe('calculateCharacterStats', () => {
         },
       ],
       skills: [],
-      combatSkills: [],
       materials: [],
       materialCategories: [],
       items: [],
@@ -234,7 +232,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 8,
+      schemaVersion: 9,
       stats: [
         {
           id: 'STR',
@@ -259,7 +257,6 @@ describe('calculateCharacterStats', () => {
         },
       ],
       skills: [],
-      combatSkills: [],
       materials: [],
       materialCategories: [],
       items: [],
@@ -290,7 +287,7 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
     id: 'config1',
     name: 'Fixture Config',
     version: '1.0',
-    schemaVersion: 8,
+    schemaVersion: 9,
     stats: [
       {
         id: 'STR',
@@ -360,14 +357,26 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
         statWeights: [{ statId: 'CON', weight: 1 }],
       },
     ],
-    combatSkills: [
+    diceLadders: [
+      {
+        id: 'ladder',
+        name: 'Standard',
+        description: '',
+        dieSizes: [20, 12, 6],
+        showZeroTerms: true,
+        remainder: 'flat',
+      },
+    ],
+    // What was a combat skill's `bonusFormula` is a roll's `input` since TICKET-ROLL-06 — the same
+    // expression, but the number it produces is fed to a ladder rather than added after the dice
+    rollDefinitions: [
       {
         id: 'MEL',
-        code: 'MEL',
         name: 'Melee',
         description: '',
-        dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-        bonusFormula: 'STR + skills.stealth',
+        input: 'STR + skills.stealth',
+        ladderId: 'ladder',
+        order: 0,
       },
     ],
     materials: [
@@ -503,7 +512,7 @@ describe('calculateCharacter', () => {
     // STL = 2 + (10 / 2), ARC = 1 + 12
     expect(result.skillLevels).toEqual({ STL: 7, ARC: 13 });
     // MEL = STR 9 + STL 7
-    expect(result.combatSkillBonuses).toEqual({ MEL: 16 });
+    expect(result.rollInputs).toEqual({ MEL: 16 });
     // Nothing equipped
     expect(result.equipmentBonuses).toEqual([]);
   });
@@ -521,7 +530,7 @@ describe('calculateCharacter', () => {
     // health follows the raised STR: 11 * 10 + 12 * 5
     expect(result.statValues.health).toBe(170);
     // and so does the combat formula: STR 11 + STL 7
-    expect(result.combatSkillBonuses.MEL).toBe(18);
+    expect(result.rollInputs.MEL).toBe(18);
   });
 
   it('should reach a speciality skill only through the stat its formula reads (TICKET-MAT-01)', () => {
@@ -555,7 +564,7 @@ describe('calculateCharacter', () => {
     expect(result.statValues.health).toBe(175); // STR 9 * 10 + CON 17 * 5
     expect(result.skillLevels.ARC).toBe(18); // base 1 + CON 17
     // Nothing reaches a combat skill's own code any more — a material cannot name one
-    expect(result.combatSkillBonuses.MEL).toBe(16); // STR 9 + STL 7, unchanged
+    expect(result.rollInputs.MEL).toBe(16); // STR 9 + STL 7, unchanged
   });
 
   it('should return to the pre-equip numbers when everything is unequipped', () => {
@@ -581,7 +590,7 @@ describe('calculateCharacter', () => {
     expect(unequipped.statValues).toEqual(baseline.statValues);
     expect(unequipped.statValues).toEqual(baseline.statValues);
     expect(unequipped.skillLevels).toEqual(baseline.skillLevels);
-    expect(unequipped.combatSkillBonuses).toEqual(baseline.combatSkillBonuses);
+    expect(unequipped.rollInputs).toEqual(baseline.rollInputs);
     expect(unequipped.equipmentBonuses).toEqual([]);
   });
 
@@ -786,26 +795,26 @@ describe('calculateCharacter', () => {
     });
   });
 
-  it('should name the combat skill when its formula references an undefined skill', () => {
+  it('should name the roll when its input references an undefined code', () => {
     const config = createFixtureConfig({
-      combatSkills: [
+      rollDefinitions: [
         {
           id: 'MEL',
-          code: 'MEL',
           name: 'Melee',
           description: '',
-          dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-          bonusFormula: 'STR + MAG',
+          input: 'STR + MAG',
+          ladderId: 'ladder',
+          order: 0,
         },
       ],
     });
 
     const result = calculateCharacter(createFixtureCharacter(), config);
 
-    expect(result.combatSkillBonuses.MEL).toMatchObject({
+    expect(result.rollInputs.MEL).toMatchObject({
       kind: 'undefined-variable',
       message: 'Undefined variable: MAG',
-      source: { kind: 'combat-skill', id: 'MEL', name: 'Melee' },
+      source: { kind: 'roll', id: 'MEL', name: 'Melee' },
     });
   });
 
@@ -876,12 +885,12 @@ describe('calculateCharacter', () => {
     expect(result.statValues.evasion).toBe(20); // DEX 10 * 2
     expect(result.skillLevels.STL).toBe(7); // base 2 + DEX 10 / 2
     expect(result.skillLevels.ARC).toBe(13); // base 1 + CON 12
-    expect(result.combatSkillBonuses.MEL).toBe(16); // STR 9 + STL 7
+    expect(result.rollInputs.MEL).toBe(16); // STR 9 + STL 7
   });
 
-  it('should chain provenance from a broken skill into the combat skill reading it', () => {
+  it('should chain provenance from a broken skill into the roll reading it', () => {
     // Stealth is weighted on a derived stat that cannot compute, so its level is an error and the
-    // combat skill reading `skills.stealth` reports it as the cause rather than a bare 0
+    // roll reading `skills.stealth` reports it as the cause rather than a bare 0
     const config = createFixtureConfig({
       stats: [
         {
@@ -935,9 +944,9 @@ describe('calculateCharacter', () => {
     const result = calculateCharacter(createFixtureCharacter(), config);
 
     // MEL is `STR + skills.stealth`, and Stealth is broken — so MEL's error names it as the cause
-    expect(result.combatSkillBonuses.MEL).toMatchObject({
+    expect(result.rollInputs.MEL).toMatchObject({
       kind: 'upstream',
-      source: { kind: 'combat-skill', name: 'Melee' },
+      source: { kind: 'roll', name: 'Melee' },
       cause: {
         kind: 'upstream',
         source: { kind: 'skill', name: 'Stealth' },
@@ -1029,25 +1038,25 @@ describe('calculateCharacter over an unallocated main skill (TICKET-CALC-02)', (
           statWeights: [{ statId: 'WIS', weight: 1 }],
         },
       ],
-      combatSkills: [
+      rollDefinitions: [
         {
           id: 'MEL',
-          code: 'MEL',
           name: 'Melee',
           description: '',
-          dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-          bonusFormula: 'STR + WIS',
+          input: 'STR + WIS',
+          ladderId: 'ladder',
+          order: 0,
         },
       ],
     });
 
-  it('should return numbers throughout when stat, speciality and combat formulas read it', () => {
+  it('should return numbers throughout when a stat, a skill and a roll input all read it', () => {
     const result = calculateCharacter(createFixtureCharacter(), createConfigWithWisdom());
 
     expect(result.statValues.WIS).toBe(0);
     expect(result.statValues.insight).toBe(0); // WIS 0 * 3
     expect(result.skillLevels.STL).toBe(2); // base 2 + WIS 0
-    expect(result.combatSkillBonuses.MEL).toBe(9); // STR 9 (10 - 1 elf) + WIS 0
+    expect(result.rollInputs.MEL).toBe(9); // STR 9 (10 - 1 elf) + WIS 0
     expect(firstCalculationError(result)).toBeUndefined();
   });
 
@@ -1085,30 +1094,31 @@ describe('calculateCharacter over an unallocated main skill (TICKET-CALC-02)', (
 });
 
 /**
- * The abbreviation bridge — scaffolding, not a design
+ * The flat abbreviation space — kept deliberately, not scaffolding
  *
- * A combat skill's `bonusFormula` is still written in the **flat** variable space, so `STR + 2`
- * reaches a stat by its `abbreviation`. That space is a carry-across from v1, where `MainSkill`
- * was the invested atom; TICKET-STAT-01 kept it pointed at stat abbreviations rather than
- * redesigning both skill kinds in the same change.
+ * This block used to predict its own deletion: it said the flat space was a v1 carry-across and
+ * that **TICKET-ROLL-06** would remove it along with `statVariables` when roll definitions replaced
+ * combat skills. **That prediction was half right, and the half it got wrong is the interesting
+ * one.**
  *
- * **The equipment half is already gone** (TICKET-MAT-02): an equipment bonus used to reach a stat
- * by matching its abbreviation, and now matches the stat's id. **The speciality half is gone too**
- * (TICKET-SKL-02): a `Skill` names its stats by **id** in `statWeights`, so no spelling is
- * involved and a rename cannot orphan it — which is what the deleted half of this block used to
- * demonstrate going wrong.
+ * What went: the *combat codes*. `CombatSkill.code` shared the flat space with stat abbreviations,
+ * and both it and the entity are gone. Nothing but a stat is in that space now — no skill
+ * (TICKET-SKL-02, `skills.<slug>`), no roll (nothing can name one at all).
  *
- * What is left is the combat formula's spelling, and it is temporary too — this test exists to
- * fail loudly when **TICKET-ROLL-06** replaces `CombatSkill` with roll definitions that name
- * `stats.*`. When that lands the whole block goes, and with it `statVariables`. Do not "fix" it by
- * re-adding a flat spelling.
+ * What stayed: the **stat abbreviations**, and `statVariables` with them. They are not scaffolding
+ * — `scoping.ts` gives every attachment point that sees anything the stat abbreviations, because
+ * `STR + 2` is how the source sheet's own formulas are written and CLAUDE.md names the space as
+ * part of the model. A roll input reads it for exactly that reason.
+ *
+ * So the block survives, testing what it always tested — the spelling is resolved at calculation
+ * time from the current abbreviations — over a roll input instead of a combat formula.
  */
-describe('the flat abbreviation bridge (half retired by TICKET-SKL-02, rest by TICKET-ROLL-06)', () => {
-  it('should let a combat formula reach a stat by its abbreviation', () => {
+describe('the flat abbreviation space (combat codes retired by TICKET-ROLL-06)', () => {
+  it('should let a roll input reach a stat by its abbreviation', () => {
     const result = calculateCharacter(createFixtureCharacter(), createFixtureConfig());
 
     // MEL is `STR + skills.stealth`, STR composes to 9 and Stealth to 7
-    expect(result.combatSkillBonuses.MEL).toBe(16);
+    expect(result.rollInputs.MEL).toBe(16);
   });
 
   it('should lose the reference when the abbreviation is renamed without the formula', () => {
@@ -1127,7 +1137,7 @@ describe('the flat abbreviation bridge (half retired by TICKET-SKL-02, rest by T
 
     const stale = calculateCharacter(createFixtureCharacter(), renamed);
 
-    expect(stale.combatSkillBonuses.MEL).toMatchObject({
+    expect(stale.rollInputs.MEL).toMatchObject({
       kind: 'undefined-variable',
       message: 'Undefined variable: STR',
     });

@@ -12,7 +12,7 @@
  * gate on the same number without one importing the other — and so a test that mocks one service
  * cannot change what the other considers current.
  */
-export const SUPPORTED_SCHEMA_VERSION = 8;
+export const SUPPORTED_SCHEMA_VERSION = 9;
 
 /**
  * Main configuration object containing all user-defined game rules
@@ -28,7 +28,9 @@ export interface Configuration {
    * TICKET-MAT-01's per-stat material modifiers, `5` is TICKET-SKL-02's weighted Skill, `6` is
    * TICKET-RES-01's stored experience, `7` is TICKET-RES-02 retiring `mainSkillPointBudget`, and
    * `8` is TICKET-ARC-03 retiring the focus stat (`focusStatBonusLevel` here, `focusStatCode` on
-   * the character) now that Archetype replaces it.
+   * the character) now that Archetype replaces it, and `9` is TICKET-ROLL-06 retiring
+   * `combatSkills` — the last of the v1 core model — now that a `RollDefinition` derives its pool
+   * from a formula instead of carrying a hand-typed one.
    * v1 files have no `schemaVersion` at all, which is exactly how they are recognised and refused — the shapes have
    * no faithful mapping between them (a v1 character's focus stat, spend-derived level and
    * speciality base levels have nowhere to go), so they are rejected with a notice rather than
@@ -36,13 +38,12 @@ export interface Configuration {
    *
    * **The v2.0 milestone bumps this on every reshape**, by the User's decision (2026-08-09): the
    * persisted shape is not stable until the milestone lands, and a build that cannot read stored
-   * data must say so through IO-03's notice rather than crash on a field that moved. Expect
-   * further bumps from RES-01, ARC-01 and ROLL-05.
+   * data must say so through IO-03's notice rather than crash on a field that moved. `9` is the
+   * last bump the milestone plans — DX-04 is a parity gate, not a reshape.
    */
   schemaVersion: typeof SUPPORTED_SCHEMA_VERSION;
   stats: Stat[];
   skills: Skill[];
-  combatSkills: CombatSkill[];
   materials: Material[];
   materialCategories: MaterialCategory[];
   items: Item[];
@@ -186,32 +187,6 @@ export interface Skill {
 export interface StatWeight {
   statId: string; // References Stat.id
   weight: number;
-}
-
-/**
- * Combat skill - skill used in combat with dice rolls and bonuses
- *
- * `id` is the identity, `code` renamable display data (TICKET-REF-01).
- */
-export interface CombatSkill {
-  id: string; // Stable identity — assigned on creation, never shown, never reused
-  code: string; // 3-letter code — renamable display data
-  name: string;
-  description: string;
-  dice: DiceConfig;
-  bonusFormula: string; // e.g., "STR + MEL"
-}
-
-/**
- * Dice configuration for combat skills
- */
-export interface DiceConfig {
-  d4: number;
-  d6: number;
-  d8: number;
-  d10: number;
-  d12: number;
-  d20: number;
 }
 
 /**

@@ -156,12 +156,9 @@ export function buildReferenceIndex(config: Configuration): ReferenceIndex {
     link(toId.bare, toDisplay.bare, stat.abbreviation.toUpperCase(), stat.id);
   }
 
-  // Combat skills still hold a code (ROLL-05/06 retires them); a `Skill` does not, so the flat
-  // space is stat abbreviations plus combat codes now (TICKET-SKL-02)
-  for (const skill of config.combatSkills) {
-    if (!skill.id) continue;
-    link(toId.bare, toDisplay.bare, skill.code.toUpperCase(), skill.id);
-  }
+  // The flat space is **stat abbreviations and nothing else** as of TICKET-ROLL-06: a `Skill` left
+  // it in SKL-02 (`skills.<slug>`), the combat codes went with the entity, and a roll was never in
+  // it — nothing can name a roll.
 
   for (const skill of config.skills) {
     if (!skill.id) continue;
@@ -428,10 +425,6 @@ function translateConfiguration(
         ? stat
         : { ...stat, formula: translateFormula(stat.formula, index) }
     ),
-    combatSkills: config.combatSkills.map((skill) => ({
-      ...skill,
-      bonusFormula: translateFormula(skill.bonusFormula, index),
-    })),
     // A curve column's generator is a persisted formula too (TICKET-CRV-02), so renaming a
     // constant re-spells it like every other. `key` survives untouched — it is not an entity, so
     // the index has nothing to resolve it to.
@@ -503,7 +496,6 @@ export function ensureReferenceIds(config: Configuration, newId: () => string): 
     ...config,
     stats: config.stats.map(withId),
     skills: config.skills.map(withId),
-    combatSkills: config.combatSkills.map(withId),
     // Absent stays absent — a file predating TICKET-CST-01 round-trips unchanged rather than
     // growing an empty array on the way through.
     ...(config.constants ? { constants: config.constants.map(withId) } : {}),

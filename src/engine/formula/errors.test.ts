@@ -148,11 +148,11 @@ describe('provenance chains across formulas', () => {
     const middle = formulaError('upstream', 'MANA could not be calculated', { cause: root });
     const outer = withSource(
       formulaError('upstream', 'POWER could not be calculated', { cause: middle }),
-      { kind: 'combat-skill', id: 'MEL', name: 'Melee' }
+      { kind: 'roll', id: 'MEL', name: 'Melee' }
     );
 
     expect(describeFormulaError(outer)).toBe(
-      'Combat Skill "Melee": POWER could not be calculated ← MANA could not be calculated ← Stat "Mana": Undefined variable: MAG'
+      'Roll "Melee": POWER could not be calculated ← MANA could not be calculated ← Stat "Mana": Undefined variable: MAG'
     );
   });
 
@@ -199,7 +199,7 @@ describe('accessors', () => {
       name: 'Mana',
     });
 
-    const relabelled = withSource(original, { kind: 'combat-skill', id: 'MEL', name: 'Melee' });
+    const relabelled = withSource(original, { kind: 'roll', id: 'MEL', name: 'Melee' });
 
     expect(relabelled.source).toEqual({ kind: 'stat', id: 'mana', name: 'Mana' });
   });

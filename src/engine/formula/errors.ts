@@ -116,7 +116,7 @@ function sourceLabel(source: FormulaErrorSource): string {
   const kindLabels: Record<FormulaErrorSource['kind'], string> = {
     stat: 'Stat',
     skill: 'Skill',
-    'combat-skill': 'Combat Skill',
+    roll: 'Roll',
   };
 
   return `${kindLabels[source.kind]} "${source.name}"`;

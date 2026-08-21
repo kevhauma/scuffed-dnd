@@ -1,19 +1,19 @@
 # Test Status
 
 _Last verified: 2026-08-17 (`npx vitest run`), after
-[TICKET-ROLL-05](docs/v2.0_sheet_core/tickets/TICKET-ROLL-05-roll-definitions-and-panel.md)._
+[TICKET-ROLL-06](docs/v2.0_sheet_core/tickets/TICKET-ROLL-06-sheet-rolls-and-combat-skill-removal.md)._
 
 ## Summary
 
-- **Total tests**: 1572
-- **Passing**: 1572 (100%)
+- **Total tests**: 1554
+- **Passing**: 1554 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
 Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's tickets added
 +43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), +11 (FORM-06), +7 (CALC-02),
 +11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02), +64 (CRV-01),
-+32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09), +14 (SKL-02), +36 (SKL-03), +36 (RES-01), +14 (RES-02), +48 (RES-03), +40 (ARC-01), +50 (ARC-02), **−15 (ARC-03)**, +34 (ROLL-03), +9 (ROLL-04) and +36 (ROLL-05).
++32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09), +14 (SKL-02), +36 (SKL-03), +36 (RES-01), +14 (RES-02), +48 (RES-03), +40 (ARC-01), +50 (ARC-02), **−15 (ARC-03)**, +34 (ROLL-03), +9 (ROLL-04), +36 (ROLL-05) and **−18 (ROLL-06)**.
 **RES-02's +14 is a net figure**: `StatPointBudget.test.tsx` (6) went with the flat pool it
 covered, `configStore.test.ts`'s budget block shrank from 4 cases to 2, and the
 `mainSkillPointBudget` round-trip block became a 4-case retired-field refusal — against which
@@ -63,6 +63,20 @@ guard, 6 in `importExport.test.ts` for the shape, 3 in `validator.test.ts`, 2 in
 enumerates every attachment point, `sheetImport.test.ts` enumerates every corpus fragment, and
 `configStore.test.ts`'s "a fresh ruleset has no diceLadders" was ROLL-03 recording that ROLL-05
 would seed one — so it now asserts the seed instead.
+**ROLL-06 is the milestone's second negative delta, and the biggest test-layer migration since
+SKL-02.** Four files went outright with the entities they covered (36 cases): `CombatRoller.test.tsx`
+(12), `combatSkillCalculator.test.ts` (8), `combatRoll.test.ts` (8) and `skillIdentity.test.ts` (4, its
+last consumer having been the combat manager) — plus the combat-skill cases
+in eight edited files. Against that, **four new files replace what was deleted rather than leaving
+the behaviour uncovered**: `rollCalculator.test.ts` (7), `rollDefinition.test.ts` (6),
+`useRoller.test.tsx` (8) and `RollsSection.test.tsx` (10) test the same contracts over the modules
+that replaced them. The first three were written
+**because the `verifier` noticed they were missing**, and the fourth because the
+`conventions-reviewer` then noticed nothing rendered a `RollOutcome` at all — the first pass deleted the old tests and
+relied on the sheet's integration coverage, which is precisely the "weakened rather than migrated"
+failure SKL-02 warned about. Roughly 25 assertions across the suite were rewritten rather than
+deleted: `combatSkillBonuses` → `rollInputs`, `Melee (MEL)` → `Melee`, a bonus chip → a pool label,
+and every cycle fixture moved onto **derived stats**, which are the only formula nodes left.
 **SKL-02's +14 is a net figure across a very large rewrite**: the source-side reshape landed a
 session ahead of its tests, so 171 tests were failing when the ticket was picked up. 20 tests were
 added in a new `skillCalculator.test.ts` (Concept 02's verified table), a handful more elsewhere,

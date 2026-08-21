@@ -16,7 +16,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 8,
+    schemaVersion: 9,
     stats: [
       {
         id: 'id-str',
@@ -58,14 +58,26 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         statWeights: [{ statId: 'id-dex', weight: 0.3 }],
       },
     ],
-    combatSkills: [
+    // A roll's input is the formula-carrying field that replaced the combat skill's `bonusFormula`
+    // (TICKET-ROLL-06), so it is what the formula-reference cases below are written over
+    diceLadders: [
+      {
+        id: 'id-ladder',
+        name: 'Standard',
+        description: '',
+        dieSizes: [20, 12, 6],
+        showZeroTerms: true,
+        remainder: 'flat',
+      },
+    ],
+    rollDefinitions: [
       {
         id: 'id-mel',
-        code: 'MEL',
         name: 'Melee',
         description: '',
-        dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-        bonusFormula: 'STR + skills.stealth',
+        input: 'STR + skills.stealth',
+        ladderId: 'id-ladder',
+        order: 0,
       },
     ],
     materials: [
@@ -141,7 +153,7 @@ describe('findReferences', () => {
 
       expect(holders(found)).toEqual([
         'Stat: Health',
-        'Combat Skill: Melee',
+        'Roll Definition: Melee',
         'Race: Dwarf',
         'Material: Iron',
         'Character: Aria',
@@ -188,12 +200,12 @@ describe('findReferences', () => {
       );
     });
 
-    it('finds a skill named by a combat skill formula, by id (TICKET-SKL-02)', () => {
+    it('finds a skill named by a roll input, by id (TICKET-SKL-02)', () => {
       // Targeted by id rather than by a code, and matched through `skills.<name>` — the only way
       // a formula can name a skill now
       const found = findReferences({ kind: 'skill', id: 'id-stl' }, createConfig(), []);
 
-      expect(holders(found)).toEqual(['Combat Skill: Melee']);
+      expect(holders(found)).toEqual(['Roll Definition: Melee']);
     });
 
     it('does not count a code that merely appears inside a longer identifier', () => {
@@ -211,7 +223,6 @@ describe('findReferences', () => {
             formula: 'STRENGTH * 10',
           },
         ],
-        combatSkills: [],
         races: [],
         materials: [],
       });
@@ -219,28 +230,31 @@ describe('findReferences', () => {
       expect(findReferences({ kind: 'stat', id: 'id-str' }, config, [])).toEqual([]);
     });
 
-    it('reports nothing for a combat skill nothing names', () => {
-      expect(findReferences({ kind: 'combat-skill', id: 'MEL' }, createConfig(), [])).toEqual([]);
+    it('reports nothing for a roll, which nothing can name (TICKET-ROLL-06)', () => {
+      // No `rolls` namespace and no persisted holder — a roll is a leaf by construction
+      expect(findReferences({ kind: 'roll-definition', id: 'id-mel' }, createConfig(), [])).toEqual(
+        []
+      );
     });
   });
 
   describe('stats', () => {
     it('finds a stat named by another formula through its display slug', () => {
       const config = createConfig({
-        combatSkills: [
+        rollDefinitions: [
           {
             id: 'id-mel',
-            code: 'MEL',
             name: 'Melee',
             description: '',
-            dice: { d4: 0, d6: 1, d8: 0, d10: 0, d12: 0, d20: 0 },
-            bonusFormula: 'stats.health / 10',
+            input: 'stats.health / 2',
+            ladderId: 'id-ladder',
+            order: 0,
           },
         ],
       });
 
       expect(holders(findReferences({ kind: 'stat', id: 'id-hp' }, config, []))).toEqual([
-        'Combat Skill: Melee',
+        'Roll Definition: Melee',
       ]);
     });
 
@@ -368,17 +382,16 @@ describe('findReferences', () => {
     expect(found[0].holderId).toBe('iron');
   });
 
-  it('reports a skill formula holder by its stable id, not its code', () => {
+  it('reports a formula holder by its stable id, not its spelling', () => {
     const found = findReferences({ kind: 'stat', id: 'id-str' }, createConfig(), []);
-    const combat = found.find((reference) => reference.holderKind === 'Combat Skill');
+    const roll = found.find((reference) => reference.holderKind === 'Roll Definition');
 
-    expect(combat?.holderId).toBe('id-mel');
+    expect(roll?.holderId).toBe('id-mel');
   });
 
   it('reports nothing for an entity nothing points at', () => {
     const bare = createConfig({
       stats: [],
-      combatSkills: [],
       races: [],
       materials: [],
       items: [],

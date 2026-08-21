@@ -13,9 +13,9 @@ import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 import { InventoryPanel } from '../inventory/InventoryPanel';
 import { RollHistoryPanel } from '../rolls/RollHistoryPanel';
-import { useCombatRoller } from '../rolls/useCombatRoller';
-import { CombatSkillsSection } from './CombatSkillsSection';
+import { useRoller } from '../rolls/useRoller';
 import { RaceStatBlockSection } from './RaceStatBlockSection';
+import { RollsSection } from './RollsSection';
 import { SheetHeader } from './SheetHeader';
 import { SkillsSection } from './SkillsSection';
 import { StatsSection } from './StatsSection';
@@ -69,7 +69,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     stats,
     statTotal,
     budget,
-    combatSkills,
+    rollGroups,
     handleChangeStatValue,
     handleAdjustStatValue,
     handleResetStatValueToMax,
@@ -86,7 +86,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     canRoll,
     handleRoll,
     handleClearHistory,
-  } = useCombatRoller(characterId, calculated);
+  } = useRoller(characterId, calculated);
 
   if (status === 'no-configuration') {
     return (
@@ -164,8 +164,8 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
 
       <SkillsSection skills={skills} />
 
-      <CombatSkillsSection
-        combatSkills={combatSkills}
+      <RollsSection
+        rollGroups={rollGroups}
         results={rollResults}
         errors={rollErrors}
         canRoll={canRoll}

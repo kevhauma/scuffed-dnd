@@ -61,14 +61,9 @@ export * from './shared/ConfigPanelShell';
 export * from './shared/StatRowsField';
 export * from './shared/UsageList';
 export * from './shared/useGuardedDelete';
-export * from './skills/combat/CombatSkillCard';
-export * from './skills/combat/CombatSkillFormDialog';
-export * from './skills/combat/CombatSkillsPanel';
-export * from './skills/combat/useCombatSkillManager';
 export * from './skills/shared/BaseSkillPanel';
 // Shared components and helpers
 export * from './skills/shared/SkillFormFields';
-export * from './skills/shared/skillIdentity';
 export * from './skills/skill/SkillCard';
 export * from './skills/skill/SkillFormDialog';
 export * from './skills/skill/SkillsPanel';

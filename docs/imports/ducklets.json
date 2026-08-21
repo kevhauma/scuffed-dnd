@@ -2,7 +2,7 @@
   "id": "ducklets-sheet-import",
   "name": "Ducklets (sheet import)",
   "version": "2.0.0",
-  "schemaVersion": 8,
+  "schemaVersion": 9,
   "createdAt": "2026-08-09T00:00:00.000Z",
   "updatedAt": "2026-08-09T00:00:00.000Z",
   "stats": [
@@ -733,68 +733,6 @@
           "weight": 0.1
         }
       ]
-    }
-  ],
-  "combatSkills": [
-    {
-      "id": "roll-melee",
-      "code": "MEL",
-      "name": "mele",
-      "description": "Melee attack. Input is the raw Strenght stat — confirmed: input 10 at Str 10 gives 0D20 + 0D12 + 1D6 + 4.",
-      "dice": {
-        "d4": 0,
-        "d6": 0,
-        "d8": 0,
-        "d10": 0,
-        "d12": 0,
-        "d20": 0
-      },
-      "bonusFormula": "STR"
-    },
-    {
-      "id": "roll-ranged",
-      "code": "RNG",
-      "name": "Ranged",
-      "description": "Ranged attack. Input is the raw Dex stat — confirmed: input 11 at Dex 11 gives 0D20 + 0D12 + 1D6 + 5.",
-      "dice": {
-        "d4": 0,
-        "d6": 0,
-        "d8": 0,
-        "d10": 0,
-        "d12": 0,
-        "d20": 0
-      },
-      "bonusFormula": "DEX"
-    },
-    {
-      "id": "roll-evasion",
-      "code": "EVA",
-      "name": "evasion",
-      "description": "Dodging. Input is 18 for the sample character against Dex 11 — the extra 7 is unexplained (Concept 08 open question).",
-      "dice": {
-        "d4": 0,
-        "d6": 0,
-        "d8": 0,
-        "d10": 0,
-        "d12": 0,
-        "d20": 0
-      },
-      "bonusFormula": "DEX"
-    },
-    {
-      "id": "roll-endure",
-      "code": "END",
-      "name": "endure",
-      "description": "Soaking. Input is 16 for the sample character against Con 12 — the extra 4 is unexplained (Concept 08 open question).",
-      "dice": {
-        "d4": 0,
-        "d6": 0,
-        "d8": 0,
-        "d10": 0,
-        "d12": 0,
-        "d20": 0
-      },
-      "bonusFormula": "CON"
     }
   ],
   "materials": [

@@ -17,15 +17,15 @@ import type { FormulaError, FormulaResult } from '../types/formula';
 import { isFormulaError } from './formula/errors';
 
 // Re-export all calculator functions
-export * from './calculators/combatSkillCalculator';
 export * from './calculators/equipmentBonusCalculator';
 export * from './calculators/pointBuy';
+export * from './calculators/rollCalculator';
 export * from './calculators/skillCalculator';
 export * from './calculators/statCalculator';
 
-import { calculateCombatSkillBonuses } from './calculators/combatSkillCalculator';
 import { calculateEquipmentBonuses } from './calculators/equipmentBonusCalculator';
 import { archetypeOf, pointBuyCurve } from './calculators/pointBuy';
+import { calculateRollInputs } from './calculators/rollCalculator';
 // Import for the composed entry point
 import { calculateSkills } from './calculators/skillCalculator';
 import { calculateStatTotal, calculateStatValues } from './calculators/statCalculator';
@@ -87,8 +87,9 @@ export function calculateCharacter(
     contributions: skillContributions,
   } = calculateSkills(config, statValues, character);
 
-  // 4. Combat skill bonuses — the formula over the stats and skills already computed
-  const combatSkillBonuses = calculateCombatSkillBonuses(config, statValues, {
+  // 4. Roll inputs — each definition's expression over the stats and skills already computed
+  // (TICKET-ROLL-06). The number, not a pool: the pool is derived from it at roll time.
+  const rollInputs = calculateRollInputs(config, statValues, {
     levels: skillLevels,
     bonuses: skillBonuses,
   });
@@ -100,7 +101,7 @@ export function calculateCharacter(
     skillLevels,
     skillBonuses,
     skillContributions,
-    combatSkillBonuses,
+    rollInputs,
     equipmentBonuses,
   };
 }
@@ -122,7 +123,7 @@ export function firstCalculationError(calculated: CalculatedCharacter): FormulaE
   const entries: FormulaResult[] = [
     ...Object.values(calculated.statValues),
     ...Object.values(calculated.skillLevels),
-    ...Object.values(calculated.combatSkillBonuses),
+    ...Object.values(calculated.rollInputs),
   ];
 
   return entries.find(isFormulaError);
