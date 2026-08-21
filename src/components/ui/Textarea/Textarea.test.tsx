@@ -12,6 +12,12 @@ describe('Textarea', () => {
     expect(textarea.className).toContain('resize-y');
   });
 
+  it('applies error styles when error prop is true (CR-32)', () => {
+    render(<Textarea error placeholder="Error textarea" />);
+    const textarea = screen.getByPlaceholderText('Error textarea');
+    expect(textarea.className).toContain('border-crimson');
+  });
+
   it('applies disabled styles when disabled', () => {
     render(<Textarea disabled placeholder="Disabled textarea" />);
     const textarea = screen.getByPlaceholderText('Disabled textarea');

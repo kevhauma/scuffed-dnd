@@ -7,15 +7,24 @@
  */
 
 import type React from 'react';
-import { baseStyles, disabledStyles } from './Textarea.style';
+import { baseStyles, disabledStyles, errorStyles } from './Textarea.style';
 
 export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+  /** Show the invalid-field treatment, mirroring `Input`'s (CR-32) */
+  error?: boolean;
   className?: string;
 }
 
-export function Textarea({ disabled = false, className = '', rows = 4, ...props }: TextareaProps) {
+export function Textarea({
+  error = false,
+  disabled = false,
+  className = '',
+  rows = 4,
+  ...props
+}: TextareaProps) {
   const combinedClassName = [
     baseStyles,
+    error ? errorStyles : '',
     disabled ? disabledStyles : '',
     className, // Allow parent to add positioning/layout classes
   ]

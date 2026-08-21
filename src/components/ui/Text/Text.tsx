@@ -10,7 +10,11 @@
 import type React from 'react';
 import { baseStyles, type TextVariant, variantStyles } from './Text.style';
 
-export interface TextProps {
+/**
+ * Extends `HTMLAttributes` so `id`, `aria-*` and `data-*` reach the element (CR-32) — this was the
+ * one primitive that dropped them, which put an `aria-label` or a test hook out of reach.
+ */
+export interface TextProps extends React.HTMLAttributes<HTMLElement> {
   variant?: TextVariant;
   as?: 'p' | 'span' | 'div' | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'label';
   children: React.ReactNode;
@@ -24,6 +28,7 @@ export function Text({
   children,
   className = '',
   htmlFor,
+  ...rest
 }: TextProps) {
   const Component = as;
 
@@ -32,6 +37,7 @@ export function Text({
     .join(' ');
 
   const props: React.HTMLAttributes<HTMLElement> & { htmlFor?: string } = {
+    ...rest,
     className: combinedClassName,
   };
 

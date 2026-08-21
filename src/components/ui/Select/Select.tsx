@@ -7,7 +7,7 @@
  */
 
 import type React from 'react';
-import { baseStyles, disabledStyles } from './Select.style';
+import { baseStyles, disabledStyles, errorStyles } from './Select.style';
 
 export interface SelectOption {
   value: string;
@@ -15,12 +15,15 @@ export interface SelectOption {
 }
 
 export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'size'> {
+  /** Show the invalid-field treatment, mirroring `Input`'s (CR-32) */
+  error?: boolean;
   options: SelectOption[];
   placeholder?: string;
   className?: string;
 }
 
 export function Select({
+  error = false,
   options,
   placeholder,
   disabled = false,
@@ -29,6 +32,7 @@ export function Select({
 }: SelectProps) {
   const combinedClassName = [
     baseStyles,
+    error ? errorStyles : '',
     disabled ? disabledStyles : '',
     className, // Allow parent to add positioning/layout classes
   ]

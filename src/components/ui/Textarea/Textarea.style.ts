@@ -14,6 +14,9 @@ export const baseStyles = [
   'min-h-[80px]',
 ].join(' ');
 
+// Error state styles — the same treatment `Input` gives an invalid field (CR-32)
+export const errorStyles = ['border-crimson', 'focus:ring-crimson focus:border-crimson'].join(' ');
+
 // Disabled state styles
 export const disabledStyles = [
   'opacity-50',

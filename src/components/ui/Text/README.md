@@ -61,6 +61,7 @@ import { Text } from '@/components/ui';
 | `children` | `React.ReactNode` | - | Content to display |
 | `className` | `string` | `''` | Additional CSS classes for positioning |
 | `htmlFor` | `string` | - | For label elements only |
+| …rest | `React.HTMLAttributes<HTMLElement>` | - | `id`, `aria-*`, `data-*` and the rest reach the element (CR-32) |
 
 ## Examples
 

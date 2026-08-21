@@ -50,7 +50,7 @@ size limit — several findings here will split into more than one ticket) and b
 - [x] [CR-29 FormData interfaces declared twice in eight features](findings/CR-29-formdata-interfaces-declared-twice.md) *(config)*
 - [x] [CR-30 Three update actions skip `mergeClearingAbsent`](findings/CR-30-update-actions-skip-mergeclearingabsent.md) *(stores)*
 - [x] [CR-31 `FormField` error prop invites `[object Object]`](findings/CR-31-formfield-error-type-too-wide.md) *(ui)*
-- [ ] [CR-32 ui primitive prop-API gaps](findings/CR-32-ui-primitive-prop-api-gaps.md) — no error state on Select/Textarea; `Text` swallows rest props. *(ui)*
+- [x] [CR-32 ui primitive prop-API gaps](findings/CR-32-ui-primitive-prop-api-gaps.md) — no error state on Select/Textarea; `Text` swallows rest props. *(ui)*
 - [ ] [CR-33 `FormulaEditor` stale validation](findings/CR-33-formulaeditor-stale-validation.md) — validates only on typing, never on props. *(ui)*
 - [ ] [CR-34 `ValidationReport` static rows look clickable](findings/CR-34-validationreport-static-rows-look-clickable.md) *(ui)*
 - [ ] [CR-35 Field-array selects unlabeled and watch/setValue-driven](findings/CR-35-field-array-selects-unlabeled.md) *(config)*

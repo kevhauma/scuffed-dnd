@@ -31,6 +31,12 @@ describe('Select', () => {
     expect(placeholderOption.getAttribute('disabled')).toBe('');
   });
 
+  it('applies error styles when error prop is true (CR-32)', () => {
+    render(<Select options={options} error />);
+    const select = screen.getByRole('combobox');
+    expect(select.className).toContain('border-crimson');
+  });
+
   it('applies disabled styles when disabled', () => {
     render(<Select options={options} disabled />);
     const select = screen.getByRole('combobox');
