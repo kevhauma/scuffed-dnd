@@ -11,6 +11,10 @@ export const baseStyles = [
   'hover:border-stone-300',
   'cursor-pointer',
   'appearance-none',
+  // The dropdown chevron. Its `%23…` fill is the `ink-700` token written out, because a data URI
+  // cannot reach a CSS variable (CR-36) — the one colour in the component tree not spelled as a
+  // token. `libraryConventions.test.ts` pins it to `--color-ink-700`, so retuning the palette
+  // without this arrow fails the suite rather than leaving one off-theme triangle behind.
   "bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234f4739' d='M6 9L1 4h10z'/%3E%3C/svg%3E\")]",
   'bg-[length:12px] bg-[right_0.75rem_center] bg-no-repeat',
   'pr-10', // Extra padding for dropdown arrow

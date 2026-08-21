@@ -75,6 +75,26 @@ describe('base component library conventions', () => {
     }
   });
 
+  it('should keep the one URL-encoded colour equal to the token it mirrors (CR-36)', () => {
+    // The Select's chevron is a data URI, which cannot reach a CSS variable, so the hex is written
+    // out. This pins it to `ink-700`: retuning the palette without the arrow fails here rather than
+    // leaving one off-theme triangle behind.
+    const theme = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    const ink700 = theme.match(/--color-ink-700:\s*(#[0-9a-fA-F]{6})/)?.[1];
+
+    expect(ink700, 'src/styles.css defines no --color-ink-700').toBeDefined();
+
+    for (const file of sourceFiles) {
+      const encoded = readFileSync(file, 'utf8').match(/%23[0-9a-fA-F]{6}/g) ?? [];
+
+      for (const colour of encoded) {
+        expect(colour.replace('%23', '#').toLowerCase(), `${relative(file)} encoded colour`).toBe(
+          ink700?.toLowerCase()
+        );
+      }
+    }
+  });
+
   it('should export every component from the barrel with export *', () => {
     const barrel = readFileSync(join(UI_ROOT, 'index.ts'), 'utf8');
     const exportLines = barrel.split('\n').filter((line) => line.trim().startsWith('export'));
