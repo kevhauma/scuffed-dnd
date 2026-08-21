@@ -91,7 +91,8 @@ list — it changes more often than this table.
 
 Pure functions, no React, no storage. Every user-authored number in the app resolves here.
 
-- `formula/parser.ts` — tokenizer + `FormulaParser` class → `parseFormula(src): FormulaAST`.
+- `formula/parser.ts` — tokenizer + an internal `FormulaParser` class behind
+  `parseFormula(src): FormulaAST`, the module's whole surface (CR-39 un-exported the class).
   Supports `+ - * / ^` (`^` binds tighter than `*` and looser than unary minus, so `-2 ^ 2` is 4
   as in Excel; it is **right**-associative, so `2 ^ 3 ^ 2` is 512, where Excel would say 64 —
   a deliberate split, TICKET-FORM-07), parentheses, unary negation, numeric literals,
@@ -294,8 +295,9 @@ failing fixture is never fixed by editing the fixture.
 Both service modules are the **reference-form boundary** (TICKET-REF-01): what they write holds
 id-resolved references, what they hand back holds the ruleset's current spellings.
 
-- `storage.ts` — LocalStorage keys `dnd_builder_config`, `dnd_builder_characters`,
-  `dnd_builder_ui_state`; `saveConfiguration`/`loadConfiguration`/`saveCharacters`/`loadCharacters`/
+- `storage.ts` — LocalStorage keys `dnd_builder_config` and `dnd_builder_characters` (the
+  never-written `dnd_builder_ui_state` went in CR-39);
+  `saveConfiguration`/`loadConfiguration`/`saveCharacters`/`loadCharacters`/
   `clearAllData`/`isStorageAvailable`/`getStorageSize`, plus `readStoredSnapshot()` — the one read
   that works on data this build cannot open (TICKET-IO-03) — and the `StorageError` /
   `StorageQuotaError` / `StorageParseError` / `StorageSchemaError` classes.

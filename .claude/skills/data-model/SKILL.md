@@ -16,7 +16,11 @@ directly — this skill covers the rules, not a copy of the fields.
 |---|---|---|
 | `dnd_builder_config` | one `Configuration` object | `saveConfiguration()` ← `useConfigStore` |
 | `dnd_builder_characters` | `Character[]` | `saveCharacters()` ← `useCharacterStore` |
-| `dnd_builder_ui_state` | reserved; `useUIStore` is currently in-memory only | — |
+
+There is **no third key**. `dnd_builder_ui_state` was defined and cleared by `clearAllData()` while
+nothing ever wrote it; CR-39 removed it. `useUIStore` is entirely in-memory — open dialogs, the
+active mode and roll history all end with the tab. Persisting any of that adds the key back in the
+same change as the code that writes it.
 
 All access goes through [src/services/storage.ts](../../../src/services/storage.ts). It wraps
 `JSON.stringify`/`parse` and normalizes failures into `StorageError`, `StorageQuotaError`, and

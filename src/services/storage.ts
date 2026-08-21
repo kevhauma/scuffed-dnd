@@ -20,11 +20,13 @@ import {
 import type { Character } from '../types/character';
 import { type Configuration, SUPPORTED_SCHEMA_VERSION } from '../types/config';
 
-// LocalStorage keys
+// LocalStorage keys. There is no UI-state key (CR-39): `dnd_builder_ui_state` was defined and
+// cleared here while nothing ever wrote it — `useUIStore` is entirely in-memory. Persisting any of
+// it (surviving roll history, say) is a ticket that adds the key back beside the code that writes
+// it, not a reservation left lying here for the next reader to chase.
 const STORAGE_KEYS = {
   CONFIG: 'dnd_builder_config',
   CHARACTERS: 'dnd_builder_characters',
-  UI_STATE: 'dnd_builder_ui_state',
 } as const;
 
 /**
@@ -222,7 +224,6 @@ export function loadCharacters(): Character[] {
 export function clearAllData(): void {
   localStorage.removeItem(STORAGE_KEYS.CONFIG);
   localStorage.removeItem(STORAGE_KEYS.CHARACTERS);
-  localStorage.removeItem(STORAGE_KEYS.UI_STATE);
 }
 
 /**

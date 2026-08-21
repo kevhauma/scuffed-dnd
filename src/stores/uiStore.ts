@@ -18,8 +18,10 @@ export type AppMode = 'config' | 'play';
 
 /**
  * Dialog state
+ *
+ * Not exported (CR-39): it describes this store's own `dialogs` record and had no importer.
  */
-export interface DialogState {
+interface DialogState {
   isOpen: boolean;
   type?: string;
   data?: unknown;

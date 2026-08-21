@@ -273,13 +273,21 @@ describe('Storage Service', () => {
     it('should remove all stored data', () => {
       localStorage.setItem('dnd_builder_config', 'test');
       localStorage.setItem('dnd_builder_characters', 'test');
-      localStorage.setItem('dnd_builder_ui_state', 'test');
 
       clearAllData();
 
       expect(localStorage.getItem('dnd_builder_config')).toBeNull();
       expect(localStorage.getItem('dnd_builder_characters')).toBeNull();
-      expect(localStorage.getItem('dnd_builder_ui_state')).toBeNull();
+    });
+
+    it('should clear the two keys the app actually writes, and only those (CR-39)', () => {
+      // `dnd_builder_ui_state` was cleared here while nothing ever wrote it. Anything else in
+      // LocalStorage belongs to somebody else and is not this app's to remove.
+      localStorage.setItem('unrelated_app_key', 'not ours');
+
+      clearAllData();
+
+      expect(localStorage.getItem('unrelated_app_key')).toBe('not ours');
     });
   });
 

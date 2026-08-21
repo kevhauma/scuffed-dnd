@@ -253,8 +253,11 @@ class Tokenizer {
 
 /**
  * Parser class - converts tokens into AST (grammar in the module JSDoc above)
+ *
+ * Not exported (CR-39): `parseFormula` below is the module's API and its only caller. A second
+ * entry point would be a second place for the "did you validate this?" question to be answered.
  */
-export class FormulaParser {
+class FormulaParser {
   private tokenizer: Tokenizer;
   private currentToken: Token;
 
