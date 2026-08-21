@@ -7,7 +7,7 @@
  */
 
 import type React from 'react';
-import { baseStyles, sizeStyles, variantStyles } from './Button.style';
+import { buttonStyles } from './Button.style';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -25,14 +25,8 @@ export function Button({
   type = 'button',
   ...props
 }: ButtonProps) {
-  const combinedClassName = [
-    baseStyles,
-    variantStyles[variant],
-    sizeStyles[size],
-    className, // Allow parent to add positioning/layout classes
-  ]
-    .filter(Boolean)
-    .join(' ');
+  // `className` is the parent's — positioning and layout classes it is entitled to add
+  const combinedClassName = buttonStyles(variant, size, className);
 
   return (
     <button type={type} disabled={disabled} className={combinedClassName} {...props}>

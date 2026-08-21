@@ -8,6 +8,7 @@
 
 import { createFileRoute, Link } from '@tanstack/react-router';
 
+import { buttonStyles } from '../components/ui/Button/Button.style';
 import { Card } from '../components/ui/Card/Card';
 import { Text } from '../components/ui/Text/Text';
 
@@ -80,11 +81,12 @@ export function Home() {
               ))}
             </ul>
 
-            {/* Pushed to the bottom so both cards' actions line up regardless of list length */}
-            <Link
-              to={mode.to}
-              className="mt-auto inline-block rounded-md border-2 border-ink-700 bg-parchment-100 px-6 py-2 text-center font-heading font-semibold text-ink-900 shadow-parchment transition-all duration-200 hover:border-ink-800 hover:bg-parchment-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber"
-            >
+            {/*
+              Pushed to the bottom so both cards' actions line up regardless of list length. The
+              styling is `Button`'s own (CR-28) rather than a copy of it — this has to be a `Link`
+              to keep its href, but it must not drift from the buttons it sits beside.
+            */}
+            <Link to={mode.to} className={buttonStyles('secondary', 'md', 'mt-auto')}>
               {mode.action}
             </Link>
           </Card>

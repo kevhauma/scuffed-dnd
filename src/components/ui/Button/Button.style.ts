@@ -46,3 +46,20 @@ export const sizeStyles = {
   md: 'px-4 py-2 text-base',
   lg: 'px-6 py-3 text-lg',
 };
+
+/**
+ * The whole class string a button-shaped control wears (CR-28)
+ *
+ * `Button` composes its own from this, and so does anything that must *look* like a button without
+ * being one — a router `<Link>` used as a call to action, which cannot be a `<button>` without
+ * losing its href. Reach for this instead of copying a variant's classes, so the copy cannot drift.
+ */
+export function buttonStyles(
+  variant: keyof typeof variantStyles = 'primary',
+  size: keyof typeof sizeStyles = 'md',
+  className = ''
+): string {
+  return [baseStyles, variantStyles[variant], sizeStyles[size], className]
+    .filter(Boolean)
+    .join(' ');
+}
