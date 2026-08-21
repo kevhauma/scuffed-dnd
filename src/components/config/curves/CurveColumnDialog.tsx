@@ -52,6 +52,7 @@ export function CurveColumnDialog({
   const {
     control,
     register,
+    clearErrors,
     formState: { errors },
     watch,
   } = form;
@@ -91,7 +92,13 @@ export function CurveColumnDialog({
               <FormulaEditor
                 label="Generator"
                 value={field.value}
-                onChange={field.onChange}
+                onChange={(value) => {
+                  // Editing clears a refusal from the previous save attempt (CR-43), the way the
+                  // stat and roll dialogs do — a stale refusal under a field being fixed reads as
+                  // if the fix were rejected too
+                  clearErrors('generator');
+                  field.onChange(value);
+                }}
                 availableVariables={generatorVariables}
                 placeholder="e.g., 0.75 * (key + 1)"
                 className="w-full"

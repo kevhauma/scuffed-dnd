@@ -22,6 +22,12 @@ nothing ever wrote it; CR-39 removed it. `useUIStore` is entirely in-memory — 
 active mode and roll history all end with the tab. Persisting any of that adds the key back in the
 same change as the code that writes it.
 
+**One tab at a time, by decision** (CR-43). Nothing listens for the `storage` event, so two tabs
+each hydrate once at load and then last-write-wins on every action: the second tab's next edit
+persists its whole in-memory ruleset over whatever the first tab wrote. That is accepted for a
+single-user browser app rather than overlooked — making it safe means a `storage` listener that
+rehydrates both stores, and that is a ticket, not a footnote.
+
 All access goes through [src/services/storage.ts](../../../src/services/storage.ts). It wraps
 `JSON.stringify`/`parse` and normalizes failures into `StorageError`, `StorageQuotaError`, and
 `StorageParseError`. **Components, hooks, and engine code never touch `localStorage` directly,

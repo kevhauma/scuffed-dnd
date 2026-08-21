@@ -10,6 +10,7 @@ import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
+import { ConfigEmptyState } from '../shared/ConfigEmptyState';
 import { ConfigPanelShell, NoConfigurationNotice } from '../shared/ConfigPanelShell';
 import { EquipmentSlotFormDialog } from './EquipmentSlotFormDialog';
 import { ItemCard } from './ItemCard';
@@ -150,11 +151,15 @@ export function ItemsConfigPanel() {
 
         {/* Items List */}
         {filteredItems.length === 0 ? (
-          <Text variant="body-secondary" className="text-center py-8">
-            {categoryFilter === 'all'
-              ? "No items configured yet. Click 'Add Item' to create your first item."
-              : `No items in category "${categoryFilter}".`}
-          </Text>
+          // The shared card, with the message parameterised (CR-43) — the filter changes what
+          // "empty" means here, which is a different sentence rather than a different component
+          <ConfigEmptyState
+            message={
+              categoryFilter === 'all'
+                ? "No items configured yet. Click 'Add Item' to create your first item."
+                : `No items in category "${categoryFilter}".`
+            }
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredItems.map((item) => (

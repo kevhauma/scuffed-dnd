@@ -11,7 +11,7 @@
  * **Validates: Requirements 1.1, 1.4, 1.5, 1.6, 18.5, 21.1-21.5**
  */
 
-import { useId, useRef, useState } from 'react';
+import { useId, useRef } from 'react';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Dialog } from '../../ui/Dialog/Dialog';
@@ -23,6 +23,8 @@ import { useConfigTransfer } from './useConfigTransfer';
 export function ConfigTransferPanel() {
   const {
     config,
+    name,
+    canRename,
     pendingFileName,
     importErrors,
     importReport,
@@ -31,26 +33,14 @@ export function ConfigTransferPanel() {
     handleFileChosen,
     handleCancelImport,
     handleConfirmImport,
+    handleDraftName,
     handleRename,
   } = useConfigTransfer();
 
   const nameFieldId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  /** The name being edited, committed on submit rather than on every keystroke */
-  const [draftName, setDraftName] = useState<string | null>(null);
-
   if (!config) return null;
-
-  const name = draftName ?? config.name;
-
-  const commitRename = () => {
-    const trimmed = name.trim();
-    if (trimmed !== '' && trimmed !== config.name) {
-      handleRename(trimmed);
-    }
-    setDraftName(null);
-  };
 
   return (
     <Card className="mb-8 p-6">
@@ -63,10 +53,10 @@ export function ConfigTransferPanel() {
           label="Name"
           id={nameFieldId}
           value={name}
-          onChange={(event) => setDraftName(event.target.value)}
+          onChange={(event) => handleDraftName(event.target.value)}
           className="grow"
         />
-        <Button variant="secondary" disabled={name.trim() === ''} onClick={commitRename}>
+        <Button variant="secondary" disabled={!canRename} onClick={handleRename}>
           Rename
         </Button>
       </div>

@@ -279,6 +279,24 @@ describe('CurvesConfigPanel', () => {
     expect(stored()?.columns).toHaveLength(2);
   });
 
+  it('should clear a refused generator once the User edits it (CR-43)', async () => {
+    render(<CurvesConfigPanel />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Column' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Add Column' }));
+    fireEvent.change(dialog.getByLabelText(/Column Name/), { target: { value: 'sub' } });
+    fireEvent.change(dialog.getByPlaceholderText(/0.75/), {
+      target: { value: 'const.missing * key' },
+    });
+    fireEvent.click(dialog.getByRole('button', { name: 'Add Column' }));
+    expect(await screen.findByText(/Unknown member: const.missing/)).toBeDefined();
+
+    // A refusal left standing over a field being fixed reads as if the fix were rejected too
+    fireEvent.change(dialog.getByPlaceholderText(/0.75/), { target: { value: 'key * 2' } });
+
+    await waitFor(() => expect(screen.queryByText(/Unknown member: const.missing/)).toBeNull());
+  });
+
   it('should keep a hand-entered column’s numbers when it is given a generator', async () => {
     render(<CurvesConfigPanel />);
 

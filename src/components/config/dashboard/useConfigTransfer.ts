@@ -38,6 +38,16 @@ export function useConfigTransfer() {
   /** The reference check on what was just imported, shown once it lands */
   const [importReport, setImportReport] = useState<ValidationReport | null>(null);
 
+  /**
+   * The name being edited, committed on submit rather than on every keystroke
+   *
+   * `null` means "not being edited", so the field falls back to the stored name and follows an
+   * import that replaced it. Held here rather than in the panel (CR-43): form state is the hook's,
+   * like every other configuration domain.
+   */
+  const [draftName, setDraftName] = useState<string | null>(null);
+  const name = draftName ?? config?.name ?? '';
+
   const handleExport = () => {
     if (!config) return;
 
@@ -76,12 +86,23 @@ export function useConfigTransfer() {
     }
   };
 
-  const handleRename = (name: string) => {
-    renameConfig(name);
+  const handleDraftName = (value: string) => {
+    setDraftName(value);
+  };
+
+  /** Rename to the drafted name, unless it is blank or unchanged; either way the draft is released */
+  const handleRename = () => {
+    const trimmed = name.trim();
+    if (config && trimmed !== '' && trimmed !== config.name) {
+      renameConfig(trimmed);
+    }
+    setDraftName(null);
   };
 
   return {
     config,
+    name,
+    canRename: name.trim() !== '',
     pendingFileName: pendingFile?.name ?? null,
     importErrors,
     importReport,
@@ -92,6 +113,7 @@ export function useConfigTransfer() {
     handleFileChosen,
     handleCancelImport,
     handleConfirmImport,
+    handleDraftName,
     handleRename,
   };
 }

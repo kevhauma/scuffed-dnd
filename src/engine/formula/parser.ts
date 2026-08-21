@@ -442,7 +442,10 @@ class FormulaParser {
   }
 
   /**
-   * Parse term: factor ((MULTIPLY | DIVIDE) factor)*
+   * Parse term: power ((MULTIPLY | DIVIDE) power)*
+   *
+   * `power`, not `factor` (CR-43): `^` binds tighter than `*`, so it sits between them — as the
+   * module-header grammar says and the body has always done.
    */
   private term(): FormulaAST {
     let node = this.power();
