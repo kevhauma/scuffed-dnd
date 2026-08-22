@@ -6,7 +6,7 @@
  * **Validates: Requirements 16.4, 16.6, 21.1, 21.2, 21.3, 21.6, 21.7, 22.1-22.6**
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { validateFormula as validateFormulaSyntax } from '../../../engine/formula/validator';
 import { Input } from '../Input/Input';
 import { Label } from '../Label/Label';
@@ -38,6 +38,11 @@ export function FormulaEditor({
 }: FormulaEditorProps) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+
+  // Minted here because the primitive owns the input the label points at (CR-13's accessibility
+  // pass). Callers used to have no way to associate the two, so every formula field's test found
+  // its box by placeholder and said so in a comment — `getByLabelText` works now.
+  const inputId = useId();
 
   // Derived from the props rather than written by the change handler (CR-33), which removes the
   // staleness class rather than patching triggers: a formula that arrives invalid — an edit dialog
@@ -95,9 +100,14 @@ export function FormulaEditor({
 
   return (
     <div className={`${containerStyles} ${className}`}>
-      {label && <Label className="mb-2">{label}</Label>}
+      {label && (
+        <Label htmlFor={inputId} className="mb-2">
+          {label}
+        </Label>
+      )}
       <div className="relative">
         <Input
+          id={inputId}
           value={value}
           onChange={(e) => handleInputChange(e.target.value)}
           placeholder={placeholder}

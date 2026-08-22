@@ -1,13 +1,20 @@
 /**
  * Dialog Component
  *
- * Base modal: owns its own placement, closes on Escape, the backdrop, or its close button.
+ * Base modal: owns its own placement, closes on Escape, the backdrop, or its close button, and
+ * keeps keyboard focus inside itself while it is open.
  *
- * **Validates: Requirements 21.1, 21.2, 21.3, 21.6, 21.7, 22.1-22.6**
+ * The focus work is CR-13, and it lands here rather than in each dialog for the reason every base
+ * component exists: `aria-modal="true"` is a *claim* that the rest of the page is inert, and the
+ * browser does not enforce it. Without a trap, Tab walked straight out of the panel into the
+ * obscured page behind it — every `*FormDialog` in the app inherited that, and one fix here fixes
+ * all of them.
+ *
+ * **Validates: Requirements 21.1, 21.2, 21.3, 21.6, 21.7, 22.1-22.6; WAI-ARIA dialog pattern**
  */
 
 import type React from 'react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   bodyStyles,
   closeButtonStyles,
@@ -16,6 +23,27 @@ import {
   overlayStyles,
   titleStyles,
 } from './Dialog.style';
+
+/**
+ * What Tab can reach
+ *
+ * Deliberately not filtered by visibility: an element that is in the panel's markup but not on
+ * screen is a case no dialog here has, and a `getComputedStyle` pass per keystroke to handle it
+ * would cost more than it is worth.
+ */
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
+function focusableWithin(container: HTMLElement | null): HTMLElement[] {
+  if (!container) return [];
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+}
 
 export interface DialogProps {
   open: boolean;
@@ -26,18 +54,74 @@ export interface DialogProps {
 }
 
 export function Dialog({ open, onClose, title, children, className = '' }: DialogProps) {
-  // Handle escape key to close dialog
+  const panelRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  /** Where focus was when the dialog opened, so closing puts the User back where they were */
+  const openerRef = useRef<Element | null>(null);
+
+  // Move focus in on open, and put it back on close (CR-13). The first control in the *body* takes
+  // it rather than the header's close button — a form dialog's first field is what the User came
+  // for — and the panel itself takes it when the body has nothing focusable, so a screen reader
+  // still announces the dialog rather than leaving focus on the page behind.
   useEffect(() => {
     if (!open) return;
 
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+    openerRef.current = document.activeElement;
+    (focusableWithin(bodyRef.current)[0] ?? panelRef.current)?.focus();
+
+    return () => {
+      const opener = openerRef.current;
+      // Only if it is still on the page: a dialog opened from a row that the save then removed has
+      // nowhere to go back to, and focusing a detached node silently drops focus onto `<body>`
+      if (opener instanceof HTMLElement && document.contains(opener)) opener.focus();
+    };
+  }, [open]);
+
+  // Escape closes; Tab cycles within the panel
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
         onClose();
+        return;
+      }
+
+      if (event.key !== 'Tab') return;
+
+      const panel = panelRef.current;
+      if (!panel) return;
+
+      const focusable = focusableWithin(panel);
+      if (focusable.length === 0) {
+        // Nothing to move to, so moving anywhere means leaving — which is the thing being stopped
+        event.preventDefault();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      // Focus is outside the panel — from a click on the backdrop, say — so Tab re-enters rather
+      // than continuing through the obscured page
+      if (!panel.contains(active)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
+
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [open, onClose]);
 
   // Prevent body scroll when dialog is open
@@ -74,7 +158,16 @@ export function Dialog({ open, onClose, title, children, className = '' }: Dialo
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className={combinedDialogClassName} role="dialog" aria-modal="true" aria-label={title}>
+      {/* `tabIndex={-1}` so the panel can hold focus itself when it has no focusable content —
+          programmatically focusable, never a Tab stop of its own */}
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        className={combinedDialogClassName}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
         <div className={headerStyles}>
           <h2 className={titleStyles}>{title}</h2>
           <button
@@ -86,7 +179,9 @@ export function Dialog({ open, onClose, title, children, className = '' }: Dialo
             ×
           </button>
         </div>
-        <div className={bodyStyles}>{children}</div>
+        <div ref={bodyRef} className={bodyStyles}>
+          {children}
+        </div>
       </div>
     </div>
   );

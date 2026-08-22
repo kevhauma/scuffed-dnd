@@ -255,8 +255,8 @@ describe('StatsConfigPanel', () => {
       openAddDialogWith('Sanity', 'SAN');
       expect(dialog().getByText(/Invested: this stat takes points/)).toBeDefined();
 
-      // The formula field is the `FormulaEditor`, whose label is not associated to its control
-      fireEvent.change(dialog().getByPlaceholderText(/STR \* 10/), {
+      // By label since CR-13: `FormulaEditor` associates its own label with its input now
+      fireEvent.change(dialog().getByLabelText(/^Formula/), {
         target: { value: 'STR * 2' },
       });
 

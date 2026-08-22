@@ -93,13 +93,13 @@ const clickEdit = () => fireEvent.click(screen.getByRole('button', { name: 'Edit
 const clickDelete = () => fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
 /**
- * The roll's input box, found by placeholder
+ * The roll's input box
  *
- * `FormulaEditor`'s label carries no `htmlFor` — it cannot, since the primitive does not own the
- * input's id — so there is no label to query by. Every other formula field's test has the same
- * problem; the placeholder is what identifies this one.
+ * By label since CR-13's accessibility pass: `FormulaEditor` mints its own id and points its label
+ * at it, so a formula field is reachable the same way every other field is. This used to be found
+ * by placeholder because there was no association to query.
  */
-const inputBox = () => screen.getByPlaceholderText('stats.dexterity + skills.dodging.bonus');
+const inputBox = () => screen.getByLabelText('Input');
 
 describe('RollsConfigPanel', () => {
   beforeEach(() => {
