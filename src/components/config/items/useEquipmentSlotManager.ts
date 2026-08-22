@@ -6,10 +6,10 @@
  * **Validates: Requirements 7.5**
  */
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../stores/configStore';
 import type { EquipmentSlot } from '../../../types';
+import { useEntityDialog } from '../shared/useEntityDialog';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
 export interface EquipmentSlotFormData {
@@ -26,9 +26,6 @@ export function useEquipmentSlotManager() {
 
   const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingSlotType, setEditingSlotType] = useState<string | null>(null);
-
   const form = useForm<EquipmentSlotFormData>({
     defaultValues: {
       type: '',
@@ -36,30 +33,28 @@ export function useEquipmentSlotManager() {
       description: '',
     },
   });
+  // A slot's `type` is its identifier — it has no `id` — so that is what the dialog holds
+  const dialog = useEntityDialog(form);
 
   const equipmentSlots = config?.equipmentSlots || [];
 
   const handleAdd = () => {
-    setEditingSlotType(null);
-    form.reset({
+    dialog.openForAdd({
       type: '',
       name: '',
       description: '',
     });
-    setIsDialogOpen(true);
   };
 
   const handleEdit = (type: string) => {
     const slot = equipmentSlots.find((s) => s.type === type);
     if (!slot) return;
 
-    setEditingSlotType(type);
-    form.reset({
+    dialog.openForEdit(type, {
       type: slot.type,
       name: slot.name,
       description: slot.description,
     });
-    setIsDialogOpen(true);
   };
 
   const handleDelete = (type: string) => {
@@ -73,13 +68,13 @@ export function useEquipmentSlotManager() {
       description: data.description,
     };
 
-    if (editingSlotType) {
-      updateEquipmentSlot(editingSlotType, slot);
+    if (dialog.editingId) {
+      updateEquipmentSlot(dialog.editingId, slot);
     } else {
       addEquipmentSlot(slot);
     }
 
-    setIsDialogOpen(false);
+    dialog.close();
   });
 
   return {
@@ -87,9 +82,9 @@ export function useEquipmentSlotManager() {
     dismissBlocked,
     config,
     equipmentSlots,
-    isDialogOpen,
-    setIsDialogOpen,
-    editingSlotType,
+    isDialogOpen: dialog.isOpen,
+    closeDialog: dialog.close,
+    editingSlotType: dialog.editingId,
     form,
     handleAdd,
     handleEdit,

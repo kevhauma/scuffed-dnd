@@ -33,6 +33,7 @@ import { validateFormulaChange } from '../../../engine/formula/formulaChange';
 import { scopeFor } from '../../../engine/formula/scoping';
 import { useConfigStore } from '../../../stores/configStore';
 import type { Stat, StatRounding } from '../../../types';
+import { useEntityDialog } from '../shared/useEntityDialog';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
 /** What a spelling in the flat formula space must look like — `STR`, never `Str Total` */
@@ -100,13 +101,12 @@ export function useStatManager() {
 
   const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingStatId, setEditingStatId] = useState<string | null>(null);
   // Which card is mid-drag, by position. A half-finished drag is nobody else's business, so the
   // store hears about it once — when the card lands.
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
   const form = useForm<StatFormData>({ defaultValues: EMPTY_FORM });
+  const dialog = useEntityDialog(form);
 
   // Sorted here as well as in the store's `reorderStats`, so an imported ruleset whose `order`
   // values disagree with its array order still lists the way the User arranged it
@@ -120,17 +120,14 @@ export function useStatManager() {
     : ([] as string[]);
 
   const handleAdd = () => {
-    setEditingStatId(null);
-    form.reset(EMPTY_FORM);
-    setIsDialogOpen(true);
+    dialog.openForAdd(EMPTY_FORM);
   };
 
   const handleEdit = (id: string) => {
     const stat = currentStats.find((s) => s.id === id);
     if (!stat) return;
 
-    setEditingStatId(id);
-    form.reset({
+    dialog.openForEdit(id, {
       name: stat.name,
       abbreviation: stat.abbreviation,
       description: stat.description,
@@ -142,7 +139,6 @@ export function useStatManager() {
       max: stat.max === undefined ? '' : String(stat.max),
       rounding: stat.rounding,
     });
-    setIsDialogOpen(true);
   };
 
   /**
@@ -237,7 +233,7 @@ export function useStatManager() {
       owner: 'stat',
       id,
       formula,
-      previousId: editingStatId ?? undefined,
+      previousId: dialog.editingId ?? undefined,
     });
 
     return validation.isValid ? null : { field: 'formula', message: validation.errors.join(' ') };
@@ -246,7 +242,7 @@ export function useStatManager() {
   const handleSave = form.handleSubmit((data) => {
     if (!config) return;
 
-    const id = editingStatId || crypto.randomUUID();
+    const id = dialog.editingId || crypto.randomUUID();
     const abbreviation = data.abbreviation.trim().toUpperCase();
     const formula = data.formula.trim();
 
@@ -257,7 +253,7 @@ export function useStatManager() {
       return;
     }
 
-    const existing = currentStats.find((candidate) => candidate.id === editingStatId);
+    const existing = currentStats.find((candidate) => candidate.id === dialog.editingId);
     const min = boundValue(data.min);
     const max = boundValue(data.max);
     const stat: Stat = {
@@ -277,10 +273,10 @@ export function useStatManager() {
 
     // The store owns the uniqueness invariant and hands back its refusal (CR-17); the dialog stays
     // open with the message on the field that collided
-    const collision = editingStatId
+    const collision = dialog.editingId
       ? // Spelled out rather than merged: `formula` and the bounds are optional, and a shallow
         // merge would keep a bound or a formula the User just cleared
-        updateStat(editingStatId, { ...stat, formula: formula || undefined, min, max })
+        updateStat(dialog.editingId, { ...stat, formula: formula || undefined, min, max })
       : addStat(stat);
 
     if (collision) {
@@ -293,7 +289,7 @@ export function useStatManager() {
       return;
     }
 
-    setIsDialogOpen(false);
+    dialog.close();
   });
 
   // Live off the form, so the User sees the consequence of a flag as they set it rather than
@@ -332,9 +328,9 @@ export function useStatManager() {
     config,
     currentStats,
     availableSkillCodes,
-    isDialogOpen,
-    setIsDialogOpen,
-    editingStatId,
+    isDialogOpen: dialog.isOpen,
+    closeDialog: dialog.close,
+    editingStatId: dialog.editingId,
     form,
     isDerived,
     warnings,

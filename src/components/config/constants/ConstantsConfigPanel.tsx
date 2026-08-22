@@ -22,7 +22,7 @@ export function ConstantsConfigPanel() {
     constants,
     usages,
     isDialogOpen,
-    setIsDialogOpen,
+    closeDialog,
     editingConstantId,
     form,
     handleAdd,
@@ -79,7 +79,7 @@ export function ConstantsConfigPanel() {
         isOpen={isDialogOpen}
         isEditing={!!editingConstantId}
         form={form}
-        onClose={() => setIsDialogOpen(false)}
+        onClose={closeDialog}
         onSave={handleSave}
       />
     </ConfigPanelShell>

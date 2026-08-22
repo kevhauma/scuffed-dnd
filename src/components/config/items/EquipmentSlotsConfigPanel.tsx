@@ -19,7 +19,7 @@ export function EquipmentSlotsConfigPanel() {
     config,
     equipmentSlots,
     isDialogOpen,
-    setIsDialogOpen,
+    closeDialog,
     editingSlotType,
     form,
     handleAdd,
@@ -73,7 +73,7 @@ export function EquipmentSlotsConfigPanel() {
         isOpen={isDialogOpen}
         isEditing={!!editingSlotType}
         form={form}
-        onClose={() => setIsDialogOpen(false)}
+        onClose={closeDialog}
         onSave={handleSave}
       />
     </ConfigPanelShell>

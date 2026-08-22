@@ -21,7 +21,7 @@ export function RacesConfigPanel() {
     currentRaces,
     availableStats,
     isDialogOpen,
-    setIsDialogOpen,
+    closeDialog,
     editingRaceId,
     form,
     handleAdd,
@@ -74,7 +74,7 @@ export function RacesConfigPanel() {
         isEditing={!!editingRaceId}
         form={form}
         availableStats={availableStats}
-        onClose={() => setIsDialogOpen(false)}
+        onClose={closeDialog}
         onSave={handleSave}
       />
     </ConfigPanelShell>

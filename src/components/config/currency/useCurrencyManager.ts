@@ -6,10 +6,10 @@
  * **Validates: Requirements 10.1, 10.2, 10.3**
  */
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../stores/configStore';
 import type { CurrencyTier } from '../../../types';
+import { useEntityDialog } from '../shared/useEntityDialog';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
 export interface CurrencyFormData {
@@ -25,38 +25,32 @@ export function useCurrencyManager() {
 
   const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingTierId, setEditingTierId] = useState<string | null>(null);
-
   const form = useForm<CurrencyFormData>({
     defaultValues: {
       name: '',
       conversionToNext: 1,
     },
   });
+  const dialog = useEntityDialog(form);
 
   // Get sorted currency tiers
   const currentTiers = [...(config?.currencyTiers || [])].sort((a, b) => a.order - b.order);
 
   const handleAdd = () => {
-    setEditingTierId(null);
-    form.reset({
+    dialog.openForAdd({
       name: '',
       conversionToNext: 1,
     });
-    setIsDialogOpen(true);
   };
 
   const handleEdit = (id: string) => {
     const tier = currentTiers.find((t) => t.id === id);
     if (!tier) return;
 
-    setEditingTierId(id);
-    form.reset({
+    dialog.openForEdit(id, {
       name: tier.name,
       conversionToNext: tier.conversionToNext,
     });
-    setIsDialogOpen(true);
   };
 
   const handleDelete = (id: string) => {
@@ -68,24 +62,24 @@ export function useCurrencyManager() {
 
   const handleSave = form.handleSubmit((data) => {
     const tier: CurrencyTier = {
-      id: editingTierId || crypto.randomUUID(),
+      id: dialog.editingId || crypto.randomUUID(),
       name: data.name,
       conversionToNext: data.conversionToNext,
       // `??`, never `||` (CR-04): the lowest tier has `order: 0`, and falling through a falsy
       // check reassigned it the highest order — so editing the bottom of the ladder moved it to
       // the top, silently changing what the ruleset's conversions mean
-      order: editingTierId
-        ? (currentTiers.find((t) => t.id === editingTierId)?.order ?? currentTiers.length)
+      order: dialog.editingId
+        ? (currentTiers.find((t) => t.id === dialog.editingId)?.order ?? currentTiers.length)
         : currentTiers.length,
     };
 
-    if (editingTierId) {
-      updateCurrencyTier(editingTierId, tier);
+    if (dialog.editingId) {
+      updateCurrencyTier(dialog.editingId, tier);
     } else {
       addCurrencyTier(tier);
     }
 
-    setIsDialogOpen(false);
+    dialog.close();
   });
 
   const handleReorder = (fromIndex: number, toIndex: number) => {
@@ -118,9 +112,9 @@ export function useCurrencyManager() {
     dismissBlocked,
     config,
     currentTiers,
-    isDialogOpen,
-    setIsDialogOpen,
-    editingTierId,
+    isDialogOpen: dialog.isOpen,
+    closeDialog: dialog.close,
+    editingTierId: dialog.editingId,
     form,
     handleAdd,
     handleEdit,

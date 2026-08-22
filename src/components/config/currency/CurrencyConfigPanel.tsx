@@ -20,7 +20,7 @@ export function CurrencyConfigPanel() {
     config,
     currentTiers,
     isDialogOpen,
-    setIsDialogOpen,
+    closeDialog,
     editingTierId,
     form,
     handleAdd,
@@ -82,7 +82,7 @@ export function CurrencyConfigPanel() {
         isOpen={isDialogOpen}
         isEditing={!!editingTierId}
         form={form}
-        onClose={() => setIsDialogOpen(false)}
+        onClose={closeDialog}
         onSave={handleSave}
       />
     </ConfigPanelShell>

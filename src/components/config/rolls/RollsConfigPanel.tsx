@@ -25,7 +25,7 @@ export function RollsConfigPanel() {
     availableSkillCodes,
     ladderFor,
     isDialogOpen,
-    setIsDialogOpen,
+    closeDialog,
     editingRollId,
     form,
     handleAdd,
@@ -80,7 +80,7 @@ export function RollsConfigPanel() {
         availableLadders={availableLadders}
         availableSkillCodes={availableSkillCodes}
         config={config}
-        onClose={() => setIsDialogOpen(false)}
+        onClose={closeDialog}
         onSave={handleSave}
       />
     </ConfigPanelShell>

@@ -9,10 +9,10 @@
  * **Validates: Concept 07**
  */
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../stores/configStore';
 import type { DiceLadder } from '../../../types';
+import { useEntityDialog } from '../shared/useEntityDialog';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
 export interface LadderFormData {
@@ -60,10 +60,8 @@ export function useDiceLadderManager() {
 
   const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingLadderId, setEditingLadderId] = useState<string | null>(null);
-
   const form = useForm<LadderFormData>({ defaultValues: EMPTY_LADDER });
+  const dialog = useEntityDialog(form);
 
   const currentLadders = config?.diceLadders ?? [];
 
@@ -89,24 +87,20 @@ export function useDiceLadderManager() {
   };
 
   const handleAdd = () => {
-    setEditingLadderId(null);
-    form.reset(EMPTY_LADDER);
-    setIsDialogOpen(true);
+    dialog.openForAdd(EMPTY_LADDER);
   };
 
   const handleEdit = (id: string) => {
     const ladder = currentLadders.find((candidate) => candidate.id === id);
     if (!ladder) return;
 
-    setEditingLadderId(id);
-    form.reset({
+    dialog.openForEdit(id, {
       name: ladder.name,
       description: ladder.description,
       dieSizes: formatDieSizes(ladder.dieSizes),
       maxPerDie: ladder.maxPerDie === undefined ? '' : String(ladder.maxPerDie),
       showZeroTerms: ladder.showZeroTerms,
     });
-    setIsDialogOpen(true);
   };
 
   const handleDelete = (id: string) => {
@@ -116,7 +110,7 @@ export function useDiceLadderManager() {
 
   const handleSave = form.handleSubmit((data) => {
     const ladder: DiceLadder = {
-      id: editingLadderId || crypto.randomUUID(),
+      id: dialog.editingId || crypto.randomUUID(),
       name: data.name,
       description: data.description,
       dieSizes: parseDieSizes(data.dieSizes),
@@ -126,15 +120,15 @@ export function useDiceLadderManager() {
       ...(data.maxPerDie === '' ? {} : { maxPerDie: Number(data.maxPerDie) }),
     };
 
-    if (editingLadderId) {
+    if (dialog.editingId) {
       // `maxPerDie` passed explicitly even when absent: the store's merge deletes a key set to
       // `undefined`, and a spread that omits it would leave the old cap in place
-      updateDiceLadder(editingLadderId, { ...ladder, maxPerDie: ladder.maxPerDie });
+      updateDiceLadder(dialog.editingId, { ...ladder, maxPerDie: ladder.maxPerDie });
     } else {
       addDiceLadder(ladder);
     }
 
-    setIsDialogOpen(false);
+    dialog.close();
   });
 
   return {
@@ -144,9 +138,9 @@ export function useDiceLadderManager() {
     // (CR-16) — without a ruleset there is nothing for `addDiceLadder` to add to
     config,
     currentLadders,
-    isDialogOpen,
-    setIsDialogOpen,
-    editingLadderId,
+    isDialogOpen: dialog.isOpen,
+    closeDialog: dialog.close,
+    editingLadderId: dialog.editingId,
     form,
     validateDieSizes,
     handleAdd,

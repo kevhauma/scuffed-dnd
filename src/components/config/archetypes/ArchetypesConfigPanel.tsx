@@ -25,7 +25,7 @@ export function ArchetypesConfigPanel() {
     currentArchetypes,
     availableStats,
     isDialogOpen,
-    setIsDialogOpen,
+    closeDialog,
     editingArchetypeId,
     form,
     handleAdd,
@@ -78,7 +78,7 @@ export function ArchetypesConfigPanel() {
         isEditing={!!editingArchetypeId}
         form={form}
         availableStats={availableStats}
-        onClose={() => setIsDialogOpen(false)}
+        onClose={closeDialog}
         onSave={handleSave}
       />
     </ConfigPanelShell>

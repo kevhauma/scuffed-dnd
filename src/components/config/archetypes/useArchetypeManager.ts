@@ -8,11 +8,11 @@
  * **Validates: Concept 03**
  */
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../stores/configStore';
 import type { Archetype, StatAffinity } from '../../../types';
 import { DEFAULT_STAT_AFFINITY } from '../../../types';
+import { useEntityDialog } from '../shared/useEntityDialog';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
 export interface ArchetypeFormData {
@@ -30,12 +30,10 @@ export function useArchetypeManager() {
 
   const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingArchetypeId, setEditingArchetypeId] = useState<string | null>(null);
-
   const form = useForm<ArchetypeFormData>({
     defaultValues: { name: '', description: '', statAffinity: {} },
   });
+  const dialog = useEntityDialog(form);
 
   const currentArchetypes = config?.archetypes ?? [];
   const availableStats = [...(config?.stats ?? [])].sort((a, b) => a.order - b.order);
@@ -50,22 +48,18 @@ export function useArchetypeManager() {
     );
 
   const handleAdd = () => {
-    setEditingArchetypeId(null);
-    form.reset({ name: '', description: '', statAffinity: affinityFor() });
-    setIsDialogOpen(true);
+    dialog.openForAdd({ name: '', description: '', statAffinity: affinityFor() });
   };
 
   const handleEdit = (id: string) => {
     const archetype = currentArchetypes.find((candidate) => candidate.id === id);
     if (!archetype) return;
 
-    setEditingArchetypeId(id);
-    form.reset({
+    dialog.openForEdit(id, {
       name: archetype.name,
       description: archetype.description,
       statAffinity: affinityFor(archetype),
     });
-    setIsDialogOpen(true);
   };
 
   const handleDelete = (id: string) => {
@@ -75,7 +69,7 @@ export function useArchetypeManager() {
 
   const handleSave = form.handleSubmit((data) => {
     const archetype: Archetype = {
-      id: editingArchetypeId || crypto.randomUUID(),
+      id: dialog.editingId || crypto.randomUUID(),
       name: data.name,
       description: data.description,
       // Read against the ruleset as it stands at *save* time rather than as it stood when the
@@ -91,13 +85,13 @@ export function useArchetypeManager() {
       ),
     };
 
-    if (editingArchetypeId) {
-      updateArchetype(editingArchetypeId, archetype);
+    if (dialog.editingId) {
+      updateArchetype(dialog.editingId, archetype);
     } else {
       addArchetype(archetype);
     }
 
-    setIsDialogOpen(false);
+    dialog.close();
   });
 
   return {
@@ -106,9 +100,9 @@ export function useArchetypeManager() {
     config,
     currentArchetypes,
     availableStats,
-    isDialogOpen,
-    setIsDialogOpen,
-    editingArchetypeId,
+    isDialogOpen: dialog.isOpen,
+    closeDialog: dialog.close,
+    editingArchetypeId: dialog.editingId,
     form,
     handleAdd,
     handleEdit,

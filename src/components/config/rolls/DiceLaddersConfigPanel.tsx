@@ -25,7 +25,7 @@ export function DiceLaddersConfigPanel() {
     config,
     currentLadders,
     isDialogOpen,
-    setIsDialogOpen,
+    closeDialog,
     editingLadderId,
     form,
     validateDieSizes,
@@ -76,7 +76,7 @@ export function DiceLaddersConfigPanel() {
         isEditing={!!editingLadderId}
         form={form}
         validateDieSizes={validateDieSizes}
-        onClose={() => setIsDialogOpen(false)}
+        onClose={closeDialog}
         onSave={handleSave}
       />
     </ConfigPanelShell>

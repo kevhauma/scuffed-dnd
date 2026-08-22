@@ -12,12 +12,12 @@
  * **Validates: Concept 08; Requirements 16.5, 16.6**
  */
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { validateFormulaChange } from '../../../engine/formula/formulaChange';
 import { scopeFor } from '../../../engine/formula/scoping';
 import { useConfigStore } from '../../../stores/configStore';
 import type { RollCategory, RollDefinition } from '../../../types';
+import { useEntityDialog } from '../shared/useEntityDialog';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
 export interface RollFormData {
@@ -45,10 +45,8 @@ export function useRollManager() {
 
   const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingRollId, setEditingRollId] = useState<string | null>(null);
-
   const form = useForm<RollFormData>({ defaultValues: EMPTY_ROLL });
+  const dialog = useEntityDialog(form);
 
   const availableLadders = config?.diceLadders ?? [];
   const currentRolls = [...(config?.rollDefinitions ?? [])].sort((a, b) => a.order - b.order);
@@ -67,29 +65,25 @@ export function useRollManager() {
     availableLadders.find((candidate) => candidate.id === ladderId);
 
   const handleAdd = () => {
-    setEditingRollId(null);
     // Pre-selecting the only ladder saves the User a click they have no choice about; with several,
     // picking for them would be a guess
-    form.reset({
+    dialog.openForAdd({
       ...EMPTY_ROLL,
       ladderId: availableLadders.length === 1 ? availableLadders[0].id : '',
     });
-    setIsDialogOpen(true);
   };
 
   const handleEdit = (id: string) => {
     const roll = currentRolls.find((candidate) => candidate.id === id);
     if (!roll) return;
 
-    setEditingRollId(id);
-    form.reset({
+    dialog.openForEdit(id, {
       name: roll.name,
       description: roll.description,
       input: roll.input,
       ladderId: roll.ladderId,
       category: roll.category ?? '',
     });
-    setIsDialogOpen(true);
   };
 
   const handleDelete = (id: string) => {
@@ -100,14 +94,14 @@ export function useRollManager() {
   const handleSave = form.handleSubmit((data) => {
     if (!config) return;
 
-    const id = editingRollId || crypto.randomUUID();
+    const id = dialog.editingId || crypto.randomUUID();
 
     // Refuse the save if the input would not compute (Req 16.5, 16.6)
     const validation = validateFormulaChange(config, {
       owner: 'roll-input',
       id,
       formula: data.input,
-      previousId: editingRollId ?? undefined,
+      previousId: dialog.editingId ?? undefined,
     });
 
     if (!validation.isValid) {
@@ -130,15 +124,15 @@ export function useRollManager() {
         currentRolls.reduce((highest, roll) => Math.max(highest, roll.order + 1), 0),
     };
 
-    if (editingRollId) {
+    if (dialog.editingId) {
       // `category` cleared to `undefined` so the store's merge removes the key rather than
       // leaving the previous category behind a spread that never mentions it
-      updateRollDefinition(editingRollId, { ...roll, category: roll.category });
+      updateRollDefinition(dialog.editingId, { ...roll, category: roll.category });
     } else {
       addRollDefinition(roll);
     }
 
-    setIsDialogOpen(false);
+    dialog.close();
   });
 
   return {
@@ -149,9 +143,9 @@ export function useRollManager() {
     availableLadders,
     availableSkillCodes,
     ladderFor,
-    isDialogOpen,
-    setIsDialogOpen,
-    editingRollId,
+    isDialogOpen: dialog.isOpen,
+    closeDialog: dialog.close,
+    editingRollId: dialog.editingId,
     form,
     handleAdd,
     handleEdit,

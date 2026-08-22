@@ -14,10 +14,10 @@
  * **Validates: Concept 02**
  */
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../../stores/configStore';
 import type { Skill, StatWeight } from '../../../../types';
+import { useEntityDialog } from '../../shared/useEntityDialog';
 import { useGuardedDelete } from '../../shared/useGuardedDelete';
 
 export interface SkillFormData {
@@ -34,12 +34,10 @@ export function useSkillManager() {
   const updateSkill = useConfigStore((state) => state.updateSkill);
   const deleteSkill = useConfigStore((state) => state.deleteSkill);
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  // `…Id`, like every sibling manager (CR-42): it holds the id being edited, not the skill
-  const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
   const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
   const form = useForm<SkillFormData>({ defaultValues: EMPTY_FORM });
+  const dialog = useEntityDialog(form);
 
   const currentSkills = config?.skills ?? [];
 
@@ -47,22 +45,18 @@ export function useSkillManager() {
   const weightableStats = [...(config?.stats ?? [])].sort((a, b) => a.order - b.order);
 
   const handleAdd = () => {
-    setEditingSkillId(null);
-    form.reset(EMPTY_FORM);
-    setIsDialogOpen(true);
+    dialog.openForAdd(EMPTY_FORM);
   };
 
   const handleEdit = (id: string) => {
     const skill = currentSkills.find((candidate) => candidate.id === id);
     if (!skill) return;
 
-    setEditingSkillId(id);
-    form.reset({
+    dialog.openForEdit(id, {
       name: skill.name,
       description: skill.description,
       statWeights: skill.statWeights,
     });
-    setIsDialogOpen(true);
   };
 
   const handleDelete = (id: string) => {
@@ -74,7 +68,7 @@ export function useSkillManager() {
     if (!config) return;
 
     const skill: Skill = {
-      id: editingSkillId ?? crypto.randomUUID(),
+      id: dialog.editingId ?? crypto.randomUUID(),
       name: data.name,
       description: data.description,
       // A weight row pointing at nothing is dropped rather than stored: the picker only offers
@@ -88,22 +82,23 @@ export function useSkillManager() {
         .map((row) => ({ ...row, weight: Number.isFinite(row.weight) ? row.weight : 0 })),
     };
 
-    if (editingSkillId) {
-      updateSkill(editingSkillId, skill);
+    if (dialog.editingId) {
+      updateSkill(dialog.editingId, skill);
     } else {
       addSkill(skill);
     }
 
-    setIsDialogOpen(false);
+    dialog.close();
   });
 
   return {
     config,
     currentSkills,
     weightableStats,
-    isDialogOpen,
-    setIsDialogOpen,
-    editingSkillId,
+    isDialogOpen: dialog.isOpen,
+    closeDialog: dialog.close,
+    // `…Id`, like every sibling manager (CR-42): it holds the id being edited, not the skill
+    editingSkillId: dialog.editingId,
     blocked,
     dismissBlocked,
     form,

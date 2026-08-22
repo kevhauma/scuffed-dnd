@@ -17,11 +17,12 @@
  * **Validates: Concept 05; Concept 00 §6; Requirements 2.5, 2.6**
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { type EntityReference, findReferences } from '../../../engine/dependencies';
 import { useConfigStore } from '../../../stores/configStore';
 import type { Constant } from '../../../types';
+import { useEntityDialog } from '../shared/useEntityDialog';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
 /** A constant's identifier as the formula parser reads it — `bonus_divider`, never `Bonus Divider` */
@@ -51,10 +52,8 @@ export function useConstantManager() {
 
   const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingConstantId, setEditingConstantId] = useState<string | null>(null);
-
   const form = useForm<ConstantFormData>({ defaultValues: EMPTY_FORM });
+  const dialog = useEntityDialog(form);
 
   const constants = useMemo(() => config?.constants ?? [], [config]);
 
@@ -76,24 +75,20 @@ export function useConstantManager() {
   }, [config, constants]);
 
   const handleAdd = () => {
-    setEditingConstantId(null);
-    form.reset(EMPTY_FORM);
-    setIsDialogOpen(true);
+    dialog.openForAdd(EMPTY_FORM);
   };
 
   const handleEdit = (id: string) => {
     const constant = constants.find((candidate) => candidate.id === id);
     if (!constant) return;
 
-    setEditingConstantId(id);
-    form.reset({
+    dialog.openForEdit(id, {
       name: constant.name,
       displayName: constant.displayName,
       description: constant.description,
       value: constant.value,
       unit: constant.unit ?? '',
     });
-    setIsDialogOpen(true);
   };
 
   const handleDelete = (id: string) => {
@@ -118,7 +113,7 @@ export function useConstantManager() {
 
     const unit = data.unit.trim();
     const constant: Constant = {
-      id: editingConstantId ?? crypto.randomUUID(),
+      id: dialog.editingId ?? crypto.randomUUID(),
       name,
       displayName: data.displayName,
       description: data.description,
@@ -127,11 +122,11 @@ export function useConstantManager() {
       ...(unit ? { unit } : {}),
     };
 
-    const collision = editingConstantId
+    const collision = dialog.editingId
       ? // Goes through the store's rename-safe update, so renaming re-spells every formula. The
         // unit is spelled out rather than omitted: `updateConstant` shallow-merges, where a missing
         // key means "unchanged", so an emptied field would otherwise come straight back.
-        updateConstant(editingConstantId, { ...constant, unit: unit || undefined })
+        updateConstant(dialog.editingId, { ...constant, unit: unit || undefined })
       : addConstant(constant);
 
     if (collision) {
@@ -139,16 +134,16 @@ export function useConstantManager() {
       return;
     }
 
-    setIsDialogOpen(false);
+    dialog.close();
   });
 
   return {
     config,
     constants,
     usages,
-    isDialogOpen,
-    setIsDialogOpen,
-    editingConstantId,
+    isDialogOpen: dialog.isOpen,
+    closeDialog: dialog.close,
+    editingConstantId: dialog.editingId,
     form,
     handleAdd,
     handleEdit,

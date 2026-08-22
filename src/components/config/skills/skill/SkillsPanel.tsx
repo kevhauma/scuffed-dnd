@@ -23,7 +23,7 @@ export function SkillsPanel() {
     currentSkills,
     weightableStats,
     isDialogOpen,
-    setIsDialogOpen,
+    closeDialog,
     editingSkillId,
     blocked,
     dismissBlocked,
@@ -71,7 +71,7 @@ export function SkillsPanel() {
         isEditing={!!editingSkillId}
         form={form}
         weightableStats={weightableStats}
-        onClose={() => setIsDialogOpen(false)}
+        onClose={closeDialog}
         onSave={handleSave}
       />
     </ConfigPanelShell>

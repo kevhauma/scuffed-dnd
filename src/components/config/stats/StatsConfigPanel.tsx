@@ -27,7 +27,7 @@ export function StatsConfigPanel() {
     currentStats,
     availableSkillCodes,
     isDialogOpen,
-    setIsDialogOpen,
+    closeDialog,
     editingStatId,
     form,
     isDerived,
@@ -97,7 +97,7 @@ export function StatsConfigPanel() {
         config={config}
         isDerived={isDerived}
         warnings={warnings}
-        onClose={() => setIsDialogOpen(false)}
+        onClose={closeDialog}
         onSave={handleSave}
       />
     </ConfigPanelShell>

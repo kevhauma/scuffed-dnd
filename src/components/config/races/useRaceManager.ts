@@ -6,10 +6,10 @@
  * **Validates: Requirements 8.1, 8.2**
  */
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../stores/configStore';
 import type { Race } from '../../../types';
+import { useEntityDialog } from '../shared/useEntityDialog';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
 export interface RaceFormData {
@@ -27,9 +27,6 @@ export function useRaceManager() {
 
   const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingRaceId, setEditingRaceId] = useState<string | null>(null);
-
   const form = useForm<RaceFormData>({
     defaultValues: {
       name: '',
@@ -37,6 +34,7 @@ export function useRaceManager() {
       statValues: {},
     },
   });
+  const dialog = useEntityDialog(form);
 
   const currentRaces = config?.races || [];
   // A race's stat block has one row per configured stat, in the User's display order — so a stat
@@ -48,26 +46,22 @@ export function useRaceManager() {
     Object.fromEntries(availableStats.map((stat) => [stat.id, race?.statValues[stat.id] ?? 0]));
 
   const handleAdd = () => {
-    setEditingRaceId(null);
-    form.reset({
+    dialog.openForAdd({
       name: '',
       description: '',
       statValues: blockFor(),
     });
-    setIsDialogOpen(true);
   };
 
   const handleEdit = (id: string) => {
     const race = currentRaces.find((r) => r.id === id);
     if (!race) return;
 
-    setEditingRaceId(id);
-    form.reset({
+    dialog.openForEdit(id, {
       name: race.name,
       description: race.description,
       statValues: blockFor(race),
     });
-    setIsDialogOpen(true);
   };
 
   const handleDelete = (id: string) => {
@@ -77,7 +71,7 @@ export function useRaceManager() {
 
   const handleSave = form.handleSubmit((data) => {
     const race: Race = {
-      id: editingRaceId || crypto.randomUUID(),
+      id: dialog.editingId || crypto.randomUUID(),
       name: data.name,
       description: data.description,
       // Read against the ruleset as it stands at *save* time, not as it stood when the dialog
@@ -99,13 +93,13 @@ export function useRaceManager() {
       ),
     };
 
-    if (editingRaceId) {
-      updateRace(editingRaceId, race);
+    if (dialog.editingId) {
+      updateRace(dialog.editingId, race);
     } else {
       addRace(race);
     }
 
-    setIsDialogOpen(false);
+    dialog.close();
   });
 
   return {
@@ -114,9 +108,9 @@ export function useRaceManager() {
     config,
     currentRaces,
     availableStats,
-    isDialogOpen,
-    setIsDialogOpen,
-    editingRaceId,
+    isDialogOpen: dialog.isOpen,
+    closeDialog: dialog.close,
+    editingRaceId: dialog.editingId,
     form,
     handleAdd,
     handleEdit,
