@@ -62,7 +62,14 @@ interface UIState {
   // Roll history
   rollHistory: RollResult[];
   addRollResult: (result: RollResult) => void;
-  clearRollHistory: () => void;
+  /**
+   * Forget rolls — one character's, or every character's when no id is given
+   *
+   * Scoped since CR-06: the sheet's "Clear History" button sits beside a list filtered to one
+   * character, and clearing more than the panel shows is a lie about what the button does. The
+   * unscoped call is kept for a genuine "clear everything" and for `resetUI`.
+   */
+  clearRollHistory: (characterId?: string) => void;
   getRollHistory: (characterId?: string) => RollResult[];
 }
 
@@ -136,8 +143,12 @@ export const useUIStore = create<UIState>((set, get) => ({
     }));
   },
 
-  clearRollHistory: () => {
-    set({ rollHistory: [] });
+  clearRollHistory: (characterId?: string) => {
+    set((state) =>
+      characterId === undefined
+        ? { rollHistory: [] }
+        : { rollHistory: state.rollHistory.filter((roll) => roll.characterId !== characterId) }
+    );
   },
 
   getRollHistory: (characterId?: string) => {

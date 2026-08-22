@@ -204,12 +204,23 @@ describe('UIStore', () => {
     });
 
     describe('clearRollHistory', () => {
-      it('should clear all roll history', () => {
+      it('should clear all roll history when no character ID is given', () => {
         const roll = createRollResult();
         useUIStore.getState().addRollResult(roll);
         useUIStore.getState().clearRollHistory();
 
         expect(useUIStore.getState().rollHistory).toEqual([]);
+      });
+
+      it('should clear only that character when one is named (CR-06)', () => {
+        const mine = createRollResult({ id: 'roll-1', characterId: 'char-1' });
+        const theirs = createRollResult({ id: 'roll-2', characterId: 'char-2' });
+        useUIStore.getState().addRollResult(mine);
+        useUIStore.getState().addRollResult(theirs);
+
+        useUIStore.getState().clearRollHistory('char-1');
+
+        expect(useUIStore.getState().rollHistory).toEqual([theirs]);
       });
     });
 

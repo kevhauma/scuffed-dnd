@@ -180,13 +180,44 @@ describe('useRoller', () => {
     expect(result.current.results['mel-id'].total).toBe(4);
   });
 
-  it('should clear the whole session history on request', () => {
+  it("should clear this character's history on request", () => {
     const { result } = renderRoller();
     act(() => result.current.handleRoll('mel-id'));
 
     act(() => result.current.handleClearHistory());
 
     expect(useUIStore.getState().rollHistory).toEqual([]);
+  });
+
+  it("should leave other characters' rolls alone when clearing (CR-06)", () => {
+    // The panel shows one character's rolls; the button used to empty the whole session
+    useUIStore.setState({
+      rollHistory: [
+        {
+          id: 'theirs',
+          characterId: 'char2',
+          characterName: 'Bree',
+          rollId: 'mel-id',
+          rollName: 'Melee',
+          input: 10,
+          dice: [],
+          diceTotal: 0,
+          flat: 10,
+          total: 10,
+          notation: '10',
+          timestamp: '2024-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+
+    const { result } = renderRoller();
+    act(() => result.current.handleRoll('mel-id'));
+    expect(useUIStore.getState().rollHistory).toHaveLength(2);
+
+    act(() => result.current.handleClearHistory());
+
+    expect(useUIStore.getState().rollHistory.map((roll) => roll.id)).toEqual(['theirs']);
+    expect(result.current.history).toEqual([]);
   });
 
   it('should refuse to roll at all without a calculated character', () => {

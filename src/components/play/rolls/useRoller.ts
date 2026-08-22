@@ -92,6 +92,7 @@ export function useRoller(
     history: rollHistory.filter((roll) => roll.characterId === characterId),
     canRoll: config !== null && calculated !== null,
     handleRoll,
-    handleClearHistory: clearRollHistory,
+    /** Forgets **this** character's rolls only — the button sits under a list scoped the same way */
+    handleClearHistory: () => clearRollHistory(characterId),
   };
 }
