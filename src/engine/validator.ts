@@ -18,9 +18,9 @@
  * **Validates: Requirements 18.1, 18.2, 18.3, 18.4, 18.5; Concepts 06, 07, 08**
  */
 
-import type { Configuration, Curve, DiceLadder, RollDefinition, Skill } from '../types/config';
+import type { Configuration, Curve, DiceLadder, RollDefinition } from '../types/config';
 import { POINT_BUY_CURVE_NAME } from '../types/config';
-import { buildReferenceResolver } from './formula/references';
+import { buildReferenceResolver, skillMemberName, statMemberName } from './formula/references';
 import type { FormulaScope } from './formula/scoping';
 import { scopeFor } from './formula/scoping';
 import type { FormulaDependency } from './formula/validator';
@@ -97,6 +97,7 @@ const ISSUE_SOURCES: readonly ((config: Configuration) => ValidationIssue[])[] =
   statFormulaIssues,
   skillIssues,
   nearDuplicateSkillNameWarnings,
+  nearDuplicateStatNameWarnings,
   circularDependencyIssues,
   materialIssues,
   itemIssues,
@@ -615,52 +616,79 @@ function rollDefinitionIssues(config: Configuration): ValidationIssue[] {
 }
 
 /**
- * The spelling two skill names are compared on
+ * One warning per group of entities that a formula cannot tell apart (CR-18)
  *
- * Case and surrounding whitespace only: `skinning` and ` Skinning ` are the pair Concept 02's
- * import note calls out. Nothing more aggressive — stripping punctuation or spaces would collide
- * skills that are genuinely different, and a false warning here is worse than a missed one.
+ * **Compared on the member slug, which is the spelling that actually decides.** The check used to
+ * compare `trim().toLowerCase()`, which is a different normalization from the one formula
+ * resolution uses: `Fire making` and `Fire-making` are different lowercased strings and warned
+ * about nothing, while both slug to `fire_making` and only the first answers. Slugging is strictly
+ * the broader comparison — anything equal after trim-and-lowercase is equal after slugging too —
+ * so the `skinning`/`Skinning` pair Concept 02's import note calls out is still caught.
+ *
+ * **A warning, never an error, and first-wins stays.** Two skills sharing a spelling is legal since
+ * TICKET-SKL-02 took a skill out of the flat formula space, and the real sheet has such a pair. The
+ * deliverable is visibility: the message names which entity a formula answers with, because that is
+ * the fact the User cannot see anywhere else.
+ *
+ * @param entities - The colliding space's members, in the order first-wins resolves them
+ * @param namespace - How a formula names this space, for the message
+ * @param entityType - The `ValidationIssue.entityType` these are reported under
+ * @param slugOf - The member spelling, the same derivation `references.ts` resolves on
+ * @returns One issue per colliding group, naming every member and the winner
  */
-function normalizedSkillName(name: string): string {
-  return name.trim().toLowerCase();
-}
+function slugCollisionWarnings<T extends { id: string; name: string }>(
+  entities: readonly T[],
+  namespace: string,
+  entityType: string,
+  slugOf: (entity: T) => string
+): ValidationIssue[] {
+  const bySlug = new Map<string, T[]>();
 
-/**
- * One warning per group of skills whose names differ only by case or padding (Concept 02)
- *
- * The sheet genuinely holds both `skinning` and `Skinning` with different levels, so this can never
- * be an error — TICKET-SKL-02 made two skills sharing a spelling legal by taking a skill out of the
- * flat formula space. It is a warning because the usual cause is one skill entered twice, and only
- * the User can tell that from the sheet's case.
- *
- * @param config - The ruleset to check
- * @returns One issue per colliding group, naming every member
- */
-function nearDuplicateSkillNameWarnings(config: Configuration): ValidationIssue[] {
-  const byNormalizedName = new Map<string, Skill[]>();
-
-  for (const skill of config.skills) {
-    const key = normalizedSkillName(skill.name);
-    if (key === '') continue;
-
-    const group = byNormalizedName.get(key);
+  for (const entity of entities) {
+    const slug = slugOf(entity);
+    const group = bySlug.get(slug);
     if (group) {
-      group.push(skill);
+      group.push(entity);
     } else {
-      byNormalizedName.set(key, [skill]);
+      bySlug.set(slug, [entity]);
     }
   }
 
-  return [...byNormalizedName.values()]
-    .filter((group) => group.length > 1)
-    .map((group) => ({
+  return [...bySlug.entries()]
+    .filter(([, group]) => group.length > 1)
+    .map(([slug, group]) => ({
       severity: 'warning' as const,
       category: 'Data Consistency',
-      message: `Skills with near-duplicate names: ${group.map((skill) => `"${skill.name}"`).join(', ')} — keep both deliberately, or merge them`,
-      entityType: 'skill',
+      message: `${group.map((entity) => `"${entity.name}"`).join(', ')} are all written ${namespace}.${slug} in a formula, so "${group[0].name}" is the one any formula naming it answers with — keep them deliberately, or rename one`,
+      entityType,
       entityId: group[0].id,
       entityName: group[0].name,
     }));
+}
+
+/**
+ * Skills a formula cannot tell apart (Concept 02's near-duplicate rule, widened by CR-18)
+ *
+ * @param config - The ruleset to check
+ * @returns One issue per colliding group
+ */
+function nearDuplicateSkillNameWarnings(config: Configuration): ValidationIssue[] {
+  return slugCollisionWarnings(config.skills, 'skills', 'skill', skillMemberName);
+}
+
+/**
+ * Stats a formula cannot tell apart (CR-18)
+ *
+ * Stats had no near-duplicate check at all, while resolving first-wins on the same slug their
+ * skills do — so renaming one stat could silently point an unrelated formula at another. This is
+ * about `stats.<slug>` only; the abbreviation half of the flat space is `statAbbreviationIssues`,
+ * which is an **error** because two stats claiming one abbreviation is never the sheet's intent.
+ *
+ * @param config - The ruleset to check
+ * @returns One issue per colliding group
+ */
+function nearDuplicateStatNameWarnings(config: Configuration): ValidationIssue[] {
+  return slugCollisionWarnings(config.stats, 'stats', 'stat', statMemberName);
 }
 
 /**

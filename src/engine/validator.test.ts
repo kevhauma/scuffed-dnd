@@ -967,6 +967,57 @@ describe('validateConfiguration', () => {
 
       expect(result.warnings).toHaveLength(0);
     });
+
+    it('should warn when two names differ but slug the same (CR-18)', () => {
+      const config = createMinimalConfig();
+      config.skills = [
+        skill('s1', 'Fire making', [{ statId: 'STR', weight: 0.2 }]),
+        skill('s2', 'Fire-making', [{ statId: 'DEX', weight: 0.2 }]),
+      ];
+
+      const result = validateConfiguration(config);
+
+      // Different lowercased strings, so the old comparison said nothing — while both are written
+      // `skills.fire_making` and only the first answers
+      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings[0].message).toContain('skills.fire_making');
+      expect(result.warnings[0].message).toContain('"Fire making"');
+      expect(result.warnings[0].message).toContain('"Fire-making"');
+    });
+
+    it('should name the entity a formula actually answers with (CR-18)', () => {
+      const config = createMinimalConfig();
+      config.skills = [
+        skill('s1', 'skinning', [{ statId: 'STR', weight: 0.2 }]),
+        skill('s2', 'Skinning', [{ statId: 'DEX', weight: 0.2 }]),
+      ];
+
+      const result = validateConfiguration(config);
+
+      // First-wins is the documented contract and the sheet depends on it — the deliverable is
+      // saying so, since resolution succeeds and nothing else tells the User which one won
+      expect(result.warnings[0].message).toContain(
+        'so "skinning" is the one any formula naming it answers with'
+      );
+    });
+
+    it('should warn about colliding stat names, which had no check at all (CR-18)', () => {
+      const config = createMinimalConfig();
+      config.stats = [
+        stat('s1', 'Max Health', 'MHP'),
+        stat('s2', 'Max health', 'MXH'),
+        stat('DEX', 'Dexterity', 'DEX'),
+      ];
+
+      const result = validateConfiguration(config);
+
+      // Distinct abbreviations, so `statAbbreviationIssues` is quiet — but both are
+      // `stats.max_health`, and a formula naming it silently reads the first
+      expect(result.errors).toHaveLength(0);
+      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings[0].entityType).toBe('stat');
+      expect(result.warnings[0].message).toContain('stats.max_health');
+    });
   });
 
   describe('Multiple errors', () => {
