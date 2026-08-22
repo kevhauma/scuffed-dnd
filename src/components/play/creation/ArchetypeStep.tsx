@@ -75,6 +75,11 @@ export function ArchetypeStep({
             // `Button` is `inline-flex items-center`, and a same-property utility passed from
             // outside loses to it on stylesheet order rather than on the order written here.
             // Everything inside is a `span`, because a button's content model is phrasing only.
+            //
+            // `inverse` on every nested `Text` for the same stylesheet-order reason (CR-07): the
+            // pressed `primary` Button is dark royal, and a variant's own ink colour beat the
+            // colour it inherited — near-black on dark blue at exactly the moment the Player
+            // confirms their choice.
             <Button
               key={archetype.id}
               variant={isSelected ? 'primary' : 'secondary'}
@@ -83,17 +88,17 @@ export function ArchetypeStep({
               className="w-full"
             >
               <span className="flex w-full flex-col items-start gap-1 text-left">
-                <Text variant="body-small" as="span" className="font-semibold">
+                <Text variant="body-small" as="span" inverse={isSelected} className="font-semibold">
                   {archetype.name}
                 </Text>
                 {archetype.description && (
-                  <Text variant="body-small-secondary" as="span">
+                  <Text variant="body-small-secondary" as="span" inverse={isSelected}>
                     {archetype.description}
                   </Text>
                 )}
 
                 {groupStatsByAffinity(archetype, stats).map((group) => (
-                  <Text key={group.affinity} variant="caption" as="span">
+                  <Text key={group.affinity} variant="caption" as="span" inverse={isSelected}>
                     {`${group.label}: ${group.stats.map((stat) => stat.abbreviation).join(', ')}`}
                   </Text>
                 ))}

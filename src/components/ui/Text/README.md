@@ -57,6 +57,7 @@ import { Text } from '@/components/ui';
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `variant` | `TextVariant` | `'body'` | Visual variant of the text |
+| `inverse` | `boolean` | `false` | Read on a dark ground instead of on parchment (CR-07) |
 | `as` | `'p' \| 'span' \| 'div' \| 'h1' \| 'h2' \| 'h3' \| 'h4' \| 'h5' \| 'h6' \| 'label'` | `'span'` | HTML element to render |
 | `children` | `React.ReactNode` | - | Content to display |
 | `className` | `string` | `''` | Additional CSS classes for positioning |
@@ -105,6 +106,19 @@ import { Text } from '@/components/ui';
   <Text variant="body-small" className="font-semibold">10</Text>
 </div>
 ```
+
+### On a dark ground
+```tsx
+{/* Inside a pressed `primary` Button, which is dark royal */}
+<Button variant="primary" aria-pressed>
+  <Text variant="body-small" as="span" inverse>Strong</Text>
+</Button>
+```
+
+`inverse` is a prop rather than something a parent can pass through `className`, because two
+`text-*` utilities on one element are resolved by stylesheet order, not by the order they are
+written — the losing class has to not be emitted at all. Without it the variant's own ink colour
+beats the colour it inherits, and the text goes near-black on dark blue (CR-07).
 
 ## Design Principles
 

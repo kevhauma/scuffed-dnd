@@ -36,6 +36,36 @@ describe('Text', () => {
     expect(text.getAttribute('aria-label')).toBe('Stat name');
   });
 
+  it('emits exactly one colour, and swaps it for a dark ground (CR-07)', () => {
+    const { rerender } = render(<Text variant="body-small">Strong</Text>);
+    let text = screen.getByText('Strong');
+
+    expect(text.className).toContain('text-ink-900');
+    expect(text.className).not.toContain('text-parchment-50');
+
+    rerender(
+      <Text variant="body-small" inverse>
+        Strong
+      </Text>
+    );
+    text = screen.getByText('Strong');
+
+    // The ink class is *gone*, not merely followed by a lighter one: two `text-*` utilities on one
+    // element are decided by stylesheet order, so the losing one must not be emitted
+    expect(text.className).toContain('text-parchment-50');
+    expect(text.className).not.toContain('text-ink-900');
+  });
+
+  it('dims a secondary variant on a dark ground rather than flattening it', () => {
+    render(
+      <Text variant="caption" inverse>
+        Main: STR
+      </Text>
+    );
+
+    expect(screen.getByText('Main: STR').className).toContain('text-parchment-300');
+  });
+
   it('associates a label with its control', () => {
     render(
       <Text as="label" htmlFor="field-id">
