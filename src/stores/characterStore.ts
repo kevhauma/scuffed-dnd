@@ -28,8 +28,11 @@ import { useUIStore } from './uiStore';
  * may rewrite (`id`, `configurationId`, `createdAt`, `updatedAt`). Widening this type is how a
  * future feature says it needs a new patchable field — and the place to ask whether that field
  * wants a guarded action of its own instead.
+ *
+ * Module-local: callers pass object literals and TypeScript infers, so exporting it would be
+ * supported API nothing consumes (the CR-39 rule).
  */
-export type CharacterPatch = Partial<Pick<Character, 'name' | 'raceIds' | 'archetypeId'>>;
+type CharacterPatch = Partial<Pick<Character, 'name' | 'raceIds' | 'archetypeId'>>;
 
 /**
  * Character store state

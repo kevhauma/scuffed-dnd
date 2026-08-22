@@ -18,7 +18,14 @@
  * **Validates: Requirements 18.1, 18.2, 18.3, 18.4, 18.5; Concepts 06, 07, 08**
  */
 
-import type { Configuration, Curve, DiceLadder, RollDefinition } from '../types/config';
+import type {
+  Configuration,
+  Curve,
+  DiceLadder,
+  MaterialLevel,
+  RollDefinition,
+  Stat,
+} from '../types/config';
 import { POINT_BUY_CURVE_NAME } from '../types/config';
 import { buildReferenceResolver, skillMemberName, statMemberName } from './formula/references';
 import type { FormulaScope } from './formula/scoping';
@@ -284,40 +291,67 @@ function materialIssues(config: Configuration): ValidationIssue[] {
     }
 
     for (const level of material.levels) {
-      for (const bonus of level.bonuses) {
-        const target = statsById.get(bonus.statId);
-
-        if (!target) {
-          issues.push({
-            severity: 'error',
-            category: 'Reference Validation',
-            message: `Material "${material.name}" level ${level.level} references non-existent stat: ${bonus.statId}`,
-            ...entity,
-          });
-          continue;
-        }
-
-        // A derived stat's formula *is* its source, so a modifier on one would be a term the
-        // composition never applies — silently, which is the worst kind of wrong number
-        if (target.formula !== undefined) {
-          issues.push({
-            severity: 'error',
-            category: 'Reference Validation',
-            message: `Material "${material.name}" level ${level.level} modifies "${target.name}", which is a derived stat — its formula is its only source`,
-            ...entity,
-          });
-        }
-      }
-
-      if (!currencyTierIds.has(level.value.tierId)) {
-        issues.push({
-          severity: 'error',
-          category: 'Reference Validation',
-          message: `Material "${material.name}" level ${level.level} references non-existent currency tier: ${level.value.tierId}`,
-          ...entity,
-        });
-      }
+      issues.push(...materialLevelIssues(material.name, level, entity, statsById, currencyTierIds));
     }
+  }
+
+  return issues;
+}
+
+/**
+ * One material tier's modifiers and price
+ *
+ * Split out of {@link materialIssues} because the two loops nest three deep otherwise, and every
+ * message here is about the level rather than about the material.
+ *
+ * @param materialName - What the material is called, which every message names
+ * @param level - The tier to check
+ * @param entity - The entity fields shared by every issue about this material
+ * @param statsById - The ruleset's stats, for resolving each modifier's target
+ * @param currencyTierIds - Every currency tier the ruleset defines
+ * @returns One issue per broken reference
+ */
+function materialLevelIssues(
+  materialName: string,
+  level: MaterialLevel,
+  entity: Pick<ValidationIssue, 'entityType' | 'entityId' | 'entityName'>,
+  statsById: ReadonlyMap<string, Stat>,
+  currencyTierIds: ReadonlySet<string>
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+
+  for (const bonus of level.bonuses) {
+    const target = statsById.get(bonus.statId);
+
+    if (!target) {
+      issues.push({
+        severity: 'error',
+        category: 'Reference Validation',
+        message: `Material "${materialName}" level ${level.level} references non-existent stat: ${bonus.statId}`,
+        ...entity,
+      });
+      continue;
+    }
+
+    // A derived stat's formula *is* its source, so a modifier on one would be a term the
+    // composition never applies — silently, which is the worst kind of wrong number
+    if (target.formula !== undefined) {
+      issues.push({
+        severity: 'error',
+        category: 'Reference Validation',
+        message: `Material "${materialName}" level ${level.level} modifies "${target.name}", which is a derived stat — its formula is its only source`,
+        ...entity,
+      });
+    }
+  }
+
+  if (!currencyTierIds.has(level.value.tierId)) {
+    issues.push({
+      severity: 'error',
+      category: 'Reference Validation',
+      message: `Material "${materialName}" level ${level.level} references non-existent currency tier: ${level.value.tierId}`,
+      ...entity,
+    });
   }
 
   return issues;

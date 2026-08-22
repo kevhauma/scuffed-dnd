@@ -13,14 +13,13 @@
 import { useId } from 'react';
 import { type UseFormReturn, useFieldArray } from 'react-hook-form';
 import type { CurrencyTier, Stat } from '../../../types';
-import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
-import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
 import { FormDialogActions } from '../shared/FormDialogActions';
+import { StatValueRowsField } from '../shared/StatValueRowsField';
 import type { LevelFormData } from './useMaterialManager';
 
 interface MaterialLevelFormDialogProps {
@@ -91,23 +90,19 @@ export function MaterialLevelFormDialog({
           {...register('name', { required: 'Name is required' })}
         />
 
-        {/* Bonuses Section */}
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <Text variant="body-small" className="font-semibold">
-              Stat Bonuses/Penalties
-            </Text>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleAddBonus}
-              disabled={modifiableStats.length === 0}
-              className="text-xs px-2 py-1"
-            >
-              Add Bonus
-            </Button>
-          </div>
-
+        <StatValueRowsField
+          title="Stat Bonuses/Penalties"
+          addLabel="Add Bonus"
+          onAdd={handleAddBonus}
+          availableStats={modifiableStats}
+          rows={fields}
+          onRemove={remove}
+          registerStat={(index) => register(`bonuses.${index}.statId` as const)}
+          registerValue={(index) => register(`bonuses.${index}.modifier`, { valueAsNumber: true })}
+          rowNoun="bonus"
+          valueLabel="Modifier"
+          valuePlaceholder="Modifier (+ or -)"
+        >
           {modifiableStats.length === 0 && (
             <Text variant="body-small-secondary" className="italic">
               No stats a modifier can land on. A derived stat takes its value from its formula, so
@@ -120,47 +115,7 @@ export function MaterialLevelFormDialog({
               No bonuses defined. Click 'Add Bonus' to add stat modifiers.
             </Text>
           )}
-
-          {fields.map((field, index) => (
-            <div key={field.id} className="flex gap-2 items-start">
-              {/*
-                `register`, not watch/setValue (CR-35): the archetype dialog proves the primitive
-                takes it, and rhf's dirty tracking only sees a registered field. The rows repeat, so
-                each control names its own row — there is no visible label to point `htmlFor` at.
-              */}
-              <div className="flex-1">
-                <Select
-                  aria-label={`Stat for bonus row ${index + 1}`}
-                  options={modifiableStats.map((stat) => ({
-                    value: stat.id,
-                    label: `${stat.name} (${stat.abbreviation})`,
-                  }))}
-                  className="w-full"
-                  {...register(`bonuses.${index}.statId` as const)}
-                />
-              </div>
-              <div className="flex-1">
-                <Input
-                  type="number"
-                  placeholder="Modifier (+ or -)"
-                  aria-label={`Modifier for bonus row ${index + 1}`}
-                  className="w-full"
-                  {...register(`bonuses.${index}.modifier`, {
-                    valueAsNumber: true,
-                  })}
-                />
-              </div>
-              <Button
-                type="button"
-                variant="danger"
-                onClick={() => remove(index)}
-                className="text-xs px-2 py-1 mt-1"
-              >
-                Remove
-              </Button>
-            </div>
-          ))}
-        </div>
+        </StatValueRowsField>
 
         {/* Currency Value Section */}
         <div className="space-y-2">

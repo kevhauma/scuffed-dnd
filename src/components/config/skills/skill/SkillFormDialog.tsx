@@ -16,13 +16,11 @@
 
 import { type UseFormReturn, useFieldArray } from 'react-hook-form';
 import type { Stat } from '../../../../types';
-import { Button } from '../../../ui/Button/Button';
 import { Dialog } from '../../../ui/Dialog/Dialog';
 import { FormField } from '../../../ui/FormField/FormField';
-import { Input } from '../../../ui/Input/Input';
-import { Select } from '../../../ui/Select/Select';
 import { Text } from '../../../ui/Text/Text';
 import { FormDialogActions } from '../../shared/FormDialogActions';
+import { StatValueRowsField } from '../../shared/StatValueRowsField';
 import type { SkillFormData } from './useSkillManager';
 
 interface SkillFormDialogProps {
@@ -72,22 +70,21 @@ export function SkillFormDialog({
           {...register('description')}
         />
 
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <Text variant="body-small" className="font-semibold">
-              Governing stats
-            </Text>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => append({ statId: weightableStats[0]?.id ?? '', weight: 0.2 })}
-              disabled={weightableStats.length === 0}
-              className="text-xs px-2 py-1"
-            >
-              Add Stat
-            </Button>
-          </div>
-
+        <StatValueRowsField
+          title="Governing stats"
+          addLabel="Add Stat"
+          onAdd={() => append({ statId: weightableStats[0]?.id ?? '', weight: 0.2 })}
+          availableStats={weightableStats}
+          rows={fields}
+          onRemove={remove}
+          registerStat={(index) => register(`statWeights.${index}.statId` as const)}
+          registerValue={(index) =>
+            register(`statWeights.${index}.weight`, { valueAsNumber: true })
+          }
+          rowNoun="weight"
+          valueLabel="Weight"
+          valueStep="0.1"
+        >
           <Text variant="body-small-secondary" className="italic">
             The level is each stat's value times its weight, plus what the Player invested. The
             sheet's own skills weigh one stat at 0.2 or 0.3, or two at 0.2 and 0.1.
@@ -98,46 +95,7 @@ export function SkillFormDialog({
               No stats yet, so this skill is worth whatever the Player invests in it.
             </Text>
           )}
-
-          {fields.map((field, index) => (
-            <div key={field.id} className="flex gap-2 items-start">
-              {/*
-                `register`, not watch/setValue (CR-35): the archetype dialog proves the primitive
-                takes it, and rhf's dirty tracking only sees a registered field. The rows repeat, so
-                each control names its own row — there is no visible label to point `htmlFor` at.
-              */}
-              <div className="flex-1">
-                <Select
-                  aria-label={`Stat for weight row ${index + 1}`}
-                  options={weightableStats.map((stat) => ({
-                    value: stat.id,
-                    label: `${stat.name} (${stat.abbreviation})`,
-                  }))}
-                  className="w-full"
-                  {...register(`statWeights.${index}.statId` as const)}
-                />
-              </div>
-              <div className="flex-1">
-                <Input
-                  type="number"
-                  step="0.1"
-                  placeholder="Weight"
-                  aria-label={`Weight for row ${index + 1}`}
-                  className="w-full"
-                  {...register(`statWeights.${index}.weight`, { valueAsNumber: true })}
-                />
-              </div>
-              <Button
-                type="button"
-                variant="danger"
-                onClick={() => remove(index)}
-                className="text-xs px-2 py-1 mt-1"
-              >
-                Remove
-              </Button>
-            </div>
-          ))}
-        </div>
+        </StatValueRowsField>
 
         <FormDialogActions
           submitLabel={`${isEditing ? 'Update' : 'Add'} Skill`}

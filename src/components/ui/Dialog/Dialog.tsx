@@ -45,6 +45,37 @@ function focusableWithin(container: HTMLElement | null): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
 }
 
+/**
+ * Where Tab should put focus to keep it inside the panel, or `null` to let the browser have it
+ *
+ * Returning the destination rather than moving focus keeps the decision testable on its own and
+ * the handler down to "if there is a destination, take it".
+ *
+ * @param panel - The dialog's panel
+ * @param shiftKey - Whether the Tab was backwards
+ * @returns The element to focus, or `null` when the browser's own next stop is already inside
+ */
+function tabDestination(panel: HTMLElement, shiftKey: boolean): HTMLElement | null {
+  const focusable = focusableWithin(panel);
+  const active = document.activeElement;
+
+  // Nothing to move to, so moving anywhere means leaving — which is the thing being stopped. The
+  // panel itself holds focus (it is `tabIndex={-1}`), so Tab has nowhere to go.
+  if (focusable.length === 0) return panel;
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+
+  // Focus is outside the panel — from a click on the backdrop, say — so Tab re-enters rather than
+  // continuing through the obscured page
+  if (!panel.contains(active)) return shiftKey ? last : first;
+
+  if (shiftKey && active === first) return last;
+  if (!shiftKey && active === last) return first;
+
+  return null;
+}
+
 export interface DialogProps {
   open: boolean;
   onClose: () => void;
@@ -92,32 +123,11 @@ export function Dialog({ open, onClose, title, children, className = '' }: Dialo
       const panel = panelRef.current;
       if (!panel) return;
 
-      const focusable = focusableWithin(panel);
-      if (focusable.length === 0) {
-        // Nothing to move to, so moving anywhere means leaving — which is the thing being stopped
-        event.preventDefault();
-        return;
-      }
+      const destination = tabDestination(panel, event.shiftKey);
+      if (!destination) return;
 
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const active = document.activeElement;
-
-      // Focus is outside the panel — from a click on the backdrop, say — so Tab re-enters rather
-      // than continuing through the obscured page
-      if (!panel.contains(active)) {
-        event.preventDefault();
-        (event.shiftKey ? last : first).focus();
-        return;
-      }
-
-      if (event.shiftKey && active === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
-      }
+      event.preventDefault();
+      destination.focus();
     };
 
     document.addEventListener('keydown', handleKeyDown);

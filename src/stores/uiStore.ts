@@ -47,8 +47,11 @@ export interface RollResult extends RollOutcome {
  * with the exception escaping the store action into a React event handler and the User told
  * nothing. Session state about the app rather than about the ruleset, which is what this store is
  * for.
+ *
+ * Module-local: the banner reads it off the store and TypeScript infers, so exporting it would be
+ * supported API nothing consumes (the CR-39 rule).
  */
-export interface StorageFailure {
+interface StorageFailure {
   /** What the User is told, phrased for the banner */
   message: string;
   /** Whether the cause was the quota — the one case a User can actually act on */

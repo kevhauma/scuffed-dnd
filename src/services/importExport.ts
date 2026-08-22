@@ -721,7 +721,29 @@ const ENTITY_SPECS: Record<CollectionKey, EntitySpec> = {
 };
 
 /**
- * Walk one collection against its spec
+ * One collection as it arrived, against its spec
+ *
+ * Whether it is there at all, whether it is an array, and then its entries. An absent *required*
+ * collection is reported by the presence pass rather than here, so it is named once; an absent
+ * optional one is the older file this build still opens.
+ *
+ * @param entries - Whatever the file had under this key
+ * @param field - The collection's name, for the message
+ * @param spec - What it must look like
+ * @returns Every error across the collection
+ */
+function collectionErrors(entries: unknown, field: string, spec: EntitySpec): string[] {
+  if (entries === undefined) return [];
+
+  if (!Array.isArray(entries)) {
+    return spec.presence === 'optional' ? [`Field '${field}' must be an array when present`] : [];
+  }
+
+  return collectionShapeErrors(entries, field, spec);
+}
+
+/**
+ * Walk one collection's entries against its spec
  *
  * The one checker CR-22 asks for: "is it an array, is each entry an object, then check the entry"
  * used to be a three-line preamble every entity repeated and four entities skipped.
@@ -818,20 +840,7 @@ export function validateConfigurationShape(data: unknown): ValidationResult {
   // collection cannot be checked for presence and then forgotten for content — which is exactly
   // what happened to four of them (CR-03).
   for (const [field, spec] of specs) {
-    const entries = config[field];
-
-    // An absent required collection was reported above; an absent optional one is the older file
-    // this build still opens
-    if (entries === undefined) continue;
-
-    if (!Array.isArray(entries)) {
-      if (spec.presence === 'optional') {
-        errors.push(`Field '${field}' must be an array when present`);
-      }
-      continue;
-    }
-
-    errors.push(...collectionShapeErrors(entries, field, spec));
+    errors.push(...collectionErrors(config[field], field, spec));
   }
 
   return {

@@ -4,6 +4,7 @@ export * from './ConfigPanelShell';
 export * from './FormDialogActions';
 export * from './FormulaPreview';
 export * from './StatRowsField';
+export * from './StatValueRowsField';
 export * from './UsageList';
 export * from './useEntityDialog';
 export * from './useGuardedDelete';
