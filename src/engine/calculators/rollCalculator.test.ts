@@ -11,8 +11,8 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Configuration } from '../../types/config';
-import type { FormulaResult } from '../../types/formula';
-import { formulaError, isFormulaError } from '../formula/errors';
+import type { FormulaError, FormulaResult } from '../../types/formula';
+import { describeFormulaError, formulaError, isFormulaError } from '../formula/errors';
 import { calculateRollInputs } from './rollCalculator';
 
 function createConfig(overrides: Partial<Configuration> = {}): Configuration {
@@ -128,6 +128,16 @@ describe('calculateRollInputs', () => {
           ladderId: 'ladder',
           order: 1,
         },
+        {
+          // The spelling this module's own header, the grammar docs and `references.ts` all
+          // present — and which the resolver used to refuse (CR-10)
+          id: 'explicit-lvl-id',
+          name: 'Explicit level',
+          description: '',
+          input: 'skills.stealth.level',
+          ladderId: 'ladder',
+          order: 2,
+        },
       ],
     });
 
@@ -135,6 +145,30 @@ describe('calculateRollInputs', () => {
 
     expect(inputs['lvl-id']).toBe(5);
     expect(inputs['bonus-id']).toBe(1);
+    expect(inputs['explicit-lvl-id']).toBe(5);
+  });
+
+  it('should still name the properties a skill has when given one it does not (CR-10)', () => {
+    const config = createConfig({
+      rollDefinitions: [
+        {
+          id: 'nope-id',
+          name: 'Nope',
+          description: '',
+          input: 'skills.stealth.modifier',
+          ladderId: 'ladder',
+          order: 0,
+        },
+      ],
+    });
+
+    const result = calculateRollInputs(config, statValues, skills)['nope-id'];
+
+    expect(isFormulaError(result)).toBe(true);
+    // The refusal is the root of the chain the roll reports, and it names both properties
+    expect(describeFormulaError(result as FormulaError)).toContain(
+      'skills.stealth has no property modifier — a skill has a level and a bonus'
+    );
   });
 
   it('should name the roll when its input references something undefined', () => {

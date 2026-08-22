@@ -4,7 +4,8 @@
  * What backs `skills.<name>` in a formula (Concept 02) — a skill's **level**, and its **bonus**
  * through the `.bonus` property: `skills.stealth` is 11.7, `skills.stealth.bonus` is 2. Both are
  * offered because both are real numbers a ruleset reaches for, and which one a formula wants is
- * the formula's business: a roll adds the bonus, a threshold compares the level.
+ * the formula's business: a roll adds the bonus, a threshold compares the level. The level can be
+ * named either way — `skills.stealth` and `skills.stealth.level` are the same reading (CR-10).
  *
  * Resolution is by the skill's **name slug**, the same derivation `stats.*` uses and for the same
  * reason: a `Skill` has no code since TICKET-SKL-02, and the persisted formula holds the skill's
@@ -23,8 +24,20 @@ import type { FormulaResult, NamespaceResolver } from '../../types/formula';
 import { formulaError } from './errors';
 import { skillMemberName } from './references';
 
-/** The one property a skill exposes beyond its level */
+/** The property that reads a skill's bonus rather than its level */
 const BONUS_PROPERTY = 'bonus';
+
+/**
+ * The property that names a skill's level explicitly (CR-10)
+ *
+ * `skills.stealth` and `skills.stealth.level` are the same number. The bare form is the older
+ * spelling and stays exactly as it was; the explicit one exists because the grammar docs, the
+ * references module and `rollCalculator`'s header all present `.level` as part of the surface —
+ * four documentation sites against one resolver that answered `unknown-member`, with a message
+ * that said "a skill has a level" while refusing to give it. A formula written from the engine's
+ * own documentation validated, saved, and then failed on the sheet, so the resolver is what moved.
+ */
+const LEVEL_PROPERTY = 'level';
 
 /**
  * Build the `skills` resolver over already-computed levels and bonuses
@@ -53,10 +66,10 @@ export function skillsNamespace(
       const skill = byMember.get(member);
       if (!skill) return undefined;
 
-      if (property !== undefined && property !== BONUS_PROPERTY) {
+      if (property !== undefined && property !== BONUS_PROPERTY && property !== LEVEL_PROPERTY) {
         return formulaError(
           'unknown-member',
-          `skills.${member} has no property ${property} — a skill has a level and a ${BONUS_PROPERTY}`
+          `skills.${member} has no property ${property} — a skill has a ${LEVEL_PROPERTY} and a ${BONUS_PROPERTY}`
         );
       }
 

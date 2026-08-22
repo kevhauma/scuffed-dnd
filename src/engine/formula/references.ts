@@ -4,7 +4,7 @@
  * Translation between the two forms every user-authored formula has (Concept 00 §6):
  *
  * - the **display form**, which is what the User reads and writes — `STR + DEX`, `stats.speed`,
- *   `skills.STL.level`;
+ *   `skills.stealth.level`;
  * - the **stored form**, which is what persists — the same expression with every reference
  *   replaced by the referenced entity's stable id, `[b1f0…] + [7c22…]`.
  *
@@ -38,7 +38,7 @@ import { tokenizeFormula } from './parser';
  * the scan needs no special case for it.
  *
  * `curveColumn` is the one space that is *not* a namespace. A curve's column sits in the property
- * segment — `curve.point_buy.main(9)` — where every other property (`skills.STL.level`) is a
+ * segment — `curve.point_buy.main(9)` — where every other property (`skills.stealth.level`) is a
  * fixed field rather than something the User named. A column is named, so it is renamable, so it
  * has to be id-resolved like everything else (TICKET-CRV-03, closing what TICKET-CRV-01 left
  * open). Its spellings are only unique **within one curve**, so its `toId` keys are qualified by
@@ -316,7 +316,7 @@ function referenceAt(tokens: readonly FormulaToken[], index: number): ScanStep {
  * The member is always the reference — `curve.cr(x)` and `curve.point_buy.main_type(9)` both
  * name the curve there. A third segment is a property, and a property names an entity in exactly
  * one case: a curve's column, which the User named and can rename. Every other property
- * (`skills.STL.level`) is a fixed field and stays as written.
+ * (`skills.stealth.level`) is a fixed field and stays as written.
  */
 function dottedReferenceAt(tokens: readonly FormulaToken[], index: number): ScanStep {
   const namespace = tokens[index].value as string;
