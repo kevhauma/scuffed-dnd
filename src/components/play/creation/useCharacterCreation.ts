@@ -11,7 +11,7 @@
  */
 
 import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { calculateCharacter, firstCalculationError } from '../../../engine/calculator';
 import { calculateRaceStatBases, MAX_RACE_COUNT } from '../../../engine/calculators/statCalculator';
@@ -35,6 +35,43 @@ import { toPointBudgetView } from '../shared/pointBudgetView';
  * The wizard's steps, in order — exposed to callers as the hook's `steps`
  */
 const CREATION_STEPS = ['Identity', 'Archetype', 'Stats', 'Review'] as const;
+
+/**
+ * The choices the engine reads — everything a Player picks that changes a number
+ *
+ * Deliberately **not** the character's name: nothing derived depends on it, and it is the field
+ * being typed into most (CR-14).
+ */
+interface EngineInputs {
+  raceIds: string[];
+  investedStatPoints: Record<string, number>;
+  investedSkillPoints: Record<string, number>;
+  archetypeId?: string;
+}
+
+/**
+ * Hold a value stable across renders for as long as its *content* is unchanged
+ *
+ * react-hook-form hands back a fresh object from every `watch()`, nested records included, so a
+ * dependency array holding them compares unequal on every render and a `useMemo` keyed on them
+ * never hits. Comparing content is what lets the expensive memos below actually memoise (CR-14).
+ *
+ * Serialising is the comparison because these are small plain records of primitives — five fields,
+ * against a full evaluation of every stat formula, curve lookup and skill in the ruleset.
+ *
+ * @param value - The freshly built value
+ * @returns The same value, or the previous one when nothing in it changed
+ */
+function useContentStable<T>(value: T): T {
+  const held = useRef<{ key: string; value: T } | null>(null);
+  const key = JSON.stringify(value);
+
+  if (held.current === null || held.current.key !== key) {
+    held.current = { key, value };
+  }
+
+  return held.current.value;
+}
 
 /**
  * One derived stat as the allocation step shows it: the stat, and the value it currently computes
@@ -123,7 +160,23 @@ export function useCharacterCreation() {
   const races = config?.races ?? [];
   const archetypes = config?.archetypes ?? [];
 
-  const selectedRaces = races.filter((race) => values.raceIds.includes(race.id));
+  /**
+   * The choices the engine reads, stable while their content is (CR-14)
+   *
+   * Everything below that costs anything is keyed on this rather than on the form's values, so
+   * typing the character's name on step 0 no longer re-runs the whole ruleset.
+   */
+  const engineInputs = useContentStable<EngineInputs>({
+    raceIds: values.raceIds,
+    investedStatPoints: values.investedStatPoints,
+    investedSkillPoints: values.investedSkillPoints,
+    archetypeId: values.archetypeId || undefined,
+  });
+
+  const selectedRaces = useMemo(
+    () => (config?.races ?? []).filter((race) => engineInputs.raceIds.includes(race.id)),
+    [config, engineInputs]
+  );
 
   // Named here rather than in the wizard's JSX: the review step renders what the Player chose, and
   // "which archetype is `archetypeId`" is a lookup against the ruleset — the hook's job, not a
@@ -139,39 +192,47 @@ export function useCharacterCreation() {
    * The blend, since TICKET-RACE-02, so what the allocation step shows beside each stat is what
    * the created character will actually have.
    */
-  const raceBases = calculateRaceStatBases(selectedRaces, config?.constants);
+  const raceBases = useMemo(
+    () => calculateRaceStatBases(selectedRaces, config?.constants),
+    [config, selectedRaces]
+  );
 
   /** The creation data as it stands, for validation, preview and submit */
-  const creationData: CharacterCreationData = {
-    name: values.name.trim(),
-    raceIds: values.raceIds,
-    investedStatPoints: values.investedStatPoints,
-    investedSkillPoints: values.investedSkillPoints,
-    archetypeId: values.archetypeId || undefined,
-  };
+  const creationData: CharacterCreationData = { name: values.name.trim(), ...engineInputs };
 
   /**
    * The character as it would be saved — the one draft the validator, the preview and the derived
    * stats all read, so the budget the Player allocates against is the budget their saved character
    * will have. Experience is 0, like the one the store will mint, which is what makes creation
    * validate against level-at-XP-0's budget (TICKET-RES-02).
+   *
+   * The name is left empty rather than carried: nothing the engine computes reads it, and putting
+   * it here would key every memo below on the field a Player types into (CR-14). What gets saved
+   * is `creationData`, which has it.
    */
-  const draftCharacter: Character | null = config
-    ? {
-        id: 'preview',
-        configurationId: config.id,
-        currentResourceValues: {},
-        experience: 0,
-        inventory: { equippedItems: {}, miscItems: [] },
-        createdAt: '',
-        updatedAt: '',
-        ...creationData,
-      }
-    : null;
+  const draftCharacter: Character | null = useMemo(
+    () =>
+      config
+        ? {
+            id: 'preview',
+            name: '',
+            configurationId: config.id,
+            currentResourceValues: {},
+            experience: 0,
+            inventory: { equippedItems: {}, miscItems: [] },
+            createdAt: '',
+            updatedAt: '',
+            ...engineInputs,
+          }
+        : null,
+    [config, engineInputs]
+  );
 
   /** Points spent, remaining, and any per-stat breach — from the engine, never re-summed here */
-  const allocation: StatAllocationResult | null =
-    config && draftCharacter ? validateStatAllocation(draftCharacter, config) : null;
+  const allocation: StatAllocationResult | null = useMemo(
+    () => (config && draftCharacter ? validateStatAllocation(draftCharacter, config) : null),
+    [config, draftCharacter]
+  );
 
   /** The same verdict, spelled for the step: a number or the chip standing in for it */
   const budget = toPointBudgetView(allocation);
@@ -223,7 +284,7 @@ export function useCharacterCreation() {
   /**
    * The review step's numbers, from the one composed calculator — the wizard does no arithmetic
    */
-  const preview: CalculatedCharacter | null = (() => {
+  const preview: CalculatedCharacter | null = useMemo(() => {
     if (!config || !draftCharacter) return null;
     try {
       return calculateCharacter(draftCharacter, config);
@@ -232,7 +293,7 @@ export function useCharacterCreation() {
       // inside the result and are reported through `previewError` below.
       return null;
     }
-  })();
+  }, [config, draftCharacter]);
 
   /**
    * Why the preview cannot be trusted, or null when every derived value is a number
@@ -241,11 +302,11 @@ export function useCharacterCreation() {
    * step would render a confident `0` for it. The Player can still finish the wizard — they just
    * get told the ruleset needs fixing first.
    */
-  const previewError: string | null = (() => {
+  const previewError: string | null = useMemo(() => {
     if (!preview) return null;
     const broken = firstCalculationError(preview);
     return broken ? describeFormulaError(broken) : null;
-  })();
+  }, [preview]);
 
   /**
    * The derived stats as the allocation step shows them — read-only, and moving as points do
