@@ -13,7 +13,7 @@ size limit — several findings here will split into more than one ticket) and b
 
 ## High — bugs that lose data, let broken rulesets through, or break the UI
 
-- [ ] [CR-01 Circular-formula detection never fires in production](findings/CR-01-circular-formula-detection-dead-in-production.md) — graph keyed by ids, edges by spellings; every cycle saves cleanly with UUID ids. *(engine, repro-confirmed)*
+- [x] [CR-01 Circular-formula detection never fires in production](findings/CR-01-circular-formula-detection-dead-in-production.md) — graph keyed by ids, edges by spellings; every cycle saves cleanly with UUID ids. *(engine, repro-confirmed)*
 - [ ] [CR-02 Stat formulas accept `skills.*` they can never evaluate](findings/CR-02-stat-formulas-accept-skills-they-cannot-evaluate.md) — validates and previews, always errors on the sheet. *(engine, repro-confirmed)*
 - [ ] [CR-03 Malformed import persisted before validation](findings/CR-03-malformed-import-persisted-before-validation.md) — four entity kinds shape-unchecked; `replaceConfig` runs before the engine validator crashes. *(services)*
 - [ ] [CR-04 Editing the lowest currency tier moves it to the end](findings/CR-04-currency-tier-order-zero-falsy.md) — `order: 0` falls through `||`. *(config)*
@@ -24,7 +24,7 @@ size limit — several findings here will split into more than one ticket) and b
 
 ## Medium — correctness edges, missing guards, structural debt
 
-- [ ] [CR-08 Phantom cycles from missing DFS backtracking](findings/CR-08-phantom-cycles-from-dfs-backtracking.md) — reports cycles along nonexistent edges; fix with CR-01. *(engine, repro-confirmed)*
+- [x] [CR-08 Phantom cycles from missing DFS backtracking](findings/CR-08-phantom-cycles-from-dfs-backtracking.md) — reports cycles along nonexistent edges; fix with CR-01. *(engine, repro-confirmed)*
 - [ ] [CR-09 Tokenizer silently truncates malformed numbers](findings/CR-09-tokenizer-truncates-malformed-numbers.md) — `1.2.3` validates and evaluates as `1.2`. *(engine, repro-confirmed)*
 - [ ] [CR-10 `skills.<name>.level` documented but rejected](findings/CR-10-skills-level-documented-but-rejected.md) — four doc sites vs one resolver. *(engine)*
 - [ ] [CR-11 Storage quota/write errors never caught](findings/CR-11-storage-errors-thrown-but-never-caught.md) — edits silently fail to persist when LocalStorage is full. *(stores)*

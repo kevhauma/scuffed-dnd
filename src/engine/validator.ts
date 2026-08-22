@@ -16,6 +16,7 @@
 
 import type { Configuration, Curve, DiceLadder, RollDefinition, Skill } from '../types/config';
 import { POINT_BUY_CURVE_NAME } from '../types/config';
+import { buildReferenceResolver } from './formula/references';
 import type { FormulaScope } from './formula/scoping';
 import { scopeFor } from './formula/scoping';
 import type { FormulaDependency } from './formula/validator';
@@ -174,14 +175,21 @@ export function validateConfiguration(config: Configuration): ValidationReport {
   warnings.push(...nearDuplicateSkillNameWarnings(config.skills));
 
   // Validate circular dependencies in formulas. `toFormulaDependency` is the one place that
-  // decides what an edge is, so bare codes and dotted references land on the same graph nodes.
+  // decides what an edge is, so bare codes and dotted references land on the same graph nodes —
+  // both are resolved to the stat's id, which is what the graph is keyed by (CR-01).
   //
   // **Derived stats are the only nodes** since TICKET-ROLL-06: a combat skill was the other kind
   // and went with the entity, and neither a `Skill` (weight rows) nor a `RollDefinition` (nothing
   // can name one) can be part of a cycle.
+  const resolveReference = buildReferenceResolver(config);
   const formulaDependencies: FormulaDependency[] = config.stats
     .filter((stat) => stat.formula !== undefined)
-    .map((stat) => toFormulaDependency(stat.id, stat.formula as string));
+    .map((stat) =>
+      toFormulaDependency(
+        { id: stat.id, label: stat.name, formula: stat.formula as string },
+        resolveReference
+      )
+    );
 
   const circularResult = validateFormulaCollection(formulaDependencies);
   if (!circularResult.isValid) {

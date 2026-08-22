@@ -85,9 +85,9 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
  * A derived stat, keyed by the graph key it uses
  *
  * **The only formula-carrying entity left** since TICKET-ROLL-06 retired combat skills, which is
- * what every cycle case below is now written over. `id` and `abbreviation` are the same string so
- * the graph key and the spelling a formula names it by line up, which is what makes a one-step
- * cycle readable as `MEL → MEL`.
+ * what every cycle case below is now written over. `id`, `name` and `abbreviation` are the same
+ * string, which keeps a cycle readable as `MEL → MEL` — but nothing depends on that alignment any
+ * more (CR-01): the ids-are-UUIDs suite at the bottom of this file is the case that matters.
  */
 function derivedStat(code: string, formula: string): Stat {
   return {
@@ -105,7 +105,11 @@ function derivedStat(code: string, formula: string): Stat {
 
 describe('validateFormulaChange', () => {
   it('should refuse a formula that references its own entity, naming the cycle', () => {
-    const result = validateFormulaChange(createConfig(), {
+    const config = createConfig({
+      stats: [...createConfig().stats, derivedStat('MEL', 'STR * 2')],
+    });
+
+    const result = validateFormulaChange(config, {
       owner: 'stat',
       id: 'MEL',
       formula: 'MEL + 1',
@@ -335,7 +339,8 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
       });
 
       expect(result.isValid).toBe(false);
-      expect(result.errors[0]).toBe('Circular dependency detected: health → health');
+      // Named, not id'd: the chain is graph node ids, spelled back out through each node's label
+      expect(result.errors[0]).toBe('Circular dependency detected: Health → Health');
     });
 
     it('blocks a two-formula cycle written in namespaced syntax, naming the path', () => {
@@ -375,7 +380,7 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
 
       expect(result.isValid).toBe(false);
       expect(result.errors.join(' ')).toMatch(
-        /Circular dependency detected: (health → armour → health|armour → health → armour)/
+        /Circular dependency detected: (Health → Armour → Health|Armour → Health → Armour)/
       );
     });
 
@@ -458,5 +463,115 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
 
       expect(result.isValid).toBe(true);
     });
+  });
+});
+
+describe('Cycle detection with ids that are not the formula spelling (CR-01)', () => {
+  // The case every real configuration is in: ids are `crypto.randomUUID()` and formulas are in
+  // display form. Before CR-01 the graph was keyed by id and its edges were spellings, so no edge
+  // ever matched a node and every cycle — including a direct self-reference — saved cleanly.
+  const ALPHA_ID = '7c22b0f1-0000-4000-8000-000000000001';
+  const BETA_ID = '7c22b0f1-0000-4000-8000-000000000002';
+
+  function uuidConfig(alphaFormula: string, betaFormula: string): Configuration {
+    return createConfig({
+      stats: [
+        {
+          id: ALPHA_ID,
+          name: 'Alpha',
+          abbreviation: 'ALP',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: alphaFormula,
+        },
+        {
+          id: BETA_ID,
+          name: 'Beta',
+          abbreviation: 'BET',
+          description: '',
+          order: 1,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+          formula: betaFormula,
+        },
+      ],
+    });
+  }
+
+  it('refuses a stat that names itself by its slug', () => {
+    const result = validateFormulaChange(uuidConfig('1', '1'), {
+      owner: 'stat',
+      id: ALPHA_ID,
+      formula: 'stats.alpha * 2',
+      previousId: ALPHA_ID,
+    });
+
+    expect(result.isValid).toBe(false);
+    expect(result.errors[0]).toBe('Circular dependency detected: Alpha → Alpha');
+  });
+
+  it('refuses a stat that names itself by its abbreviation', () => {
+    const result = validateFormulaChange(uuidConfig('1', '1'), {
+      owner: 'stat',
+      id: ALPHA_ID,
+      formula: 'ALP + 1',
+      previousId: ALPHA_ID,
+    });
+
+    expect(result.isValid).toBe(false);
+    expect(result.errors[0]).toBe('Circular dependency detected: Alpha → Alpha');
+  });
+
+  it('refuses a mutual cycle and names both stats', () => {
+    const result = validateFormulaChange(uuidConfig('stats.beta + 1', '1'), {
+      owner: 'stat',
+      id: BETA_ID,
+      formula: 'stats.alpha + 1',
+      previousId: BETA_ID,
+    });
+
+    expect(result.isValid).toBe(false);
+    expect(result.errors.join(' ')).toMatch(
+      /Circular dependency detected: (Alpha → Beta → Alpha|Beta → Alpha → Beta)/
+    );
+  });
+
+  it('still accepts an acyclic chain between the same stats', () => {
+    const result = validateFormulaChange(uuidConfig('1', '1'), {
+      owner: 'stat',
+      id: BETA_ID,
+      formula: 'stats.alpha + ALP',
+      previousId: BETA_ID,
+    });
+
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it('does not confuse a constant with a stat that shares its spelling', () => {
+    // Namespace-aware resolution: `const.alpha` is a different entity from `stats.alpha`, so it
+    // contributes no edge back to the stat and closes no cycle
+    const config = uuidConfig('1', '1');
+    const result = validateFormulaChange(
+      {
+        ...config,
+        constants: [
+          { id: 'c1', name: 'alpha', displayName: 'Alpha divider', description: '', value: 2 },
+        ],
+      },
+      {
+        owner: 'stat',
+        id: ALPHA_ID,
+        formula: 'const.alpha * 2',
+        previousId: ALPHA_ID,
+      }
+    );
+
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toEqual([]);
   });
 });

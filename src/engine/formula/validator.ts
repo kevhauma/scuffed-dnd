@@ -4,8 +4,8 @@
  * Validates formula syntax, detects undefined variable references, checks calls against the
  * closed function library, scopes dotted references against their attachment point's row in
  * `scoping.ts`, and detects circular dependencies in formula chains. Bare codes and dotted
- * references share graph nodes, so a cycle written either way is caught — see
- * `formulaDependencyKeys`.
+ * references resolve to the same entity ids, so a cycle written either way is caught — see
+ * `dependencyKeysOf`.
  *
  * **Validates: Requirements 16.4, 16.5, 16.6, 18.1, 18.2; Concepts 00 §5, 01, 02; spec §5.1, §5.3**
  */
@@ -13,6 +13,7 @@
 import type { FormulaAST, FormulaValidationResult, NamespacedReference } from '../../types/formula';
 import { describeArity, FORMULA_FUNCTIONS } from './functions';
 import { parseFormula } from './parser';
+import type { ReferenceResolver } from './references';
 import type { FormulaScope } from './scoping';
 import { isKnownNamespace } from './scoping';
 
@@ -256,26 +257,35 @@ export function validateFormula(
 /**
  * Graph keys a validated formula depends on, for cycle detection
  *
- * Bare codes are keys already; a dotted reference contributes its **member**, which is the stat
- * id or skill code the dependency graph is keyed by. So `stats.health` and legacy `HEALTH` land
- * on the same node and a cycle written either way is caught.
+ * The dependency graph is keyed by **entity id**, and a formula is written in display spellings —
+ * so every reference is put through the resolver, which is what makes `STR` and `stats.strength`
+ * land on the same node and a cycle written either way get caught.
  *
- * The namespace is deliberately dropped, which is what makes that parity work — the cost is that
- * `stats.x` and `skills.x` would share a node and could report a phantom cycle. Not reachable
- * today (stat ids are lowercase slugs, stat abbreviations uppercase identifiers, and a skill is
- * reached as `skills.<name-slug>` since its code retired in TICKET-SKL-02) but worth knowing
- * before either key space is reshaped again.
+ * Before CR-01 this returned the spellings themselves, which only worked while an entity's id
+ * happened to equal the way formulas spell it. Real ids are UUIDs, so no edge ever matched a node
+ * and the whole detector was dead in production. The resolver is namespace-aware for the same
+ * reason `dependencies.ts` is: a stat slugged `bonus_divider` and a constant named
+ * `bonus_divider` are different entities.
+ *
+ * A reference that resolves to nothing contributes no edge — an undefined code is the scope
+ * check's problem, not the cycle detector's.
  *
  * @param result - A result from `validateFormula`
- * @returns Unique graph keys the formula references
+ * @param resolve - Maps a reference to the entity id it names (`buildReferenceResolver`)
+ * @returns Unique graph node ids the formula references
  */
-export function dependencyKeysOf(result: FormulaValidationResult): string[] {
-  return Array.from(
-    new Set([
-      ...result.referencedVariables,
-      ...result.namespacedReferences.map((reference) => reference.member),
-    ])
-  );
+export function dependencyKeysOf(
+  result: FormulaValidationResult,
+  resolve: ReferenceResolver
+): string[] {
+  const nodes = [
+    ...result.referencedVariables.map((code) => resolve(undefined, code)),
+    ...result.namespacedReferences.map((reference) =>
+      resolve(reference.namespace, reference.member)
+    ),
+  ];
+
+  return Array.from(new Set(nodes.filter((id): id is string => id !== undefined)));
 }
 
 /**
@@ -283,17 +293,40 @@ export function dependencyKeysOf(result: FormulaValidationResult): string[] {
  *
  * The single place that turns a formula into graph edges, so every caller of
  * `validateFormulaCollection` agrees about what an edge is.
+ *
+ * @param node - The entity the formula is attached to: its graph id, how to name it in a report,
+ *   and the formula itself
+ * @param resolve - Maps a reference to the entity id it names (`buildReferenceResolver`)
+ * @returns The graph entry
  */
-export function toFormulaDependency(id: string, formula: string): FormulaDependency {
-  return { id, formula, referencedVariables: dependencyKeysOf(validateFormula(formula)) };
+export function toFormulaDependency(
+  node: { id: string; label: string; formula: string },
+  resolve: ReferenceResolver
+): FormulaDependency {
+  return {
+    id: node.id,
+    label: node.label,
+    formula: node.formula,
+    referencedVariables: dependencyKeysOf(validateFormula(node.formula), resolve),
+  };
 }
 
 /**
  * Formula dependency information
  */
 export interface FormulaDependency {
-  id: string; // Unique identifier for the formula (e.g., stat ID or skill code)
+  /** The graph node: the owning entity's stable id */
+  id: string;
+  /**
+   * How the node is named in a cycle report
+   *
+   * Separate from `id` because the id is a UUID in every real configuration, and
+   * "Circular dependency detected: 7c22… → b1f0…" tells the User nothing. Optional so a test can
+   * build a graph out of bare node names; it falls back to `id`.
+   */
+  label?: string;
   formula: string;
+  /** Ids of the entities this formula reads — the outgoing edges */
   referencedVariables: string[];
 }
 
@@ -319,44 +352,40 @@ export function detectCircularDependencies(formulas: FormulaDependency[]): strin
 
   /**
    * Depth-first search to detect cycles
+   *
+   * Every path out of this function backtracks (CR-08). The early `return true` this used to do on
+   * finding a cycle left the node on `recursionStack` and `currentPath` for the rest of the run, so
+   * later traversals reported cycles along edges that do not exist — `A→{B,C}, B→B, C→B` claimed a
+   * `B → C → B` chain on top of the real `B → B`.
    */
-  function dfs(nodeId: string): boolean {
+  function dfs(nodeId: string): void {
     visited.add(nodeId);
     recursionStack.add(nodeId);
     currentPath.push(nodeId);
 
     const formula = formulaMap.get(nodeId);
-    if (formula) {
-      // Check each variable this formula references
-      for (const varId of formula.referencedVariables) {
-        // Only follow dependencies that are also formulas
-        if (!formulaMap.has(varId)) {
-          continue;
-        }
+    for (const varId of formula?.referencedVariables ?? []) {
+      // Only follow dependencies that are also formulas
+      if (!formulaMap.has(varId)) {
+        continue;
+      }
 
-        // If we've seen this node in current recursion stack, we found a cycle
-        if (recursionStack.has(varId)) {
-          // Extract the cycle from currentPath
-          const cycleStartIndex = currentPath.indexOf(varId);
-          const cycle = [...currentPath.slice(cycleStartIndex), varId];
-          circularChains.push(cycle);
-          return true;
-        }
+      // Seen in the current recursion stack: the path from there back to here is a cycle. Recorded
+      // rather than returned on, so this node's remaining edges are walked too.
+      if (recursionStack.has(varId)) {
+        const cycleStartIndex = currentPath.indexOf(varId);
+        circularChains.push([...currentPath.slice(cycleStartIndex), varId]);
+        continue;
+      }
 
-        // If not visited, recurse
-        if (!visited.has(varId)) {
-          if (dfs(varId)) {
-            // Continue searching for more cycles
-            // Don't return immediately to find all cycles
-          }
-        }
+      if (!visited.has(varId)) {
+        dfs(varId);
       }
     }
 
     // Backtrack
     recursionStack.delete(nodeId);
     currentPath.pop();
-    return false;
   }
 
   // Run DFS from each unvisited node
@@ -386,13 +415,14 @@ export function validateFormulaCollection(formulas: FormulaDependency[]): Formul
     }
   }
 
-  // Detect circular dependencies
+  // Detect circular dependencies. The chains come back as node ids — UUIDs in any real
+  // configuration — so each one is spelled back out through the node's label before it is shown.
+  const labels = new Map(formulas.map((formula) => [formula.id, formula.label ?? formula.id]));
   const circularChains = detectCircularDependencies(formulas);
 
-  if (circularChains.length > 0) {
-    for (const chain of circularChains) {
-      errors.push(`Circular dependency detected: ${chain.join(' → ')}`);
-    }
+  for (const chain of circularChains) {
+    const path = chain.map((nodeId) => labels.get(nodeId) ?? nodeId).join(' → ');
+    errors.push(`Circular dependency detected: ${path}`);
   }
 
   return {

@@ -468,6 +468,44 @@ describe('validateConfiguration', () => {
 
       expect(result.isValid).toBe(true);
     });
+
+    it('reports a cycle in a ruleset whose ids are UUIDs (CR-01)', () => {
+      // The shape every saved configuration actually has: ids minted by `crypto.randomUUID()`,
+      // formulas in display form. The detector used to key nodes by id and edges by spelling, so
+      // this exact ruleset validated clean.
+      const alphaId = '7c22b0f1-0000-4000-8000-000000000001';
+      const betaId = '7c22b0f1-0000-4000-8000-000000000002';
+
+      const config = createMinimalConfig();
+      config.stats = [
+        ...config.stats,
+        stat(alphaId, 'Alpha', 'ALP', 'stats.beta + 1'),
+        stat(betaId, 'Beta', 'BET', 'ALP * 2'),
+      ];
+
+      const result = validateConfiguration(config);
+      const cycles = result.errors.filter((issue) => issue.category === 'Circular Dependency');
+
+      expect(result.isValid).toBe(false);
+      expect(cycles).toHaveLength(1);
+      // Named, not id'd — the chain is node ids spelled back out through each node's label
+      expect(cycles[0].message).toMatch(
+        /Circular dependency detected: (Alpha → Beta → Alpha|Beta → Alpha → Beta)/
+      );
+    });
+
+    it('leaves an acyclic UUID-keyed ruleset alone (CR-01)', () => {
+      const config = createMinimalConfig();
+      config.stats = [
+        ...config.stats,
+        stat('7c22b0f1-0000-4000-8000-000000000003', 'Alpha', 'ALP', 'STR + 1'),
+        stat('7c22b0f1-0000-4000-8000-000000000004', 'Beta', 'BET', 'stats.alpha * 2'),
+      ];
+
+      const result = validateConfiguration(config);
+
+      expect(result.errors.filter((issue) => issue.category === 'Circular Dependency')).toEqual([]);
+    });
   });
 
   describe('Reference validation errors', () => {

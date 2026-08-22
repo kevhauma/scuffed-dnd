@@ -196,6 +196,56 @@ export function buildReferenceIndex(config: Configuration): ReferenceIndex {
   return { toId, toDisplay };
 }
 
+/**
+ * Resolve a reference *as written* to the id of the entity it names
+ *
+ * The other half of this module's job: `toStoredFormula` rewrites the text, this answers "which
+ * entity is that?" for callers that want the entity rather than the rewrite — the dependency graph
+ * is keyed by id, and a formula is written in display spellings.
+ *
+ * Namespace-aware on purpose (CR-01): `STR` and `stats.strength` land on the same stat, while
+ * `const.strength` does not land on it at all. A member already in stored form resolves to itself,
+ * so a formula that skipped the display translation still produces the same edges.
+ *
+ * @param index - Index built from the configuration the formula belongs to
+ * @param namespace - The namespace segment as written, or undefined for a legacy bare code
+ * @param member - The member segment, spelled as `validateFormula` reports it
+ * @returns The referenced entity's id, or undefined when the ruleset has no such entity
+ */
+export function resolveReferenceId(
+  index: ReferenceIndex,
+  namespace: string | undefined,
+  member: string
+): string | undefined {
+  const space = namespace ?? 'bare';
+  if (space !== 'bare' && !isReferenceSpace(space)) return undefined;
+
+  // `toDisplay` is keyed by id, so a hit there means the member *is* one — the stored form
+  return index.toId[space].get(member) ?? (index.toDisplay[space].has(member) ? member : undefined);
+}
+
+/**
+ * Resolves a reference to the entity id it names — see {@link resolveReferenceId}
+ */
+export type ReferenceResolver = (
+  namespace: string | undefined,
+  member: string
+) => string | undefined;
+
+/**
+ * A resolver bound to one configuration
+ *
+ * The index is built once and closed over, so resolving every reference in a ruleset does not
+ * rebuild it per formula.
+ *
+ * @param config - The configuration whose current spellings the resolver reads
+ * @returns A resolver over that configuration
+ */
+export function buildReferenceResolver(config: Configuration): ReferenceResolver {
+  const index = buildReferenceIndex(config);
+  return (namespace, member) => resolveReferenceId(index, namespace, member);
+}
+
 /** One token the scan decided is a reference, and the space it resolves in */
 interface ReferenceSite {
   token: FormulaToken;

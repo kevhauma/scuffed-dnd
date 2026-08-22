@@ -73,9 +73,9 @@ export interface EntityReference {
  * Whether a formula names an entity, given how that kind of entity is spelled
  *
  * Namespace-aware on purpose: a stat slugged `bonus_divider` and a constant named
- * `bonus_divider` are different things, and `dependencyKeysOf` flattens both to the bare member
- * name. Matching `const.bonus_divider` against the constant and `stats.bonus_divider` against the
- * stat is what keeps one from blocking the other's delete.
+ * `bonus_divider` are different things, and matching `const.bonus_divider` against the constant
+ * and `stats.bonus_divider` against the stat is what keeps one from blocking the other's delete.
+ * The cycle detector reads references the same way since CR-01 — see `resolveReferenceId`.
  */
 type ReferenceMatcher = (formula: string) => boolean;
 

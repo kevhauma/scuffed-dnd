@@ -13,6 +13,8 @@
 
 import type { Configuration } from '../../types/config';
 import type { FormulaValidationResult } from '../../types/formula';
+import type { ReferenceResolver } from './references';
+import { buildReferenceResolver } from './references';
 import type { FormulaOwner } from './scoping';
 import { scopeFor } from './scoping';
 import type { FormulaDependency } from './validator';
@@ -50,7 +52,8 @@ export interface FormulaChange {
 function dependenciesAfterChange(
   config: Configuration,
   change: FormulaChange,
-  dependencyKeys: string[]
+  dependencyKeys: string[],
+  resolve: ReferenceResolver
 ): FormulaDependency[] {
   const replacedId = change.previousId ?? change.id;
 
@@ -59,12 +62,21 @@ function dependenciesAfterChange(
     ...config.stats
       .filter((stat) => stat.formula !== undefined)
       .filter((stat) => !(change.owner === 'stat' && stat.id === replacedId))
-      .map((stat) => toFormulaDependency(stat.id, stat.formula as string)),
+      .map((stat) =>
+        toFormulaDependency(
+          { id: stat.id, label: stat.name, formula: stat.formula as string },
+          resolve
+        )
+      ),
   ];
 
-  // The edited formula, substituted in
+  // The edited formula, substituted in. Labelled from the entity it replaces, so a self-reference
+  // reports the stat's name rather than its UUID; an entity being *added* is not in the
+  // configuration yet, and nothing can reference it, so it can never appear in a chain anyway.
+  const replaced = config.stats.find((stat) => stat.id === replacedId);
   dependencies.push({
     id: change.id,
+    ...(replaced ? { label: replaced.name } : {}),
     formula: change.formula,
     referencedVariables: dependencyKeys,
   });
@@ -103,9 +115,13 @@ export function validateFormulaChange(
     return parsed;
   }
 
-  // Circular dependencies across the configuration as it would be after the save (Req 16.5)
+  // Circular dependencies across the configuration as it would be after the save (Req 16.5).
+  // References are resolved against the configuration as it is now, which is the same thing for
+  // every edit that does not also rename the entity being edited — and a formula naming a spelling
+  // that no longer exists is refused by the scope check below either way.
+  const resolve = buildReferenceResolver(config);
   const collection = validateFormulaCollection(
-    dependenciesAfterChange(config, change, dependencyKeysOf(parsed))
+    dependenciesAfterChange(config, change, dependencyKeysOf(parsed, resolve), resolve)
   );
   if (!collection.isValid) {
     return {

@@ -225,6 +225,35 @@ describe('detectCircularDependencies', () => {
     expect(cycle).toContain('D');
   });
 
+  it('should report only cycles along edges that exist (CR-08)', () => {
+    // The repro from CR-08: the only real cycle is B → B. Before the backtracking fix, finding it
+    // returned out of the DFS without popping B off the recursion stack, so the later walk through
+    // C "found" a second cycle along an edge B → C that was never in the graph.
+    const formulas: FormulaDependency[] = [
+      { id: 'A', formula: 'B + C', referencedVariables: ['B', 'C'] },
+      { id: 'B', formula: 'B + 1', referencedVariables: ['B'] },
+      { id: 'C', formula: 'B * 2', referencedVariables: ['B'] },
+    ];
+
+    const cycles = detectCircularDependencies(formulas);
+    expect(cycles).toEqual([['B', 'B']]);
+  });
+
+  it('should keep walking a node after one of its edges closes a cycle', () => {
+    // A's first edge closes A → B → A; its second must still be explored, or C → D → C is missed
+    const formulas: FormulaDependency[] = [
+      { id: 'A', formula: 'B + C', referencedVariables: ['B', 'C'] },
+      { id: 'B', formula: 'A + 1', referencedVariables: ['A'] },
+      { id: 'C', formula: 'D + 1', referencedVariables: ['D'] },
+      { id: 'D', formula: 'C + 1', referencedVariables: ['C'] },
+    ];
+
+    const cycles = detectCircularDependencies(formulas);
+    expect(cycles).toHaveLength(2);
+    expect(cycles).toContainEqual(['A', 'B', 'A']);
+    expect(cycles).toContainEqual(['C', 'D', 'C']);
+  });
+
   it('should handle empty formula list', () => {
     const cycles = detectCircularDependencies([]);
     expect(cycles).toHaveLength(0);
@@ -262,6 +291,19 @@ describe('validateFormulaCollection', () => {
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
     expect(result.errors[0]).toContain('Circular dependency detected');
+  });
+
+  it('should name each node by its label, not by its id', () => {
+    // Real ids are UUIDs, so a chain printed raw would be unreadable (CR-01)
+    const formulas: FormulaDependency[] = [
+      { id: 'uuid-a', label: 'Alpha', formula: 'B', referencedVariables: ['uuid-b'] },
+      { id: 'uuid-b', label: 'Beta', formula: 'A', referencedVariables: ['uuid-a'] },
+    ];
+
+    const result = validateFormulaCollection(formulas);
+    expect(result.errors[0]).toMatch(
+      /Circular dependency detected: (Alpha → Beta → Alpha|Beta → Alpha → Beta)/
+    );
   });
 
   it('should collect all referenced variables', () => {

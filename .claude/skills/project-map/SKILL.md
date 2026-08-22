@@ -105,7 +105,9 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   rewriting reference tokens in place.
 - `formula/references.ts` — **the display↔stored translation** (TICKET-REF-01):
   `buildReferenceIndex`, `toStoredFormula`/`toDisplayFormula`,
-  `toStoredConfiguration`/`toDisplayConfiguration`, `ensureReferenceIds`, `statMemberName`. A
+  `toStoredConfiguration`/`toDisplayConfiguration`, `ensureReferenceIds`, `statMemberName`, plus
+  `resolveReferenceId`/`buildReferenceResolver` — the same spelling→id lookup for callers that want
+  the *entity* rather than the rewritten text, which is how the cycle detector keys its graph. A
   formula is written and validated in *display* form (codes and name-slugs) and persisted in
   *stored* form (ids), which is what makes a rename harmless. Only `services/storage.ts` and
   `services/importExport.ts` cross that boundary; `configStore`'s `applyRenameSafely` uses the
@@ -161,8 +163,12 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   `toFormulaDependency`, plus a private `walkFormula(ast, visit)` that is the single place knowing
   the AST union's shape — **extend that when adding a node type**, not each analysis pass.
   Passing a `scope` turns on the three scoping errors (unknown namespace / not available here /
-  unknown member). **Use `toFormulaDependency` to build cycle-graph entries** — it is what makes
-  `stats.health` and bare `HEALTH` land on the same node.
+  unknown member). **Use `toFormulaDependency(node, resolve)` to build cycle-graph entries** — it is
+  what makes `stats.health` and bare `HEALTH` land on the same node. The graph is keyed by **entity
+  id**, so both take a `ReferenceResolver` from `buildReferenceResolver(config)`
+  (`formula/references.ts`) that turns a display spelling into the id it names; keying edges by
+  spelling is what made the detector dead in production before CR-01. A node carries a `label`
+  (the entity's name) because a chain of UUIDs is unreadable.
 - `formula/formulaChange.ts` — `validateFormulaChange(config, change)`, the **save-time guard** the
   formula-owning `useXManager` hooks call before writing to the store. It validates the
   configuration *as it would be after the save* (syntax → cycles → undefined codes) and reuses the
