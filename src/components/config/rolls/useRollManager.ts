@@ -15,6 +15,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { validateFormulaChange } from '../../../engine/formula/formulaChange';
+import { scopeFor } from '../../../engine/formula/scoping';
 import { useConfigStore } from '../../../stores/configStore';
 import type { RollCategory, RollDefinition } from '../../../types';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
@@ -52,11 +53,14 @@ export function useRollManager() {
   const availableLadders = config?.diceLadders ?? [];
   const currentRolls = [...(config?.rollDefinitions ?? [])].sort((a, b) => a.order - b.order);
 
-  // Stat abbreviations, for the editor's autocomplete — derived here rather than in the dialog,
-  // like `useCombatSkillManager` and `useStatManager` do it
+  // The bare codes a roll input may name, for the editor's autocomplete. Read from `scopeFor`
+  // rather than mapped by hand (CR-25), so the completions, `FormulaPreview` and the save-time
+  // `validateFormulaChange` below all answer from the one scoping table — a new row in
+  // `LEGACY_CODE_SCOPES` or `CONTEXT_CODES` for `roll-input` should not be able to make the
+  // editor suggest a different set from the one the validator accepts.
   const availableSkillCodes = config
-    ? config.stats.map((stat) => stat.abbreviation.toUpperCase())
-    : [];
+    ? Array.from(scopeFor(config, 'roll-input').codes)
+    : ([] as string[]);
 
   /** The ladder a roll names, or undefined when it points at one that is gone */
   const ladderFor = (ladderId: string) =>

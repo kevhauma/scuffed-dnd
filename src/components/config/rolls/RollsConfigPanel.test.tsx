@@ -14,6 +14,7 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { scopeFor } from '../../../engine/formula/scoping';
 import type { Configuration, Stat } from '../../../types/config';
 
 vi.mock('../../../services/storage', () => ({
@@ -160,6 +161,24 @@ describe('RollsConfigPanel', () => {
       expect(screen.getAllByText(/Unknown member/i).length).toBeGreaterThan(0);
     });
     expect(storedRolls()[0].input).toBe('stats.strength');
+  });
+
+  it('should offer exactly the codes the roll-input scope grants (CR-25)', () => {
+    render(<RollsConfigPanel />);
+    clickEdit();
+
+    fireEvent.change(inputBox(), { target: { value: 'ST' } });
+
+    // Whatever `scoping.ts` says a roll input may name is what the editor completes — the list is
+    // read from `scopeFor`, not mapped from `config.stats` beside it
+    const granted = Array.from(scopeFor(createConfig(), 'roll-input').codes).filter((code) =>
+      code.startsWith('ST')
+    );
+    expect(granted).toEqual(['STR']);
+    for (const code of granted) {
+      expect(screen.getByRole('button', { name: code })).toBeDefined();
+    }
+    expect(screen.queryByRole('button', { name: 'DEX' })).toBeNull();
   });
 
   it('should prompt for a ladder rather than opening the picker blank', () => {
