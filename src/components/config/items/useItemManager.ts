@@ -1,7 +1,13 @@
 /**
  * Item Manager Hook
  *
- * Manages items and equipment slots CRUD operations and form state.
+ * Manages item CRUD operations and form state.
+ *
+ * **Equipment slots are not this hook's** (CR-20). It used to carry a second, complete
+ * implementation of slot CRUD beside `useEquipmentSlotManager`, and `/config/items` mounted both
+ * panels — so the page showed two "Add Equipment Slot" buttons, two dialogs and two slot lists for
+ * one entity, and any change to how a slot works had to be made twice. The slots the hook still
+ * reads are **read-only** here: an item names one, and the card and the form dialog spell it.
  *
  * **Validates: Requirements 7.1, 7.2, 7.3, 7.4**
  */
@@ -9,11 +15,8 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useConfigStore } from '../../../stores/configStore';
-import type { EquipmentSlot, Item } from '../../../types';
+import type { Item } from '../../../types';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
-// The slot half of this hook duplicates `useEquipmentSlotManager` (CR-20); until that is resolved
-// the two at least share one form shape rather than three declarations of it
-import type { EquipmentSlotFormData } from './useEquipmentSlotManager';
 
 export interface ItemFormData {
   name: string;
@@ -29,16 +32,11 @@ export function useItemManager() {
   const addItem = useConfigStore((state) => state.addItem);
   const updateItem = useConfigStore((state) => state.updateItem);
   const deleteItem = useConfigStore((state) => state.deleteItem);
-  const addEquipmentSlot = useConfigStore((state) => state.addEquipmentSlot);
-  const updateEquipmentSlot = useConfigStore((state) => state.updateEquipmentSlot);
-  const deleteEquipmentSlot = useConfigStore((state) => state.deleteEquipmentSlot);
 
   const { blocked, attemptDelete, dismissBlocked } = useGuardedDelete();
 
   const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
-  const [isEquipmentSlotDialogOpen, setIsEquipmentSlotDialogOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [editingEquipmentSlotType, setEditingEquipmentSlotType] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   const itemForm = useForm<ItemFormData>({
@@ -52,16 +50,9 @@ export function useItemManager() {
     },
   });
 
-  const equipmentSlotForm = useForm<EquipmentSlotFormData>({
-    defaultValues: {
-      type: '',
-      name: '',
-      description: '',
-    },
-  });
-
   const items = config?.items || [];
   const materials = config?.materials || [];
+  /** Read-only: which slots an item may be assigned to, and how to spell the one it has */
   const equipmentSlots = config?.equipmentSlots || [];
   // For spelling a material tier's stat modifiers on the item card (TICKET-MAT-01)
   const stats = config?.stats || [];
@@ -73,7 +64,6 @@ export function useItemManager() {
   const filteredItems =
     categoryFilter === 'all' ? items : items.filter((item) => item.categoryId === categoryFilter);
 
-  // Item handlers
   const handleAddItem = () => {
     setEditingItemId(null);
     itemForm.reset({
@@ -128,50 +118,6 @@ export function useItemManager() {
     setIsItemDialogOpen(false);
   });
 
-  // Equipment Slot handlers
-  const handleAddEquipmentSlot = () => {
-    setEditingEquipmentSlotType(null);
-    equipmentSlotForm.reset({
-      type: '',
-      name: '',
-      description: '',
-    });
-    setIsEquipmentSlotDialogOpen(true);
-  };
-
-  const handleEditEquipmentSlot = (type: string) => {
-    const slot = equipmentSlots.find((s) => s.type === type);
-    if (!slot) return;
-
-    setEditingEquipmentSlotType(type);
-    equipmentSlotForm.reset({
-      type: slot.type,
-      name: slot.name,
-      description: slot.description,
-    });
-    setIsEquipmentSlotDialogOpen(true);
-  };
-
-  const handleDeleteEquipmentSlot = (type: string) => {
-    attemptDelete(`Equipment slot ${type}`, (options) => deleteEquipmentSlot(type, options));
-  };
-
-  const handleSaveEquipmentSlot = equipmentSlotForm.handleSubmit((data) => {
-    const slot: EquipmentSlot = {
-      type: data.type,
-      name: data.name,
-      description: data.description,
-    };
-
-    if (editingEquipmentSlotType) {
-      updateEquipmentSlot(editingEquipmentSlotType, slot);
-    } else {
-      addEquipmentSlot(slot);
-    }
-
-    setIsEquipmentSlotDialogOpen(false);
-  });
-
   return {
     blocked,
     dismissBlocked,
@@ -186,19 +132,11 @@ export function useItemManager() {
     setCategoryFilter,
     isItemDialogOpen,
     setIsItemDialogOpen,
-    isEquipmentSlotDialogOpen,
-    setIsEquipmentSlotDialogOpen,
     editingItemId,
-    editingEquipmentSlotType,
     itemForm,
-    equipmentSlotForm,
     handleAddItem,
     handleEditItem,
     handleDeleteItem,
     handleSaveItem,
-    handleAddEquipmentSlot,
-    handleEditEquipmentSlot,
-    handleDeleteEquipmentSlot,
-    handleSaveEquipmentSlot,
   };
 }

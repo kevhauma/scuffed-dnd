@@ -17,7 +17,7 @@ describe('ItemsConfigPanel', () => {
 
   it('renders without crashing', () => {
     render(<ItemsConfigPanel />);
-    expect(screen.getByText('Items & Equipment')).toBeDefined();
+    expect(screen.getByRole('heading', { name: 'Items' })).toBeDefined();
   });
 
   it('displays add item button', () => {
@@ -25,9 +25,12 @@ describe('ItemsConfigPanel', () => {
     expect(screen.getByText('Add Item')).toBeDefined();
   });
 
-  it('displays add equipment slot button', () => {
+  it('does not manage equipment slots itself (CR-20)', () => {
     render(<ItemsConfigPanel />);
-    expect(screen.getByText('Add Equipment Slot')).toBeDefined();
+
+    // `EquipmentSlotsConfigPanel` owns the slot flow, and `/config/items` mounts it below this
+    // one — a second Add button and a second dialog here were two copies of the same entity
+    expect(screen.queryByRole('button', { name: 'Add Equipment Slot' })).toBeNull();
   });
 
   it('shows warning when no materials configured', () => {
@@ -35,9 +38,9 @@ describe('ItemsConfigPanel', () => {
     expect(screen.getByText(/No materials configured yet/)).toBeDefined();
   });
 
-  it('shows warning when no equipment slots configured', () => {
+  it('points at the panel below when no equipment slots are configured', () => {
     render(<ItemsConfigPanel />);
-    expect(screen.getByText(/No equipment slots configured yet/)).toBeDefined();
+    expect(screen.getByText(/Equipment Slots panel below/)).toBeDefined();
   });
 
   it('shows empty state when no items configured', () => {

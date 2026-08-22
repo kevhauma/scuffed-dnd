@@ -359,7 +359,11 @@ card with its title, description and `actions`, the amber `prerequisites` notes,
 hand-written header. **Two entities on one route means two panels composed at the route**
 (`/config/items`, `/config/skills`, `/config/rolls`), each with its own shell and its own
 blocked-delete dialog — not one panel with two managers, which forces the second entity's header to
-be hand-written at a different heading level than the shell emits. Its siblings are
+be hand-written at a different heading level than the shell emits. **And one entity means one
+manager**: `useItemManager` carried a whole second copy of slot CRUD beside
+`useEquipmentSlotManager` while the route mounted both panels, so the page showed two Add buttons,
+two dialogs and two lists for one entity (CR-20). A panel that only *reads* another entity — an
+item names a slot — reads it from the config and points at the panel that owns it. Its siblings are
 `ConfigEmptyState` (the "No X configured yet" card, next to
 a list rather than a shell prop, because a section can have more than one list) and
 `NoConfigurationNotice`. Panel-specific content goes in `headerExtra` or `children`; **don't add a

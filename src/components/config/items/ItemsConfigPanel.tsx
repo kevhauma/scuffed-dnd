@@ -1,9 +1,15 @@
 /**
  * Items Configuration Panel
  *
- * Manages items and equipment slots with filtering, material assignment, and equipment slot selection.
+ * Manages items with filtering, material assignment, and equipment slot selection.
  *
- * **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 7.5, 21.1-21.5**
+ * **Slots are defined in `EquipmentSlotsConfigPanel`, not here** (CR-20). This panel used to carry
+ * its own slot list, its own "Add Equipment Slot" button and its own dialog, all of it a second
+ * copy of what that panel already does — and `/config/items` mounts both, so the page showed each
+ * of those things twice. What is left is the one thing an item needs from a slot: to name it, with
+ * a prerequisite note pointing down the page when there are none.
+ *
+ * **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 21.1-21.5**
  */
 
 import { Button } from '../../ui/Button/Button';
@@ -12,7 +18,6 @@ import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
 import { ConfigEmptyState } from '../shared/ConfigEmptyState';
 import { ConfigPanelShell, NoConfigurationNotice } from '../shared/ConfigPanelShell';
-import { EquipmentSlotFormDialog } from './EquipmentSlotFormDialog';
 import { ItemCard } from './ItemCard';
 import { ItemFormDialog } from './ItemFormDialog';
 import { useItemManager } from './useItemManager';
@@ -29,20 +34,12 @@ export function ItemsConfigPanel() {
     setCategoryFilter,
     isItemDialogOpen,
     setIsItemDialogOpen,
-    isEquipmentSlotDialogOpen,
-    setIsEquipmentSlotDialogOpen,
     editingItemId,
-    editingEquipmentSlotType,
     itemForm,
-    equipmentSlotForm,
     handleAddItem,
     handleEditItem,
     handleDeleteItem,
     handleSaveItem,
-    handleAddEquipmentSlot,
-    handleEditEquipmentSlot,
-    handleDeleteEquipmentSlot,
-    handleSaveEquipmentSlot,
     blocked,
     dismissBlocked,
   } = useItemManager();
@@ -53,76 +50,26 @@ export function ItemsConfigPanel() {
 
   return (
     <ConfigPanelShell
-      title="Items & Equipment"
-      description="Define items with materials and equipment slots"
+      title="Items"
+      description="Define items, what they are made of, and where they are worn"
       actions={
-        <>
-          <Button variant="secondary" onClick={handleAddEquipmentSlot}>
-            Add Equipment Slot
-          </Button>
-          <Button variant="primary" onClick={handleAddItem}>
-            Add Item
-          </Button>
-        </>
+        <Button variant="primary" onClick={handleAddItem}>
+          Add Item
+        </Button>
       }
       prerequisites={[
         ...(materials.length === 0
           ? ['No materials configured yet. Add materials first to assign them to items.']
           : []),
         ...(equipmentSlots.length === 0
-          ? ['No equipment slots configured yet. Add equipment slots to make items equippable.']
+          ? [
+              'No equipment slots configured yet. Add them in the Equipment Slots panel below to make items equippable.',
+            ]
           : []),
       ]}
       blocked={blocked}
       onCloseBlocked={dismissBlocked}
     >
-      {/* Equipment Slots Section */}
-      {equipmentSlots.length > 0 && (
-        <Card className="p-6">
-          <Text variant="body" className="font-semibold mb-3">
-            Equipment Slots
-          </Text>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {equipmentSlots.map((slot) => (
-              <div key={slot.type} className="p-3 bg-parchment-50 border border-stone-200 rounded">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <Text variant="body-small" className="font-semibold">
-                      {slot.name}
-                    </Text>
-                    <Text variant="body-small-secondary" className="text-xs">
-                      ({slot.type})
-                    </Text>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleEditEquipmentSlot(slot.type)}
-                      className="text-xs px-2 py-0.5"
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="danger"
-                      onClick={() => handleDeleteEquipmentSlot(slot.type)}
-                      className="text-xs px-2 py-0.5"
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-                {slot.description && (
-                  <Text variant="body-small-secondary" className="text-xs">
-                    {slot.description}
-                  </Text>
-                )}
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Items Section */}
       <Card className="p-6">
         <div className="flex justify-between items-center mb-4">
           <Text variant="body" className="font-semibold">
@@ -186,15 +133,6 @@ export function ItemsConfigPanel() {
         equipmentSlots={equipmentSlots}
         onClose={() => setIsItemDialogOpen(false)}
         onSave={handleSaveItem}
-      />
-
-      {/* Equipment Slot Form Dialog */}
-      <EquipmentSlotFormDialog
-        isOpen={isEquipmentSlotDialogOpen}
-        isEditing={!!editingEquipmentSlotType}
-        form={equipmentSlotForm}
-        onClose={() => setIsEquipmentSlotDialogOpen(false)}
-        onSave={handleSaveEquipmentSlot}
       />
     </ConfigPanelShell>
   );
