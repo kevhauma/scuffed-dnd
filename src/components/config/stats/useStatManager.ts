@@ -225,17 +225,10 @@ export function useStatManager() {
       };
     }
 
-    // The flat formula space holds **stat abbreviations and nothing else** since TICKET-ROLL-06
-    // retired the combat skill codes that used to share it. A `Skill` left it in TICKET-SKL-02
-    // (`skills.<name-slug>`) and a `RollDefinition` was never in it — nothing names a roll.
-    // A collision here would still split a formula's identity from the value it reads.
-    const taken = currentStats.some(
-      (stat) => stat.abbreviation.toUpperCase() === abbreviation && stat.id !== editingStatId
-    );
-
-    if (taken) {
-      return { field: 'abbreviation', message: `${abbreviation} is already in use` };
-    }
+    // The abbreviation-is-taken rule is **not** checked here any more (CR-17): it lives in
+    // `addStat`/`updateStat`, which every write path goes through, and this hook renders whatever
+    // they refuse. Duplicating it would be the advisory check the store's own `guardedDelete`
+    // docstring rejects as insufficient.
 
     // An empty formula is not a broken one — it is an invested stat, with nothing to validate
     if (!formula) return null;
@@ -282,12 +275,22 @@ export function useStatManager() {
       rounding: data.rounding,
     };
 
-    if (editingStatId) {
-      // Spelled out rather than merged: `formula` and the bounds are optional, and a shallow
-      // merge would keep a bound or a formula the User just cleared
-      updateStat(editingStatId, { ...stat, formula: formula || undefined, min, max });
-    } else {
-      addStat(stat);
+    // The store owns the uniqueness invariant and hands back its refusal (CR-17); the dialog stays
+    // open with the message on the field that collided
+    const collision = editingStatId
+      ? // Spelled out rather than merged: `formula` and the bounds are optional, and a shallow
+        // merge would keep a bound or a formula the User just cleared
+        updateStat(editingStatId, { ...stat, formula: formula || undefined, min, max })
+      : addStat(stat);
+
+    if (collision) {
+      // An id collision cannot come from this dialog — ids are minted here — so the only field a
+      // User can act on is the abbreviation
+      form.setError(collision.field === 'abbreviation' ? 'abbreviation' : 'name', {
+        type: 'validate',
+        message: collision.message,
+      });
+      return;
     }
 
     setIsDialogOpen(false);

@@ -190,6 +190,59 @@ describe('ConfigStore', () => {
       expect(storage.saveConfiguration).toHaveBeenCalled();
     });
 
+    it('should refuse an abbreviation another stat already holds, in any case (CR-17)', () => {
+      const stat: Stat = {
+        id: 'health',
+        name: 'Health',
+        abbreviation: 'HEA',
+        description: 'Hit points',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: true,
+        rounding: 'none',
+      };
+
+      useConfigStore.getState().addStat(stat);
+      vi.clearAllMocks();
+
+      // Lowercase, because `scopeFor` uppercases an abbreviation into the flat space — `hea` and
+      // `HEA` are one reference no matter how they are stored
+      const refusal = useConfigStore
+        .getState()
+        .addStat({ ...stat, id: 'hardiness', name: 'Hardiness', abbreviation: 'hea' });
+
+      expect(refusal).toMatchObject({ field: 'abbreviation', value: 'hea' });
+      expect(refusal?.message).toContain('"Health"');
+      expect(useConfigStore.getState().config?.stats).toHaveLength(1);
+      expect(storage.saveConfiguration).not.toHaveBeenCalled();
+    });
+
+    it('should refuse a patch that moves an abbreviation onto another stat (CR-17)', () => {
+      const base = {
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none' as const,
+      };
+
+      useConfigStore
+        .getState()
+        .addStat({ ...base, id: 'str', name: 'Strength', abbreviation: 'STR' });
+      useConfigStore
+        .getState()
+        .addStat({ ...base, id: 'dex', name: 'Dexterity', abbreviation: 'DEX' });
+      vi.clearAllMocks();
+
+      const refusal = useConfigStore.getState().updateStat('dex', { abbreviation: 'STR' });
+
+      expect(refusal?.field).toBe('abbreviation');
+      expect(
+        useConfigStore.getState().config?.stats.find((stat) => stat.id === 'dex')?.abbreviation
+      ).toBe('DEX');
+      expect(storage.saveConfiguration).not.toHaveBeenCalled();
+    });
+
     it('should update stat', () => {
       const stat: Stat = {
         id: 'health',
@@ -1147,6 +1200,38 @@ describe('ConfigStore', () => {
       );
     });
 
+    it('refuses a name another constant already holds, writing nothing (CR-17)', () => {
+      const before = useConfigStore.getState().config?.constants?.length;
+
+      const refusal = useConfigStore.getState().addConstant({
+        id: 'id-clash',
+        name: 'bonus_divider',
+        displayName: 'Another divider',
+        description: '',
+        value: 7,
+      });
+
+      expect(refusal).toMatchObject({ field: 'name', value: 'bonus_divider' });
+      expect(useConfigStore.getState().config?.constants?.length).toBe(before);
+      expect(storage.saveConfiguration).not.toHaveBeenCalled();
+    });
+
+    it('refuses a rename onto another constant, writing nothing (CR-17)', () => {
+      const apt = useConfigStore
+        .getState()
+        .config?.constants?.find((constant) => constant.name === 'apt_value');
+
+      const refusal = useConfigStore
+        .getState()
+        .updateConstant(apt?.id as string, { name: 'bonus_divider' });
+
+      expect(refusal?.field).toBe('name');
+      expect(useConfigStore.getState().config?.constants?.find((c) => c.id === apt?.id)?.name).toBe(
+        'apt_value'
+      );
+      expect(storage.saveConfiguration).not.toHaveBeenCalled();
+    });
+
     it('re-spells every formula naming a constant when its identifier is renamed', () => {
       useConfigStore.getState().addStat({
         id: 'id-hp',
@@ -1217,6 +1302,20 @@ describe('ConfigStore', () => {
       expect(useConfigStore.getState().deleteCurve('id-xp')).toEqual([]);
       expect(stored()).toBeUndefined();
       expect(storage.saveConfiguration).toHaveBeenCalledTimes(3);
+    });
+
+    it('refuses a second curve with the same name or the same id, writing nothing (CR-17)', () => {
+      useConfigStore.getState().addCurve(curve);
+      vi.clearAllMocks();
+
+      const sameName = useConfigStore.getState().addCurve({ ...curve, id: 'id-other' });
+      expect(sameName).toMatchObject({ field: 'name', value: 'xp_table' });
+
+      const sameId = useConfigStore.getState().addCurve({ ...curve, name: 'other_table' });
+      expect(sameId).toMatchObject({ field: 'id', value: 'id-xp' });
+
+      expect(useConfigStore.getState().config?.curves).toHaveLength(SEEDED + 1);
+      expect(storage.saveConfiguration).not.toHaveBeenCalled();
     });
 
     it('refuses to delete a curve a formula calls, and says which', () => {

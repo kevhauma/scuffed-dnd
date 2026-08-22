@@ -106,6 +106,8 @@ const ISSUE_SOURCES: readonly ((config: Configuration) => ValidationIssue[])[] =
   pointBuyCurveIssues,
   currencyTierIssues,
   statAbbreviationIssues,
+  duplicateNameIssues,
+  duplicateIdIssues,
   curveIssues,
   diceLadderIssues,
   rollDefinitionIssues,
@@ -540,15 +542,10 @@ function currencyTierIssues(config: Configuration): ValidationIssue[] {
  * @returns One issue per abbreviation with more than one owner
  */
 function statAbbreviationIssues(config: Configuration): ValidationIssue[] {
-  const byAbbreviation = new Map<string, string[]>();
-  for (const stat of config.stats) {
-    const owners = byAbbreviation.get(stat.abbreviation);
-    if (owners) {
-      owners.push(stat.name);
-    } else {
-      byAbbreviation.set(stat.abbreviation, [stat.name]);
-    }
-  }
+  // Compared uppercased, the way `scopeFor` spells an abbreviation into the flat space, so `str`
+  // and `STR` are the one slot they actually resolve to — and the same comparison the store's
+  // `addStat`/`updateStat` guard now refuses on (CR-17)
+  const byAbbreviation = groupBy(config.stats, (stat) => stat.abbreviation.trim().toUpperCase());
 
   return [...byAbbreviation.entries()]
     .filter(([, owners]) => owners.length > 1)
@@ -559,9 +556,111 @@ function statAbbreviationIssues(config: Configuration): ValidationIssue[] {
       // combat codes with the entity in ROLL-06, so the old message named something that no
       // longer exists — to a User staring at two stats
       message: `Duplicate stat abbreviation "${abbreviation}" used by: ${owners
-        .map((name) => `Stat "${name}"`)
+        .map((stat) => `Stat "${stat.name}"`)
         .join(', ')}`,
     }));
+}
+
+/**
+ * Constant and curve names claimed by more than one entity (CR-17)
+ *
+ * Neither had a check here, while `importExport.ts` has refused both since they were added — so a
+ * ruleset the store accepted and the engine validated could be refused by the app's own import. A
+ * duplicate also splits identity from value: a stored formula points at one entity's id while the
+ * resolver, which is first-wins on the spelling, reads the other's number or table.
+ *
+ * @param config - The ruleset to check
+ * @returns One issue per name with more than one owner
+ */
+function duplicateNameIssues(config: Configuration): ValidationIssue[] {
+  const spaces: {
+    entityType: string;
+    noun: string;
+    /** Both spaces are `{ name, displayName }` — the formula spelling and what a User reads */
+    entities: readonly { id: string; name: string; displayName: string }[];
+  }[] = [
+    { entityType: 'constant', noun: 'constant', entities: config.constants ?? [] },
+    { entityType: 'curve', noun: 'curve', entities: config.curves ?? [] },
+  ];
+
+  return spaces.flatMap(({ entityType, noun, entities }) =>
+    [...groupBy(entities, (entity) => entity.name).entries()]
+      .filter(([, owners]) => owners.length > 1)
+      .map(([name, owners]) => ({
+        severity: 'error' as const,
+        category: 'Uniqueness Validation',
+        message: `Duplicate ${noun} name "${name}" used by: ${owners
+          .map((owner) => `"${owner.displayName}"`)
+          .join(', ')}`,
+        entityType,
+        entityId: owners[0].id,
+        entityName: owners[0].displayName,
+      }))
+  );
+}
+
+/**
+ * Ids claimed by more than one entity of the same kind (CR-17)
+ *
+ * Checked by neither validator before, and an id collision is worse than a name collision: the
+ * stored form of every formula is ids, so two entities sharing one make a reference genuinely
+ * ambiguous rather than merely first-wins on a spelling. Deletes, patches and lookups all address
+ * by id, so a duplicate makes every one of them hit whichever came first.
+ *
+ * @param config - The ruleset to check
+ * @returns One issue per id with more than one owner, per collection
+ */
+function duplicateIdIssues(config: Configuration): ValidationIssue[] {
+  const collections: { entityType: string; entities: readonly { id: string; name?: string }[] }[] =
+    [
+      { entityType: 'stat', entities: config.stats },
+      { entityType: 'skill', entities: config.skills },
+      { entityType: 'material', entities: config.materials },
+      { entityType: 'materialCategory', entities: config.materialCategories },
+      { entityType: 'item', entities: config.items },
+      { entityType: 'race', entities: config.races },
+      { entityType: 'currencyTier', entities: config.currencyTiers },
+      { entityType: 'archetype', entities: config.archetypes ?? [] },
+      { entityType: 'constant', entities: config.constants ?? [] },
+      { entityType: 'curve', entities: config.curves ?? [] },
+      { entityType: 'diceLadder', entities: config.diceLadders ?? [] },
+      { entityType: 'rollDefinition', entities: config.rollDefinitions ?? [] },
+    ];
+
+  return collections.flatMap(({ entityType, entities }) =>
+    [...groupBy(entities, (entity) => entity.id).entries()]
+      .filter(([, owners]) => owners.length > 1)
+      .map(([id, owners]) => ({
+        severity: 'error' as const,
+        category: 'Uniqueness Validation',
+        message: `${owners.length} ${entityType}s share the id "${id}", so a formula or a delete naming it reaches whichever comes first`,
+        entityType,
+        entityId: id,
+        entityName: owners[0].name,
+      }))
+  );
+}
+
+/**
+ * Group entities by a key, keeping each group in source order
+ *
+ * Source order is what makes the first member of a group the one first-wins resolution answers
+ * with, which several messages here name.
+ */
+function groupBy<T>(entities: readonly T[], keyOf: (entity: T) => string): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+
+  for (const entity of entities) {
+    const key = keyOf(entity);
+    const group = groups.get(key);
+    if (group) {
+      group.push(entity);
+    } else {
+      groups.set(key, [entity]);
+    }
+  }
+
+  return groups;
 }
 
 /**
@@ -642,19 +741,7 @@ function slugCollisionWarnings<T extends { id: string; name: string }>(
   entityType: string,
   slugOf: (entity: T) => string
 ): ValidationIssue[] {
-  const bySlug = new Map<string, T[]>();
-
-  for (const entity of entities) {
-    const slug = slugOf(entity);
-    const group = bySlug.get(slug);
-    if (group) {
-      group.push(entity);
-    } else {
-      bySlug.set(slug, [entity]);
-    }
-  }
-
-  return [...bySlug.entries()]
+  return [...groupBy(entities, slugOf).entries()]
     .filter(([, group]) => group.length > 1)
     .map(([slug, group]) => ({
       severity: 'warning' as const,

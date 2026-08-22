@@ -390,6 +390,59 @@ describe('validateConfiguration', () => {
       expect(duplicate?.category).toBe('Uniqueness Validation');
     });
 
+    it('should read a duplicate abbreviation case-insensitively (CR-17)', () => {
+      const config = createMinimalConfig();
+      config.stats = [stat('str', 'Strength', 'STR'), stat('stm', 'Stamina', 'str')];
+
+      const result = validateConfiguration(config);
+
+      // `scopeFor` uppercases both into the flat space, so they are one reference — the store's
+      // guard refuses this pair and the validator now agrees
+      expect(
+        result.errors.some((error) => error.message.includes('Duplicate stat abbreviation'))
+      ).toBe(true);
+    });
+
+    it('should report duplicate constant and curve names, which import already refuses (CR-17)', () => {
+      const config = createMinimalConfig();
+      config.constants = [
+        {
+          id: 'c1',
+          name: 'bonus_divider',
+          displayName: 'Bonus divider',
+          description: '',
+          value: 30,
+        },
+        {
+          id: 'c2',
+          name: 'bonus_divider',
+          displayName: 'Other divider',
+          description: '',
+          value: 40,
+        },
+      ];
+
+      const result = validateConfiguration(config);
+      const duplicate = result.errors.find((error) => error.message.includes('constant name'));
+
+      expect(duplicate?.message).toBe(
+        'Duplicate constant name "bonus_divider" used by: "Bonus divider", "Other divider"'
+      );
+      expect(duplicate?.category).toBe('Uniqueness Validation');
+    });
+
+    it('should report two entities sharing one id (CR-17)', () => {
+      const config = createMinimalConfig();
+      config.stats = [stat('same', 'Strength', 'STR'), stat('same', 'Stamina', 'STM')];
+
+      const result = validateConfiguration(config);
+      const duplicate = result.errors.find((error) => error.message.includes('share the id'));
+
+      // Worse than a name collision: the stored form of every formula is ids
+      expect(duplicate?.message).toContain('2 stats share the id "same"');
+      expect(result.isValid).toBe(false);
+    });
+
     it('should detect empty formulas', () => {
       const config = createMinimalConfig();
       config.stats = [

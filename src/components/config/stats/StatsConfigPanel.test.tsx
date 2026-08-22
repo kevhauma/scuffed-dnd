@@ -243,7 +243,8 @@ describe('StatsConfigPanel', () => {
       openAddDialogWith('Mana Pool', 'MAN');
       fireEvent.click(dialog().getByRole('button', { name: 'Add Stat' }));
 
-      expect(await screen.findByText('MAN is already in use')).toBeDefined();
+      // The refusal is the store's since CR-17, and it names who holds the abbreviation
+      expect(await screen.findByText('MAN is already used by "Mana"')).toBeDefined();
       // Refused, not saved
       expect(useConfigStore.getState().config?.stats).toHaveLength(3);
     });

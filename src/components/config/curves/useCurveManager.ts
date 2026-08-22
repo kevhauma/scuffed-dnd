@@ -25,6 +25,7 @@ import { flagColumnAsOverridden } from '../../../engine/curveGenerator';
 import { type EntityReference, findReferences } from '../../../engine/dependencies';
 import { validateFormulaChange } from '../../../engine/formula/formulaChange';
 import { scopeFor } from '../../../engine/formula/scoping';
+import type { UniquenessRefusal } from '../../../stores/configStore';
 import { useConfigStore } from '../../../stores/configStore';
 import type { Curve, CurveColumn } from '../../../types';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
@@ -135,14 +136,13 @@ export function useCurveManager() {
       return;
     }
 
-    if (curves.some((curve) => curve.name === name && curve.id !== editingCurveId)) {
-      curveForm.setError('name', { message: `A curve named ${name} already exists` });
-      return;
-    }
+    // The name-is-taken rule lives in `addCurve`/`updateCurve` (CR-17), which every write path goes
+    // through; this renders what they refuse
+    let collision: UniquenessRefusal | null = null;
 
     if (editingCurveId) {
       // The rename-safe update, so re-spelling a curve re-spells every formula calling it
-      updateCurve(editingCurveId, {
+      collision = updateCurve(editingCurveId, {
         name,
         displayName: data.displayName,
         description: data.description,
@@ -165,7 +165,12 @@ export function useCurveManager() {
         outOfRange: 'error',
         lookupDirection: 'forward',
       };
-      addCurve(curve);
+      collision = addCurve(curve);
+    }
+
+    if (collision) {
+      curveForm.setError('name', { message: collision.message });
+      return;
     }
 
     setIsCurveDialogOpen(false);

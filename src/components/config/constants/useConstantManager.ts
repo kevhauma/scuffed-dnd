@@ -113,15 +113,8 @@ export function useConstantManager() {
       return;
     }
 
-    const taken = constants.some(
-      (constant) => constant.name === name && constant.id !== editingConstantId
-    );
-    if (taken) {
-      // Two constants sharing a name split identity from value: a formula points at one id while
-      // the resolver reads the other's number (TICKET-CST-01).
-      form.setError('name', { message: `A constant named ${name} already exists` });
-      return;
-    }
+    // The name-is-taken rule is the store's (CR-17) — two constants sharing a name split identity
+    // from value, and every write path has to answer for that, not just this dialog
 
     const unit = data.unit.trim();
     const constant: Constant = {
@@ -134,13 +127,16 @@ export function useConstantManager() {
       ...(unit ? { unit } : {}),
     };
 
-    if (editingConstantId) {
-      // Goes through the store's rename-safe update, so renaming re-spells every formula. The
-      // unit is spelled out rather than omitted: `updateConstant` shallow-merges, where a missing
-      // key means "unchanged", so an emptied field would otherwise come straight back.
-      updateConstant(editingConstantId, { ...constant, unit: unit || undefined });
-    } else {
-      addConstant(constant);
+    const collision = editingConstantId
+      ? // Goes through the store's rename-safe update, so renaming re-spells every formula. The
+        // unit is spelled out rather than omitted: `updateConstant` shallow-merges, where a missing
+        // key means "unchanged", so an emptied field would otherwise come straight back.
+        updateConstant(editingConstantId, { ...constant, unit: unit || undefined })
+      : addConstant(constant);
+
+    if (collision) {
+      form.setError('name', { message: collision.message });
+      return;
     }
 
     setIsDialogOpen(false);

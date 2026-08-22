@@ -60,6 +60,30 @@ export interface DeleteOptions {
 }
 
 /**
+ * Why a write was refused for colliding with something already in the ruleset (CR-17)
+ *
+ * The write counterpart to `guardedDelete`'s `EntityReference[]`, and it exists for the same reason
+ * that docstring gives: an advisory check in the UI is a check that can be bypassed. The managers
+ * did enforce these rules, so nothing the dialogs could do was wrong — but any other write path (a
+ * bulk action, a test, direct store use) could persist a ruleset that saves fine, engine-validates
+ * fine, and is then **refused by the app's own import**. An export that cannot round-trip is the
+ * concrete cost.
+ *
+ * Duplicate names also interact with first-wins formula resolution (CR-18) to make a formula bind
+ * to the wrong entity, which is why the store refuses rather than warns.
+ *
+ * `null` from an action means the write landed; a refusal means nothing was written.
+ */
+export interface UniquenessRefusal {
+  /** Which identity slot was already taken */
+  field: 'id' | 'abbreviation' | 'name';
+  /** The value that is taken */
+  value: string;
+  /** What holds it already, as a sentence a dialog can render verbatim */
+  message: string;
+}
+
+/**
  * Configuration store state
  */
 interface ConfigState {
@@ -81,8 +105,16 @@ interface ConfigState {
   discardStoredData: () => void;
 
   // Stats CRUD
-  addStat: (stat: Stat) => void;
-  updateStat: (id: string, updates: Partial<Stat>) => void;
+  /**
+   * Write a new stat, or refuse it for taking an id or abbreviation already in use
+   *
+   * Nullable since CR-17, the way the deletes have been guarded since TICKET-REF-02: the invariant
+   * lives in the action rather than in the dialog, so no write path can bypass it. See
+   * {@link UniquenessRefusal}.
+   */
+  addStat: (stat: Stat) => UniquenessRefusal | null;
+  /** Patch a stat, refusing a patch that would take another stat's abbreviation (CR-17) */
+  updateStat: (id: string, updates: Partial<Stat>) => UniquenessRefusal | null;
   deleteStat: (id: string, options?: DeleteOptions) => EntityReference[];
   /**
    * Put the stats in the given order and renumber `order` to match (TICKET-STAT-02)
@@ -138,13 +170,17 @@ interface ConfigState {
   deleteCurrencyTier: (id: string, options?: DeleteOptions) => EntityReference[];
 
   // Constants CRUD
-  addConstant: (constant: Constant) => void;
-  updateConstant: (id: string, updates: Partial<Constant>) => void;
+  /** Write a new constant, refusing an id or name already in use (CR-17) */
+  addConstant: (constant: Constant) => UniquenessRefusal | null;
+  /** Patch a constant, refusing a rename onto another constant's name (CR-17) */
+  updateConstant: (id: string, updates: Partial<Constant>) => UniquenessRefusal | null;
   deleteConstant: (id: string, options?: DeleteOptions) => EntityReference[];
 
   // Curves CRUD
-  addCurve: (curve: Curve) => void;
-  updateCurve: (id: string, updates: Partial<Curve>) => void;
+  /** Write a new curve, refusing an id or name already in use (CR-17) */
+  addCurve: (curve: Curve) => UniquenessRefusal | null;
+  /** Patch a curve, refusing a rename onto another curve's name (CR-17) */
+  updateCurve: (id: string, updates: Partial<Curve>) => UniquenessRefusal | null;
   deleteCurve: (id: string, options?: DeleteOptions) => EntityReference[];
   /** Refill a curve's generated cells, keeping every override (TICKET-CRV-02) */
   regenerateCurve: (id: string) => RegenerationReport;
@@ -519,6 +555,161 @@ function guardedDelete(
 }
 
 /**
+ * The entity already holding a value, or `undefined` when the slot is free
+ *
+ * @param entities - The collection the candidate is joining
+ * @param selfId - The id of the entity being edited, which cannot collide with itself
+ * @param candidateKey - The value being claimed, normalised the same way `keyOf` normalises
+ * @param keyOf - How a stored entity's value is read for comparison
+ */
+function heldBy<T extends { id: string }>(
+  entities: readonly T[],
+  selfId: string | undefined,
+  candidateKey: string,
+  keyOf: (entity: T) => string
+): T | undefined {
+  return entities.find((entity) => entity.id !== selfId && keyOf(entity) === candidateKey);
+}
+
+/**
+ * The flat formula space uppercases a stat's abbreviation, so `str` and `STR` are one slot
+ *
+ * `scopeFor` adds `stat.abbreviation.toUpperCase()`, which means the two would resolve to the same
+ * reference no matter how they are stored. Comparing case-insensitively here is deliberately
+ * stricter than the import check (which requires uppercase outright and then compares exactly) —
+ * strictly stricter is the safe direction: the store can never persist something import refuses.
+ */
+function abbreviationKey(abbreviation: string): string {
+  return abbreviation.trim().toUpperCase();
+}
+
+/**
+ * Whether a stat write would take an id or an abbreviation another stat already holds
+ *
+ * @param config - The ruleset being written to
+ * @param selfId - The stat being edited, or `undefined` for an addition
+ * @param candidate - The fields being written; an absent key is not being changed
+ * @returns The refusal, or `null` when the write may go through
+ */
+function statCollision(
+  config: Configuration,
+  selfId: string | undefined,
+  candidate: { id?: string; abbreviation?: string }
+): UniquenessRefusal | null {
+  if (candidate.id !== undefined) {
+    const owner = heldBy(config.stats, selfId, candidate.id, (stat) => stat.id);
+    if (owner) {
+      return {
+        field: 'id',
+        value: candidate.id,
+        message: `A stat with this id already exists: "${owner.name}"`,
+      };
+    }
+  }
+
+  if (candidate.abbreviation !== undefined) {
+    const key = abbreviationKey(candidate.abbreviation);
+    const owner = heldBy(config.stats, selfId, key, (stat) => abbreviationKey(stat.abbreviation));
+    if (owner) {
+      return {
+        field: 'abbreviation',
+        value: candidate.abbreviation,
+        message: `${key} is already used by "${owner.name}"`,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Whether a constant write would take an id or a name another constant already holds
+ *
+ * A duplicate splits identity from value: the stored formula points at one constant's id while the
+ * resolver reads the other's number (TICKET-CST-01). Names are compared exactly — they are
+ * lowercase identifiers by the same rule the import enforces.
+ *
+ * @param config - The ruleset being written to
+ * @param selfId - The constant being edited, or `undefined` for an addition
+ * @param candidate - The fields being written; an absent key is not being changed
+ * @returns The refusal, or `null` when the write may go through
+ */
+function constantCollision(
+  config: Configuration,
+  selfId: string | undefined,
+  candidate: { id?: string; name?: string }
+): UniquenessRefusal | null {
+  const constants = config.constants ?? [];
+
+  if (candidate.id !== undefined) {
+    const owner = heldBy(constants, selfId, candidate.id, (constant) => constant.id);
+    if (owner) {
+      return {
+        field: 'id',
+        value: candidate.id,
+        message: `A constant with this id already exists: "${owner.displayName}"`,
+      };
+    }
+  }
+
+  if (candidate.name !== undefined) {
+    const owner = heldBy(constants, selfId, candidate.name, (constant) => constant.name);
+    if (owner) {
+      return {
+        field: 'name',
+        value: candidate.name,
+        message: `A constant named ${candidate.name} already exists`,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Whether a curve write would take an id or a name another curve already holds
+ *
+ * The `constants` rule for the same reason: a stored formula points at one curve's id while the
+ * resolver reads the other's table.
+ *
+ * @param config - The ruleset being written to
+ * @param selfId - The curve being edited, or `undefined` for an addition
+ * @param candidate - The fields being written; an absent key is not being changed
+ * @returns The refusal, or `null` when the write may go through
+ */
+function curveCollision(
+  config: Configuration,
+  selfId: string | undefined,
+  candidate: { id?: string; name?: string }
+): UniquenessRefusal | null {
+  const curves = config.curves ?? [];
+
+  if (candidate.id !== undefined) {
+    const owner = heldBy(curves, selfId, candidate.id, (curve) => curve.id);
+    if (owner) {
+      return {
+        field: 'id',
+        value: candidate.id,
+        message: `A curve with this id already exists: "${owner.displayName}"`,
+      };
+    }
+  }
+
+  if (candidate.name !== undefined) {
+    const owner = heldBy(curves, selfId, candidate.name, (curve) => curve.name);
+    if (owner) {
+      return {
+        field: 'name',
+        value: candidate.name,
+        message: `A curve named ${candidate.name} already exists`,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
  * Apply one engine edit to one curve and persist the result
  *
  * The shared body of the six grid actions (TICKET-CRV-03). The engine decides what the table
@@ -606,18 +797,25 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   // Stats CRUD
   addStat: (stat: Stat) => {
     const { config } = get();
-    if (!config) return;
+    if (!config) return null;
+
+    const refusal = statCollision(config, undefined, stat);
+    if (refusal) return refusal;
 
     const updated = autoSave({
       ...config,
       stats: [...config.stats, stat],
     });
     set({ config: updated });
+    return null;
   },
 
   updateStat: (id: string, updates: Partial<Stat>) => {
     const { config } = get();
-    if (!config) return;
+    if (!config) return null;
+
+    const refusal = statCollision(config, id, updates);
+    if (refusal) return refusal;
 
     const updated = autoSave(
       applyRenameSafely(config, (current) => ({
@@ -630,6 +828,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       }))
     );
     set({ config: updated });
+    return null;
   },
 
   deleteStat: (id: string, options?: DeleteOptions) =>
@@ -913,18 +1112,25 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   // Constants CRUD
   addConstant: (constant: Constant) => {
     const { config } = get();
-    if (!config) return;
+    if (!config) return null;
+
+    const refusal = constantCollision(config, undefined, constant);
+    if (refusal) return refusal;
 
     const updated = autoSave({
       ...config,
       constants: [...(config.constants ?? []), constant],
     });
     set({ config: updated });
+    return null;
   },
 
   updateConstant: (id: string, updates: Partial<Constant>) => {
     const { config } = get();
-    if (!config) return;
+    if (!config) return null;
+
+    const refusal = constantCollision(config, id, updates);
+    if (refusal) return refusal;
 
     const updated = autoSave(
       applyRenameSafely(config, (current) => ({
@@ -935,6 +1141,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       }))
     );
     set({ config: updated });
+    return null;
   },
 
   deleteConstant: (id: string, options?: DeleteOptions) =>
@@ -946,18 +1153,25 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   // Curves CRUD
   addCurve: (curve: Curve) => {
     const { config } = get();
-    if (!config) return;
+    if (!config) return null;
+
+    const refusal = curveCollision(config, undefined, curve);
+    if (refusal) return refusal;
 
     const updated = autoSave({
       ...config,
       curves: [...(config.curves ?? []), curve],
     });
     set({ config: updated });
+    return null;
   },
 
   updateCurve: (id: string, updates: Partial<Curve>) => {
     const { config } = get();
-    if (!config) return;
+    if (!config) return null;
+
+    const refusal = curveCollision(config, id, updates);
+    if (refusal) return refusal;
 
     const updated = autoSave(
       applyRenameSafely(config, (current) => ({
@@ -968,6 +1182,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       }))
     );
     set({ config: updated });
+    return null;
   },
 
   deleteCurve: (id: string, options?: DeleteOptions) =>
