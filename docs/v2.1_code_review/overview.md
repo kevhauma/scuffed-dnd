@@ -53,21 +53,46 @@ cycle — still a refusal, different message. A brand-new stat that names itself
 ## Medium — correctness edges, missing guards, structural debt
 
 - [x] [CR-08 Phantom cycles from missing DFS backtracking](findings/CR-08-phantom-cycles-from-dfs-backtracking.md) — reports cycles along nonexistent edges; fix with CR-01. *(engine, repro-confirmed)*
-- [ ] [CR-09 Tokenizer silently truncates malformed numbers](findings/CR-09-tokenizer-truncates-malformed-numbers.md) — `1.2.3` validates and evaluates as `1.2`. *(engine, repro-confirmed)*
-- [ ] [CR-10 `skills.<name>.level` documented but rejected](findings/CR-10-skills-level-documented-but-rejected.md) — four doc sites vs one resolver. *(engine)*
-- [ ] [CR-11 Storage quota/write errors never caught](findings/CR-11-storage-errors-thrown-but-never-caught.md) — edits silently fail to persist when LocalStorage is full. *(stores)*
-- [ ] [CR-12 `updateCharacter` accepts an unguarded `Partial<Character>`](findings/CR-12-updatecharacter-unguarded-partial.md) — bypasses the XP and allocation invariants; zero callers today. *(stores)*
-- [ ] [CR-13 `Dialog` lacks focus management](findings/CR-13-dialog-lacks-focus-management.md) — no trap, no initial focus, no restore; inherited by ~15 dialogs. *(ui)*
-- [ ] [CR-14 Creation wizard recomputes the engine every keystroke](findings/CR-14-wizard-recomputes-engine-every-keystroke.md) — unmasked `watch()` + unmemoized `calculateCharacter`. *(play)*
-- [ ] [CR-15 In-render `.sort()` mutates store state](findings/CR-15-in-render-sort-mutates-store-state.md) — `MaterialLevelFormDialog` sorts `config.currencyTiers` in place. *(config)*
-- [ ] [CR-16 `DiceLaddersConfigPanel` missing the no-config guard](findings/CR-16-dice-ladders-panel-missing-config-guard.md) — interactive panel whose Add silently no-ops. *(config)*
-- [ ] [CR-17 Stores enforce no uniqueness](findings/CR-17-stores-enforce-no-uniqueness.md) — bypassed UI checks can produce exports that refuse to re-import. *(stores/engine)*
-- [ ] [CR-18 Slug collisions get no warning](findings/CR-18-slug-collisions-unwarned.md) — near-duplicate check compares the wrong normalization; stats have none at all. *(engine)*
-- [ ] [CR-19 `engine/validator.ts` needs decomposition](findings/CR-19-engine-validator-needs-decomposition.md) — 392 lines, cyclomatic 62; half already shows the target shape. *(engine)*
-- [ ] [CR-22 Shape validation should be data-driven](findings/CR-22-shape-validation-should-be-data-driven.md) — ~500 mechanical lines; would make CR-03's gap impossible. *(services)*
-- [ ] [CR-23 Two generations of form dialogs](findings/CR-23-two-generations-of-form-dialogs.md) — six pre-`FormField` dialogs, three error-node spellings, footer ×13. *(config)*
-- [ ] [CR-24 Manager-hook dialog-lifecycle duplication](findings/CR-24-manager-hook-dialog-lifecycle-duplication.md) — extract `useEntityDialog`, explicitly *not* a full generic manager. *(config)*
-- [ ] [CR-25 `useRollManager` bypasses `scopeFor`](findings/CR-25-roll-manager-bypasses-scopefor.md) — hand-built autocomplete will drift from the validator. *(config)*
+- [x] [CR-09 Tokenizer silently truncates malformed numbers](findings/CR-09-tokenizer-truncates-malformed-numbers.md) — `1.2.3` validates and evaluates as `1.2`. *(engine, repro-confirmed)*
+- [x] [CR-10 `skills.<name>.level` documented but rejected](findings/CR-10-skills-level-documented-but-rejected.md) — four doc sites vs one resolver. *(engine)*
+- [x] [CR-11 Storage quota/write errors never caught](findings/CR-11-storage-errors-thrown-but-never-caught.md) — edits silently fail to persist when LocalStorage is full. *(stores)*
+- [x] [CR-12 `updateCharacter` accepts an unguarded `Partial<Character>`](findings/CR-12-updatecharacter-unguarded-partial.md) — bypasses the XP and allocation invariants; zero callers today. *(stores)*
+- [x] [CR-13 `Dialog` lacks focus management](findings/CR-13-dialog-lacks-focus-management.md) — no trap, no initial focus, no restore; inherited by ~15 dialogs. *(ui)*
+- [x] [CR-14 Creation wizard recomputes the engine every keystroke](findings/CR-14-wizard-recomputes-engine-every-keystroke.md) — unmasked `watch()` + unmemoized `calculateCharacter`. *(play)*
+- [x] [CR-15 In-render `.sort()` mutates store state](findings/CR-15-in-render-sort-mutates-store-state.md) — `MaterialLevelFormDialog` sorts `config.currencyTiers` in place. *(config)*
+- [x] [CR-16 `DiceLaddersConfigPanel` missing the no-config guard](findings/CR-16-dice-ladders-panel-missing-config-guard.md) — interactive panel whose Add silently no-ops. *(config)*
+- [x] [CR-17 Stores enforce no uniqueness](findings/CR-17-stores-enforce-no-uniqueness.md) — bypassed UI checks can produce exports that refuse to re-import. *(stores/engine)*
+- [x] [CR-18 Slug collisions get no warning](findings/CR-18-slug-collisions-unwarned.md) — near-duplicate check compares the wrong normalization; stats have none at all. *(engine)*
+- [x] [CR-19 `engine/validator.ts` needs decomposition](findings/CR-19-engine-validator-needs-decomposition.md) — 392 lines, cyclomatic 62; half already shows the target shape. *(engine)*
+- [x] [CR-22 Shape validation should be data-driven](findings/CR-22-shape-validation-should-be-data-driven.md) — ~500 mechanical lines; would make CR-03's gap impossible. *(services)*
+- [x] [CR-23 Two generations of form dialogs](findings/CR-23-two-generations-of-form-dialogs.md) — six pre-`FormField` dialogs, three error-node spellings, footer ×13. *(config)*
+- [x] [CR-24 Manager-hook dialog-lifecycle duplication](findings/CR-24-manager-hook-dialog-lifecycle-duplication.md) — extract `useEntityDialog`, explicitly *not* a full generic manager. *(config)*
+- [x] [CR-25 `useRollManager` bypasses `scopeFor`](findings/CR-25-roll-manager-bypasses-scopefor.md) — hand-built autocomplete will drift from the validator. *(config)*
+
+**All sixteen Medium findings are done** (2026-08-22), one commit each, plus a follow-up commit for
+what the audit surfaced. Verified together at the end: `npx vitest run` 1722 passing / 0 failing /
+0 skipped (from 1674), `npx tsc --noEmit` at its 2 known errors, `yarn run check` clean, and
+`fallow audit --base 827216e` reporting `dead_code_introduced: 0` and `duplication_introduced: 0`.
+
+Three of the structural findings were the bulk of it. **CR-19** took `validateConfiguration` from
+392 lines and cyclomatic 62 — the worst hotspot in the repo — to eleven lines that concatenate a
+table of `(config) => ValidationIssue[]` helpers. **CR-22** replaced the import shape layer's
+thirteen hand-written checkers with one walker over `ENTITY_SPECS`, whose key type is derived from
+`Configuration`, so a new collection without a spec is now a *type error* rather than the silence
+that let CR-03 in. **CR-23/CR-24** finished the dialog consolidation: `useEntityDialog` in nine
+managers, `FormDialogActions` in all thirteen dialogs, the six older dialogs onto `FormField`, and
+`StatValueRowsField` for the duplicated field-array rows the Low pass deferred here.
+
+One introduced complexity finding stands deliberately: `itemIssues` at cyclomatic 10 is a flat list
+of three independent reference checks — the shape the Low pass already recorded for its siblings —
+and splitting it would move the number without improving the code.
+
+Two behaviour changes worth knowing about, both widening a refusal rather than narrowing one.
+`1.2.3` and `1.` are now syntax errors where they used to evaluate as `1.2` and `1` (CR-09), so a
+ruleset carrying a typo'd literal that used to import will now be refused — correctly, but loudly.
+And the store refuses a duplicate stat abbreviation case-insensitively (CR-17), which is stricter
+than the import check; that is the safe direction, since the store can never persist something
+import would reject.
 
 ## Low — cleanups, dead code, consistency
 
@@ -112,12 +137,10 @@ that both follow the same correct pattern — consolidating them belongs with
 [CR-23](findings/CR-23-two-generations-of-form-dialogs.md) /
 [CR-24](findings/CR-24-manager-hook-dialog-lifecycle-duplication.md).
 
-## Suggested pickup order
+## Status
 
-Data-integrity first: **CR-01/CR-08** (one ticket — the cycle detector), **CR-03** (+ optionally
-CR-22 as its structural fix), **CR-05**. Then the user-visible bugs **CR-04, CR-06, CR-07,
-CR-20, CR-16**. The engine contract fixes (CR-02, CR-09, CR-10, CR-18) form a natural "formula
-engine honesty" cluster. Everything else is opportunistic.
+**All 43 findings are closed** — the nineteen Low on 2026-08-21, the eight High and the sixteen
+Medium on 2026-08-22. Nothing from this review is outstanding.
 
 ## What the review found clean
 
