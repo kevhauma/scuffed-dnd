@@ -1,17 +1,27 @@
 # Test Status
 
-_Last verified: 2026-08-21 (`npx vitest run`), after the
-[v2.1 code review](docs/v2.1_code_review/overview.md)'s **low-priority findings** (CR-21, CR-26 to
-CR-43) — the previous checkpoint was
+_Last verified: 2026-08-22 (`npx vitest run`), after the
+[v2.1 code review](docs/v2.1_code_review/overview.md)'s **high-priority findings** (CR-01 to CR-07,
+CR-08, CR-20). The previous checkpoint was the same review's low-priority findings (CR-21, CR-26 to
+CR-43) at 1640, and before that
 [TICKET-DX-04](docs/v2.0_sheet_core/tickets/TICKET-DX-04-golden-fixtures-from-the-sheet.md), which
 closed the v2.0 milestone._
 
 ## Summary
 
-- **Total tests**: 1640
-- **Passing**: 1640 (100%)
+- **Total tests**: 1674
+- **Passing**: 1674 (100%)
 - **Skipped**: 0
 - **Failing**: 0
+
+The **+34 over the low-findings checkpoint** is the high-priority pass, all additive except where a
+finding's fix made an old expectation wrong: the cycle-detection suites gained the ids-are-UUIDs
+cases CR-01 asks for and the phantom-cycle graph CR-08 asks for; `importExport.test.ts` gained the
+four collections CR-03 left array-checked and nothing more; `storage.test.ts`'s three
+silent-drop cases became refusals (CR-05); a new `useCurrencyManager.test.ts` pins order-0 through
+an edit (CR-04); and the `stat` scope losing `skills` (CR-02) flipped four cases from accept to
+refuse and retargeted two more at the `roll-input` owner, which is where a skill reference is
+actually honoured.
 
 Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's tickets added
 +43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), +11 (FORM-06), +7 (CALC-02),

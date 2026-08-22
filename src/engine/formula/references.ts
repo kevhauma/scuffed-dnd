@@ -212,7 +212,7 @@ export function buildReferenceIndex(config: Configuration): ReferenceIndex {
  * @param member - The member segment, spelled as `validateFormula` reports it
  * @returns The referenced entity's id, or undefined when the ruleset has no such entity
  */
-export function resolveReferenceId(
+function resolveReferenceId(
   index: ReferenceIndex,
   namespace: string | undefined,
   member: string

@@ -22,6 +22,34 @@ size limit — several findings here will split into more than one ticket) and b
 - [x] [CR-07 Selected archetype card is illegible](findings/CR-07-selected-archetype-card-illegible.md) — nested `Text` ink colors beat the pressed Button's parchment text. *(play)*
 - [x] [CR-20 Equipment-slot CRUD duplicated and double-mounted](findings/CR-20-equipment-slot-crud-duplicated.md) — two full implementations live on the same page. *(config)*
 
+**All eight High findings are done** (2026-08-22), one commit each, plus CR-08 with CR-01 as the
+finding asks. Verified together at the end: `npx vitest run` 1674 passing / 0 failing / 0 skipped,
+`npx tsc --noEmit` at its 2 known errors, `yarn run check` clean, `fallow audit --base 62a827a`
+reporting `dead_code_introduced: 0` and `duplication_introduced: 0`, and a live pass on the dev
+server.
+
+What the browser confirmed: editing the lowest currency tier keeps it at `Order: 0` and at the
+bottom of the ladder (CR-04); `/config/items` now shows one Add-Equipment-Slot button, one slot
+list and one dialog, under a panel titled "Items" (CR-20); the selected archetype card computes
+royal `rgb(46,64,87)` with its name at **10.22:1** and its description and affinity lines at
+**7.68:1**, against near-black-on-dark-blue before (CR-07); clearing Bree's roll history removed her
+two rolls and left Aria's three standing (CR-06); editing Strength to `stats.strength + 1` is
+refused with **"Circular dependency detected: Strength → Strength"** — the stat's name, not its
+UUID — and nothing reaches LocalStorage (CR-01); and `skills.stealth + 1` on a stat is refused
+**and the preview says so too** rather than vouching for it (CR-02). No new console errors.
+
+Two things the fallow audit surfaced and this pass deliberately did not widen into:
+`validateConfigurationShape`'s complexity is the pre-existing finding
+[CR-22](findings/CR-22-shape-validation-should-be-data-driven.md) owns, and the one new complexity
+finding — `itemShapeErrors` at cyclomatic 11 — is a flat list of field checks in exactly the shape
+its siblings `rollDefinitionShapeErrors` (11) and `diceLadderShapeErrors` (12) already have. Making
+that family data-driven is CR-22's whole point.
+
+One limitation worth recording: `validateFormulaChange` resolves an edited formula's references
+against the configuration **as it is now**, not as it would be after the save. An edit that renames
+a stat *and* has it name itself by the new spelling is refused as an unknown member rather than as a
+cycle — still a refusal, different message. A brand-new stat that names itself is the same case.
+
 ## Medium — correctness edges, missing guards, structural debt
 
 - [x] [CR-08 Phantom cycles from missing DFS backtracking](findings/CR-08-phantom-cycles-from-dfs-backtracking.md) — reports cycles along nonexistent edges; fix with CR-01. *(engine, repro-confirmed)*

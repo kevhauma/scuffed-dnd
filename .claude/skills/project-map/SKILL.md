@@ -106,8 +106,8 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 - `formula/references.ts` — **the display↔stored translation** (TICKET-REF-01):
   `buildReferenceIndex`, `toStoredFormula`/`toDisplayFormula`,
   `toStoredConfiguration`/`toDisplayConfiguration`, `ensureReferenceIds`, `statMemberName`, plus
-  `resolveReferenceId`/`buildReferenceResolver` — the same spelling→id lookup for callers that want
-  the *entity* rather than the rewritten text, which is how the cycle detector keys its graph. A
+  `buildReferenceResolver(config)` — the same spelling→id lookup for callers that want the *entity*
+  rather than the rewritten text, which is how the cycle detector keys its graph. A
   formula is written and validated in *display* form (codes and name-slugs) and persisted in
   *stored* form (ids), which is what makes a rename harmless. Only `services/storage.ts` and
   `services/importExport.ts` cross that boundary; `configStore`'s `applyRenameSafely` uses the
