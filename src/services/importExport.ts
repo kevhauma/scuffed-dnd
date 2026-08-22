@@ -207,11 +207,83 @@ function retiredFieldErrors(config: Record<string, unknown>): string[] {
 /** What a name a formula spells must look like — shared by constants and curve columns */
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/;
 
+/** What a stat's abbreviation must look like — the flat formula space is uppercase */
+const ABBREVIATION_PATTERN = /^[A-Z][A-Z0-9_]*$/;
+
 /** The affinity values an archetype may tag a stat with (Concept 03) */
 const AFFINITY_VALUES = new Set<string>(STAT_AFFINITIES);
 
 /** The categories a roll may be sorted into (Concept 08) */
 const ROLL_CATEGORY_VALUES = new Set<string>(ROLL_CATEGORIES);
+
+/**
+ * One field's rule: the errors it finds at `path`, empty when the value is acceptable
+ *
+ * A function rather than a `{ type, required }` record (CR-22) because the *messages* are the
+ * interesting part — "must be a dice ladder id" says more than "must be a string", and a table of
+ * type names could not carry that. The constructors below are what keeps each entry declarative.
+ */
+type FieldRule = (value: unknown, path: string) => string[];
+
+const isText = (value: unknown): boolean => typeof value === 'string';
+const isNonEmptyText = (value: unknown): boolean => typeof value === 'string' && value !== '';
+const isNumber = (value: unknown): boolean => typeof value === 'number';
+const isFiniteNumber = (value: unknown): boolean =>
+  typeof value === 'number' && Number.isFinite(value);
+const isFlag = (value: unknown): boolean => typeof value === 'boolean';
+
+/**
+ * A rule from a predicate and the phrase completing `<path> …`
+ *
+ * @param accepts - Whether the value is acceptable
+ * @param message - The phrase after the path — "must be a string"
+ */
+function must(accepts: (value: unknown) => boolean, message: string): FieldRule {
+  return (value, path) => (accepts(value) ? [] : [`${path} ${message}`]);
+}
+
+/**
+ * The same, but an absent value is acceptable
+ *
+ * Absence is meaningful across the model — an item may be plain, a ladder may have no cap — so
+ * this is the common case rather than an exception.
+ */
+function mayBe(accepts: (value: unknown) => boolean, message: string): FieldRule {
+  return (value, path) => (value === undefined || accepts(value) ? [] : [`${path} ${message}`]);
+}
+
+/** A value drawn from a closed set */
+function oneOf(values: Iterable<string>, message: string): FieldRule {
+  const allowed = new Set(values);
+  return must((value) => typeof value === 'string' && allowed.has(value), message);
+}
+
+/** An array whose every element is acceptable */
+function listOf(accepts: (value: unknown) => boolean, message: string): FieldRule {
+  return must((value) => Array.isArray(value) && value.every(accepts), message);
+}
+
+/**
+ * A record keyed by entity id, whose values are all acceptable
+ *
+ * Two messages, because the two failures read differently: the container being the wrong kind of
+ * thing, and one entry in it being wrong — which is named by its key, so a User can find it.
+ */
+function recordOf(
+  accepts: (value: unknown) => boolean,
+  containerMessage: string,
+  valueMessage: string
+): FieldRule {
+  return (value, path) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return [`${path} ${containerMessage}`];
+    }
+
+    return Object.entries(value as Record<string, unknown>)
+      .filter(([, entry]) => !accepts(entry))
+      .map(([key]) => `${path}.${key} ${valueMessage}`);
+  };
+}
 
 /** The enum values a curve's three modes accept (Concept 06) */
 const CURVE_MODES = {
@@ -221,56 +293,25 @@ const CURVE_MODES = {
 } as const;
 
 /**
- * Shape errors for one curve of an imported configuration
+ * A curve's columns and rows — the part of its shape a field table cannot express
  *
- * Structure only — that the fields exist and hold the right kinds of thing. Whether the *rows*
- * make a readable table (sorted, unique keys, the right number of values) is
+ * The rules here are the genuinely cross-field ones (CR-22): a row's `values` has to be as long as
+ * the column list, and its `overridden` flags no longer than it. Everything a curve has that is
+ * just "this field holds this kind of thing" is a row in `ENTITY_SPECS` instead.
+ *
+ * Structure only — whether the *rows* make a readable table (sorted, unique keys) is
  * `engine/validator.ts`'s report, because a curve can be structurally fine and still be a table
  * nobody can look anything up in.
  *
  * @param curve - One element of `config.curves`
- * @param index - Its position, for the message
- * @param seenNames - Names already used, mutated as each is accepted
+ * @param path - Where it sits, for the message — `curves[2]`
  * @returns The errors found, empty when the shape is sound
  */
-function curveShapeErrors(
-  curve: Record<string, unknown>,
-  index: number,
-  seenNames: Set<string>
-): string[] {
+function curveTableShapeErrors(curve: Record<string, unknown>, path: string): string[] {
   const errors: string[] = [];
 
-  if (typeof curve.name !== 'string' || !IDENTIFIER_PATTERN.test(curve.name)) {
-    errors.push(`curves[${index}].name must be a lowercase identifier`);
-  } else if (seenNames.has(curve.name)) {
-    // A duplicate splits identity from behaviour: a stored formula points at one curve's id
-    // while the resolver reads the other's table (the `constants` rule, same reason)
-    errors.push(`curves[${index}].name must be unique`);
-  } else {
-    seenNames.add(curve.name);
-  }
-
-  if (typeof curve.displayName !== 'string') {
-    errors.push(`curves[${index}].displayName must be a string`);
-  }
-
-  // Both are required by the type, so a file missing either imports and then renders a report
-  // reading `…has more than one row for undefined 3`
-  if (typeof curve.description !== 'string') {
-    errors.push(`curves[${index}].description must be a string`);
-  }
-  if (typeof curve.keyName !== 'string' || curve.keyName.length === 0) {
-    errors.push(`curves[${index}].keyName is required`);
-  }
-
-  for (const [field, allowed] of Object.entries(CURVE_MODES)) {
-    if (!(allowed as readonly string[]).includes(curve[field] as string)) {
-      errors.push(`curves[${index}].${field} must be one of: ${allowed.join(', ')}`);
-    }
-  }
-
   if (!Array.isArray(curve.columns) || curve.columns.length === 0) {
-    errors.push(`curves[${index}].columns must be a non-empty array`);
+    errors.push(`${path}.columns must be a non-empty array`);
   } else if (
     curve.columns.some((column: unknown) => {
       if (!column || typeof column !== 'object') return true;
@@ -280,7 +321,7 @@ function curveShapeErrors(
       return typeof name !== 'string' || !IDENTIFIER_PATTERN.test(name);
     })
   ) {
-    errors.push(`curves[${index}].columns entries must each have a lowercase identifier name`);
+    errors.push(`${path}.columns entries must each have a lowercase identifier name`);
   } else if (
     curve.columns.some((column: unknown) => {
       const generator = (column as Record<string, unknown>).generator;
@@ -289,12 +330,12 @@ function curveShapeErrors(
   ) {
     // Absent is valid — a hand-entered column has no generator (TICKET-CRV-02). Whether a present
     // one *evaluates* is `engine/validator.ts`'s report, like every other formula.
-    errors.push(`curves[${index}].columns generators must be strings when present`);
+    errors.push(`${path}.columns generators must be strings when present`);
   }
 
   const columnCount = Array.isArray(curve.columns) ? curve.columns.length : 0;
   if (!Array.isArray(curve.rows)) {
-    errors.push(`curves[${index}].rows must be an array`);
+    errors.push(`${path}.rows must be an array`);
   } else if (
     curve.rows.some((row: unknown) => {
       if (!row || typeof row !== 'object') return true;
@@ -307,7 +348,7 @@ function curveShapeErrors(
       );
     })
   ) {
-    errors.push(`curves[${index}].rows entries must have a numeric key and one value per column`);
+    errors.push(`${path}.rows entries must have a numeric key and one value per column`);
   } else if (
     curve.rows.some((row: unknown) => {
       // Absent is valid and means "nothing overridden", which is how a curve written before
@@ -323,234 +364,14 @@ function curveShapeErrors(
       );
     })
   ) {
-    errors.push(
-      `curves[${index}].rows overridden must be an array of booleans, one per column at most`
-    );
+    errors.push(`${path}.rows overridden must be an array of booleans, one per column at most`);
   }
 
   return errors;
 }
 
 /**
- * Shape errors for one dice ladder of an imported configuration (Concept 07, TICKET-ROLL-03)
- *
- * Structure only, extracted for the same reason `curveShapeErrors` is: whether the sizes make a
- * *walkable* ladder — descending, positive, with a usable cap — is `engine/validator.ts`'s report,
- * because a ladder can be structurally fine and still decompose in an order nobody expected.
- *
- * @param ladder - One element of `config.diceLadders`
- * @param index - Its position, for the message
- * @returns The errors found, empty when the shape is sound
- */
-function diceLadderShapeErrors(ladder: Record<string, unknown>, index: number): string[] {
-  const errors: string[] = [];
-
-  if (typeof ladder.id !== 'string' || ladder.id === '') {
-    errors.push(`diceLadders[${index}].id must be a non-empty string`);
-  }
-
-  // Free text rather than an identifier: a ladder is reached by id from a roll definition, never
-  // spelled in a formula
-  if (typeof ladder.name !== 'string') {
-    errors.push(`diceLadders[${index}].name must be a string`);
-  }
-  if (typeof ladder.description !== 'string') {
-    errors.push(`diceLadders[${index}].description must be a string`);
-  }
-
-  if (
-    !Array.isArray(ladder.dieSizes) ||
-    ladder.dieSizes.some((size: unknown) => typeof size !== 'number' || !Number.isFinite(size))
-  ) {
-    errors.push(`diceLadders[${index}].dieSizes must be an array of numbers`);
-  }
-
-  // Absent is valid and means no cap — the field only exists to express one
-  if (
-    ladder.maxPerDie !== undefined &&
-    (typeof ladder.maxPerDie !== 'number' || !Number.isFinite(ladder.maxPerDie))
-  ) {
-    errors.push(`diceLadders[${index}].maxPerDie must be a finite number when present`);
-  }
-
-  if (typeof ladder.showZeroTerms !== 'boolean') {
-    errors.push(`diceLadders[${index}].showZeroTerms must be a boolean`);
-  }
-
-  // An enum of one (TICKET-ROLL-03's notes), so a file claiming `smallest_die` was written against
-  // rules this build does not have and is refused rather than silently decomposing as `flat`
-  if (ladder.remainder !== 'flat') {
-    errors.push(`diceLadders[${index}].remainder must be 'flat'`);
-  }
-
-  return errors;
-}
-
-/**
- * Shape errors for one roll definition of an imported configuration (Concept 08, TICKET-ROLL-05)
- *
- * Structure only. Whether the `input` *computes* and whether `ladderId` names a ladder that exists
- * are `engine/validator.ts`'s report, for the reason every other entity here has one: a roll can be
- * structurally perfect and still point at a ladder somebody deleted.
- *
- * @param roll - One element of `config.rollDefinitions`
- * @param index - Its position, for the message
- * @returns The errors found, empty when the shape is sound
- */
-function rollDefinitionShapeErrors(roll: Record<string, unknown>, index: number): string[] {
-  const errors: string[] = [];
-
-  if (typeof roll.id !== 'string' || roll.id === '') {
-    errors.push(`rollDefinitions[${index}].id must be a non-empty string`);
-  }
-  if (typeof roll.name !== 'string') {
-    errors.push(`rollDefinitions[${index}].name must be a string`);
-  }
-  if (typeof roll.description !== 'string') {
-    errors.push(`rollDefinitions[${index}].description must be a string`);
-  }
-  if (typeof roll.input !== 'string') {
-    errors.push(`rollDefinitions[${index}].input must be a formula string`);
-  }
-  // Required, unlike most references here: a roll with no ladder has nothing to decompose with,
-  // so there is no sensible default to fall back to
-  if (typeof roll.ladderId !== 'string' || roll.ladderId === '') {
-    errors.push(`rollDefinitions[${index}].ladderId must be a dice ladder id`);
-  }
-  if (typeof roll.order !== 'number') {
-    errors.push(`rollDefinitions[${index}].order must be a number`);
-  }
-  // Absent is valid — a ruleset may decline to sort its rolls at all (Concept 08)
-  if (roll.category !== undefined && !ROLL_CATEGORY_VALUES.has(roll.category as string)) {
-    errors.push(
-      `rollDefinitions[${index}].category must be one of ${[...ROLL_CATEGORY_VALUES].join(', ')} when present`
-    );
-  }
-
-  return errors;
-}
-
-/**
- * Shape errors for one item of an imported configuration
- *
- * Every reference is optional — an item may be plain — but a *present* one has to be a string, or
- * the reference checks in `engine/validator.ts` compare a number against a set of ids and report
- * nothing.
- *
- * @param item - One element of `config.items`
- * @param index - Its position, for the message
- * @returns The errors found, empty when the shape is sound
- */
-function itemShapeErrors(item: Record<string, unknown>, index: number): string[] {
-  const errors: string[] = [];
-
-  if (typeof item.id !== 'string' || item.id === '') {
-    errors.push(`items[${index}].id must be a non-empty string`);
-  }
-  if (typeof item.name !== 'string') {
-    errors.push(`items[${index}].name must be a string`);
-  }
-  if (typeof item.description !== 'string') {
-    errors.push(`items[${index}].description must be a string`);
-  }
-
-  for (const field of ['categoryId', 'materialId', 'equipmentSlotType']) {
-    if (item[field] !== undefined && typeof item[field] !== 'string') {
-      errors.push(`items[${index}].${field} must be a string when present`);
-    }
-  }
-
-  if (
-    item.materialLevel !== undefined &&
-    (typeof item.materialLevel !== 'number' || !Number.isFinite(item.materialLevel))
-  ) {
-    errors.push(`items[${index}].materialLevel must be a finite number when present`);
-  }
-
-  return errors;
-}
-
-/**
- * Shape errors for one equipment slot of an imported configuration
- *
- * A slot is identified by its `type` rather than by an id — that is the string an item names —
- * so an empty one is a slot nothing can ever be equipped to.
- *
- * @param slot - One element of `config.equipmentSlots`
- * @param index - Its position, for the message
- * @returns The errors found, empty when the shape is sound
- */
-function equipmentSlotShapeErrors(slot: Record<string, unknown>, index: number): string[] {
-  const errors: string[] = [];
-
-  if (typeof slot.type !== 'string' || slot.type === '') {
-    errors.push(`equipmentSlots[${index}].type must be a non-empty string`);
-  }
-  if (typeof slot.name !== 'string') {
-    errors.push(`equipmentSlots[${index}].name must be a string`);
-  }
-  if (typeof slot.description !== 'string') {
-    errors.push(`equipmentSlots[${index}].description must be a string`);
-  }
-
-  return errors;
-}
-
-/**
- * Shape errors for one currency tier of an imported configuration
- *
- * `order` places the tier on the conversion ladder and `conversionToNext` is how many of it make
- * one of the next — both have to be finite numbers for the ladder to be walkable at all. Whether
- * the orders are unique and gapless is `engine/validator.ts`'s report.
- *
- * @param tier - One element of `config.currencyTiers`
- * @param index - Its position, for the message
- * @returns The errors found, empty when the shape is sound
- */
-function currencyTierShapeErrors(tier: Record<string, unknown>, index: number): string[] {
-  const errors: string[] = [];
-
-  if (typeof tier.id !== 'string' || tier.id === '') {
-    errors.push(`currencyTiers[${index}].id must be a non-empty string`);
-  }
-  if (typeof tier.name !== 'string') {
-    errors.push(`currencyTiers[${index}].name must be a string`);
-  }
-  if (typeof tier.order !== 'number' || !Number.isFinite(tier.order)) {
-    errors.push(`currencyTiers[${index}].order must be a finite number`);
-  }
-  if (typeof tier.conversionToNext !== 'number' || !Number.isFinite(tier.conversionToNext)) {
-    errors.push(`currencyTiers[${index}].conversionToNext must be a finite number`);
-  }
-
-  return errors;
-}
-
-/**
- * Shape errors for one material category of an imported configuration
- *
- * @param category - One element of `config.materialCategories`
- * @param index - Its position, for the message
- * @returns The errors found, empty when the shape is sound
- */
-function materialCategoryShapeErrors(category: Record<string, unknown>, index: number): string[] {
-  const errors: string[] = [];
-
-  if (typeof category.id !== 'string' || category.id === '') {
-    errors.push(`materialCategories[${index}].id must be a non-empty string`);
-  }
-  if (typeof category.name !== 'string') {
-    errors.push(`materialCategories[${index}].name must be a string`);
-  }
-  if (typeof category.description !== 'string') {
-    errors.push(`materialCategories[${index}].description must be a string`);
-  }
-
-  return errors;
-}
-
-/**
- * Shape errors for one material of an imported configuration (Concept 09, TICKET-MAT-01)
+ * A material's tier levels — the part of its shape a field table cannot express (CR-22)
  *
  * A tier bonus is `{ statId, modifier }` — keyed by stat **id**, like a race's stat block, so a
  * file still holding the old `{ skillCode, modifier }` shape is reported here by name rather than
@@ -559,32 +380,19 @@ function materialCategoryShapeErrors(category: Record<string, unknown>, index: n
  * ladder — so an absent one is a shape error here rather than a crash there (CR-03).
  *
  * @param material - One element of `config.materials`
- * @param index - Its position, for the message
+ * @param path - Where it sits, for the message — `materials[2]`
  * @returns The errors found, empty when the shape is sound
  */
-function materialShapeErrors(material: Record<string, unknown>, index: number): string[] {
+function materialLevelShapeErrors(material: Record<string, unknown>, path: string): string[] {
   const errors: string[] = [];
 
-  if (typeof material.id !== 'string' || material.id === '') {
-    errors.push(`materials[${index}].id must be a non-empty string`);
-  }
-  if (typeof material.name !== 'string') {
-    errors.push(`materials[${index}].name must be a string`);
-  }
-  if (typeof material.description !== 'string') {
-    errors.push(`materials[${index}].description must be a string`);
-  }
-  if (typeof material.categoryId !== 'string' || material.categoryId === '') {
-    errors.push(`materials[${index}].categoryId must be a material category id`);
-  }
-
   if (!Array.isArray(material.levels)) {
-    errors.push(`materials[${index}].levels must be an array`);
+    errors.push(`${path}.levels must be an array`);
     return errors;
   }
 
   material.levels.forEach((level: unknown, levelIndex: number) => {
-    const where = `materials[${index}].levels[${levelIndex}]`;
+    const where = `${path}.levels[${levelIndex}]`;
     if (!level || typeof level !== 'object') {
       errors.push(`${where} must be an object`);
       return;
@@ -635,27 +443,325 @@ function materialShapeErrors(material: Record<string, unknown>, index: number): 
 }
 
 /**
- * Run a per-entry shape check across one of the configuration's collections
+ * A skill's weight rows — the part of its shape a field table cannot express (CR-22)
  *
- * Every collection had this same three-line preamble — "is it an array, is each entry an object,
- * then check the entry" — and four of them had *only* the first line (CR-03). Sharing it is what
- * makes adding a collection without its entry check the visible omission it should be.
+ * A skill is `{ id, name, description, statWeights }` since TICKET-SKL-02, with rows keyed by stat
+ * **id**, so a file still holding a `bonusFormula` and a `code` is reported by name here rather
+ * than importing as a skill derived from nothing.
+ *
+ * @param skill - One element of `config.skills`
+ * @param path - Where it sits, for the message — `skills[2]`
+ * @returns The errors found, empty when the shape is sound
+ */
+function skillWeightShapeErrors(skill: Record<string, unknown>, path: string): string[] {
+  if (!Array.isArray(skill.statWeights)) {
+    return [`${path}.statWeights must be an array`];
+  }
+
+  return skill.statWeights.flatMap((row: unknown, rowIndex: number) => {
+    const at = `${path}.statWeights[${rowIndex}]`;
+    if (!row || typeof row !== 'object') return [`${at} must be an object`];
+
+    const weight = row as Record<string, unknown>;
+    return [
+      ...must(isNonEmptyText, 'must be a stat id')(weight.statId, `${at}.statId`),
+      ...must(isFiniteNumber, 'must be a finite number')(weight.weight, `${at}.weight`),
+    ];
+  });
+}
+
+/**
+ * Everything one of the configuration's collections must satisfy
+ *
+ * The declarative half of CR-22's fix. Each entity used to be a hand-written checker of the same
+ * mechanical assertions, and four of them simply never got one — `items`, `equipmentSlots`,
+ * `currencyTiers` and `materialCategories` were `Array.isArray` and nothing more, which is how
+ * CR-03's crash-after-persist got in. A missing checker was invisible; a missing row here is not.
+ */
+interface EntitySpec {
+  /** Whether the collection has to be there at all */
+  presence: 'required' | 'optional';
+  /** One rule per field, applied in declaration order — which is the order errors come out in */
+  fields: Record<string, FieldRule>;
+  /**
+   * A field whose value may not repeat across the collection
+   *
+   * Checked only when the field's own rule passed, so a malformed name is reported once as
+   * malformed rather than twice.
+   */
+  unique?: { field: string; message: string };
+  /** What a table cannot say: nested arrays, and lengths measured against another field */
+  custom?: (entry: Record<string, unknown>, path: string) => string[];
+}
+
+/**
+ * Every array-valued key of `Configuration`
+ *
+ * Derived from the type rather than listed, which is the structural half of CR-22's fix: adding a
+ * collection to `Configuration` without adding a row to {@link ENTITY_SPECS} is a **type error**,
+ * where before it was silence.
+ */
+type CollectionKey = {
+  [K in keyof Configuration]-?: NonNullable<Configuration[K]> extends readonly unknown[]
+    ? K
+    : never;
+}[keyof Configuration];
+
+/**
+ * What each collection's entries must look like
+ *
+ * Ordered as the report reads. A rule's message completes `<collection>[<i>].<field> …`, so the
+ * wording stays per-field rather than being generated from a type name — "must be a dice ladder
+ * id" tells a User where to look and "must be a string" does not.
+ */
+const ENTITY_SPECS: Record<CollectionKey, EntitySpec> = {
+  stats: {
+    presence: 'required',
+    fields: {
+      id: must(isText, 'must be a string'),
+      name: must(isText, 'must be a string'),
+      // An abbreviation is the stat's spelling in the flat formula space (TICKET-STAT-01), so it
+      // has to be identifier-shaped and unique
+      abbreviation: must(
+        (value) => typeof value === 'string' && ABBREVIATION_PATTERN.test(value),
+        'must be an uppercase identifier'
+      ),
+      order: must(isNumber, 'must be a number'),
+      countsTowardTotal: must(isFlag, 'must be a boolean'),
+      isResource: must(isFlag, 'must be a boolean'),
+      // Absent is the invested case; present makes the stat derived
+      formula: mayBe(isText, 'must be a string when present'),
+      rounding: oneOf(['none', 'nearest', 'up', 'down'], 'must be one of: none, nearest, up, down'),
+    },
+    unique: { field: 'abbreviation', message: 'must be unique' },
+  },
+
+  // `id` is deliberately absent: it is required by the type but files predating TICKET-REF-01 do
+  // not carry one, and `ensureReferenceIds` mints it on the way through `importConfiguration`
+  skills: {
+    presence: 'required',
+    fields: {
+      id: must(isText, 'must be a string'),
+      name: must(isText, 'must be a string'),
+    },
+    custom: skillWeightShapeErrors,
+  },
+
+  materials: {
+    presence: 'required',
+    fields: {
+      id: must(isNonEmptyText, 'must be a non-empty string'),
+      name: must(isText, 'must be a string'),
+      description: must(isText, 'must be a string'),
+      categoryId: must(isNonEmptyText, 'must be a material category id'),
+    },
+    custom: materialLevelShapeErrors,
+  },
+
+  materialCategories: {
+    presence: 'required',
+    fields: {
+      id: must(isNonEmptyText, 'must be a non-empty string'),
+      name: must(isText, 'must be a string'),
+      description: must(isText, 'must be a string'),
+    },
+  },
+
+  // Every reference is optional — an item may be plain — but a *present* one has to be a string,
+  // or the reference checks in `engine/validator.ts` compare a number against a set of ids and
+  // report nothing
+  items: {
+    presence: 'required',
+    fields: {
+      id: must(isNonEmptyText, 'must be a non-empty string'),
+      name: must(isText, 'must be a string'),
+      description: must(isText, 'must be a string'),
+      categoryId: mayBe(isText, 'must be a string when present'),
+      materialId: mayBe(isText, 'must be a string when present'),
+      equipmentSlotType: mayBe(isText, 'must be a string when present'),
+      materialLevel: mayBe(isFiniteNumber, 'must be a finite number when present'),
+    },
+  },
+
+  // A slot is identified by its `type` rather than by an id — that is the string an item names —
+  // so an empty one is a slot nothing can ever be equipped to
+  equipmentSlots: {
+    presence: 'required',
+    fields: {
+      type: must(isNonEmptyText, 'must be a non-empty string'),
+      name: must(isText, 'must be a string'),
+      description: must(isText, 'must be a string'),
+    },
+  },
+
+  // A race's `statValues` maps stat **id** to an absolute number (TICKET-RACE-01) — an absent stat
+  // reads 0, so the record may be empty, but a present entry has to be a real number
+  races: {
+    presence: 'required',
+    fields: {
+      id: must(isText, 'must be a string'),
+      name: must(isText, 'must be a string'),
+      statValues: recordOf(
+        isFiniteNumber,
+        'must be an object keyed by stat id',
+        'must be a finite number'
+      ),
+    },
+  },
+
+  // `order` places the tier on the conversion ladder and `conversionToNext` is how many of it make
+  // one of the next. Whether the orders are unique and gapless is `engine/validator.ts`'s report.
+  currencyTiers: {
+    presence: 'required',
+    fields: {
+      id: must(isNonEmptyText, 'must be a non-empty string'),
+      name: must(isText, 'must be a string'),
+      order: must(isFiniteNumber, 'must be a finite number'),
+      conversionToNext: must(isFiniteNumber, 'must be a finite number'),
+    },
+  },
+
+  // Optional and absent-means-none (TICKET-ARC-01). `statAffinity` is sparse by design: an absent
+  // stat is `non`.
+  archetypes: {
+    presence: 'optional',
+    fields: {
+      id: must(isText, 'must be a string'),
+      name: must(isText, 'must be a string'),
+      statAffinity: recordOf(
+        (value) => typeof value === 'string' && AFFINITY_VALUES.has(value),
+        'must be an object keyed by stat id',
+        `must be one of ${[...AFFINITY_VALUES].join(', ')}`
+      ),
+    },
+  },
+
+  // Absent is valid, so files predating TICKET-CST-01 still import. `id` is skipped for the reason
+  // a skill's is.
+  constants: {
+    presence: 'optional',
+    fields: {
+      name: must(
+        (value) => typeof value === 'string' && IDENTIFIER_PATTERN.test(value),
+        'must be a lowercase identifier'
+      ),
+      displayName: must(isText, 'must be a string'),
+      // Required by Concept 05 — a constant nobody understands is worse than a literal
+      description: must(isNonEmptyText, 'is required'),
+      value: must(isNumber, 'must be a number'),
+    },
+    // A duplicate splits identity from value: the stored formula points at one constant's id while
+    // the resolver reads the other's number
+    unique: { field: 'name', message: 'must be unique' },
+  },
+
+  // Absent is valid, so files predating TICKET-CRV-01 still import. `displayName`, `description`
+  // and `keyName` are required by the type, so a file missing one imports and then renders a
+  // report reading `…has more than one row for undefined 3`.
+  curves: {
+    presence: 'optional',
+    fields: {
+      name: must(
+        (value) => typeof value === 'string' && IDENTIFIER_PATTERN.test(value),
+        'must be a lowercase identifier'
+      ),
+      displayName: must(isText, 'must be a string'),
+      description: must(isText, 'must be a string'),
+      keyName: must(isNonEmptyText, 'is required'),
+      interpolation: oneOf(CURVE_MODES.interpolation, 'must be one of: step, linear'),
+      outOfRange: oneOf(CURVE_MODES.outOfRange, 'must be one of: clamp, extrapolate, error'),
+      lookupDirection: oneOf(CURVE_MODES.lookupDirection, 'must be one of: forward, reverse'),
+    },
+    // The `constants` rule, same reason: a stored formula points at one curve's id while the
+    // resolver reads the other's table
+    unique: { field: 'name', message: 'must be unique' },
+    custom: curveTableShapeErrors,
+  },
+
+  // Absent is valid, so files predating ladders still import (Concept 07, TICKET-ROLL-03). Whether
+  // the sizes make a *walkable* ladder is `engine/validator.ts`'s report.
+  diceLadders: {
+    presence: 'optional',
+    fields: {
+      id: must(isNonEmptyText, 'must be a non-empty string'),
+      // Free text rather than an identifier: a ladder is reached by id from a roll definition,
+      // never spelled in a formula
+      name: must(isText, 'must be a string'),
+      description: must(isText, 'must be a string'),
+      dieSizes: listOf(isFiniteNumber, 'must be an array of numbers'),
+      // Absent is valid and means no cap — the field only exists to express one
+      maxPerDie: mayBe(isFiniteNumber, 'must be a finite number when present'),
+      showZeroTerms: must(isFlag, 'must be a boolean'),
+      // An enum of one (TICKET-ROLL-03's notes), so a file claiming `smallest_die` was written
+      // against rules this build does not have and is refused rather than decomposing as `flat`
+      remainder: must((value) => value === 'flat', "must be 'flat'"),
+    },
+  },
+
+  // Absent is valid, so files predating rolls still import (Concept 08, TICKET-ROLL-05). Whether
+  // the `input` computes and whether `ladderId` names a ladder that exists are the engine's report.
+  rollDefinitions: {
+    presence: 'optional',
+    fields: {
+      id: must(isNonEmptyText, 'must be a non-empty string'),
+      name: must(isText, 'must be a string'),
+      description: must(isText, 'must be a string'),
+      input: must(isText, 'must be a formula string'),
+      // Required, unlike most references here: a roll with no ladder has nothing to decompose
+      // with, so there is no sensible default to fall back to
+      ladderId: must(isNonEmptyText, 'must be a dice ladder id'),
+      order: must(isNumber, 'must be a number'),
+      // Absent is valid — a ruleset may decline to sort its rolls at all (Concept 08)
+      category: mayBe(
+        (value) => typeof value === 'string' && ROLL_CATEGORY_VALUES.has(value),
+        `must be one of ${[...ROLL_CATEGORY_VALUES].join(', ')} when present`
+      ),
+    },
+  },
+};
+
+/**
+ * Walk one collection against its spec
+ *
+ * The one checker CR-22 asks for: "is it an array, is each entry an object, then check the entry"
+ * used to be a three-line preamble every entity repeated and four entities skipped.
  *
  * @param entries - The collection, already known to be an array
  * @param field - The collection's name, for the message
- * @param shapeErrors - The per-entry check
+ * @param spec - What its entries must look like
  * @returns Every error across the collection
  */
-function collectionShapeErrors(
-  entries: unknown[],
-  field: string,
-  shapeErrors: (entry: Record<string, unknown>, index: number) => string[]
-): string[] {
-  return entries.flatMap((entry: unknown, index: number) =>
-    !entry || typeof entry !== 'object'
-      ? [`${field}[${index}] must be an object`]
-      : shapeErrors(entry as Record<string, unknown>, index)
-  );
+function collectionShapeErrors(entries: unknown[], field: string, spec: EntitySpec): string[] {
+  const errors: string[] = [];
+  const seen = new Set<unknown>();
+
+  entries.forEach((entry: unknown, index: number) => {
+    const path = `${field}[${index}]`;
+    if (!entry || typeof entry !== 'object') {
+      errors.push(`${path} must be an object`);
+      return;
+    }
+
+    const record = entry as Record<string, unknown>;
+
+    for (const [name, rule] of Object.entries(spec.fields)) {
+      const found = rule(record[name], `${path}.${name}`);
+      errors.push(...found);
+
+      if (found.length > 0 || spec.unique?.field !== name) continue;
+
+      const value = record[name];
+      if (seen.has(value)) {
+        errors.push(`${path}.${name} ${spec.unique.message}`);
+      } else {
+        seen.add(value);
+      }
+    }
+
+    errors.push(...(spec.custom?.(record, path) ?? []));
+  });
+
+  return errors;
 }
 
 /**
@@ -699,283 +805,33 @@ export function validateConfigurationShape(data: unknown): ValidationResult {
   // A field a previous shape carried is a refusal, not something to ignore
   errors.push(...retiredFieldErrors(config));
 
-  // Required array fields
-  const requiredArrays = [
-    'stats',
-    'skills',
-    'materials',
-    'materialCategories',
-    'items',
-    'equipmentSlots',
-    'races',
-    'currencyTiers',
-  ];
+  const specs = Object.entries(ENTITY_SPECS) as [CollectionKey, EntitySpec][];
 
-  for (const field of requiredArrays) {
-    if (!Array.isArray(config[field])) {
+  // Required array fields
+  for (const [field, spec] of specs) {
+    if (spec.presence === 'required' && !Array.isArray(config[field])) {
       errors.push(`Field '${field}' must be an array`);
     }
   }
 
-  // Validate stats structure
-  const seenAbbreviations = new Set<string>();
-  if (Array.isArray(config.stats)) {
-    config.stats.forEach((stat: unknown, index: number) => {
-      if (!stat || typeof stat !== 'object') {
-        errors.push(`stats[${index}] must be an object`);
-        return;
-      }
-      const s = stat as Record<string, unknown>;
-      if (typeof s.id !== 'string') {
-        errors.push(`stats[${index}].id must be a string`);
-      }
-      if (typeof s.name !== 'string') {
-        errors.push(`stats[${index}].name must be a string`);
-      }
-      // An abbreviation is a formula spelling in the flat space shared with the skill codes
-      // (TICKET-STAT-01), so it has to be identifier-shaped and unique against every one of them
-      if (typeof s.abbreviation !== 'string' || !/^[A-Z][A-Z0-9_]*$/.test(s.abbreviation)) {
-        errors.push(`stats[${index}].abbreviation must be an uppercase identifier`);
-      } else if (seenAbbreviations.has(s.abbreviation)) {
-        errors.push(`stats[${index}].abbreviation must be unique`);
-      } else {
-        seenAbbreviations.add(s.abbreviation);
-      }
-      if (typeof s.order !== 'number') {
-        errors.push(`stats[${index}].order must be a number`);
-      }
-      if (typeof s.countsTowardTotal !== 'boolean') {
-        errors.push(`stats[${index}].countsTowardTotal must be a boolean`);
-      }
-      if (typeof s.isResource !== 'boolean') {
-        errors.push(`stats[${index}].isResource must be a boolean`);
-      }
-      // Absent is the invested case; present makes the stat derived
-      if (s.formula !== undefined && typeof s.formula !== 'string') {
-        errors.push(`stats[${index}].formula must be a string when present`);
-      }
-      if (!['none', 'nearest', 'up', 'down'].includes(s.rounding as string)) {
-        errors.push(`stats[${index}].rounding must be one of: none, nearest, up, down`);
-      }
-    });
-  }
+  // Then every collection's entries against its spec (CR-22). Both loops read `ENTITY_SPECS`, so a
+  // collection cannot be checked for presence and then forgotten for content — which is exactly
+  // what happened to four of them (CR-03).
+  for (const [field, spec] of specs) {
+    const entries = config[field];
 
-  // Validate race stat blocks (TICKET-RACE-01). A race is `{ id, name, description, statValues }`
-  // where `statValues` maps stat **id** to an absolute number — an absent stat reads 0, so the
-  // record may be empty, but a present entry has to be a real number rather than a string.
-  if (Array.isArray(config.races)) {
-    config.races.forEach((race: unknown, index: number) => {
-      if (!race || typeof race !== 'object') {
-        errors.push(`races[${index}] must be an object`);
-        return;
-      }
-      const r = race as Record<string, unknown>;
-      if (typeof r.id !== 'string') {
-        errors.push(`races[${index}].id must be a string`);
-      }
-      if (typeof r.name !== 'string') {
-        errors.push(`races[${index}].name must be a string`);
-      }
-      if (!r.statValues || typeof r.statValues !== 'object' || Array.isArray(r.statValues)) {
-        errors.push(`races[${index}].statValues must be an object keyed by stat id`);
-        return;
-      }
-      for (const [statId, value] of Object.entries(r.statValues as Record<string, unknown>)) {
-        if (typeof value !== 'number' || !Number.isFinite(value)) {
-          errors.push(`races[${index}].statValues.${statId} must be a finite number`);
-        }
-      }
-    });
-  }
+    // An absent required collection was reported above; an absent optional one is the older file
+    // this build still opens
+    if (entries === undefined) continue;
 
-  // Validate archetypes (TICKET-ARC-01). Optional and absent-means-none, like `constants` and
-  // `curves`, so only a present key is checked. `statAffinity` maps stat **id** to one of the three
-  // affinity values, and is sparse by design: an absent stat is `non`.
-  if (config.archetypes !== undefined) {
-    if (!Array.isArray(config.archetypes)) {
-      errors.push("Field 'archetypes' must be an array when present");
-    } else {
-      config.archetypes.forEach((archetype: unknown, index: number) => {
-        if (!archetype || typeof archetype !== 'object') {
-          errors.push(`archetypes[${index}] must be an object`);
-          return;
-        }
-        const a = archetype as Record<string, unknown>;
-        if (typeof a.id !== 'string') {
-          errors.push(`archetypes[${index}].id must be a string`);
-        }
-        if (typeof a.name !== 'string') {
-          errors.push(`archetypes[${index}].name must be a string`);
-        }
-        if (
-          !a.statAffinity ||
-          typeof a.statAffinity !== 'object' ||
-          Array.isArray(a.statAffinity)
-        ) {
-          errors.push(`archetypes[${index}].statAffinity must be an object keyed by stat id`);
-          return;
-        }
-        for (const [statId, affinity] of Object.entries(
-          a.statAffinity as Record<string, unknown>
-        )) {
-          if (typeof affinity !== 'string' || !AFFINITY_VALUES.has(affinity)) {
-            errors.push(
-              `archetypes[${index}].statAffinity.${statId} must be one of ${[...AFFINITY_VALUES].join(', ')}`
-            );
-          }
-        }
-      });
+    if (!Array.isArray(entries)) {
+      if (spec.presence === 'optional') {
+        errors.push(`Field '${field}' must be an array when present`);
+      }
+      continue;
     }
-  }
 
-  // The four collections whose entries used to be checked no further than `Array.isArray` (CR-03),
-  // plus materials. A `{"currencyTiers":[null]}` file passed the shape gate on that omission and
-  // then crashed `engine/validator.ts` — after `replaceConfig` had already persisted it.
-  if (Array.isArray(config.materials)) {
-    errors.push(...collectionShapeErrors(config.materials, 'materials', materialShapeErrors));
-  }
-  if (Array.isArray(config.materialCategories)) {
-    errors.push(
-      ...collectionShapeErrors(
-        config.materialCategories,
-        'materialCategories',
-        materialCategoryShapeErrors
-      )
-    );
-  }
-  if (Array.isArray(config.items)) {
-    errors.push(...collectionShapeErrors(config.items, 'items', itemShapeErrors));
-  }
-  if (Array.isArray(config.equipmentSlots)) {
-    errors.push(
-      ...collectionShapeErrors(config.equipmentSlots, 'equipmentSlots', equipmentSlotShapeErrors)
-    );
-  }
-  if (Array.isArray(config.currencyTiers)) {
-    errors.push(
-      ...collectionShapeErrors(config.currencyTiers, 'currencyTiers', currencyTierShapeErrors)
-    );
-  }
-
-  // Validate skills structure (Concept 02, TICKET-SKL-02). A skill is `{ id, name, description,
-  // statWeights }` — weight rows keyed by stat **id**, so a file still holding a `bonusFormula`
-  // and a `code` is reported by name here rather than importing as a skill derived from nothing.
-  if (Array.isArray(config.skills)) {
-    config.skills.forEach((skill: unknown, index: number) => {
-      if (!skill || typeof skill !== 'object') {
-        errors.push(`skills[${index}] must be an object`);
-        return;
-      }
-      const s = skill as Record<string, unknown>;
-      if (typeof s.id !== 'string') {
-        errors.push(`skills[${index}].id must be a string`);
-      }
-      if (typeof s.name !== 'string') {
-        errors.push(`skills[${index}].name must be a string`);
-      }
-      if (!Array.isArray(s.statWeights)) {
-        errors.push(`skills[${index}].statWeights must be an array`);
-        return;
-      }
-
-      s.statWeights.forEach((row: unknown, rowIndex: number) => {
-        const at = `skills[${index}].statWeights[${rowIndex}]`;
-        if (!row || typeof row !== 'object') {
-          errors.push(`${at} must be an object`);
-          return;
-        }
-        const w = row as Record<string, unknown>;
-        if (typeof w.statId !== 'string' || w.statId === '') {
-          errors.push(`${at}.statId must be a stat id`);
-        }
-        if (typeof w.weight !== 'number' || !Number.isFinite(w.weight)) {
-          errors.push(`${at}.weight must be a finite number`);
-        }
-      });
-    });
-  }
-
-  // Validate constants structure — absent is valid, so files predating TICKET-CST-01 still
-  // import. `id` is not required for the same reason skills' is not: `ensureReferenceIds` mints
-  // a missing one on the way through `importConfiguration`.
-  if (config.constants !== undefined) {
-    if (!Array.isArray(config.constants)) {
-      errors.push("Field 'constants' must be an array when present");
-    } else {
-      const seenNames = new Set<string>();
-      config.constants.forEach((constant: unknown, index: number) => {
-        if (!constant || typeof constant !== 'object') {
-          errors.push(`constants[${index}] must be an object`);
-          return;
-        }
-        const c = constant as Record<string, unknown>;
-        if (typeof c.name !== 'string' || !IDENTIFIER_PATTERN.test(c.name)) {
-          errors.push(`constants[${index}].name must be a lowercase identifier`);
-        } else if (seenNames.has(c.name)) {
-          // A duplicate splits identity from value: the stored formula points at one constant's
-          // id while the resolver reads the other's number.
-          errors.push(`constants[${index}].name must be unique`);
-        } else {
-          seenNames.add(c.name);
-        }
-        if (typeof c.displayName !== 'string') {
-          errors.push(`constants[${index}].displayName must be a string`);
-        }
-        // Required by Concept 05 — a constant nobody understands is worse than a literal
-        if (typeof c.description !== 'string' || c.description.length === 0) {
-          errors.push(`constants[${index}].description is required`);
-        }
-        if (typeof c.value !== 'number') {
-          errors.push(`constants[${index}].value must be a number`);
-        }
-      });
-    }
-  }
-
-  // Validate curves structure — absent is valid, so files predating TICKET-CRV-01 still import.
-  // The row *contents* (sorted, unique keys) are `engine/validator.ts`'s job: a ruleset that
-  // imports with a badly ordered curve is reportable, not unreadable.
-  if (config.curves !== undefined) {
-    if (!Array.isArray(config.curves)) {
-      errors.push("Field 'curves' must be an array when present");
-    } else {
-      const seenNames = new Set<string>();
-      config.curves.forEach((curve: unknown, index: number) => {
-        if (!curve || typeof curve !== 'object') {
-          errors.push(`curves[${index}] must be an object`);
-          return;
-        }
-        errors.push(...curveShapeErrors(curve as Record<string, unknown>, index, seenNames));
-      });
-    }
-  }
-
-  // Validate dice ladders (Concept 07, TICKET-ROLL-03) — absent is valid, so files predating
-  // ladders still import
-  if (config.diceLadders !== undefined) {
-    if (!Array.isArray(config.diceLadders)) {
-      errors.push("Field 'diceLadders' must be an array when present");
-    } else {
-      errors.push(
-        ...collectionShapeErrors(config.diceLadders, 'diceLadders', diceLadderShapeErrors)
-      );
-    }
-  }
-
-  // Validate roll definitions (Concept 08, TICKET-ROLL-05) — absent is valid, so files predating
-  // rolls still import
-  if (config.rollDefinitions !== undefined) {
-    if (!Array.isArray(config.rollDefinitions)) {
-      errors.push("Field 'rollDefinitions' must be an array when present");
-    } else {
-      errors.push(
-        ...collectionShapeErrors(
-          config.rollDefinitions,
-          'rollDefinitions',
-          rollDefinitionShapeErrors
-        )
-      );
-    }
+    errors.push(...collectionShapeErrors(entries, field, spec));
   }
 
   return {

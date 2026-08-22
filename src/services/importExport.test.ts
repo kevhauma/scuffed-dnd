@@ -370,6 +370,62 @@ describe('Import/Export Service', () => {
       });
     });
 
+    describe('one checker over a spec table (CR-22)', () => {
+      const shapeOf = (overrides: Record<string, unknown>) =>
+        validateConfigurationShape({ ...validConfig, ...overrides });
+
+      it('rejects a null entry in every collection, not just the ones somebody remembered', () => {
+        // The generic walk is what makes this list complete rather than a list of the entities
+        // that happened to get a hand-written checker
+        const collections = [
+          'stats',
+          'skills',
+          'materials',
+          'materialCategories',
+          'items',
+          'equipmentSlots',
+          'races',
+          'currencyTiers',
+          'archetypes',
+          'constants',
+          'curves',
+          'diceLadders',
+          'rollDefinitions',
+        ];
+
+        for (const field of collections) {
+          const result = shapeOf({ [field]: [null] });
+
+          expect(result.isValid, field).toBe(false);
+          expect(result.errors, field).toContain(`${field}[0] must be an object`);
+        }
+      });
+
+      it('reports a present-but-not-an-array optional collection as such', () => {
+        for (const field of [
+          'archetypes',
+          'constants',
+          'curves',
+          'diceLadders',
+          'rollDefinitions',
+        ]) {
+          const result = shapeOf({ [field]: 'nope' });
+
+          expect(result.errors, field).toContain(`Field '${field}' must be an array when present`);
+        }
+      });
+
+      it('reports a required collection as missing exactly once', () => {
+        const { stats: _dropped, ...withoutStats } = validConfig;
+
+        const result = validateConfigurationShape(withoutStats);
+
+        expect(result.errors.filter((error) => error.includes("'stats'"))).toEqual([
+          "Field 'stats' must be an array",
+        ]);
+      });
+    });
+
     describe('material tiers beyond their bonuses (CR-03)', () => {
       const withMaterial = (material: unknown) =>
         validateConfigurationShape({ ...validConfig, materials: [material] });
