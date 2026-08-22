@@ -177,6 +177,11 @@ export function FormulaPreview({ formula, owner, config, className = '' }: Formu
    * from `calculateSkills`, the same function the sheet reads, over a character who has invested
    * nothing: the preview answers "what does this formula compute at these stats", and a Player's
    * investment is not a property of the ruleset being edited.
+   *
+   * They are supplied for **every** owner, which is safe because `namespacesFor` gates on
+   * `scoping.ts` — an owner whose row has no `skills` gets no resolver for it no matter what is
+   * handed in. That gate is what CR-02 turned into the truth: the `stat` row used to list
+   * `skills`, so this preview vouched for a formula the sheet could never compute.
    */
   const evaluateAt = useMemo(() => {
     const byAbbreviation = new Map(

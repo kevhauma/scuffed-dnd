@@ -127,8 +127,9 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   `const.*`, `curve.*(x)` and `stats.*` resolve wherever `scoping.ts` allows them. `stats.*` needs
   composed values passed in (`{ stats, statValues }`), since a stat's worth is a property of a
   character rather than of the ruleset; without them the namespace is simply absent. `skills.*`
-  still evaluates to an `unknown-namespace` error value until TICKET-SKL-02 wires it — a value,
-  not a throw (TICKET-FORM-05).
+  resolves at the `roll-input` owner (TICKET-SKL-02) and **nowhere else** — a derived stat is
+  computed before any skill has a value, so it is out of scope there rather than merely
+  unresolved (CR-02).
 - `formula/constants.ts` — `constantsNamespace(constants)` → the `const.*` resolver
   (TICKET-CST-01). **The exemplar `NamespaceResolver` to copy**: resolution is by
   display name, the stored formula holds the id, and an unknown member or a property access comes
@@ -156,8 +157,12 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   never a branch — there is no `switch` on owner kind in the engine, and a test enforces that
   every owner has a row. `curve`'s members are the ruleset's curve names (TICKET-CRV-01); a
   column is a property segment, checked at evaluation rather than here. The owners are `stat`,
-  `curve-generator` and `roll-input` (TICKET-ROLL-05 — a roll sees exactly what a
-  derived stat sees, because a roll is another reading of the character).
+  `curve-generator` and `roll-input` (TICKET-ROLL-05 — a roll sees what a derived stat sees
+  **plus `skills`**, because it is computed after them). **A `stat` may not name `skills.*`**
+  (CR-02): skills are computed *from* the finished stat values, so `calculateStatValues` has no
+  skill resolver and a stat reading one is a cycle across the pipeline, not a wiring gap. A row
+  only lists what its calculator can actually resolve — anything else produces formulas that
+  validate, preview and save, and then error on every sheet.
 - `formula/validator.ts` — `validateFormula(formula, availableCodes?, scope?)`,
   `validateFormulaCollection`, `detectCircularDependencies`, `dependencyKeysOf`,
   `toFormulaDependency`, plus a private `walkFormula(ast, visit)` that is the single place knowing

@@ -148,6 +148,32 @@ describe('FormulaPreview', () => {
     expect(screen.queryByText('0')).toBeNull();
   });
 
+  it('should refuse a skill reference at the stat owner rather than vouching for it (CR-02)', () => {
+    // The preview supplies skill values for any owner, so this used to show a confident number
+    // for a formula the sheet then errored on every single time it computed it
+    render(
+      <FormulaPreview
+        formula="skills.stealth + 1"
+        owner="stat"
+        config={{
+          ...config,
+          skills: [
+            {
+              id: 'stl-id',
+              name: 'Stealth',
+              description: '',
+              statWeights: [{ statId: 'cha-id', weight: 1 }],
+            },
+          ],
+        }}
+      />
+    );
+
+    expect(screen.getByText(/Namespace not available here: skills/)).toBeDefined();
+    expect(screen.queryByText(/With every input at the same level/)).toBeNull();
+    expect(screen.queryByRole('spinbutton')).toBeNull();
+  });
+
   it('should show a constant-only formula as one result with no ladder', () => {
     renderPreview('const.apt_value * 2');
 

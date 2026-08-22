@@ -14,7 +14,7 @@ size limit — several findings here will split into more than one ticket) and b
 ## High — bugs that lose data, let broken rulesets through, or break the UI
 
 - [x] [CR-01 Circular-formula detection never fires in production](findings/CR-01-circular-formula-detection-dead-in-production.md) — graph keyed by ids, edges by spellings; every cycle saves cleanly with UUID ids. *(engine, repro-confirmed)*
-- [ ] [CR-02 Stat formulas accept `skills.*` they can never evaluate](findings/CR-02-stat-formulas-accept-skills-they-cannot-evaluate.md) — validates and previews, always errors on the sheet. *(engine, repro-confirmed)*
+- [x] [CR-02 Stat formulas accept `skills.*` they can never evaluate](findings/CR-02-stat-formulas-accept-skills-they-cannot-evaluate.md) — validates and previews, always errors on the sheet. *(engine, repro-confirmed)*
 - [x] [CR-03 Malformed import persisted before validation](findings/CR-03-malformed-import-persisted-before-validation.md) — four entity kinds shape-unchecked; `replaceConfig` runs before the engine validator crashes. *(services)*
 - [x] [CR-04 Editing the lowest currency tier moves it to the end](findings/CR-04-currency-tier-order-zero-falsy.md) — `order: 0` falls through `||`. *(config)*
 - [x] [CR-05 Characters silently deleted on load](findings/CR-05-characters-silently-deleted-on-load.md) — load-time filter + next autoSave permanently drops unrecognized characters, no backup. *(services)*

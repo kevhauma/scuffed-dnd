@@ -120,9 +120,12 @@ describe('scopeFor', () => {
     expect(Array.from(scope.namespaces.skills ?? [])).toEqual(['stealth']);
   });
 
-  it('gives a stat the skills namespace too, so a stat may derive from a skill', () => {
+  it('withholds the skills namespace from a stat, which cannot resolve one (CR-02)', () => {
+    // Skills are computed *from* the finished stat values, so `calculateStatValues` has no skill
+    // resolver to offer. Leaving `skills` in the row let a formula validate and preview with a
+    // real number and then error `Unknown namespace: skills` every time the sheet computed it.
     const scope = scopeFor(createConfig(), 'stat');
-    expect(scope.namespaces.skills).toBeDefined();
+    expect(scope.namespaces.skills).toBeUndefined();
     expect(scope.namespaces.stats).toBeDefined();
   });
 

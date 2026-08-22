@@ -176,10 +176,24 @@ describe('validateFormulaChange', () => {
     expect(result.referencedVariables.sort()).toEqual(['CON', 'DEX', 'STR']);
   });
 
-  it('should accept a stat formula referencing a skill (TICKET-SKL-02)', () => {
+  it('should refuse a stat formula referencing a skill, which it can never evaluate (CR-02)', () => {
+    // Skills are computed from the finished stat values, so `calculateStatValues` has no skill
+    // resolver — this used to validate, preview a real number, save, and then error on the sheet
     const result = validateFormulaChange(createConfig(), {
       owner: 'stat',
       id: 'RNG',
+      formula: 'DEX + skills.stealth',
+    });
+
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain('Namespace not available here: skills');
+  });
+
+  it('should still accept a roll input referencing a skill, which is honoured (CR-02)', () => {
+    // The same reference at the attachment point whose calculator *does* get skill values
+    const result = validateFormulaChange(createConfig(), {
+      owner: 'roll-input',
+      id: 'roll-stealth',
       formula: 'DEX + skills.stealth',
     });
 
@@ -385,11 +399,11 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
     });
 
     it('leaves an acyclic chain written in namespaced syntax alone', () => {
-      // A stat reading a skill is a chain, not a cycle — and a skill is not a node at all
+      // A stat reading another stat is a chain, not a cycle
       const result = validateFormulaChange(createConfig(), {
         owner: 'stat',
         id: 'RNG',
-        formula: 'skills.stealth + 1',
+        formula: 'stats.health + 1',
       });
 
       expect(result.isValid).toBe(true);
@@ -398,29 +412,27 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
 
     it('cannot cycle through a skill, because a skill holds no formula (TICKET-SKL-02)', () => {
       // The one cycle v1 could build here — speciality A names B names A — is gone with the
-      // formula string. A weight row points at a stat and a stat cannot point back at a skill
-      // through it, so `skills.*` is a leaf in the graph.
+      // formula string. A weight row points at a stat and nothing points back at a skill through
+      // it, so `skills.*` is a leaf in the graph. Written at the roll attachment point, which is
+      // the one that may name a skill at all since CR-02.
       const config = createConfig({
-        stats: [
+        rollDefinitions: [
           {
-            id: 'armour',
-            name: 'Armour',
-            abbreviation: 'ARM',
+            id: 'roll-stealth',
+            name: 'Stealth',
             description: '',
+            input: 'skills.stealth',
+            ladderId: 'ladder',
             order: 0,
-            countsTowardTotal: true,
-            isResource: false,
-            rounding: 'none',
-            formula: 'skills.stealth',
           },
         ],
       });
 
       const result = validateFormulaChange(config, {
-        owner: 'stat',
-        id: 'armour',
+        owner: 'roll-input',
+        id: 'roll-stealth',
         formula: 'skills.stealth * 2',
-        previousId: 'armour',
+        previousId: 'roll-stealth',
       });
 
       expect(result.isValid).toBe(true);

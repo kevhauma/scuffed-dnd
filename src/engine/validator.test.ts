@@ -460,13 +460,34 @@ describe('validateConfiguration', () => {
           statWeights: [{ statId: 'STR', weight: 0.2 }],
         },
       ];
-      // A derived stat reading a skill is a chain, not a cycle: the skill's weights point at
-      // stats and nothing points back
-      config.stats = [...config.stats, stat('agility', 'Agility', 'AGI', 'skills.melee')];
+      // A skill's weights point at stats and nothing points back, so `skills.*` is a leaf in the
+      // graph. Read from a derived stat that names one of those stats — a stat may not name a
+      // skill at all since CR-02, because it is computed before any skill has a value.
+      config.stats = [...config.stats, stat('agility', 'Agility', 'AGI', 'STR * 2')];
 
       const result = validateConfiguration(config);
 
       expect(result.isValid).toBe(true);
+    });
+
+    it('reports a stat formula that names a skill, which it cannot evaluate (CR-02)', () => {
+      const config = createMinimalConfig();
+      config.skills = [
+        {
+          id: 'MEL',
+          name: 'Melee',
+          description: '',
+          statWeights: [{ statId: 'STR', weight: 0.2 }],
+        },
+      ];
+      config.stats = [...config.stats, stat('agility', 'Agility', 'AGI', 'skills.melee')];
+
+      const result = validateConfiguration(config);
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors.map((issue) => issue.message)).toContain(
+        'Stat "Agility": Namespace not available here: skills'
+      );
     });
 
     it('reports a cycle in a ruleset whose ids are UUIDs (CR-01)', () => {

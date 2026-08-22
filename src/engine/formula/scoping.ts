@@ -58,8 +58,18 @@ export function isKnownNamespace(name: string): name is FormulaNamespace {
  * constant rather than 48 edits.
  */
 export const NAMESPACE_SCOPES: Record<FormulaOwner, readonly FormulaNamespace[]> = {
-  // Character derived field
-  stat: ['stats', 'skills', 'const', 'curve'],
+  // Character derived field.
+  //
+  // **No `skills`** (CR-02), even though Concept 00 §5's row for this context lists it. Skills are
+  // computed *from* the finished stat values (`calculator.ts` steps 2 and 3), so a stat reading a
+  // skill is a cycle across the pipeline rather than a wiring gap — `calculateStatValues` builds
+  // its namespaces without `skillLevels` and can never honour one. Leaving it in the row meant a
+  // formula like `skills.melee.bonus + 1` validated, previewed with a real number, saved, and then
+  // errored `Unknown namespace: skills` every time the sheet computed it. The same argument as the
+  // paragraph above: a namespace that does not resolve here only produces formulas that save and
+  // then fail. Restoring it means interleaving the two passes into one fixed point, which is a
+  // design decision and wants a requirement first.
+  stat: ['stats', 'const', 'curve'],
   // A curve column's generator (Concept 06): the row's key and the ruleset's tunables, nothing
   // else. Deliberately not `curve` — a table generated from another table is a cycle waiting to
   // happen, and no seed needs it (TICKET-CRV-02).
