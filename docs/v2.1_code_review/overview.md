@@ -74,6 +74,38 @@ what the audit surfaced. Verified together at the end: `npx vitest run` 1722 pas
 0 skipped (from 1674), `npx tsc --noEmit` at its 2 known errors, `yarn run check` clean, and
 `fallow audit --base 827216e` reporting `dead_code_introduced: 0` and `duplication_introduced: 0`.
 
+What the browser confirmed on the dev server: `/config/rolls` with no ruleset shows two notices and
+**no** Add-Ladder button, where the second panel used to be fully interactive (CR-16). Opening the
+currency dialog puts focus on **Name**, not the close button; Tab from the last control wraps to the
+first, Shift+Tab wraps backwards, focus parked on the nav link behind the overlay is pulled back in,
+and closing returns focus to **Add Currency Tier** (CR-13). Making `setItem` throw a
+`QuotaExceededError` raises the banner — *"Browser Storage Is Full … could not be saved and was not
+applied"* — with the tier neither on screen nor on disk, which is the claim the wording makes, and
+no exception escaping; the next write after recovery saves normally at `order 0` (CR-11, CR-04
+still holding). Adding a stat abbreviated `str` against an existing `STR` is refused by the store
+with *`STR is already used by "Strength"`* on the field, dialog open, nothing persisted (CR-17).
+`Max-Health` and `Max Health` — different lowercased, identical slug — raise *"are all written
+stats.max_health in a formula, so "Max-Health" is the one any formula naming it answers with"*
+(CR-18). A stat formula of `STR * 1.2.3` is refused as *"Malformed number '1.2.' … at most one
+decimal point"* rather than saving and evaluating as `1.2` (CR-09). A roll input of
+`skills.stealth.level + STR` saves, round-trips to its display spelling, and its `FormulaPreview`
+computes the ladder (1→1.2 … 50→60) — the spelling the resolver used to refuse (CR-10). Typing `M`
+in that input offers exactly `MXH` and `MHP` (CR-25), and the field is now reachable by its **Input**
+label at all (CR-13's `FormulaEditor` half). The migrated item and equipment-slot dialogs focus
+their first field, carry `FormField` labels and helper text, report refusals in the one shared
+crimson error node, and end in a `FormDialogActions` footer (CR-23); the skill dialog's weight rows
+keep their `Stat for weight row 1` / `Weight for row 1` labels through the shared
+`StatValueRowsField`. No application console errors on any screen.
+
+One rough edge the browser exposed and this pass did **not** smooth: on a storage failure the dialog
+still closes, because a refused *write* is reported through `uiStore` rather than back to the caller,
+so the User has to retype. CR-11 asked for surfacing at the `autoSave` choke point and got it;
+threading a second failure channel through every action is a larger change and wants its own finding.
+
+CR-12, CR-14, CR-15, CR-19, CR-22 and CR-24 have no separate browser surface — they are covered by
+unit tests, with CR-14's memoisation asserted by counting real `calculateCharacter` calls and CR-15's
+by checking the store's array order after a render.
+
 Three of the structural findings were the bulk of it. **CR-19** took `validateConfiguration` from
 392 lines and cyclomatic 62 — the worst hotspot in the repo — to eleven lines that concatenate a
 table of `(config) => ValidationIssue[]` helpers. **CR-22** replaced the import shape layer's
