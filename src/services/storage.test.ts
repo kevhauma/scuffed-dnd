@@ -255,11 +255,12 @@ describe('Storage Service', () => {
       expect(loaded).toEqual([]);
     });
 
-    it('should return empty array for non-array data', () => {
+    it('should refuse non-array data rather than reporting no characters (CR-05)', () => {
       localStorage.setItem('dnd_builder_characters', JSON.stringify({ invalid: 'data' }));
 
-      const loaded = loadCharacters();
-      expect(loaded).toEqual([]);
+      // Returning `[]` here had the next autoSave overwrite whatever this was
+      expect(() => loadCharacters()).toThrow(StorageSchemaError);
+      expect(localStorage.getItem('dnd_builder_characters')).toBe('{"invalid":"data"}');
     });
 
     it('should throw StorageParseError for corrupted data', () => {
@@ -358,28 +359,30 @@ describe('Storage Service', () => {
       expect(() => loadConfiguration()).toThrow(/older version of the app/);
     });
 
-    it('drops a v1 character rather than handing back one every read would crash on', () => {
-      localStorage.setItem(
-        'dnd_builder_characters',
-        JSON.stringify([
-          { id: 'old', name: 'Aria', mainSkillLevels: { STR: 5 }, currentStatValues: {} },
-          {
-            id: 'new',
-            name: 'Bree',
-            investedStatPoints: { 'id-str': 5 },
-            currentResourceValues: {},
-            experience: 0,
-          },
-        ])
-      );
+    it('refuses a v1 character rather than handing back one every read would crash on', () => {
+      const raw = JSON.stringify([
+        { id: 'old', name: 'Aria', mainSkillLevels: { STR: 5 }, currentStatValues: {} },
+        {
+          id: 'new',
+          name: 'Bree',
+          investedStatPoints: { 'id-str': 5 },
+          currentResourceValues: {},
+          experience: 0,
+        },
+      ]);
+      localStorage.setItem('dnd_builder_characters', raw);
 
-      expect(loadCharacters().map((character) => character.id)).toEqual(['new']);
+      // Refused whole, not filtered down to Bree (CR-05): the filtered array was what the next
+      // autoSave wrote back, permanently deleting Aria with no notice and no backup offer
+      expect(() => loadCharacters()).toThrow(StorageSchemaError);
+      expect(() => loadCharacters()).toThrow(/1 of 2 saved characters/);
+      expect(localStorage.getItem('dnd_builder_characters')).toBe(raw);
     });
 
     /**
      * A character written before TICKET-RES-01 has no `experience` (TICKET-RES-01)
      *
-     * Its absence is the *quiet* kind, which is why it is filtered rather than trusted: the
+     * Its absence is the *quiet* kind, which is why it is checked rather than trusted: the
      * schemaVersion gate reads the **Configuration**, so a characters key beside a fresh or absent
      * config never meets IO-03's notice (IO-03 implementation note 5). Left through,
      * `lookupCurve(curve, undefined)` falls past every range check and returns the first row — a
@@ -390,17 +393,33 @@ describe('Storage Service', () => {
       ['null', null],
       ['not a number', 'lots'],
       ['NaN', Number.NaN],
-    ])('drops a character whose experience is %s', (_label, experience) => {
+    ])('refuses the whole load when a character experience is %s', (_label, experience) => {
+      const raw = JSON.stringify([
+        {
+          id: 'stale',
+          name: 'Aria',
+          investedStatPoints: { 'id-str': 5 },
+          currentResourceValues: {},
+          ...(experience === undefined ? {} : { experience }),
+        },
+        {
+          id: 'new',
+          name: 'Bree',
+          investedStatPoints: { 'id-str': 5 },
+          currentResourceValues: {},
+          experience: 0,
+        },
+      ]);
+      localStorage.setItem('dnd_builder_characters', raw);
+
+      expect(() => loadCharacters()).toThrow(StorageSchemaError);
+      expect(localStorage.getItem('dnd_builder_characters')).toBe(raw);
+    });
+
+    it('loads a roster whose characters are all readable', () => {
       localStorage.setItem(
         'dnd_builder_characters',
         JSON.stringify([
-          {
-            id: 'stale',
-            name: 'Aria',
-            investedStatPoints: { 'id-str': 5 },
-            currentResourceValues: {},
-            ...(experience === undefined ? {} : { experience }),
-          },
           {
             id: 'new',
             name: 'Bree',

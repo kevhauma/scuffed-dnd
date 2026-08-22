@@ -17,7 +17,7 @@ size limit — several findings here will split into more than one ticket) and b
 - [ ] [CR-02 Stat formulas accept `skills.*` they can never evaluate](findings/CR-02-stat-formulas-accept-skills-they-cannot-evaluate.md) — validates and previews, always errors on the sheet. *(engine, repro-confirmed)*
 - [x] [CR-03 Malformed import persisted before validation](findings/CR-03-malformed-import-persisted-before-validation.md) — four entity kinds shape-unchecked; `replaceConfig` runs before the engine validator crashes. *(services)*
 - [ ] [CR-04 Editing the lowest currency tier moves it to the end](findings/CR-04-currency-tier-order-zero-falsy.md) — `order: 0` falls through `||`. *(config)*
-- [ ] [CR-05 Characters silently deleted on load](findings/CR-05-characters-silently-deleted-on-load.md) — load-time filter + next autoSave permanently drops unrecognized characters, no backup. *(services)*
+- [x] [CR-05 Characters silently deleted on load](findings/CR-05-characters-silently-deleted-on-load.md) — load-time filter + next autoSave permanently drops unrecognized characters, no backup. *(services)*
 - [ ] [CR-06 "Clear History" wipes every character's roll history](findings/CR-06-clear-history-wipes-all-characters.md) — display is scoped, the action isn't. *(play)*
 - [ ] [CR-07 Selected archetype card is illegible](findings/CR-07-selected-archetype-card-illegible.md) — nested `Text` ink colors beat the pressed Button's parchment text. *(play)*
 - [ ] [CR-20 Equipment-slot CRUD duplicated and double-mounted](findings/CR-20-equipment-slot-crud-duplicated.md) — two full implementations live on the same page. *(config)*

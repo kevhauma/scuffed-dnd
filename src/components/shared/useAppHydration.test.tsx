@@ -199,6 +199,25 @@ describe('useAppHydration', () => {
       expect(downloadStoredBackup).toHaveBeenCalledTimes(1);
     });
 
+    it('refuses unreadable characters the same way, with the same options (CR-05)', async () => {
+      // The config is fine; only the characters are unreadable. That used to be filtered away
+      // silently and overwritten by the next autoSave.
+      vi.mocked(loadCharacters).mockImplementation(() => {
+        throw new StorageSchemaError('This browser holds 1 of 2 saved characters in a shape…');
+      });
+
+      const { result } = renderHook(() => useAppHydration());
+
+      await waitFor(() => expect(result.current.incompatibleData).not.toBeNull());
+
+      expect(result.current.incompatibleData?.message).toMatch(/1 of 2 saved characters/);
+      expect(result.current.storageError).toBeNull();
+      // No route renders, so nothing can write over the stored characters
+      expect(result.current.isHydrated).toBe(false);
+      expect(useCharacterStore.getState().characters).toEqual([]);
+      expect(clearAllData).not.toHaveBeenCalled();
+    });
+
     it('clears the keys only when start-fresh is taken, and through the store action', async () => {
       refuseAsV1();
 

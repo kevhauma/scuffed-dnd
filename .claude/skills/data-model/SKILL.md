@@ -179,7 +179,7 @@ The refusal has three surfaces, and they behave differently on purpose:
 
 | Path | What happens |
 |---|---|
-| **Load** (`loadConfiguration()`) | throws `StorageSchemaError`; **nothing is loaded and nothing is deleted**. `useAppHydration` turns it into `incompatibleData`, and `RootLayout` renders `IncompatibleDataNotice` *instead of* the routes — so no route can mint a fresh ruleset and save it over the old data. |
+| **Load** (`loadConfiguration()`, and `loadCharacters()` since CR-05) | throws `StorageSchemaError`; **nothing is loaded and nothing is deleted**. `useAppHydration` turns it into `incompatibleData`, and `RootLayout` renders `IncompatibleDataNotice` *instead of* the routes — so no route can mint a fresh ruleset and save it over the old data. |
 | **Backup** | `downloadStoredBackup()` in `importExport.ts` reads `readStoredSnapshot()` and splices both raw strings into one envelope by concatenation, so the file's bytes are the stored bytes; a blob that does not parse is embedded as a JSON string instead. |
 | **Start fresh** | `useConfigStore.discardStoredData()` — the **only** path that calls `clearAllData()`. It clears both keys, empties both stores, and writes no replacement. |
 | **Import** (`importConfiguration()`) | throws `SchemaVersionError` *before* `validateConfigurationShape()` runs, so a v1 file gets one version sentence rather than a field-by-field report. |
@@ -191,9 +191,13 @@ whose ids dangle — never about one the engine cannot walk. Every collection ge
 check via `collectionShapeErrors(entries, field, shapeErrors)`; adding a collection without one is
 how `{"currencyTiers":[null]}` used to reach LocalStorage.
 
-`loadCharacters()` separately drops any character with no `investedStatPoints`. **Known gap**: that
-filter is silent when `loadConfiguration()` did not throw — a v1 characters key beside an absent or
-v2 config gets no notice and no backup offer (TICKET-IO-03 implementation note 5).
+`loadCharacters()` applies the same discipline to the characters key (CR-05): a stored character
+with no `investedStatPoints`, no `currentResourceValues`, or a non-finite `experience` makes the
+whole load throw `StorageSchemaError`, naming how many of how many. **It never filters** — the
+filtered array was what the next `autoSave` wrote back, so an unrecognised character was silently
+and permanently deleted. This closes TICKET-IO-03 implementation note 5's gap: a v1 characters key
+beside an absent or v2 config now gets the same notice, backup offer and start-fresh choice the
+ruleset has.
 
 **`Stat` is the one numeric axis** (Concept 01, TICKET-STAT-01) — `MainSkill` is gone. Flags say
 what a stat does: no `formula` means **invested**; `isResource` additionally means the value is a

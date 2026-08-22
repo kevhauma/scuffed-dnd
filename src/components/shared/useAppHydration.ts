@@ -7,7 +7,8 @@
  * Three load branches (TICKET-IO-03): current data loads, **recognisably older data is refused
  * and left alone**, and unparseable data keeps the existing corrupt-data message. Only the middle
  * one has options attached, because it is the only one where the User still has something worth
- * keeping.
+ * keeping — and since CR-05 an unreadable *character* takes that branch too, not just an
+ * unreadable ruleset.
  *
  * **Validates: Requirements 17.3, 17.4, 17.5; v2.0 decision "Clean break on persisted data"**
  */
@@ -56,7 +57,9 @@ export interface AppHydration {
  * disabled reports it once rather than throwing at the first read or write (Requirement 17.5).
  *
  * The characters follow the configuration's verdict — `loadConfig` throws before `loadCharacters`
- * is reached, so a refused ruleset never leaves a half-loaded app behind it.
+ * is reached, so a refused ruleset never leaves a half-loaded app behind it. Since CR-05 the
+ * characters have a verdict of their own: unrecognised character shapes are refused here too
+ * rather than silently filtered away and overwritten by the next save.
  *
  * @returns Storage availability, hydration progress, and any error worth showing the user
  */
