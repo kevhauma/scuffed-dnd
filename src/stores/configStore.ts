@@ -47,6 +47,7 @@ import type {
 } from '../types/config';
 import { POINT_BUY_CURVE_NAME, SUPPORTED_SCHEMA_VERSION } from '../types/config';
 import { useCharacterStore } from './characterStore';
+import { useUIStore } from './uiStore';
 
 /**
  * How a delete should behave when something still points at the entity
@@ -497,14 +498,38 @@ function mergeClearingAbsent<T extends object>(entity: T, updates: Partial<T>): 
 }
 
 /**
- * Auto-save helper - saves config and updates timestamp
+ * Auto-save helper — saves config, updates the timestamp, and reports a write that did not land
+ *
+ * The one place in this store where a write can fail, which is why the catch is here (CR-11).
+ * `saveConfiguration` has thrown `StorageQuotaError`/`StorageError` since Requirement 17.x and
+ * nothing anywhere caught either, so on a full LocalStorage the exception escaped the action into
+ * a React event handler: the edit silently didn't land and the User was told nothing.
+ *
+ * **On failure the caller's `set` becomes a no-op**, because what comes back is the configuration
+ * already in memory rather than the edit. That is deliberate: the write is attempted before the
+ * state changes, so a refused write leaves memory and disk agreeing rather than drifting apart —
+ * the atomicity the throw used to give, kept without the throw.
+ *
+ * @param config - The configuration to persist
+ * @returns What the store should now hold: the saved edit, or the unchanged current ruleset
  */
 function autoSave(config: Configuration): Configuration {
   const updated = {
     ...config,
     updatedAt: new Date().toISOString(),
   };
-  saveConfiguration(updated);
+
+  try {
+    saveConfiguration(updated);
+  } catch (error) {
+    useUIStore.getState().reportStorageFailure(error);
+    // Nothing reached disk, so nothing should reach state either. The `?? updated` case is the
+    // first write of a brand-new ruleset, where there is no previous state to fall back to —
+    // holding it in memory beats dropping the User back onto an empty dashboard, and the banner
+    // says it is unsaved.
+    return useConfigStore.getState().config ?? updated;
+  }
+
   return updated;
 }
 

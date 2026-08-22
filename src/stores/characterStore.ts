@@ -17,6 +17,7 @@ import { loadCharacters, saveCharacters } from '../services/storage';
 import type { Character, CharacterCreationData, Inventory } from '../types/character';
 import type { Configuration } from '../types/config';
 import type { FormulaResult } from '../types/formula';
+import { useUIStore } from './uiStore';
 
 /**
  * What {@link CharacterState.updateCharacter} may patch (CR-12)
@@ -382,10 +383,23 @@ function applyExperienceChange(
 }
 
 /**
- * Auto-save helper - saves characters and updates timestamp
+ * Auto-save helper — saves characters and reports a write that did not land
+ *
+ * The configuration store's `autoSave` for the same reason and with the same contract (CR-11):
+ * this is the one place a write can fail, and on failure what comes back is the character list
+ * already in memory, so the caller's `set` is a no-op and memory keeps matching disk.
+ *
+ * @param characters - The list to persist
+ * @returns What the store should now hold: the saved list, or the unchanged current one
  */
 function autoSave(characters: Character[]): Character[] {
-  saveCharacters(characters);
+  try {
+    saveCharacters(characters);
+  } catch (error) {
+    useUIStore.getState().reportStorageFailure(error);
+    return useCharacterStore.getState().characters;
+  }
+
   return characters;
 }
 

@@ -28,6 +28,7 @@ import type {
 } from '../types/config';
 import { useCharacterStore } from './characterStore';
 import { useConfigStore } from './configStore';
+import { useUIStore } from './uiStore';
 
 // Mock storage service
 vi.mock('../services/storage', () => ({
@@ -1839,6 +1840,66 @@ describe('ConfigStore', () => {
       );
 
       expect(importConfiguration(exported).rollDefinitions).toEqual(rollsNow());
+    });
+  });
+
+  describe('a write LocalStorage refuses (CR-11)', () => {
+    /** What `storage.ts` throws when `setItem` reports the quota, recognised by `name` */
+    const quotaError = () =>
+      Object.assign(new Error('Cannot save configuration: storage quota exceeded'), {
+        name: 'StorageQuotaError',
+      });
+
+    beforeEach(() => {
+      useConfigStore.getState().initializeConfig('Test');
+      useUIStore.setState({ storageFailure: null });
+      vi.clearAllMocks();
+    });
+
+    it('should surface the failure instead of throwing out of the action', () => {
+      vi.mocked(storage.saveConfiguration).mockImplementationOnce(() => {
+        throw quotaError();
+      });
+
+      // No `expect().toThrow()` here on purpose: the exception used to escape into the React event
+      // handler that called the action, which is the half of this the User could not see
+      expect(() => useConfigStore.getState().renameConfig('Grimdark Hollow')).not.toThrow();
+
+      const failure = useUIStore.getState().storageFailure;
+      expect(failure?.isQuota).toBe(true);
+      expect(failure?.message).toContain('storage is full');
+    });
+
+    it('should leave state exactly as it was, so memory still matches disk', () => {
+      const before = useConfigStore.getState().config;
+      vi.mocked(storage.saveConfiguration).mockImplementationOnce(() => {
+        throw quotaError();
+      });
+
+      useConfigStore.getState().addStat({
+        id: 'unsaved',
+        name: 'Unsaved',
+        abbreviation: 'UNS',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      });
+
+      // The write is attempted before the state changes, so a refused write changes neither
+      expect(useConfigStore.getState().config).toBe(before);
+      expect(useConfigStore.getState().config?.stats).toHaveLength(0);
+    });
+
+    it('should report a plain write failure differently from a full store', () => {
+      vi.mocked(storage.saveConfiguration).mockImplementationOnce(() => {
+        throw Object.assign(new Error('Failed to save configuration'), { name: 'StorageError' });
+      });
+
+      useConfigStore.getState().renameConfig('Grimdark Hollow');
+
+      expect(useUIStore.getState().storageFailure?.isQuota).toBe(false);
     });
   });
 });

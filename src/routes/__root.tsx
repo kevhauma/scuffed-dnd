@@ -12,6 +12,7 @@ import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 
 import { AppShell } from '../components/shared/AppShell';
 import { IncompatibleDataNotice } from '../components/shared/IncompatibleDataNotice';
+import { StorageFailureBanner } from '../components/shared/StorageFailureBanner';
 import { StorageNotice } from '../components/shared/StorageNotice';
 import { useAppHydration } from '../components/shared/useAppHydration';
 
@@ -96,6 +97,9 @@ export function RootLayout() {
   return (
     <AppShell>
       {storageError && <StorageNotice message={storageError} />}
+      {/* Above the routes rather than instead of them (CR-11): a refused *write* leaves everything
+          readable and exportable, so the app stays usable while the banner says what stopped */}
+      <StorageFailureBanner />
       <Outlet />
     </AppShell>
   );

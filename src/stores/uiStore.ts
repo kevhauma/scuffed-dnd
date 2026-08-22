@@ -40,6 +40,22 @@ export interface RollResult extends RollOutcome {
 }
 
 /**
+ * A write to LocalStorage that did not land (CR-11)
+ *
+ * `services/storage.ts` has thrown `StorageQuotaError`/`StorageError` since Requirement 17.x, and
+ * nothing anywhere caught either — so on a full LocalStorage every edit simply failed to persist,
+ * with the exception escaping the store action into a React event handler and the User told
+ * nothing. Session state about the app rather than about the ruleset, which is what this store is
+ * for.
+ */
+export interface StorageFailure {
+  /** What the User is told, phrased for the banner */
+  message: string;
+  /** Whether the cause was the quota — the one case a User can actually act on */
+  isQuota: boolean;
+}
+
+/**
  * UI store state
  */
 interface UIState {
@@ -58,6 +74,19 @@ interface UIState {
   validationReport: ValidationReport | null;
   setValidationReport: (report: ValidationReport | null) => void;
   clearValidationReport: () => void;
+
+  /**
+   * Storage failures (CR-11)
+   *
+   * The stores' `autoSave` helpers are the one place a write can fail, and they report here rather
+   * than letting the throw escape. One failure at a time: a full LocalStorage fails every write
+   * the same way, and a stack of identical banners would say nothing extra.
+   */
+  storageFailure: StorageFailure | null;
+  /** Read the thrown error and put its meaning on screen */
+  reportStorageFailure: (error: unknown) => void;
+  /** The User acknowledging the banner; the next failed write brings it straight back */
+  dismissStorageFailure: () => void;
 
   // Roll history
   rollHistory: RollResult[];
@@ -132,6 +161,32 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   clearValidationReport: () => {
     set({ validationReport: null });
+  },
+
+  // Storage failures
+  storageFailure: null,
+
+  reportStorageFailure: (error: unknown) => {
+    // Read by `name` rather than by `instanceof StorageQuotaError`, which would make this store
+    // import the storage service to tell two messages apart — `storage.ts` recognises the
+    // browser's own `QuotaExceededError` the same way
+    const isQuota = error instanceof Error && error.name === 'StorageQuotaError';
+
+    set({
+      storageFailure: {
+        isQuota,
+        // Two different situations for the User: a full store they can free up, and a browser
+        // that will not write at all. Both end the same way — the edit was refused rather than
+        // half-applied, so what is on screen still matches what is stored.
+        message: isQuota
+          ? 'Your browser storage is full, so this change could not be saved and was not applied. Export your ruleset, free up some space, and try again.'
+          : 'Your browser refused to save this change, so it was not applied. What you see still matches what is stored.',
+      },
+    });
+  },
+
+  dismissStorageFailure: () => {
+    set({ storageFailure: null });
   },
 
   // Roll history
