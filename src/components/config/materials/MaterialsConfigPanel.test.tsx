@@ -162,6 +162,33 @@ describe('MaterialsConfigPanel', () => {
     });
   });
 
+  it('should sort the tier picker without reordering the store (CR-15)', () => {
+    // Stored deliberately out of order, so an in-place sort would be visible in the store
+    useConfigStore.setState({
+      config: createConfig({
+        currencyTiers: [
+          { id: 'silver', name: 'Silver', order: 1, conversionToNext: 10 },
+          { id: 'gold', name: 'Gold', order: 0, conversionToNext: 10 },
+        ],
+      }),
+      isLoaded: true,
+    });
+
+    render(<MaterialsConfigPanel />);
+    openLevelEditor();
+
+    // The picker still reads in `order`, and the store's array is untouched by the render
+    const tierPicker = screen.getByLabelText('Currency Tier') as HTMLSelectElement;
+    expect(Array.from(tierPicker.options).map((option) => option.value)).toEqual([
+      'gold',
+      'silver',
+    ]);
+    expect(useConfigStore.getState().config?.currencyTiers.map((tier) => tier.id)).toEqual([
+      'silver',
+      'gold',
+    ]);
+  });
+
   it('should say there is nothing to modify when every stat is derived', () => {
     useConfigStore.setState({
       config: createConfig({

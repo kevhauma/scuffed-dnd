@@ -195,7 +195,10 @@ export function MaterialLevelFormDialog({
                   id={tierId}
                   value={watch('tierId')}
                   onChange={(e) => form.setValue('tierId', e.target.value)}
-                  options={currencyTiers
+                  // Copy before sorting (CR-15): this prop is the store's own
+                  // `config.currencyTiers`, and `Array.prototype.sort` reorders in place — so the
+                  // unguarded call had a render pass writing to persisted state
+                  options={[...currencyTiers]
                     .sort((a, b) => a.order - b.order)
                     .map((tier) => ({
                       value: tier.id,
