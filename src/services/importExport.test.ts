@@ -315,6 +315,104 @@ describe('Import/Export Service', () => {
       });
     });
 
+    describe('the four collections that were array-checked and nothing more (CR-03)', () => {
+      const shapeOf = (overrides: Record<string, unknown>) =>
+        validateConfigurationShape({ ...validConfig, ...overrides });
+
+      it('rejects a null entry in any of them rather than letting it reach the engine', () => {
+        for (const field of ['items', 'equipmentSlots', 'currencyTiers', 'materialCategories']) {
+          const result = shapeOf({ [field]: [null] });
+
+          expect(result.isValid, field).toBe(false);
+          expect(result.errors, field).toContain(`${field}[0] must be an object`);
+        }
+      });
+
+      it('rejects an item whose optional reference is not a string', () => {
+        const result = shapeOf({
+          items: [{ id: 'boots', name: 'Boots', description: '', equipmentSlotType: 7 }],
+        });
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain('items[0].equipmentSlotType must be a string when present');
+      });
+
+      it('accepts a plain item, which carries no references at all', () => {
+        const result = shapeOf({ items: [{ id: 'rope', name: 'Rope', description: '' }] });
+
+        expect(result).toEqual({ isValid: true, errors: [] });
+      });
+
+      it('rejects an equipment slot with no type, which nothing could ever be equipped to', () => {
+        const result = shapeOf({ equipmentSlots: [{ type: '', name: 'Head', description: '' }] });
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain('equipmentSlots[0].type must be a non-empty string');
+      });
+
+      it('rejects a currency tier whose ladder numbers are not numbers', () => {
+        const result = shapeOf({
+          currencyTiers: [{ id: 'gold', name: 'Gold', order: '0', conversionToNext: null }],
+        });
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain('currencyTiers[0].order must be a finite number');
+        expect(result.errors).toContain(
+          'currencyTiers[0].conversionToNext must be a finite number'
+        );
+      });
+
+      it('rejects a material category missing its id', () => {
+        const result = shapeOf({ materialCategories: [{ name: 'Metals', description: '' }] });
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain('materialCategories[0].id must be a non-empty string');
+      });
+    });
+
+    describe('material tiers beyond their bonuses (CR-03)', () => {
+      const withMaterial = (material: unknown) =>
+        validateConfigurationShape({ ...validConfig, materials: [material] });
+
+      it('rejects a material with no category, which the engine dereferences', () => {
+        const result = withMaterial({ id: 'iron', name: 'Iron', description: '', levels: [] });
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain('materials[0].categoryId must be a material category id');
+      });
+
+      it('rejects a tier with no value, which used to crash the engine validator', () => {
+        // `level.value.tierId` is read unguarded in `engine/validator.ts`
+        const result = withMaterial({
+          id: 'iron',
+          name: 'Iron',
+          description: '',
+          categoryId: 'cat1',
+          levels: [{ level: 1, name: 'Iron', bonuses: [] }],
+        });
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain(
+          'materials[0].levels[0].value must be a { tierId, amount } object'
+        );
+      });
+
+      it('rejects a tier whose value names no currency tier', () => {
+        const result = withMaterial({
+          id: 'iron',
+          name: 'Iron',
+          description: '',
+          categoryId: 'cat1',
+          levels: [{ level: 1, name: 'Iron', bonuses: [], value: { amount: 10 } }],
+        });
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain(
+          'materials[0].levels[0].value.tierId must be a currency tier id'
+        );
+      });
+    });
+
     it('should reject non-object data', () => {
       const result = validateConfigurationShape('not an object');
 

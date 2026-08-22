@@ -27,6 +27,15 @@ vi.mock('../../../services/importExport', async () => {
   return { ...actual, downloadConfiguration: vi.fn() };
 });
 
+// Real, except that one test needs it to throw the way a shape-gate miss would (CR-03)
+vi.mock('../../../engine/validator', async () => {
+  const actual = await vi.importActual<typeof import('../../../engine/validator')>(
+    '../../../engine/validator'
+  );
+  return { ...actual, validateConfiguration: vi.fn(actual.validateConfiguration) };
+});
+
+import { validateConfiguration } from '../../../engine/validator';
 import { downloadConfiguration } from '../../../services/importExport';
 import { useConfigStore } from '../../../stores/configStore';
 import { ConfigTransferPanel } from './ConfigTransferPanel';
@@ -232,6 +241,46 @@ describe('ConfigTransferPanel', () => {
     });
     expect(useConfigStore.getState().config?.name).toBe('Dangling');
     expect(screen.getByText(/WIS/)).toBeDefined();
+  });
+
+  it('should refuse a structurally broken collection entry before it is persisted (CR-03)', async () => {
+    render(<ConfigTransferPanel />);
+
+    // `{"currencyTiers":[null]}` used to pass the shape gate — only the container was checked —
+    // and then crash the engine validator, *after* `replaceConfig` had persisted it
+    choose(
+      jsonFile(
+        'crashing.json',
+        JSON.stringify(createConfig({ name: 'Crashing', currencyTiers: [null] as never }))
+      )
+    );
+    confirmImport();
+
+    await waitFor(() => {
+      expect(screen.getByText(/That file was not imported/)).toBeDefined();
+    });
+    expect(screen.getByText('currencyTiers[0] must be an object')).toBeDefined();
+    expect(useConfigStore.getState().config?.name).toBe('Test Config');
+  });
+
+  it('should not persist a ruleset the engine cannot walk at all (CR-03)', async () => {
+    // The shape gate is what normally stops that case now; this is the guard behind it, for
+    // whatever the gate misses next. The engine validator running **before** `replaceConfig` is
+    // the whole point — a throw from it must leave the stored ruleset exactly as it was.
+    vi.mocked(validateConfiguration).mockImplementationOnce(() => {
+      throw new TypeError("Cannot read properties of null (reading 'id')");
+    });
+
+    render(<ConfigTransferPanel />);
+
+    choose(jsonFile('other.json', JSON.stringify(createConfig({ name: 'Imported' }))));
+    confirmImport();
+
+    await waitFor(() => {
+      expect(screen.getByText(/That file was not imported/)).toBeDefined();
+    });
+    expect(screen.getByText(/the ruleset could not be read/)).toBeDefined();
+    expect(useConfigStore.getState().config?.name).toBe('Test Config');
   });
 
   it('should confirm a clean import found no issues', async () => {

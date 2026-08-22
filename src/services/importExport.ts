@@ -431,6 +431,234 @@ function rollDefinitionShapeErrors(roll: Record<string, unknown>, index: number)
 }
 
 /**
+ * Shape errors for one item of an imported configuration
+ *
+ * Every reference is optional — an item may be plain — but a *present* one has to be a string, or
+ * the reference checks in `engine/validator.ts` compare a number against a set of ids and report
+ * nothing.
+ *
+ * @param item - One element of `config.items`
+ * @param index - Its position, for the message
+ * @returns The errors found, empty when the shape is sound
+ */
+function itemShapeErrors(item: Record<string, unknown>, index: number): string[] {
+  const errors: string[] = [];
+
+  if (typeof item.id !== 'string' || item.id === '') {
+    errors.push(`items[${index}].id must be a non-empty string`);
+  }
+  if (typeof item.name !== 'string') {
+    errors.push(`items[${index}].name must be a string`);
+  }
+  if (typeof item.description !== 'string') {
+    errors.push(`items[${index}].description must be a string`);
+  }
+
+  for (const field of ['categoryId', 'materialId', 'equipmentSlotType']) {
+    if (item[field] !== undefined && typeof item[field] !== 'string') {
+      errors.push(`items[${index}].${field} must be a string when present`);
+    }
+  }
+
+  if (
+    item.materialLevel !== undefined &&
+    (typeof item.materialLevel !== 'number' || !Number.isFinite(item.materialLevel))
+  ) {
+    errors.push(`items[${index}].materialLevel must be a finite number when present`);
+  }
+
+  return errors;
+}
+
+/**
+ * Shape errors for one equipment slot of an imported configuration
+ *
+ * A slot is identified by its `type` rather than by an id — that is the string an item names —
+ * so an empty one is a slot nothing can ever be equipped to.
+ *
+ * @param slot - One element of `config.equipmentSlots`
+ * @param index - Its position, for the message
+ * @returns The errors found, empty when the shape is sound
+ */
+function equipmentSlotShapeErrors(slot: Record<string, unknown>, index: number): string[] {
+  const errors: string[] = [];
+
+  if (typeof slot.type !== 'string' || slot.type === '') {
+    errors.push(`equipmentSlots[${index}].type must be a non-empty string`);
+  }
+  if (typeof slot.name !== 'string') {
+    errors.push(`equipmentSlots[${index}].name must be a string`);
+  }
+  if (typeof slot.description !== 'string') {
+    errors.push(`equipmentSlots[${index}].description must be a string`);
+  }
+
+  return errors;
+}
+
+/**
+ * Shape errors for one currency tier of an imported configuration
+ *
+ * `order` places the tier on the conversion ladder and `conversionToNext` is how many of it make
+ * one of the next — both have to be finite numbers for the ladder to be walkable at all. Whether
+ * the orders are unique and gapless is `engine/validator.ts`'s report.
+ *
+ * @param tier - One element of `config.currencyTiers`
+ * @param index - Its position, for the message
+ * @returns The errors found, empty when the shape is sound
+ */
+function currencyTierShapeErrors(tier: Record<string, unknown>, index: number): string[] {
+  const errors: string[] = [];
+
+  if (typeof tier.id !== 'string' || tier.id === '') {
+    errors.push(`currencyTiers[${index}].id must be a non-empty string`);
+  }
+  if (typeof tier.name !== 'string') {
+    errors.push(`currencyTiers[${index}].name must be a string`);
+  }
+  if (typeof tier.order !== 'number' || !Number.isFinite(tier.order)) {
+    errors.push(`currencyTiers[${index}].order must be a finite number`);
+  }
+  if (typeof tier.conversionToNext !== 'number' || !Number.isFinite(tier.conversionToNext)) {
+    errors.push(`currencyTiers[${index}].conversionToNext must be a finite number`);
+  }
+
+  return errors;
+}
+
+/**
+ * Shape errors for one material category of an imported configuration
+ *
+ * @param category - One element of `config.materialCategories`
+ * @param index - Its position, for the message
+ * @returns The errors found, empty when the shape is sound
+ */
+function materialCategoryShapeErrors(category: Record<string, unknown>, index: number): string[] {
+  const errors: string[] = [];
+
+  if (typeof category.id !== 'string' || category.id === '') {
+    errors.push(`materialCategories[${index}].id must be a non-empty string`);
+  }
+  if (typeof category.name !== 'string') {
+    errors.push(`materialCategories[${index}].name must be a string`);
+  }
+  if (typeof category.description !== 'string') {
+    errors.push(`materialCategories[${index}].description must be a string`);
+  }
+
+  return errors;
+}
+
+/**
+ * Shape errors for one material of an imported configuration (Concept 09, TICKET-MAT-01)
+ *
+ * A tier bonus is `{ statId, modifier }` — keyed by stat **id**, like a race's stat block, so a
+ * file still holding the old `{ skillCode, modifier }` shape is reported here by name rather than
+ * silently importing as a list of modifiers that target nothing. A tier's `value` is the price the
+ * material sells at, and its `tierId` is what `engine/validator.ts` resolves against the currency
+ * ladder — so an absent one is a shape error here rather than a crash there (CR-03).
+ *
+ * @param material - One element of `config.materials`
+ * @param index - Its position, for the message
+ * @returns The errors found, empty when the shape is sound
+ */
+function materialShapeErrors(material: Record<string, unknown>, index: number): string[] {
+  const errors: string[] = [];
+
+  if (typeof material.id !== 'string' || material.id === '') {
+    errors.push(`materials[${index}].id must be a non-empty string`);
+  }
+  if (typeof material.name !== 'string') {
+    errors.push(`materials[${index}].name must be a string`);
+  }
+  if (typeof material.description !== 'string') {
+    errors.push(`materials[${index}].description must be a string`);
+  }
+  if (typeof material.categoryId !== 'string' || material.categoryId === '') {
+    errors.push(`materials[${index}].categoryId must be a material category id`);
+  }
+
+  if (!Array.isArray(material.levels)) {
+    errors.push(`materials[${index}].levels must be an array`);
+    return errors;
+  }
+
+  material.levels.forEach((level: unknown, levelIndex: number) => {
+    const where = `materials[${index}].levels[${levelIndex}]`;
+    if (!level || typeof level !== 'object') {
+      errors.push(`${where} must be an object`);
+      return;
+    }
+    const l = level as Record<string, unknown>;
+
+    if (typeof l.level !== 'number' || !Number.isFinite(l.level)) {
+      errors.push(`${where}.level must be a finite number`);
+    }
+    if (typeof l.name !== 'string') {
+      errors.push(`${where}.name must be a string`);
+    }
+
+    if (!l.value || typeof l.value !== 'object' || Array.isArray(l.value)) {
+      errors.push(`${where}.value must be a { tierId, amount } object`);
+    } else {
+      const v = l.value as Record<string, unknown>;
+      if (typeof v.tierId !== 'string' || v.tierId === '') {
+        errors.push(`${where}.value.tierId must be a currency tier id`);
+      }
+      if (typeof v.amount !== 'number' || !Number.isFinite(v.amount)) {
+        errors.push(`${where}.value.amount must be a finite number`);
+      }
+    }
+
+    if (!Array.isArray(l.bonuses)) {
+      errors.push(`${where}.bonuses must be an array`);
+      return;
+    }
+
+    l.bonuses.forEach((bonus: unknown, bonusIndex: number) => {
+      const at = `${where}.bonuses[${bonusIndex}]`;
+      if (!bonus || typeof bonus !== 'object') {
+        errors.push(`${at} must be an object`);
+        return;
+      }
+      const b = bonus as Record<string, unknown>;
+      if (typeof b.statId !== 'string' || b.statId === '') {
+        errors.push(`${at}.statId must be a stat id`);
+      }
+      if (typeof b.modifier !== 'number' || !Number.isFinite(b.modifier)) {
+        errors.push(`${at}.modifier must be a finite number`);
+      }
+    });
+  });
+
+  return errors;
+}
+
+/**
+ * Run a per-entry shape check across one of the configuration's collections
+ *
+ * Every collection had this same three-line preamble — "is it an array, is each entry an object,
+ * then check the entry" — and four of them had *only* the first line (CR-03). Sharing it is what
+ * makes adding a collection without its entry check the visible omission it should be.
+ *
+ * @param entries - The collection, already known to be an array
+ * @param field - The collection's name, for the message
+ * @param shapeErrors - The per-entry check
+ * @returns Every error across the collection
+ */
+function collectionShapeErrors(
+  entries: unknown[],
+  field: string,
+  shapeErrors: (entry: Record<string, unknown>, index: number) => string[]
+): string[] {
+  return entries.flatMap((entry: unknown, index: number) =>
+    !entry || typeof entry !== 'object'
+      ? [`${field}[${index}] must be an object`]
+      : shapeErrors(entry as Record<string, unknown>, index)
+  );
+}
+
+/**
  * Validate configuration structure
  *
  * Checks that the imported data has all required fields and correct types.
@@ -600,50 +828,33 @@ export function validateConfigurationShape(data: unknown): ValidationResult {
     }
   }
 
-  // Validate material tier modifiers (TICKET-MAT-01). A tier bonus is `{ statId, modifier }` —
-  // keyed by stat **id**, like a race's stat block, so a file still holding the old
-  // `{ skillCode, modifier }` shape is reported here by name rather than silently importing as a
-  // list of modifiers that target nothing.
+  // The four collections whose entries used to be checked no further than `Array.isArray` (CR-03),
+  // plus materials. A `{"currencyTiers":[null]}` file passed the shape gate on that omission and
+  // then crashed `engine/validator.ts` — after `replaceConfig` had already persisted it.
   if (Array.isArray(config.materials)) {
-    config.materials.forEach((material: unknown, index: number) => {
-      if (!material || typeof material !== 'object') {
-        errors.push(`materials[${index}] must be an object`);
-        return;
-      }
-      const m = material as Record<string, unknown>;
-      if (!Array.isArray(m.levels)) {
-        errors.push(`materials[${index}].levels must be an array`);
-        return;
-      }
-
-      m.levels.forEach((level: unknown, levelIndex: number) => {
-        const where = `materials[${index}].levels[${levelIndex}]`;
-        if (!level || typeof level !== 'object') {
-          errors.push(`${where} must be an object`);
-          return;
-        }
-        const l = level as Record<string, unknown>;
-        if (!Array.isArray(l.bonuses)) {
-          errors.push(`${where}.bonuses must be an array`);
-          return;
-        }
-
-        l.bonuses.forEach((bonus: unknown, bonusIndex: number) => {
-          const at = `${where}.bonuses[${bonusIndex}]`;
-          if (!bonus || typeof bonus !== 'object') {
-            errors.push(`${at} must be an object`);
-            return;
-          }
-          const b = bonus as Record<string, unknown>;
-          if (typeof b.statId !== 'string' || b.statId === '') {
-            errors.push(`${at}.statId must be a stat id`);
-          }
-          if (typeof b.modifier !== 'number' || !Number.isFinite(b.modifier)) {
-            errors.push(`${at}.modifier must be a finite number`);
-          }
-        });
-      });
-    });
+    errors.push(...collectionShapeErrors(config.materials, 'materials', materialShapeErrors));
+  }
+  if (Array.isArray(config.materialCategories)) {
+    errors.push(
+      ...collectionShapeErrors(
+        config.materialCategories,
+        'materialCategories',
+        materialCategoryShapeErrors
+      )
+    );
+  }
+  if (Array.isArray(config.items)) {
+    errors.push(...collectionShapeErrors(config.items, 'items', itemShapeErrors));
+  }
+  if (Array.isArray(config.equipmentSlots)) {
+    errors.push(
+      ...collectionShapeErrors(config.equipmentSlots, 'equipmentSlots', equipmentSlotShapeErrors)
+    );
+  }
+  if (Array.isArray(config.currencyTiers)) {
+    errors.push(
+      ...collectionShapeErrors(config.currencyTiers, 'currencyTiers', currencyTierShapeErrors)
+    );
   }
 
   // Validate skills structure (Concept 02, TICKET-SKL-02). A skill is `{ id, name, description,
@@ -745,13 +956,9 @@ export function validateConfigurationShape(data: unknown): ValidationResult {
     if (!Array.isArray(config.diceLadders)) {
       errors.push("Field 'diceLadders' must be an array when present");
     } else {
-      config.diceLadders.forEach((ladder: unknown, index: number) => {
-        if (!ladder || typeof ladder !== 'object') {
-          errors.push(`diceLadders[${index}] must be an object`);
-          return;
-        }
-        errors.push(...diceLadderShapeErrors(ladder as Record<string, unknown>, index));
-      });
+      errors.push(
+        ...collectionShapeErrors(config.diceLadders, 'diceLadders', diceLadderShapeErrors)
+      );
     }
   }
 
@@ -761,13 +968,13 @@ export function validateConfigurationShape(data: unknown): ValidationResult {
     if (!Array.isArray(config.rollDefinitions)) {
       errors.push("Field 'rollDefinitions' must be an array when present");
     } else {
-      config.rollDefinitions.forEach((roll: unknown, index: number) => {
-        if (!roll || typeof roll !== 'object') {
-          errors.push(`rollDefinitions[${index}] must be an object`);
-          return;
-        }
-        errors.push(...rollDefinitionShapeErrors(roll as Record<string, unknown>, index));
-      });
+      errors.push(
+        ...collectionShapeErrors(
+          config.rollDefinitions,
+          'rollDefinitions',
+          rollDefinitionShapeErrors
+        )
+      );
     }
   }
 

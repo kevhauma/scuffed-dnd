@@ -195,7 +195,7 @@ workflow and are documented here so a future regression is distinguishable from 
 | File | Error |
 | --- | --- |
 | `src/components/ui/Button/Button.test.tsx:68` | TS2339 — `.disabled` read off `HTMLElement` |
-| `src/services/importExport.test.ts:870` | TS2352 — `Blob`-shaped literal cast to `File` |
+| `src/services/importExport.test.ts:966` | TS2352 — `Blob`-shaped literal cast to `File` |
 
 Both are test-typing noise. The two `evaluator.ts` errors that stood beside them for five tickets
 are **gone as of TICKET-FORM-07**: `operator` does not exist on type `never` was the switch

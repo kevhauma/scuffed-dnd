@@ -184,6 +184,13 @@ The refusal has three surfaces, and they behave differently on purpose:
 | **Start fresh** | `useConfigStore.discardStoredData()` — the **only** path that calls `clearAllData()`. It clears both keys, empties both stores, and writes no replacement. |
 | **Import** (`importConfiguration()`) | throws `SchemaVersionError` *before* `validateConfigurationShape()` runs, so a v1 file gets one version sentence rather than a field-by-field report. |
 
+Import runs **both** validators before anything is persisted (CR-03): the shape gate in
+`importExport.ts`, then `engine/validator.ts`'s reference report, and only then `replaceConfig`.
+"Apply it anyway and show the report" is the decision about a *referentially* broken ruleset — one
+whose ids dangle — never about one the engine cannot walk. Every collection gets a per-entry shape
+check via `collectionShapeErrors(entries, field, shapeErrors)`; adding a collection without one is
+how `{"currencyTiers":[null]}` used to reach LocalStorage.
+
 `loadCharacters()` separately drops any character with no `investedStatPoints`. **Known gap**: that
 filter is silent when `loadConfiguration()` did not throw — a v1 characters key beside an absent or
 v2 config gets no notice and no backup offer (TICKET-IO-03 implementation note 5).
