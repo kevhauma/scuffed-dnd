@@ -71,8 +71,11 @@ export function useCurrencyManager() {
       id: editingTierId || crypto.randomUUID(),
       name: data.name,
       conversionToNext: data.conversionToNext,
+      // `??`, never `||` (CR-04): the lowest tier has `order: 0`, and falling through a falsy
+      // check reassigned it the highest order — so editing the bottom of the ladder moved it to
+      // the top, silently changing what the ruleset's conversions mean
       order: editingTierId
-        ? currentTiers.find((t) => t.id === editingTierId)?.order || currentTiers.length
+        ? (currentTiers.find((t) => t.id === editingTierId)?.order ?? currentTiers.length)
         : currentTiers.length,
     };
 
