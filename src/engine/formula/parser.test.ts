@@ -30,6 +30,24 @@ describe('Formula Parser', () => {
         value: 0.5,
       });
     });
+
+    // CR-09: `parseFloat` used to stop at the second point and answer a number anyway, so each of
+    // these tokenized to a plausible wrong value instead of failing
+    it('should refuse a second decimal point rather than truncating at it', () => {
+      expect(() => parseFormula('1.2.3')).toThrow(/at most one decimal point/);
+      expect(() => parseFormula('1..5 + 2')).toThrow(/at most one decimal point/);
+    });
+
+    it('should refuse a trailing decimal point with no digits after it', () => {
+      expect(() => parseFormula('1.')).toThrow(/needs digits after it/);
+      expect(() => parseFormula('2 * 3.')).toThrow(/needs digits after it/);
+    });
+
+    it('should still refuse a leading decimal point, as the separator it is', () => {
+      // Unchanged from v1.0 and deliberate: `.` is the reference separator, so a number starts at
+      // a digit. The refusal comes from the grammar rather than from `parseNumber`.
+      expect(() => parseFormula('.5')).toThrow();
+    });
   });
 
   describe('Variable References', () => {

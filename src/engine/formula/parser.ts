@@ -113,15 +113,44 @@ class Tokenizer {
   }
 
   /**
-   * Parse a number token
+   * Parse a number token — `[0-9]+` with at most one decimal point, and a digit after it
+   *
+   * The point count is tracked rather than left to `parseFloat` (CR-09). Consuming `[0-9.]*` and
+   * handing the lot over meant `parseFloat` stopped at the second point and answered a number
+   * anyway: `1.2.3` tokenized as `1.2` and `1..5 + 2` evaluated to `3`, both reported valid. A
+   * typo'd literal producing a confident wrong number is exactly what the engine's errors-as-values
+   * discipline exists to prevent everywhere else, so a malformed literal is a syntax error naming
+   * the span it spoiled.
+   *
+   * A literal must also *end* in a digit: `1.` is refused rather than read as `1`, since the point
+   * the User typed had a meaning that never arrived. A leading point never reaches here at all —
+   * `getNextToken` only enters on a digit — so `.5` remains an unexpected `DOT`, which is the
+   * v1.0 behaviour and stays deliberate: the dot is the reference separator, and letting a number
+   * start with one would make `stats.5` a lexing question rather than a grammar one.
    */
   private parseNumber(): Token {
     const startPos = this.position;
     let numStr = '';
+    let seenPoint = false;
 
     while (this.currentChar !== null && /[0-9.]/.test(this.currentChar)) {
+      if (this.currentChar === '.') {
+        if (seenPoint) {
+          throw new Error(
+            `Malformed number '${numStr}.' at position ${startPos}: a number has at most one decimal point`
+          );
+        }
+        seenPoint = true;
+      }
+
       numStr += this.currentChar;
       this.advance();
+    }
+
+    if (numStr.endsWith('.')) {
+      throw new Error(
+        `Malformed number '${numStr}' at position ${startPos}: a decimal point needs digits after it`
+      );
     }
 
     return {

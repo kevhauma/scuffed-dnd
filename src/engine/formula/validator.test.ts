@@ -65,6 +65,14 @@ describe('validateFormula', () => {
       expect(result.errors.length).toBeGreaterThan(0);
     });
 
+    it('should reject formula with syntax error - malformed number (CR-09)', () => {
+      // Reported valid before, and evaluated as `1.2` — the tokenizer's truncation reaching all
+      // the way out to the User's verdict
+      const result = validateFormula('1.2.3');
+      expect(result.isValid).toBe(false);
+      expect(result.errors[0]).toContain('Malformed number');
+    });
+
     it('should accept formula with unary plus (double plus is valid)', () => {
       // STR ++ DEX is parsed as STR + (+DEX), which is valid
       const result = validateFormula('STR ++ DEX');
