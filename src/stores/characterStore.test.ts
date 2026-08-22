@@ -412,6 +412,25 @@ describe('CharacterStore', () => {
       expect(useCharacterStore.getState().characters[0]).toEqual(character);
       expect(storage.saveCharacters).not.toHaveBeenCalled();
     });
+
+    it('should not accept the fields a guarded action owns (CR-12)', () => {
+      const update = useCharacterStore.getState().updateCharacter;
+
+      // Compile-time assertions: each of these has a home elsewhere, and `CharacterPatch` is what
+      // keeps this action from being the obvious-looking way around it. A `@ts-expect-error` that
+      // stops erroring fails the typecheck, so widening the patch cannot pass unnoticed.
+      // @ts-expect-error — XP is `awardExperience`/`deductExperience`; level derives from it
+      update('char-1', { experience: 9999 });
+      // @ts-expect-error — the allocation budget is refused in `setInvestedStatPoints`
+      update('char-1', { investedStatPoints: { 'str-id': 9999 } });
+      // @ts-expect-error — identity, not content
+      update('char-1', { id: 'someone-else' });
+      // @ts-expect-error — identity, not content
+      update('char-1', { configurationId: 'another-ruleset' });
+
+      // And the point of the type: nothing above reached the store
+      expect(useCharacterStore.getState().characters).toEqual([]);
+    });
   });
 
   describe('deleteCharacter', () => {

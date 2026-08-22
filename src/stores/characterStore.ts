@@ -19,6 +19,18 @@ import type { Configuration } from '../types/config';
 import type { FormulaResult } from '../types/formula';
 
 /**
+ * What {@link CharacterState.updateCharacter} may patch (CR-12)
+ *
+ * The three fields of a character that are plain content: what they are called, what they are, and
+ * how they grow. Everything else on `Character` is either an invariant somebody else enforces
+ * (`experience`, `investedStatPoints`, `currentResourceValues`, `inventory`) or identity nothing
+ * may rewrite (`id`, `configurationId`, `createdAt`, `updatedAt`). Widening this type is how a
+ * future feature says it needs a new patchable field — and the place to ask whether that field
+ * wants a guarded action of its own instead.
+ */
+export type CharacterPatch = Partial<Pick<Character, 'name' | 'raceIds' | 'archetypeId'>>;
+
+/**
  * Character store state
  */
 interface CharacterState {
@@ -46,7 +58,16 @@ interface CharacterState {
    * budget cannot pay for, checked here as well as in the wizard so the rule has one home.
    */
   createCharacter: (data: CharacterCreationData, config: Configuration) => Character | null;
-  updateCharacter: (id: string, updates: Partial<Character>) => void;
+  /**
+   * Patch the fields of a character that no other action owns
+   *
+   * Deliberately **not** `Partial<Character>` (CR-12). A free-form patch could write `experience`,
+   * which only `awardExperience`/`deductExperience` may touch since `level` derives from it; or
+   * `investedStatPoints`, whose budget refusal has one home in `setInvestedStatPoints`; or
+   * `id`/`configurationId`/`createdAt`, which are identity rather than content. Every one of those
+   * has a guarded action, so this one takes only what is left: see {@link CharacterPatch}.
+   */
+  updateCharacter: (id: string, updates: CharacterPatch) => void;
   deleteCharacter: (id: string) => void;
   getCharacter: (id: string) => Character | undefined;
 
@@ -413,8 +434,8 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     return character;
   },
 
-  // Update character
-  updateCharacter: (id: string, updates: Partial<Character>) => {
+  // Update character — see `CharacterPatch` for what this may and may not touch
+  updateCharacter: (id: string, updates: CharacterPatch) => {
     // Same rule as on create: a patch that would put a character past the blend is not applied
     if (updates.raceIds !== undefined && !hasBlendableRaces(updates.raceIds)) return;
 
