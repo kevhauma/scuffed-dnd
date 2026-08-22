@@ -3,18 +3,22 @@
  *
  * Dialog for creating and editing items with material and equipment slot assignment.
  *
+ * The text fields are on `FormField` and the footer on `FormDialogActions` since CR-23. The
+ * pickers and the description stay hand-built: `FormField` renders an `Input`, which a `Select`
+ * and a `Textarea` are not.
+ *
  * **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 21.1-21.5**
  */
 
 import { useEffect, useId } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import type { EquipmentSlot, Material } from '../../../types';
-import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
-import { Input } from '../../ui/Input/Input';
+import { FormField } from '../../ui/FormField/FormField';
 import { Label } from '../../ui/Label/Label';
 import { Select } from '../../ui/Select/Select';
 import { Textarea } from '../../ui/Textarea/Textarea';
+import { FormDialogActions } from '../shared/FormDialogActions';
 import type { ItemFormData } from './useItemManager';
 
 interface ItemFormDialogProps {
@@ -36,12 +40,10 @@ export function ItemFormDialog({
   onClose,
   onSave,
 }: ItemFormDialogProps) {
-  const itemCategoryId = useId();
   const itemDescriptionId = useId();
   const itemEquipmentSlotId = useId();
   const itemMaterialId = useId();
   const itemMaterialLevelId = useId();
-  const itemNameId = useId();
 
   const {
     register,
@@ -72,21 +74,13 @@ export function ItemFormDialog({
   return (
     <Dialog open={isOpen} onClose={onClose} title={isEditing ? 'Edit Item' : 'Add Item'}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Name */}
-        <div>
-          <Label htmlFor={itemNameId} required>
-            Name
-          </Label>
-          <Input
-            id={itemNameId}
-            {...register('name', { required: 'Name is required' })}
-            error={!!errors.name}
-            className="w-full mt-1"
-          />
-          {errors.name && <span className="text-xs text-crimson mt-1">{errors.name.message}</span>}
-        </div>
+        <FormField
+          label="Name"
+          required
+          error={errors.name?.message}
+          {...register('name', { required: 'Name is required' })}
+        />
 
-        {/* Description */}
         <div>
           <Label htmlFor={itemDescriptionId}>Description</Label>
           <Textarea
@@ -97,18 +91,12 @@ export function ItemFormDialog({
           />
         </div>
 
-        {/* Category */}
-        <div>
-          <Label htmlFor={itemCategoryId}>Category (optional)</Label>
-          <Input
-            id={itemCategoryId}
-            {...register('categoryId')}
-            placeholder="e.g., Weapons, Armor, Consumables"
-            className="w-full mt-1"
-          />
-        </div>
+        <FormField
+          label="Category (optional)"
+          placeholder="e.g., Weapons, Armor, Consumables"
+          {...register('categoryId')}
+        />
 
-        {/* Material */}
         <div>
           <Label htmlFor={itemMaterialId}>Material (optional)</Label>
           <Select
@@ -122,7 +110,6 @@ export function ItemFormDialog({
           />
         </div>
 
-        {/* Material Level */}
         {selectedMaterial && selectedMaterial.levels.length > 0 && (
           <div>
             <Label htmlFor={itemMaterialLevelId}>Material Level</Label>
@@ -138,7 +125,6 @@ export function ItemFormDialog({
           </div>
         )}
 
-        {/* Equipment Slot */}
         <div>
           <Label htmlFor={itemEquipmentSlotId}>Equipment Slot (optional)</Label>
           <Select
@@ -152,15 +138,10 @@ export function ItemFormDialog({
           />
         </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-2 pt-4">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary">
-            {isEditing ? 'Save Changes' : 'Add Item'}
-          </Button>
-        </div>
+        <FormDialogActions
+          submitLabel={isEditing ? 'Save Changes' : 'Add Item'}
+          onCancel={onClose}
+        />
       </form>
     </Dialog>
   );

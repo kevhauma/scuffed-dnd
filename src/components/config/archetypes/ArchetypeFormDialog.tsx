@@ -16,10 +16,10 @@
 import type { UseFormReturn } from 'react-hook-form';
 import type { Stat, StatAffinity } from '../../../types';
 import { STAT_AFFINITIES } from '../../../types';
-import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
 import { Select } from '../../ui/Select/Select';
+import { FormDialogActions } from '../shared/FormDialogActions';
 import { StatRowsField } from '../shared/StatRowsField';
 import type { ArchetypeFormData } from './useArchetypeManager';
 
@@ -91,14 +91,10 @@ export function ArchetypeFormDialog({
           )}
         />
 
-        <div className="flex justify-end gap-3 mt-6">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary">
-            {isEditing ? 'Update' : 'Add'} Archetype
-          </Button>
-        </div>
+        <FormDialogActions
+          submitLabel={`${isEditing ? 'Update' : 'Add'} Archetype`}
+          onCancel={onClose}
+        />
       </form>
     </Dialog>
   );

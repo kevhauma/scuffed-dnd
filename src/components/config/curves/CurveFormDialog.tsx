@@ -5,23 +5,26 @@
  * only what the curve is called and what its input axis means.
  *
  * **name** is the formula identifier (`curve.<name>`), checked against the lowercase-identifier
- * pattern and for uniqueness in `useCurveManager`'s save path — the rule TICKET-CRV-01 could
- * enforce only at the import boundary, because there was no form to enforce it in.
+ * pattern in `useCurveManager`'s save path and for uniqueness by the store (CR-17) — the rule
+ * TICKET-CRV-01 could enforce only at the import boundary, because there was no form to enforce
+ * it in.
  *
  * The name stays editable while editing on purpose: the store's update is rename-safe, so
  * re-spelling a curve re-spells every formula calling it (TICKET-REF-01).
+ *
+ * On `FormField` and `FormDialogActions` since CR-23; the description keeps its own `Label` +
+ * `Textarea`, since `FormField` renders a single-line `Input`.
  *
  * **Validates: Concept 06; Concept 00 §6**
  */
 
 import { useId } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
-import { Input } from '../../ui/Input/Input';
+import { FormField } from '../../ui/FormField/FormField';
 import { Label } from '../../ui/Label/Label';
-import { Text } from '../../ui/Text/Text';
 import { Textarea } from '../../ui/Textarea/Textarea';
+import { FormDialogActions } from '../shared/FormDialogActions';
 import type { CurveFormData } from './useCurveManager';
 
 interface CurveFormDialogProps {
@@ -39,9 +42,6 @@ export function CurveFormDialog({
   onClose,
   onSave,
 }: CurveFormDialogProps) {
-  const displayNameId = useId();
-  const nameId = useId();
-  const keyNameId = useId();
   const descriptionId = useId();
 
   const {
@@ -52,68 +52,37 @@ export function CurveFormDialog({
   return (
     <Dialog open={isOpen} onClose={onClose} title={isEditing ? 'Edit Curve' : 'Add Curve'}>
       <form onSubmit={onSave} className="space-y-4">
-        <div>
-          <Label htmlFor={displayNameId} required>
-            Display Name
-          </Label>
-          <Input
-            id={displayNameId}
-            {...register('displayName', { required: 'Display name is required' })}
-            placeholder="e.g., Point buy"
-            error={!!errors.displayName}
-            className="w-full mt-1"
-          />
-          {errors.displayName && (
-            <Text variant="error" as="p" className="mt-1">
-              {errors.displayName.message}
-            </Text>
-          )}
-        </div>
+        <FormField
+          label="Display Name"
+          required
+          placeholder="e.g., Point buy"
+          error={errors.displayName?.message}
+          {...register('displayName', { required: 'Display name is required' })}
+        />
 
-        <div>
-          <Label htmlFor={nameId} required>
-            Formula Name
-          </Label>
-          <Input
-            id={nameId}
-            {...register('name', { required: 'Formula name is required' })}
-            placeholder="e.g., point_buy"
-            error={!!errors.name}
-            className="w-full mt-1 font-mono"
-          />
-          {errors.name ? (
-            <Text variant="error" as="p" className="mt-1">
-              {errors.name.message}
-            </Text>
-          ) : (
-            <Text variant="muted" as="p" className="mt-1">
+        <FormField
+          label="Formula Name"
+          required
+          placeholder="e.g., point_buy"
+          error={errors.name?.message}
+          helperText={
+            <>
               How formulas reach it — written as <span className="font-mono">curve.name(x)</span>.
               Renaming it re-spells every formula that calls it.
-            </Text>
-          )}
-        </div>
+            </>
+          }
+          inputClassName="font-mono"
+          {...register('name', { required: 'Formula name is required' })}
+        />
 
-        <div>
-          <Label htmlFor={keyNameId} required>
-            Input Axis
-          </Label>
-          <Input
-            id={keyNameId}
-            {...register('keyName', { required: 'Input axis is required' })}
-            placeholder="e.g., points"
-            error={!!errors.keyName}
-            className="w-full mt-1"
-          />
-          {errors.keyName ? (
-            <Text variant="error" as="p" className="mt-1">
-              {errors.keyName.message}
-            </Text>
-          ) : (
-            <Text variant="muted" as="p" className="mt-1">
-              What the number you look the table up by is called.
-            </Text>
-          )}
-        </div>
+        <FormField
+          label="Input Axis"
+          required
+          placeholder="e.g., points"
+          error={errors.keyName?.message}
+          helperText="What the number you look the table up by is called."
+          {...register('keyName', { required: 'Input axis is required' })}
+        />
 
         <div>
           <Label htmlFor={descriptionId}>Description</Label>
@@ -126,14 +95,10 @@ export function CurveFormDialog({
           />
         </div>
 
-        <div className="flex justify-end gap-2 pt-4">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary">
-            {isEditing ? 'Save Changes' : 'Add Curve'}
-          </Button>
-        </div>
+        <FormDialogActions
+          submitLabel={isEditing ? 'Save Changes' : 'Add Curve'}
+          onCancel={onClose}
+        />
       </form>
     </Dialog>
   );

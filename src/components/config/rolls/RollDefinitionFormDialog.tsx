@@ -16,13 +16,13 @@ import { useId } from 'react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
 import type { Configuration, DiceLadder } from '../../../types';
 import { ROLL_CATEGORIES } from '../../../types';
-import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
 import { FormulaEditor } from '../../ui/FormulaEditor/FormulaEditor';
 import { Label } from '../../ui/Label/Label';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
+import { FormDialogActions } from '../shared/FormDialogActions';
 import { FormulaPreview } from '../shared/FormulaPreview';
 import type { RollFormData } from './useRollManager';
 
@@ -145,14 +145,10 @@ export function RollDefinitionFormDialog({
 
         <FormulaPreview formula={input} owner="roll-input" config={config} />
 
-        <div className="flex justify-end gap-3 mt-6">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary">
-            {isEditing ? 'Update' : 'Add'} Roll
-          </Button>
-        </div>
+        <FormDialogActions
+          submitLabel={`${isEditing ? 'Update' : 'Add'} Roll`}
+          onCancel={onClose}
+        />
       </form>
     </Dialog>
   );

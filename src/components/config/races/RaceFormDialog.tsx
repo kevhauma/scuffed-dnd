@@ -15,10 +15,10 @@
 
 import type { UseFormReturn } from 'react-hook-form';
 import type { Stat } from '../../../types';
-import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
 import { Input } from '../../ui/Input/Input';
+import { FormDialogActions } from '../shared/FormDialogActions';
 import { StatRowsField } from '../shared/StatRowsField';
 import type { RaceFormData } from './useRaceManager';
 
@@ -78,14 +78,10 @@ export function RaceFormDialog({
           )}
         />
 
-        <div className="flex justify-end gap-3 mt-6">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary">
-            {isEditing ? 'Update' : 'Add'} Race
-          </Button>
-        </div>
+        <FormDialogActions
+          submitLabel={`${isEditing ? 'Update' : 'Add'} Race`}
+          onCancel={onClose}
+        />
       </form>
     </Dialog>
   );

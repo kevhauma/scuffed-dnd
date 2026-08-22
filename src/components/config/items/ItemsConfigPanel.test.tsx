@@ -4,7 +4,7 @@
  * Tests for the ItemsConfigPanel component.
  */
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useConfigStore } from '../../../stores/configStore';
 import { ItemsConfigPanel } from './ItemsConfigPanel';
@@ -46,5 +46,21 @@ describe('ItemsConfigPanel', () => {
   it('shows empty state when no items configured', () => {
     render(<ItemsConfigPanel />);
     expect(screen.getByText(/No items configured yet/)).toBeDefined();
+  });
+
+  it('reports a refused save through the shared field, not a raw span (CR-23)', async () => {
+    render(<ItemsConfigPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add Item' }));
+
+    // `FormField` associates the label, which the hand-rolled generation also did — what it also
+    // brings is one error node instead of this file's `<span className="text-xs text-crimson">`
+    const nameField = screen.getByLabelText(/^Name/);
+    fireEvent.submit(nameField.closest('form') as HTMLFormElement);
+
+    await waitFor(() => {
+      const message = screen.getByText('Name is required');
+      // `Text variant="error"`'s ground, the one every other dialog's refusal renders in
+      expect(message.className).toContain('text-crimson');
+    });
   });
 });

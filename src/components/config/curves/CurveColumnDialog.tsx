@@ -14,15 +14,13 @@
  * **Validates: Concept 06; Concept 00 §1.1, §6**
  */
 
-import { useId } from 'react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
 import type { Configuration } from '../../../types/config';
-import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
+import { FormField } from '../../ui/FormField/FormField';
 import { FormulaEditor } from '../../ui/FormulaEditor/FormulaEditor';
-import { Input } from '../../ui/Input/Input';
-import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
+import { FormDialogActions } from '../shared/FormDialogActions';
 import { FormulaPreview } from '../shared/FormulaPreview';
 import type { ColumnFormData } from './useCurveManager';
 
@@ -47,8 +45,6 @@ export function CurveColumnDialog({
   onClose,
   onSave,
 }: CurveColumnDialogProps) {
-  const nameId = useId();
-
   const {
     control,
     register,
@@ -61,28 +57,20 @@ export function CurveColumnDialog({
   return (
     <Dialog open={isOpen} onClose={onClose} title={isEditing ? 'Edit Column' : 'Add Column'}>
       <form onSubmit={onSave} className="space-y-4">
-        <div>
-          <Label htmlFor={nameId} required>
-            Column Name
-          </Label>
-          <Input
-            id={nameId}
-            {...register('name', { required: 'Column name is required' })}
-            placeholder="e.g., main"
-            error={!!errors.name}
-            className="w-full mt-1 font-mono"
-          />
-          {errors.name ? (
-            <Text variant="error" as="p" className="mt-1">
-              {errors.name.message}
-            </Text>
-          ) : (
-            <Text variant="muted" as="p" className="mt-1">
+        <FormField
+          label="Column Name"
+          required
+          placeholder="e.g., main"
+          error={errors.name?.message}
+          helperText={
+            <>
               How a formula picks this column —{' '}
               <span className="font-mono">curve.name.column(x)</span>.
-            </Text>
-          )}
-        </div>
+            </>
+          }
+          inputClassName="font-mono"
+          {...register('name', { required: 'Column name is required' })}
+        />
 
         <div>
           <Controller
@@ -121,14 +109,10 @@ export function CurveColumnDialog({
             the fastest way to see the progression before it overwrites a table (TICKET-FORM-09) */}
         <FormulaPreview formula={generator} owner="curve-generator" config={config} />
 
-        <div className="flex justify-end gap-2 pt-4">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary">
-            {isEditing ? 'Save Changes' : 'Add Column'}
-          </Button>
-        </div>
+        <FormDialogActions
+          submitLabel={isEditing ? 'Save Changes' : 'Add Column'}
+          onCancel={onClose}
+        />
       </form>
     </Dialog>
   );

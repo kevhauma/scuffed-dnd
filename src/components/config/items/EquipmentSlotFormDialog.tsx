@@ -3,16 +3,24 @@
  *
  * Dialog for creating and editing equipment slot types.
  *
+ * On `FormField` and `FormDialogActions` since CR-23. The errors here were raw
+ * `<span className="text-xs text-crimson mt-1">` — a third spelling of the error node, and one
+ * whose `mt-1` was inert on an inline span, so the message sat tight against the input while the
+ * other dialogs' errors had space.
+ *
+ * The description stays a hand-built `Label` + `Textarea`: `FormField` renders an `Input`, and a
+ * multi-line field is not that.
+ *
  * **Validates: Requirements 7.5, 21.1-21.5**
  */
 
 import { useId } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
-import { Input } from '../../ui/Input/Input';
+import { FormField } from '../../ui/FormField/FormField';
 import { Label } from '../../ui/Label/Label';
 import { Textarea } from '../../ui/Textarea/Textarea';
+import { FormDialogActions } from '../shared/FormDialogActions';
 import type { EquipmentSlotFormData } from './useEquipmentSlotManager';
 
 interface EquipmentSlotFormDialogProps {
@@ -31,8 +39,6 @@ export function EquipmentSlotFormDialog({
   onSave,
 }: EquipmentSlotFormDialogProps) {
   const slotDescriptionId = useId();
-  const slotNameId = useId();
-  const slotTypeId = useId();
 
   const {
     register,
@@ -51,49 +57,33 @@ export function EquipmentSlotFormDialog({
       title={isEditing ? 'Edit Equipment Slot' : 'Add Equipment Slot'}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Type */}
-        <div>
-          <Label htmlFor={slotTypeId} required>
-            Type
-          </Label>
-          <Input
-            id={slotTypeId}
-            {...register('type', {
-              required: 'Type is required',
-              pattern: {
-                value: /^[a-z_]+$/,
-                message: 'Type must be lowercase with underscores only (e.g., main_hand)',
-              },
-            })}
-            placeholder="e.g., helmet, main_hand, off_hand"
-            error={!!errors.type}
-            disabled={isEditing}
-            className="w-full mt-1"
-          />
-          {errors.type && <span className="text-xs text-crimson mt-1">{errors.type.message}</span>}
-          {!isEditing && (
-            <span className="text-xs text-ink-600 mt-1 block">
-              Use lowercase with underscores (e.g., main_hand, off_hand)
-            </span>
-          )}
-        </div>
+        <FormField
+          label="Type"
+          required
+          placeholder="e.g., helmet, main_hand, off_hand"
+          error={errors.type?.message}
+          // The guidance is only worth saying while the field can still be changed
+          helperText={
+            isEditing ? undefined : 'Use lowercase with underscores (e.g., main_hand, off_hand)'
+          }
+          disabled={isEditing}
+          {...register('type', {
+            required: 'Type is required',
+            pattern: {
+              value: /^[a-z_]+$/,
+              message: 'Type must be lowercase with underscores only (e.g., main_hand)',
+            },
+          })}
+        />
 
-        {/* Name */}
-        <div>
-          <Label htmlFor={slotNameId} required>
-            Display Name
-          </Label>
-          <Input
-            id={slotNameId}
-            {...register('name', { required: 'Name is required' })}
-            placeholder="e.g., Main Hand, Off Hand"
-            error={!!errors.name}
-            className="w-full mt-1"
-          />
-          {errors.name && <span className="text-xs text-crimson mt-1">{errors.name.message}</span>}
-        </div>
+        <FormField
+          label="Display Name"
+          required
+          placeholder="e.g., Main Hand, Off Hand"
+          error={errors.name?.message}
+          {...register('name', { required: 'Name is required' })}
+        />
 
-        {/* Description */}
         <div>
           <Label htmlFor={slotDescriptionId}>Description</Label>
           <Textarea
@@ -104,15 +94,10 @@ export function EquipmentSlotFormDialog({
           />
         </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-2 pt-4">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary">
-            {isEditing ? 'Save Changes' : 'Add Equipment Slot'}
-          </Button>
-        </div>
+        <FormDialogActions
+          submitLabel={isEditing ? 'Save Changes' : 'Add Equipment Slot'}
+          onCancel={onClose}
+        />
       </form>
     </Dialog>
   );

@@ -15,7 +15,6 @@
 import { useId } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import type { Configuration } from '../../../types/config';
-import { Button } from '../../ui/Button/Button';
 import { Checkbox } from '../../ui/Checkbox/Checkbox';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
@@ -23,6 +22,7 @@ import { FormulaEditor } from '../../ui/FormulaEditor/FormulaEditor';
 import { Label } from '../../ui/Label/Label';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
+import { FormDialogActions } from '../shared/FormDialogActions';
 import { FormulaPreview } from '../shared/FormulaPreview';
 import type { StatFormData } from './useStatManager';
 import { ROUNDING_OPTIONS } from './useStatManager';
@@ -163,14 +163,10 @@ export function StatFormDialog({
         )}
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 mt-6">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary">
-            {isEditing ? 'Update' : 'Add'} Stat
-          </Button>
-        </div>
+        <FormDialogActions
+          submitLabel={`${isEditing ? 'Update' : 'Add'} Stat`}
+          onCancel={onClose}
+        />
       </form>
     </Dialog>
   );

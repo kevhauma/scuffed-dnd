@@ -22,6 +22,7 @@ import { FormField } from '../../../ui/FormField/FormField';
 import { Input } from '../../../ui/Input/Input';
 import { Select } from '../../../ui/Select/Select';
 import { Text } from '../../../ui/Text/Text';
+import { FormDialogActions } from '../../shared/FormDialogActions';
 import type { SkillFormData } from './useSkillManager';
 
 interface SkillFormDialogProps {
@@ -138,14 +139,10 @@ export function SkillFormDialog({
           ))}
         </div>
 
-        <div className="flex justify-end gap-3 mt-6">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary">
-            {isEditing ? 'Update' : 'Add'} Skill
-          </Button>
-        </div>
+        <FormDialogActions
+          submitLabel={`${isEditing ? 'Update' : 'Add'} Skill`}
+          onCancel={onClose}
+        />
       </form>
     </Dialog>
   );

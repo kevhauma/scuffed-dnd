@@ -7,9 +7,9 @@
  */
 
 import type { UseFormReturn } from 'react-hook-form';
-import { Button } from '../../ui/Button/Button';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
+import { FormDialogActions } from '../shared/FormDialogActions';
 import type { MaterialFormData } from './useMaterialManager';
 
 interface MaterialFormDialogProps {
@@ -50,14 +50,10 @@ export function MaterialFormDialog({
         />
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 mt-6">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary">
-            {isEditing ? 'Update' : 'Add'} Material
-          </Button>
-        </div>
+        <FormDialogActions
+          submitLabel={`${isEditing ? 'Update' : 'Add'} Material`}
+          onCancel={onClose}
+        />
       </form>
     </Dialog>
   );

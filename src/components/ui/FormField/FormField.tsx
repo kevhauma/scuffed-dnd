@@ -7,6 +7,7 @@
  * **Validates: Requirements 21.1, 21.2, 21.3, 21.6, 21.7, 22.1-22.6**
  */
 
+import type React from 'react';
 import { Input, type InputProps } from '../Input/Input';
 import { Label } from '../Label/Label';
 import { Text } from '../Text/Text';
@@ -23,7 +24,21 @@ export interface FormFieldProps extends Omit<InputProps, 'error'> {
    */
   error?: string;
   required?: boolean;
-  helperText?: string;
+  /**
+   * Guidance shown while there is no error.
+   *
+   * A `ReactNode` rather than a string (CR-23), because one migrated field's guidance names a
+   * formula spelling and wants it monospaced. Deliberately *not* the same widening CR-31 undid on
+   * `error`: this is author-written content, never a `FieldError` handed straight through.
+   */
+  helperText?: React.ReactNode;
+  /**
+   * Classes for the input itself, where `className` styles the field's wrapper.
+   *
+   * The one field that needs it is a formula identifier, which reads as code (CR-23). Intrinsic
+   * styling still comes from `Input`; this is the caller adding to it, not replacing it.
+   */
+  inputClassName?: string;
 }
 
 export function FormField({
@@ -32,6 +47,7 @@ export function FormField({
   required = false,
   helperText,
   className = '',
+  inputClassName = '',
   id,
   ...inputProps
 }: FormFieldProps) {
@@ -43,7 +59,12 @@ export function FormField({
       <Label htmlFor={fieldId} required={required}>
         {label}
       </Label>
-      <Input id={fieldId} error={!!error} className={inputStyles} {...inputProps} />
+      <Input
+        id={fieldId}
+        error={!!error}
+        className={`${inputStyles} ${inputClassName}`.trim()}
+        {...inputProps}
+      />
       {error && (
         <Text variant="error" className={messageStyles}>
           {error}

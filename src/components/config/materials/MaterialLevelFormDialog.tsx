@@ -20,6 +20,7 @@ import { Input } from '../../ui/Input/Input';
 import { Label } from '../../ui/Label/Label';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
+import { FormDialogActions } from '../shared/FormDialogActions';
 import type { LevelFormData } from './useMaterialManager';
 
 interface MaterialLevelFormDialogProps {
@@ -211,15 +212,10 @@ export function MaterialLevelFormDialog({
           )}
         </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-3 mt-6">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary">
-            {isEditing ? 'Update' : 'Add'} Level
-          </Button>
-        </div>
+        <FormDialogActions
+          submitLabel={`${isEditing ? 'Update' : 'Add'} Level`}
+          onCancel={onClose}
+        />
       </form>
     </Dialog>
   );
