@@ -11,6 +11,10 @@
  * - Dice ladders can be walked — positive, strictly descending die sizes (Concept 07)
  * - Roll definitions compute and point at a ladder that exists (Concept 08)
  *
+ * Each of those is a `(config) => ValidationIssue[]` helper listed in {@link ISSUE_SOURCES}, and
+ * `validateConfiguration` is the concatenation of them (CR-19). A new entity type is a new helper
+ * and a new row, never a longer shared body.
+ *
  * **Validates: Requirements 18.1, 18.2, 18.3, 18.4, 18.5; Concepts 06, 07, 08**
  */
 
@@ -78,59 +82,105 @@ export interface ValidationReport {
 }
 
 /**
+ * Every rule the report is made of, in the order it is reported (CR-19)
+ *
+ * One row per entity's rules, each a `(config) => ValidationIssue[]` that owns its own severities.
+ * This is what `validateConfiguration` used to be: a single 392-line body carrying every entity
+ * inline, which is where CR-01's dead cycle detector sat unnoticed for a milestone. Half the file
+ * already had this shape — `curveTableErrors` and friends — so the rest was brought to it rather
+ * than a new pattern being invented.
+ *
+ * Adding an entity type means writing a helper and adding a row here. Reordering rows reorders the
+ * report; nothing else depends on the order.
+ */
+const ISSUE_SOURCES: readonly ((config: Configuration) => ValidationIssue[])[] = [
+  statFormulaIssues,
+  skillIssues,
+  nearDuplicateSkillNameWarnings,
+  circularDependencyIssues,
+  materialIssues,
+  itemIssues,
+  raceIssues,
+  archetypeIssues,
+  pointBuyCurveIssues,
+  currencyTierIssues,
+  statAbbreviationIssues,
+  curveIssues,
+  diceLadderIssues,
+  rollDefinitionIssues,
+];
+
+/**
  * Validate a complete configuration
+ *
+ * Concatenates {@link ISSUE_SOURCES} and sorts the result into the report's three buckets. Every
+ * rule lives in a helper; this function holds none of them.
  *
  * @param config - Configuration to validate
  * @returns Validation report with all detected issues
  */
 export function validateConfiguration(config: Configuration): ValidationReport {
-  const errors: ValidationIssue[] = [];
-  const warnings: ValidationIssue[] = [];
-  const information: ValidationIssue[] = [];
+  const issues = ISSUE_SOURCES.flatMap((issuesFrom) => issuesFrom(config));
 
-  // Build sets of valid identifiers for reference validation
-  const materialCategoryIds = new Set(config.materialCategories.map((c) => c.id));
-  const equipmentSlotTypes = new Set(config.equipmentSlots.map((s) => s.type));
-  const materialIds = new Set(config.materials.map((m) => m.id));
-  const currencyTierIds = new Set(config.currencyTiers.map((t) => t.id));
-  const statsById = new Map(config.stats.map((stat) => [stat.id, stat]));
+  return {
+    isValid: !issues.some((issue) => issue.severity === 'error'),
+    errors: issues.filter((issue) => issue.severity === 'error'),
+    warnings: issues.filter((issue) => issue.severity === 'warning'),
+    information: issues.filter((issue) => issue.severity === 'information'),
+    timestamp: new Date().toISOString(),
+  };
+}
 
-  // Validate formulas against the same scoping table the save-time guard uses, so an imported
-  // ruleset is judged by exactly the rules a panel would have enforced (Concept 00 §5).
-  const statScope = scopeFor(config, 'stat');
+/**
+ * Stat formulas that would not compute (TICKET-STAT-01 — only derived stats have one)
+ *
+ * Judged against the same scoping table the save-time guard uses, so an imported ruleset is held
+ * to exactly the rules a panel would have enforced (Concept 00 §5).
+ *
+ * @param config - The ruleset to check
+ * @returns One issue per error in a stat's formula
+ */
+function statFormulaIssues(config: Configuration): ValidationIssue[] {
+  const scope = scopeFor(config, 'stat');
 
-  // Validate stat formulas — only derived stats have one (TICKET-STAT-01)
-  for (const stat of config.stats) {
-    if (stat.formula === undefined) continue;
-    const result = validateFormula(stat.formula, statScope.codes, statScope);
+  return config.stats.flatMap((stat) => {
+    if (stat.formula === undefined) return [];
 
-    if (!result.isValid) {
-      for (const error of result.errors) {
-        errors.push({
-          severity: 'error',
-          category: 'Formula Validation',
-          message: `Stat "${stat.name}": ${error}`,
-          entityType: 'stat',
-          entityId: stat.id,
-          entityName: stat.name,
-        });
-      }
-    }
-  }
+    return validateFormula(stat.formula, scope.codes, scope).errors.map((error) => ({
+      severity: 'error' as const,
+      category: 'Formula Validation',
+      message: `Stat "${stat.name}": ${error}`,
+      entityType: 'stat',
+      entityId: stat.id,
+      entityName: stat.name,
+    }));
+  });
+}
 
-  // Validate skill weight rows — a skill has no formula since TICKET-SKL-02, so what can be
-  // wrong is a weight naming a stat the ruleset does not define (Concept 02)
+/**
+ * Skill weight-row problems (Concept 02)
+ *
+ * A skill has no formula since TICKET-SKL-02, so what can be wrong is a weight naming a stat the
+ * ruleset does not define — plus the concept page's two judgements about the shape of the weights.
+ *
+ * @param config - The ruleset to check
+ * @returns The skills' issues, at all three severities
+ */
+function skillIssues(config: Configuration): ValidationIssue[] {
+  const statIds = new Set(config.stats.map((stat) => stat.id));
+  const issues: ValidationIssue[] = [];
+
   for (const skill of config.skills) {
-    for (const { statId } of skill.statWeights) {
-      if (statsById.has(statId)) continue;
+    const entity = { entityType: 'skill', entityId: skill.id, entityName: skill.name };
 
-      errors.push({
+    for (const { statId } of skill.statWeights) {
+      if (statIds.has(statId)) continue;
+
+      issues.push({
         severity: 'error',
         category: 'Reference Validation',
         message: `Skill "${skill.name}" is weighted on a stat that does not exist: ${statId}`,
-        entityType: 'skill',
-        entityId: skill.id,
-        entityName: skill.name,
+        ...entity,
       });
     }
 
@@ -140,13 +190,11 @@ export function validateConfiguration(config: Configuration): ValidationReport {
     // see: the concept page's "and no invested points" half is a property of a Player's
     // allocation, and a config-mode report has no character in hand to check it against.
     if (skill.statWeights.length === 0) {
-      warnings.push({
+      issues.push({
         severity: 'warning',
         category: 'Data Consistency',
         message: `Skill "${skill.name}" has no stat weights, so its level is whatever the Player invests and nothing else`,
-        entityType: 'skill',
-        entityId: skill.id,
-        entityName: skill.name,
+        ...entity,
       });
     }
 
@@ -155,32 +203,35 @@ export function validateConfiguration(config: Configuration): ValidationReport {
     // meant, and calling it a warning would devalue the warnings that are real problems.
     const weightSum = skill.statWeights.reduce((total, row) => total + row.weight, 0);
     if (weightSum > BALANCED_WEIGHT_SUM) {
-      information.push({
+      issues.push({
         severity: 'information',
         category: 'Balance',
         // "above", not "well above": the check is a strict `>`, so 0.51 lands here too and the
         // message has to be true of it as well as of 0.9
         message: `Skill "${skill.name}" has stat weights totalling ${roundWeightSum(weightSum)}, above the ~${BALANCED_WEIGHT_SUM} the sheet's own skills use — deliberate, or a typo?`,
-        entityType: 'skill',
-        entityId: skill.id,
-        entityName: skill.name,
+        ...entity,
       });
     }
   }
 
-  // Concept 02's near-duplicate rule. The sheet genuinely holds both `skinning` and `Skinning` with
-  // different levels, so this can never be an error — TICKET-SKL-02 made two skills sharing a
-  // spelling legal by taking a skill out of the flat formula space. It is a warning because the
-  // usual cause is one skill entered twice, and only the User can tell that from the sheet's case.
-  warnings.push(...nearDuplicateSkillNameWarnings(config.skills));
+  return issues;
+}
 
-  // Validate circular dependencies in formulas. `toFormulaDependency` is the one place that
-  // decides what an edge is, so bare codes and dotted references land on the same graph nodes —
-  // both are resolved to the stat's id, which is what the graph is keyed by (CR-01).
-  //
-  // **Derived stats are the only nodes** since TICKET-ROLL-06: a combat skill was the other kind
-  // and went with the entity, and neither a `Skill` (weight rows) nor a `RollDefinition` (nothing
-  // can name one) can be part of a cycle.
+/**
+ * Cycles among the derived stats' formulas
+ *
+ * `toFormulaDependency` is the one place that decides what an edge is, so bare codes and dotted
+ * references land on the same graph nodes — both are resolved to the stat's id, which is what the
+ * graph is keyed by (CR-01).
+ *
+ * **Derived stats are the only nodes** since TICKET-ROLL-06: a combat skill was the other kind and
+ * went with the entity, and neither a `Skill` (weight rows) nor a `RollDefinition` (nothing can
+ * name one) can be part of a cycle.
+ *
+ * @param config - The ruleset to check
+ * @returns One issue per cycle reported
+ */
+function circularDependencyIssues(config: Configuration): ValidationIssue[] {
   const resolveReference = buildReferenceResolver(config);
   const formulaDependencies: FormulaDependency[] = config.stats
     .filter((stat) => stat.formula !== undefined)
@@ -191,44 +242,54 @@ export function validateConfiguration(config: Configuration): ValidationReport {
       )
     );
 
-  const circularResult = validateFormulaCollection(formulaDependencies);
-  if (!circularResult.isValid) {
-    for (const error of circularResult.errors) {
-      errors.push({
-        severity: 'error',
-        category: 'Circular Dependency',
-        message: error,
-      });
-    }
-  }
+  return validateFormulaCollection(formulaDependencies).errors.map((error) => ({
+    severity: 'error' as const,
+    category: 'Circular Dependency',
+    message: error,
+  }));
+}
 
-  // Validate material category references
+/**
+ * Material references that point at nothing, and modifiers that could never apply
+ *
+ * Levels are keyed by stat **id** since TICKET-MAT-01, so a dangling key is a stat that was
+ * deleted rather than one that was renamed.
+ *
+ * @param config - The ruleset to check
+ * @returns One issue per broken reference
+ */
+function materialIssues(config: Configuration): ValidationIssue[] {
+  const materialCategoryIds = new Set(config.materialCategories.map((category) => category.id));
+  const currencyTierIds = new Set(config.currencyTiers.map((tier) => tier.id));
+  const statsById = new Map(config.stats.map((stat) => [stat.id, stat]));
+  const issues: ValidationIssue[] = [];
+
   for (const material of config.materials) {
+    const entity = {
+      entityType: 'material',
+      entityId: material.id,
+      entityName: material.name,
+    };
+
     if (!materialCategoryIds.has(material.categoryId)) {
-      errors.push({
+      issues.push({
         severity: 'error',
         category: 'Reference Validation',
         message: `Material "${material.name}" references non-existent category ID: ${material.categoryId}`,
-        entityType: 'material',
-        entityId: material.id,
-        entityName: material.name,
+        ...entity,
       });
     }
 
-    // Validate stat modifiers in material levels. Keyed by stat **id** since TICKET-MAT-01, so a
-    // dangling key is a stat that was deleted rather than one that was renamed.
     for (const level of material.levels) {
       for (const bonus of level.bonuses) {
         const target = statsById.get(bonus.statId);
 
         if (!target) {
-          errors.push({
+          issues.push({
             severity: 'error',
             category: 'Reference Validation',
             message: `Material "${material.name}" level ${level.level} references non-existent stat: ${bonus.statId}`,
-            entityType: 'material',
-            entityId: material.id,
-            entityName: material.name,
+            ...entity,
           });
           continue;
         }
@@ -236,108 +297,134 @@ export function validateConfiguration(config: Configuration): ValidationReport {
         // A derived stat's formula *is* its source, so a modifier on one would be a term the
         // composition never applies — silently, which is the worst kind of wrong number
         if (target.formula !== undefined) {
-          errors.push({
+          issues.push({
             severity: 'error',
             category: 'Reference Validation',
             message: `Material "${material.name}" level ${level.level} modifies "${target.name}", which is a derived stat — its formula is its only source`,
-            entityType: 'material',
-            entityId: material.id,
-            entityName: material.name,
+            ...entity,
           });
         }
       }
 
-      // Validate currency tier references
       if (!currencyTierIds.has(level.value.tierId)) {
-        errors.push({
+        issues.push({
           severity: 'error',
           category: 'Reference Validation',
           message: `Material "${material.name}" level ${level.level} references non-existent currency tier: ${level.value.tierId}`,
-          entityType: 'material',
-          entityId: material.id,
-          entityName: material.name,
+          ...entity,
         });
       }
     }
   }
 
-  // Validate item references
+  return issues;
+}
+
+/**
+ * Item references that point at nothing
+ *
+ * @param config - The ruleset to check
+ * @returns One issue per broken slot, material or material-level reference
+ */
+function itemIssues(config: Configuration): ValidationIssue[] {
+  const equipmentSlotTypes = new Set(config.equipmentSlots.map((slot) => slot.type));
+  const materialsById = new Map(config.materials.map((material) => [material.id, material]));
+  const issues: ValidationIssue[] = [];
+
   for (const item of config.items) {
-    // Validate equipment slot type
+    const entity = { entityType: 'item', entityId: item.id, entityName: item.name };
+
     if (item.equipmentSlotType && !equipmentSlotTypes.has(item.equipmentSlotType)) {
-      errors.push({
+      issues.push({
         severity: 'error',
         category: 'Reference Validation',
         message: `Item "${item.name}" references non-existent equipment slot type: ${item.equipmentSlotType}`,
-        entityType: 'item',
-        entityId: item.id,
-        entityName: item.name,
+        ...entity,
       });
     }
 
-    // Validate material reference
-    if (item.materialId && !materialIds.has(item.materialId)) {
-      errors.push({
+    if (item.materialId && !materialsById.has(item.materialId)) {
+      issues.push({
         severity: 'error',
         category: 'Reference Validation',
         message: `Item "${item.name}" references non-existent material ID: ${item.materialId}`,
-        entityType: 'item',
-        entityId: item.id,
-        entityName: item.name,
+        ...entity,
       });
     }
 
-    // Validate material level if material is specified
-    if (item.materialId && item.materialLevel !== undefined) {
-      const material = config.materials.find((m) => m.id === item.materialId);
-      if (material) {
-        const levelExists = material.levels.some((l) => l.level === item.materialLevel);
-        if (!levelExists) {
-          errors.push({
-            severity: 'error',
-            category: 'Reference Validation',
-            message: `Item "${item.name}" references non-existent material level ${item.materialLevel} for material "${material.name}"`,
-            entityType: 'item',
-            entityId: item.id,
-            entityName: item.name,
-          });
-        }
-      }
-    }
-  }
-
-  // Validate race stat blocks — keyed by stat id since TICKET-RACE-01, so a dangling key is a
-  // stat that was deleted rather than one that was renamed
-  for (const race of config.races) {
-    for (const statId of Object.keys(race.statValues)) {
-      if (!statsById.has(statId)) {
-        errors.push({
+    // A level on a material that is itself missing is already reported above; naming the level too
+    // would be two messages about one broken pointer
+    const material = item.materialId ? materialsById.get(item.materialId) : undefined;
+    if (material && item.materialLevel !== undefined) {
+      const levelExists = material.levels.some((level) => level.level === item.materialLevel);
+      if (!levelExists) {
+        issues.push({
           severity: 'error',
           category: 'Reference Validation',
-          message: `Race "${race.name}" references non-existent stat: ${statId}`,
-          entityType: 'race',
-          entityId: race.id,
-          entityName: race.name,
+          message: `Item "${item.name}" references non-existent material level ${item.materialLevel} for material "${material.name}"`,
+          ...entity,
         });
       }
     }
   }
 
-  // Validate archetypes (Concept 03, TICKET-ARC-01)
+  return issues;
+}
+
+/**
+ * Race stat blocks naming stats the ruleset does not define
+ *
+ * Keyed by stat id since TICKET-RACE-01, so a dangling key is a stat that was deleted rather than
+ * one that was renamed.
+ *
+ * @param config - The ruleset to check
+ * @returns One issue per dangling stat key
+ */
+function raceIssues(config: Configuration): ValidationIssue[] {
+  const statIds = new Set(config.stats.map((stat) => stat.id));
+
+  return config.races.flatMap((race) =>
+    Object.keys(race.statValues)
+      .filter((statId) => !statIds.has(statId))
+      .map((statId) => ({
+        severity: 'error' as const,
+        category: 'Reference Validation',
+        message: `Race "${race.name}" references non-existent stat: ${statId}`,
+        entityType: 'race',
+        entityId: race.id,
+        entityName: race.name,
+      }))
+  );
+}
+
+/**
+ * Archetype affinity problems (Concept 03, TICKET-ARC-01)
+ *
+ * @param config - The ruleset to check
+ * @returns One issue per dangling stat key, plus a warning per archetype that leaves stats untagged
+ */
+function archetypeIssues(config: Configuration): ValidationIssue[] {
+  const statIds = new Set(config.stats.map((stat) => stat.id));
+  const issues: ValidationIssue[] = [];
+
   for (const archetype of config.archetypes ?? []) {
+    const entity = {
+      entityType: 'archetype',
+      entityId: archetype.id,
+      entityName: archetype.name,
+    };
+
     // A dangling key is a stat that was deleted, not one that was renamed — affinity is keyed by
     // stat id for exactly that reason
     for (const statId of Object.keys(archetype.statAffinity)) {
-      if (!statsById.has(statId)) {
-        errors.push({
-          severity: 'error',
-          category: 'Reference Validation',
-          message: `Archetype "${archetype.name}" references non-existent stat: ${statId}`,
-          entityType: 'archetype',
-          entityId: archetype.id,
-          entityName: archetype.name,
-        });
-      }
+      if (statIds.has(statId)) continue;
+
+      issues.push({
+        severity: 'error',
+        category: 'Reference Validation',
+        message: `Archetype "${archetype.name}" references non-existent stat: ${statId}`,
+        ...entity,
+      });
     }
 
     // Concept 03's default: a stat the archetype says nothing about is `non`. Reported so the
@@ -345,145 +432,186 @@ export function validateConfiguration(config: Configuration): ValidationReport {
     // — unlike the weight-sum balance rule, this one silently changes what a point buys.
     const untagged = config.stats.filter((stat) => archetype.statAffinity[stat.id] === undefined);
     if (untagged.length > 0) {
-      warnings.push({
+      issues.push({
         severity: 'warning',
         category: 'Data Consistency',
         message: `Archetype "${archetype.name}" does not tag ${untagged
           .map((stat) => stat.abbreviation)
           .join(', ')} — ${untagged.length === 1 ? 'it defaults' : 'they default'} to "non"`,
-        entityType: 'archetype',
-        entityId: archetype.id,
-        entityName: archetype.name,
+        ...entity,
       });
     }
   }
 
-  // Every affinity an archetype actually uses needs a `point_buy` column to route through
-  // (Concept 03, Concept 06). Without one, TICKET-ARC-02 has nothing to look a spent point up in,
-  // so this is an error rather than a warning — named per missing column so the fix is obvious.
-  const pointBuy = (config.curves ?? []).find((curve) => curve.name === POINT_BUY_CURVE_NAME);
-  const hasArchetypes = (config.archetypes ?? []).length > 0;
+  return issues;
+}
 
-  if (hasArchetypes && pointBuy === undefined) {
+/**
+ * Affinities with no `point_buy` column to route a spent point through (Concept 03, Concept 06)
+ *
+ * An error rather than a warning: without the column TICKET-ARC-02 has nothing to look a spent
+ * point up in. Named per missing column so the fix is obvious.
+ *
+ * @param config - The ruleset to check
+ * @returns One issue per affinity with nowhere to go, or one for the missing curve
+ */
+function pointBuyCurveIssues(config: Configuration): ValidationIssue[] {
+  const hasArchetypes = (config.archetypes ?? []).length > 0;
+  if (!hasArchetypes) return [];
+
+  const pointBuy = (config.curves ?? []).find((curve) => curve.name === POINT_BUY_CURVE_NAME);
+  if (pointBuy === undefined) {
     // Strictly worse than a missing column, so it cannot be the quiet case: no curve means no
     // affinity routes anywhere at all
-    errors.push({
-      severity: 'error',
+    return [
+      {
+        severity: 'error',
+        category: 'Reference Validation',
+        message: `This ruleset defines archetypes but has no "${POINT_BUY_CURVE_NAME}" curve, so no affinity has anything to route a spent point through`,
+        entityType: 'curve',
+      },
+    ];
+  }
+
+  const columnNames = new Set(pointBuy.columns.map((column) => column.name));
+  const usedAffinities = new Set<string>(
+    (config.archetypes ?? []).flatMap((archetype) => Object.values(archetype.statAffinity))
+  );
+  // An untagged stat defaults to `non`, so `non` is used by any ruleset that has archetypes and
+  // stats at all — even one whose every tag is `main`
+  if (config.stats.length > 0) usedAffinities.add('non');
+
+  return [...usedAffinities]
+    .filter((affinity) => !columnNames.has(affinity))
+    .map((affinity) => ({
+      severity: 'error' as const,
       category: 'Reference Validation',
-      message: `This ruleset defines archetypes but has no "${POINT_BUY_CURVE_NAME}" curve, so no affinity has anything to route a spent point through`,
+      message: `The "${POINT_BUY_CURVE_NAME}" curve has no "${affinity}" column, so an archetype using that affinity has nothing to route a spent point through`,
       entityType: 'curve',
-    });
-  }
+      entityId: pointBuy.id,
+      entityName: pointBuy.displayName,
+    }));
+}
 
-  if (pointBuy && hasArchetypes) {
-    const columnNames = new Set(pointBuy.columns.map((column) => column.name));
-    const usedAffinities = new Set<string>(
-      (config.archetypes ?? []).flatMap((archetype) => Object.values(archetype.statAffinity))
-    );
-    // An untagged stat defaults to `non`, so `non` is used by any ruleset that has archetypes and
-    // stats at all — even one whose every tag is `main`
-    if (config.stats.length > 0) usedAffinities.add('non');
+/**
+ * Currency ladders whose ordering does not read as a ladder
+ *
+ * Both warnings: a duplicate or a gap makes the ladder odd to read rather than impossible to walk,
+ * and the User may have meant it.
+ *
+ * @param config - The ruleset to check
+ * @returns One issue for duplicate orders, plus one per gap
+ */
+function currencyTierIssues(config: Configuration): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const tierOrders = config.currencyTiers.map((tier) => tier.order);
 
-    for (const affinity of usedAffinities) {
-      if (!columnNames.has(affinity)) {
-        errors.push({
-          severity: 'error',
-          category: 'Reference Validation',
-          message: `The "${POINT_BUY_CURVE_NAME}" curve has no "${affinity}" column, so an archetype using that affinity has nothing to route a spent point through`,
-          entityType: 'curve',
-          entityId: pointBuy.id,
-          entityName: pointBuy.displayName,
-        });
-      }
-    }
-  }
-
-  // Validate currency tier ordering
-  const tierOrders = config.currencyTiers.map((t) => t.order);
-  const uniqueOrders = new Set(tierOrders);
-  if (tierOrders.length !== uniqueOrders.size) {
-    warnings.push({
+  if (tierOrders.length !== new Set(tierOrders).size) {
+    issues.push({
       severity: 'warning',
       category: 'Data Consistency',
       message: 'Currency tiers have duplicate order values',
     });
   }
 
-  // Check for gaps in currency tier ordering
-  if (config.currencyTiers.length > 0) {
-    const sortedOrders = [...tierOrders].sort((a, b) => a - b);
-    for (let i = 0; i < sortedOrders.length - 1; i++) {
-      if (sortedOrders[i + 1] - sortedOrders[i] > 1) {
-        warnings.push({
-          severity: 'warning',
-          category: 'Data Consistency',
-          message: `Currency tier ordering has gaps between ${sortedOrders[i]} and ${sortedOrders[i + 1]}`,
-        });
-      }
-    }
-  }
-
-  // Validate unique abbreviations. The flat formula space holds **stats and nothing else** since
-  // TICKET-ROLL-06, so this is now a check within one list rather than across two — kept because a
-  // duplicate abbreviation still splits a formula's identity from the value it reads.
-  const abbreviations = config.stats.map((s) => ({
-    abbreviation: s.abbreviation,
-    type: 'Stat',
-    name: s.name,
-  }));
-
-  const byAbbreviation = new Map<string, Array<{ type: string; name: string }>>();
-  for (const { abbreviation, type, name } of abbreviations) {
-    if (!byAbbreviation.has(abbreviation)) {
-      byAbbreviation.set(abbreviation, []);
-    }
-    byAbbreviation.get(abbreviation)?.push({ type, name });
-  }
-
-  for (const [abbreviation, owners] of byAbbreviation.entries()) {
-    if (owners.length > 1) {
-      // "stat abbreviation", not "skill code" (CR-38): skill codes retired in TICKET-SKL-02 and the
-      // combat codes with the entity in ROLL-06, so the old message named something that no
-      // longer exists — to a User staring at two stats
-      const ownerList = owners.map((s) => `${s.type} "${s.name}"`).join(', ');
-      errors.push({
-        severity: 'error',
-        category: 'Uniqueness Validation',
-        message: `Duplicate stat abbreviation "${abbreviation}" used by: ${ownerList}`,
+  const sortedOrders = [...tierOrders].sort((a, b) => a - b);
+  for (let index = 0; index < sortedOrders.length - 1; index++) {
+    if (sortedOrders[index + 1] - sortedOrders[index] > 1) {
+      issues.push({
+        severity: 'warning',
+        category: 'Data Consistency',
+        message: `Currency tier ordering has gaps between ${sortedOrders[index]} and ${sortedOrders[index + 1]}`,
       });
     }
   }
 
-  // Validate curve tables (Concept 06). Generators are formulas like any other, so they are
-  // judged against their own row of the scoping table.
+  return issues;
+}
+
+/**
+ * Stat abbreviations claimed by more than one stat
+ *
+ * The flat formula space holds **stats and nothing else** since TICKET-ROLL-06, so this is a check
+ * within one list rather than across two — kept because a duplicate abbreviation still splits a
+ * formula's identity from the value it reads.
+ *
+ * @param config - The ruleset to check
+ * @returns One issue per abbreviation with more than one owner
+ */
+function statAbbreviationIssues(config: Configuration): ValidationIssue[] {
+  const byAbbreviation = new Map<string, string[]>();
+  for (const stat of config.stats) {
+    const owners = byAbbreviation.get(stat.abbreviation);
+    if (owners) {
+      owners.push(stat.name);
+    } else {
+      byAbbreviation.set(stat.abbreviation, [stat.name]);
+    }
+  }
+
+  return [...byAbbreviation.entries()]
+    .filter(([, owners]) => owners.length > 1)
+    .map(([abbreviation, owners]) => ({
+      severity: 'error' as const,
+      category: 'Uniqueness Validation',
+      // "stat abbreviation", not "skill code" (CR-38): skill codes retired in TICKET-SKL-02 and the
+      // combat codes with the entity in ROLL-06, so the old message named something that no
+      // longer exists — to a User staring at two stats
+      message: `Duplicate stat abbreviation "${abbreviation}" used by: ${owners
+        .map((name) => `Stat "${name}"`)
+        .join(', ')}`,
+    }));
+}
+
+/**
+ * Curve table problems (Concept 06)
+ *
+ * Generators are formulas like any other, so they are judged against their own row of the scoping
+ * table.
+ *
+ * @param config - The ruleset to check
+ * @returns Every curve's errors and warnings
+ */
+function curveIssues(config: Configuration): ValidationIssue[] {
   const generatorScope = scopeFor(config, 'curve-generator');
-  for (const curve of config.curves ?? []) {
-    errors.push(...curveTableErrors(curve, generatorScope));
-    warnings.push(...curveTableWarnings(curve));
-  }
 
-  // Validate dice ladders (Concept 07). A ladder holds no formula, so what can be wrong is the
-  // shape of the walk itself.
-  for (const ladder of config.diceLadders ?? []) {
-    errors.push(...diceLadderErrors(ladder));
-    information.push(...diceLadderObservations(ladder));
-  }
+  return (config.curves ?? []).flatMap((curve) => [
+    ...curveTableErrors(curve, generatorScope),
+    ...curveTableWarnings(curve),
+  ]);
+}
 
-  // Validate roll definitions (Concept 08, TICKET-ROLL-05). An input is a formula like any other,
-  // judged against its own row of the scoping table; the ladder is a plain id reference.
+/**
+ * Dice ladder problems and observations (Concept 07)
+ *
+ * A ladder holds no formula, so what can be wrong is the shape of the walk itself.
+ *
+ * @param config - The ruleset to check
+ * @returns Every ladder's errors and observations
+ */
+function diceLadderIssues(config: Configuration): ValidationIssue[] {
+  return (config.diceLadders ?? []).flatMap((ladder) => [
+    ...diceLadderErrors(ladder),
+    ...diceLadderObservations(ladder),
+  ]);
+}
+
+/**
+ * Roll definition problems (Concept 08, TICKET-ROLL-05)
+ *
+ * An input is a formula like any other, judged against its own row of the scoping table; the
+ * ladder is a plain id reference.
+ *
+ * @param config - The ruleset to check
+ * @returns Every roll's errors
+ */
+function rollDefinitionIssues(config: Configuration): ValidationIssue[] {
   const rollScope = scopeFor(config, 'roll-input');
   const ladderIds = new Set((config.diceLadders ?? []).map((ladder) => ladder.id));
-  for (const roll of config.rollDefinitions ?? []) {
-    errors.push(...rollDefinitionErrors(roll, rollScope, ladderIds));
-  }
 
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-    information,
-    timestamp: new Date().toISOString(),
-  };
+  return (config.rollDefinitions ?? []).flatMap((roll) =>
+    rollDefinitionErrors(roll, rollScope, ladderIds)
+  );
 }
 
 /**
@@ -500,13 +628,18 @@ function normalizedSkillName(name: string): string {
 /**
  * One warning per group of skills whose names differ only by case or padding (Concept 02)
  *
- * @param skills - The ruleset's skills
+ * The sheet genuinely holds both `skinning` and `Skinning` with different levels, so this can never
+ * be an error — TICKET-SKL-02 made two skills sharing a spelling legal by taking a skill out of the
+ * flat formula space. It is a warning because the usual cause is one skill entered twice, and only
+ * the User can tell that from the sheet's case.
+ *
+ * @param config - The ruleset to check
  * @returns One issue per colliding group, naming every member
  */
-function nearDuplicateSkillNameWarnings(skills: readonly Skill[]): ValidationIssue[] {
+function nearDuplicateSkillNameWarnings(config: Configuration): ValidationIssue[] {
   const byNormalizedName = new Map<string, Skill[]>();
 
-  for (const skill of skills) {
+  for (const skill of config.skills) {
     const key = normalizedSkillName(skill.name);
     if (key === '') continue;
 
