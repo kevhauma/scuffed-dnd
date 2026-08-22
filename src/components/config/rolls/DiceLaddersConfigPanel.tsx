@@ -15,13 +15,14 @@
 
 import { Button } from '../../ui/Button/Button';
 import { ConfigEmptyState } from '../shared/ConfigEmptyState';
-import { ConfigPanelShell } from '../shared/ConfigPanelShell';
+import { ConfigPanelShell, NoConfigurationNotice } from '../shared/ConfigPanelShell';
 import { DiceLadderCard } from './DiceLadderCard';
 import { DiceLadderFormDialog } from './DiceLadderFormDialog';
 import { useDiceLadderManager } from './useDiceLadderManager';
 
 export function DiceLaddersConfigPanel() {
   const {
+    config,
     currentLadders,
     isDialogOpen,
     setIsDialogOpen,
@@ -35,6 +36,13 @@ export function DiceLaddersConfigPanel() {
     blocked,
     dismissBlocked,
   } = useDiceLadderManager();
+
+  // The guard every sibling panel has (CR-16). Without it this panel rendered fully interactive
+  // under `RollsConfigPanel`'s notice, and its Add flow filled a form that `addDiceLadder` then
+  // dropped on the floor for want of a configuration to add to.
+  if (!config) {
+    return <NoConfigurationNotice />;
+  }
 
   return (
     <ConfigPanelShell

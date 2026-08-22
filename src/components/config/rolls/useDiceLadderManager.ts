@@ -140,6 +140,9 @@ export function useDiceLadderManager() {
   return {
     blocked,
     dismissBlocked,
+    // Returned so the panel can render the no-configuration notice its siblings all render
+    // (CR-16) — without a ruleset there is nothing for `addDiceLadder` to add to
+    config,
     currentLadders,
     isDialogOpen,
     setIsDialogOpen,

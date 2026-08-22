@@ -299,6 +299,15 @@ describe('DiceLaddersConfigPanel', () => {
     });
   });
 
+  it('should say there is no configuration rather than offer an Add that no-ops (CR-16)', () => {
+    useConfigStore.setState({ config: null, isLoaded: true });
+
+    render(<DiceLaddersConfigPanel />);
+
+    expect(screen.getByText(/No configuration loaded/)).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Add Ladder' })).toBeNull();
+  });
+
   it('should refuse to delete a ladder a roll still names, listing the roll', async () => {
     render(<DiceLaddersConfigPanel />);
 
