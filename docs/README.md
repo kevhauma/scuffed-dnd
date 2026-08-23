@@ -56,3 +56,9 @@ sheet, creation), `INV` (inventory and equipment), `NAV` (routing, layout, mode 
 `IO` (import/export and storage), `UI` (base component library), `POL` (integration and polish),
 `DX` (tooling, test infrastructure, and convention adoption — work that serves the developer
 rather than the User or Player).
+
+Added by [`v3.0_backend`](./v3.0_backend/overview.md): `SRV` (server runtime and request pipeline),
+`DB` (SQLite schema, migrations, repositories), `AUTH` (accounts, sign-in, authorization),
+`RUL` (server-owned rulesets — the successor to the single browser `Configuration`),
+`GAM` (game sessions, invites, membership), `PLY` (session-scoped player actions),
+`DM` (Dungeon Master controls), `LIVE` (WebSocket transport and live updates).
