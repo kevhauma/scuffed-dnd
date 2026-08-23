@@ -23,9 +23,15 @@ yarn run check      # biome lint + format + import sorting
 the lockfile. Always `yarn run …`.
 
 Verification before declaring any change done: `npx vitest run` + `npx tsc --noEmit` +
-`yarn run lint` (via the `verifier` subagent), plus the `Fallow` skill (code-quality check — say
-so and skip it if unavailable in the session, don't skip it silently), plus a live browser check
-for UI-visible changes.
+`yarn run lint` (via the `verifier` subagent), plus **`fallow`** (say so and skip it if unavailable
+in the session, don't skip it silently), plus a live browser check for UI-visible changes.
+
+`fallow` is a check, not an optional review — `fallow audit --base main`, `fallow dead-code`,
+`fallow health --hotspots --since 6m`. Three of its outputs are findings: **dead code the change
+introduced** (delete it in the same change — there are no external consumers), **complexity** on a
+function the change added or grew, and any touched file it tags **Accelerating** (churn and
+complexity both rising), which earns a row in [TEST_STATUS.md](TEST_STATUS.md)'s hotspot table
+naming the ticket. The `coding-conventions` skill's *Verification* section has the reasoning.
 
 **The test suite is green — see [TEST_STATUS.md](TEST_STATUS.md) for the current count, 0 failing,
 0 skipped.** Any failing or newly-skipped test
@@ -114,6 +120,15 @@ acceptance criteria.
   lost its code in TICKET-SKL-02 and a formula reaches one as `skills.<name-slug>`, so two skills
   may share a spelling without colliding with anything (the sheet genuinely has `skinning` and
   `Skinning`); the first one wins the reference.
+- **No bare string-union types.** A closed set of string values is a frozen const object with the
+  type derived from it (`const X = {A: 'a', B: 'b'} as const;
+  type X = (typeof X)[keyof typeof X]`), and call sites reference `X.A` rather than re-typing
+  `'a'`. Discriminated unions of object shapes and a base component's own variant prop are the
+  exceptions; the ~12 pre-existing bare unions are converted when touched, not swept.
+- **SOLID and KISS are house rules**, spelled out concretely in the `coding-conventions` skill.
+  The load-bearing pair: extend `ConfigPanelShell` through `headerExtra` and children rather than
+  adding a prop named after one caller, and introduce no abstraction, option, or flag before its
+  **third** caller exists.
 - New barrels use `export *`; imports are relative (the `#/*` alias exists but is unused — don't
   half-adopt it).
 - No new runtime dependencies without asking. The app stays browser-only.

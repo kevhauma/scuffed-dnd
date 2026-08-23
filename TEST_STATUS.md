@@ -249,6 +249,29 @@ weaker: an unhandled operator is now a compile error rather than a runtime throw
 errors: the two dead `BaseSkillPanel` props, the unused `React` and `FormulaAST` imports, and the
 type-only import in `ValidationReport.test.tsx`. Fixing dead code once satisfied both tools.
 
+## Hotspots: accelerating files
+
+`fallow health --hotspots --since 6m` scores every file by churn × complexity and tags its
+velocity `Accelerating`, `Stable`, or `Cooling`. **Accelerating** is the one worth tracking: the
+file is being edited more often *and* getting harder to edit, and that pair is what precedes a
+file nobody wants to open.
+
+The rule (see the **coding-conventions** skill's Verification section): a ticket that touches a
+file which comes back Accelerating adds a row here, naming the ticket that moved it. A file that
+cools off keeps its row with the ticket that cooled it, so the direction of travel stays legible.
+
+| File | Hotspot score | First flagged by | Latest | Status |
+| --- | --- | --- | --- | --- |
+| _none recorded yet_ | | | | |
+
+**Not yet populated.** The table was added with the rule; the first ticket to run
+`fallow health --hotspots` fills it in. An empty table means "not measured", not "nothing is
+accelerating" — don't read it as a clean bill of health until a run has written to it.
+
+Snapshot with `fallow health --save-snapshot` and compare with `fallow health --trend` so the
+per-metric deltas (`hotspot_count`, `avg_cyclomatic`, `duplication_pct`, …) are measured rather
+than recalled.
+
 ## Lint and formatting: clean
 
 `yarn run check` reports **no findings at all** as of

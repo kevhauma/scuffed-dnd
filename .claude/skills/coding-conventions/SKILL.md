@@ -64,6 +64,80 @@ site does, so match it. `components/ui/index.ts` is the folder's public listing;
 (`config/index.ts`, `play/index.ts`, `shared/index.ts`) are the same: `export *`, kept complete,
 and adding a component means adding its barrel line in the same change.
 
+## Types and constants
+
+**No bare string-union types.** A closed set of string values is declared once as a frozen const
+object, and the type is derived from it:
+
+```ts
+export const STAT_ROUNDING = {
+  NONE: 'none',
+  NEAREST: 'nearest',
+  UP: 'up',
+  DOWN: 'down',
+} as const;
+
+export type StatRounding = (typeof STAT_ROUNDING)[keyof typeof STAT_ROUNDING];
+```
+
+Call sites then say `STAT_ROUNDING.NEAREST` — never `'nearest'` — in components, engine code,
+fixtures and tests. Three things follow, and they are the reason for the rule:
+
+- A rename is **one edit**, and a typo is a compile error rather than a value that silently never
+  matches.
+- The set **exists at runtime**. `Object.values(STAT_ROUNDING)` is the list a `<Select>` maps over
+  and the array a shape validator checks against, instead of a second hand-written copy of the same
+  four strings drifting beside the first — `CURVE_MODES` in
+  [importExport.ts](../../../src/services/importExport.ts) is that pattern already.
+- Grepping the constant finds every use; grepping a bare literal finds every *coincidence*.
+
+Two things stay unions. A union of **non-string members or object shapes** is a discriminated
+union and is already the right tool (`FormulaAST`, `NumericEntry`). And a **base component's own
+variant prop** may stay inline (`size?: 'sm' | 'md'`) — its `.style.ts` map is the const object
+already, and the values never leave that component's props. The moment a second module names one
+of those strings, it becomes a const object like everything else.
+
+The rule applies to **new and reshaped** sets. Roughly a dozen bare unions predate it
+(`StatRounding`, `RollCategory`, `StatAffinity`, `CurveInterpolation`, `FormulaOwner`,
+`ValidationSeverity`, …); convert one when you are already changing it, not as drive-by work, and
+don't report the untouched ones as findings.
+
+## Design principles
+
+Two families of judgement, both concrete here rather than generic.
+
+**SOLID**, as this codebase already spells it:
+
+- **Single responsibility** — the panel / card / form-dialog / `useXManager` split, one Zustand
+  store per concern, one calculator per derived value. If a name needs "and" in it, it is two
+  modules.
+- **Open/closed** — `ConfigPanelShell` is extended through `headerExtra` and children, **never a
+  prop per panel**; a new formula operator is a new AST node plus an arm in `applyBinary`, not a
+  special case at the caller. A boolean named after one caller is the smell this rule catches.
+- **Liskov** — every `components/ui` primitive forwards its native props and accepts `className`,
+  so it is substitutable for the raw element it wraps. A primitive that swallows `onBlur` or
+  refuses a `className` breaks this and breaks its callers.
+- **Interface segregation** — props interfaces stay narrow: pass the three fields a card renders,
+  not the whole `Configuration`. Subscribing with a selector rather than the whole store is the
+  same rule applied to state.
+- **Dependency inversion** — the layering rule *is* DIP. `engine/` knows nothing about React,
+  `localStorage`, or any store; the direction of the arrow is the invariant, and a "small"
+  upward import is the violation.
+
+**KISS**, with the tie-breaks that matter:
+
+- Prefer the boring construction. A `map` over a declared table beat thirteen hand-written
+  checkers in CR-22 and is the shape to reach for again.
+- **Abstract on the third instance, not the second** — and only when the instances differ in
+  *data* rather than in *behaviour*. Two similar things are cheaper duplicated than wrongly shared.
+- **No option, prop, or config flag that nothing uses yet.** Speculative generality is the most
+  expensive kind, because it also has to be tested and explained.
+- **Delete rather than deprecate.** There is no external consumer; a compatibility shim here is
+  dead code with a polite name.
+- When KISS and open/closed disagree, **KISS wins until a third caller exists**. The shell earned
+  its extension points from eight copies of the same frame, not from anticipating them.
+- A shorter diff a reader can hold in their head beats a cleverer one they have to reconstruct.
+
 ## Components
 
 - **Function components, named exports**, typed props interface exported alongside
@@ -163,10 +237,35 @@ resolvers match what the formula will see at play time (TICKET-FORM-08).
 Before calling any change done:
 
 1. `npx vitest run` (or the affected files) — no new failures vs. TEST_STATUS.md
-2. `npx tsc --noEmit` — no errors beyond the 4 in TEST_STATUS.md
+2. `npx tsc --noEmit` — no errors beyond the 2 in TEST_STATUS.md
 3. `yarn run check` — **must be completely clean** (TICKET-DX-02 cleared it and a
    `.githooks/pre-commit` hook holds the line). `npx biome check --write .` fixes the mechanical
    ones; formatting is settled, so this is no longer a mass-reformat hazard
-4. The **fallow** skill for code-quality review, if available in the session — if it isn't, say so
-   rather than skipping silently
+4. **fallow** — a check, not an optional review. If the skill isn't available in the session, say
+   so rather than skipping silently.
+
+   ```bash
+   fallow audit --base main            # changed-code risk for this branch
+   fallow dead-code                    # unused files, exports, types, dependencies
+   fallow health --hotspots --since 6m # complexity, plus churn × complexity per file
+   ```
+
+   Three of its outputs are findings rather than noise:
+
+   - **Dead code the change introduced** — an export nothing imports, a type nobody names, a file
+     the refactor orphaned, a dependency that lost its last user. Delete it in the same change.
+     The app has no external consumers, so nothing here is "kept for later"; an unused export is
+     a claim that something uses it.
+   - **Complexity** — a function `fallow health` flags on cyclomatic or cognitive score, or a new
+     entry in its refactoring targets. Split it while you still remember what it does. A function
+     that grew past the threshold *in your diff* is yours even if it was already large.
+   - **Accelerating hotspots** — `fallow health --hotspots` scores each file by churn ×
+     complexity and tags its velocity `Accelerating`, `Stable`, or `Cooling`. **Accelerating**
+     means a file is being edited more often *and* getting harder to edit, which is the pair that
+     precedes a rewrite. A file your change touched that comes back Accelerating gets recorded in
+     [TEST_STATUS.md](../../../TEST_STATUS.md)'s hotspot table with the ticket that moved it, so
+     the trend is visible across tickets instead of rediscovered every six months. Use
+     `fallow health --save-snapshot` and `fallow health --trend` so the deltas are measured rather
+     than remembered.
+
 5. A live browser check for anything UI-visible (`yarn dev`, port 3000)

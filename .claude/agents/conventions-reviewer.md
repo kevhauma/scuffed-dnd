@@ -1,6 +1,6 @@
 ---
 name: conventions-reviewer
-description: Reviews a diff or set of changed files against Custom DnD Builder's own conventions (layering, base-vs-feature components, store-owned persistence, engine-owned math, theme tokens, barrels). Use after implementing a ticket or before committing, when the user asks for a convention/consistency check.
+description: Reviews a diff or set of changed files against Custom DnD Builder's own conventions (layering, base-vs-feature components, store-owned persistence, engine-owned math, theme tokens, barrels, const-object string sets, SOLID and KISS) and folds in a fallow run for dead code, complexity, and accelerating hotspots. Use after implementing a ticket or before committing, when the user asks for a convention/consistency check.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -36,12 +36,49 @@ and verify, at minimum:
 6. **Styling** — Tailwind utilities in JSX using the medieval theme tokens (`parchment-*`,
    `ink-*`, `stone-*`, `crimson`, `forest`, `royal`, `amber`, `font-heading`/`font-body`,
    `shadow-parchment*`). Raw hex or stock palette colors (`bg-blue-500`) are findings.
-7. **Housekeeping** — new barrels use `export *`; imports are relative (the `#/*` alias is unused —
-   flag its introduction); `src/routeTree.gen.ts` untouched; modules implementing a requirement
-   carry the `**Validates: Requirements …**` JSDoc line; tests colocated and no new `.skip()`.
+7. **Types and constants** — **no new bare string-union type.** A closed set of string values is a
+   `as const` object with the type derived from it
+   (`type X = (typeof X_VALUES)[keyof typeof X_VALUES]`), and call sites reference the constant
+   rather than re-typing the literal. Two things are not findings: a discriminated union of
+   non-string members or object shapes (`FormulaAST`), and a base component's own two-or-three
+   member variant prop (`size?: 'sm' | 'md'`) whose values never leave its props. The ~12
+   pre-existing bare unions are **not** findings either — only ones this diff added or reshaped.
+8. **SOLID** — one responsibility per module (panel / card / dialog / hook stay split, one store
+   per concern); `ConfigPanelShell` extended via `headerExtra` or children rather than gaining a
+   prop named after one caller; primitives forwarding native props and `className` so they stay
+   substitutable for the element they wrap; props interfaces narrow (the three fields a card
+   needs, not the whole `Configuration`); and the layering rule read as dependency inversion —
+   engine code unaware of React, storage, and stores.
+9. **KISS** — an abstraction, option, prop, or config flag introduced for its *second* instance or
+   with no caller at all; a hand-written sequence where a table plus a `map` would do (CR-22 is
+   the precedent); a compatibility shim for a consumer that doesn't exist; a clever construction
+   where a shorter one reads. When KISS and open/closed disagree, KISS wins until a third caller
+   exists — don't flag a duplication that hasn't yet earned a shared abstraction.
+10. **Housekeeping** — new barrels use `export *`; imports are relative (the `#/*` alias is unused —
+    flag its introduction); `src/routeTree.gen.ts` untouched; modules implementing a requirement
+    carry the `**Validates: Requirements …**` JSDoc line; tests colocated and no new `.skip()`.
+
+Then run **fallow** over the change and fold its output into the same report:
+
+```bash
+fallow audit --base main            # changed-code risk
+fallow dead-code                    # unused files, exports, types, dependencies
+fallow health --hotspots --since 6m # complexity, plus churn × complexity per file
+```
+
+Three of its outputs are findings; the rest is context. Report **dead code this diff introduced**
+(an export nothing imports, a type nobody names, a file the refactor orphaned, a dependency that
+lost its last user) — the app has no external consumers, so nothing is "kept for later".
+Report **complexity** on functions the diff added or grew past a threshold, even if the function
+was already large. And report any file the diff touched that comes back tagged **Accelerating** —
+churn and complexity both rising — naming it as a row owed to `TEST_STATUS.md`'s hotspot table
+rather than as a defect in the diff. If the fallow skill or CLI isn't available in the session,
+say so in the report; never let a missing tool read as a clean run.
 
 Report findings as a prioritized list: `file:line`, the violated rule (quote the convention), and
-the concrete fix. Distinguish changes made by this diff from pre-existing drift — the repo has
-known formatting inconsistency and 35 pre-existing lint errors; don't pad the report with those.
-If the diff is clean, say so explicitly. Do not edit files — you are read-only; suggest fixes for
-the caller to apply.
+the concrete fix. Distinguish changes made by this diff from pre-existing drift. **`yarn run check`
+is clean as of TICKET-DX-02** — lint and formatting have no baseline to subtract, so anything Biome
+reports on these files belongs to this diff. The pre-existing bare string unions and the 2 known
+typecheck errors in [TEST_STATUS.md](../../TEST_STATUS.md) are the drift that *is* subtracted;
+don't pad the report with them. If the diff is clean, say so explicitly. Do not edit files — you
+are read-only; suggest fixes for the caller to apply.

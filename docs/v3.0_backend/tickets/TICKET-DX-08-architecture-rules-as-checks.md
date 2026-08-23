@@ -51,6 +51,11 @@ let alone proven, before it exists.
 - Each rule proven by a fixture that violates it, so the config is tested rather than trusted.
 - A short `docs/` note, or a comment block in the config, mapping every rule to the prose rule it
   replaces — and stating which obligations dependency-cruiser **cannot** express.
+- **The `verifier` subagent runs and reports it.** `.claude/agents/verifier.md` still lists three
+  steps — vitest, tsc, lint — which was the whole of "does it still pass" in v1.0 and stops being
+  so the moment a rule can fail the build. It gains dependency-cruiser as a fourth numbered step
+  with its own baseline line, so an architecture violation surfaces in the same report as a broken
+  test rather than only at commit time when the hook fires.
 
 ## Acceptance criteria
 
@@ -65,6 +70,13 @@ let alone proven, before it exists.
       recorded reason, never silenced wholesale.
 - [ ] The rules run in `yarn run check` and the pre-commit hook, and the run's added time is measured
       and recorded in [TEST_STATUS.md](../../../TEST_STATUS.md).
+- [ ] The **`verifier` subagent** reports the dependency-cruiser result:
+      [.claude/agents/verifier.md](../../../.claude/agents/verifier.md) lists the check as a numbered
+      step beside `npx vitest run` / `npx tsc --noEmit` / `yarn run lint`, states its baseline (zero
+      error-level findings — `no-orphans` warnings are not regressions, and any recorded exemption is
+      named), and the agent's final report carries a PASS/FAIL line for it. Proven by running the
+      subagent against a tree with a deliberate violation and seeing it named in the report, not by
+      the edit alone.
 - [ ] The obligations dependency-cruiser cannot express are listed with what covers them instead —
       at minimum AUTH-03's "every route naming an owned resource calls a guard", which is about call
       sites rather than imports and stays a purpose-written test (v3 Req 51.10).
