@@ -163,17 +163,32 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
   };
 }
 
-/** The row an item or slot is rendered in */
+/**
+ * The row or tile an item, slot or stat is rendered in
+ *
+ * An equipment slot is a tile on the equipment figure now (`<li>`), not a bordered row, so this
+ * accepts either. Both are real markup rather than a hook added for the tests.
+ */
 function rowFor(label: string | RegExp): HTMLElement {
   const cell = screen.getByText(label);
-  const row = cell.closest('div.border-b');
+  const row = cell.closest('li, div.border-b');
   if (!row) throw new Error(`No row found for ${label}`);
   return row as HTMLElement;
 }
 
-/** The current Strength total as the sheet renders it */
+/**
+ * The current Strength total as the sheet renders it
+ *
+ * Hidden nodes are ignored because the row now carries an invested-points badge in front of the
+ * name whose digits are `aria-hidden` — the meaning is in an `sr-only` phrase beside them — so a
+ * bare numeric query matches the badge as well as the value.
+ */
 function renderedStrength(): string {
-  return within(rowFor(/Strength \(STR\)/)).getByText(/^\d+$/).textContent ?? '';
+  return (
+    within(rowFor(/Strength \(STR\)/)).getByText(/^\d+$/, {
+      ignore: 'script, style, [aria-hidden="true"]',
+    }).textContent ?? ''
+  );
 }
 
 function inventory() {
@@ -196,6 +211,69 @@ describe('InventoryPanel', () => {
     expect(within(rowFor('Helmet')).getByText(/Empty/)).toBeDefined();
   });
 
+  it('should put a slot on the cell the ruleset placed it (TICKET-INV-03)', () => {
+    useConfigStore.setState({
+      config: createConfig({
+        equipmentLayout: { columns: 2, rows: 2 },
+        equipmentSlots: [
+          {
+            type: 'helmet',
+            name: 'Helmet',
+            description: '',
+            placement: { column: 2, row: 1, glyph: 'helm' },
+          },
+          {
+            type: 'main_hand',
+            name: 'Main Hand',
+            description: '',
+            placement: { column: 1, row: 2, glyph: 'axe' },
+          },
+        ],
+      }),
+      isLoaded: true,
+    });
+
+    render(<InventoryPanel characterId="char1" />);
+
+    // The arrangement is configuration now, not a recognition table keyed on the slot's name —
+    // which is why an axe rather than a sword is the whole point of the assertion
+    expect(rowFor('Helmet').className).toContain('col-start-2');
+    expect(rowFor('Helmet').className).toContain('row-start-1');
+    expect(rowFor('Main Hand').className).toContain('col-start-1');
+    expect(rowFor('Main Hand').className).toContain('row-start-2');
+  });
+
+  it('should list an unplaced slot beneath the figure rather than dropping it', () => {
+    useConfigStore.setState({
+      config: createConfig({
+        equipmentLayout: { columns: 2, rows: 2 },
+        equipmentSlots: [
+          {
+            type: 'helmet',
+            name: 'Helmet',
+            description: '',
+            placement: { column: 1, row: 1, glyph: 'helm' },
+          },
+          { type: 'main_hand', name: 'Main Hand', description: '' },
+        ],
+      }),
+      isLoaded: true,
+    });
+
+    render(<InventoryPanel characterId="char1" />);
+
+    expect(rowFor('Helmet').className).toContain('col-start-1');
+    expect(rowFor('Main Hand').className).not.toContain('col-start-');
+  });
+
+  it('should still draw every slot when the ruleset has never been laid out', () => {
+    // The pre-builder shape, and what a Player sees until someone opens Configuration → Equipment
+    render(<InventoryPanel characterId="char1" />);
+
+    expect(rowFor('Helmet').className).not.toContain('col-start-');
+    expect(rowFor('Main Hand').className).not.toContain('col-start-');
+  });
+
   it('should equip a carried item into its matching slot', () => {
     useCharacterStore.setState({
       characters: [createCharacter({ inventory: { equippedItems: {}, miscItems: ['helm'] } })],
@@ -208,7 +286,11 @@ describe('InventoryPanel', () => {
 
     expect(inventory().equippedItems.helmet).toBe('helm');
     expect(inventory().miscItems).toEqual([]);
-    expect(within(rowFor('Helmet')).getByText('Iron Helm')).toBeDefined();
+    // `ignore` because the equipped item is also the tile's `<option>`: the picker keeps whatever
+    // is worn as its current value so swapping is one gesture. This asserts the tile *shows* it.
+    expect(
+      within(rowFor('Helmet')).getByText('Iron Helm', { ignore: 'script, style, option' })
+    ).toBeDefined();
   });
 
   it('should only offer carried items that fit the slot', () => {

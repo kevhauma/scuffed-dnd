@@ -11,6 +11,7 @@
 import { ErrorChip } from '../../ui/ErrorChip/ErrorChip';
 import { Text } from '../../ui/Text/Text';
 import type { DerivedValue } from './derivedValue';
+import { readable, signed } from './readableNumber';
 
 /** One named contribution to a skill's total */
 export interface SkillContribution {
@@ -51,24 +52,6 @@ export interface SkillBreakdownRowProps {
    * making the Player divide. A stat row leaves it out and is unchanged.
    */
   secondary?: { label: string; value: DerivedValue };
-}
-
-/**
- * A number as the Player should read it
- *
- * Two decimals, because a weighted term is a product of a stat and a weight like 0.2 and binary
- * floating point makes `7 × 0.2` render as `1.4000000000000001` — which reads as a bug in the app
- * rather than a fact about the ruleset. Rounded **here, at the display edge, and nowhere earlier**:
- * the calculator's terms have to keep summing to the level exactly (TICKET-SKL-03). Same treatment
- * `FormulaPreview` gives its ladder.
- */
-function readable(value: number): string {
-  return String(Math.round(value * 100) / 100);
-}
-
-/** Render a contribution with an explicit sign, so `+2` and `-2` are never ambiguous */
-function signed(value: number): string {
-  return value > 0 ? `+${readable(value)}` : readable(value);
 }
 
 export function SkillBreakdownRow({

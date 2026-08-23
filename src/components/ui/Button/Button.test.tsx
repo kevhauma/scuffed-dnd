@@ -13,14 +13,14 @@ describe('Button', () => {
   it('applies primary variant by default', () => {
     render(<Button>Primary</Button>);
     const button = screen.getByRole('button');
-    expect(button.className).toContain('bg-royal');
+    expect(button.className).toContain('bg-oak-700');
     expect(button.className).toContain('text-parchment-50');
   });
 
   it('applies secondary variant styles', () => {
     render(<Button variant="secondary">Secondary</Button>);
     const button = screen.getByRole('button');
-    expect(button.className).toContain('bg-parchment-100');
+    expect(button.className).toContain('bg-parchment-200');
     expect(button.className).toContain('text-ink-900');
   });
 
@@ -110,7 +110,19 @@ describe('Button', () => {
     const button = screen.getByRole('button');
     expect(button.className).toContain('font-heading');
     expect(button.className).toContain('border-2');
-    expect(button.className).toContain('shadow-parchment');
+    // Brass rather than parchment: a primary button is hardware bolted to the page, and the bevel
+    // is what a press then flips to `shadow-carved`
+    expect(button.className).toContain('shadow-brass');
+  });
+
+  it('applies plaque variant styles for a control on timber', () => {
+    render(<Button variant="plaque">Plaque</Button>);
+    const button = screen.getByRole('button');
+    expect(button.className).toContain('bg-oak-800');
+    expect(button.className).toContain('text-parchment-300');
+    // The whole point of the variant: no caller override is needed to make it legible on oak, so
+    // it emits exactly one text colour (CR-07)
+    expect(button.className).not.toContain('text-ink');
   });
 
   it('does not include margin or positioning styles in base component', () => {

@@ -2,7 +2,8 @@
   "feature": "equipment-slots",
   "title": "Equipment slots",
   "tickets": [
-    "TICKET-INV (v1.0)"
+    "TICKET-INV (v1.0)",
+    "TICKET-INV-03"
   ],
   "concept": "10 · Slot",
   "source": {
@@ -15,44 +16,57 @@
   "confidence": "confirmed",
   "notes": [
     "Seven boxes, read off the Charactersheet layout in sheet order. Names keep the sheet's casing and spelling (\"accesory\").",
-    "The sheet gives no slot a count or an accepts-list — every box holds one \"material material object\" string. Concept 10's count/accepts fields are a later milestone."
+    "The sheet gives no slot a count or an accepts-list — every box holds one \"material material object\" string. Concept 10's count/accepts fields are a later milestone.",
+    "The grid and the placements are the sheet's own arrangement, not an invention: columns M/N/O are 1/2/3 and rows 3/7/11/14 are 1/2/3/4, so the range is exactly a 3×4 board with five of its twelve cells empty. Column 1 rows 1, 3 and 4 and column 3 rows 1 and 4 are blank on the sheet and are blank here.",
+    "Glyphs have no source in the spreadsheet — it draws no pictures, only labelled boxes. Each is the app's own reading of what the box holds, chosen from the set in `types/config.ts`, and is display-only: nothing derives from it."
   ],
   "data": {
+    "equipmentLayout": {
+      "columns": 3,
+      "rows": 4
+    },
     "equipmentSlots": [
       {
         "type": "head",
         "name": "Head",
-        "description": "Equipment box on the character sheet (Charactersheet!N3)."
+        "description": "Equipment box on the character sheet (Charactersheet!N3).",
+        "placement": { "column": 2, "row": 1, "glyph": "helm" }
       },
       {
         "type": "chest",
         "name": "chest",
-        "description": "Equipment box on the character sheet (Charactersheet!N7)."
+        "description": "Equipment box on the character sheet (Charactersheet!N7).",
+        "placement": { "column": 2, "row": 2, "glyph": "chest" }
       },
       {
         "type": "main_hand",
         "name": "main hand",
-        "description": "Equipment box on the character sheet (Charactersheet!M7)."
+        "description": "Equipment box on the character sheet (Charactersheet!M7).",
+        "placement": { "column": 1, "row": 2, "glyph": "main-hand" }
       },
       {
         "type": "off_hand",
         "name": "Off hand",
-        "description": "Equipment box on the character sheet (Charactersheet!O7)."
+        "description": "Equipment box on the character sheet (Charactersheet!O7).",
+        "placement": { "column": 3, "row": 2, "glyph": "off-hand" }
       },
       {
         "type": "legs",
         "name": "Legs",
-        "description": "Equipment box on the character sheet (Charactersheet!N11)."
+        "description": "Equipment box on the character sheet (Charactersheet!N11).",
+        "placement": { "column": 2, "row": 3, "glyph": "legs" }
       },
       {
         "type": "feet",
         "name": "Feet",
-        "description": "Equipment box on the character sheet (Charactersheet!N14)."
+        "description": "Equipment box on the character sheet (Charactersheet!N14).",
+        "placement": { "column": 2, "row": 4, "glyph": "feet" }
       },
       {
         "type": "accessory",
         "name": "accesory",
-        "description": "Equipment box on the character sheet (Charactersheet!O11)."
+        "description": "Equipment box on the character sheet (Charactersheet!O11).",
+        "placement": { "column": 3, "row": 3, "glyph": "accessory" }
       }
     ]
   }

@@ -1,28 +1,53 @@
 /* Import medieval/fantasy fonts */
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=IM+Fell+English:ital@0;1&display=swap');
 
 @import "tailwindcss";
 
-/* Medieval Theme Configuration */
+/*
+ * Medieval Theme Configuration — "the tavern at night"
+ *
+ * The room is dark stained timber lit by candles; the User's work is parchment laid on the table
+ * inside it. Every colour below belongs to one of those two halves, which is what keeps the
+ * palette from drifting back into flat off-white on off-white.
+ */
 @theme {
-  /* Parchment and paper tones */
-  --color-parchment-50: #fdfbf7;
-  --color-parchment-100: #f8f4e8;
-  --color-parchment-200: #f0e8d0;
-  --color-parchment-300: #e8dbb8;
-  --color-parchment-400: #d4c5a0;
-  
-  /* Ink and text colors */
-  --color-ink-900: #2a2419;
-  --color-ink-800: #3d3529;
-  --color-ink-700: #4f4739;
-  --color-ink-600: #6b5d4f;
-  
+  /* Parchment and paper tones — the lit surfaces. Warmer than a page in daylight, because every
+     one of them is meant to be read by candle. */
+  --color-parchment-50: #fbf4e2;
+  --color-parchment-100: #f5ead1;
+  --color-parchment-200: #ecdcb9;
+  --color-parchment-300: #dfca9d;
+  --color-parchment-400: #c8ae7c;
+
+  /* Ink and text colors — iron-gall brown-black rather than grey */
+  --color-ink-900: #241a10;
+  --color-ink-800: #35271a;
+  --color-ink-700: #4a3826;
+  --color-ink-600: #665038;
+
+  /* Timber — the room itself: panelling, beams, the tabletop. Never a text colour on parchment. */
+  --color-oak-900: #17100a;
+  --color-oak-800: #241810;
+  --color-oak-700: #332316;
+  --color-oak-600: #46301d;
+  --color-oak-500: #5d4026;
+
+  /* Brass and candlelight — the hardware and the light falling on it */
+  --color-brass: #b5893f;
+  --color-brass-light: #e0b871;
+  --color-brass-dark: #6e5122;
+  --color-candle: #ffd79a;
+  --color-ember: #b5502a;
+
   /* Accent colors (medieval dyes) */
   --color-crimson: #8b2e2e;
   --color-forest: #3a5a40;
   --color-royal: #2e4057;
   --color-amber: #b8860b;
+  /* Amber is a *light* — bright enough to focus a control against a dark ground, and far too
+     bright to read as text on parchment (2.6:1). `amber-dark` is the same dye at ink strength,
+     for the words a warning is made of. */
+  --color-amber-dark: #7d5c0a;
 
   /* Darker steps of the accents, for hover and active states.
      These were hand-inlined as hex literals in Button and Checkbox; naming them here means
@@ -31,42 +56,219 @@
   --color-crimson-darker: #4a1919;
   --color-royal-dark: #243447;
   --color-royal-darker: #1a2633;
-  
+
   /* Neutral stone tones */
-  --color-stone-100: #e8e4df;
-  --color-stone-200: #d1cbc2;
-  --color-stone-300: #b9b2a5;
-  --color-stone-400: #9a9188;
-  
-  /* Font families */
-  --font-family-body: "Crimson Text", Georgia, "Times New Roman", serif;
-  --font-family-heading: "Cinzel", "Trajan Pro", Georgia, serif;
-  --font-family-mono: "Courier New", Courier, monospace;
-  
-  /* Custom shadows for parchment effect */
-  --shadow-parchment: 0 2px 4px rgb(42 36 25 / 0.08);
-  --shadow-parchment-lg: 0 4px 6px rgb(42 36 25 / 0.1), 0 2px 4px rgb(42 36 25 / 0.06);
+  --color-stone-100: #e8e1d3;
+  --color-stone-200: #d3c8b3;
+  --color-stone-300: #b8a98e;
+  --color-stone-400: #97866c;
+
+  /* Font families.
+     The namespace is `--font-*`, not `--font-family-*`: Tailwind v4 generates a utility per theme
+     key inside a namespace it knows, and `--font-family-heading` is in none of them. It generated
+     nothing, so `font-heading` was a no-op class and Cinzel never rendered once in the app —
+     every "heading" was the body serif inheriting from `body`. Same for `font-mono`. */
+  --font-body: "Crimson Text", Georgia, "Times New Roman", serif;
+  --font-heading: "Cinzel", "Trajan Pro", Georgia, serif;
+  --font-mono: "Courier New", Courier, monospace;
+  /* The hand that wrote the marginalia — used for asides and captions, never for data */
+  --font-quill: "IM Fell English", "Crimson Text", Georgia, serif;
+
+  /* Shadows.
+     `parchment` is a sheet resting on the table; `carved` is something pressed *into* a surface
+     (every input); `candle` is warm light spilling off a focused or active control. */
+  --shadow-parchment: 0 1px 2px rgb(23 16 10 / 0.16), 0 3px 8px -2px rgb(23 16 10 / 0.14);
+  --shadow-parchment-lg: 0 2px 4px rgb(23 16 10 / 0.18), 0 14px 30px -10px rgb(23 16 10 / 0.5);
+  --shadow-parchment-inset: inset 0 1px 0 rgb(255 250 236 / 0.7),
+    inset 0 -3px 8px -4px rgb(23 16 10 / 0.22);
+  --shadow-carved: inset 0 2px 5px rgb(23 16 10 / 0.28), inset 0 -1px 0 rgb(255 250 236 / 0.5);
+  --shadow-brass: inset 0 1px 0 rgb(224 184 113 / 0.5), inset 0 -3px 6px -2px rgb(23 16 10 / 0.5),
+    0 2px 3px rgb(23 16 10 / 0.4);
+  --shadow-candle: 0 0 24px -4px rgb(255 199 122 / 0.6);
+  /* A sheet with more sheets under it. The two hard, un-blurred offsets are the edges of the
+     pages below showing past this one; the blurred third is the whole pile's shadow on the table. */
+  --shadow-stack: 4px 5px 0 -1px var(--color-parchment-200),
+    5px 6px 0 0 rgb(36 26 16 / 0.22), 0 14px 26px -12px rgb(23 16 10 / 0.55);
+  /* A focused field: still pressed into the page, but with the candle brought closer to it.
+     One token rather than a shadow class plus a ring class, because only one `shadow-*` utility
+     can win and the inset must survive the focus. */
+  --shadow-quill: inset 0 2px 5px rgb(23 16 10 / 0.22), 0 0 18px -3px rgb(255 199 122 / 0.8);
+
+  /* Grain, as tileable SVG noise.
+     Two of the three "texture" jobs are done here rather than in a component because they are a
+     property of a surface, not a thing on the page — a card should not have to render an extra
+     element to be made of paper. The third (the room behind everything) is a real SVG, in
+     `shared/TavernBackdrop`, because it has structure: planks, light and a vignette. */
+  --texture-vellum: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='v'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23v)' opacity='0.28'/%3E%3C/svg%3E");
+  --texture-fibre: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.02 0.7' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='260' height='260' filter='url(%23f)' opacity='0.22'/%3E%3C/svg%3E");
 }
 
 :root {
   /* Additional CSS custom properties for theme consistency */
-  --color-parchment: #f8f4e8;
-  --color-ink: #2a2419;
-  --border-color: rgb(42 36 25 / 0.15);
+  --color-parchment: #f5ead1;
+  --color-ink: #241a10;
+  --border-color: rgb(36 26 16 / 0.2);
   --border-radius: 0.375rem;
 }
 
 body {
   @apply m-0;
-  font-family: var(--font-family-body);
-  background-color: var(--color-parchment-100);
+  font-family: var(--font-body);
+  /* The room, not the page: the parchment surfaces are drawn on top of this by the layout */
+  background-color: var(--color-oak-900);
   color: var(--color-ink-900);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 code {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-mono);
+}
+
+/*
+ * Surface textures
+ *
+ * Classes rather than utilities because each one is a *pair* of declarations (image plus tile
+ * size) that only ever travel together, and because they compose with a background colour set by
+ * a Tailwind class — `bg-parchment-50 surface-vellum` is paper of that colour with grain in it.
+ *
+ * `background-blend-mode: multiply` is what makes the grain darken the colour underneath instead
+ * of laying grey haze over it, so the same texture works on every step of the parchment ramp.
+ */
+.surface-vellum {
+  background-image: var(--texture-vellum);
+  background-size: 180px 180px;
+  background-blend-mode: multiply;
+}
+
+/*
+ * Cards as sheets of parchment, not as rectangles
+ *
+ * Three things happen here that Tailwind utilities cannot do, which is why this is a stylesheet
+ * rule and not a class string in `Card.style.ts`.
+ *
+ * **Hand-cut corners.** Every corner gets its own radius, so a card is a sheet someone cut rather
+ * than a rounded rectangle. The bottom-right stays nearly square, because that is where the fold
+ * is. One set for every card: the same gesture repeated is how a stack of paper from one ream
+ * actually looks.
+ *
+ * **The dog-ear.** A fixed `315deg` rather than `to top left`: the keyword angle depends on the
+ * box's aspect ratio, so on a wide card the "corner" stretches into a band down the whole right
+ * edge, where a fixed 45° folds a real triangle at any size. The stops run from the lit tip of the
+ * flap, darkening into the crease shadow, to nothing.
+ *
+ * **Layered backgrounds.** The fold, the stains, the grain and the light falling from above are
+ * five background layers on one element, and a `background-image` set by a second class would
+ * replace the first rather than add to it. So they are declared together, and the two stain layers
+ * arrive through custom properties that default to `none` — which is a legal layer, and keeps the
+ * layer count fixed so the `background-size` and `background-blend-mode` lists stay in step with
+ * it. `multiply` on the stains and the grain so both darken the parchment rather than hazing over
+ * it; `normal` on the fold and the light, which are lighter than what they sit on.
+ */
+.card-hand {
+  --fold: 26px;
+  border-radius: 14px 7px 4px 11px;
+}
+
+.card-parchment {
+  /* The component sets `--stain-a` … `--stain-c` inline; these are what the gradient actually
+     reads. The indirection is what lets the nesting rule below turn a stain off without
+     `!important` — an inline custom property beats every selector, but `--stain-a` is never *used*
+     directly, so overriding `--stain-1` here is an ordinary specificity contest and CSS wins it.
+     `none` is a legal background layer, so an unstained card still has the same number of layers as
+     a stained one and the `background-size` / `background-blend-mode` lists below stay in step. */
+  --stain-1: var(--stain-a, none);
+  --stain-2: var(--stain-b, none);
+  --stain-3: var(--stain-c, none);
+  background-image:
+    linear-gradient(
+      315deg,
+      var(--color-parchment-200) 0,
+      var(--color-parchment-300) calc(var(--fold) - 9px),
+      var(--color-parchment-400) calc(var(--fold) - 2px),
+      rgb(36 26 16 / 0.35) calc(var(--fold) - 0.5px),
+      transparent var(--fold)
+    ),
+    var(--stain-1), var(--stain-2), var(--stain-3), var(--texture-vellum),
+    linear-gradient(to bottom, rgb(255 250 236 / 0.5) 0, transparent 40%);
+  background-size:
+    auto,
+    auto,
+    auto,
+    auto,
+    180px 180px,
+    auto;
+  background-blend-mode: normal, multiply, multiply, multiply, multiply, normal;
+}
+
+/*
+ * Only the sheet at the bottom of the pile is marked
+ *
+ * Where cards nest, the outer one is the page and the inner ones are laid on top of it. So the
+ * outer one is what got folded over and what somebody put a cup on; the sheets on top of it are
+ * separate pieces of paper that happen to be covering it.
+ *
+ * Left alone, every card in the nest drew its own dog-ear and its own ring — two folds in the same
+ * corner, stains showing through stains. The materials page, where a category card holds a family
+ * card which holds a level card, made a mess of it.
+ *
+ * A plain descendant selector does the whole job: any card *inside* another card loses both, at
+ * any depth, so exactly one card per nest keeps them. `--fold: 0` collapses every stop of the fold
+ * gradient to zero and leaves it fully transparent, so there is nothing left to draw, and the
+ * corner gets a normal hand-cut radius back now that nothing is turned up over it.
+ */
+.card-parchment .card-parchment {
+  --stain-1: none;
+  --stain-2: none;
+  --stain-3: none;
+  --fold: 0px;
+  border-bottom-right-radius: 13px;
+}
+
+/*
+ * Somebody put a cup down on this one
+ *
+ * A real coffee ring is not a disc: the liquid dries outward and leaves most of the pigment at the
+ * rim, with only a thin wash inside it. Each stain is that profile — wash, dark rim, quick
+ * fade — as an *ellipse* rather than a circle, because a perfect circle reads as a UI element.
+ *
+ * Only the colours are here. Which card is marked, what shape the mark is — a ring, a ring set
+ * down twice, a spill with no round edge to it, a cup with a drip off its base — and where it
+ * landed are all drawn per card from the card's own identity in `Card/cardStain.ts`, and arrive as
+ * `--stain-1` … `--stain-3`. The palette owns what coffee looks like; the code owns what happened
+ * to the page.
+ */
+:root {
+  /* The thin film inside a dried ring */
+  --stain-wash: rgb(110 72 33 / 0.07);
+  /* Where the pigment collected as it dried — the dark edge of a cup mark */
+  --stain-rim: rgb(110 72 33 / 0.22);
+  /* The middle of a spill, which never dried out to a ring at all */
+  --stain-core: rgb(110 72 33 / 0.26);
+  /* The last of it, fading into the paper */
+  --stain-edge: rgb(110 72 33 / 0.09);
+}
+
+/*
+ * The checkbox's tick
+ *
+ * A rule here rather than a `checked:bg-[url(…)]` utility on the component: Tailwind's scanner
+ * silently declines to emit that candidate — every other `checked:` class in `Checkbox.style.ts`
+ * was generated and only the arbitrary URL one was missing, so a ticked box painted ink with no
+ * tick in it. The stylesheet is also where the `%23…` belongs, next to the `--color-parchment-50`
+ * it is a written-out copy of; `libraryConventions.test.ts` pins the two to each other.
+ */
+.checkbox-tick:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23fbf4e2' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round' d='m3.5 8.5 3 3 6-7'/%3E%3C/svg%3E");
+  background-size: 14px 14px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.surface-fibre {
+  background-image: var(--texture-fibre);
+  background-size: 260px 260px;
+  background-blend-mode: multiply;
 }
 
 /*
@@ -95,8 +297,32 @@ code {
   animation: roll-settle 400ms ease-out;
 }
 
+/*
+ * Candlelight
+ *
+ * The backdrop's glow breathes rather than sitting still. Slow and shallow on purpose: a real
+ * flicker at UI scale reads as a rendering fault, and anything faster competes with the content.
+ */
+@keyframes candle-flicker {
+  0%,
+  100% {
+    opacity: 0.92;
+  }
+  35% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.86;
+  }
+}
+
+.animate-candle {
+  animation: candle-flicker 7s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-roll-settle {
+  .animate-roll-settle,
+  .animate-candle {
     animation: none;
   }
 }

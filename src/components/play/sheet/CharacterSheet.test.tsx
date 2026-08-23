@@ -198,6 +198,17 @@ function rowFor(label: string | RegExp): HTMLElement {
   return row as HTMLElement;
 }
 
+/**
+ * For a text query that must find a row's **value**, not any number in it
+ *
+ * Every stat, resource and skill row now carries a badge in front of its name — invested points,
+ * or a skill's level — whose digits are drawn in an `aria-hidden` span, the meaning being carried
+ * by an `sr-only` phrase beside it. A bare `getByText('6')` inside a row therefore matches the
+ * badge as well as the value. Ignoring hidden nodes picks the one the Player reads as the row's
+ * answer, without loosening the assertion to "some element says 6".
+ */
+const VISIBLE_ONLY = { ignore: 'script, style, [aria-hidden="true"]' } as const;
+
 describe('CharacterSheet', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -284,8 +295,10 @@ describe('CharacterSheet', () => {
 
     // And the skill follows through the stat it is weighted on, which is the only route a tier
     // modifier has to a skill since TICKET-MAT-02. Stealth is DEX × 0.5, so the +4 carries into
-    // its level as +2 and its bonus rounds up a step: level 3 + 5 = 8, bonus round(8 / 5) = 2.
-    expect(within(rowFor(/Stealth/)).getByText('2')).toBeDefined();
+    // its level as +2: level 3 + 5 = 8, which the row now leads with.
+    expect(within(rowFor(/Stealth/)).getByText('8', VISIBLE_ONLY)).toBeDefined();
+    // …and the bonus it rounds to is in the breakdown behind it
+    expect(within(rowFor(/Stealth/)).getByText('bonus 2')).toBeDefined();
   });
 
   it("should show a stat's contributions separately from its total", () => {
@@ -499,12 +512,13 @@ describe('CharacterSheet', () => {
       expect(expected.skillLevels.STL).toBe(6);
       expect(expected.skillBonuses.STL).toBe(1);
       const row = rowFor(/Stealth/);
-      expect(within(row).getByText(`level ${expected.skillLevels.STL}`)).toBeDefined();
-      // The bonus is the row's lead number — `variant="highlight"` — rather than any text node
-      // that happens to read "1"
-      expect(within(row).getByText(String(expected.skillBonuses.STL)).className).toContain(
-        'font-mono'
-      );
+      // The **level** is the row's lead number — `variant="highlight"` — rather than any text node
+      // that happens to read "6"
+      expect(
+        within(row).getByText(String(expected.skillLevels.STL), VISIBLE_ONLY).className
+      ).toContain('font-mono');
+      // The bonus it rounds to is behind it, in the breakdown
+      expect(within(row).getByText(`bonus ${expected.skillBonuses.STL}`)).toBeDefined();
     });
 
     it('should not show a weighted term as binary floating-point noise', () => {
@@ -532,7 +546,11 @@ describe('CharacterSheet', () => {
 
       const row = rowFor(/Stealth/);
       expect(within(row).getByText('DEX × 0.2 +1.4')).toBeDefined();
-      expect(within(row).getByText('level 1.4')).toBeDefined();
+      // The *term* keeps its fraction — it is a weight times a stat, and hiding that is hiding the
+      // ruleset. The *level* is rounded up, because a level is a whole number and nobody at a
+      // table has two-fifths of one. The rounding is at the display edge only: the engine keeps
+      // 1.4, which is what the bonus derives from.
+      expect(within(row).getByText('2', VISIBLE_ONLY)).toBeDefined();
       expect(within(row).queryByText(/0000000/)).toBeNull();
     });
 
@@ -573,16 +591,20 @@ describe('CharacterSheet', () => {
 
     // Main skills, speciality totals, combat bonuses and stat maxima all come from the engine
     expect(
-      within(rowFor(/Strength \(STR\)/)).getByText(String(expected.statValues.STR))
+      within(rowFor(/Strength \(STR\)/)).getByText(String(expected.statValues.STR), VISIBLE_ONLY)
     ).toBeDefined();
     expect(
-      within(rowFor(/Dexterity \(DEX\)/)).getByText(String(expected.statValues['dex-id']))
+      within(rowFor(/Dexterity \(DEX\)/)).getByText(
+        String(expected.statValues['dex-id']),
+        VISIBLE_ONLY
+      )
     ).toBeDefined();
-    // The skill row carries the **bonus** — the number a Player adds to a roll (Concept 02) — with
-    // the level beside it since TICKET-SKL-03
-    expect(within(rowFor(/Stealth/)).getByText(String(expected.skillBonuses.STL))).toBeDefined();
+    // The skill row leads with its **level**, with the bonus it rounds to in the breakdown behind
     expect(
-      within(rowFor(/Stealth/)).getByText(`level ${String(expected.skillLevels.STL)}`)
+      within(rowFor(/Stealth/)).getByText(String(expected.skillLevels.STL), VISIBLE_ONLY)
+    ).toBeDefined();
+    expect(
+      within(rowFor(/Stealth/)).getByText(`bonus ${String(expected.skillBonuses.STL)}`)
     ).toBeDefined();
     expect(
       within(rowFor(/^Melee$/)).getByText(`input ${expected.rollInputs['mel-id']}`)
@@ -879,7 +901,8 @@ describe('CharacterSheet', () => {
         render(<CharacterSheet characterId="char1" />);
 
         // Level 3 × 5 points per level = 15; STR 6 + DEX 4 already spent
-        expect(screen.getByText('10 of 15 points spent · 5 remaining')).toBeDefined();
+        expect(screen.getByText('10/15')).toBeDefined();
+        expect(screen.getByText('Points spent')).toBeDefined();
       });
 
       it('should move the pool when experience moves the level', () => {
@@ -888,16 +911,20 @@ describe('CharacterSheet', () => {
         render(<CharacterSheet characterId="char1" />);
 
         // Level 2 now, so 10 points — and the same 10 spent leaves nothing
-        expect(screen.getByText('10 of 10 points spent · 0 remaining')).toBeDefined();
+        expect(screen.getByText('10/10')).toBeDefined();
       });
 
       it('should give every invested stat a control to spend the pool on', () => {
         render(<CharacterSheet characterId="char1" />);
 
-        expect(screen.getByLabelText('Points in Strength')).toBeDefined();
         expect(screen.getByLabelText('Spend a point on Strength')).toBeDefined();
-        // A derived stat computes its own value, so there is nothing to invest in it
-        expect(screen.queryByLabelText('Points in Health')).toBeNull();
+        expect(screen.getByLabelText('Remove a point from Strength')).toBeDefined();
+
+        // A derived stat computes its own value, so there is nothing to invest in it — and it gets
+        // no controls at all rather than two permanently disabled ones, because a disabled button
+        // says "not now" where the truth is "not ever"
+        expect(screen.queryByLabelText('Spend a point on Health')).toBeNull();
+        expect(screen.queryByLabelText('Remove a point from Health')).toBeNull();
       });
 
       it('should spend a point through the store and show the pool shrink', () => {
@@ -906,7 +933,7 @@ describe('CharacterSheet', () => {
         fireEvent.click(screen.getByLabelText('Spend a point on Strength'));
 
         expect(useCharacterStore.getState().characters[0].investedStatPoints.STR).toBe(7);
-        expect(screen.getByText('11 of 15 points spent · 4 remaining')).toBeDefined();
+        expect(screen.getByText('11/15')).toBeDefined();
       });
 
       it('should refuse a spend the pool cannot pay for, leaving the character untouched', () => {
@@ -929,7 +956,9 @@ describe('CharacterSheet', () => {
         render(<CharacterSheet characterId="char1" />);
 
         expect(screen.getByText(/Points available:/)).toBeDefined();
-        expect(screen.queryByText(/points spent/)).toBeNull();
+        // The tally itself, by its shape: every stat row also carries an `N points spent` phrase
+        // for screen readers, so matching the words alone finds ten of them and proves nothing
+        expect(screen.queryByText(/^\d+\/\d+$/)).toBeNull();
       });
 
       it('should close every spend control when the pool cannot be priced', () => {
@@ -942,25 +971,42 @@ describe('CharacterSheet', () => {
         expect(
           (screen.getByLabelText('Spend a point on Strength') as HTMLButtonElement).disabled
         ).toBe(true);
+        // Including the refund: an unpriceable pool refuses a `−` as well, unlike an empty one
         expect(
           (screen.getByLabelText('Remove a point from Strength') as HTMLButtonElement).disabled
         ).toBe(true);
-        expect((screen.getByLabelText('Points in Strength') as HTMLInputElement).disabled).toBe(
-          true
-        );
       });
 
-      it('should not persist the digits typed on the way to an unaffordable number', () => {
+      it('should leave a refund open when the pool is merely empty', () => {
+        // The distinction the `canSpend` / `canAdjust` split exists for: nothing left to spend is
+        // not the same as no pool to spend from, and a Player who overspent must be able to undo it
+        useCharacterStore.setState({
+          characters: [createCharacter({ investedStatPoints: { STR: 11, 'dex-id': 4 } })],
+        });
+
         render(<CharacterSheet characterId="char1" />);
 
-        const box = screen.getByLabelText('Points in Strength');
-        // 15-point pool, 10 already spent. Typing 20 used to persist the `2` on the way past and
-        // then refuse the `20`, quietly unspending four points (TICKET-RES-02 review finding).
-        fireEvent.change(box, { target: { value: '2' } });
-        fireEvent.change(box, { target: { value: '20' } });
-        fireEvent.blur(box);
+        expect(
+          (screen.getByLabelText('Spend a point on Strength') as HTMLButtonElement).disabled
+        ).toBe(true);
+        expect(
+          (screen.getByLabelText('Remove a point from Strength') as HTMLButtonElement).disabled
+        ).toBe(false);
+      });
 
-        expect(useCharacterStore.getState().characters[0].investedStatPoints.STR).toBe(6);
+      it('should have no text field to type a partial number into', () => {
+        render(<CharacterSheet characterId="char1" />);
+
+        // 15-point pool, 10 already spent. Typing 20 into the old box persisted the `2` on the way
+        // past and then refused the `20`, quietly unspending four points (TICKET-RES-02 review
+        // finding), which is why the entry committed on blur rather than per keystroke. Stepping
+        // by one removes the hazard structurally: every press is a complete, valid intent, so
+        // there is nothing half-typed to hold or refuse.
+        expect(screen.queryByLabelText('Points in Strength')).toBeNull();
+
+        fireEvent.click(screen.getByLabelText('Spend a point on Strength'));
+
+        expect(useCharacterStore.getState().characters[0].investedStatPoints.STR).toBe(7);
       });
     });
   });
@@ -1151,9 +1197,11 @@ describe('CharacterSheet', () => {
       expect(within(rowFor('Evasion')).getByText('of 12 max')).toBeDefined();
 
       // …as are the stat and skill totals, which never depended on the broken formula.
-      // Stealth is 3 invested + DEX 6 × 0.5 = 6, so its bonus is round(6 / 5) = 1.
-      expect(within(rowFor(/Strength \(STR\)/)).getByText('6')).toBeDefined();
-      expect(within(rowFor(/Stealth/)).getByText('1')).toBeDefined();
+      // Stealth is 3 invested + DEX 6 × 0.5 = 6, which the row leads with; the bonus it rounds to
+      // is round(6 / 5) = 1, behind it in the breakdown.
+      expect(within(rowFor(/Strength \(STR\)/)).getByText('6', VISIBLE_ONLY)).toBeDefined();
+      expect(within(rowFor(/Stealth/)).getByText('6', VISIBLE_ONLY)).toBeDefined();
+      expect(within(rowFor(/Stealth/)).getByText('bonus 1')).toBeDefined();
     });
   });
 
@@ -1232,7 +1280,7 @@ describe('CharacterSheet', () => {
       expect(within(rowFor('Health')).getByText('of 60 max')).toBeDefined();
 
       // …the new main skill reads as 0 rather than as a missing variable…
-      expect(within(rowFor(/Wisdom \(WIS\)/)).getByText('0')).toBeDefined();
+      expect(within(rowFor(/Wisdom \(WIS\)/)).getByText('0', VISIBLE_ONLY)).toBeDefined();
 
       // …so the new stat is a number, and nothing on the sheet is chipped
       expect(within(rowFor('Insight')).getByText('of 0 max')).toBeDefined();

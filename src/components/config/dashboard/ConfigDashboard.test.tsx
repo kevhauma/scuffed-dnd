@@ -262,6 +262,7 @@ describe('ConfigDashboard', () => {
       'Stats',
       'Materials',
       'Items',
+      'Equipment',
       'Races',
       'Archetypes',
       'Rolls',

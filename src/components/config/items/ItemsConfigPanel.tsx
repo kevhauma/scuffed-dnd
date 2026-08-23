@@ -5,9 +5,10 @@
  *
  * **Slots are defined in `EquipmentSlotsConfigPanel`, not here** (CR-20). This panel used to carry
  * its own slot list, its own "Add Equipment Slot" button and its own dialog, all of it a second
- * copy of what that panel already does — and `/config/items` mounts both, so the page showed each
+ * copy of what that panel already does — and `/config/items` mounted both, so the page showed each
  * of those things twice. What is left is the one thing an item needs from a slot: to name it, with
- * a prerequisite note pointing down the page when there are none.
+ * a prerequisite note pointing at the page that defines them. Since TICKET-INV-02 that is
+ * `/config/equipment` rather than the panel below, so the note names the section by its nav label.
  *
  * **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 21.1-21.5**
  */
@@ -63,7 +64,7 @@ export function ItemsConfigPanel() {
           : []),
         ...(equipmentSlots.length === 0
           ? [
-              'No equipment slots configured yet. Add them in the Equipment Slots panel below to make items equippable.',
+              'No equipment slots configured yet. Add them under Configuration → Equipment to make items equippable.',
             ]
           : []),
       ]}

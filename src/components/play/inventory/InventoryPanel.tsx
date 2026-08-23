@@ -16,7 +16,7 @@ import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
-import { EquipmentSlotRow } from './EquipmentSlotRow';
+import { EquipmentDoll } from './EquipmentDoll';
 import { MiscItemRow } from './MiscItemRow';
 import { useInventoryManager } from './useInventoryManager';
 
@@ -27,6 +27,7 @@ export interface InventoryPanelProps {
 export function InventoryPanel({ characterId }: InventoryPanelProps) {
   const {
     slots,
+    equipmentLayout,
     miscItems,
     availableItems,
     handleEquip,
@@ -57,14 +58,12 @@ export function InventoryPanel({ characterId }: InventoryPanelProps) {
       {slots.length === 0 ? (
         <Text variant="body-small-secondary">This ruleset defines no equipment slots.</Text>
       ) : (
-        slots.map((slot) => (
-          <EquipmentSlotRow
-            key={slot.type}
-            slot={slot}
-            onEquip={handleEquip}
-            onUnequip={handleUnequip}
-          />
-        ))
+        <EquipmentDoll
+          slots={slots}
+          layout={equipmentLayout}
+          onEquip={handleEquip}
+          onUnequip={handleUnequip}
+        />
       )}
 
       <Text variant="h5" as="h3" className="mt-6 mb-2">

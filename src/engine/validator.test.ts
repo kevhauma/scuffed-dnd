@@ -1856,4 +1856,66 @@ describe('validateConfiguration', () => {
       ]);
     });
   });
+  describe('the equipment grid (TICKET-INV-03)', () => {
+    const withEquipment = (
+      layout: Configuration['equipmentLayout'],
+      slots: Configuration['equipmentSlots']
+    ): Configuration => {
+      const config = createMinimalConfig();
+      config.equipmentLayout = layout;
+      config.equipmentSlots = slots;
+      return config;
+    };
+
+    const head = { type: 'head', name: 'Head', description: '' };
+    const horns = { type: 'horns', name: 'Horns', description: '' };
+
+    it('should accept a figure whose slots each have their own cell', () => {
+      const config = withEquipment({ columns: 3, rows: 4 }, [
+        { ...head, placement: { column: 2, row: 1, glyph: 'helm' } },
+        { ...horns, placement: { column: 1, row: 1, glyph: 'slot' } },
+      ]);
+
+      expect(validateConfiguration(config).errors).toEqual([]);
+    });
+
+    it('should accept unplaced slots — absence is not a defect', () => {
+      const config = withEquipment({ columns: 3, rows: 4 }, [head, horns]);
+
+      expect(validateConfiguration(config).errors).toEqual([]);
+    });
+
+    it('should report a slot placed outside the grid', () => {
+      // Unreachable through the store, which prunes as it shrinks — this arrives by import or by
+      // hand-editing an export, and without the report the box just stops appearing
+      const config = withEquipment({ columns: 3, rows: 2 }, [
+        { ...head, placement: { column: 2, row: 4, glyph: 'helm' } },
+      ]);
+
+      expect(validateConfiguration(config).errors.map((issue) => issue.message)).toEqual([
+        'Equipment slot "Head" sits at column 2, row 4, outside the 3×2 equipment grid',
+      ]);
+    });
+
+    it('should report two slots claiming one cell, naming both', () => {
+      const config = withEquipment({ columns: 3, rows: 4 }, [
+        { ...head, placement: { column: 2, row: 1, glyph: 'helm' } },
+        { ...horns, placement: { column: 2, row: 1, glyph: 'crown' } },
+      ]);
+
+      expect(validateConfiguration(config).errors.map((issue) => issue.message)).toEqual([
+        'Equipment slots "Head" and "Horns" both sit at column 2, row 1 — only the first is drawn',
+      ]);
+    });
+
+    it('should report a placement on a figure the ruleset does not define', () => {
+      const config = withEquipment(undefined, [
+        { ...head, placement: { column: 2, row: 1, glyph: 'helm' } },
+      ]);
+
+      expect(validateConfiguration(config).errors.map((issue) => issue.message)).toEqual([
+        'Equipment slot "Head" is placed on a figure this ruleset does not define — open Configuration → Equipment to lay one out',
+      ]);
+    });
+  });
 });

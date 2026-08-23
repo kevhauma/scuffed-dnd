@@ -26,8 +26,11 @@ vi.mock('../../components/config/materials/MaterialsConfigPanel', () => ({
 vi.mock('../../components/config/items/ItemsConfigPanel', () => ({
   ItemsConfigPanel: () => <div data-testid="items-config-panel" />,
 }));
-vi.mock('../../components/config/items/EquipmentSlotsConfigPanel', () => ({
+vi.mock('../../components/config/equipment/EquipmentSlotsConfigPanel', () => ({
   EquipmentSlotsConfigPanel: () => <div data-testid="equipment-slots-config-panel" />,
+}));
+vi.mock('../../components/config/equipment/EquipmentLayoutPanel', () => ({
+  EquipmentLayoutPanel: () => <div data-testid="equipment-layout-panel" />,
 }));
 vi.mock('../../components/config/archetypes/ArchetypesConfigPanel', () => ({
   ArchetypesConfigPanel: () => <div data-testid="archetypes-config-panel" />,
@@ -67,6 +70,7 @@ import { ArchetypesConfig } from './archetypes';
 import { ConstantsConfig } from './constants';
 import { CurrencyConfig } from './currency';
 import { CurvesConfig } from './curves';
+import { EquipmentConfig } from './equipment';
 import { ConfigIndex } from './index';
 import { ItemsConfig } from './items';
 import { MaterialsConfig } from './materials';
@@ -99,11 +103,20 @@ describe('configuration routes', () => {
     expect(screen.getByTestId('materials-config-panel')).toBeDefined();
   });
 
-  it('/config/items renders the items and equipment slots panels', () => {
+  it('/config/items renders only the items panel', () => {
+    // Equipment slots left this page in TICKET-INV-02 — asserting their absence is what stops the
+    // two pages quietly growing back together
     render(<ItemsConfig />);
 
     expect(screen.getByTestId('items-config-panel')).toBeDefined();
+    expect(screen.queryByTestId('equipment-slots-config-panel')).toBeNull();
+  });
+
+  it('/config/equipment renders the equipment slots and layout panels', () => {
+    render(<EquipmentConfig />);
+
     expect(screen.getByTestId('equipment-slots-config-panel')).toBeDefined();
+    expect(screen.getByTestId('equipment-layout-panel')).toBeDefined();
   });
 
   it('/config/races renders the races panel', () => {
@@ -149,6 +162,7 @@ describe('configuration routes', () => {
       StatsConfig,
       MaterialsConfig,
       ItemsConfig,
+      EquipmentConfig,
       RacesConfig,
       ArchetypesConfig,
       RollsConfig,

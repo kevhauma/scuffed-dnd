@@ -48,6 +48,14 @@ export interface Configuration {
   materialCategories: MaterialCategory[];
   items: Item[];
   equipmentSlots: EquipmentSlot[];
+  /**
+   * The grid the equipment slots are laid out on (TICKET-INV-03).
+   *
+   * Optional, and **absent means never configured** — the equipment page seeds one from the
+   * sheet's own figure the first time it is opened, so a ruleset written before the builder
+   * existed round-trips unchanged until the User visits it.
+   */
+  equipmentLayout?: EquipmentLayout;
   races: Race[];
   currencyTiers: CurrencyTier[];
   /**
@@ -351,13 +359,114 @@ export interface Item {
 }
 
 /**
+ * Every silhouette the app can draw in an empty equipment slot
+ *
+ * This is a **persisted** value — an `EquipmentSlotPlacement` names one — so it lives with the
+ * shape rather than with the `Glyph` primitive that draws them, the same reasoning that puts
+ * `STAT_AFFINITIES` here. The drawings, their labels and the groups a picker offers them in belong
+ * to `components/ui/Glyph/`, and `Glyph.test.tsx` pins the two lists to each other so a name here
+ * with no drawing there fails the suite instead of rendering a blank tile.
+ *
+ * Ordered the way a picker reads: worn from head to foot, then held, then carried, then the
+ * generic shapes for a slot no drawing fits.
+ */
+export const GLYPH_NAMES = [
+  'helm',
+  'crown',
+  'mask',
+  'shoulders',
+  'chest',
+  'cloak',
+  'bracers',
+  'gloves',
+  'belt',
+  'legs',
+  'feet',
+  'main-hand',
+  'off-hand',
+  'dagger',
+  'axe',
+  'hammer',
+  'staff',
+  'bow',
+  'wand',
+  'accessory',
+  'amulet',
+  'gem',
+  'pack',
+  'pouch',
+  'quiver',
+  'tome',
+  'potion',
+  'lantern',
+  'key',
+  'banner',
+  'wings',
+  'tail',
+  'slot',
+  'circle',
+  'square',
+  'diamond',
+  'triangle',
+  'star',
+  'cross',
+] as const;
+
+/** One of {@link GLYPH_NAMES} */
+export type GlyphName = (typeof GLYPH_NAMES)[number];
+
+/**
+ * Where an equipment slot sits on the sheet's equipment grid (TICKET-INV-03)
+ *
+ * The cell is **1-based**, matching what the builder shows the User and what a CSS grid line
+ * numbers from, so a placement reads the same in the JSON as it does on screen.
+ */
+export interface EquipmentSlotPlacement {
+  /** 1-based column, within `EquipmentLayout.columns` */
+  column: number;
+  /** 1-based row, within `EquipmentLayout.rows` */
+  row: number;
+  /** What the sheet draws in the box while it is empty */
+  glyph: GlyphName;
+}
+
+/**
  * Equipment slot - designated place where items can be equipped
  */
 export interface EquipmentSlot {
   type: string; // e.g., "helmet", "main_hand", "off_hand"
   name: string;
   description: string;
+  /**
+   * Where this slot sits on the figure; **absent means unplaced**.
+   *
+   * An unplaced slot is not a broken one — the sheet renders it in a plain row beneath the figure,
+   * which is what a ruleset that has never opened the builder gets for every slot.
+   */
+  placement?: EquipmentSlotPlacement;
 }
+
+/**
+ * The grid the User laid their equipment slots out on (TICKET-INV-03)
+ *
+ * Stored rather than derived from the placements, because an empty row or column is a real design
+ * choice: deriving the size from the furthest-placed slot would silently crop the board the moment
+ * the User cleared its bottom row.
+ */
+export interface EquipmentLayout {
+  columns: number;
+  rows: number;
+}
+
+/**
+ * How large the equipment grid may be
+ *
+ * A ceiling rather than a rule about ergonomics: every cell's grid placement is a literal Tailwind
+ * class (`col-start-4`), so the set of classes the tree can emit has to be finite and written
+ * somewhere a build can see. Six by six is well past the sheet's 3×4 and still one screenful.
+ */
+export const MAX_EQUIPMENT_GRID_COLUMNS = 6;
+export const MAX_EQUIPMENT_GRID_ROWS = 6;
 
 /**
  * Race — a **stat block**: what a member of this lineage is (Concept 04, playable subset)

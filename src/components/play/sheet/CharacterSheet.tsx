@@ -15,11 +15,13 @@ import { InventoryPanel } from '../inventory/InventoryPanel';
 import { RollHistoryPanel } from '../rolls/RollHistoryPanel';
 import { useRoller } from '../rolls/useRoller';
 import { RaceStatBlockSection } from './RaceStatBlockSection';
+import { ResourcesSection } from './ResourcesSection';
 import { RollsSection } from './RollsSection';
 import { SheetHeader } from './SheetHeader';
 import { SkillsSection } from './SkillsSection';
 import { StatsSection } from './StatsSection';
 import { useCharacterSheet } from './useCharacterSheet';
+import { WalletSection } from './WalletSection';
 
 export interface CharacterSheetProps {
   /**
@@ -73,7 +75,11 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     handleChangeStatValue,
     handleAdjustStatValue,
     handleResetStatValueToMax,
+    currencyTiers,
+    wallet,
     handleChangeInvestedPoints,
+    handleChangeInvestedSkillPoints,
+    handleChangeWalletAmount,
     handleAwardExperience,
     handleDeductExperience,
     handleBack,
@@ -135,10 +141,28 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     );
   }
 
+  // Split once, here, rather than filtering inside each section: the two sections are two
+  // different readings of one list, and which side a stat falls on is the sheet's decision
+  const resources = stats.filter((stat) => stat.isResource);
+  const plainStats = stats.filter((stat) => !stat.isResource);
+
+  /*
+   * The sheet is laid out the way the source spreadsheet's `Charactersheet` tab is: the
+   * character's *numbers* down the left (stats, rolls, what the race contributed) and their
+   * *kit* on the right (`M3:O15`'s equipment figure, the pack), with the identity across the top
+   * and the skills table full width beneath — where the sheet keeps them on their own tab.
+   *
+   * It replaced one narrow column of stacked cards, which meant the two things a Player looks at
+   * together during play, a stat and the roll it feeds, were never on screen at once.
+   *
+   * The rail is `lg:` only. Below that the columns stack in source order, which puts stats first
+   * and equipment after — the same reading order, one thing at a time.
+   */
   return (
-    <div className="max-w-4xl mx-auto space-y-4 p-6">
+    <div className="space-y-4 p-4 sm:p-6">
       <SheetHeader
         name={character.name}
+        budget={budget}
         raceNames={raceNames}
         level={level}
         experience={experience}
@@ -148,31 +172,56 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
         onDeductExperience={handleDeductExperience}
       />
 
-      <RaceStatBlockSection raceNames={raceNames} raceContributions={raceContributions} />
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <div className="space-y-4">
+          {/* Pools first: current health is the number somebody looks at mid-fight, and the stats
+              behind it are the ones they look at between sessions */}
+          <ResourcesSection
+            resources={resources}
+            budget={budget}
+            onChangeStatValue={handleChangeStatValue}
+            onAdjustStatValue={handleAdjustStatValue}
+            onResetStatValueToMax={handleResetStatValueToMax}
+            onChangeInvestedPoints={handleChangeInvestedPoints}
+          />
 
-      <StatsSection
-        stats={stats}
-        statTotal={statTotal}
-        budget={budget}
-        onChangeStatValue={handleChangeStatValue}
-        onAdjustStatValue={handleAdjustStatValue}
-        onResetStatValueToMax={handleResetStatValueToMax}
-        onChangeInvestedPoints={handleChangeInvestedPoints}
-      />
+          <StatsSection
+            stats={plainStats}
+            statTotal={statTotal}
+            budget={budget}
+            onChangeInvestedPoints={handleChangeInvestedPoints}
+          />
 
-      <InventoryPanel characterId={characterId} />
+          <RollsSection
+            rollGroups={rollGroups}
+            results={rollResults}
+            errors={rollErrors}
+            canRoll={canRoll}
+            onRoll={handleRoll}
+          />
 
-      <SkillsSection skills={skills} />
+          <RaceStatBlockSection raceNames={raceNames} raceContributions={raceContributions} />
+        </div>
 
-      <RollsSection
-        rollGroups={rollGroups}
-        results={rollResults}
-        errors={rollErrors}
-        canRoll={canRoll}
-        onRoll={handleRoll}
-      />
+        {/* Not sticky, though a rail invites it: the rack plus the pack plus the roll history is
+            taller than a laptop viewport, and a pinned column taller than the screen makes its own
+            bottom unreachable. */}
+        <div className="space-y-4">
+          <InventoryPanel characterId={characterId} />
 
-      <RollHistoryPanel history={rollHistory} onClear={handleClearHistory} />
+          {/* Coin sits beside the equipment, as it does on the sheet (`Q18:S23`, right of the
+              `M3:O15` boxes) — what you are carrying, in one column */}
+          <WalletSection
+            tiers={currencyTiers}
+            wallet={wallet}
+            onChangeAmount={handleChangeWalletAmount}
+          />
+
+          <RollHistoryPanel history={rollHistory} onClear={handleClearHistory} />
+        </div>
+      </div>
+
+      <SkillsSection skills={skills} onChangeInvestedPoints={handleChangeInvestedSkillPoints} />
     </div>
   );
 }

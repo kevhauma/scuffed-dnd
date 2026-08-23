@@ -47,7 +47,8 @@ export function EquipmentSlotsConfigPanel() {
         <div className="p-4 bg-parchment-100 border border-stone-200 rounded">
           <Text variant="body-small" className="text-ink-700">
             Equipment slots define where items can be equipped (e.g., helmet, main_hand, off_hand).
-            Items can optionally be assigned to an equipment slot type.
+            Items can optionally be assigned to an equipment slot type. Arrange them on the figure
+            below.
           </Text>
         </div>
       }

@@ -45,10 +45,14 @@ export function StatRowsField({
 }: StatRowsFieldProps) {
   return (
     <div className="space-y-3">
-      <Text variant="body-small" className="font-semibold">
+      {/* Both as `p`: `Text` renders a `span` by default, and the wrapper's `space-y-3` only
+          spaces block children — the title and its description were running together on one line */}
+      <Text variant="body-small" as="p" className="font-semibold">
         {title}
       </Text>
-      <Text variant="body-small-secondary">{description}</Text>
+      <Text variant="body-small-secondary" as="p">
+        {description}
+      </Text>
 
       {availableStats.length === 0 ? (
         <div className="p-3 bg-parchment-100 rounded">

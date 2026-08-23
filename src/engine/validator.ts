@@ -27,6 +27,7 @@ import type {
   Stat,
 } from '../types/config';
 import { POINT_BUY_CURVE_NAME } from '../types/config';
+import { cellKey, isWithinLayout } from './equipmentLayout';
 import { buildReferenceResolver, skillMemberName, statMemberName } from './formula/references';
 import type { FormulaScope } from './formula/scoping';
 import { scopeFor } from './formula/scoping';
@@ -108,6 +109,7 @@ const ISSUE_SOURCES: readonly ((config: Configuration) => ValidationIssue[])[] =
   circularDependencyIssues,
   materialIssues,
   itemIssues,
+  equipmentLayoutIssues,
   raceIssues,
   archetypeIssues,
   pointBuyCurveIssues,
@@ -403,6 +405,69 @@ function itemIssues(config: Configuration): ValidationIssue[] {
         });
       }
     }
+  }
+
+  return issues;
+}
+
+/**
+ * Equipment placements the figure cannot draw (TICKET-INV-03)
+ *
+ * Two ways an arrangement goes wrong, and both leave a ruleset that still renders — which is
+ * exactly why they are reported here rather than refused at the import gate. A slot the board has
+ * no room for and a slot standing behind another one both simply fall off the figure into the row
+ * beneath it, so without a report the User's only clue is a box that quietly stopped appearing.
+ *
+ * The store cannot produce either state: `setEquipmentLayout` prunes as it shrinks and
+ * `placeEquipmentSlot` turns out whoever held the cell. They arrive by import, or by hand-editing
+ * an export.
+ *
+ * @param config - The ruleset to check
+ * @returns One issue per placement that cannot be drawn
+ */
+function equipmentLayoutIssues(config: Configuration): ValidationIssue[] {
+  const layout = config.equipmentLayout;
+  const issues: ValidationIssue[] = [];
+  const taken = new Map<string, string>();
+
+  for (const slot of config.equipmentSlots) {
+    const { placement } = slot;
+    if (!placement) continue;
+
+    const entity = { entityType: 'equipmentSlot', entityId: slot.type, entityName: slot.name };
+
+    if (!layout) {
+      issues.push({
+        severity: 'error',
+        category: 'Equipment Layout',
+        message: `Equipment slot "${slot.name}" is placed on a figure this ruleset does not define — open Configuration → Equipment to lay one out`,
+        ...entity,
+      });
+      continue;
+    }
+
+    if (!isWithinLayout(placement, layout)) {
+      issues.push({
+        severity: 'error',
+        category: 'Equipment Layout',
+        message: `Equipment slot "${slot.name}" sits at column ${placement.column}, row ${placement.row}, outside the ${layout.columns}×${layout.rows} equipment grid`,
+        ...entity,
+      });
+      continue;
+    }
+
+    const holder = taken.get(cellKey(placement));
+    if (holder) {
+      issues.push({
+        severity: 'error',
+        category: 'Equipment Layout',
+        message: `Equipment slots "${holder}" and "${slot.name}" both sit at column ${placement.column}, row ${placement.row} — only the first is drawn`,
+        ...entity,
+      });
+      continue;
+    }
+
+    taken.set(cellKey(placement), slot.name);
   }
 
   return issues;

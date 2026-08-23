@@ -7,8 +7,12 @@ describe('Checkbox', () => {
     render(<Checkbox />);
     const checkbox = screen.getByRole('checkbox');
     expect(checkbox).toBeDefined();
-    expect(checkbox.className).toContain('bg-parchment-50');
-    expect(checkbox.className).toContain('border-stone-200');
+    expect(checkbox.className).toContain('bg-parchment-100');
+    expect(checkbox.className).toContain('border-brass-dark');
+    // `appearance-none` is load-bearing rather than cosmetic: a native checkbox ignores every
+    // background and border utility in Chrome, which is what made the old styling a no-op
+    expect(checkbox.className).toContain('appearance-none');
+    expect(checkbox.className).toContain('checkbox-tick');
   });
 
   it('renders with label when provided', () => {

@@ -6,37 +6,39 @@
  * up, shown apart rather than pre-summed (Requirement 13.4) — because after TICKET-STAT-01 there
  * is one kind of stat, whether the number came from points or from a formula.
  *
- * A **resource** gets one extra row: the `StatEditor` current-value controls, because its value is
- * a maximum the Player spends against. That gating is the point of TICKET-STAT-03 — v1 gave every
- * stat an editable current value, which is how "current Strength" became a thing.
+ * Each stat is **one line**: its name, the controls that spend points on it, its value, and a `?`
+ * holding the arithmetic. It used to be two — a breakdown row with every contribution spelled out
+ * across it, and a second row underneath carrying a labelled number box — so ten stats came to
+ * twenty rows and ten text fields. `CountRow` is that line, and the same one the skills grid uses.
  *
- * An **invested** stat gets its own extra row for the same reason and by the same rule: the
- * `InvestedPointsEditor`, because since TICKET-RES-02 a Player's pool grows with their level and
- * spending it is something they do at the table rather than only at creation.
+ * A **derived** stat gets no spend controls at all rather than two permanently disabled ones: it
+ * takes no points, and a disabled button says "not now" where the truth is "not ever".
  *
- * **Validates: Concept 01; Concept 06; Requirements 11.3, 13.4, 14.1, 14.2, 16.6, 21.1-21.5**
+ * A **resource** is not here at all — it lives in `ResourcesSection`. A stat is a fact about the
+ * character that changes when they level; a pool is a number that moves every few minutes at the
+ * table. Mixed together, each pool also had to carry a second row for its current value, which
+ * broke the one-line rhythm of every stat around it.
+ *
+ * The **stat total** stays here even though a resource can count toward it, because it is the
+ * ruleset's total over every stat rather than a total of the rows above it.
+ *
+ * **Validates: Concept 01; Concept 06; Requirements 11.3, 13.4, 16.6, 21.1-21.5**
  */
 
 import { Fragment } from 'react';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
-import { PointBudgetSummary } from '../shared/PointBudgetSummary';
+import { CountRow } from '../shared/CountRow';
 import type { PointBudgetView } from '../shared/pointBudgetView';
-import { SkillBreakdownRow } from '../shared/SkillBreakdownRow';
-import { InvestedPointsEditor } from './InvestedPointsEditor';
-import { StatEditor } from './StatEditor';
 import type { StatBreakdown } from './useCharacterSheet';
 
 export interface StatsSectionProps {
+  /** The non-resource stats, in the ruleset's order */
   stats: StatBreakdown[];
-  /** Sum of the stats the ruleset flags as counting toward the total */
+  /** Sum of the stats the ruleset flags as counting toward the total — resources included */
   statTotal: number;
   /** The pool every invested stat below spends from, or null when there is none to show */
   budget: PointBudgetView | null;
-  onChangeStatValue: (statId: string, value: number) => void;
-  /** Move a pool by an amount — the steppers and Concept 20's quick entry */
-  onAdjustStatValue: (statId: string, delta: number) => void;
-  onResetStatValueToMax: (statId: string) => void;
   onChangeInvestedPoints: (statId: string, points: number) => void;
 }
 
@@ -44,36 +46,38 @@ export function StatsSection({
   stats,
   statTotal,
   budget,
-  onChangeStatValue,
-  onAdjustStatValue,
-  onResetStatValueToMax,
   onChangeInvestedPoints,
 }: StatsSectionProps) {
   return (
     <Card className="p-6">
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <Text variant="h4" as="h2">
-          Stats
-        </Text>
-        {budget && (
-          <PointBudgetSummary
-            pointsSpent={budget.pointsSpent}
-            pointBudget={budget.pointBudget}
-            pointsRemaining={budget.pointsRemaining}
-            isOverBudget={budget.isOverBudget}
-          />
-        )}
-      </div>
+      {/* The pool itself is stated once, in the sheet header: it governs the controls here *and*
+          in the resources section, so sitting in one of them made it look like it belonged to it */}
+      <Text variant="h4" as="h2" className="mb-3">
+        Stats
+      </Text>
 
       {stats.length === 0 ? (
         <Text variant="body-small-secondary">This ruleset defines no stats.</Text>
       ) : (
         stats.map((stat) => (
           <Fragment key={stat.id}>
-            <SkillBreakdownRow
+            <CountRow
               name={stat.name}
               code={stat.abbreviation}
               total={stat.max}
+              invested={stat.invested}
+              // A derived stat takes no points, so it gets no controls at all rather than two
+              // permanently disabled ones
+              onAdjust={
+                stat.isDerived || !budget
+                  ? undefined
+                  : (points) => onChangeInvestedPoints(stat.id, points)
+              }
+              // An empty pool closes `+` but leaves `−` open — a point can always be taken back.
+              // A pool with no *number* closes both: the store refuses every write in that state,
+              // refunds included, so a live control would be a click that silently did nothing.
+              canSpend={(budget?.pointsRemaining.value ?? 0) > 0}
+              canAdjust={budget?.pointsRemaining.value !== null}
               contributions={[
                 // The **gain** is the term, not the points: since TICKET-ARC-02 the archetype's
                 // affinity decides what a point buys, so `invested 15` against a total of 14 was
@@ -93,27 +97,6 @@ export function StatsSection({
                 { label: 'equipment', value: stat.equipment },
               ]}
             />
-
-            {!stat.isDerived && budget && (
-              <InvestedPointsEditor
-                name={stat.name}
-                invested={stat.invested}
-                pointsRemaining={budget.pointsRemaining}
-                onChange={(points) => onChangeInvestedPoints(stat.id, points)}
-              />
-            )}
-
-            {stat.isResource && (
-              <StatEditor
-                name={stat.name}
-                current={stat.current}
-                max={stat.max}
-                isOverMax={stat.isOverMax}
-                onChange={(value) => onChangeStatValue(stat.id, value)}
-                onAdjust={(delta) => onAdjustStatValue(stat.id, delta)}
-                onResetToMax={() => onResetStatValueToMax(stat.id)}
-              />
-            )}
           </Fragment>
         ))
       )}

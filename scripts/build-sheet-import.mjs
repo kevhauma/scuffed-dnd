@@ -48,6 +48,14 @@ const REQUIRED_ARRAYS = [
 const OPTIONAL_ARRAYS = ['constants', 'curves', 'archetypes', 'diceLadders', 'rollDefinitions'];
 
 /**
+ * Configuration fields that are a single object rather than a list.
+ *
+ * `equipmentLayout` is the only one (TICKET-INV-03). Two fragments cannot concatenate one grid, so
+ * a second fragment claiming the key is an error rather than a silent overwrite.
+ */
+const SINGLETONS = ['equipmentLayout'];
+
+/**
  * Read every fragment, in a fixed order
  *
  * @param dir - Directory to scan, defaults to `docs/imports`
@@ -68,7 +76,7 @@ export function readFragments(dir = IMPORTS_DIR) {
  *
  * @param name - The fragment's filename, for the message
  * @param fragment - Its parsed contents
- * @param known - Every `Configuration` array field a fragment may write
+ * @param known - Every `Configuration` field a fragment may write
  * @throws If the envelope is incomplete or a data key is unusable
  */
 function assertMergeable(name, fragment, known) {
@@ -81,9 +89,27 @@ function assertMergeable(name, fragment, known) {
     if (!known.has(key)) {
       throw new Error(`${name}: unknown entity key '${key}'`);
     }
-    if (!Array.isArray(value)) {
-      throw new Error(`${name}: '${key}' must be an array`);
+    assertShape(name, key, value);
+  }
+}
+
+/**
+ * A fragment's value for one key is the kind of thing that key holds
+ *
+ * @param name - The fragment's filename, for the message
+ * @param key - The `Configuration` field being written
+ * @param value - What the fragment supplies for it
+ * @throws If the value is the wrong kind for its key
+ */
+function assertShape(name, key, value) {
+  if (SINGLETONS.includes(key)) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error(`${name}: '${key}' must be an object`);
     }
+    return;
+  }
+  if (!Array.isArray(value)) {
+    throw new Error(`${name}: '${key}' must be an array`);
   }
 }
 
@@ -113,11 +139,18 @@ export function buildConfiguration(entries) {
     config[key] = [];
   }
 
-  const known = new Set([...REQUIRED_ARRAYS, ...OPTIONAL_ARRAYS]);
+  const known = new Set([...REQUIRED_ARRAYS, ...OPTIONAL_ARRAYS, ...SINGLETONS]);
 
   for (const { name, fragment } of entries) {
     assertMergeable(name, fragment, known);
     for (const [key, value] of Object.entries(fragment.data)) {
+      if (SINGLETONS.includes(key)) {
+        if (config[key] !== undefined) {
+          throw new Error(`${name}: '${key}' is already set by an earlier fragment`);
+        }
+        config[key] = value;
+        continue;
+      }
       config[key] = [...(config[key] ?? []), ...value];
     }
   }

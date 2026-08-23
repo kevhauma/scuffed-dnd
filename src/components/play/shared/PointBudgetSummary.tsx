@@ -1,7 +1,8 @@
 /**
  * Point Budget Summary
  *
- * One line saying what a character's stat point pool looks like: spent, available, remaining.
+ * A character's stat point pool as a tally — `0/3 Points spent`.
+ *
  * Shared by the creation wizard and the character sheet, because since TICKET-RES-02 the two ask
  * exactly the same question — the pool is `level × const.points_per_level` at creation and at the
  * table alike, so a Player who spends at level 1 and a Player who spends at level 7 read the same
@@ -39,9 +40,36 @@ export function PointBudgetSummary({
     );
   }
 
+  /*
+   * The ratio carries the whole thing, so it is the only part drawn loud.
+   *
+   * It used to read "0 of 3 points spent · 3 remaining" in the same muted grey as everything
+   * around it — a sentence twice as long as it needed to be, saying the remainder twice, and
+   * invisible in a header. `0/3` is the same fact, and the tally beside a character's name is one
+   * of the few numbers on this page a Player acts on.
+   *
+   * Its colour is the state: amber while there is something to spend, because unspent points are
+   * the whole reason to look here after a level; ink once the pool is empty, which is the resting
+   * state and not news; crimson when the spend has gone past the pool.
+   *
+   * Plain `span`s rather than `Text`, because each needs a colour of its own and a variant's
+   * colour cannot be overridden from outside (CR-07).
+   */
+  const hasUnspent = pointsRemaining.value !== null && pointsRemaining.value > 0;
+  const ratioColour = isOverBudget
+    ? 'text-crimson'
+    : hasUnspent
+      ? 'text-amber-dark'
+      : 'text-ink-900';
+
   return (
-    <Text variant={isOverBudget ? 'error' : 'body-small-secondary'} as="p" className={className}>
-      {`${pointsSpent} of ${pointBudget.value} points spent · ${pointsRemaining.value} remaining`}
-    </Text>
+    <p className={`flex items-baseline gap-2 ${className}`}>
+      <span className={`font-heading text-xl font-bold leading-none ${ratioColour}`}>
+        {`${pointsSpent}/${pointBudget.value}`}
+      </span>
+      <span className="font-heading text-xs uppercase tracking-wider text-ink-700">
+        Points spent
+      </span>
+    </p>
   );
 }

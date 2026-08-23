@@ -8,7 +8,10 @@ describe('Label', () => {
     const label = screen.getByText('Field label');
     expect(label).toBeDefined();
     expect(label.className).toContain('font-heading');
-    expect(label.className).toContain('text-ink-900');
+    expect(label.className).toContain('text-ink-800');
+    // Engraved caption, not a second run of body text: the label is a different kind of thing
+    // from the value under it and now looks like one
+    expect(label.className).toContain('uppercase');
   });
 
   it('shows required indicator when required prop is true', () => {

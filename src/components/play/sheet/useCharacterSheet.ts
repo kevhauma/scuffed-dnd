@@ -381,6 +381,8 @@ export function useCharacterSheet(characterId: string) {
   const adjustCurrentStatValue = useCharacterStore((state) => state.adjustCurrentStatValue);
   const resetCurrentStatValueToMax = useCharacterStore((state) => state.resetCurrentStatValueToMax);
   const setInvestedStatPoints = useCharacterStore((state) => state.setInvestedStatPoints);
+  const setInvestedSkillPoints = useCharacterStore((state) => state.setInvestedSkillPoints);
+  const setWalletAmount = useCharacterStore((state) => state.setWalletAmount);
   const awardExperience = useCharacterStore((state) => state.awardExperience);
   const deductExperience = useCharacterStore((state) => state.deductExperience);
 
@@ -435,6 +437,20 @@ export function useCharacterSheet(characterId: string) {
     setInvestedStatPoints(character.id, statId, points, config);
   };
 
+  // No budget to check against: the ruleset prices stat points and says nothing about skill
+  // points, so the store's only rule is the shape. See `setInvestedSkillPoints`.
+  const handleChangeInvestedSkillPoints = (skillId: string, points: number) => {
+    if (!character) return;
+
+    setInvestedSkillPoints(character.id, skillId, points);
+  };
+
+  const handleChangeWalletAmount = (tierId: string, amount: number) => {
+    if (!character) return;
+
+    setWalletAmount(character.id, tierId, amount);
+  };
+
   // One action per click, mirroring the sheet's `exp.gs` — the store decides what is allowed
   const handleAwardExperience = (amount: number) => {
     if (!character) return;
@@ -467,7 +483,13 @@ export function useCharacterSheet(characterId: string) {
     handleChangeStatValue,
     handleAdjustStatValue,
     handleResetStatValueToMax,
+    // The ruleset's tiers and what this character holds in them — the sheet's purse
+    // (`Charactersheet!Q18:S23`), which the app had no field for until now
+    currencyTiers: config?.currencyTiers ?? [],
+    wallet: character?.wallet ?? {},
     handleChangeInvestedPoints,
+    handleChangeInvestedSkillPoints,
+    handleChangeWalletAmount,
     handleAwardExperience,
     handleDeductExperience,
     handleBack,

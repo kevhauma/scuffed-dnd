@@ -1164,6 +1164,151 @@ describe('CharacterStore', () => {
     });
   });
 
+  /**
+   * Skill points, which are deliberately not budgeted
+   *
+   * The counterpart to `setInvestedStatPoints`, minus the pool — because the ruleset has none for
+   * skills. These pin that the absence is a decision rather than an oversight.
+   */
+  describe('setInvestedSkillPoints', () => {
+    beforeEach(() => {
+      useCharacterStore.setState({
+        characters: [
+          {
+            id: 'char1',
+            name: 'Test',
+            configurationId: 'config1',
+            raceIds: [],
+            investedStatPoints: {},
+            investedSkillPoints: { STL: 3 },
+            currentResourceValues: {},
+            experience: 0,
+            inventory: { equippedItems: {}, miscItems: [] },
+            createdAt: '2024-01-01',
+            updatedAt: '2024-01-01',
+          },
+        ],
+        isLoaded: true,
+      });
+      vi.clearAllMocks();
+    });
+
+    it('should put points into a skill and persist through the store', () => {
+      useCharacterStore.getState().setInvestedSkillPoints('char1', 'STL', 5);
+
+      expect(useCharacterStore.getState().characters[0].investedSkillPoints).toEqual({ STL: 5 });
+      expect(storage.saveCharacters).toHaveBeenCalled();
+    });
+
+    it('should add a skill that had no points yet, leaving the others alone', () => {
+      useCharacterStore.getState().setInvestedSkillPoints('char1', 'ALC', 2);
+
+      expect(useCharacterStore.getState().characters[0].investedSkillPoints).toEqual({
+        STL: 3,
+        ALC: 2,
+      });
+    });
+
+    it('should refuse a negative or fractional number', () => {
+      useCharacterStore.getState().setInvestedSkillPoints('char1', 'STL', -1);
+      useCharacterStore.getState().setInvestedSkillPoints('char1', 'STL', 2.5);
+
+      expect(useCharacterStore.getState().characters[0].investedSkillPoints).toEqual({ STL: 3 });
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+
+    it('should accept any whole number, because skills have no pool to overspend', () => {
+      // Not an oversight: `skillAllocation.ts` prices stat points and defines no skill budget, and
+      // the creation wizard already lets a Player type any number in. Refusing here would make the
+      // sheet stricter than the wizard that produced the character. If a ticket gives skills a
+      // pool, the refusal goes in beside `setInvestedStatPoints`'s and this expectation changes.
+      useCharacterStore.getState().setInvestedSkillPoints('char1', 'STL', 9999);
+
+      expect(useCharacterStore.getState().characters[0].investedSkillPoints.STL).toBe(9999);
+    });
+
+    it('should do nothing for a character that is not there', () => {
+      useCharacterStore.getState().setInvestedSkillPoints('nope', 'STL', 5);
+
+      expect(useCharacterStore.getState().characters[0].investedSkillPoints).toEqual({ STL: 3 });
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * The purse (Concept 16)
+   *
+   * The sheet has one at `Charactersheet!Q18:S23` and the app had no field for it, so a ruleset
+   * could define gold and silver and a Player could never hold a coin.
+   */
+  describe('setWalletAmount', () => {
+    beforeEach(() => {
+      useCharacterStore.setState({
+        characters: [
+          {
+            id: 'char1',
+            name: 'Test',
+            configurationId: 'config1',
+            raceIds: [],
+            investedStatPoints: {},
+            investedSkillPoints: {},
+            currentResourceValues: {},
+            experience: 0,
+            inventory: { equippedItems: {}, miscItems: [] },
+            createdAt: '2024-01-01',
+            updatedAt: '2024-01-01',
+          },
+        ],
+        isLoaded: true,
+      });
+      vi.clearAllMocks();
+    });
+
+    it('should open a purse on a character that has never had one', () => {
+      // The field is optional and absent on every character saved before it existed
+      expect(useCharacterStore.getState().characters[0].wallet).toBeUndefined();
+
+      useCharacterStore.getState().setWalletAmount('char1', 'gold', 3);
+
+      expect(useCharacterStore.getState().characters[0].wallet).toEqual({ gold: 3 });
+      expect(storage.saveCharacters).toHaveBeenCalled();
+    });
+
+    it('should hold each tier separately and never roll one into another', () => {
+      // 15 silver stays 15 silver. Normalising is a display choice, and a purse that reorganises
+      // itself the moment you look away is one a Player cannot reconcile against the table.
+      useCharacterStore.getState().setWalletAmount('char1', 'silver', 15);
+      useCharacterStore.getState().setWalletAmount('char1', 'copper', 40);
+
+      expect(useCharacterStore.getState().characters[0].wallet).toEqual({
+        silver: 15,
+        copper: 40,
+      });
+    });
+
+    it('should refuse a negative amount rather than clamping it', () => {
+      useCharacterStore.getState().setWalletAmount('char1', 'gold', 5);
+      useCharacterStore.getState().setWalletAmount('char1', 'gold', -1);
+
+      // Owing money may well be a thing a table wants, but it is a mechanic, and inventing it
+      // here silently would be worse than not having it
+      expect(useCharacterStore.getState().characters[0].wallet).toEqual({ gold: 5 });
+    });
+
+    it('should allow a fraction, because a rate of 10 makes half a gold ordinary', () => {
+      useCharacterStore.getState().setWalletAmount('char1', 'gold', 0.5);
+
+      expect(useCharacterStore.getState().characters[0].wallet).toEqual({ gold: 0.5 });
+    });
+
+    it('should do nothing for a character that is not there', () => {
+      useCharacterStore.getState().setWalletAmount('nope', 'gold', 3);
+
+      expect(useCharacterStore.getState().characters[0].wallet).toBeUndefined();
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+  });
+
   describe('what a rename does to a character now (TICKET-SKL-02)', () => {
     beforeEach(() => {
       useCharacterStore.setState({

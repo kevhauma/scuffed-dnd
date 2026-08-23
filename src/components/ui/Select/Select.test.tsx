@@ -13,8 +13,9 @@ describe('Select', () => {
     render(<Select options={options} />);
     const select = screen.getByRole('combobox');
     expect(select).toBeDefined();
-    expect(select.className).toContain('bg-parchment-50');
-    expect(select.className).toContain('border-stone-200');
+    expect(select.className).toContain('bg-parchment-100');
+    expect(select.className).toContain('border-ink-700/40');
+    expect(select.className).toContain('shadow-carved');
   });
 
   it('renders all options', () => {
@@ -40,7 +41,7 @@ describe('Select', () => {
   it('applies disabled styles when disabled', () => {
     render(<Select options={options} disabled />);
     const select = screen.getByRole('combobox');
-    expect(select.className).toContain('opacity-50');
+    expect(select.className).toContain('opacity-60');
     expect(select.className).toContain('cursor-not-allowed');
   });
 

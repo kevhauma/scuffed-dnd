@@ -13,7 +13,7 @@
 
 import { useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
-import type { Item } from '../../../types/config';
+import type { EquipmentSlotPlacement, Item } from '../../../types/config';
 
 /**
  * One equipment slot with its occupant resolved
@@ -25,6 +25,13 @@ export interface EquipmentSlotEntry {
   item: Item | null;
   /** Carried items this slot will accept, for the "equip" control */
   candidates: Item[];
+  /**
+   * Where the ruleset puts this slot on the figure, or absent when it is unplaced.
+   *
+   * Carried straight through from the configuration rather than derived here: since TICKET-INV-03
+   * the arrangement is the User's, made in the equipment builder, and play mode only reads it.
+   */
+  placement?: EquipmentSlotPlacement;
 }
 
 /**
@@ -62,6 +69,7 @@ export function useInventoryManager(characterId: string) {
     candidates: miscItemIds
       .map(findItem)
       .filter((item): item is Item => item !== null && item.equipmentSlotType === slot.type),
+    ...(slot.placement ? { placement: slot.placement } : {}),
   }));
 
   const miscItems: MiscItemEntry[] = miscItemIds.map((itemId, index) => {
@@ -109,6 +117,8 @@ export function useInventoryManager(characterId: string) {
   return {
     hasCharacter: character !== null,
     slots,
+    /** The grid the ruleset arranges its slots on, or `undefined` when it has never been laid out */
+    equipmentLayout: config?.equipmentLayout,
     miscItems,
     /** Everything the ruleset defines, for the "add to inventory" picker */
     availableItems: items,

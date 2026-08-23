@@ -95,6 +95,24 @@ export interface Character {
    */
   experience: number;
   inventory: Inventory;
+  /**
+   * What the character is carrying in coin, keyed by **currency tier id** (Concept 16).
+   *
+   * The sheet has a purse — `Charactersheet!Q18:S23`, one row per tier beside the equipment
+   * boxes — and the app had nowhere to put it, so a ruleset could define gold and silver and a
+   * Player could never hold any.
+   *
+   * Keyed by id, like every other allocation on a character, so renaming a tier cannot orphan
+   * someone's money. **Optional**, and absent on every character saved before it existed: a purse
+   * nobody has touched is not the same as a purse with nothing in it, and `isReadableCharacter`
+   * deliberately does not require it, so no stored roster becomes unreadable for want of a field
+   * that did not exist when it was written.
+   *
+   * Amounts are per-tier and stored as entered — never normalised on write. 15 silver stays 15
+   * silver rather than becoming 1 gold 5 silver behind the Player's back; `normalizeCurrency` is
+   * a *display* choice, and the totals line is where it belongs.
+   */
+  wallet?: Record<string, number>; // currencyTierId -> amount
   createdAt: string;
   updatedAt: string;
 }

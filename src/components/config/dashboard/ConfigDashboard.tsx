@@ -104,12 +104,14 @@ export function ConfigDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {sections.map((section) => (
+          // The hover treatment belongs to the `Card` rather than to this wrapper (`interactive`):
+          // the sheet is what the User sees lift, and the link is only what makes it clickable.
           <Link
             key={section.to}
             to={section.to}
-            className="block rounded-lg hover:shadow-parchment-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber"
+            className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-amber"
           >
-            <Card className="h-full">
+            <Card interactive className="h-full">
               <Text variant="h5" as="h2" className="mb-1">
                 {section.label}
               </Text>

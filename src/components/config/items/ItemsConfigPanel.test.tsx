@@ -28,8 +28,8 @@ describe('ItemsConfigPanel', () => {
   it('does not manage equipment slots itself (CR-20)', () => {
     render(<ItemsConfigPanel />);
 
-    // `EquipmentSlotsConfigPanel` owns the slot flow, and `/config/items` mounts it below this
-    // one — a second Add button and a second dialog here were two copies of the same entity
+    // `EquipmentSlotsConfigPanel` owns the slot flow, on `/config/equipment` since TICKET-INV-02 —
+    // a second Add button and a second dialog here were two copies of the same entity
     expect(screen.queryByRole('button', { name: 'Add Equipment Slot' })).toBeNull();
   });
 
@@ -38,9 +38,9 @@ describe('ItemsConfigPanel', () => {
     expect(screen.getByText(/No materials configured yet/)).toBeDefined();
   });
 
-  it('points at the panel below when no equipment slots are configured', () => {
+  it('points at the equipment page when no equipment slots are configured', () => {
     render(<ItemsConfigPanel />);
-    expect(screen.getByText(/Equipment Slots panel below/)).toBeDefined();
+    expect(screen.getByText(/Configuration → Equipment/)).toBeDefined();
   });
 
   it('shows empty state when no items configured', () => {

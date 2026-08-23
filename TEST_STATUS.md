@@ -1,18 +1,48 @@
 # Test Status
 
-_Last verified: 2026-08-22 (`npx vitest run`), after the
+_Last verified: 2026-08-23 (`npx vitest run`), after the **equipment split and display builder** —
+equipment slots on their own `/config/equipment` page, a User-defined grid they are arranged on, and
+a glyph set widened from nine drawings to thirty-nine. The checkpoint before it was the **character
+sheet rebuild** at 1777, before that the **tavern redesign** at 1732, and before that the
 [v2.1 code review](docs/v2.1_code_review/overview.md)'s **high-priority findings** (CR-01 to CR-07,
-CR-08, CR-20). The previous checkpoint was the same review's low-priority findings (CR-21, CR-26 to
-CR-43) at 1640, and before that
-[TICKET-DX-04](docs/v2.0_sheet_core/tickets/TICKET-DX-04-golden-fixtures-from-the-sheet.md), which
-closed the v2.0 milestone._
+CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 1674
-- **Passing**: 1674 (100%)
+- **Total tests**: 1834
+- **Passing**: 1834 (100%)
 - **Skipped**: 0
 - **Failing**: 0
+
+The **+57 over the sheet-rebuild checkpoint** is the equipment work. `slotLayout.test.ts` (7) was
+replaced by `engine/equipmentLayout.test.ts` (19) when the recognition table stopped being the rule
+and became the seed; `Glyph` gained 3 catalogue cases holding the drawings, the labels and the
+picker groups to one list; the store gained 7 for the layout actions, the import shape layer 7 for
+the grid and its placements, and `engine/validator.ts` 5 for the arrangements it now reports. The
+two new panels bring 16, and the inventory suite 3 for a doll that reads the configuration instead
+of guessing. Four existing cases changed rather than were added, each because the thing they
+asserted moved: `/config/items` now asserts the *absence* of the equipment panel it used to mount,
+the dashboard and nav lists gained an Equipment entry, and the items panel's prerequisite note
+points at a page rather than down its own.
+
+The **+45 over the tavern-redesign checkpoint** is the sheet rebuild: `Glyph` (4) and `slotLayout`
+(7) for the equipment figure, `WalletSection` (8) and `setWalletAmount` (5) for the purse,
+`setInvestedSkillPoints` (5), and the rest spread over the sheet's own suite. Six existing cases
+changed rather than were added, each because the thing they asserted moved: the invested-points
+text field became a stepper, so the commit-on-blur cases became "there is no field to type a
+partial number into"; a skill's level is rounded up at the display edge, so `level 1.4` reads
+`level 2`; and an equipment slot is a tile rather than a bordered row, so the shared `rowFor`
+helper accepts either. None was deleted or loosened.
+
+The **+10 over the high-findings checkpoint** is the redesign, and it is additive: `Ornament` (4)
+and `Divider` (5) are the two new SVG primitives, and `Button` gained one case for the `plaque`
+variant. Eleven existing cases changed rather than were added — the base-component suites assert
+the classes a primitive wears, so retuning the palette necessarily retunes them; each was rewritten
+to the new intended value, none was deleted or loosened. Two of those rewrites pin a fix rather
+than a colour: `Checkbox` now asserts `appearance-none`, because a native checkbox ignores every
+background and border utility in Chrome and the old styling was painting nothing, and
+`libraryConventions` now scans `styles.css` alongside the library, because the checkbox's tick had
+to move there.
 
 The **+34 over the low-findings checkpoint** is the high-priority pass, all additive except where a
 finding's fix made an old expectation wrong: the cycle-detection suites gained the ids-are-UUIDs

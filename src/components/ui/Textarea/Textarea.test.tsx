@@ -7,8 +7,9 @@ describe('Textarea', () => {
     render(<Textarea placeholder="Test textarea" />);
     const textarea = screen.getByPlaceholderText('Test textarea');
     expect(textarea).toBeDefined();
-    expect(textarea.className).toContain('bg-parchment-50');
-    expect(textarea.className).toContain('border-stone-200');
+    expect(textarea.className).toContain('bg-parchment-100');
+    expect(textarea.className).toContain('border-ink-700/40');
+    expect(textarea.className).toContain('shadow-carved');
     expect(textarea.className).toContain('resize-y');
   });
 
@@ -21,7 +22,7 @@ describe('Textarea', () => {
   it('applies disabled styles when disabled', () => {
     render(<Textarea disabled placeholder="Disabled textarea" />);
     const textarea = screen.getByPlaceholderText('Disabled textarea');
-    expect(textarea.className).toContain('opacity-50');
+    expect(textarea.className).toContain('opacity-60');
     expect(textarea.className).toContain('cursor-not-allowed');
     expect(textarea.className).toContain('resize-none');
   });

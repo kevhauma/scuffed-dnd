@@ -62,10 +62,18 @@ export function useEquipmentSlotManager() {
   };
 
   const handleSave = form.handleSubmit((data) => {
+    const existing = dialog.editingId
+      ? equipmentSlots.find((slot) => slot.type === dialog.editingId)
+      : undefined;
+
     const slot: EquipmentSlot = {
       type: data.type,
       name: data.name,
       description: data.description,
+      // Carried through deliberately. `updateEquipmentSlot` merges with `mergeClearingAbsent`, so
+      // an absent key **deletes** the stored one — renaming a slot would otherwise knock it off
+      // the figure, which is the trap that rule exists to make visible rather than silent.
+      ...(existing?.placement ? { placement: existing.placement } : {}),
     };
 
     if (dialog.editingId) {

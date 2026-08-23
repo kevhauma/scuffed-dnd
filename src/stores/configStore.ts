@@ -25,6 +25,14 @@ import {
 } from '../engine/curveTable';
 import type { EntityReference, ReferenceTargetKind } from '../engine/dependencies';
 import { findReferences } from '../engine/dependencies';
+import {
+  cellKey,
+  clampEquipmentLayout,
+  DEFAULT_EQUIPMENT_LAYOUT,
+  isWithinLayout,
+  prunePlacements,
+  seedPlacements,
+} from '../engine/equipmentLayout';
 import { toDisplayConfiguration, toStoredConfiguration } from '../engine/formula/references';
 import { clearAllData, loadConfiguration, saveConfiguration } from '../services/storage';
 import type {
@@ -35,7 +43,9 @@ import type {
   Curve,
   CurveColumn,
   DiceLadder,
+  EquipmentLayout,
   EquipmentSlot,
+  EquipmentSlotPlacement,
   Item,
   Material,
   MaterialCategory,
@@ -154,6 +164,14 @@ interface ConfigState {
   addEquipmentSlot: (slot: EquipmentSlot) => void;
   updateEquipmentSlot: (type: string, updates: Partial<EquipmentSlot>) => void;
   deleteEquipmentSlot: (type: string, options?: DeleteOptions) => EntityReference[];
+
+  // Equipment layout — the grid the slots are arranged on (TICKET-INV-03)
+  /** Resize the grid, dropping any placement the new size has no room for */
+  setEquipmentLayout: (layout: EquipmentLayout) => void;
+  /** Put a slot on a cell, or take it off the figure with `null` */
+  placeEquipmentSlot: (type: string, placement: EquipmentSlotPlacement | null) => void;
+  /** Give a ruleset that has never been laid out the sheet's own figure; a no-op afterwards */
+  seedEquipmentLayout: () => void;
 
   // Races CRUD
   addRace: (race: Race) => void;
@@ -1040,6 +1058,73 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       ...config,
       equipmentSlots: config.equipmentSlots.filter((slot) => slot.type !== type),
     })),
+
+  // Equipment layout (TICKET-INV-03)
+  setEquipmentLayout: (layout: EquipmentLayout) => {
+    const { config } = get();
+    if (!config) return;
+
+    // Clamping is the store's job rather than the panel's: the panel is a pair of number inputs,
+    // and "7 columns" arriving from a keystroke or a hand-edited import must land the same way
+    const clamped = clampEquipmentLayout(layout);
+
+    const updated = autoSave({
+      ...config,
+      equipmentLayout: clamped,
+      // Shrinking is what makes a placement invalid, so pruning belongs in the same write — a
+      // separate pass would leave a window where the stored grid and its placements disagree
+      equipmentSlots: prunePlacements(config.equipmentSlots, clamped),
+    });
+    set({ config: updated });
+  },
+
+  placeEquipmentSlot: (type: string, placement: EquipmentSlotPlacement | null) => {
+    const { config } = get();
+    if (!config) return;
+
+    const layout = config.equipmentLayout;
+
+    // A cell that is not on the board is not a placement. Refusing here rather than clamping is
+    // deliberate: clamping would drop the slot somewhere the User did not click.
+    if (placement && (!layout || !isWithinLayout(placement, layout))) return;
+
+    const target = placement ? cellKey(placement) : null;
+
+    const updated = autoSave({
+      ...config,
+      equipmentSlots: config.equipmentSlots.map((slot) => {
+        if (slot.type === type) {
+          if (!placement) {
+            const { placement: _cleared, ...rest } = slot;
+            return rest;
+          }
+          return { ...slot, placement };
+        }
+
+        // One slot per cell. Whatever was standing on the target is turned out rather than hidden
+        // under the newcomer, and lands in the unplaced list where the User can see it moved.
+        if (target && slot.placement && cellKey(slot.placement) === target) {
+          const { placement: _evicted, ...rest } = slot;
+          return rest;
+        }
+
+        return slot;
+      }),
+    });
+    set({ config: updated });
+  },
+
+  seedEquipmentLayout: () => {
+    const { config } = get();
+    if (!config || config.equipmentLayout) return;
+
+    const updated = autoSave({
+      ...config,
+      equipmentLayout: DEFAULT_EQUIPMENT_LAYOUT,
+      equipmentSlots: seedPlacements(config.equipmentSlots),
+    });
+    set({ config: updated });
+  },
 
   // Races CRUD
   addRace: (race: Race) => {

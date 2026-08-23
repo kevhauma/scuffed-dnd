@@ -16,7 +16,7 @@ import { validateConfiguration } from '../../../engine/validator';
 import { useConfigStore } from '../../../stores/configStore';
 import { useUIStore } from '../../../stores/uiStore';
 
-/** The ten configuration areas, in the order the dashboard lists them — reached via `sections` */
+/** The eleven configuration areas, in the order the dashboard lists them — reached via `sections` */
 const CONFIG_SECTIONS = [
   // Stats first: they are the atom every other section refers to, and since TICKET-STAT-02 they
   // are also where the old "main skills" live — Skills is the one weighted-stat entity now
@@ -27,7 +27,12 @@ const CONFIG_SECTIONS = [
   },
   { to: '/config/skills', label: 'Skills', description: 'Competences weighted over stats' },
   { to: '/config/materials', label: 'Materials', description: 'Materials, levels, and categories' },
-  { to: '/config/items', label: 'Items', description: 'Items and equipment slots' },
+  { to: '/config/items', label: 'Items', description: 'What a character can carry and equip' },
+  {
+    to: '/config/equipment',
+    label: 'Equipment',
+    description: 'Where gear goes, and how the sheet lays it out',
+  },
   { to: '/config/races', label: 'Races', description: 'Races and their stat blocks' },
   {
     to: '/config/archetypes',

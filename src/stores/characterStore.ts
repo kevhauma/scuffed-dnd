@@ -123,6 +123,35 @@ interface CharacterState {
   ) => void;
 
   /**
+   * Put points into one skill
+   *
+   * Deliberately **not** budgeted, unlike its stat counterpart, because the ruleset has no skill
+   * pool to budget against: `skillAllocation.ts` prices stat points and nothing else, and the
+   * creation wizard already lets a Player type any number into a skill. Refusing here would make
+   * the sheet stricter than the wizard that produced the character, which is the wrong direction
+   * for the two to disagree in.
+   *
+   * The only rule is the one the data itself has: a whole number, not negative. If a later ticket
+   * gives skills a pool, this is where the refusal goes, next to `setInvestedStatPoints`'s.
+   */
+  setInvestedSkillPoints: (characterId: string, skillId: string, points: number) => void;
+
+  /**
+   * Set what the character is carrying in one currency tier (Concept 16)
+   *
+   * Stored per tier, exactly as entered: 15 silver stays 15 silver rather than being rolled up
+   * into 1 gold 5 silver on write. Normalising is a *display* choice and belongs where the total
+   * is rendered — a purse that reorganises itself the moment you look away is a purse a Player
+   * cannot reconcile against the table.
+   *
+   * Negative is refused rather than clamped, on the same reasoning as `deductExperience`: owing
+   * money is a thing a table may well want, but it is a mechanic, and inventing it here silently
+   * would be worse than not having it. Fractions are allowed — a rate of 10 makes half a gold an
+   * ordinary amount to hold.
+   */
+  setWalletAmount: (characterId: string, tierId: string, amount: number) => void;
+
+  /**
    * Move a resource pool by a delta rather than setting it (Concept 20's quick entry)
    *
    * `-7` off a pool of 30 leaves 23. The delta applies to what is **stored**, not to what is
@@ -643,6 +672,47 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     const updated = autoSave(
       characters.map((candidate) =>
         candidate.id === characterId ? updateTimestamp(proposed) : candidate
+      )
+    );
+    set({ characters: updated });
+  },
+
+  setInvestedSkillPoints: (characterId: string, skillId: string, points: number) => {
+    const { characters } = get();
+    const character = characters.find((candidate) => candidate.id === characterId);
+    if (!character) return;
+
+    // No budget check — see the note on the action's declaration. The whole rule is the shape.
+    if (!Number.isInteger(points) || points < 0) return;
+
+    const updated = autoSave(
+      characters.map((candidate) =>
+        candidate.id === characterId
+          ? updateTimestamp({
+              ...candidate,
+              investedSkillPoints: { ...candidate.investedSkillPoints, [skillId]: points },
+            })
+          : candidate
+      )
+    );
+    set({ characters: updated });
+  },
+
+  setWalletAmount: (characterId: string, tierId: string, amount: number) => {
+    const { characters } = get();
+    const character = characters.find((candidate) => candidate.id === characterId);
+    if (!character) return;
+
+    if (!Number.isFinite(amount) || amount < 0) return;
+
+    const updated = autoSave(
+      characters.map((candidate) =>
+        candidate.id === characterId
+          ? updateTimestamp({
+              ...candidate,
+              wallet: { ...(candidate.wallet ?? {}), [tierId]: amount },
+            })
+          : candidate
       )
     );
     set({ characters: updated });

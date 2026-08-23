@@ -11716,37 +11716,72 @@
     {
       "type": "head",
       "name": "Head",
-      "description": "Equipment box on the character sheet (Charactersheet!N3)."
+      "description": "Equipment box on the character sheet (Charactersheet!N3).",
+      "placement": {
+        "column": 2,
+        "row": 1,
+        "glyph": "helm"
+      }
     },
     {
       "type": "chest",
       "name": "chest",
-      "description": "Equipment box on the character sheet (Charactersheet!N7)."
+      "description": "Equipment box on the character sheet (Charactersheet!N7).",
+      "placement": {
+        "column": 2,
+        "row": 2,
+        "glyph": "chest"
+      }
     },
     {
       "type": "main_hand",
       "name": "main hand",
-      "description": "Equipment box on the character sheet (Charactersheet!M7)."
+      "description": "Equipment box on the character sheet (Charactersheet!M7).",
+      "placement": {
+        "column": 1,
+        "row": 2,
+        "glyph": "main-hand"
+      }
     },
     {
       "type": "off_hand",
       "name": "Off hand",
-      "description": "Equipment box on the character sheet (Charactersheet!O7)."
+      "description": "Equipment box on the character sheet (Charactersheet!O7).",
+      "placement": {
+        "column": 3,
+        "row": 2,
+        "glyph": "off-hand"
+      }
     },
     {
       "type": "legs",
       "name": "Legs",
-      "description": "Equipment box on the character sheet (Charactersheet!N11)."
+      "description": "Equipment box on the character sheet (Charactersheet!N11).",
+      "placement": {
+        "column": 2,
+        "row": 3,
+        "glyph": "legs"
+      }
     },
     {
       "type": "feet",
       "name": "Feet",
-      "description": "Equipment box on the character sheet (Charactersheet!N14)."
+      "description": "Equipment box on the character sheet (Charactersheet!N14).",
+      "placement": {
+        "column": 2,
+        "row": 4,
+        "glyph": "feet"
+      }
     },
     {
       "type": "accessory",
       "name": "accesory",
-      "description": "Equipment box on the character sheet (Charactersheet!O11)."
+      "description": "Equipment box on the character sheet (Charactersheet!O11).",
+      "placement": {
+        "column": 3,
+        "row": 3,
+        "glyph": "accessory"
+      }
     }
   ],
   "races": [
@@ -12744,6 +12779,10 @@
       "remainder": "flat"
     }
   ],
+  "equipmentLayout": {
+    "columns": 3,
+    "rows": 4
+  },
   "rollDefinitions": [
     {
       "id": "rolldef-melee",

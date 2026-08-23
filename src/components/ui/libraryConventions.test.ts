@@ -79,21 +79,28 @@ describe('base component library conventions', () => {
     }
   });
 
-  it('should keep the one URL-encoded colour equal to the token it mirrors (CR-36)', () => {
-    // The Select's chevron is a data URI, which cannot reach a CSS variable, so the hex is written
-    // out. This pins it to `ink-700`: retuning the palette without the arrow fails here rather than
-    // leaving one off-theme triangle behind.
-    const theme = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
-    const ink700 = theme.match(/--color-ink-700:\s*(#[0-9a-fA-F]{6})/)?.[1];
+  it('should keep every URL-encoded colour equal to a token it mirrors (CR-36)', () => {
+    // Two glyphs are drawn as data URIs, which cannot reach a CSS variable, so their colour is
+    // written out: the `Select`'s chevron in `ink-700` and the `Checkbox`'s tick in `parchment-50`.
+    // Pinning them to those tokens means retuning the palette fails here rather than leaving an
+    // off-theme arrow and an off-theme tick behind. `styles.css` is scanned alongside the library
+    // because the tick's rule lives there — Tailwind will not emit it as a utility.
+    const themePath = resolve(process.cwd(), 'src/styles.css');
+    const theme = readFileSync(themePath, 'utf8');
+    const tokenNames = ['--color-ink-700', '--color-parchment-50'];
 
-    expect(ink700, 'src/styles.css defines no --color-ink-700').toBeDefined();
+    const pinned = tokenNames.map((name) => {
+      const value = theme.match(new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})`))?.[1];
+      expect(value, `src/styles.css defines no ${name}`).toBeDefined();
+      return value?.toLowerCase();
+    });
 
-    for (const file of sourceFiles) {
+    for (const file of [...sourceFiles, themePath]) {
       const encoded = readFileSync(file, 'utf8').match(/%23[0-9a-fA-F]{6}/g) ?? [];
 
       for (const colour of encoded) {
-        expect(colour.replace('%23', '#').toLowerCase(), `${relative(file)} encoded colour`).toBe(
-          ink700?.toLowerCase()
+        expect(pinned, `${relative(file)} encoded colour ${colour}`).toContain(
+          colour.replace('%23', '#').toLowerCase()
         );
       }
     }

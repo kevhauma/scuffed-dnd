@@ -7,8 +7,10 @@ describe('Input', () => {
     render(<Input placeholder="Test input" />);
     const input = screen.getByPlaceholderText('Test input');
     expect(input).toBeDefined();
-    expect(input.className).toContain('bg-parchment-50');
-    expect(input.className).toContain('border-stone-200');
+    expect(input.className).toContain('bg-parchment-100');
+    expect(input.className).toContain('border-ink-700/40');
+    // A field is pressed into the page rather than drawn on it
+    expect(input.className).toContain('shadow-carved');
   });
 
   it('applies error styles when error prop is true', () => {
@@ -20,7 +22,7 @@ describe('Input', () => {
   it('applies disabled styles when disabled', () => {
     render(<Input disabled placeholder="Disabled input" />);
     const input = screen.getByPlaceholderText('Disabled input');
-    expect(input.className).toContain('opacity-50');
+    expect(input.className).toContain('opacity-60');
     expect(input.className).toContain('cursor-not-allowed');
   });
 

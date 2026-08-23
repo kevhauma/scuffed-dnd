@@ -77,8 +77,8 @@ export function ArchetypeStep({
             // Everything inside is a `span`, because a button's content model is phrasing only.
             //
             // `inverse` on every nested `Text` for the same stylesheet-order reason (CR-07): the
-            // pressed `primary` Button is dark royal, and a variant's own ink colour beat the
-            // colour it inherited — near-black on dark blue at exactly the moment the Player
+            // pressed `primary` Button is dark stained oak, and a variant's own ink colour beat
+            // the colour it inherited — near-black on near-black at exactly the moment the Player
             // confirms their choice.
             <Button
               key={archetype.id}

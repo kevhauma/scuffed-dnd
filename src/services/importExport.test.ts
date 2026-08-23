@@ -315,6 +315,78 @@ describe('Import/Export Service', () => {
       });
     });
 
+    describe('the equipment grid and its placements (TICKET-INV-03)', () => {
+      const shapeOf = (overrides: Record<string, unknown>) =>
+        validateConfigurationShape({ ...validConfig, ...overrides });
+
+      const placed = (placement: unknown) => ({
+        equipmentSlots: [{ type: 'head', name: 'Head', description: '', placement }],
+      });
+
+      it('accepts a ruleset with no layout and no placements — the pre-builder shape', () => {
+        expect(shapeOf({})).toEqual({ isValid: true, errors: [] });
+      });
+
+      it('accepts a grid with slots placed on it', () => {
+        const result = shapeOf({
+          equipmentLayout: { columns: 3, rows: 4 },
+          ...placed({ column: 2, row: 1, glyph: 'helm' }),
+        });
+
+        expect(result).toEqual({ isValid: true, errors: [] });
+      });
+
+      it('rejects a grid larger than the app can draw', () => {
+        const result = shapeOf({ equipmentLayout: { columns: 7, rows: 4 } });
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain(
+          'equipmentLayout.columns must be a whole number from 1 to 6'
+        );
+      });
+
+      it('rejects a grid that is not a { columns, rows } object', () => {
+        const result = shapeOf({ equipmentLayout: [3, 4] });
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain(
+          "Field 'equipmentLayout' must be a { columns, rows } object when present"
+        );
+      });
+
+      it('rejects a cell that is not a whole number from 1 up', () => {
+        // A fractional or zero column places nothing and reports nothing — the tile simply stops
+        // being drawn, which is the silence this check exists to break
+        const result = shapeOf(placed({ column: 1.5, row: 0, glyph: 'helm' }));
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain(
+          'equipmentSlots[0].placement.column must be a whole number from 1 up'
+        );
+        expect(result.errors).toContain(
+          'equipmentSlots[0].placement.row must be a whole number from 1 up'
+        );
+      });
+
+      it('rejects a glyph the app has no drawing for', () => {
+        const result = shapeOf(placed({ column: 1, row: 1, glyph: 'dragon' }));
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain(
+          'equipmentSlots[0].placement.glyph must be a glyph the app can draw'
+        );
+      });
+
+      it('rejects a placement that is not an object', () => {
+        const result = shapeOf(placed('column 2'));
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain(
+          'equipmentSlots[0].placement must be a { column, row, glyph } object when present'
+        );
+      });
+    });
+
     describe('the four collections that were array-checked and nothing more (CR-03)', () => {
       const shapeOf = (overrides: Record<string, unknown>) =>
         validateConfigurationShape({ ...validConfig, ...overrides });

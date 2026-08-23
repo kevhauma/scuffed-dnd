@@ -17,7 +17,14 @@ import {
   toStoredConfiguration,
 } from '../engine/formula/references';
 import type { Configuration } from '../types/config';
-import { ROLL_CATEGORIES, STAT_AFFINITIES, SUPPORTED_SCHEMA_VERSION } from '../types/config';
+import {
+  GLYPH_NAMES,
+  MAX_EQUIPMENT_GRID_COLUMNS,
+  MAX_EQUIPMENT_GRID_ROWS,
+  ROLL_CATEGORIES,
+  STAT_AFFINITIES,
+  SUPPORTED_SCHEMA_VERSION,
+} from '../types/config';
 import { readStoredSnapshot } from './storage';
 
 /**
@@ -470,6 +477,79 @@ function skillWeightShapeErrors(skill: Record<string, unknown>, path: string): s
   });
 }
 
+/** Every glyph a placement may name */
+const GLYPH_VALUES = new Set<string>(GLYPH_NAMES);
+
+/**
+ * An equipment slot's placement — the part of its shape a field table cannot express
+ *
+ * Absent is valid and is the state every slot was in before TICKET-INV-03, so a file written
+ * against the older shape imports unchanged. A *present* one has to be a whole cell on the board
+ * with a glyph the app can draw, because the alternatives are silent: a fractional column places
+ * nothing, and an unknown glyph indexes a drawing table that has no entry for it.
+ *
+ * Whether the cell is inside the configured grid, and whether two slots claim it, are
+ * `engine/validator.ts`'s report rather than errors here — both are answerable only by looking at
+ * the *rest* of the configuration, and both leave a file that still renders.
+ *
+ * @param slot - One element of `config.equipmentSlots`
+ * @param path - Where it sits, for the message — `equipmentSlots[2]`
+ * @returns The errors found, empty when the shape is sound
+ */
+function placementShapeErrors(slot: Record<string, unknown>, path: string): string[] {
+  const { placement } = slot;
+  if (placement === undefined) return [];
+
+  const at = `${path}.placement`;
+  if (!placement || typeof placement !== 'object' || Array.isArray(placement)) {
+    return [`${at} must be a { column, row, glyph } object when present`];
+  }
+
+  const cell = placement as Record<string, unknown>;
+  const isCellIndex = (value: unknown) =>
+    typeof value === 'number' && Number.isInteger(value) && value >= 1;
+
+  return [
+    ...must(isCellIndex, 'must be a whole number from 1 up')(cell.column, `${at}.column`),
+    ...must(isCellIndex, 'must be a whole number from 1 up')(cell.row, `${at}.row`),
+    ...oneOf(GLYPH_VALUES, 'must be a glyph the app can draw')(cell.glyph, `${at}.glyph`),
+  ];
+}
+
+/**
+ * The equipment grid — a `Configuration` field that is an object rather than a collection
+ *
+ * {@link ENTITY_SPECS} covers every *array* on the configuration, which is almost all of it; this
+ * is the one shape that needed its own check. Absent is valid and means "never laid out" — the
+ * equipment page seeds one on first visit.
+ *
+ * @param config - The parsed configuration object
+ * @returns The errors found, empty when the grid is sound or absent
+ */
+function equipmentLayoutShapeErrors(config: Record<string, unknown>): string[] {
+  const layout = config.equipmentLayout;
+  if (layout === undefined) return [];
+
+  if (!layout || typeof layout !== 'object' || Array.isArray(layout)) {
+    return ["Field 'equipmentLayout' must be a { columns, rows } object when present"];
+  }
+
+  const grid = layout as Record<string, unknown>;
+  const within = (max: number) => (value: unknown) =>
+    typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= max;
+
+  return [
+    ...must(
+      within(MAX_EQUIPMENT_GRID_COLUMNS),
+      `must be a whole number from 1 to ${MAX_EQUIPMENT_GRID_COLUMNS}`
+    )(grid.columns, 'equipmentLayout.columns'),
+    ...must(
+      within(MAX_EQUIPMENT_GRID_ROWS),
+      `must be a whole number from 1 to ${MAX_EQUIPMENT_GRID_ROWS}`
+    )(grid.rows, 'equipmentLayout.rows'),
+  ];
+}
+
 /**
  * Everything one of the configuration's collections must satisfy
  *
@@ -592,6 +672,7 @@ const ENTITY_SPECS: Record<CollectionKey, EntitySpec> = {
       name: must(isText, 'must be a string'),
       description: must(isText, 'must be a string'),
     },
+    custom: placementShapeErrors,
   },
 
   // A race's `statValues` maps stat **id** to an absolute number (TICKET-RACE-01) — an absent stat
@@ -826,6 +907,9 @@ export function validateConfigurationShape(data: unknown): ValidationResult {
 
   // A field a previous shape carried is a refusal, not something to ignore
   errors.push(...retiredFieldErrors(config));
+
+  // The one non-collection shape on the configuration (TICKET-INV-03)
+  errors.push(...equipmentLayoutShapeErrors(config));
 
   const specs = Object.entries(ENTITY_SPECS) as [CollectionKey, EntitySpec][];
 

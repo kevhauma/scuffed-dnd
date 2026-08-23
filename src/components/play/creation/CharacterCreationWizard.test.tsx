@@ -311,7 +311,8 @@ describe('CharacterCreationWizard', () => {
     toStatsStep();
     fireEvent.change(screen.getByLabelText(/Strength \(STR\)/), { target: { value: '4' } });
 
-    expect(screen.getByText(/4 of 12 points spent · 8 remaining/)).toBeDefined();
+    expect(screen.getByText('4/12')).toBeDefined();
+    expect(screen.getByText('Points spent')).toBeDefined();
   });
 
   describe('the allocation step on unified stats (TICKET-STAT-03)', () => {

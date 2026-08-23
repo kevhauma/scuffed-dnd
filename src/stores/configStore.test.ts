@@ -677,6 +677,112 @@ describe('ConfigStore', () => {
     });
   });
 
+  describe('Equipment layout (TICKET-INV-03)', () => {
+    const head: EquipmentSlot = { type: 'head', name: 'Head', description: '' };
+    const feet: EquipmentSlot = { type: 'feet', name: 'Feet', description: '' };
+    const horns: EquipmentSlot = { type: 'horns', name: 'Horns', description: '' };
+
+    beforeEach(() => {
+      useConfigStore.getState().initializeConfig('Test');
+      for (const slot of [head, feet, horns]) {
+        useConfigStore.getState().addEquipmentSlot(slot);
+      }
+      vi.clearAllMocks();
+    });
+
+    it('should seed a ruleset that has never been laid out', () => {
+      useConfigStore.getState().seedEquipmentLayout();
+
+      const { config } = useConfigStore.getState();
+      expect(config?.equipmentLayout).toEqual({ columns: 3, rows: 4 });
+      expect(config?.equipmentSlots[0].placement).toEqual({ column: 2, row: 1, glyph: 'helm' });
+      expect(config?.equipmentSlots[2].placement).toBeUndefined();
+      expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+
+    it('should not re-seed over an arrangement the User already made', () => {
+      // The page seeds on every visit, so this is what keeps the second visit from undoing the
+      // first one's edits
+      useConfigStore.getState().seedEquipmentLayout();
+      useConfigStore.getState().placeEquipmentSlot('head', { column: 1, row: 1, glyph: 'crown' });
+      vi.clearAllMocks();
+
+      useConfigStore.getState().seedEquipmentLayout();
+
+      expect(useConfigStore.getState().config?.equipmentSlots[0].placement).toEqual({
+        column: 1,
+        row: 1,
+        glyph: 'crown',
+      });
+      expect(storage.saveConfiguration).not.toHaveBeenCalled();
+    });
+
+    it('should turn out whoever holds the cell being claimed', () => {
+      useConfigStore.getState().seedEquipmentLayout();
+
+      useConfigStore.getState().placeEquipmentSlot('horns', { column: 2, row: 1, glyph: 'helm' });
+
+      const slots = useConfigStore.getState().config?.equipmentSlots ?? [];
+      expect(slots.find((slot) => slot.type === 'head')?.placement).toBeUndefined();
+      expect(slots.find((slot) => slot.type === 'horns')?.placement).toEqual({
+        column: 2,
+        row: 1,
+        glyph: 'helm',
+      });
+    });
+
+    it('should take a slot off the figure without deleting it', () => {
+      useConfigStore.getState().seedEquipmentLayout();
+
+      useConfigStore.getState().placeEquipmentSlot('head', null);
+
+      const slots = useConfigStore.getState().config?.equipmentSlots ?? [];
+      expect(slots).toHaveLength(3);
+      expect(slots[0].placement).toBeUndefined();
+      expect('placement' in slots[0]).toBe(false);
+    });
+
+    it('should refuse a cell that is not on the board', () => {
+      useConfigStore.getState().seedEquipmentLayout();
+      vi.clearAllMocks();
+
+      useConfigStore.getState().placeEquipmentSlot('horns', { column: 9, row: 9, glyph: 'slot' });
+
+      const slots = useConfigStore.getState().config?.equipmentSlots ?? [];
+      expect(slots.find((slot) => slot.type === 'horns')?.placement).toBeUndefined();
+      expect(storage.saveConfiguration).not.toHaveBeenCalled();
+    });
+
+    it('should drop the placements a shrunken grid no longer has room for', () => {
+      useConfigStore.getState().seedEquipmentLayout();
+
+      useConfigStore.getState().setEquipmentLayout({ columns: 3, rows: 2 });
+
+      const { config } = useConfigStore.getState();
+      const slots = config?.equipmentSlots ?? [];
+      expect(config?.equipmentLayout).toEqual({ columns: 3, rows: 2 });
+      expect(slots.find((slot) => slot.type === 'head')?.placement).toBeDefined();
+      expect(slots.find((slot) => slot.type === 'feet')?.placement).toBeUndefined();
+    });
+
+    it('should clamp a grid size the app cannot draw', () => {
+      useConfigStore.getState().setEquipmentLayout({ columns: 99, rows: 0 });
+
+      expect(useConfigStore.getState().config?.equipmentLayout).toEqual({ columns: 6, rows: 1 });
+    });
+
+    it('should do nothing at all without a configuration', () => {
+      useConfigStore.setState({ config: null });
+
+      useConfigStore.getState().seedEquipmentLayout();
+      useConfigStore.getState().setEquipmentLayout({ columns: 2, rows: 2 });
+      useConfigStore.getState().placeEquipmentSlot('head', { column: 1, row: 1, glyph: 'helm' });
+
+      expect(useConfigStore.getState().config).toBeNull();
+      expect(storage.saveConfiguration).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Archetypes CRUD (TICKET-ARC-01)', () => {
     const strong: Archetype = {
       id: 'strong',

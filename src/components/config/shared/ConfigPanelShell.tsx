@@ -85,14 +85,16 @@ export function ConfigPanelShell({
   return (
     <div className="space-y-6">
       <Card className="p-6">
-        <div className="flex justify-between items-start mb-4">
+        <div className="flex justify-between items-start gap-4 mb-4">
           <div>
             <Text variant="h4" as="h2" className="mb-2">
               {title}
             </Text>
             <Text variant="body-secondary">{description}</Text>
           </div>
-          {actions && <div className="flex gap-2">{actions}</div>}
+          {/* `shrink-0`: the description is the elastic half of this row. Without it the actions
+              took the squeeze and "Add Stat" broke across two lines. */}
+          {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
         </div>
 
         {prerequisites?.map((prerequisite) => (

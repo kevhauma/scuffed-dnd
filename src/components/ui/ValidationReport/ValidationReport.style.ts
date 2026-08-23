@@ -6,7 +6,7 @@ export const headerStyles = [
   'flex items-center justify-between',
   'mb-4',
   'pb-3',
-  'border-b border-stone-200',
+  'border-b border-ink-700/25',
 ].join(' ');
 
 // Summary styles
@@ -19,8 +19,8 @@ export const issueListStyles = ['space-y-2'].join(' ');
 export const issueItemStyles = [
   'flex items-start gap-3',
   'p-3',
-  'bg-parchment-100',
-  'border border-stone-200',
+  'bg-parchment-200/60',
+  'border border-ink-700/20',
   'rounded',
   'transition-colors duration-150',
 ].join(' ');
@@ -33,9 +33,9 @@ export const issueItemStyles = [
  * component already withholds.
  */
 export const issueItemInteractiveStyles = [
-  'hover:bg-parchment-200',
+  'hover:bg-parchment-300/70',
   'cursor-pointer',
-  'focus:outline-none focus:ring-2 focus:ring-amber focus:ring-offset-2',
+  'focus:outline-none focus:ring-2 focus:ring-amber',
 ].join(' ');
 
 // Icon styles, shared by all three severities — only the colour differs
@@ -61,8 +61,9 @@ export const severityStyles = {
     glyph: '✕',
   },
   warning: {
-    heading: `${sectionHeadingStyles} text-amber`,
-    icon: `${iconStyles} text-amber`,
+    // `amber-dark`, not `amber`: the bright dye is a light, and reads at 2.6:1 against parchment
+    heading: `${sectionHeadingStyles} text-amber-dark`,
+    icon: `${iconStyles} text-amber-dark`,
     glyph: '⚠',
   },
   information: {

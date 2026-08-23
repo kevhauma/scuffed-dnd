@@ -66,6 +66,8 @@ describe('AppShell', () => {
     expect(names).toContain('Materials');
     expect(names).toContain('Archetypes');
     expect(names).toContain('Curves');
+    // Split off Items by TICKET-INV-02 — the slots and the figure they sit on are their own page
+    expect(names).toContain('Equipment');
     // Retired by TICKET-ARC-03 — the archetype replaced it
     expect(names).not.toContain('Focus Stat');
     expect(names).not.toContain('Characters');

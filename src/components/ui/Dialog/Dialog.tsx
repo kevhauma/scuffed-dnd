@@ -15,14 +15,19 @@
 
 import type React from 'react';
 import { useEffect, useRef } from 'react';
+import { Ornament } from '../Ornament/Ornament';
 import {
   bodyStyles,
   closeButtonStyles,
   dialogStyles,
   headerStyles,
   overlayStyles,
+  rivetStyles,
   titleStyles,
 } from './Dialog.style';
+
+/** Where the four studs sit on the header board */
+const RIVET_POSITIONS = ['left-2 top-2', 'right-2 top-2', 'left-2 bottom-2', 'right-2 bottom-2'];
 
 /**
  * What Tab can reach
@@ -179,6 +184,9 @@ export function Dialog({ open, onClose, title, children, className = '' }: Dialo
         aria-label={title}
       >
         <div className={headerStyles}>
+          {RIVET_POSITIONS.map((position) => (
+            <Ornament key={position} variant="rivet" className={`${rivetStyles} ${position}`} />
+          ))}
           <h2 className={titleStyles}>{title}</h2>
           <button
             type="button"
