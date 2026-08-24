@@ -24,5 +24,9 @@
     "src/client/boundaryFixtures/**",
     "src/server/boundaryFixtures/**",
     "src/shared/boundaryFixtures/**"
-  ]
+  ],
+
+  // `drizzle-kit` is a CLI (`yarn run db:generate`) and `drizzle.config.ts` is the file it reads;
+  // neither is imported by anything in the tree.
+  "ignoreDependencies": ["drizzle-kit"]
 }

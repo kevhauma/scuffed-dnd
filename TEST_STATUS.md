@@ -1,17 +1,36 @@
 # Test Status
 
-_Last verified: 2026-08-24 (`npx vitest run`), after **TICKET-SRV-01 — the server layer**. The
-checkpoints before it were **TICKET-DX-07 — three roots** at 1847, the **equipment split and
-display builder** at 1834, the **character sheet rebuild** at 1777, the **tavern redesign** at
-1732, and the [v2.1 code review](docs/v2.1_code_review/overview.md)'s **high-priority findings**
-(CR-01 to CR-07, CR-08, CR-20) at 1674._
+_Last verified: 2026-08-24 (`npx vitest run`), after **TICKET-DB-01 — SQLite, Drizzle and
+migrations**. The checkpoints before it were **TICKET-SRV-01 — the server layer** at 1883,
+**TICKET-DX-07 — three roots** at 1847, the **equipment split and display builder** at 1834, the
+**character sheet rebuild** at 1777, the **tavern redesign** at 1732, and the
+[v2.1 code review](docs/v2.1_code_review/overview.md)'s **high-priority findings** (CR-01 to CR-07,
+CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 1883
-- **Passing**: 1883 (100%)
+- **Total tests**: 1925
+- **Passing**: 1925 (100%)
 - **Skipped**: 0
 - **Failing**: 0
+
+The **+42 over SRV-01** is TICKET-DB-01: the connection (4), migrations (8), schema constraints
+(9), the ruleset repository (11) and the event repository (10). Each group answers a criterion
+rather than a function: that a failing migration leaves *nothing* behind and does not mark itself
+applied; that each cascade rule is the one the schema's prose claims; that a **real**
+`Configuration` — the whole 306 KB Ducklets corpus — round-trips a `TEXT` column byte-for-byte,
+formulas and curve flags included; and that a stale base revision updates zero rows rather than
+overwriting a save it never saw.
+
+Six of those came out of the `conventions-reviewer` pass. The one worth naming pinned a bug that
+would have hit **every fresh clone**: `data/` is gitignored and `new Database()` does not create a
+missing directory, so the first `yarn dev` on a clean machine died at start-up with a raw
+`SqliteError`. `client.test.ts` opens a database in a directory that does not exist yet.
+
+**The suite now opens real databases.** Every one is `:memory:`, opened and closed per test, so
+there is no fixture file and no cleanup to forget; `vitest.setup.ts` sets `DATABASE_URL=:memory:`
+so a test that merely *imports* a route module does not need one of its own. TICKET-DX-06 folds
+both into the server test harness.
 
 The **+36 over DX-07** is TICKET-SRV-01: the environment loader (14, including the three contracts
 that keep `.env.example` and `env.ts` naming the same set, keep `process.env` to one reader, and

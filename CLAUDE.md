@@ -14,8 +14,9 @@ Tailwind CSS 4 (custom medieval theme), Vitest + fast-check, Biome.
 ## Commands
 
 ```bash
-yarn dev            # dev server on :3000
+yarn dev            # app + API on :3000, one process (needs a .env — see .env.example)
 yarn run test       # vitest, single pass
+yarn run db:generate    # write a migration for the current src/server/db/schema.ts
 yarn run sheet:import   # rebuild docs/imports/ducklets.json from the per-feature fragments
 npx vitest run <path>   # one test file
 npx tsc --noEmit    # typecheck
@@ -155,6 +156,14 @@ acceptance criteria.
 - **`src/server/env.ts` is the only reader of `process.env`**, and every variable it reads is
   documented in `.env.example` — a test asserts the two name the same set. No variable names the
   backend: the API is a relative path and the socket derives its URL from `window.location`.
+- **Queries belong to `src/server/repositories/`.** Nothing else imports Drizzle or the connection;
+  a handler calls a repository. The server-side mirror of "persistence belongs to the store action",
+  and TICKET-DX-08 makes it a dependency-cruiser rule.
+- **A document change is not a migration.** `ruleset.data`, `game_session.snapshot` and
+  `character.data` are JSON text (D4), so reshaping what is *inside* them follows the `data-model`
+  skill and bumps `SUPPORTED_SCHEMA_VERSION`. Changing the normalised half means editing
+  `db/schema.ts`, running `yarn run db:generate`, and landing the SQL **with a test that applies it
+  to the previous schema**. Migrations are forward-only; there are no `down` files.
 - **Formatting is settled and enforced** (TICKET-DX-02): `biome.json` is space/2, single quotes,
   `lineWidth` 100, es5 trailing commas — the style the code was already written in. The tree was
   formatted to match in one mechanical commit, so `npx biome check --write .` is now safe and

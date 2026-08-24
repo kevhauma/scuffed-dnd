@@ -37,7 +37,11 @@ describe('handleApiRequest', () => {
     const response = await answer('/api/health');
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ status: 'ok', environment: expect.any(String) });
+    expect(await response.json()).toEqual({
+      status: 'ok',
+      environment: expect.any(String),
+      database: { reachable: true, migration: null },
+    });
   });
 
   it('404s an API path that does not exist', async () => {

@@ -38,11 +38,13 @@ src/
 
 ## Technology Stack
 
-- **Framework**: React 19 with TypeScript
+- **Framework**: React 19 with TypeScript, on TanStack Start
 - **Build Tool**: Vite
 - **Routing**: TanStack Router (file-based routing)
 - **State Management**: Zustand
 - **Styling**: Tailwind CSS
+- **Server**: one Node process serving the client bundle and the API from one origin
+- **Database**: SQLite (`better-sqlite3`) through Drizzle, migrations through drizzle-kit
 - **Testing**: Vitest + fast-check
 
 ## Getting Started
@@ -109,9 +111,22 @@ instead of re-exploring the codebase, and are updated by the ticket that changes
 
 ## Development
 
-The application uses file-based routing with TanStack Router. Routes are automatically generated from the `src/client/routes/` directory structure.
+The application uses file-based routing with TanStack Router. Routes are automatically generated from the `src/client/routes/` directory structure. **API routes are not among them** — they live in
+`src/server/routes/` and are reached from `src/server/entry.ts`, which keeps the client/server
+boundary free of exceptions.
 
-All data persists in browser LocalStorage with import/export capabilities for sharing configurations.
+**Signed out, all data persists in browser LocalStorage** with import/export for sharing
+configurations, and that path needs no server at all. **Signed in**, server state lives in one
+SQLite file.
+
+### The data directory
+
+`DATABASE_URL` points at the SQLite file — `./data/app.db` by default; copy `.env.example` to
+`.env` before the first run. WAL mode means it is really three files (`app.db`, `app.db-wal`,
+`app.db-shm`), so **back up the directory, not the `.db`** — or use `VACUUM INTO` to write a
+consistent single-file copy while the server is running. Migrations are applied automatically at
+start-up and are forward-only; there are no `down` files, so recovery from a bad upgrade is that
+backup. `data/` is gitignored.
 
 ## Linting & Formatting
 

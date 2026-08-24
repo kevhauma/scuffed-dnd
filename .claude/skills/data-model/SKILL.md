@@ -18,12 +18,25 @@ a persisted shape, imported as `#shared/types/config` by the client *and*, since
 exactly as it is — LocalStorage stays the source of truth for a signed-out browser, not a cache and
 not a staging area.
 
-**Signed in, a second home appears.** A server-stored Ruleset is the same `Configuration` shape
-kept as a JSON document with `schemaVersion` and `revision` as real columns
-([D4](../../../docs/v3.0_backend/overview.md#d4--a-ruleset-is-stored-as-a-json-document-not-normalised));
-TICKET-DB-01 lands the schema and TICKET-RUL-01/02 the records. There is **no sync** between the
-two homes and no background copying — an edit saves to whichever one is open, and uploading is an
-explicit, repeatable copy. Nothing below changes when that arrives.
+**Signed in, a second home appears.** Since TICKET-DB-01 there is a SQLite file at `DATABASE_URL`
+holding the server's own model. A server-stored Ruleset is the *same* `Configuration` shape kept as
+a JSON document, with `schemaVersion` and `revision` as real columns
+([D4](../../../docs/v3.0_backend/overview.md#d4--a-ruleset-is-stored-as-a-json-document-not-normalised)).
+TICKET-RUL-01/02 add the records and routes. There is **no sync** between the two homes and no
+background copying — an edit saves to whichever one is open, and uploading is an explicit,
+repeatable copy. Nothing below changes when that arrives.
+
+Two consequences worth holding on to before changing a persisted shape:
+
+- **A document change is not a migration.** Adding `grantedStatPoints` (DM-01) or `purse` (CUR-02)
+  changes what is *inside* `character.data` and `ruleset.data`, which are `TEXT` columns. The rules
+  in *Changing a persisted shape* below are the ones that apply, plus a `SUPPORTED_SCHEMA_VERSION`
+  bump — not a SQL file.
+- **A schema change is forward-only and ships a test.** `src/server/db/schema.ts` describes the
+  normalised half — ownership, membership, invites, events. Edit it, run `yarn run db:generate`,
+  and land the generated SQL with a test that applies it to the previous schema
+  ([`migrate.test.ts`](../../../src/server/db/migrate.test.ts) is the pattern). There are no `down`
+  files; recovery is the backup.
 
 ## Storage
 

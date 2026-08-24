@@ -31,9 +31,9 @@ export interface EnvVariable {
 /**
  * Every variable the server reads
  *
- * Deliberately short. The loader arrives one ticket before the first thing that needs configuring,
- * so what SRV-01 owes is the machinery and the `.env.example` contract — not a table of settings
- * nothing reads yet. `DATABASE_URL` is the first **required** one and lands with TICKET-DB-01.
+ * Deliberately short: a variable with no reader is a setting nobody has decided the meaning of.
+ * `DATABASE_URL` is the first **required** one (TICKET-DB-01) and is what makes the eager refusal
+ * matter — a server that cannot find its database should not answer a request and then discover it.
  */
 export const ENV_VARIABLES = {
   NODE_ENV: {
@@ -41,6 +41,13 @@ export const ENV_VARIABLES = {
     description:
       'Which build this is. The tooling sets it; Vite refuses NODE_ENV=production from a .env ' +
       'file, because a production build is `yarn build` rather than a variable.',
+  },
+  DATABASE_URL: {
+    required: true,
+    description:
+      'Path to the SQLite file holding every piece of server state. Relative paths resolve from ' +
+      'the working directory. `:memory:` is accepted and is what the tests use. The file and its ' +
+      '-wal/-shm companions must live somewhere durable and backed up.',
   },
 } as const satisfies Record<string, EnvVariable>;
 
@@ -56,6 +63,8 @@ export type NodeEnv = (typeof NODE_ENV)[keyof typeof NODE_ENV];
 /** The environment, resolved and coerced */
 export interface ServerEnv {
   nodeEnv: NodeEnv;
+  /** Where the SQLite file lives (TICKET-DB-01) */
+  databaseUrl: string;
 }
 
 /**
@@ -116,7 +125,11 @@ export function readEnv(source: Record<string, string | undefined> = process.env
   const missing = collectMissing(ENV_VARIABLES, source);
   if (missing.length > 0) throw new MissingEnvironmentError(missing);
 
-  return { nodeEnv: asNodeEnv(source.NODE_ENV) };
+  return {
+    nodeEnv: asNodeEnv(source.NODE_ENV),
+    // Non-null by construction: DATABASE_URL is required, so `collectMissing` refused above
+    databaseUrl: source.DATABASE_URL as string,
+  };
 }
 
 /** Read once, then reused — the environment does not change under a running process */

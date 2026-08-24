@@ -31,6 +31,8 @@ client/stores/      Zustand: configStore, characterStore, uiStore
 client/components/  ui/ (base primitives) → config/, play/, shared/ (feature components)
 client/routes/      TanStack Router file-based routes
 server/env.ts       the only reader of process.env
+server/db/          the SQLite connection, the Drizzle schema, the migration runner
+server/repositories/ the only code that issues queries — one module per aggregate
 server/http/        AppError, the request pipeline, the API route table
 server/routes/      one module per API route — plain handlers, no framework coupling
 server/entry.ts     the server entry: /api/* to the router, everything else to SSR
@@ -388,6 +390,18 @@ each later ticket adds.
   whether a request is API traffic at all. Matching is **exact**; TICKET-RUL-01 brings the first
   path parameter and extends it then.
 - `routes/health.ts` — `GET /api/health`. The dullest route on purpose: every later one copies it.
+  Reports database reachability and the applied migration hash (v3 Req 47.5) by asking
+  `db/health.ts` — a route never opens a connection.
+- `db/` (TICKET-DB-01) — `client.ts` owns the `better-sqlite3` connection (`foreign_keys = ON`,
+  WAL) and `createDatabase(':memory:')` is what every test opens; `schema.ts` is the Drizzle schema
+  and the place the document-vs-table decision (D4) and each cascade rule are written down;
+  `migrate.ts` applies `migrations/` at start-up, forward-only, each file in a transaction.
+  `yarn run db:generate` writes a new migration after a schema edit.
+- `repositories/` — **the only code that issues queries.** Handlers call repositories; they never
+  build SQL or touch Drizzle, and TICKET-DX-08 makes that a dependency-cruiser rule. DB-01 landed
+  `rulesetRepository` (including the revision guard: the check and the increment are one statement,
+  so the loser of a race updates zero rows) and `eventRepository` (append-only, `seq` unique per
+  session by constraint). Each later ticket adds its own aggregate.
 
 Server tests call handlers directly with a `Request` and **never boot Nitro** —
 `vitest.config.ts` still omits `tanstackStart()`, for the reason its own header records.

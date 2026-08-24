@@ -20,17 +20,24 @@
 import type { Register } from '@tanstack/react-router';
 import type { RequestHandler } from '@tanstack/react-start/server';
 import { createStartHandler, defaultStreamHandler } from '@tanstack/react-start/server';
+import { runMigrations } from './db/migrate';
 import { serverEnv } from './env';
 import { handleApiRequest } from './http/apiRouter';
 
 /**
- * The start-up door for the environment (v3 Req 47.2)
+ * The start-up door (v3 Req 47.2, 46.2)
  *
- * Reading it *here* rather than in `env.ts` at module scope is what makes a missing required
- * variable a start-up failure without also making every route module unimportable — see that
- * file's note. This is the one place that runs exactly once, when the server loads.
+ * Reading the environment *here* rather than in `env.ts` at module scope is what makes a missing
+ * required variable a start-up failure without also making every route module unimportable — see
+ * that file's note. This is the one place that runs exactly once, when the server loads.
+ *
+ * Migrations run in the same breath, and for the same reason: **upgrading is starting the
+ * process**, so there is no separate command to forget between pulling a build and restarting it.
+ * A failure here throws before the handler below is ever reachable, which is the point — a server
+ * that cannot bring its schema up to date must not serve a half-migrated one.
  */
 serverEnv();
+runMigrations();
 
 /** Renders the app. Everything the API does not claim goes here. */
 const renderApp = createStartHandler(defaultStreamHandler);

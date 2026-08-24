@@ -72,6 +72,13 @@ New runtime dependencies: **`better-sqlite3`**, **`drizzle-orm`**. New dev depen
 Synchronous `better-sqlite3` is the right shape for a single-process app of this size and makes
 every repository function trivially testable against an in-memory database.
 
+> **Pinned to `better-sqlite3@^12`, settled by TICKET-DB-01.** v13 ships its prebuilt binaries in
+> the tarball, which is better in principle — but Yarn v1 auto-runs `node-gyp rebuild` for any
+> package with a `binding.gyp` and no install script, which is v13's exact shape, so a fresh
+> `yarn install` fails on any machine without a C++ toolchain. v12 keeps its
+> `prebuild-install || node-gyp rebuild` script and installs cleanly. Verified both ways against a
+> clean install. Revisit when the repo leaves Yarn v1.
+
 ### D3 — Authentication through Better Auth
 
 New runtime dependency: **`better-auth`**. Email/password, the **Google and Discord** social
@@ -273,7 +280,7 @@ Server foundation — nothing here is user-visible, and everything after it depe
 
 - [x] [TICKET-DX-07](./tickets/TICKET-DX-07-three-root-source-tree.md) — Three roots: `client/`, `server/`, `shared/` (v3 Req 50) — **first, before a line of server code exists**: a pure move of the existing tree, so nothing later has to be moved twice. Numbered 07 but built first, the DX-05-taken-early precedent. Also splits `services/` along the seam that was always there, and installs dependency-cruiser with the root boundary
 - [x] [TICKET-SRV-01](./tickets/TICKET-SRV-01-server-layer-and-kernel-boundary.md) — The server layer and the Kernel boundary (v3 Req 45, 47) — fills DX-07's empty `server/` root: the env loader and the request pipeline that every later ticket plugs into
-- [ ] [TICKET-DB-01](./tickets/TICKET-DB-01-sqlite-drizzle-and-migrations.md) — SQLite, Drizzle and migrations (v3 Req 46) — the database file, the schema for the server's own model, and the migration runner
+- [x] [TICKET-DB-01](./tickets/TICKET-DB-01-sqlite-drizzle-and-migrations.md) — SQLite, Drizzle and migrations (v3 Req 46) — the database file, the schema for the server's own model, and the migration runner
 - [ ] [TICKET-DX-08](./tickets/TICKET-DX-08-architecture-rules-as-checks.md) — The project's architecture rules, as dependency-cruiser rules (v3 Req 51) — **after DB-01**, because two of the rules are about a database layer that has to exist first. Encodes what CLAUDE.md has stated as prose since v1.0: store-owned persistence, repository-owned queries, a framework-free Kernel, UI primitives as leaves
 - [ ] [TICKET-DX-06](./tickets/TICKET-DX-06-server-test-harness.md) — Server test harness (v3 Req 45.3) — in-memory database per test, a request helper, and seeded fixtures; **before AUTH-01** so every server ticket after it is testable the same way
 

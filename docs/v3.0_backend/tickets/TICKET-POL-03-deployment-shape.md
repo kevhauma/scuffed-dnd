@@ -60,6 +60,12 @@ verified as a set.
       hard-coded host. An operator changes the port and everything still talks to itself.
 - [ ] `/api/health` reports database reachability and the applied migration version, and reports
       unhealthy when the database file is unreadable.
+      **Mostly done by TICKET-DB-01** — the body carries `status`, `environment` and
+      `{ reachable, migration }`, because the data was already there once the migration runner
+      existed. What is left for this ticket is the *unreadable file* half: prove it against a real
+      deployment (permissions, a full disk, a moved data directory) rather than against an
+      in-memory database, and decide whether unhealthy should also be a non-200 status for a load
+      balancer to read.
 - [ ] Every environment variable the code reads appears in the README and in `.env.example` with
       required/optional stated — the existing SRV-01 test extended to cover the README too.
 - [ ] A documented backup produces a file that restores into a working server with the game intact,

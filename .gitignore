@@ -11,3 +11,10 @@ dist-ssr
 .vinxi
 __unconfig*
 todos.json
+
+# The SQLite file and its WAL companions (TICKET-DB-01). `data/` is the default DATABASE_URL's
+# directory; the globs catch a database pointed somewhere else in a developer's own .env.
+data/
+*.db
+*.db-wal
+*.db-shm

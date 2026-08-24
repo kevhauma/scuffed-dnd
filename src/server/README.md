@@ -69,12 +69,44 @@ someone will eventually point somewhere else. For the same reason there is **no 
 cross-origin error here means something got split in two, and the fix is to put it back on one
 origin rather than to widen the set of allowed origins.
 
+## The database
+
+One SQLite file, at `DATABASE_URL`, holding every piece of server state
+([D2](../../docs/v3.0_backend/overview.md#d2--sqlite-through-drizzle-migrations-through-drizzle-kit)).
+Two pragmas are set on every connection and neither is optional: `foreign_keys = ON`, because
+SQLite defaults it *off per connection* and every cascade below is a lie without it, and
+`journal_mode = WAL`, which is why the database is really three files and why a backup copies the
+set (or uses `VACUUM INTO`) rather than the `.db` alone.
+
+**What is a table and what is a document** is D4's decision: a `Configuration`, a Snapshot and a
+Character's player state are JSON text with `schema_version` and `revision` as real columns;
+ownership, membership, invites and events are normalised, because that is the server's own model
+and what it joins on. A document change — `grantedStatPoints` in DM-01, `purse` in CUR-02 — is
+therefore **not** a migration.
+
+**Migrations run at start-up and are forward-only.** `entry.ts` calls `runMigrations()` as it
+loads, so upgrading is starting the process and there is no separate command to forget. There are
+no `down` files: rolling back a schema change that has already accepted writes is a data question,
+and the answer is the backup. Generate a new one with `yarn run db:generate` after editing
+`db/schema.ts`, and ship it with a test that applies it to the previous schema.
+
+**Only `repositories/` may import the connection or Drizzle.** Handlers call repositories.
+TICKET-DX-08 turns that into a dependency-cruiser rule.
+
+| Relation | On delete | Why |
+|---|---|---|
+| `game_session.ruleset_id` → `ruleset` | **SET NULL** | The session holds a *pinned snapshot* (D7), so it keeps playing; what is lost is provenance, not rules |
+| `session_member.session_id` | CASCADE | A membership of a session that no longer exists grants nothing |
+| `session_invite.session_id` | CASCADE | Same |
+| `character.session_id` | CASCADE | Characters are created per session (CHAR-04); the game is the unit |
+| `event.session_id` | CASCADE | An event about a deleted session describes nothing |
+
 ## What lands here, and when
 
 | Ticket | What it adds |
 |---|---|
 | SRV-01 | `entry.ts`, `env.ts`, `http/` (pipeline, `AppError`, the route table), `routes/health` ✅ |
-| DB-01 | `db/`, the Drizzle schema, the migration runner |
+| DB-01 | `db/` (connection, schema, migrations), `repositories/` ✅ |
 | AUTH-01–04 | `auth/`, the session and authorization guards |
 | RUL/GAM/PLY/DM | `repositories/` and `routes/` per resource |
 | LIVE-01–03 | `ws/` — rooms, fan-out, presence |

@@ -76,22 +76,29 @@ describe('the server environment', () => {
   });
 
   describe('readEnv', () => {
+    /** The smallest complete environment — everything required and nothing else */
+    const complete = { DATABASE_URL: './data/app.db' };
+
     it('defaults an unset NODE_ENV to development rather than guessing production', () => {
-      expect(readEnv({})).toEqual({ nodeEnv: NODE_ENV.DEVELOPMENT });
+      expect(readEnv(complete)).toEqual({
+        nodeEnv: NODE_ENV.DEVELOPMENT,
+        databaseUrl: './data/app.db',
+      });
     });
 
     it('reads a NODE_ENV it understands', () => {
-      expect(readEnv({ NODE_ENV: 'production' })).toEqual({ nodeEnv: NODE_ENV.PRODUCTION });
+      expect(readEnv({ ...complete, NODE_ENV: 'production' }).nodeEnv).toBe(NODE_ENV.PRODUCTION);
     });
 
     it('falls back rather than throwing on a NODE_ENV it does not understand', () => {
       // A misspelled build name should not stop the server; a *missing required* variable should
-      expect(readEnv({ NODE_ENV: 'staging' }).nodeEnv).toBe(NODE_ENV.DEVELOPMENT);
+      expect(readEnv({ ...complete, NODE_ENV: 'staging' }).nodeEnv).toBe(NODE_ENV.DEVELOPMENT);
     });
 
-    it('reads today with nothing set, because nothing is required yet', () => {
-      // TICKET-DB-01 adds DATABASE_URL as the first required variable and this becomes a throw
-      expect(() => readEnv({})).not.toThrow();
+    it('refuses an environment with no DATABASE_URL rather than defaulting to a file', () => {
+      // Guessing a path here would create an empty database somewhere nobody backs up
+      expect(() => readEnv({})).toThrow(MissingEnvironmentError);
+      expect(() => readEnv({})).toThrow(/DATABASE_URL/);
     });
   });
 
@@ -112,11 +119,19 @@ describe('the server environment', () => {
     });
 
     it('says of each whether it is required and what it is for', () => {
-      for (const [key, variable] of Object.entries(ENV_VARIABLES)) {
-        const comment = example.slice(0, example.indexOf(`${key}=`));
+      const lines = example.split(/\r?\n/);
 
-        expect(comment, `${key} has no comment`).toContain(key);
-        expect(comment, `${key} does not say required/optional`).toMatch(/required|optional/);
+      for (const [key, variable] of Object.entries(ENV_VARIABLES)) {
+        // The contiguous comment block directly above the assignment, and nothing else — a loose
+        // "somewhere earlier in the file" check would let one variable's comment vouch for another
+        const at = lines.findIndex((line) => line.startsWith(`${key}=`));
+        const block: string[] = [];
+        for (let i = at - 1; i >= 0 && lines[i].startsWith('#'); i--) block.unshift(lines[i]);
+        const comment = block.join('\n');
+
+        expect(at, `${key} is not in .env.example`).toBeGreaterThan(-1);
+        expect(comment, `${key} has no comment of its own`).toContain(key);
+        expect(comment, `${key} does not say required/optional`).toMatch(/required|optional/i);
         expect(variable.description.length, `${key} has no description`).toBeGreaterThan(0);
       }
     });

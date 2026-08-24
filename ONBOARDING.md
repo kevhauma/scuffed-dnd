@@ -99,11 +99,16 @@ the engine resolves it.
 git clone <repo-url>
 cd scuffed-dnd
 yarn install
-cp .env.example .env                  # optional today — nothing is required yet, but it is where
-                                      # server settings go, and `yarn dev` loads it
+cp .env.example .env                  # REQUIRED — the server refuses to start without
+                                      # DATABASE_URL, and `yarn dev` loads this file
 git config core.hooksPath .githooks   # enables the pre-commit lint/format gate — do not skip
 yarn dev                              # app AND API on http://localhost:3000 — one process
 ```
+
+The defaults in `.env.example` work as they are; `./data/app.db` is created and migrated on the
+first request, and `data/` is gitignored. If you skip this step the server answers every request
+with `MissingEnvironmentError: … DATABASE_URL`, which is deliberate — a server that cannot find its
+database should say so at start-up rather than at the first write.
 
 Then verify your setup by running the checks the project lives by:
 
