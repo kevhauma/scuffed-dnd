@@ -6,9 +6,15 @@ description: Persistence and data-shape reference for Custom DnD Builder — the
 # Data Model (TypeScript types + LocalStorage)
 
 There is no database and no backend. Two JSON blobs in LocalStorage hold everything, and the
-type definitions in [src/types/](../../../src/types/) are the schema. Read
-[config.ts](../../../src/types/config.ts) and [character.ts](../../../src/types/character.ts)
+type definitions in [src/shared/types/](../../../src/shared/types/) are the schema. Read
+[config.ts](../../../src/shared/types/config.ts) and [character.ts](../../../src/shared/types/character.ts)
 directly — this skill covers the rules, not a copy of the fields.
+
+The types live in `shared/` since TICKET-DX-07 because they are the **Kernel**: one definition of
+a persisted shape, imported as `#shared/types/config` by the client today and by `src/server/`
+from TICKET-SRV-01 on. Everything about persistence below is the *local-mode* story, and v3.0's
+D6 keeps it exactly as it is — LocalStorage stays the source of truth for a signed-out browser,
+not a cache and not a staging area.
 
 ## Storage
 
@@ -28,7 +34,7 @@ persists its whole in-memory ruleset over whatever the first tab wrote. That is 
 single-user browser app rather than overlooked — making it safe means a `storage` listener that
 rehydrates both stores, and that is a ticket, not a footnote.
 
-All access goes through [src/services/storage.ts](../../../src/services/storage.ts). It wraps
+All access goes through [src/client/services/storage.ts](../../../src/client/services/storage.ts). It wraps
 `JSON.stringify`/`parse` and normalizes failures into `StorageError`, `StorageQuotaError`, and
 `StorageParseError`. **Components, hooks, and engine code never touch `localStorage` directly,
 and never call the storage service directly either** — they go through the store, which persists
@@ -47,7 +53,7 @@ plus the entity arrays — `stats`, `skills`,
 [{ statId, weight }], category? }`. It replaced v1's `SpecialitySkill` outright — no `code`, no
 `maxBaseLevel`, no `bonusFormula`. The arithmetic is not per-skill any more: `level = Σ(weight ×
 stat value) + invested` and `bonus = round(level / const.bonus_divider)` live once, in
-[skillCalculator.ts](../../../src/engine/calculators/skillCalculator.ts), so a global rebalance is
+[skillCalculator.ts](../../../src/shared/engine/calculators/skillCalculator.ts), so a global rebalance is
 one constant rather than 48 formula edits. A weight row names a stat by **id**, so a rename cannot
 orphan it, and a formula reaches a skill as `skills.<name-slug>` (`.bonus` for the integer).
 
@@ -56,7 +62,7 @@ copy: **absent means none and stays absent**, so a ruleset written before TICKET
 without growing an empty array; every reader writes `config.constants ?? []`.
 
 **A field that is retired is refused, not ignored** (TICKET-RES-02). `RETIRED_FIELDS` in
-[importExport.ts](../../../src/services/importExport.ts) maps each removed key to what replaced it,
+[importExport.ts](../../../src/shared/services/importExport.ts) maps each removed key to what replaced it,
 and `validateConfigurationShape()` errors when an imported file still carries one — importing a ruleset
 that plays differently from the one the User exported is worse than refusing it. Add to that map
 when you delete a persisted field, and bump `SUPPORTED_SCHEMA_VERSION` in the same change.
@@ -103,7 +109,7 @@ is readable by both builds, so `archetypes?` and `archetypeId?` shipped at versi
 optional `Configuration.diceLadders`. Four things to know:
 
 - **`dieSizes` is arbitrary and strictly descending** — a d100 is data. Descending is what makes the
-  greedy walk in [diceLadder.ts](../../../src/engine/dice/diceLadder.ts) mean anything, so
+  greedy walk in [diceLadder.ts](../../../src/shared/engine/dice/diceLadder.ts) mean anything, so
   `engine/validator.ts` errors on a ladder that is not, on a non-positive size, and on a
   `maxPerDie` that would allow no dice. A large smallest die is *information*, not a defect.
 - **`name` is free text, not an identifier.** Unlike a constant or a curve, a ladder is never
@@ -152,13 +158,13 @@ Race blocks are the composition's **`base` term** and they **blend, never stack*
 one race is its own block, two are `roundup((a + b) / const.race_blend_divisor)` per stat, and a
 stat one block omits is a real 0 in that average. `Character.raceIds` therefore holds **at most 2**
 — `createCharacter` returns `null` and `updateCharacter` no-ops past that, and `MAX_RACE_COUNT` in
-[statCalculator.ts](../../../src/engine/calculators/statCalculator.ts) is the one place the number
+[statCalculator.ts](../../../src/shared/engine/calculators/statCalculator.ts) is the one place the number
 is written. Never re-derive a race contribution in a component: call `calculateRaceStatBases`, the
 same function the composition calls.
 
 **`schemaVersion` is the clean break** (TICKET-STAT-01, TICKET-IO-03). v1 files have no such key,
 which is exactly how they are recognised. The number itself lives in
-[types/config.ts](../../../src/types/config.ts) as `SUPPORTED_SCHEMA_VERSION` — not in either
+[types/config.ts](../../../src/shared/types/config.ts) as `SUPPORTED_SCHEMA_VERSION` — not in either
 service, so both gate on the same value and `createFreshConfiguration` writes it rather than a
 literal. v1's focus stat, spend-derived level and speciality base levels have no faithful mapping
 into v2, so a conversion would invent a ruleset nobody authored.
@@ -180,7 +186,7 @@ The refusal has three surfaces, and they behave differently on purpose:
 | Path | What happens |
 |---|---|
 | **Load** (`loadConfiguration()`, and `loadCharacters()` since CR-05) | throws `StorageSchemaError`; **nothing is loaded and nothing is deleted**. `useAppHydration` turns it into `incompatibleData`, and `RootLayout` renders `IncompatibleDataNotice` *instead of* the routes — so no route can mint a fresh ruleset and save it over the old data. |
-| **Backup** | `downloadStoredBackup()` in `importExport.ts` reads `readStoredSnapshot()` and splices both raw strings into one envelope by concatenation, so the file's bytes are the stored bytes; a blob that does not parse is embedded as a JSON string instead. |
+| **Backup** | `downloadStoredBackup()` in `client/services/configFiles.ts` reads `readStoredSnapshot()` and splices both raw strings into one envelope by concatenation, so the file's bytes are the stored bytes; a blob that does not parse is embedded as a JSON string instead. |
 | **Start fresh** | `useConfigStore.discardStoredData()` — the **only** path that calls `clearAllData()`. It clears both keys, empties both stores, and writes no replacement. |
 | **Import** (`importConfiguration()`) | throws `SchemaVersionError` *before* `validateConfigurationShape()` runs, so a v1 file gets one version sentence rather than a field-by-field report. |
 
@@ -259,8 +265,9 @@ Identity rules that the rest of the app depends on:
   note.)
 - **A persisted formula is id-resolved.** What the User writes and what is stored are two forms
   of the same expression: `STR + DEX` in display form, `[id-str] + [id-dex]` in stored form. The
-  translation lives in [engine/formula/references.ts](../../../src/engine/formula/references.ts)
-  and is applied at exactly two places — `services/storage.ts` and `services/importExport.ts`, so
+  translation lives in [engine/formula/references.ts](../../../src/shared/engine/formula/references.ts)
+  and is applied at exactly two places — `client/services/storage.ts` and
+  `shared/services/importExport.ts`, so
   everything above them (stores, engine, components) works in display form only. **Formula strings
   are the only reference-carrying fields left**: a race's stat block (TICKET-RACE-01) and a
   material tier's modifiers (TICKET-MAT-01) hold stat ids, so `references.ts` translates neither.
@@ -286,7 +293,7 @@ Identity rules that the rest of the app depends on:
 - **Deletion is reference-checked in the store action** (TICKET-REF-02). Every `deleteX` returns
   `EntityReference[]`: non-empty means it refused and that is what points at the entity; empty
   means it deleted. `{ force: true }` overrides. The walker is
-  [engine/dependencies.ts](../../../src/engine/dependencies.ts) — pure over `(target, config,
+  [engine/dependencies.ts](../../../src/shared/engine/dependencies.ts) — pure over `(target, config,
   characters)`, so characters count as references (`raceIds`, inventories, allocations, current
   stat values). Panels render the returned list via `config/shared/BlockedDeleteDialog`; **no
   component derives references to decide whether a delete is safe** — that judgement is the store
@@ -315,8 +322,8 @@ changed; what changed is what the number means, so never read an entry as a stat
 
 **Derived values are never persisted.** Composed stat values, the stat total, skill levels and
 bonuses, roll inputs, and equipment bonuses are computed on demand from
-`src/engine/`. `calculateCharacter(character, config)` in
-[calculator.ts](../../../src/engine/calculator.ts) is the single entry point that produces a
+`src/shared/engine/`. `calculateCharacter(character, config)` in
+[calculator.ts](../../../src/shared/engine/calculator.ts) is the single entry point that produces a
 `CalculatedCharacter` with every derived field populated; `calculateCharacterStats()` is a thin
 wrapper over it for callers that only want the stat values. **A derived value's *explanation* is
 derived too** — TICKET-SKL-03 added `skillContributions`, one already-multiplied
@@ -331,7 +338,7 @@ its value, which is what v1 got wrong by giving every stat one.
 
 And `experience` (TICKET-RES-01) — stored because nothing else in the app knows it: XP is awarded
 at the table. **`level` derives *from* it**, through a reverse lookup on the `xp_thresholds` curve
-in [characterSummary.ts](../../../src/engine/characterSummary.ts), which is the single definition
+in [characterSummary.ts](../../../src/shared/engine/characterSummary.ts), which is the single definition
 every screen reads. This inverts v1.0, where level was the sum of points spent; the chain now runs
 `XP → level → budget → spend`. `calculateCharacterLevel(character, config)` returns a
 `FormulaResult`, because the curve is User data that can be deleted or set to refuse out-of-range
@@ -339,7 +346,7 @@ input — a level that cannot be read chips rather than showing a confident 1. O
 `awardExperience`/`deductExperience` write it; a deduction below 0 is **refused**, not clamped.
 
 **The point budget closes that chain** (TICKET-RES-02): `validateStatAllocation(character, config)`
-in [skillAllocation.ts](../../../src/engine/skillAllocation.ts) prices the pool as
+in [skillAllocation.ts](../../../src/shared/engine/skillAllocation.ts) prices the pool as
 `level × const.points_per_level` — derived, never stored — and `Configuration.mainSkillPointBudget`
 is gone with its "absent means unlimited". Both money numbers are `FormulaResult`s, so a level that
 cannot be read makes the allocation *invalid* rather than unlimited. Spending post-creation goes
@@ -364,7 +371,7 @@ names.
 a plain number, and a stat that failed contributes nothing to it rather than poisoning it).
 `calculateCharacter` **always returns**: a broken formula poisons its own entry and nothing else
 (Concept 00 §7). Read entries with `numberOr(result, fallback)` or `asNumber(result)` from
-[engine/formula/errors.ts](../../../src/engine/formula/errors.ts) — never `?? 0`, which cannot
+[engine/formula/errors.ts](../../../src/shared/engine/formula/errors.ts) — never `?? 0`, which cannot
 tell an error from a missing key. Errors carry `source` (the owning stat/skill) and `cause` (the
 upstream error), so `describeFormulaError` can render a chain. **Never `numberOr` an error into a
 number the user then sees as authoritative** — surface it, or let the caller show the error.
@@ -418,7 +425,7 @@ concern, so:
 - **The sheet-import corpus moves with the shape.** `docs/imports/` holds one JSON fragment per
   built feature carrying that feature's real data from the source spreadsheet, merged into
   `docs/imports/ducklets.json` by `yarn run sheet:import` and validated by
-  `src/services/sheetImport.test.ts`. A changed entity shape means updating that entity's fragment
+  `src/shared/services/sheetImport.test.ts`. A changed entity shape means updating that entity's fragment
   and regenerating in the same change — see [docs/imports/README.md](../../../docs/imports/README.md).
 
 ## Data flow

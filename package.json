@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "imports": {
-    "#/*": "./src/*"
+    "#shared/*": "./src/shared/*",
+    "#client/*": "./src/client/*",
+    "#server/*": "./src/server/*"
   },
   "scripts": {
     "dev": "vite dev --port 3000",
@@ -13,7 +15,8 @@
     "sheet:import": "node scripts/build-sheet-import.mjs",
     "format": "biome format",
     "lint": "biome lint",
-    "check": "biome check"
+    "arch": "depcruise src --config .dependency-cruiser.mjs",
+    "check": "biome check && yarn run arch"
   },
   "dependencies": {
     "@tanstack/react-devtools": "^0.7.0",
@@ -38,6 +41,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "dependency-cruiser": "^18.2.0",
     "fast-check": "^4.5.3",
     "happy-dom": "^20.7.0",
     "jsdom": "^27.0.0",

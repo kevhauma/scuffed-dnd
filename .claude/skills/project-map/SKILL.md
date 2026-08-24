@@ -5,15 +5,31 @@ description: Map of the Custom DnD Builder codebase — which route, store, engi
 
 # Project Map
 
-`src/` is layered bottom-up. Each layer may import from the ones above it in this list, never below:
+`src/` has exactly **three roots** (TICKET-DX-07, v3.0 D14). `client/` and `server/` may each
+import `shared/` and nothing of each other; `shared/` imports neither:
 
 ```
-types/       pure type definitions, no runtime code
-engine/      formula parser/evaluator/validator + the derived-value calculators
-services/    LocalStorage persistence, JSON import/export
-stores/      Zustand: configStore, characterStore, uiStore
-components/  ui/ (base primitives) → config/, play/, shared/ (feature components)
-routes/      TanStack Router file-based routes
+src/
+  shared/    the Kernel — types/, engine/, and the pure half of services/. Pure.
+  client/    components/, routes/, stores/, the browser half of services/, styles.css
+  server/    the backend. Empty until TICKET-SRV-01; see its README for what lands there
+```
+
+A crossing is spelled with its alias — `#shared/…`, `#client/…`, `#server/…`, never `../../` —
+and `.dependency-cruiser.mjs` refuses the rest in `yarn run check` and the pre-commit hook.
+`architecture/boundaries.test.ts` proves each rule against a module that breaks it.
+
+**Within** a root the layering is unchanged and still bottom-up — each layer may import from the
+ones above it in this list, never below:
+
+```
+shared/types/       pure type definitions, no runtime code
+shared/engine/      formula parser/evaluator/validator + the derived-value calculators
+shared/services/    shape validation, import semantics, serialisation — no browser APIs
+client/services/    LocalStorage persistence, Blob/File download and upload
+client/stores/      Zustand: configStore, characterStore, uiStore
+client/components/  ui/ (base primitives) → config/, play/, shared/ (feature components)
+client/routes/      TanStack Router file-based routes
 ```
 
 This file is hand-maintained and describes a moving codebase. Where it points at a barrel or a
@@ -22,8 +38,8 @@ this map is the index.
 
 ## Routes
 
-File-based via TanStack Router; `src/routeTree.gen.ts` is **generated — never edit it**.
-`src/router.tsx` creates the router, `src/routes/__root.tsx` is the shell (nav + mode switcher).
+File-based via TanStack Router; `src/client/routeTree.gen.ts` is **generated — never edit it**.
+`src/client/router.tsx` creates the router, `src/client/routes/__root.tsx` is the shell (nav + mode switcher).
 `RootLayout` there is **the app's only hydration point** — it calls `useAppHydration()`
 (`components/shared/`), which restores both persisted stores once per page load. It renders
 **instead of** the `<Outlet />` in two cases: `StorageNotice` when LocalStorage is unavailable,
@@ -68,11 +84,17 @@ Two things to know about route files here:
   import Vitest cannot resolve, and TanStack Start omits `autoCodeSplitting` from its accepted
   router config, so importing the named export is the only way to test a route component. See
   `routes/config/configRoutes.test.tsx`.
-- Colocated route tests work because `vite.config.ts` passes
-  `tanstackStart({ router: { routeFileIgnorePattern: '\\.test\\.tsx?$' } })`; without it the route
-  generator warns that the test file exports no `Route`.
+- `vite.config.ts` passes
+  `tanstackStart({ srcDirectory: 'src/client', router: { routeFileIgnorePattern: '\\.test\\.tsx?$' } })`.
+  **`srcDirectory` is the client root, not `src/`** (TICKET-DX-07) — it is what moves the router
+  entry, the routes directory and the generated tree together, and what keeps `src/server/` out of
+  the generator's reach by construction. `routeFileIgnorePattern` is why colocated route tests
+  work; without it the generator warns that the test file exports no `Route`.
+- `.fallowrc.jsonc` re-declares the same three paths as fallow entry points, because fallow's
+  TanStack Router plugin finds routes by the *default* convention and would otherwise call the
+  whole route tree dead.
 
-## Stores (`src/stores/`)
+## Stores (`src/client/stores/`)
 
 Three plain Zustand stores, each with a colocated `*.test.ts`. They are the only place that
 calls the storage service; components and hooks never persist directly.
@@ -87,7 +109,7 @@ calls the storage service; components and hooks never persist directly.
 Read the store's own type block (`ConfigState`, `CharacterState`, `UIState`) for the exact action
 list — it changes more often than this table.
 
-## Engine (`src/engine/`)
+## Engine (`src/shared/engine/`)
 
 Pure functions, no React, no storage. Every user-authored number in the app resolves here.
 
@@ -288,24 +310,42 @@ per-die results, flat, total, notation) because the point of the ladder is that 
 visible. `DieRollResult` lives there too, keyed by **size**: `types/` cannot import from `engine/`,
 and a d100 is data. Don't reintroduce a second one.
 
-### `engine/golden/` — the parity gate (TICKET-DX-04)
+### The parity gate (TICKET-DX-04), across two roots since DX-07
 
-Test infrastructure, not engine code, and the only folder under `engine/` that is. It holds every
-✅-confirmed derivation from the concept pages as citation-carrying data and runs the real engine
-over the real `docs/imports/` corpus. Read
-[its README](../../../src/engine/golden/README.md) before touching it — especially the rule that a
-failing fixture is never fixed by editing the fixture.
+Every ✅-confirmed derivation from the concept pages, as citation-carrying data, run through the
+real engine over the real `docs/imports/` corpus. Read
+[its README](../../../src/shared/engine/golden/README.md) before touching it — especially the rule
+that a failing fixture is never fixed by editing the fixture.
 
-- `fixtures.ts` — the rows (`GoldenFixture` + one interface per group, `describeCitation`).
-  **Imports types only**, deliberately, so it stays inside the layering.
-- `golden.test.ts` — the suite, **plus the sample ruleset/character builder**, which lives here
-  rather than beside the fixtures because it reaches `importConfiguration` and both stores and
-  `engine/` is pure. Adding a coverage group is a new array in `fixtures.ts` and one `describe`.
+- `shared/engine/golden/fixtures.ts` — the rows (`GoldenFixture` + one interface per group,
+  `describeCitation`). **Imports types only**, deliberately, so it stays inside the layering and
+  inside the Kernel.
+- `client/integration/golden.test.ts` — the suite, **plus the sample ruleset/character builder**.
+  It lives in `client/` because it drives both Zustand stores, and the Kernel may not import its
+  callers; before DX-07 the same fact was a comment in its header. Adding a coverage group is a new
+  array in `fixtures.ts` and one `describe`.
+- `client/integration/integration.test.ts` — the other nothing-mocked suite: real stores, real
+  storage, real `localStorage`, real engine.
 
-## Services (`src/services/`)
+## Services — split across two roots (TICKET-DX-07)
 
-Both service modules are the **reference-form boundary** (TICKET-REF-01): what they write holds
-id-resolved references, what they hand back holds the ruleset's current spellings.
+All three modules are the **reference-form boundary** (TICKET-REF-01): what they write holds
+id-resolved references, what they hand back holds the ruleset's current spellings. The seam
+between the roots is exactly *"does this touch a browser API"*.
+
+**`src/shared/services/` — pure, and the server reuses it verbatim:**
+
+- `importExport.ts` — `serializeConfiguration` (Configuration → JSON text),
+  `validateConfigurationShape` (shape check on untrusted JSON, returns `ValidationResult`),
+  `importConfiguration` (parse → version gate → validate → display form), plus the
+  `ImportExportError` / `ValidationError` / `SchemaVersionError` classes and the retired-field
+  table. The `Shape` suffix (CR-21) separates it from `engine/validator.ts`'s
+  `validateConfiguration`, which checks *referential integrity of a loaded config*. Complementary,
+  both run on an import.
+- `importExport.fixtures.ts` — `makeValidConfiguration()`, the one ruleset both halves' tests are
+  written against.
+
+**`src/client/services/` — browser-only:**
 
 - `storage.ts` — LocalStorage keys `dnd_builder_config` and `dnd_builder_characters` (the
   never-written `dnd_builder_ui_state` went in CR-39);
@@ -314,22 +354,20 @@ id-resolved references, what they hand back holds the ruleset's current spelling
   that works on data this build cannot open (TICKET-IO-03) — and the `StorageError` /
   `StorageQuotaError` / `StorageParseError` / `StorageSchemaError` classes.
   See the **data-model** skill.
-- `importExport.ts` — `exportConfiguration` (Blob), `downloadConfiguration`,
-  `downloadStoredBackup` (the raw-bytes backup behind `IncompatibleDataNotice`),
-  `validateConfigurationShape` (shape check on untrusted JSON, returns `ValidationResult`),
-  `importConfiguration`, plus the `ValidationError` / `SchemaVersionError` classes.
-  The `Shape` suffix (CR-21) separates it from `engine/validator.ts`'s `validateConfiguration`,
-  which checks *referential integrity of a loaded config*. Complementary, both run on an import.
+- `configFiles.ts` — `exportConfiguration` (Blob), `downloadConfiguration`,
+  `downloadStoredBackup` (the raw-bytes backup behind `IncompatibleDataNotice`), and
+  `importConfigurationFromFile`. Thin: every one of them calls the shared half for the actual
+  reasoning and only owns the `Blob`, the anchor and the `File`.
 
 ## Scripts (`scripts/`)
 
 Node-only tooling, outside the app bundle. `build-sheet-import.mjs` (plus a hand-written
 `.d.mts` so the test can import it under `tsc`) merges the per-feature fragments in `docs/imports/`
 into `docs/imports/ducklets.json` — `yarn run sheet:import`.
-`src/services/sheetImport.test.ts` re-runs that merge in the suite and fails on drift. See
+`src/shared/services/sheetImport.test.ts` re-runs that merge in the suite and fails on drift. See
 [docs/imports/README.md](../../../docs/imports/README.md).
 
-## Components (`src/components/`)
+## Components (`src/client/components/`)
 
 **`ui/` — base primitives.** One folder per component holding `Name.tsx`, `Name.style.ts`,
 `Name.test.tsx`. Current set: Button, Input, Select, Textarea, Checkbox, Card, Label, Text,

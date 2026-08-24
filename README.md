@@ -7,33 +7,33 @@ is organised, setup steps, and the rules every change must follow.
 
 ## Project Structure
 
+`src/` has exactly three roots. `client/` and `server/` may each import `shared/` and nothing of
+each other; `shared/` imports neither. Crossings are spelled `#shared/…`, `#client/…`, `#server/…`,
+and `yarn run check` refuses the rest.
+
 ```
 src/
-├── routes/                    # TanStack Router file-based routes
-│   ├── __root.tsx            # Root layout with mode switcher
-│   ├── index.tsx             # Landing page
-│   ├── config/               # Configuration mode routes
-│   │   ├── index.tsx         # Config dashboard
-│   │   ├── skills.tsx        # Main/Speciality/Combat skills
-│   │   ├── stats.tsx         # Stats configuration
-│   │   ├── materials.tsx     # Materials and categories
-│   │   ├── items.tsx         # Items and equipment slots
-│   │   ├── races.tsx         # Race configuration
-│   │   └── currency.tsx      # Currency tiers
-│   └── play/                 # Play mode routes
-│       ├── index.tsx         # Character list
-│       ├── character.$id.tsx # Character sheet
-│       └── create.tsx        # Character creation
-├── stores/                   # Zustand state stores
-├── engine/                   # Core logic
-│   └── formula/             # Formula engine
-├── services/                # External interactions
-├── components/              # Reusable UI components
-│   ├── config/             # Configuration components
-│   ├── play/               # Play mode components
-│   └── shared/             # Shared components
-├── types/                   # TypeScript type definitions
-└── utils/                   # Utility functions
+├── shared/                       # The Kernel — pure, imported by both sides
+│   ├── types/                    # TypeScript type definitions (the schema)
+│   ├── engine/                   # Formula engine, calculators, dice, validation
+│   │   ├── formula/              # Parser, evaluator, references, scoping
+│   │   ├── calculators/          # Stats, skills, rolls, equipment, point buy
+│   │   └── golden/               # Parity fixtures from the source spreadsheet
+│   └── services/                 # Shape validation, import semantics, serialisation
+├── client/                       # The browser app
+│   ├── routes/                   # TanStack Router file-based routes
+│   │   ├── __root.tsx            # Root layout with mode switcher
+│   │   ├── index.tsx             # Landing page
+│   │   ├── config/               # Configuration mode routes
+│   │   └── play/                 # Play mode routes
+│   ├── stores/                   # Zustand state stores
+│   ├── services/                 # LocalStorage, Blob/File download and upload
+│   ├── components/               # ui/ primitives → config/, play/, shared/
+│   ├── integration/              # The nothing-mocked suites
+│   ├── router.tsx                # Router creation
+│   ├── routeTree.gen.ts          # Generated — never hand-edit
+│   └── styles.css                # Tailwind v4 + the medieval theme
+└── server/                       # The backend — see src/server/README.md
 ```
 
 ## Technology Stack
@@ -109,7 +109,7 @@ instead of re-exploring the codebase, and are updated by the ticket that changes
 
 ## Development
 
-The application uses file-based routing with TanStack Router. Routes are automatically generated from the `src/routes/` directory structure.
+The application uses file-based routing with TanStack Router. Routes are automatically generated from the `src/client/routes/` directory structure.
 
 All data persists in browser LocalStorage with import/export capabilities for sharing configurations.
 

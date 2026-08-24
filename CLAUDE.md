@@ -16,7 +16,8 @@ yarn run sheet:import   # rebuild docs/imports/ducklets.json from the per-featur
 npx vitest run <path>   # one test file
 npx tsc --noEmit    # typecheck
 yarn run lint       # biome lint
-yarn run check      # biome lint + format + import sorting
+yarn run arch       # dependency-cruiser: the three-root boundary
+yarn run check      # biome lint + format + import sorting, then yarn run arch
 ```
 
 `yarn check` does **not** run the check script — Yarn v1's builtin shadows it and only verifies
@@ -51,6 +52,7 @@ it back into `vite.config.ts`; TEST_STATUS.md has the evidence.
 | Coding conventions (layering, components, stores, styling, testing) | `.claude/skills/coding-conventions/SKILL.md` |
 | Persisted shapes, LocalStorage keys, derived-vs-stored values, migrations | `.claude/skills/data-model/SKILL.md` |
 | Route/store/engine/component map — what lives where | `.claude/skills/project-map/SKILL.md` |
+| The three-root boundary, and how each rule is proven | `architecture/README.md` + `src/server/README.md` |
 | Numbered requirements + EARS acceptance criteria + glossary | `docs/v1.0_foundation/requirements.md` |
 | Architecture, component-library contracts, medieval theme | `docs/v1.0_foundation/design.md` |
 | What's built, what's next, in build order | `docs/v1.0_foundation/overview.md` |
@@ -113,7 +115,7 @@ acceptance criteria.
   `Set-Content`, `Out-File`, a throwaway Python/Node script). Same for reading and searching: Read,
   Glob, and Grep instead of `cat`/`head`/`find`/`rg`. The shell is for running commands — tests,
   typecheck, lint, git, yarn — not for authoring files.
-- **`src/routeTree.gen.ts` is generated** — never hand-edit it.
+- **`src/client/routeTree.gen.ts` is generated** — never hand-edit it.
 - **A stat's `abbreviation` and the combat skill `code`s share one flat formula namespace and must
   be unique across both** (TICKET-STAT-01 merged `MainSkill` into `Stat`). Combat codes are 3
   letters; a stat abbreviation is an uppercase identifier. **A `Skill` is not in that space** — it
@@ -129,8 +131,16 @@ acceptance criteria.
   The load-bearing pair: extend `ConfigPanelShell` through `headerExtra` and children rather than
   adding a prop named after one caller, and introduce no abstraction, option, or flag before its
   **third** caller exists.
-- New barrels use `export *`; imports are relative (the `#/*` alias exists but is unused — don't
-  half-adopt it).
+- **`src/` has exactly three roots, and the boundary between them is checked** (TICKET-DX-07):
+  `shared/` is the Kernel — `types/`, `engine/` and the pure half of `services/`, importing neither
+  sibling; `client/` and `server/` may each import `shared/` and **nothing of each other**. A rule
+  both sides need lives in `shared/`. `.dependency-cruiser.mjs` enforces it in `yarn run check` and
+  the pre-commit hook, `architecture/boundaries.test.ts` proves each rule against a module that
+  breaks it, and the client build fails on any `src/server/` module in its emitted chunks.
+- New barrels use `export *`. Imports are **relative within a root** and **aliased across one** —
+  `#shared/…`, `#client/…`, `#server/…`, never `../../shared/…`. This reverses the old "the `#/*`
+  alias exists but is unused" line; the three aliases are fully adopted, and a crossing spelled
+  with `../` is a dependency-cruiser error.
 - No new runtime dependencies without asking. The app stays browser-only.
 - **Formatting is settled and enforced** (TICKET-DX-02): `biome.json` is space/2, single quotes,
   `lineWidth` 100, es5 trailing commas — the style the code was already written in. The tree was

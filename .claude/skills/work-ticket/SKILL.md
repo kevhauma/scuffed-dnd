@@ -61,7 +61,7 @@ routes or UI are touched. Respect the hard rules while planning:
   hand-rolled evaluation.
 - Theme tokens only (`parchment-*`, `ink-*`, `stone-*`, `crimson`, `forest`, `royal`, `amber`,
   `font-heading`/`font-body`, `shadow-parchment*`) — no raw hex, no stock Tailwind palette.
-- `src/routeTree.gen.ts` is generated — never hand-edit it.
+- `src/client/routeTree.gen.ts` is generated — never hand-edit it.
 - A closed set of string values is a `as const` object with the type derived from it, and call
   sites reference the constant — **no new bare `'a' | 'b' | 'c'` type.**
 - **SOLID and KISS**, as the **react-conventions** skill spells them out for this codebase: one
@@ -142,7 +142,7 @@ envelope and the rules before writing one.
 - **Pure engine or UI ticket that touches no persisted shape** → nothing to do here; say so.
 
 Then `yarn run sheet:import` and commit the regenerated `ducklets.json` alongside the fragment.
-`npx vitest run src/services/sheetImport.test.ts` is the check — it fails if the merge is stale or
+`npx vitest run src/shared/services/sheetImport.test.ts` is the check — it fails if the merge is stale or
 the corpus no longer imports.
 
 ## Step 6 — Check off the story (only when ALL criteria are `[x]`)

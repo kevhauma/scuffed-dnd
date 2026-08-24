@@ -38,7 +38,7 @@ There is **no server, no database, no account system**. Everything lives in the 
 LocalStorage, and rulesets travel between browsers as exported JSON files. This is a feature, not
 a shortcut — it keeps the app free to host, private by default, and usable offline. It also shapes
 the code: "persistence" here means two JSON blobs in LocalStorage, and the TypeScript types in
-`src/types/` *are* the schema.
+`src/shared/types/` *are* the schema.
 
 ---
 
@@ -108,40 +108,64 @@ yarn run test            # full test suite, single pass
 npx vitest run <path>    # one test file
 npx tsc --noEmit         # typecheck
 yarn run lint            # biome lint only
-yarn run check           # biome lint + format + import sorting
-yarn build               # production build
+yarn run arch            # dependency-cruiser: the three-root boundary
+yarn run check           # biome lint + format + import sorting, then yarn run arch
+yarn build               # production build (fails if a server module reached the client bundle)
 ```
 
 ---
 
 ## 4. How the code works
 
-### The layer cake
+### Three roots
 
-`src/` is layered bottom-up, and **imports only ever point upward** in this list — engine code
-never imports a store, a store never imports a component:
+`src/` has exactly three top-level areas, and the frontend is *inside* one of them:
 
 ```
-types/       Pure TypeScript type definitions. No runtime code. This is the "schema".
-engine/      Pure functions: the formula parser/evaluator/validator, the derived-value
-             calculators, dice rolling, config validation. No React, no storage.
-services/    LocalStorage persistence (storage.ts) and JSON import/export (importExport.ts).
-stores/      Zustand state: configStore, characterStore, uiStore. The ONLY layer that
-             calls the storage service.
-components/  ui/ (base primitives) → config/, play/, shared/ (feature components).
-routes/      TanStack Router file-based routes. Thin: render a feature component, pass params.
+src/
+  shared/    The Kernel. Pure — no React, no storage, no network. Imports neither sibling.
+  client/    The browser app: components, routes, stores, browser-only services, styles.
+  server/    The backend. Empty until TICKET-SRV-01; read src/server/README.md.
+```
+
+**The rule is symmetric and mechanical**: `client/` and `server/` may each import `shared/` and
+**nothing of each other**. A rule both sides need lives in `shared/`, written once. Crossings are
+spelled with an alias — `#shared/engine/calculator` — never `../../shared/…`, so a violation is
+visible at the import line. `.dependency-cruiser.mjs` enforces it in `yarn run check` and the
+pre-commit hook; `architecture/boundaries.test.ts` proves each rule against a module that breaks
+it; and the client build fails on any `src/server/` module in its emitted chunks, because *that*
+failure leaks a secret rather than producing an untidy diagram.
+
+### The layer cake
+
+**Within** a root, the layering is bottom-up and **imports only ever point upward** in this list —
+engine code never imports a store, a store never imports a component:
+
+```
+shared/types/       Pure TypeScript type definitions. No runtime code. This is the "schema".
+shared/engine/      Pure functions: the formula parser/evaluator/validator, the derived-value
+                    calculators, dice rolling, config validation. No React, no storage.
+shared/services/    Shape validation, import semantics, serialisation (importExport.ts).
+                    No browser APIs — the server reuses this half verbatim.
+client/services/    LocalStorage persistence (storage.ts), Blob/File download and upload
+                    (configFiles.ts). Browser-only, by definition.
+client/stores/      Zustand state: configStore, characterStore, uiStore. The ONLY layer that
+                    calls the storage service.
+client/components/  ui/ (base primitives) → config/, play/, shared/ (feature components).
+client/routes/      TanStack Router file-based routes. Thin: render a feature component, pass
+                    params.
 ```
 
 ### Data flow, end to end
 
-1. **App start** — `RootLayout` (in `src/routes/__root.tsx`) calls `useAppHydration()`, which
+1. **App start** — `RootLayout` (in `src/client/routes/__root.tsx`) calls `useAppHydration()`, which
    restores both persisted stores from LocalStorage once per page load. Nothing else reads
    storage at startup.
 2. **The User edits the ruleset** — a config panel's hook calls a `useConfigStore` action → the
    action patches state **and** calls `saveConfiguration()` in the same action.
 3. **The Player edits a character** — same shape via `useCharacterStore` → `saveCharacters()`.
 4. **Anything shown as a number** — the component calls
-   `calculateCharacter(character, config)` from `src/engine/calculator.ts` at render time. That
+   `calculateCharacter(character, config)` from `src/shared/engine/calculator.ts` at render time. That
    one entry point composes all the calculators (equipment → main skills → stats → speciality →
    combat) and returns a `CalculatedCharacter`.
 5. **Sharing** — export writes the `Configuration` to a JSON file; import validates the file's
@@ -149,11 +173,11 @@ routes/      TanStack Router file-based routes. Thin: render a feature component
    (`engine/validator.ts`) and reports problems so the User can repair them in-app.
 
 Two LocalStorage keys hold everything: `dnd_builder_config` (one `Configuration`) and
-`dnd_builder_characters` (`Character[]`). All access goes through `src/services/storage.ts`.
+`dnd_builder_characters` (`Character[]`). All access goes through `src/client/services/storage.ts`.
 
 ### The formula engine
 
-Every piece of User-authored math flows through `src/engine/formula/`:
+Every piece of User-authored math flows through `src/shared/engine/formula/`:
 `parseFormula` (string → AST) → `validateFormula` (syntax, referenced variables) →
 `evaluateFormula` (AST + variables → number). It supports `+ - * / ^`, parentheses, unary
 negation, numbers, and 3-letter skill-code variables. When a formula is about to be *saved*,
@@ -165,7 +189,7 @@ formula with `String.includes` — ask the parser.
 
 ### The component system
 
-- **Base components** (`src/components/ui/` — Button, Input, Dialog, FormulaEditor, …) carry
+- **Base components** (`src/client/components/ui/` — Button, Input, Dialog, FormulaEditor, …) carry
   *intrinsic styling only*: colors, typography, padding, borders, focus states. They never set
   margin, flex/grid, `position`, z-index, or their own width — layout is always the **caller's**
   job, passed via `className`. A test (`libraryConventions.test.ts`) enforces this mechanically.
@@ -176,18 +200,18 @@ formula with `String.includes` — ask the parser.
   - `XCard.tsx` — renders one entity
   - `XFormDialog.tsx` — add/edit form (`react-hook-form`) in a `Dialog`
   - `useXManager.ts` — the hook holding store selectors, form state, and handlers
-  - Exemplar to copy: `src/components/config/races/` (`useRaceManager.ts`).
-- **Styling** is Tailwind v4 with a custom **medieval theme** defined in `src/styles.css`. Use
+  - Exemplar to copy: `src/client/components/config/races/` (`useRaceManager.ts`).
+- **Styling** is Tailwind v4 with a custom **medieval theme** defined in `src/client/styles.css`. Use
   theme tokens only: `parchment-*`, `ink-*`, `stone-*`, `crimson`, `forest`, `royal`, `amber`,
   `font-heading` / `font-body` / `font-mono`, `shadow-parchment*`. A `bg-blue-500` or a raw hex
   is a bug, full stop. Class strings live in a sibling `Name.style.ts` file, not inline in JSX.
 
 ### Routing
 
-TanStack Router, file-based: files in `src/routes/` become routes. `/config/*` is Configuration
+TanStack Router, file-based: files in `src/client/routes/` become routes. `/config/*` is Configuration
 mode (dashboard, skills, stats, materials, items, races, currency, focus stat); `/play/*` is Play
 mode (character list, creation wizard, character sheet).
-**`src/routeTree.gen.ts` is generated — never edit it by hand.**
+**`src/client/routeTree.gen.ts` is generated — never edit it by hand.**
 
 ---
 
@@ -208,10 +232,10 @@ on every one of them, so internalise them before writing code:
 4. **Base components carry intrinsic styling only; feature components own layout.** See above.
 5. **Medieval theme tokens only.** No stock Tailwind palette, no hex literals. A new shade gets a
    named token in `styles.css`'s `@theme` block first.
-6. **`src/routeTree.gen.ts` is generated** — never hand-edit.
+6. **`src/client/routeTree.gen.ts` is generated** — never hand-edit.
 7. **Skill codes are 3 letters and unique across all skill kinds.**
-8. **Imports are relative**; new barrels use `export *`. (A `#/*` alias exists in `package.json`
-   but is deliberately unused — don't half-adopt it.)
+8. **Imports are relative within a root and aliased across one** — `#shared/…`, `#client/…`,
+   `#server/…`, never `../../shared/…`; new barrels use `export *`.
 9. **No new runtime dependencies without asking.** The app stays browser-only.
 10. **Never fix a failure by weakening the check** — no skipping tests, no suppressing lint to
     get green.
@@ -329,7 +353,7 @@ carrying a user story, the as-is / to-be, and acceptance criteria.
    now recognise everything in it from step 2–3.
 5. Read the three skill docs in `.claude/skills/` (conventions, data model, project map).
 6. Pick one config domain (races is the exemplar) and read its four files top to bottom:
-   panel → card → dialog → hook. Then read `src/engine/calculator.ts` and follow
+   panel → card → dialog → hook. Then read `src/shared/engine/calculator.ts` and follow
    `calculateCharacter` down into one calculator.
 7. Read one closed ticket file end to end to see what "done with evidence" looks like.
 

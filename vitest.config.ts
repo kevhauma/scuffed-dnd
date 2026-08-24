@@ -13,7 +13,7 @@
  * react/react-dom external, and `customViteReactPlugin: true` all fail to fix it — so this is
  * the environment wiring, not plugin order or dependency externalization.
  *
- * Routing still works in tests because `src/routeTree.gen.ts` is committed; nothing in the
+ * Routing still works in tests because `src/client/routeTree.gen.ts` is committed; nothing in the
  * suite needs the route generator to run.
  *
  * `vite.config.ts` keeps `tanstackStart()` and remains the config for `yarn dev` / `yarn build`.

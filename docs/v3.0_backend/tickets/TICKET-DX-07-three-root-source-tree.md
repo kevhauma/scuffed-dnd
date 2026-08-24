@@ -57,29 +57,65 @@ server in the way.
 
 ## Acceptance criteria
 
-- [ ] `src/` contains exactly `shared/`, `client/`, `server/` and the generated route tree's home —
+- [x] `src/` contains exactly `shared/`, `client/`, `server/` and the generated route tree's home —
       no seventh sibling, no leftover top-level module directory.
-- [ ] The suite passes with **the same test count** as before the move, `npx tsc --noEmit` is at the
+      *`ls src` → `client server shared`. `routeTree.gen.ts`, `router.tsx` and `styles.css` moved
+      into `client/` with the routes; the empty `src/utils/` is gone.*
+- [x] The suite passes with **the same test count** as before the move, `npx tsc --noEmit` is at the
       documented baseline, and `yarn run check` is clean — a move that changes a number changed
       behaviour.
-- [ ] dependency-cruiser fails on `client/` → `server/`, on `server/` → `client/`, on `shared/` →
+      *The move landed at exactly **1834**, the pre-move count. The suite now reports **1846**: the
+      12 new cases are this ticket's own checks (8 boundary, 4 server-side Kernel), not the move.
+      `tsc` is at the documented 2 errors, both relocated —
+      [TEST_STATUS.md](../../../TEST_STATUS.md) has the updated paths. `yarn run check` clean.*
+- [x] dependency-cruiser fails on `client/` → `server/`, on `server/` → `client/`, on `shared/` →
       either, and on `server/` reaching anything under `src/` other than `shared/` — each proven by
       a fixture module that violates it, not by trusting the config.
-- [ ] The check runs in `yarn run check` and in the pre-commit hook, so a violation cannot be
+      *[`architecture/boundaries.test.ts`](../../../architecture/boundaries.test.ts) cruises the
+      `boundaryFixtures/` modules with the real rule set. Its last case fails when a rule is added
+      without a fixture, and one fixture is a **legal** crossing asserted to come back clean, so
+      "refuses everything" cannot pass for "enforces the boundary".*
+- [x] The check runs in `yarn run check` and in the pre-commit hook, so a violation cannot be
       committed.
-- [ ] A production build contains no `server/` module — asserted against the built output, since
+      *`"check": "biome check && depcruise src --config .dependency-cruiser.mjs"`; the hook already
+      ran `yarn run check`, so it inherits this with no change to `.githooks/pre-commit`.*
+- [x] A production build contains no `server/` module — asserted against the built output, since
       this is the rule whose failure leaks a secret (v3 Req 50.5).
-- [ ] The pure half of `services/` is importable from `server/` and the browser half is not — proven
+      *[`scripts/no-server-in-client-bundle.mjs`](../../../scripts/no-server-in-client-bundle.mjs)
+      reads the module list Rollup emitted, not the source tree, and fails the client build.
+      Proven by temporarily importing `#server/boundaryFixtures/target` from `router.tsx`:*
+      `[dnd:no-server-in-client-bundle] 1 module(s) from src/server/ reached the client bundle`
+      *— then reverted, and `yarn build` is green.*
+- [x] The pure half of `services/` is importable from `server/` and the browser half is not — proven
       by importing `validateConfigurationShape` from a server-side test and by the boundary rule
       refusing `storage.ts`.
-- [ ] Cross-root relative traversal is gone: no `../../` crosses a root, enforced by rule rather
+      *[`src/server/sharedKernel.test.ts`](../../../src/server/sharedKernel.test.ts) validates,
+      serialises and round-trips a ruleset from the server root;
+      `server/boundaryFixtures/reachesBrowserStorage.ts` imports `#client/services/storage` and
+      `no-server-to-client` refuses it.*
+- [x] Cross-root relative traversal is gone: no `../../` crosses a root, enforced by rule rather
       than by inspection.
-- [ ] `src/routeTree.gen.ts` still regenerates correctly from its new location and is not
+      *Rule `cross-root-imports-use-an-alias`: a crossing into `shared/` whose dependency type is
+      not an alias is an error. Proven by `client/boundaryFixtures/reachesSharedRelatively.ts`,
+      whose *destination* is legal and whose spelling is not.*
+- [x] `src/routeTree.gen.ts` still regenerates correctly from its new location and is not
       hand-edited; a regeneration produces no diff.
-- [ ] [CLAUDE.md](../../../CLAUDE.md), the **project-map** skill and the **data-model** skill are
+      *`tanstackStart({ srcDirectory: 'src/client' })` moves the router entry, the routes directory
+      and the generated tree together. `yarn build` regenerated it in place with no diff.*
+- [x] [CLAUDE.md](../../../CLAUDE.md), the **project-map** skill and the **data-model** skill are
       updated for the new tree, and CLAUDE.md's "the `#/*` alias exists but is unused — don't
       half-adopt it" is replaced by the three aliases now fully adopted.
-- [ ] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions` skill.
+      *Plus ONBOARDING.md, README.md, TEST_STATUS.md, the **coding-conventions** skill, and the
+      golden README — every live document that named a path under the old tree.*
+- [x] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions` skill.
+      *`fallow audit --base HEAD`: `dead_code_introduced: 0`, `complexity_introduced: 0`,
+      `duplication_introduced: 0`. Two findings were real and fixed rather than suppressed —
+      fallow's TanStack Router plugin lost the routes when they moved (fixed by
+      [`.fallowrc.jsonc`](../../../.fallowrc.jsonc)'s `entry`, so a genuinely dead route file is
+      still a finding), and `generateBundle` breached the CRAP threshold (extracted
+      `bundledModuleIds`). The remaining `styling_introduced: 4` are `css-token-drift` advisories
+      on `styles.css`, which is **byte-identical** to its pre-move self — fallow attributes them to
+      the new path.*
 
 ## Notes
 
@@ -100,3 +136,35 @@ server in the way.
 - The wider architecture rules — store-owned persistence, repository-owned queries, UI primitives as
   leaves — are **TICKET-DX-08**. This ticket installs the tool and lands the root boundary only, so
   that a failure here is unambiguously about the move.
+
+## What the review changed
+
+The `conventions-reviewer` pass found one real hole and several stale references. Recorded here
+because the first one is the kind of mistake DX-08 could repeat:
+
+- **The fixture exemption was on the wrong axis.** `options.exclude` took the `boundaryFixtures/`
+  modules out of the graph entirely, which stopped them being *violators* and also stopped them
+  being *destinations* — so a real client module importing `#server/boundaryFixtures/target` passed
+  `yarn run check`. Fixed by moving the exemption to `from.pathNot` on every rule, and proven by
+  probe: with the import added to `router.tsx`, `depcruise` now reports
+  `no-client-to-server: src/client/router.tsx → src/server/boundaryFixtures/target.ts`.
+  **The lesson for DX-08: exempt a fixture as a source, never by excluding it.**
+- **`tsPreCompilationDeps` was asserted in a comment, not by a fixture.** Every fixture used a value
+  import, so the option could have been flipped off with all tests still green.
+  `server/boundaryFixtures/reachesClientTypeOnly.ts` now closes it.
+- **The fourth-root guard was one-sided**, so `client-reaches-only-shared` joins
+  `server-reaches-only-shared`. D14 calls the rule symmetric; it is now symmetric in the config too.
+- **`architecture/` was outside Biome's `files.includes`**, so this ticket's own 110-line test was
+  neither linted nor formatted by the check it was written to support.
+- Stale references fixed: the `conventions-reviewer` agent still told reviewers to *flag* an alias
+  import; `vitest.config.ts`, the **project-map** skill's `tanstackStart` snippet, the styles README
+  and `src/server/README.md`'s link all named the old tree or the wrong extension. `ONBOARDING.md`
+  had been silently normalised CRLF→LF by the codemod and was restored, so its diff is content only.
+
+**One suggestion was declined.** `exportConfiguration` has no production caller outside
+`configFiles.ts` and could be made module-private. It stays exported because TICKET-IO-04 —
+"upload this browser's ruleset to your account" — needs exactly a serialised body, and narrowing
+the surface now to widen it in three tickets is churn rather than discipline.
+
+**Two findings were left as pre-existing**, neither introduced here: `fallow` sits in
+`dependencies` rather than `devDependencies`, and `scripts/*.mjs` is outside Biome's includes.

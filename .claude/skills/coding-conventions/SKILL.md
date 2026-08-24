@@ -55,8 +55,14 @@ you create the module, not later. Two rules on it:
 exports. `components/ui/index.ts` predates the rule and enumerates; don't copy it, and don't
 rewrite it as drive-by work either.
 
-Imports are relative (`../../ui/Button/Button`). The `#/*` → `./src/*` alias exists in
-`package.json` but nothing uses it — don't introduce it in one file and leave the codebase split.
+**Imports are relative within a root and aliased across one** (TICKET-DX-07). `src/` has three
+roots — `shared/`, `client/`, `server/` — and inside one, an import stays relative
+(`../../ui/Button/Button`). A crossing is spelled `#shared/engine/calculator`, never
+`../../shared/engine/calculator`, so the boundary is legible at the import line and checkable by
+prefix. `.dependency-cruiser.mjs` refuses the rest: `client/` and `server/` may each import
+`shared/` and nothing of each other, and `shared/` imports neither. This reverses the old "the
+`#/*` alias exists but nothing uses it" line — the three aliases are fully adopted, in the one
+change where every import was being rewritten anyway.
 
 **Base components are imported by deep path, not through the barrel** (TICKET-UI-01) — every call
 site does, so match it. `components/ui/index.ts` is the folder's public listing; keep it complete
@@ -88,7 +94,7 @@ fixtures and tests. Three things follow, and they are the reason for the rule:
 - The set **exists at runtime**. `Object.values(STAT_ROUNDING)` is the list a `<Select>` maps over
   and the array a shape validator checks against, instead of a second hand-written copy of the same
   four strings drifting beside the first — `CURVE_MODES` in
-  [importExport.ts](../../../src/services/importExport.ts) is that pattern already.
+  [importExport.ts](../../../src/shared/services/importExport.ts) is that pattern already.
 - Grepping the constant finds every use; grepping a bare literal finds every *coincidence*.
 
 Two things stay unions. A union of **non-string members or object shapes** is a discriminated
@@ -148,7 +154,7 @@ Two families of judgement, both concrete here rather than generic.
   **on their outermost element — including `w-full`** (TICKET-UI-01: width is the caller's
   decision, passed as `className="w-full"`). Laying out a component's *own* sub-elements is fine,
   as is a modal or popover owning its placement. Every one accepts `className` so the caller can
-  position it. `src/components/ui/libraryConventions.test.ts` asserts all of this, plus that each
+  position it. `src/client/components/ui/libraryConventions.test.ts` asserts all of this, plus that each
   component has a `.style.ts` and appears in the barrel — run it before hand-auditing.
 - **Theme tokens only inside `components/ui/`** — no `bg-white` (use `parchment-50`, the paper
   tone) and no hex literals. A new shade goes in `styles.css`'s `@theme` block as a named token
@@ -166,7 +172,7 @@ Two families of judgement, both concrete here rather than generic.
   `<ConfigPanelShell title description actions prerequisites headerExtra blocked onCloseBlocked>`,
   with the list, cards and dialogs as children and `ConfigEmptyState` where a list is empty. All
   eleven config components compose it — copy
-  [RacesConfigPanel.tsx](../../../src/components/config/races/RacesConfigPanel.tsx).
+  [RacesConfigPanel.tsx](../../../src/client/components/config/races/RacesConfigPanel.tsx).
   If a panel needs something the shell doesn't offer, pass it as `headerExtra` or a child —
   **never add a prop per panel.** The shell exists because eight panels copied the frame and
   `BaseSkillPanel` had already drifted from them (h3 against h4); a shell with a boolean per caller
@@ -177,7 +183,7 @@ Two families of judgement, both concrete here rather than generic.
   then deleted outright with the focus stat by TICKET-ARC-03, so there is no precedent left for
   putting store selectors or `useState` in a panel.
   Copy
-  [useRaceManager.ts](../../../src/components/config/races/useRaceManager.ts) as the exemplar.
+  [useRaceManager.ts](../../../src/client/components/config/races/useRaceManager.ts) as the exemplar.
 - Forms use `react-hook-form` (`useForm`, `form.reset(...)` on open) — no hand-rolled field state.
 
 ## State
@@ -210,7 +216,7 @@ resolvers match what the formula will see at play time (TICKET-FORM-08).
 ## Styling
 
 - **Tailwind v4 utilities in the JSX**, no CSS modules, no CSS-in-JS. The only stylesheet is
-  `src/styles.css`, which defines the medieval theme in an `@theme` block.
+  `src/client/styles.css`, which defines the medieval theme in an `@theme` block.
 - **Use theme tokens, never raw hex or stock Tailwind colors**: `parchment-50…400`,
   `ink-600…900`, `stone-100…400`, `crimson`, `forest`, `royal`, `amber`, plus `font-heading`
   (Cinzel), `font-body` (Crimson Text), `font-mono`, and `shadow-parchment` /

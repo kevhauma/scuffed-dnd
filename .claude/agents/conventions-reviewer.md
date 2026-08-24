@@ -54,9 +54,14 @@ and verify, at minimum:
    the precedent); a compatibility shim for a consumer that doesn't exist; a clever construction
    where a shorter one reads. When KISS and open/closed disagree, KISS wins until a third caller
    exists — don't flag a duplication that hasn't yet earned a shared abstraction.
-10. **Housekeeping** — new barrels use `export *`; imports are relative (the `#/*` alias is unused —
-    flag its introduction); `src/routeTree.gen.ts` untouched; modules implementing a requirement
-    carry the `**Validates: Requirements …**` JSDoc line; tests colocated and no new `.skip()`.
+10. **Roots** — `src/` has three (`shared/`, `client/`, `server/`) and `client/` and `server/` may
+    each import `shared/` and nothing of each other. Flag a crossing spelled `../../shared/…`
+    rather than `#shared/…`, and a within-root import written as an alias. `yarn run check` runs
+    dependency-cruiser, so a rule violation is already an error — what needs an eye is a *rule*
+    that should have existed, and a pure module sitting in `client/` that `server/` will need.
+11. **Housekeeping** — new barrels use `export *`; `src/client/routeTree.gen.ts` untouched; modules
+    implementing a requirement carry the `**Validates: Requirements …**` JSDoc line; tests
+    colocated and no new `.skip()`.
 
 Then run **fallow** over the change and fold its output into the same report:
 

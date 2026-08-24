@@ -1,0 +1,24 @@
+// fallow configuration (TICKET-DX-07)
+//
+// Two things fallow cannot see for itself once `src/` became three roots. Both are stated here
+// rather than suppressed file by file, so that a *new* unused file is still a finding.
+{
+  // The TanStack Router plugin finds routes by convention at `src/routes/`, and DX-07 moved them
+  // under the client root — `vite.config.ts` points the generator at `src/client` (D14). Without
+  // these three lines the router entry, the generated tree and every route file drop out of the
+  // reachability graph and are reported as dead code, which is a wrong answer about a live app.
+  "entry": [
+    "src/client/router.tsx",
+    "src/client/routeTree.gen.ts",
+    "src/client/routes/**/*.tsx"
+  ],
+
+  // The modules that prove the root boundary. Nothing imports them — that is the point; they are
+  // cruised **by path** from `architecture/boundaries.test.ts`, which is exactly the kind of
+  // reference static reachability cannot follow. See `architecture/README.md`.
+  "dynamicallyLoaded": [
+    "src/client/boundaryFixtures/**",
+    "src/server/boundaryFixtures/**",
+    "src/shared/boundaryFixtures/**"
+  ]
+}

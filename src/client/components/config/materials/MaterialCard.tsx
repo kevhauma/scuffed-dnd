@@ -1,0 +1,166 @@
+/**
+ * Material Card Component
+ *
+ * Displays a material with its levels, bonuses, and values.
+ *
+ * Values are shown in the tier they read most naturally in (Requirement 10.4), with the amount the
+ * User actually entered kept alongside whenever normalizing moved it — the stored value is never
+ * rewritten, only displayed differently.
+ *
+ * **Validates: Requirements 10.4, 21.1-21.5**
+ */
+
+import { useState } from 'react';
+import { formatCurrency, normalizeCurrency } from '#shared/engine/currency';
+import type { CurrencyTier, Material, Stat } from '#shared/types';
+import { StatModifierBadges } from '../../shared/StatModifierBadges';
+import { Button } from '../../ui/Button/Button';
+import { Card } from '../../ui/Card/Card';
+import { Text } from '../../ui/Text/Text';
+
+interface MaterialCardProps {
+  material: Material;
+  /** The ruleset's stats, for spelling each tier bonus's target (TICKET-MAT-01) */
+  stats: Stat[];
+  currencyTiers: CurrencyTier[];
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+  onAddLevel: (materialId: string) => void;
+  onEditLevel: (materialId: string, levelIndex: number) => void;
+  onDeleteLevel: (materialId: string, levelIndex: number) => void;
+}
+
+export function MaterialCard({
+  material,
+  stats,
+  currencyTiers,
+  onEdit,
+  onDelete,
+  onAddLevel,
+  onEditLevel,
+  onDeleteLevel,
+}: MaterialCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const getCurrencyTierName = (tierId: string) => {
+    return currencyTiers.find((t) => t.id === tierId)?.name || 'Unknown';
+  };
+
+  return (
+    <Card variant="elevated" className="p-3">
+      {/* Material Header */}
+      <div className="flex justify-between items-start mb-2">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-xs px-1 py-0.5"
+            >
+              {isExpanded ? '▼' : '▶'}
+            </Button>
+            <Text variant="body" className="font-semibold">
+              {material.name}
+            </Text>
+            <Text variant="body-small-secondary" className="ml-2">
+              ({material.levels.length} level{material.levels.length !== 1 ? 's' : ''})
+            </Text>
+          </div>
+          {material.description && (
+            <Text variant="body-small-secondary" as="p" className="ml-8 mt-1">
+              {material.description}
+            </Text>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => onAddLevel(material.id)}
+            className="text-xs px-2 py-1"
+          >
+            Add Level
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => onEdit(material.id)}
+            className="text-xs px-2 py-1"
+          >
+            Edit
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => onDelete(material.id)}
+            className="text-xs px-2 py-1"
+          >
+            Delete
+          </Button>
+        </div>
+      </div>
+
+      {/* Material Levels */}
+      {isExpanded && (
+        <div className="ml-8 mt-3 space-y-2">
+          {material.levels.length === 0 ? (
+            <Text variant="body-small-secondary" className="italic">
+              No levels defined yet.
+            </Text>
+          ) : (
+            material.levels.map((level, index) => (
+              <div
+                key={level.level}
+                className="p-3 bg-parchment-50 border border-stone-200 rounded"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <Text variant="body-small" className="font-semibold">
+                      Level {level.level}: {level.name}
+                    </Text>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => onEditLevel(material.id, index)}
+                      className="text-xs px-2 py-0.5"
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onClick={() => onDeleteLevel(material.id, index)}
+                      className="text-xs px-2 py-0.5"
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Bonuses */}
+                {level.bonuses.length > 0 && (
+                  <div className="mb-2">
+                    <Text variant="body-small-secondary" className="mb-1">
+                      Bonuses:
+                    </Text>
+                    <StatModifierBadges modifiers={level.bonuses} stats={stats} />
+                  </div>
+                )}
+
+                {/* Value — shown in its natural tier, with the entered amount when they differ */}
+                <div>
+                  <Text variant="body-small-secondary">Value:</Text>
+                  <Text variant="body-small" className="ml-2">
+                    {formatCurrency(normalizeCurrency(level.value, currencyTiers), currencyTiers)}
+                  </Text>
+                  {normalizeCurrency(level.value, currencyTiers).tierId !== level.value.tierId && (
+                    <Text variant="caption" className="ml-2">
+                      entered as {level.value.amount} {getCurrencyTierName(level.value.tierId)}
+                    </Text>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}

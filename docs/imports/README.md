@@ -90,7 +90,7 @@ have it). Where a fragment is mixed, the field says which part is which.
 
 ## Verifying
 
-[`src/services/sheetImport.test.ts`](../../src/services/sheetImport.test.ts) runs in the normal
+[`src/shared/services/sheetImport.test.ts`](../../src/shared/services/sheetImport.test.ts) runs in the normal
 suite. It checks every fragment's envelope, re-runs the merge and fails on drift, puts the result
 through the same `validateConfigurationShape` the Import button uses, and re-asserts the derivations the
 concept pages confirmed — the six-core stat totals, the point-buy column, the seed skill weights,

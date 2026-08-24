@@ -63,6 +63,14 @@ graph TB
 
 ### Application Structure
 
+> **This is the v1.0 design-time tree and is kept as the record of it.** The live layout is three
+> roots — `src/shared/`, `src/client/`, `src/server/` — since
+> [TICKET-DX-07](../v3.0_backend/tickets/TICKET-DX-07-three-root-source-tree.md); everything below
+> lives under `client/` except `types/` and `engine/`, which are the Kernel and moved to `shared/`,
+> and `services/`, which split across both along the browser-API seam. Read
+> [README.md](../../README.md) or the **project-map** skill for the current tree, and note that
+> imports now cross a root as `#shared/…` rather than as `@/…`.
+
 ```
 src/
 ├── routes/                    # TanStack Router file-based routes
@@ -175,7 +183,7 @@ The application uses Zustand for state management with three primary stores:
 
 The application maintains a strict separation between base UI components and feature components to ensure visual consistency, reusability, and maintainability. This architecture follows the principle of separation of concerns: base components handle intrinsic styling while feature components handle layout and composition.
 
-### Base Components (src/components/ui/)
+### Base Components (src/client/components/ui/)
 
 Base components are the foundational building blocks of the UI. They encapsulate all intrinsic styling properties but remain layout-agnostic.
 
@@ -298,7 +306,7 @@ interface DialogProps {
 ```
 Encapsulates: modal overlay, dialog box styling, close button, title styling, backdrop
 
-### Feature Components (src/components/config/, src/components/play/, src/components/shared/)
+### Feature Components (src/client/components/config/, src/client/components/play/, src/client/components/shared/)
 
 Feature components compose base components to create application-specific functionality. They handle all layout, positioning, and business logic.
 
@@ -564,7 +572,7 @@ All base components use theme tokens exclusively, ensuring consistent applicatio
 
 ## Components and Interfaces
 
-This section describes the feature components that compose the application's functionality. All feature components use base components from the component library (src/components/ui/) for UI elements and handle layout, positioning, and business logic.
+This section describes the feature components that compose the application's functionality. All feature components use base components from the component library (src/client/components/ui/) for UI elements and handle layout, positioning, and business logic.
 
 ### Base Component Usage Pattern
 
@@ -1100,7 +1108,7 @@ Each base component in the component library follows these styling principles:
 
 Example base component styling:
 ```typescript
-// src/components/ui/Button.tsx
+// src/client/components/ui/Button.tsx
 export function Button({ variant = 'primary', className, ...props }: ButtonProps) {
   const baseStyles = 'px-4 py-2 rounded font-heading transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber focus:ring-offset-2';
   

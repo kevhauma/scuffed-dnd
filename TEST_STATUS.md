@@ -1,18 +1,27 @@
 # Test Status
 
-_Last verified: 2026-08-23 (`npx vitest run`), after the **equipment split and display builder** —
-equipment slots on their own `/config/equipment` page, a User-defined grid they are arranged on, and
-a glyph set widened from nine drawings to thirty-nine. The checkpoint before it was the **character
-sheet rebuild** at 1777, before that the **tavern redesign** at 1732, and before that the
-[v2.1 code review](docs/v2.1_code_review/overview.md)'s **high-priority findings** (CR-01 to CR-07,
-CR-08, CR-20) at 1674._
+_Last verified: 2026-08-24 (`npx vitest run`), after **TICKET-DX-07 — three roots** (`client/`,
+`server/`, `shared/`). The checkpoint before it was the **equipment split and display builder** at
+1834, before that the **character sheet rebuild** at 1777, before that the **tavern redesign** at
+1732, and before that the [v2.1 code review](docs/v2.1_code_review/overview.md)'s **high-priority
+findings** (CR-01 to CR-07, CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 1834
-- **Passing**: 1834 (100%)
+- **Total tests**: 1846
+- **Passing**: 1846 (100%)
 - **Skipped**: 0
 - **Failing**: 0
+
+The **+12 over the equipment checkpoint** is TICKET-DX-07, and **none of it is the move**: the tree
+moved at exactly 1834, which is the whole point of a refactor ticket that changes no behaviour.
+The twelve are the checks the ticket adds — 8 in `architecture/boundaries.test.ts`, one per
+dependency-cruiser rule plus the legal crossing and a guard that fails when a rule arrives without
+a fixture, and 4 in `src/server/sharedKernel.test.ts`, which is the first thing the server root
+does and proves the pure half of `services/` is reusable from it. One test file was split in two —
+`importExport.test.ts`'s `Blob`/`File` cases became `client/services/configFiles.test.ts` — and one
+moved root, `golden.test.ts` to `client/integration/`, because it drives both stores and the Kernel
+may not import its callers. Neither changed a count.
 
 The **+57 over the sheet-rebuild checkpoint** is the equipment work. `slotLayout.test.ts` (7) was
 replaced by `engine/equipmentLayout.test.ts` (19) when the recognition table stopped being the rule
@@ -57,10 +66,10 @@ Was 660 at the v1.0 foundation checkpoint (2026-08-01); v2.0's tickets added
 +43 (FORM-02), +30 (FORM-03), +29 (FORM-04), +28 (FORM-05), +11 (FORM-06), +7 (CALC-02),
 +11 (REF-01), +9 (REF-02), +18 (CST-01), +18 (CST-02), +64 (CRV-01),
 +32 (CRV-02), +27 (FORM-07), +3 (STAT-01), +51 (CRV-03), +47 (IO-03), +27 (STAT-02), +15 (FORM-08), +8 (FORM-09), +14 (SKL-02), +36 (SKL-03), +36 (RES-01), +14 (RES-02), +48 (RES-03), +40 (ARC-01), +50 (ARC-02), **−15 (ARC-03)**, +34 (ROLL-03), +9 (ROLL-04), +36 (ROLL-05), **−18 (ROLL-06)** and +64 (DX-04).
-**DX-04's +64** is one new file, `src/engine/golden/golden.test.ts`, and it is purely additive —
+**DX-04's +64** is one new file, `src/client/integration/golden.test.ts`, and it is purely additive —
 nothing existing was touched, because the milestone's parity gate went green on its first run.
 Sixty-two of the sixty-four are fixture rows driven by `it.each` over
-`src/engine/golden/fixtures.ts`; the other two are the suite's own guards, one asserting every row
+`src/shared/engine/golden/fixtures.ts`; the other two are the suite's own guards, one asserting every row
 carries a citation and one pinning **which** rows are 🔍-inferred, so a confirmed derivation cannot
 be re-tagged as inferred to make a failure go away.
 **RES-02's +14 is a net figure**: `StatPointBudget.test.tsx` (6) went with the flat pool it
@@ -189,8 +198,8 @@ A dedicated [vitest.config.ts](vitest.config.ts) that omits `tanstackStart()`. V
 `vitest.config.ts` over `vite.config.ts`, so [vite.config.ts](vite.config.ts) is unchanged and
 `yarn dev` / `yarn build` keep the full Start pipeline.
 
-Routing still works under test because `src/routeTree.gen.ts` is committed — nothing in the suite
-needs the route generator to run. `src/routes/config/configRoutes.test.tsx` passes unchanged.
+Routing still works under test because `src/client/routeTree.gen.ts` is committed — nothing in the suite
+needs the route generator to run. `src/client/routes/config/configRoutes.test.tsx` passes unchanged.
 
 The fix alone took the suite from 48 failing / 369 passing to 14 failing / 403 passing.
 
@@ -201,11 +210,11 @@ Once the tests actually executed, they exposed real test-quality bugs the crash 
 **Five config-panel test files were deleted** (27 tests: 14 failing, 13 passing) rather than
 repaired — a deliberate scope decision by the User, recorded in the ticket:
 
-- `src/components/config/currency/CurrencyConfigPanel.test.tsx`
-- `src/components/config/items/EquipmentSlotsConfigPanel.test.tsx`
-- `src/components/config/materials/MaterialsConfigPanel.test.tsx`
-- `src/components/config/races/RacesConfigPanel.test.tsx`
-- `src/components/config/stats/StatsConfigPanel.test.tsx` — **back as of TICKET-STAT-02**,
+- `src/client/components/config/currency/CurrencyConfigPanel.test.tsx`
+- `src/client/components/config/items/EquipmentSlotsConfigPanel.test.tsx`
+- `src/client/components/config/materials/MaterialsConfigPanel.test.tsx`
+- `src/client/components/config/races/RacesConfigPanel.test.tsx`
+- `src/client/components/config/stats/StatsConfigPanel.test.tsx` — **back as of TICKET-STAT-02**,
   rewritten against the real store with storage mocked, which is what avoids the selector-ignoring
   mock that killed the original
 
@@ -234,8 +243,8 @@ workflow and are documented here so a future regression is distinguishable from 
 
 | File | Error |
 | --- | --- |
-| `src/components/ui/Button/Button.test.tsx:68` | TS2339 — `.disabled` read off `HTMLElement` |
-| `src/services/importExport.test.ts:968` | TS2352 — `Blob`-shaped literal cast to `File` |
+| `src/client/components/ui/Button/Button.test.tsx:68` | TS2339 — `.disabled` read off `HTMLElement` |
+| `src/client/services/configFiles.test.ts:238` | TS2352 — `Blob`-shaped literal cast to `File` |
 
 Both are test-typing noise. The two `evaluator.ts` errors that stood beside them for five tickets
 are **gone as of TICKET-FORM-07**: `operator` does not exist on type `never` was the switch
@@ -265,6 +274,12 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | _none recorded yet_ | | | | |
 
 **Not yet populated.** The table was added with the rule; the first ticket to run
+**TICKET-DX-07 reset every file's churn history**, and the table is blind for roughly six months
+because of it: `fallow health --hotspots --since 6m` scores by commit count per *path*, and every
+path under `src/` changed in one commit. Nothing was Accelerating at the move, so nothing is owed a
+row — but a quiet table between now and ~2027-02 means "the history restarted", not "the churn
+stopped". `--follow`-style rename tracking is not something fallow does today.
+
 `fallow health --hotspots` fills it in. An empty table means "not measured", not "nothing is
 accelerating" — don't read it as a clean bill of health until a run has written to it.
 

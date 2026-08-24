@@ -5,8 +5,12 @@
     "jsx": "react-jsx",
     "module": "ESNext",
     "baseUrl": ".",
+    /* One alias per root (TICKET-DX-07, D14). A crossing is legible at the import line and
+       checkable by prefix; relative imports stay the rule *within* a root. */
     "paths": {
-      "@/*": ["./src/*"]
+      "#shared/*": ["./src/shared/*"],
+      "#client/*": ["./src/client/*"],
+      "#server/*": ["./src/server/*"]
     },
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["vite/client"],

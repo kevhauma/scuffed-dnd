@@ -1,0 +1,325 @@
+/**
+ * Config Transfer Panel Tests
+ *
+ * The config store is real with LocalStorage mocked, so an import really lands in the store. The
+ * import/export *service* is mocked only for the export assertion — jsdom has no
+ * `URL.createObjectURL`, so what matters is that the service was asked with the right ruleset.
+ *
+ * **Validates: Requirements 1.1, 1.4, 1.5, 1.6, 18.5**
+ */
+
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Configuration } from '#shared/types/config';
+
+vi.mock('../../../services/storage', () => ({
+  loadConfiguration: vi.fn(() => null),
+  saveConfiguration: vi.fn(),
+  loadCharacters: vi.fn(() => []),
+  saveCharacters: vi.fn(),
+  isStorageAvailable: vi.fn(() => true),
+}));
+
+vi.mock('../../../services/configFiles', async () => {
+  const actual = await vi.importActual<typeof import('../../../services/configFiles')>(
+    '../../../services/configFiles'
+  );
+  return { ...actual, downloadConfiguration: vi.fn() };
+});
+
+// Real, except that one test needs it to throw the way a shape-gate miss would (CR-03)
+vi.mock('#shared/engine/validator', async () => {
+  const actual = await vi.importActual<typeof import('#shared/engine/validator')>(
+    '#shared/engine/validator'
+  );
+  return { ...actual, validateConfiguration: vi.fn(actual.validateConfiguration) };
+});
+
+import { validateConfiguration } from '#shared/engine/validator';
+import { downloadConfiguration } from '../../../services/configFiles';
+import { useConfigStore } from '../../../stores/configStore';
+import { ConfigTransferPanel } from './ConfigTransferPanel';
+
+function createConfig(overrides: Partial<Configuration> = {}): Configuration {
+  return {
+    id: 'config1',
+    name: 'Test Config',
+    version: '1.0',
+    schemaVersion: 9,
+    stats: [
+      {
+        id: 'STR',
+        name: 'Strength',
+        abbreviation: 'STR',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+    ],
+    skills: [],
+    materials: [],
+    materialCategories: [],
+    items: [],
+    equipmentSlots: [],
+    races: [],
+    currencyTiers: [],
+    createdAt: '2024-01-01',
+    updatedAt: '2024-01-01',
+    ...overrides,
+  };
+}
+
+/** A stand-in for a picked file; jsdom's File.text() is unreliable, so it is provided here */
+function jsonFile(name: string, contents: string): File {
+  const file = new File([contents], name, { type: 'application/json' });
+  Object.defineProperty(file, 'text', { value: () => Promise.resolve(contents) });
+  return file;
+}
+
+function choose(file: File) {
+  fireEvent.change(screen.getByLabelText('Configuration file'), { target: { files: [file] } });
+}
+
+function confirmImport() {
+  fireEvent.click(screen.getByRole('button', { name: 'Replace Configuration' }));
+}
+
+describe('ConfigTransferPanel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useConfigStore.setState({ config: createConfig(), isLoaded: true });
+  });
+
+  it('should export the current configuration through the service', () => {
+    render(<ConfigTransferPanel />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export Configuration' }));
+
+    // Requirement 1.4 — the component builds no Blob and touches no URL API itself
+    expect(downloadConfiguration).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(downloadConfiguration).mock.calls[0][0].name).toBe('Test Config');
+  });
+
+  it('should ask before replacing the current ruleset', () => {
+    render(<ConfigTransferPanel />);
+
+    choose(jsonFile('other.json', JSON.stringify(createConfig({ name: 'Imported' }))));
+
+    expect(screen.getByText(/Importing other.json replaces "Test Config"/)).toBeDefined();
+    expect(useConfigStore.getState().config?.name).toBe('Test Config');
+  });
+
+  it('should leave the ruleset untouched when the import is cancelled', () => {
+    render(<ConfigTransferPanel />);
+
+    choose(jsonFile('other.json', JSON.stringify(createConfig({ name: 'Imported' }))));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(useConfigStore.getState().config?.name).toBe('Test Config');
+  });
+
+  it('should apply a valid file to the store on confirmation', async () => {
+    render(<ConfigTransferPanel />);
+
+    choose(
+      jsonFile(
+        'other.json',
+        JSON.stringify(createConfig({ id: 'imported', name: 'Imported Ruleset' }))
+      )
+    );
+    confirmImport();
+
+    // Requirement 1.5
+    await waitFor(() => {
+      expect(useConfigStore.getState().config?.name).toBe('Imported Ruleset');
+    });
+  });
+
+  it('should reject malformed JSON without touching the current ruleset', async () => {
+    render(<ConfigTransferPanel />);
+
+    choose(jsonFile('broken.json', '{ not json'));
+    confirmImport();
+
+    // Requirement 1.6
+    await waitFor(() => {
+      expect(screen.getByText(/That file was not imported/)).toBeDefined();
+    });
+    expect(useConfigStore.getState().config?.name).toBe('Test Config');
+  });
+
+  it('should reject a structurally invalid file and list every reason', async () => {
+    render(<ConfigTransferPanel />);
+
+    // `schemaVersion` is present so the file gets past the version gate (TICKET-IO-03) and is
+    // judged on its structure, which is what this test is about
+    choose(
+      jsonFile(
+        'partial.json',
+        JSON.stringify({ id: 'x', name: 'Half a ruleset', schemaVersion: 9 })
+      )
+    );
+    confirmImport();
+
+    await waitFor(() => {
+      expect(screen.getByText(/That file was not imported/)).toBeDefined();
+    });
+    // Every missing field is reported, not just the first
+    expect(screen.getAllByRole('listitem').length).toBeGreaterThan(1);
+    expect(useConfigStore.getState().config?.name).toBe('Test Config');
+  });
+
+  it('should refuse a file from the old app with one version message (TICKET-IO-03)', async () => {
+    render(<ConfigTransferPanel />);
+
+    // A v1 export: main skills, no `schemaVersion`
+    choose(
+      jsonFile(
+        'v1.json',
+        JSON.stringify({
+          id: 'old',
+          name: 'Old Ruleset',
+          version: '1.0.0',
+          mainSkills: [{ id: 'id-str', code: 'STR', name: 'Strength' }],
+          stats: [],
+          skills: [],
+          materials: [],
+          materialCategories: [],
+          items: [],
+          equipmentSlots: [],
+          races: [],
+          currencyTiers: [],
+          createdAt: '2024-01-01',
+          updatedAt: '2024-01-01',
+        })
+      )
+    );
+    confirmImport();
+
+    await waitFor(() => {
+      expect(screen.getByText(/older version of the app/)).toBeDefined();
+    });
+    // One reason, not a field-by-field report that would read as a corrupt export
+    expect(screen.getAllByRole('listitem').length).toBe(1);
+    expect(useConfigStore.getState().config?.name).toBe('Test Config');
+  });
+
+  it('should report reference problems in an imported ruleset without refusing it', async () => {
+    render(<ConfigTransferPanel />);
+
+    // Structurally fine, but the stat formula names a skill that does not exist
+    choose(
+      jsonFile(
+        'dangling.json',
+        JSON.stringify(
+          createConfig({
+            name: 'Dangling',
+            stats: [
+              {
+                id: 'health',
+                name: 'Health',
+                abbreviation: 'HEA',
+                description: '',
+                order: 0,
+                countsTowardTotal: true,
+                isResource: true,
+                rounding: 'none',
+                formula: 'WIS * 10',
+              },
+            ],
+          })
+        )
+      )
+    );
+    confirmImport();
+
+    // Requirement 18.5 — applied, and the problem named
+    await waitFor(() => {
+      expect(screen.getByText(/found problems to fix/)).toBeDefined();
+    });
+    expect(useConfigStore.getState().config?.name).toBe('Dangling');
+    expect(screen.getByText(/WIS/)).toBeDefined();
+  });
+
+  it('should refuse a structurally broken collection entry before it is persisted (CR-03)', async () => {
+    render(<ConfigTransferPanel />);
+
+    // `{"currencyTiers":[null]}` used to pass the shape gate — only the container was checked —
+    // and then crash the engine validator, *after* `replaceConfig` had persisted it
+    choose(
+      jsonFile(
+        'crashing.json',
+        JSON.stringify(createConfig({ name: 'Crashing', currencyTiers: [null] as never }))
+      )
+    );
+    confirmImport();
+
+    await waitFor(() => {
+      expect(screen.getByText(/That file was not imported/)).toBeDefined();
+    });
+    expect(screen.getByText('currencyTiers[0] must be an object')).toBeDefined();
+    expect(useConfigStore.getState().config?.name).toBe('Test Config');
+  });
+
+  it('should not persist a ruleset the engine cannot walk at all (CR-03)', async () => {
+    // The shape gate is what normally stops that case now; this is the guard behind it, for
+    // whatever the gate misses next. The engine validator running **before** `replaceConfig` is
+    // the whole point — a throw from it must leave the stored ruleset exactly as it was.
+    vi.mocked(validateConfiguration).mockImplementationOnce(() => {
+      throw new TypeError("Cannot read properties of null (reading 'id')");
+    });
+
+    render(<ConfigTransferPanel />);
+
+    choose(jsonFile('other.json', JSON.stringify(createConfig({ name: 'Imported' }))));
+    confirmImport();
+
+    await waitFor(() => {
+      expect(screen.getByText(/That file was not imported/)).toBeDefined();
+    });
+    expect(screen.getByText(/the ruleset could not be read/)).toBeDefined();
+    expect(useConfigStore.getState().config?.name).toBe('Test Config');
+  });
+
+  it('should confirm a clean import found no issues', async () => {
+    render(<ConfigTransferPanel />);
+
+    choose(jsonFile('clean.json', JSON.stringify(createConfig({ name: 'Clean' }))));
+    confirmImport();
+
+    await waitFor(() => {
+      expect(screen.getByText(/no issues found/)).toBeDefined();
+    });
+  });
+
+  it('should rename the configuration through the store', () => {
+    render(<ConfigTransferPanel />);
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Grimdark Hollow' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+
+    // Requirement 1.1 — no longer stuck as 'My Custom Game System'
+    expect(useConfigStore.getState().config?.name).toBe('Grimdark Hollow');
+  });
+
+  it('should refuse to rename to an empty name', () => {
+    render(<ConfigTransferPanel />);
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: '   ' } });
+
+    expect((screen.getByRole('button', { name: 'Rename' }) as HTMLButtonElement).disabled).toBe(
+      true
+    );
+    expect(useConfigStore.getState().config?.name).toBe('Test Config');
+  });
+
+  it('should render nothing without a configuration', () => {
+    useConfigStore.setState({ config: null, isLoaded: true });
+
+    const { container } = render(<ConfigTransferPanel />);
+
+    expect(container.firstChild).toBeNull();
+  });
+});
