@@ -35,6 +35,25 @@ Server routes under `src/routes/api/` plus a `src/server/` layer, built to a Nit
 One repo, one build, one process, one router. A separate backend service would fork the type
 definitions and the engine, which is precisely what D5 exists to prevent.
 
+**The server hosts the frontend's build, so there is only ever one web server to run.** This is an
+operational decision before it is an architectural one. The audience for this app is one person on
+a home box or a small VPS hosting a game for their friends; asking them to run a static host *and*
+an API, keep both alive, and keep them pointed at each other is a second system to operate for no
+feature. `yarn build` produces one artifact and one documented command starts it.
+
+What follows from it:
+
+- The client addresses the API by **relative path** (`/api/rulesets`), and the socket derives its
+  URL from `window.location`. There is no `VITE_API_URL`, no configurable base, no environment
+  variable naming the backend — the backend is *this* server, and a variable that could point
+  elsewhere is a variable someone will eventually point elsewhere.
+- Every request is therefore same-origin, and **no CORS layer is needed anywhere in this
+  milestone**. Treat one appearing as a signal that something got split in two — the fix is to put
+  it back on one origin, not to widen the set of origins allowed to drive D3's session cookie.
+- `yarn dev` serves the API from the **same Vite origin** as the app rather than from a second port
+  behind a proxy. Same reason: one thing to start, and dev and production differ in build speed
+  rather than in shape.
+
 **The Vitest config still omits `tanstackStart()`** (see [CLAUDE.md](../../CLAUDE.md) and
 [TEST_STATUS.md](../../TEST_STATUS.md)) — that stays true. Server code is tested by calling
 `src/server/` functions and route handlers directly, never by booting Nitro.
@@ -291,7 +310,7 @@ Live:
 The DM's cockpit, then closing:
 
 - [ ] [TICKET-DM-04](./tickets/TICKET-DM-04-session-roster-with-quick-actions.md) — The session roster with quick actions (v3 Req 49.7–49.10) — **the last feature ticket, and deliberately after LIVE-03**: a roster is the surface that most obviously has to be live, and a DM reads it and acts without checking, so building it before the event feed and presence existed would mean building it twice. Replaces GAM-04's lobby rather than sitting beside it
-- [ ] [TICKET-POL-03](./tickets/TICKET-POL-03-deployment-shape.md) — Deployment shape: build, environment, data directory, backup (v3 Req 47) — **last**: the milestone is not done until someone other than the author can run it
+- [ ] [TICKET-POL-03](./tickets/TICKET-POL-03-deployment-shape.md) — Deployment shape: build, environment, data directory, backup (v3 Req 47) — **last**: the milestone is not done until someone other than the author can run it. **One process serves the client bundle, the API and the socket** (D1) — the operator runs one web server, not a static host beside an API
 - [ ] Final checkpoint — full suite green, mirroring v1.0's §18 and v2.0's final line: `npx vitest run` 0 failing / 0 skipped, `npx tsc --noEmit` at the documented baseline, `yarn run check` clean, `fallow audit --base HEAD` with zero introduced findings, and a live browser check of **both** loops — (a) signed out: build a ruleset, export it, create a character on it, spend points and roll, with no account anywhere; and (b) signed in: build a ruleset, start a session, invite a second account by email and have it appear in that account's invitations, create a character, spend points, roll, watch the DM's adjustment reach the other browser without a refresh, and **take damage off that character from the DM's roster and see it land in the player's browser** (Req 49) — then close both browsers, reopen them, and still be signed in (Req 48)
 
 ## Definition of Done (applies to every ticket)

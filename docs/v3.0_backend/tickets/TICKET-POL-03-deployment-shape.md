@@ -29,12 +29,16 @@ verified as a set.
 - DB-01 applies migrations at start-up and refuses to serve on failure. `DATABASE_URL` points at a
   file that must live somewhere durable.
 - `yarn build` currently produces a client bundle only; nothing has ever needed to serve it.
+- SRV-01 settled **one server, not two** (D1, v3 Req 47.6–47.8): relative API paths, a socket URL
+  derived from `window.location`, no variable naming the backend. This ticket is where that stops
+  being a development-time arrangement and becomes the deployed shape.
 
 ## Desired result (to-be)
 
 - A production build producing **one** Node process serving both the client bundle and the API, run
   by a documented command, with the Nitro `node-server` target and the WebSocket server attached to
-  the same listener.
+  the same listener. **The bundle is served by the server, not by a separate static host** — the
+  operator runs one web server, starts one thing, and keeps one thing alive.
 - A documented data directory: where the SQLite file and its WAL companions live, what to back up
   (copy the file with the database quiesced, or `VACUUM INTO`), and how to restore it.
 - A README section covering every environment variable with required/optional and its default,
@@ -47,6 +51,13 @@ verified as a set.
       rather than by memory.
 - [ ] The build serves the client bundle and the API from one process and one port; the socket
       connects on that same port.
+- [ ] **The documented run is one command starting one process**, and nothing in the README asks the
+      operator to serve the client bundle separately. Verified from the network log of a full
+      signed-in loop — page load, API calls, socket upgrade — every request landing on that one
+      server.
+- [ ] Nothing in the shipped bundle or the documented environment names an origin: the README's
+      variable table contains no API or socket URL, and a grep of the built output finds no
+      hard-coded host. An operator changes the port and everything still talks to itself.
 - [ ] `/api/health` reports database reachability and the applied migration version, and reports
       unhealthy when the database file is unreadable.
 - [ ] Every environment variable the code reads appears in the README and in `.env.example` with
@@ -70,3 +81,7 @@ verified as a set.
   is that the cookie must be `Secure` outside development and the socket must work through a proxy —
   note the proxy headers required, since a socket behind a misconfigured proxy fails in a way that
   looks like an application bug.
+- **A reverse proxy is the one place an operator can split this back into two**, by serving the app
+  and the API from different hostnames. The README says plainly that both live behind the same
+  origin, because the failure that produces — a session cookie the socket never receives — reads as
+  "live updates are broken" rather than as a proxy misconfiguration.

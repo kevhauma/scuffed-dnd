@@ -47,6 +47,12 @@ It also rewrites the two lines in [CLAUDE.md](../../../CLAUDE.md) that say this 
   routes directory that DX-07 put under `client/`, and a route file importing a `server/` handler
   from there would break D14 on day one. Server route files belong under `server/routes/`, with the
   plugin configured to find them — see implementation note 1 for the fallback if it cannot be.
+- **One server, not two** (D1, v3 Req 47.6–47.8). `yarn dev` serves the API from the **same Vite
+  origin** as the app rather than from a second port behind a proxy, so a developer starts one thing
+  and an operator later runs one thing. The client calls `/api/…` by relative path, with no
+  `VITE_API_URL` or equivalent in `env.ts` or `.env.example`, and the pipeline needs no CORS layer
+  because there is no second origin to allow. This is the ticket that decides it, because whatever
+  `/api/health` does here every later route copies.
 
 ## Acceptance criteria
 
@@ -61,6 +67,13 @@ It also rewrites the two lines in [CLAUDE.md](../../../CLAUDE.md) that say this 
 - [ ] `GET /api/health` returns a JSON body through the pipeline; a handler that throws an
       `AppError` produces its status and code, and a handler that throws anything else produces a
       500 with no internal detail in the body.
+- [ ] **`yarn dev` starts one server.** `GET /api/health` is reachable from the app's own origin with
+      no second process and no proxy to a second port, and the README/ONBOARDING command list still
+      names a single dev command.
+- [ ] No environment variable names the backend: `env.ts` and `.env.example` contain no API base URL,
+      and the client's fetch calls use relative paths. A grep for an origin-shaped variable and for
+      `Access-Control` comes back empty — the pipeline needs no CORS layer because nothing is split
+      across two origins.
 - [ ] Server tests call handlers directly and do not boot Nitro — `vitest.config.ts` still omits
       `tanstackStart()`, and `TEST_STATUS.md` records why that stays true.
 - [ ] [CLAUDE.md](../../../CLAUDE.md), the **project-map** skill and the **data-model** skill no
@@ -82,6 +95,10 @@ It also rewrites the two lines in [CLAUDE.md](../../../CLAUDE.md) that say this 
 - Don't add a validation library. Request-body checking reuses the shape-check idiom already in
   `services/importExport.ts` (`collectionShapeErrors` and friends); a ruleset body is validated by
   that module's own function, not by a second schema.
+- **A cross-origin error during this ticket means the dev setup split in two, not that CORS is
+  missing.** The reflex is to reach for `cors()` because it makes the error go away; the fix is to
+  put the API back on the app's origin, which is the arrangement D1 asks for and the one that keeps
+  it to a single server. Asserting the absence now is what makes a later addition visible.
 - The env loader is deliberately eager about **required** variables. A server that starts and then
   500s on the first request is worse than one that refuses to start. Optional variables are a
   different case and the loader must handle both: AUTH-02 brings two independently optional OAuth

@@ -39,7 +39,10 @@ without a socket.
   a connection is admitted to a room only if the Account is a Member of it. Removal of membership
   closes the connection.
 - The client-side connection object: connect, subscribe, receive, with the socket carrying **no**
-  outbound commands beyond subscribe/unsubscribe and a keepalive.
+  outbound commands beyond subscribe/unsubscribe and a keepalive. Its URL is **derived from
+  `window.location`** — same host, same port, `ws:`/`wss:` chosen from the page's protocol — never
+  configured. The socket attaches to the server that already serves the app (D1), so there is still
+  one process to run; it also means the Auth_Session cookie rides the upgrade with nothing added.
 
 ## Acceptance criteria
 
@@ -54,6 +57,9 @@ without a socket.
 - [ ] Removing a Member (GAM-04) closes their open connections for that room.
 - [ ] Connections are cleaned up on close, error and process shutdown — a test asserts the room map
       is empty after all clients disconnect, so a long-running server does not leak rooms.
+- [ ] The socket URL is built from `window.location` and no environment variable or constant names
+      the socket host — asserted on the URL the client constructs, under both `http:` and `https:`
+      (v3 Req 47.6).
 - [ ] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions` skill,
       plus a live browser check (ask the User first).
 

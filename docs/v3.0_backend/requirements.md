@@ -448,6 +448,13 @@ variables, so that hosting it is not a project of its own.
    neither
 5. THE Application SHALL provide a health endpoint reporting database reachability and applied
    migration version
+6. THE Application SHALL serve the client bundle, the API and the WebSocket from **one server
+   process**, so that an operator runs one web server rather than a static host alongside an API
+7. THE Application SHALL address the API and the socket from the client by relative path and by
+   `window.location` respectively — no configurable API base URL and no environment variable naming
+   the backend
+8. WHEN running the development server, THE Application SHALL serve the API from the same origin as
+   the app, so that development and production differ in build speed and nothing else
 
 ### Requirement 48: Session Persistence and Renewal
 
