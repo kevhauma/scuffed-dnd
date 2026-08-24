@@ -5,16 +5,25 @@ description: Persistence and data-shape reference for Custom DnD Builder — the
 
 # Data Model (TypeScript types + LocalStorage)
 
-There is no database and no backend. Two JSON blobs in LocalStorage hold everything, and the
+**Signed out there is no database and no backend**, and that path is not going away
+([D6](../../../docs/v3.0_backend/overview.md#d6--local-mode-stays-sign-in-gates-connected-play-only)).
+Two JSON blobs in LocalStorage hold everything, and the
 type definitions in [src/shared/types/](../../../src/shared/types/) are the schema. Read
 [config.ts](../../../src/shared/types/config.ts) and [character.ts](../../../src/shared/types/character.ts)
 directly — this skill covers the rules, not a copy of the fields.
 
 The types live in `shared/` since TICKET-DX-07 because they are the **Kernel**: one definition of
-a persisted shape, imported as `#shared/types/config` by the client today and by `src/server/`
-from TICKET-SRV-01 on. Everything about persistence below is the *local-mode* story, and v3.0's
-D6 keeps it exactly as it is — LocalStorage stays the source of truth for a signed-out browser,
-not a cache and not a staging area.
+a persisted shape, imported as `#shared/types/config` by the client *and*, since TICKET-SRV-01, by
+`src/server/`. Everything about persistence below is the *local-mode* story, and v3.0's D6 keeps it
+exactly as it is — LocalStorage stays the source of truth for a signed-out browser, not a cache and
+not a staging area.
+
+**Signed in, a second home appears.** A server-stored Ruleset is the same `Configuration` shape
+kept as a JSON document with `schemaVersion` and `revision` as real columns
+([D4](../../../docs/v3.0_backend/overview.md#d4--a-ruleset-is-stored-as-a-json-document-not-normalised));
+TICKET-DB-01 lands the schema and TICKET-RUL-01/02 the records. There is **no sync** between the
+two homes and no background copying — an edit saves to whichever one is open, and uploading is an
+explicit, repeatable copy. Nothing below changes when that arrives.
 
 ## Storage
 

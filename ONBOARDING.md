@@ -8,9 +8,10 @@ tells you which document answers which question, so you never have to re-read ev
 
 ## 1. What is this app, and who is it for?
 
-**Custom DnD Builder** is a browser-only React app for people who play tabletop RPGs (like
-Dungeons & Dragons) but want to play with **their own homebrew ruleset** instead of an official
-one.
+**Custom DnD Builder** is a React app for people who play tabletop RPGs (like Dungeons & Dragons)
+but want to play with **their own homebrew ruleset** instead of an official one. Signed out it is
+browser-only; signed in it has a server, so a table can play together. See *Two modes of
+persistence* below.
 
 It serves two personas, and the whole app is split along that line:
 
@@ -32,13 +33,29 @@ This app makes the ruleset *executable*: the User writes the formulas once, the 
 Equip a different sword and your combat bonus updates; level up a main skill and your max health
 follows. The ruleset is shared as a single JSON file via export/import.
 
-### Deliberate constraint: no backend
+### Two modes of persistence
 
-There is **no server, no database, no account system**. Everything lives in the browser's
-LocalStorage, and rulesets travel between browsers as exported JSON files. This is a feature, not
-a shortcut — it keeps the app free to host, private by default, and usable offline. It also shapes
-the code: "persistence" here means two JSON blobs in LocalStorage, and the TypeScript types in
-`src/shared/types/` *are* the schema.
+**Signed out — local mode.** No server, no database, no account. Everything lives in the browser's
+LocalStorage and rulesets travel between browsers as exported JSON files. This is the app v1.0 and
+v2.0 built, it is not deprecated, and nothing about it degrades: "persistence" here means two JSON
+blobs in LocalStorage, and the TypeScript types in `src/shared/types/` *are* the schema.
+
+**Signed in — connected play.** v3.0 added a server (SQLite, in this same repo, in `src/server/`)
+so that several people around one table can see each other's state. Signing in is required for
+that and for nothing else — see
+[D6](docs/v3.0_backend/overview.md#d6--local-mode-stays-sign-in-gates-connected-play-only).
+
+Two things follow, and they are the load-bearing ones:
+
+- **A rule is written once.** `src/shared/` is the Kernel — types and engine — and both sides call
+  it. The server re-derives what it needs and trusts no derived value in a request body; the client
+  keeps calculating for display and treats its own answer as a prediction
+  ([D5](docs/v3.0_backend/overview.md#d5--the-engine-is-the-shared-kernel-and-the-server-is-authoritative)).
+- **There is one server, not two.** It hosts the client bundle, the API and the socket, so `yarn
+  dev` starts one thing and an operator later runs one thing. The API is addressed by relative path
+  (`/api/health`), there is no variable naming a backend, and there is no CORS layer anywhere —
+  a cross-origin error means something got split in two
+  ([D1](docs/v3.0_backend/overview.md#d1--the-backend-lives-in-this-repo-on-tanstack-start)).
 
 ---
 
@@ -82,17 +99,22 @@ the engine resolves it.
 git clone <repo-url>
 cd scuffed-dnd
 yarn install
+cp .env.example .env                  # optional today — nothing is required yet, but it is where
+                                      # server settings go, and `yarn dev` loads it
 git config core.hooksPath .githooks   # enables the pre-commit lint/format gate — do not skip
-yarn dev                              # dev server on http://localhost:3000
+yarn dev                              # app AND API on http://localhost:3000 — one process
 ```
 
 Then verify your setup by running the checks the project lives by:
 
 ```bash
-yarn run test        # Vitest, single pass — expect all green (801 passing as of this writing)
-npx tsc --noEmit     # expect exactly 4 known errors (documented in TEST_STATUS.md)
-yarn run check       # Biome lint + format + import sorting — expect zero findings
+yarn run test        # Vitest, single pass — expect all green (see TEST_STATUS.md for the count)
+npx tsc --noEmit     # expect exactly the known errors documented in TEST_STATUS.md
+yarn run check       # Biome + dependency-cruiser's root boundary — expect zero findings
 ```
+
+`curl http://localhost:3000/api/health` answers from the **same** server that served the page.
+There is no second process and no proxy; if you ever hit a CORS error, something got split in two.
 
 ### ⚠️ The one command trap
 
@@ -236,7 +258,9 @@ on every one of them, so internalise them before writing code:
 7. **Skill codes are 3 letters and unique across all skill kinds.**
 8. **Imports are relative within a root and aliased across one** — `#shared/…`, `#client/…`,
    `#server/…`, never `../../shared/…`; new barrels use `export *`.
-9. **No new runtime dependencies without asking.** The app stays browser-only.
+9. **No new runtime dependencies without asking.** v3.0 adds exactly four, listed in
+   [D11](docs/v3.0_backend/overview.md#d11--new-dependencies-in-full); anything beyond that list is
+   a new decision there.
 10. **Never fix a failure by weakening the check** — no skipping tests, no suppressing lint to
     get green.
 

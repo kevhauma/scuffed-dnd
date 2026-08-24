@@ -1,8 +1,12 @@
 # Custom DnD Builder
 
 Browser-only React app for building a custom tabletop RPG ruleset (*Configuration mode*) and
-playing characters on it (*Play mode*). **No backend** — everything lives in LocalStorage, with
-JSON import/export for sharing a ruleset.
+playing characters on it (*Play mode*). **Signed out it is browser-only** — everything lives in
+LocalStorage, with JSON import/export for sharing a ruleset, and nothing about that path degrades.
+**Signed in it has a server** (v3.0, TICKET-SRV-01): accounts, server-owned rulesets, multi-player
+sessions and live updates, on SQLite. One process serves the client bundle, the API and the socket
+— see [D1](docs/v3.0_backend/overview.md#d1--the-backend-lives-in-this-repo-on-tanstack-start) and
+[D6](docs/v3.0_backend/overview.md#d6--local-mode-stays-sign-in-gates-connected-play-only).
 
 Stack: React 19, TypeScript, Vite, TanStack Router (file-based), Zustand, react-hook-form,
 Tailwind CSS 4 (custom medieval theme), Vitest + fast-check, Biome.
@@ -141,7 +145,16 @@ acceptance criteria.
   `#shared/…`, `#client/…`, `#server/…`, never `../../shared/…`. This reverses the old "the `#/*`
   alias exists but is unused" line; the three aliases are fully adopted, and a crossing spelled
   with `../` is a dependency-cruiser error.
-- No new runtime dependencies without asking. The app stays browser-only.
+- No new runtime dependencies without asking. v3.0 adds exactly four —
+  [D11](docs/v3.0_backend/overview.md#d11--new-dependencies-in-full) lists them; anything beyond
+  that list is a new decision there, not a judgement call in a ticket.
+- **The server is authoritative and the engine is shared** ([D5](docs/v3.0_backend/overview.md#d5--the-engine-is-the-shared-kernel-and-the-server-is-authoritative)).
+  A rule lives once, in `shared/`; the server re-derives what it needs and trusts no derived value
+  in a request body; the client keeps calculating for display and treats its answer as a
+  prediction. Dice are rolled on the server.
+- **`src/server/env.ts` is the only reader of `process.env`**, and every variable it reads is
+  documented in `.env.example` — a test asserts the two name the same set. No variable names the
+  backend: the API is a relative path and the socket derives its URL from `window.location`.
 - **Formatting is settled and enforced** (TICKET-DX-02): `biome.json` is space/2, single quotes,
   `lineWidth` 100, es5 trailing commas — the style the code was already written in. The tree was
   formatted to match in one mechanical commit, so `npx biome check --write .` is now safe and

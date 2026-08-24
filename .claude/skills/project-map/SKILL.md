@@ -12,7 +12,7 @@ import `shared/` and nothing of each other; `shared/` imports neither:
 src/
   shared/    the Kernel — types/, engine/, and the pure half of services/. Pure.
   client/    components/, routes/, stores/, the browser half of services/, styles.css
-  server/    the backend. Empty until TICKET-SRV-01; see its README for what lands there
+  server/    the backend — entry.ts, env.ts, http/, routes/. See its README.
 ```
 
 A crossing is spelled with its alias — `#shared/…`, `#client/…`, `#server/…`, never `../../` —
@@ -30,6 +30,10 @@ client/services/    LocalStorage persistence, Blob/File download and upload
 client/stores/      Zustand: configStore, characterStore, uiStore
 client/components/  ui/ (base primitives) → config/, play/, shared/ (feature components)
 client/routes/      TanStack Router file-based routes
+server/env.ts       the only reader of process.env
+server/http/        AppError, the request pipeline, the API route table
+server/routes/      one module per API route — plain handlers, no framework coupling
+server/entry.ts     the server entry: /api/* to the router, everything else to SSR
 ```
 
 This file is hand-maintained and describes a moving codebase. Where it points at a barrel or a
@@ -358,6 +362,35 @@ between the roots is exactly *"does this touch a browser API"*.
   `downloadStoredBackup` (the raw-bytes backup behind `IncompatibleDataNotice`), and
   `importConfigurationFromFile`. Thin: every one of them calls the shared half for the actual
   reasoning and only owns the `Blob`, the anchor and the `File`.
+
+## Server (`src/server/`)
+
+The backend, filled by TICKET-SRV-01. Read
+[its README](../../../src/server/README.md) for the rule it is filled under and the table of what
+each later ticket adds.
+
+- `entry.ts` — **every request arrives here.** `/api/*` goes to `http/apiRouter.ts`; everything
+  else falls through to TanStack Start's SSR handler. `vite.config.ts` points
+  `tanstackStart({ server: { entry } })` at it, and the dev server and the production build call
+  the same module — one process, one origin, in both (D1). It is also *why* API route files are not
+  in `client/routes/`: they never have to be, so D14's boundary needs no exception.
+- `env.ts` — the **only** reader of `process.env` in `src/`, asserted by a test that walks the
+  tree. `ENV_VARIABLES` is the table; `.env.example` is checked against it; required variables are
+  eager and a missing one names *every* missing key at once. Today the table holds only `NODE_ENV`
+  — TICKET-DB-01 adds the first required variable.
+- `http/AppError.ts` — the one error a handler throws on purpose: status + `ERROR_CODE` + a
+  sentence. `notFound()` is deliberately the answer to both "missing" and "not yours" (v3 Req 32.5).
+- `http/pipeline.ts` — `defineHandler`. A handler **returns data and throws refusals**; it never
+  builds a `Response`, picks a status, or catches its own errors. An `AppError` becomes its status
+  and code; anything else is a bug, logged server-side and answered with a bare 500.
+  `RequestContext.account` is `null` until TICKET-AUTH-03 resolves it.
+- `http/apiRouter.ts` — the route table, keyed `METHOD /path`, and the prefix test that decides
+  whether a request is API traffic at all. Matching is **exact**; TICKET-RUL-01 brings the first
+  path parameter and extends it then.
+- `routes/health.ts` — `GET /api/health`. The dullest route on purpose: every later one copies it.
+
+Server tests call handlers directly with a `Request` and **never boot Nitro** —
+`vitest.config.ts` still omits `tanstackStart()`, for the reason its own header records.
 
 ## Scripts (`scripts/`)
 

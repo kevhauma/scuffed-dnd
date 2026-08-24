@@ -68,7 +68,11 @@ routes or UI are touched. Respect the hard rules while planning:
   responsibility per module, `ConfigPanelShell` extended rather than given a prop per caller,
   narrow props, engine code unaware of React and storage — and no abstraction, option, or flag
   introduced before its third caller exists.
-- No new runtime dependencies without asking; the app stays browser-only with no backend.
+- No new runtime dependencies without asking. v3.0 adds exactly four, listed in its
+  [D11](../../../docs/v3.0_backend/overview.md#d11--new-dependencies-in-full); anything beyond that
+  list is a new decision there, not a judgement call inside a ticket.
+- **`src/` has three roots** — `shared/` (the Kernel), `client/`, `server/`. A rule both sides need
+  lives in `shared/`; crossings are spelled `#shared/…`; `yarn run check` refuses the rest.
 
 Track the steps with `TaskCreate`/`TodoWrite`. **Present the plan and wait for the user's
 go-ahead before editing any code.**

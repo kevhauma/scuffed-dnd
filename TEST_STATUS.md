@@ -1,21 +1,34 @@
 # Test Status
 
-_Last verified: 2026-08-24 (`npx vitest run`), after **TICKET-DX-07 — three roots** (`client/`,
-`server/`, `shared/`). The checkpoint before it was the **equipment split and display builder** at
-1834, before that the **character sheet rebuild** at 1777, before that the **tavern redesign** at
-1732, and before that the [v2.1 code review](docs/v2.1_code_review/overview.md)'s **high-priority
-findings** (CR-01 to CR-07, CR-08, CR-20) at 1674._
+_Last verified: 2026-08-24 (`npx vitest run`), after **TICKET-SRV-01 — the server layer**. The
+checkpoints before it were **TICKET-DX-07 — three roots** at 1847, the **equipment split and
+display builder** at 1834, the **character sheet rebuild** at 1777, the **tavern redesign** at
+1732, and the [v2.1 code review](docs/v2.1_code_review/overview.md)'s **high-priority findings**
+(CR-01 to CR-07, CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 1846
-- **Passing**: 1846 (100%)
+- **Total tests**: 1883
+- **Passing**: 1883 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-The **+12 over the equipment checkpoint** is TICKET-DX-07, and **none of it is the move**: the tree
+The **+36 over DX-07** is TICKET-SRV-01: the environment loader (14, including the three contracts
+that keep `.env.example` and `env.ts` naming the same set, keep `process.env` to one reader, and
+keep any origin out of the environment entirely), the request pipeline (14, most of them about the
+one decision that matters — a refusal explains itself, a bug says nothing), and the API router (8,
+of which the load-bearing one is that non-API traffic comes back as `null` rather than a 404, which
+is what lets one process serve the app and the API from one origin).
+
+Six of those thirty-six came from the `conventions-reviewer` pass and are worth naming, because
+each pins a bug that was reachable: a handler returning nothing produced a 200 whose body was the
+four characters `undefined`; `AppError` took its status from the caller, so a malformed one would
+have thrown inside the pipeline's own catch; the 404/405 bodies echoed the request path back; and
+`HEAD` on a known route was answered with a 405.
+
+The **+13 over the equipment checkpoint** is TICKET-DX-07, and **none of it is the move**: the tree
 moved at exactly 1834, which is the whole point of a refactor ticket that changes no behaviour.
-The twelve are the checks the ticket adds — 8 in `architecture/boundaries.test.ts`, one per
+The thirteen are the checks the ticket adds — 9 in `architecture/boundaries.test.ts`, one per
 dependency-cruiser rule plus the legal crossing and a guard that fails when a rule arrives without
 a fixture, and 4 in `src/server/sharedKernel.test.ts`, which is the first thing the server root
 does and proves the pure half of `services/` is reusable from it. One test file was split in two —
@@ -202,6 +215,15 @@ Routing still works under test because `src/client/routeTree.gen.ts` is committe
 needs the route generator to run. `src/client/routes/config/configRoutes.test.tsx` passes unchanged.
 
 The fix alone took the suite from 48 failing / 369 passing to 14 failing / 403 passing.
+
+**This stays true now that there is a server (TICKET-SRV-01).** The server layer is deliberately
+shaped so that it can be: a handler is a function from `Request` to data, `defineHandler` wraps it
+into a function from `Request` to `Response`, and `handleApiRequest` is called with a plain
+`new Request(...)`. Nothing in `src/server/` needs Nitro, a listener, or a port to be exercised, so
+`vitest.config.ts` keeps omitting `tanstackStart()` and server tests keep running in the same pass
+as everything else. The one module that *does* touch the framework — `src/server/entry.ts` — holds
+two lines of dispatch and nothing worth asserting in isolation; what it does is proven in the
+browser instead.
 
 ## What else changed in TICKET-DX-01
 

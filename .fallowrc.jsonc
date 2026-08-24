@@ -7,10 +7,14 @@
   // under the client root — `vite.config.ts` points the generator at `src/client` (D14). Without
   // these three lines the router entry, the generated tree and every route file drop out of the
   // reachability graph and are reported as dead code, which is a wrong answer about a live app.
+  // `src/server/entry.ts` is named as a string in `vite.config.ts`
+  // (`tanstackStart({ server: { entry } })`, TICKET-SRV-01) — the framework imports it, nothing
+  // in the tree does.
   "entry": [
     "src/client/router.tsx",
     "src/client/routeTree.gen.ts",
-    "src/client/routes/**/*.tsx"
+    "src/client/routes/**/*.tsx",
+    "src/server/entry.ts"
   ],
 
   // The modules that prove the root boundary. Nothing imports them — that is the point; they are

@@ -31,9 +31,16 @@ What does *not* come back is the spec's draft/publish versioning and audit trail
 ### D1 — The backend lives in this repo, on TanStack Start
 
 `@tanstack/react-start` is already a dependency and `vite.config.ts` already runs `tanstackStart()`.
-Server routes under `src/routes/api/` plus a `src/server/` layer, built to a Nitro `node-server`.
-One repo, one build, one process, one router. A separate backend service would fork the type
-definitions and the engine, which is precisely what D5 exists to prevent.
+A `src/server/` layer built to a Nitro `node-server`. One repo, one build, one process, one router.
+A separate backend service would fork the type definitions and the engine, which is precisely what
+D5 exists to prevent.
+
+> **Where API routes actually live, settled by TICKET-SRV-01.** This decision first said "server
+> routes under `src/routes/api/`", which D14 then made untenable — a route file in the client's
+> routes directory importing a `server/` module breaks the root boundary on day one. They live under
+> `src/server/routes/` instead, reached from a configured **server entry** (`src/server/entry.ts`)
+> that dispatches `/api/*` before falling through to the SSR handler. Nothing else in D1 changes:
+> it is still one process, one router, one build.
 
 **The server hosts the frontend's build, so there is only ever one web server to run.** This is an
 operational decision before it is an architectural one. The audience for this app is one person on
@@ -85,7 +92,7 @@ That is v3 Req 32, it lives in `src/server/`, and no library decides it.
 
 A `Configuration` is fourteen interlinked entity kinds with id-resolved formula references, curve
 override flags and stat ordering. Normalising it into tables would produce a second schema that has
-to be kept in step with `src/types/config.ts` by hand, and a second validator beside
+to be kept in step with `src/shared/types/config.ts` by hand, and a second validator beside
 `validateConfigurationShape`. Every query the app actually makes is *"give me the whole ruleset"*.
 
 So: `ruleset.data` is the `Configuration` as JSON text, with `schemaVersion` and `revision` as real
@@ -95,8 +102,8 @@ are the server's own model, and they are what the server joins on.
 
 ### D5 — The engine is the shared Kernel, and the server is authoritative
 
-`src/types/` and `src/engine/` are already pure — no React, no storage, no network. They become the
-**Kernel**, living in `src/shared/` after D14 and imported by both sides. A rule is written once.
+`src/shared/types/` and `src/shared/engine/` are pure — no React, no storage, no network. They
+are the **Kernel**, and both sides import them. A rule is written once.
 
 The server re-derives everything it needs and trusts no derived value in a request body. The client
 keeps calculating for display, and treats its own answer as a prediction. Dice are rolled on the
@@ -265,7 +272,7 @@ SQLite file, in-memory socket rooms.
 Server foundation — nothing here is user-visible, and everything after it depends on all of it:
 
 - [x] [TICKET-DX-07](./tickets/TICKET-DX-07-three-root-source-tree.md) — Three roots: `client/`, `server/`, `shared/` (v3 Req 50) — **first, before a line of server code exists**: a pure move of the existing tree, so nothing later has to be moved twice. Numbered 07 but built first, the DX-05-taken-early precedent. Also splits `services/` along the seam that was always there, and installs dependency-cruiser with the root boundary
-- [ ] [TICKET-SRV-01](./tickets/TICKET-SRV-01-server-layer-and-kernel-boundary.md) — The server layer and the Kernel boundary (v3 Req 45, 47) — fills DX-07's empty `server/` root: the env loader and the request pipeline that every later ticket plugs into
+- [x] [TICKET-SRV-01](./tickets/TICKET-SRV-01-server-layer-and-kernel-boundary.md) — The server layer and the Kernel boundary (v3 Req 45, 47) — fills DX-07's empty `server/` root: the env loader and the request pipeline that every later ticket plugs into
 - [ ] [TICKET-DB-01](./tickets/TICKET-DB-01-sqlite-drizzle-and-migrations.md) — SQLite, Drizzle and migrations (v3 Req 46) — the database file, the schema for the server's own model, and the migration runner
 - [ ] [TICKET-DX-08](./tickets/TICKET-DX-08-architecture-rules-as-checks.md) — The project's architecture rules, as dependency-cruiser rules (v3 Req 51) — **after DB-01**, because two of the rules are about a database layer that has to exist first. Encodes what CLAUDE.md has stated as prose since v1.0: store-owned persistence, repository-owned queries, a framework-free Kernel, UI primitives as leaves
 - [ ] [TICKET-DX-06](./tickets/TICKET-DX-06-server-test-harness.md) — Server test harness (v3 Req 45.3) — in-memory database per test, a request helper, and seeded fixtures; **before AUTH-01** so every server ticket after it is testable the same way
