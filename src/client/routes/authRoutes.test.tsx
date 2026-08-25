@@ -15,7 +15,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const replace = vi.fn();
-const search = { redirect: undefined as string | undefined };
+const search = {
+  redirect: undefined as string | undefined,
+  expired: undefined as boolean | undefined,
+};
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (options: unknown) => ({
@@ -55,13 +58,14 @@ import { SignInPage, Route as SignInRoute } from './signin';
 /** The route's own `validateSearch`, which runs on every arrival */
 const validateSearch = (
   SignInRoute as unknown as {
-    validateSearch: (raw: Record<string, unknown>) => { redirect?: string };
+    validateSearch: (raw: Record<string, unknown>) => { redirect?: string; expired?: boolean };
   }
 ).validateSearch;
 
 beforeEach(() => {
   replace.mockReset();
   search.redirect = undefined;
+  search.expired = undefined;
 });
 
 describe('/signin', () => {
@@ -110,6 +114,43 @@ describe('/signin', () => {
     expect(replace).toHaveBeenCalledTimes(1);
   });
 
+  describe('an expired session (v3 Req 48.9)', () => {
+    it('says so, rather than showing a bare form again', () => {
+      search.expired = true;
+
+      render(<SignInPage />);
+
+      expect(screen.getByText(/session expired/i)).toBeTruthy();
+    });
+
+    it('says it as a status rather than as an error', () => {
+      search.expired = true;
+
+      render(<SignInPage />);
+
+      // A ninety-day ceiling doing its job is not a permission error and must not be announced as
+      // one — which is the whole content of the requirement
+      expect(screen.getByRole('status')).toBeTruthy();
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('promises the destination back, because it is keeping it', () => {
+      search.expired = true;
+      search.redirect = '/account';
+
+      render(<SignInPage />);
+      fireEvent.click(screen.getByRole('button', { name: /pretend to sign in/i }));
+
+      expect(replace).toHaveBeenCalledWith('/account');
+    });
+
+    it('says nothing when the visitor simply was not signed in', () => {
+      render(<SignInPage />);
+
+      expect(screen.queryByText(/session expired/i)).toBeNull();
+    });
+  });
+
   describe('its validateSearch', () => {
     it('carries a same-origin destination through', () => {
       expect(validateSearch({ redirect: '/account' })).toEqual({ redirect: '/account' });
@@ -122,6 +163,14 @@ describe('/signin', () => {
     it('adds no key when no destination was asked for', () => {
       // So a plain *Sign in* link stays a plain link rather than growing a `?redirect=/`
       expect(validateSearch({})).toEqual({});
+    });
+
+    it('reads the expiry marker as a boolean however it arrived', () => {
+      // A client-side navigation carries `true`; a page load carries the string `"true"`
+      expect(validateSearch({ expired: true })).toEqual({ expired: true });
+      expect(validateSearch({ expired: 'true' })).toEqual({ expired: true });
+      // Anything else drops the key rather than carrying a present-and-false
+      expect(validateSearch({ expired: 'nonsense' })).toEqual({});
     });
   });
 

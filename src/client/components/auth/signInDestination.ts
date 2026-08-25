@@ -41,6 +41,16 @@
 /** The query-string key a destination travels on */
 export const REDIRECT_PARAM = 'redirect';
 
+/**
+ * The query-string key that says *you were signed out, you did not fail to sign in* (TICKET-AUTH-04)
+ *
+ * v3 Req 48.9 asks that a session expiring while the app is open be presented as an expired session
+ * rather than as a permission error or a silently failed action — and the difference is entirely in
+ * the wording, because the destination and the redirect are AUTH-03's and are reused unchanged.
+ * *One mechanism taking a destination* was built for exactly this second caller.
+ */
+export const EXPIRED_PARAM = 'expired';
+
 /** Where somebody with no particular destination lands */
 export const DEFAULT_DESTINATION = '/';
 
@@ -95,6 +105,14 @@ export function safeDestination(raw: unknown): string {
  * @param destination Where to return afterwards
  * @returns The `search` for a navigation to `/signin`
  */
-export function signInSearch(destination: string): { redirect: string } {
-  return { [REDIRECT_PARAM]: safeDestination(destination) };
+export function signInSearch(
+  destination: string,
+  options: { expired?: boolean } = {}
+): { redirect: string; expired?: true } {
+  return {
+    [REDIRECT_PARAM]: safeDestination(destination),
+    // Absent rather than `false` when it is not an expiry: a query string should say what happened,
+    // not enumerate what did not
+    ...(options.expired ? { [EXPIRED_PARAM]: true as const } : {}),
+  };
 }

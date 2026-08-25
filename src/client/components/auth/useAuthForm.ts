@@ -21,6 +21,14 @@ import { authClient } from './authClient';
 export interface AuthFormValues {
   email: string;
   password: string;
+  /**
+   * Whether this browser should remember the Account after it closes (TICKET-AUTH-04)
+   *
+   * Checked by default, because the common case is somebody's own machine and D13's whole point is
+   * that sitting down to play should not start with a password. Unchecking it is the affordance
+   * v3 Req 48.11 asks for: a session that ends with the browser, for a device that is not yours.
+   */
+  rememberMe: boolean;
 }
 
 /** Which form this is */
@@ -63,7 +71,9 @@ function messageFrom(result: AuthFailure): string | null {
  * @returns The form, the error, and the submit handler
  */
 export function useAuthForm(mode: AuthMode, onSuccess: () => void): AuthFormManager {
-  const form = useForm<AuthFormValues>({ defaultValues: { email: '', password: '' } });
+  const form = useForm<AuthFormValues>({
+    defaultValues: { email: '', password: '', rememberMe: true },
+  });
   const [error, setError] = useState<string | null>(null);
 
   const submit = form.handleSubmit(async (values) => {
@@ -80,7 +90,14 @@ export function useAuthForm(mode: AuthMode, onSuccess: () => void): AuthFormMana
               // instead would be a field with no reader.
               name: values.email,
             })
-          : await authClient.signIn.email({ email: values.email, password: values.password });
+          : await authClient.signIn.email({
+              email: values.email,
+              password: values.password,
+              // `false` is what produces a cookie with no persisted expiry (v3 Req 48.11). Sign-up
+              // does not offer it: creating an account on a machine you do not trust is a
+              // different decision, and nobody has asked for it.
+              rememberMe: values.rememberMe,
+            });
 
       const message = messageFrom(result);
       if (message) {

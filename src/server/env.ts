@@ -67,9 +67,29 @@ export const ENV_VARIABLES = {
   AUTH_SESSION_DAYS: {
     required: false,
     description:
-      'How long an Auth_Session lasts, in days (TICKET-AUTH-01, v3 Req 48.2). A number rather ' +
-      'than a literal in the auth config so that TICKET-AUTH-04 changes values and adds rotation ' +
-      'rather than changing the shape. Defaults to 7.',
+      'The **idle** half of a session lifetime, in days (v3 Req 48.2). Every use pushes it out ' +
+      'again, so this is how long you may stay away and still come back signed in. Defaults to 30.',
+  },
+  AUTH_SESSION_ABSOLUTE_DAYS: {
+    required: false,
+    description:
+      'The **absolute** ceiling, in days (TICKET-AUTH-04, v3 Req 48.3). No amount of continuous ' +
+      'use extends a session past this, which is what bounds a stolen cookie. Defaults to 90. A ' +
+      'value below AUTH_SESSION_DAYS simply wins — the earlier of the two is always the answer.',
+  },
+  AUTH_SESSION_UPDATE_HOURS: {
+    required: false,
+    description:
+      'How often a session in use is renewed and its identifier rotated, in hours (v3 Req 48.4). ' +
+      'Not how long it lasts: a smaller number means more rotations and a shorter window for a ' +
+      'captured cookie, at the cost of a write. Defaults to 24.',
+  },
+  AUTH_SESSION_GRACE_SECONDS: {
+    required: false,
+    description:
+      'How long the identifier a rotation replaced stays valid, in seconds (TICKET-AUTH-04). It ' +
+      'exists so that two browser tabs renewing in the same instant do not sign each other out. ' +
+      'Defaults to 30. Set to 0 to rotate with no grace at all, accepting that hazard.',
   },
   AUTH_SIGNIN_MAX_ATTEMPTS: {
     required: false,
@@ -144,8 +164,14 @@ export interface ServerEnv {
   databaseUrl: string;
   /** What Auth_Session cookies are signed with (TICKET-AUTH-01) */
   authSecret: string;
-  /** How long an Auth_Session lasts, in seconds — AUTH-04 makes this the *idle* half */
+  /** The idle half of a session lifetime, in seconds — a use pushes it out again */
   authSessionSeconds: number;
+  /** The absolute ceiling, in seconds; no use extends a session past it (TICKET-AUTH-04) */
+  authSessionAbsoluteSeconds: number;
+  /** How often a session in use is renewed and rotated, in seconds */
+  authSessionUpdateSeconds: number;
+  /** How long a rotated-away identifier stays honoured, in seconds */
+  authSessionGraceSeconds: number;
   /** Failed sign-ins allowed per email address inside the window; 0 disables the limit */
   signInMaxAttempts: number;
   /** The window those attempts are counted over, in seconds */
@@ -158,10 +184,19 @@ export interface ServerEnv {
 
 /** What the optional auth settings mean when nothing sets them */
 const AUTH_DEFAULTS = {
-  SESSION_DAYS: 7,
+  /** Come back after three weeks away and you are still in — a fortnightly game fits inside it */
+  SESSION_DAYS: 30,
+  /** …and a cookie stolen today is dead within three months, however continuously it is used */
+  SESSION_ABSOLUTE_DAYS: 90,
+  /** One rotation a day: a captured cookie's window is a day, and the write costs nothing */
+  SESSION_UPDATE_HOURS: 24,
+  /** Long enough for two tabs racing, short enough that rotation still means something */
+  SESSION_GRACE_SECONDS: 30,
   SIGNIN_MAX_ATTEMPTS: 5,
   SIGNIN_WINDOW_SECONDS: 900,
 } as const;
+
+const SECONDS_PER_HOUR = 60 * 60;
 
 const SECONDS_PER_DAY = 60 * 60 * 24;
 
@@ -326,6 +361,16 @@ export function readEnv(source: Record<string, string | undefined> = process.env
     authSecret: source.BETTER_AUTH_SECRET as string,
     authSessionSeconds:
       asCount(source.AUTH_SESSION_DAYS, AUTH_DEFAULTS.SESSION_DAYS) * SECONDS_PER_DAY,
+    authSessionAbsoluteSeconds:
+      asCount(source.AUTH_SESSION_ABSOLUTE_DAYS, AUTH_DEFAULTS.SESSION_ABSOLUTE_DAYS) *
+      SECONDS_PER_DAY,
+    authSessionUpdateSeconds:
+      asCount(source.AUTH_SESSION_UPDATE_HOURS, AUTH_DEFAULTS.SESSION_UPDATE_HOURS) *
+      SECONDS_PER_HOUR,
+    authSessionGraceSeconds: asCount(
+      source.AUTH_SESSION_GRACE_SECONDS,
+      AUTH_DEFAULTS.SESSION_GRACE_SECONDS
+    ),
     signInMaxAttempts: asCount(source.AUTH_SIGNIN_MAX_ATTEMPTS, AUTH_DEFAULTS.SIGNIN_MAX_ATTEMPTS),
     signInWindowSeconds: asCount(
       source.AUTH_SIGNIN_WINDOW_SECONDS,

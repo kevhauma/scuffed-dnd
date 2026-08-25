@@ -52,6 +52,15 @@ identity** — the Auth_Session is an `HttpOnly` cookie that no client-side code
 `clearAllData()` deliberately does not touch it: clearing the app's data is not signing out, and
 signing out is a server-side invalidation rather than a key to delete.
 
+**One exception to *no client-side code can read it*, added knowingly by TICKET-AUTH-04.** The
+`/account` page lists an Account's active sessions and offers to end one, and Better Auth's
+`revokeSession({ token })` names a session by its **token** — so `/list-sessions` returns those
+tokens and the page holds them in React state for as long as it is open. Nothing is persisted and
+the *current* session's cookie is still unreadable, but an XSS on `/account` could exfiltrate every
+device's session token. Accepted rather than worked around: the alternative is a bespoke
+revoke-by-id endpoint, which is a ticket rather than a line, and the exposure is bounded by the
+same 90-day ceiling everything else is.
+
 `dnd_builder_ui_state` was defined and cleared by `clearAllData()` while nothing ever wrote it;
 CR-39 removed it. `useUIStore` is entirely in-memory — open dialogs, the active mode and roll
 history all end with the tab. Persisting any of that adds a key in the same change as the code that

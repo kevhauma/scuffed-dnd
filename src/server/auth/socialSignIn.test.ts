@@ -299,6 +299,20 @@ describe.each(SOCIAL_PROVIDERS)('signing in with %s', (provider) => {
       expect(accounts(database)).toHaveLength(0);
     }));
 
+  it('keeps no Provider refresh token (v3 Req 48.10, TICKET-AUTH-04)', () =>
+    withTestDatabase(async (database) => {
+      await signInThrough(provider, verified);
+
+      // **A deliberate subtraction, read off the row rather than assumed.** Better Auth stores one
+      // by default and is right to — most applications call the Provider's API afterwards. This one
+      // calls none, so a stored refresh token would be a long-lived credential sitting in a SQLite
+      // file for a year, held for no feature.
+      const identity = accounts(database).find((row) => row.providerId === provider);
+
+      expect(identity).toBeTruthy();
+      expect(identity?.refreshToken).toBeNull();
+    }));
+
   it('refuses to link an unverified address onto an Account that already exists', () =>
     withTestDatabase(async (database) => {
       const cookies = await signUpWithPassword(email);

@@ -67,6 +67,8 @@ describe('AuthForm — signing in', () => {
       expect(signInEmail).toHaveBeenCalledWith({
         email: 'ada@example.com',
         password: 'correct-horse-battery',
+        // Checked by default: the common case is somebody's own machine (TICKET-AUTH-04)
+        rememberMe: true,
       })
     );
   });
@@ -168,6 +170,27 @@ describe('AuthForm — either surface', () => {
     render(<AuthForm mode={AUTH_MODE.SIGN_IN} onSuccess={vi.fn()} />);
 
     expect(screen.getByText(/needs no account at all/i)).toBeTruthy();
+  });
+
+  it('should ask for a browser-lifetime session when the box is unchecked (v3 Req 48.11)', async () => {
+    // **The affordance is the *unchecking*.** Asserting only the default would pass even if the
+    // checkbox's `register` ref never reached the input, which is the whole of the wiring.
+    render(<AuthForm mode={AUTH_MODE.SIGN_IN} onSuccess={vi.fn()} />);
+
+    fireEvent.click(screen.getByLabelText(/keep me signed in/i));
+    submit();
+
+    await waitFor(() =>
+      expect(signInEmail).toHaveBeenCalledWith(expect.objectContaining({ rememberMe: false }))
+    );
+  });
+
+  it('should not offer it on the sign-up surface', () => {
+    // Creating an account on a machine you do not trust is a different decision, and nobody has
+    // asked for it
+    render(<AuthForm mode={AUTH_MODE.SIGN_UP} onSuccess={vi.fn()} />);
+
+    expect(screen.queryByLabelText(/keep me signed in/i)).toBeNull();
   });
 
   it.each([AUTH_MODE.SIGN_IN, AUTH_MODE.SIGN_UP])(

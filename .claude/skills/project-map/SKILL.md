@@ -77,7 +77,7 @@ rather than a read-only config UI).
 | `/play/character/$id` | `routes/play/character.$id.tsx` | `CharacterSheet` — takes the route param as `characterId` |
 | `/signin` | `routes/signin.tsx` | `AuthForm` in sign-in mode (TICKET-AUTH-01). A page rather than a dialog because TICKET-AUTH-03 sends an unauthenticated visitor here and returns them |
 | `/signup` | `routes/signup.tsx` | `AuthForm` in sign-up mode — carries the "there is no password reset" warning (v3 Req 30.10) |
-| `/account` | `routes/account.tsx` | `LinkedIdentities` (TICKET-AUTH-02) — which providers this Account holds, and a button for the one it does not. **The milestone's first protected route** (AUTH-03): it composes `RequireAccount`, and it is the only entry in `PROTECTED_ROUTES` |
+| `/account` | `routes/account.tsx` | `LinkedIdentities` (TICKET-AUTH-02) + `ActiveSessions` (AUTH-04) — how to get back into this Account, and who else is already in it. **The milestone's first protected route** (AUTH-03): it composes `RequireAccount`, and it is the only entry in `PROTECTED_ROUTES` |
 
 Route files stay thin: they render a feature component and pass route params down. Data fetching
 is a no-op here — everything comes from the Zustand stores. **The three auth routes are the
@@ -426,11 +426,20 @@ each later ticket adds.
   answer, which is v3 Req 32.5. Each guard returns the loaded row so a handler does not fetch
   twice. `routes/routeGuards.test.ts` walks every module containing `defineHandler(` and fails on
   one that reads an owned identifier without calling a guard.
+  **AUTH-04 adds `sessionLifetime.ts`** — the idle window, the absolute ceiling and identifier
+  rotation, as pure functions so they can be tested by driving a clock. The trick the whole design
+  rests on: renewal writes `min(now + idle, createdAt + absolute)`, which makes the ceiling an
+  *ordinary expiry* the library already refuses everywhere.
 - `db/` (TICKET-DB-01) — `client.ts` owns the `better-sqlite3` connection (`foreign_keys = ON`,
   WAL) and `createDatabase(':memory:')` is what every test opens; `schema.ts` is the Drizzle schema
   and the place the document-vs-table decision (D4) and each cascade rule are written down;
   `migrate.ts` applies `migrations/` at start-up, forward-only, each file in a transaction.
   `yarn run db:generate` writes a new migration after a schema edit.
+  **`authAdapter.ts` is a wrapper, not a pass-through, since AUTH-04.** It applies the session rules
+  `authServer.ts` hands it to four adapter operations — `create`, `findOne`, `findMany`, `update`
+  and `delete` — because the adapter is the only seam with the stored row and the pending write in
+  hand at once. `findMany` and `delete` are both needed for one thing: Better Auth signs out by the
+  token the **cookie** carried, and looks the row up with `findMany` before deleting it.
 - `repositories/` — **the only code that issues queries.** Handlers call repositories; they never
   build SQL or touch Drizzle, and TICKET-DX-08 makes that a dependency-cruiser rule. DB-01 landed
   `rulesetRepository` (including the revision guard: the check and the increment are one statement,
@@ -601,7 +610,10 @@ mechanism**: `protectedRoutes.ts` (the explicit list), `RequireAccount.tsx` (pen
 signed in → children, signed out → a redirect carrying where to come back to) and
 `signInDestination.ts` — the open-redirect guard, which normalises tab/LF/CR *before* judging a
 destination's shape because the URL parser strips them first, and which `/signin` applies again on
-the way out.
+the way out. **AUTH-04 adds `ActiveSessions.tsx` + `useActiveSessions.ts`** — where this Account is
+signed in, and the two ways to end a session (v3 Req 48.7) — and the `expired` marker
+`RequireAccount` sets when a session goes away *mid-use*, which `/signin` turns into wording rather
+than into a second redirect.
 **`AuthAlert.tsx` is the folder's refusal box** — reach for it rather than writing another
 `role="alert"` div — and the folder's shared class strings live in **`authSurfaces.style.ts`**
 rather than in any one component's `.style.ts`, which is what four modules importing the same

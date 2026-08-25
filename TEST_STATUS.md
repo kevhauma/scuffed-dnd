@@ -1,7 +1,8 @@
 # Test Status
 
-_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-AUTH-03 — authorization guards**.
-The checkpoints before it were **TICKET-AUTH-02 — social sign-in** at 2115,
+_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-AUTH-04 — persistent sessions**.
+The checkpoints before it were **TICKET-AUTH-03 — authorization guards** at 2203,
+**TICKET-AUTH-02 — social sign-in** at 2115,
 **TICKET-AUTH-01 — email/password accounts** at 2040,
 **TICKET-DX-06 — the server test harness** at 1970,
 **TICKET-DX-08 — the architecture rules as checks** at 1937,
@@ -14,8 +15,8 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 2203
-- **Passing**: 2203 (100%)
+- **Total tests**: 2260
+- **Passing**: 2260 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
@@ -35,6 +36,58 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-AUTH-04 — rolling renewal, and two defects a review found
+
+The **+57 over AUTH-03** is TICKET-AUTH-04: 17 in `auth/sessionLifetime.test.ts` (the arithmetic),
+19 in `auth/session.test.ts` (the same rules driven end to end), 7 in
+`client/components/auth/ActiveSessions.test.tsx`, 4 in `db/migrate.test.ts` for the third migration,
+and the rest spread across `env.test.ts`, `AuthForm.test.tsx`, `AccountBadge.test.tsx`,
+`RequireAccount.test.tsx` and `authRoutes.test.tsx`.
+
+**`session.test.ts` drives a clock rather than waiting three months.**
+`vi.useFakeTimers({ toFake: ['Date'] })` — only `Date`, because faking timers too would suspend the
+promises the file awaits — moves time and the real Better Auth handler runs at whatever moment it is
+told, against a real migrated database. Criterion 3's *"asserted by driving the clock, so 'renew
+forever' cannot pass"* is only checkable in that shape.
+
+### The design in one line, and what it cost
+
+Renewal writes **`expiresAt = min(now + idle, createdAt + absolute)`**. That turns the absolute
+ceiling into an ordinary expiry, so the library's own *is this expired?* check enforces it on
+`/get-session`, on LIVE-01's socket upgrade, and on every route that resolves a cookie — no second
+check to remember, no path that can forget one. `createdAt` is never rewritten, which is what makes
+it the start of the *chain* rather than of the current window.
+
+What it cost is that **capping `expiresAt` breaks the library's own once-per-`updateAge` test**,
+which assumes `expiresAt = lastRenewal + idle`. Once the ceiling binds — the last month of a
+ninety-day chain — that test is permanently true, so every request would have renewed *and rotated*.
+`isDueForRenewal` measures from `updatedAt` instead.
+
+### Two defects `conventions-reviewer` found, both now with the test that reproduces them
+
+Neither was visible from the tests as written, and both were about a seam rather than a rule:
+
+- **Sign-out did nothing during the grace window.** Better Auth deletes by the token the *cookie*
+  carried, not the one it resolved the session to — and inside grace those differ. The row survived,
+  the browser's cookie was cleared, and the person believed they had signed out. Fixing it needed a
+  fourth adapter override nobody would guess at: `deleteWithHooks` looks the row up with
+  **`findMany({ limit: 1 })`** first and skips the delete when that finds nothing, so wrapping
+  `delete` alone changed nothing at all.
+- **Every request renewed and rotated once the ceiling bound** — the `updateAge` problem above.
+
+The review also caught the ceiling not being applied at session *creation* (so a configuration
+`.env.example` documents as supported did not work for a whole update window), an unindexed
+`previous_token` that made every bad cookie a full table scan, and a dead export this ticket had
+introduced.
+
+### The grace window is an amended criterion, taken to the User
+
+Criterion 4 asked that a rotated-away identifier stop working **immediately**; the ticket's own notes
+asked, three paragraphs later, that two tabs renewing at once must not invalidate each other. The
+notes are right and the hazard is real — Better Auth *deletes the cookie* when it meets a token it
+does not recognise, so the losing side of a two-tab race signs every tab out. The User chose the
+grace window; the criterion is struck through and amended in place rather than quietly outgrown.
 
 ## TICKET-AUTH-03 — the authorization guards, and what only a browser could find
 
@@ -578,7 +631,9 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `architecture/boundaries.test.ts` | 24.6 | TICKET-AUTH-01's run | 3 commits, 310 churn, 0.18 density | ▲ **Accelerating** |
 | `vitest.setup.ts` | 8.2 | TICKET-AUTH-01's run | 3 commits, 35 churn, 0.08 density | ▲ **Accelerating** |
 | `src/server/http/apiRouter.test.ts` | 23.9 | TICKET-AUTH-01's run | 4 commits, 134 churn, 0.16 density | ─ Stable |
-| `src/server/http/apiRouter.ts` | 13.4 | TICKET-AUTH-02's run | 3 commits, 86 churn, 0.12 density | ▲ **Accelerating** |
+| `src/server/http/apiRouter.ts` | 15.8 | TICKET-AUTH-02's run | 4 commits, 90 churn, 0.12 density | ▲ **Accelerating** |
+| `src/server/repositories/rulesetRepository.test.ts` | 24.6 | TICKET-AUTH-03's run | 3 commits, 474 churn, 0.25 density | ▲ **Accelerating** |
+| `src/server/repositories/eventRepository.test.ts` | 20.7 | TICKET-AUTH-03's run | 3 commits, 387 churn, 0.21 density | ▲ **Accelerating** |
 
 **Both Accelerating rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they
 crossed the three-commit floor and became measurable at all. Recorded under the run that first saw
@@ -595,6 +650,12 @@ them, with the tickets that moved them named here rather than lost:
   which is worth knowing before a fourth one does. **AUTH-02 deliberately did not add a fourth
   line**: its OAuth variables are set at the top of `socialSignIn.test.ts` instead, so the
   unconfigured deployment stays the *default* every other server test runs under.
+- **The two repository test files** — moved by AUTH-03, which converted every call site when it
+  turned `findRuleset(database, id)` into `findRuleset(id, database?)`. That is churn from a
+  *mechanical* rewrite rather than from growth, which is the reading the tag cannot make on its own:
+  474 churn over three commits looks alarming and is one sweep. What would make it real is a fourth
+  ticket reshaping them again — at which point the argument-order question has been reopened, and
+  reopening it is the thing to notice.
 - **`src/server/http/apiRouter.ts`** — a new row, moved by AUTH-02's second route. Three tickets
   have now edited it (SRV-01 wrote it, AUTH-01 added the auth delegation, AUTH-02 added
   `/api/auth-providers`), which is exactly the shape the tag is for: a file every server ticket

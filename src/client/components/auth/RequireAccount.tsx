@@ -54,19 +54,35 @@ export function RequireAccount({ children }: RequireAccountProps) {
    */
   const destination = useRef(location.href);
 
+  /**
+   * Whether this Account was signed in a moment ago (TICKET-AUTH-04)
+   *
+   * The difference between *your session expired* and *you were never signed in* is invisible from
+   * the auth state alone — both are `isSignedIn: false`. It is visible from the **transition**, and
+   * this ref is the only thing that remembers one. v3 Req 48.9 asks that the first be presented as
+   * an expired session rather than as a permission error or a silently failed action, and the
+   * wording is the whole of the difference: the destination and the redirect are AUTH-03's, reused.
+   */
+  const wasSignedIn = useRef(false);
+
   // In an effect rather than during render: navigating while rendering is a state update inside
   // another component's render pass, which React 19 warns about and which makes the redirect fire
-  // twice under StrictMode. The deps are the auth answer and nothing else — putting the location
-  // among them is what made the loop above possible.
+  // twice under StrictMode. Writing the ref here rather than in the render body is the same rule
+  // applied to the ref. The deps are the auth answer and nothing else — putting the location among
+  // them is what made the loop above possible.
   useEffect(() => {
-    if (isPending || isSignedIn) return;
+    if (isSignedIn) {
+      wasSignedIn.current = true;
+      return;
+    }
+    if (isPending) return;
 
     void navigate({
       to: '/signin',
       // The whole `href`, so a query string on the protected route survives the round trip — v3
       // Req 32.7 asks for the *requested route*, and half of one is a worse answer than none.
       // `signInSearch` refuses anything that is not a path on this origin.
-      search: signInSearch(destination.current),
+      search: signInSearch(destination.current, { expired: wasSignedIn.current }),
       replace: true,
     });
   }, [isPending, isSignedIn, navigate]);

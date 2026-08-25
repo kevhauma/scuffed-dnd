@@ -111,6 +111,17 @@ interface Journal {
   entries: { idx: number; tag: string }[];
 }
 
+/**
+ * How many migrations this build carries
+ *
+ * Read from the journal rather than written as a number, so adding one is a new `describe` block
+ * rather than a hunt for the two counts that now disagree — which is exactly what TICKET-AUTH-04
+ * found when it added the third.
+ */
+const MIGRATION_COUNT = (
+  JSON.parse(readFileSync(join(MIGRATIONS, 'meta', '_journal.json'), 'utf8')) as Journal
+).entries.length;
+
 afterEach(() => {
   for (const database of open.splice(0)) database.close();
   for (const directory of temporaryDirectories.splice(0)) {
@@ -185,8 +196,8 @@ describe('runMigrations', () => {
       const afterFirst = appliedMigrations(database);
       runMigrations(database);
 
-      // One entry per migration file this build carries — 0000_initial and 0001_auth_tables
-      expect(afterFirst).toHaveLength(2);
+      // One entry per migration file this build carries, counted from the journal
+      expect(afterFirst).toHaveLength(MIGRATION_COUNT);
       expect(appliedMigrations(database)).toEqual(afterFirst);
     });
 
@@ -293,9 +304,67 @@ describe('runMigrations', () => {
       runMigrations(database);
 
       expect(before).toHaveLength(1);
-      expect(appliedMigrations(database)).toHaveLength(2);
+      expect(appliedMigrations(database)).toHaveLength(MIGRATION_COUNT);
       // Forward-only means the earlier entry is still there and still first
       expect(appliedMigrations(database)[0]).toBe(before[0]);
+    });
+  });
+
+  describe('0002_session_rotation, applied to a database sitting at 0001', () => {
+    /** A database at the previous schema, with a session on it that must survive */
+    function atOneWithASession(): Database {
+      const database = emptyDatabase();
+      runMigrations(database, migrationsUpTo(1));
+
+      database.sqlite
+        .prepare(
+          'INSERT INTO user (id, name, email, email_verified, created_at, updated_at) ' +
+            'VALUES (?, ?, ?, ?, ?, ?)'
+        )
+        .run('u1', 'Ada', 'ada@example.com', 0, 1, 1);
+      database.sqlite
+        .prepare(
+          'INSERT INTO session (id, expires_at, token, created_at, updated_at, user_id) ' +
+            'VALUES (?, ?, ?, ?, ?, ?)'
+        )
+        .run('s1', 2_000_000, 'the-original-token', 1, 1, 'u1');
+
+      return database;
+    }
+
+    it('starts from a session table with neither rotation column', () => {
+      // Otherwise everything below would pass against a database that already had them
+      expect(columnNames(atOneWithASession(), 'session')).not.toContain('previous_token');
+    });
+
+    it('adds the two columns the grace window lives in', () => {
+      const database = atOneWithASession();
+
+      runMigrations(database);
+
+      expect(columnNames(database, 'session')).toContain('previous_token');
+      expect(columnNames(database, 'session')).toContain('previous_token_expires_at');
+    });
+
+    it('leaves an existing session signed in, with both columns empty', () => {
+      const database = atOneWithASession();
+
+      runMigrations(database);
+
+      // **The half that would sign everybody out if it were wrong.** A session that predates
+      // rotation has no previous identifier, and `NULL` is the honest spelling of that — which is
+      // why neither column is `NOT NULL`.
+      expect(
+        database.sqlite.prepare('SELECT token, previous_token FROM session WHERE id = ?').get('s1')
+      ).toEqual({ token: 'the-original-token', previous_token: null });
+    });
+
+    it('records itself beside the two before it', () => {
+      const database = atOneWithASession();
+
+      runMigrations(database);
+
+      expect(appliedMigrations(database)).toHaveLength(MIGRATION_COUNT);
     });
   });
 

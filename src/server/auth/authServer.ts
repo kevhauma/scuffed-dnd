@@ -42,12 +42,40 @@
  * **Validates: v3 Req 30.1, 30.3, 30.4, 30.5, 30.9, 31.1, 31.3, 31.4, 31.6, 31.7, 48.1**
  */
 
+import { randomBytes } from 'node:crypto';
 import { betterAuth } from 'better-auth';
 import { authDatabaseAdapter, currentDatabaseKey } from '../db/authAdapter';
 import { NODE_ENV, type ServerEnv, serverEnv } from '../env';
 import { refuseIdentity } from './identityRules';
 import { AUTH_PREFIX, SIGN_IN_ROUTE } from './paths';
+import { SESSION_ADDITIONAL_FIELDS, type SessionPolicy, sessionRules } from './sessionLifetime';
 import { socialProviderConfig } from './socialProviders';
+
+/** How many bytes a rotated-in session identifier is made of — the library's own width */
+const TOKEN_BYTES = 32;
+
+/**
+ * The lifetimes this deployment runs with (TICKET-AUTH-04)
+ *
+ * Read from the environment rather than written here, so the numbers are an operator's decision
+ * and this file is only the wiring.
+ *
+ * @param env The resolved environment
+ * @returns The policy the adapter applies
+ */
+function sessionPolicy(env: ServerEnv): SessionPolicy {
+  return {
+    idleSeconds: env.authSessionSeconds,
+    absoluteSeconds: env.authSessionAbsoluteSeconds,
+    updateSeconds: env.authSessionUpdateSeconds,
+    graceSeconds: env.authSessionGraceSeconds,
+  };
+}
+
+/** An account row with a Provider's refresh token removed (v3 Req 48.10) */
+function withoutRefreshToken<T extends { refreshToken?: string | null }>(account: T): T {
+  return { ...account, refreshToken: null };
+}
 
 /**
  * What Better Auth is told its own origin is
@@ -81,7 +109,11 @@ function build() {
   const env = serverEnv();
 
   return betterAuth({
-    database: authDatabaseAdapter(),
+    database: authDatabaseAdapter({
+      // `randomBytes` rather than anything derived from the session: a rotated identifier that a
+      // holder of the old one could predict would be a rotation in name only
+      rules: sessionRules(sessionPolicy(env), () => randomBytes(TOKEN_BYTES).toString('base64url')),
+    }),
     basePath: AUTH_PREFIX,
     baseURL: baseUrlFor(env),
     // Absent keys rather than blank credentials for an unconfigured provider, so its button is
@@ -118,6 +150,23 @@ function build() {
         // keeps the library's own check as a second lock on the same door.
       },
     },
+    databaseHooks: {
+      account: {
+        // **A Provider's refresh token is dropped on the way to the database** (v3 Req 48.10,
+        // TICKET-AUTH-04). Better Auth stores one by default and it is right to — most
+        // applications call the Provider's API afterwards. This one calls none, so a stored
+        // refresh token would be a long-lived credential held for no feature, sitting in a SQLite
+        // file for a year waiting to be worth stealing. The day something wants to read a Discord
+        // server's member list, that ticket adds the storage *and* the encryption argument
+        // together (D13).
+        //
+        // The access token and id token are left alone deliberately: they are minutes-long and the
+        // library uses the id token during the flow itself. It is the *long-lived* credential that
+        // has no reader here.
+        create: { before: (account) => Promise.resolve({ data: withoutRefreshToken(account) }) },
+        update: { before: (account) => Promise.resolve({ data: withoutRefreshToken(account) }) },
+      },
+    },
     // Passed rather than left to Better Auth's own environment read of `BETTER_AUTH_SECRET`:
     // `env.ts` is the only module in `src/` that reads the environment, and `env.test.ts` walks
     // the tree to keep it that way — by grep, which is why this comment does not spell the
@@ -131,9 +180,16 @@ function build() {
       minPasswordLength: 8,
     },
     session: {
-      // A number from the environment rather than a literal, so TICKET-AUTH-04 changes values and
-      // adds rotation rather than changing the shape (v3 Req 48.2)
+      // The **idle** half. Every use pushes it out again; the absolute ceiling is applied on top of
+      // it by the adapter, as a cap on this very column — see `sessionLifetime.ts` for why that is
+      // the whole of how a ceiling gets enforced (v3 Req 48.2, 48.3).
       expiresIn: env.authSessionSeconds,
+      // How often a session in use is written — and therefore how often it rotates (v3 Req 48.4).
+      // Not a lifetime: it is the width of the window a captured cookie is useful for.
+      updateAge: env.authSessionUpdateSeconds,
+      // The two columns the grace window lives in. Declared here as well as in `authSchema.ts` so
+      // that `getAuthTables()` knows them and the schema contract test keeps comparing whole sets.
+      additionalFields: SESSION_ADDITIONAL_FIELDS,
     },
     advanced: {
       // The cookie has an explicit expiry and so outlives the browser process (v3 Req 48.1);

@@ -145,6 +145,49 @@ describe('RequireAccount', () => {
     );
   });
 
+  it('says nothing about expiry to somebody who was never signed in (v3 Req 48.9)', async () => {
+    useAuth.mockReturnValue(AUTH.signedOut);
+
+    render(
+      <RequireAccount>
+        <p>your rulesets</p>
+      </RequireAccount>
+    );
+
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(
+        expect.objectContaining({ search: { redirect: '/account' } })
+      )
+    );
+  });
+
+  it('marks the redirect as an expiry when the session went away mid-use (v3 Req 48.9)', async () => {
+    // **The difference is the transition, not the state**: both cases are `isSignedIn: false`, and
+    // only a component that saw the *other* answer first can tell them apart. Without this an
+    // Account whose ninety-day ceiling arrived would be shown the same blank sign-in form as a
+    // stranger, which is exactly the "silently failed action" the requirement rules out.
+    useAuth.mockReturnValue(AUTH.signedIn);
+
+    const { rerender } = render(
+      <RequireAccount>
+        <p>your rulesets</p>
+      </RequireAccount>
+    );
+
+    useAuth.mockReturnValue(AUTH.signedOut);
+    rerender(
+      <RequireAccount>
+        <p>your rulesets</p>
+      </RequireAccount>
+    );
+
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(
+        expect.objectContaining({ search: { redirect: '/account', expired: true } })
+      )
+    );
+  });
+
   it('replaces rather than pushes, so Back does not bounce off the guard', async () => {
     useAuth.mockReturnValue(AUTH.signedOut);
 

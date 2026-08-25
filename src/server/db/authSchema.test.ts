@@ -20,6 +20,7 @@
 import { getAuthTables } from 'better-auth';
 import { getTableColumns } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import { SESSION_ADDITIONAL_FIELDS } from '../auth/sessionLifetime';
 import { authAccount, authSession, authUser, authVerification } from './authSchema';
 
 /**
@@ -27,9 +28,17 @@ import { authAccount, authSession, authUser, authVerification } from './authSche
  *
  * Only the features that add columns matter here, and email/password adds none of its own —
  * `account.password` is in the base schema. TICKET-AUTH-02's social providers add none either,
- * which is why linking an identity is a row rather than a migration.
+ * which is why linking an identity is a row rather than a migration. TICKET-AUTH-04's two are the
+ * first that genuinely are additions, and they are passed in from the one place that declares them.
  */
-const authTables = getAuthTables({ emailAndPassword: { enabled: true } });
+const authTables = getAuthTables({
+  emailAndPassword: { enabled: true },
+  // **The same constant the real instance is configured with**, not a copy (TICKET-AUTH-04). The
+  // grace window's two columns are ours rather than the library's, so without telling
+  // `getAuthTables` about them this comparison would report our schema as having two columns too
+  // many — and the honest fix is to declare them once and hand the same object to both.
+  session: { additionalFields: SESSION_ADDITIONAL_FIELDS },
+});
 
 /** Our tables, by the model name Better Auth knows them as */
 const ours = {

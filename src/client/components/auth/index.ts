@@ -9,6 +9,7 @@
  */
 
 export * from './AccountBadge';
+export * from './ActiveSessions';
 export * from './AuthAlert';
 export * from './AuthForm';
 export * from './LinkedIdentities';
@@ -17,6 +18,7 @@ export * from './providerLabel';
 export * from './RequireAccount';
 export * from './SocialSignInButtons';
 export * from './signInDestination';
+export * from './useActiveSessions';
 export * from './useAuth';
 export * from './useAuthForm';
 export * from './useLinkedIdentities';

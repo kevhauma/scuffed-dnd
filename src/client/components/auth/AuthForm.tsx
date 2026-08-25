@@ -18,6 +18,7 @@
 import { Link } from '@tanstack/react-router';
 import { Button } from '../ui/Button/Button';
 import { Card } from '../ui/Card/Card';
+import { Checkbox } from '../ui/Checkbox/Checkbox';
 import { FormField } from '../ui/FormField/FormField';
 import { Text } from '../ui/Text/Text';
 import { AuthAlert } from './AuthAlert';
@@ -101,6 +102,13 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
                 : undefined,
           })}
         />
+
+        {mode === AUTH_MODE.SIGN_IN && (
+          // v3 Req 48.11. Checked by default because the common case is your own machine; the
+          // affordance is for the case that is not, and it is worded as what unchecking *does*
+          // rather than as a piece of jargon about session cookies.
+          <Checkbox label="Keep me signed in on this device" {...register('rememberMe')} />
+        )}
 
         {mode === AUTH_MODE.SIGN_UP && (
           <div className={warningStyles}>

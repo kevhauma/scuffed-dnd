@@ -75,6 +75,19 @@ describe('AccountBadge', () => {
     expect(screen.getByText('ada@example.com')).toBeTruthy();
   });
 
+  it('should show no sign-in link at all before the answer arrives (v3 Req 48.8)', () => {
+    // **Asserted on the rendered output rather than by timing**, which is what the requirement
+    // asks for: a page load carrying a valid session must never paint a signed-out state first.
+    // *Sign in* appearing for one frame reads to an Account that is signed in as having been
+    // signed out — and it is the frame they see on every single page load.
+    useSession.mockReturnValue(SESSION.unknown);
+
+    render(<AccountBadge />);
+
+    expect(screen.queryByRole('link', { name: /sign in/i })).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
   it('should make the email the way to the account page (TICKET-AUTH-02)', () => {
     useSession.mockReturnValue(SESSION.signedIn);
 

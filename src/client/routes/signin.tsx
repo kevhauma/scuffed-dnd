@@ -16,25 +16,54 @@
 
 import { createFileRoute } from '@tanstack/react-router';
 import { AuthForm } from '../components/auth/AuthForm';
-import { REDIRECT_PARAM, safeDestination } from '../components/auth/signInDestination';
+import { expiredNoticeStyles } from '../components/auth/authSurfaces.style';
+import {
+  EXPIRED_PARAM,
+  REDIRECT_PARAM,
+  safeDestination,
+} from '../components/auth/signInDestination';
 import { AUTH_MODE } from '../components/auth/useAuthForm';
+import { Text } from '../components/ui/Text/Text';
 
 export const Route = createFileRoute('/signin')({
   // **Optional, so a plain *Sign in* link stays a plain link.** Declaring it required would make
   // every navigation here — the beam's link, the sign-up page's — carry `?redirect=/`, which is a
   // query string that says nothing and a type error at four call sites that have nothing to say.
-  validateSearch: (search: Record<string, unknown>): { redirect?: string } => {
+  validateSearch: (search: Record<string, unknown>): { redirect?: string; expired?: boolean } => {
     const raw = search[REDIRECT_PARAM];
-    return raw === undefined ? {} : { redirect: safeDestination(raw) };
+
+    return {
+      ...(raw === undefined ? {} : { redirect: safeDestination(raw) }),
+      // Coerced rather than trusted: it arrives as the string `"true"` on a page load and as a
+      // boolean on a client-side navigation. Anything else drops the key entirely rather than
+      // carrying a present-and-false — a query string should say what happened, not enumerate what
+      // did not.
+      ...(search[EXPIRED_PARAM] === true || search[EXPIRED_PARAM] === 'true'
+        ? { expired: true as const }
+        : {}),
+    };
   },
   component: SignInPage,
 });
 
 export function SignInPage() {
-  const { redirect } = Route.useSearch();
+  const { redirect, expired } = Route.useSearch();
 
   return (
     <div className="px-6 py-10 sm:px-10">
+      {/* v3 Req 48.9: an expiry mid-use is *told*, not left to be inferred from a form that is
+          suddenly there again. `<output>` rather than a `role="alert"` box — its implicit role is
+          `status`, so a screen reader mentions it without announcing it as something that went
+          wrong, which a ninety-day ceiling doing its job is not. */}
+      {expired && (
+        <output className={expiredNoticeStyles}>
+          <Text variant="body" as="p">
+            <strong>Your session expired.</strong> Sign in again and you will go straight back to
+            what you were doing.
+          </Text>
+        </output>
+      )}
+
       <AuthForm
         mode={AUTH_MODE.SIGN_IN}
         onSuccess={() => {

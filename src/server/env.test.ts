@@ -90,10 +90,13 @@ describe('the server environment', () => {
         nodeEnv: NODE_ENV.DEVELOPMENT,
         databaseUrl: './data/app.db',
         authSecret: 'a-test-secret',
-        // The documented defaults for the three optional auth settings (TICKET-AUTH-01). Asserted
-        // as values rather than as `expect.any(Number)`, because "7 days" and "5 attempts" are the
-        // decisions — a silent change to either is what this catches.
-        authSessionSeconds: 7 * 24 * 60 * 60,
+        // The documented defaults for every optional auth setting. Asserted as values rather than
+        // as `expect.any(Number)`, because "30 days idle", "90 days absolute" and "5 attempts" are
+        // the decisions — a silent change to any of them is what this catches.
+        authSessionSeconds: 30 * 24 * 60 * 60,
+        authSessionAbsoluteSeconds: 90 * 24 * 60 * 60,
+        authSessionUpdateSeconds: 24 * 60 * 60,
+        authSessionGraceSeconds: 30,
         signInMaxAttempts: 5,
         signInWindowSeconds: 900,
         // Neither provider configured is the *default* shape, not a degraded one (v3 Req 31.6)
@@ -106,12 +109,18 @@ describe('the server environment', () => {
       expect(
         readEnv({
           ...complete,
-          AUTH_SESSION_DAYS: '30',
+          AUTH_SESSION_DAYS: '14',
+          AUTH_SESSION_ABSOLUTE_DAYS: '60',
+          AUTH_SESSION_UPDATE_HOURS: '6',
+          AUTH_SESSION_GRACE_SECONDS: '5',
           AUTH_SIGNIN_MAX_ATTEMPTS: '3',
           AUTH_SIGNIN_WINDOW_SECONDS: '60',
         })
       ).toMatchObject({
-        authSessionSeconds: 30 * 24 * 60 * 60,
+        authSessionSeconds: 14 * 24 * 60 * 60,
+        authSessionAbsoluteSeconds: 60 * 24 * 60 * 60,
+        authSessionUpdateSeconds: 6 * 60 * 60,
+        authSessionGraceSeconds: 5,
         signInMaxAttempts: 3,
         signInWindowSeconds: 60,
       });
