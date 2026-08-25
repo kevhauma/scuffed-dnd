@@ -65,13 +65,13 @@ export function RulesetsPanel() {
         rulesets={manager.accountRulesets}
         onCreate={manager.openCreate}
         onRename={manager.openRename}
+        onCopy={manager.openCopy}
         onDelete={manager.remove}
         onOpen={manager.openAccount}
       />
 
       <RulesetFormDialog
-        isOpen={manager.isDialogOpen}
-        isRenaming={manager.isRenaming}
+        mode={manager.dialogMode}
         form={manager.form}
         onClose={manager.closeDialog}
         onSave={manager.save}

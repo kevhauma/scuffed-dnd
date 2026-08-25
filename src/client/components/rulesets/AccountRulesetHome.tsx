@@ -26,6 +26,8 @@ export interface AccountRulesetHomeProps {
   rulesets: RulesetSummary[];
   onCreate: () => void;
   onRename: (ruleset: RulesetSummary) => void;
+  /** Duplicate it under a new name (TICKET-RUL-03) */
+  onCopy: (ruleset: RulesetSummary) => void;
   onDelete: (ruleset: RulesetSummary) => void;
   /** Load it into the config store and go to Configuration mode (TICKET-RUL-02) */
   onOpen: (ruleset: RulesetSummary) => void;
@@ -37,6 +39,7 @@ function Body({
   isPending,
   rulesets,
   onRename,
+  onCopy,
   onDelete,
   onOpen,
 }: Omit<AccountRulesetHomeProps, 'onCreate'>) {
@@ -86,6 +89,7 @@ function Body({
             </Button>
           }
           onRename={() => onRename(ruleset)}
+          onCopy={() => onCopy(ruleset)}
           onDelete={() => onDelete(ruleset)}
         />
       ))}

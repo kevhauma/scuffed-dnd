@@ -21,6 +21,7 @@ const useAuth = vi.fn();
 vi.mock('../auth/useAuth', () => ({ useAuth: () => useAuth() }));
 
 import { useConfigStore } from '../../stores/configStore';
+import { RULESET_DIALOG } from './useRulesetDialog';
 import { useRulesetManager } from './useRulesetManager';
 
 /** One ruleset on the account, in the wire shape both roots share */
@@ -141,6 +142,58 @@ describe('useRulesetManager', () => {
 
     await waitFor(() => expect(result.current.pendingDelete).toBeNull());
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('confirm=true'))).toBe(true);
+  });
+
+  it('offers the copy a name before it is created, defaulted to a derivative (v3 Req 34.5)', async () => {
+    // The list is how a User tells two rulesets apart, so the copy is named *before* it exists and
+    // the field arrives pre-filled with the derivative the server would have chosen anyway — one
+    // click to accept, one edit to override
+    useAuth.mockReturnValue({ email: 'a@b.c', isPending: false, isSignedIn: true });
+    const fetchMock = vi.fn(async (_input: string) => jsonResponse(200, { rulesets: [] }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useRulesetManager());
+    await waitFor(() => expect(result.current.isAccountPending).toBe(false));
+
+    act(() => result.current.openCopy(summary('r1', 'Ducklets')));
+
+    expect(result.current.dialogMode).toBe(RULESET_DIALOG.COPY);
+    expect(result.current.form.getValues('name')).toBe('Ducklets (copy)');
+
+    act(() => result.current.save());
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url]) => String(url) === '/api/rulesets/r1/copy')).toBe(
+        true
+      )
+    );
+    // The dialog closes only over a write that landed, and the copy went out under the typed name
+    await waitFor(() => expect(result.current.dialogMode).toBeNull());
+  });
+
+  it('leaves the dialog open when a copy is refused', async () => {
+    useAuth.mockReturnValue({ email: 'a@b.c', isPending: false, isSignedIn: true });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string) =>
+        String(input).endsWith('/copy')
+          ? jsonResponse(400, {
+              error: { code: 'bad_request', message: 'A ruleset needs a name.' },
+            })
+          : jsonResponse(200, { rulesets: [] })
+      )
+    );
+
+    const { result } = renderHook(() => useRulesetManager());
+    await waitFor(() => expect(result.current.isAccountPending).toBe(false));
+
+    act(() => result.current.openCopy(summary('r1', 'Ducklets')));
+    act(() => result.current.save());
+
+    // The User's typing stays in front of them beside the reason, rather than a dialog that
+    // vanished over a copy that was never made
+    await waitFor(() => expect(result.current.error).toBe('A ruleset needs a name.'));
+    expect(result.current.dialogMode).toBe(RULESET_DIALOG.COPY);
   });
 
   it('reports a refusal that is not a conflict as an error', async () => {

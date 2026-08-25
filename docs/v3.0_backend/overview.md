@@ -305,7 +305,7 @@ Rulesets on the server:
 
 - [x] [TICKET-RUL-01](./tickets/TICKET-RUL-01-ruleset-records.md) — Ruleset records: list, create, rename, delete (v3 Req 33) — the first owned resource, and the template for every guard after it
 - [x] [TICKET-RUL-02](./tickets/TICKET-RUL-02-server-backed-ruleset-editing.md) — Server-backed ruleset editing (v3 Req 33.5–33.8) — the `revision` guard and the save pipeline; `useConfigStore` stops owning the truth
-- [ ] [TICKET-RUL-03](./tickets/TICKET-RUL-03-copy-a-ruleset.md) — Copy a ruleset (v3 Req 34) — small, and it proves the document round-trips without shared references
+- [x] [TICKET-RUL-03](./tickets/TICKET-RUL-03-copy-a-ruleset.md) — Copy a ruleset (v3 Req 34) — small, and it proves the document round-trips without shared references
 - [ ] [TICKET-IO-04](./tickets/TICKET-IO-04-import-creates-a-ruleset.md) — Import creates a ruleset; upload this browser's to your account (v3 Req 35, 36) — reuses `importExport.ts` wholesale on both paths; D6's bridge between the two homes lands here, as a copy rather than a move
 
 Game sessions:

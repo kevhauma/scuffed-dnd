@@ -28,25 +28,38 @@ describe('RulesetCard', () => {
   });
 
   it('states its home with no actions on it at all', () => {
-    // The local row has no rename or delete, and a badge that only appeared beside a button would
-    // leave exactly that row unlabelled — which is the row local mode is entirely made of
+    // The local row has no rename, copy or delete, and a badge that only appeared beside a button
+    // would leave exactly that row unlabelled — which is the row local mode is entirely made of
     render(<RulesetCard name="Ducklets" home={RULESET_HOME.BROWSER} updatedAt={1} />);
 
     expect(screen.getByText('This browser')).toBeTruthy();
     expect(screen.queryByText('Rename')).toBeNull();
+    // Copying is an account action: there is nowhere in this browser to put a second ruleset
+    expect(screen.queryByText('Copy')).toBeNull();
     expect(screen.queryByText('Delete')).toBeNull();
   });
 
   it('offers only the actions it was given', () => {
     const onRename = vi.fn();
+    const onCopy = vi.fn();
 
     render(
-      <RulesetCard name="Emberfall" home={RULESET_HOME.ACCOUNT} updatedAt={1} onRename={onRename} />
+      <RulesetCard
+        name="Emberfall"
+        home={RULESET_HOME.ACCOUNT}
+        updatedAt={1}
+        onRename={onRename}
+        onCopy={onCopy}
+      />
     );
 
     fireEvent.click(screen.getByText('Rename'));
+    fireEvent.click(screen.getByText('Copy'));
 
     expect(onRename).toHaveBeenCalledTimes(1);
+    expect(onCopy).toHaveBeenCalledTimes(1);
+    // The one it was not given stays off the row, which is what makes the props a contract rather
+    // than a suggestion
     expect(screen.queryByText('Delete')).toBeNull();
   });
 });

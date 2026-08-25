@@ -373,6 +373,12 @@ between the roots is exactly *"does this touch a browser API"*.
   `importExport.ts` also exports `assertSupportedSchemaVersion` (TICKET-RUL-01) — the version gate
   pulled out of `importConfiguration` so the server refuses a stale document with the *same*
   sentence the Import button produces, rather than a second copy of it.
+- `copyConfiguration.ts` — `copyConfiguration(source, options)` and `copyName(name)`
+  (TICKET-RUL-03). The **only** deep copy of a `Configuration` in the tree, and deliberately so:
+  GAM-01's Snapshot is the same operation with a different destination and must not reach for its
+  own. Entity ids are **kept** — they only have to be unique within a document, and regenerating
+  them would mean re-implementing `references.ts`; what is replaced is the ruleset's own id, which
+  is the one identity that leaves the document.
 - `freshConfiguration.ts` — `createFreshConfiguration(name)` (TICKET-RUL-01). What a brand-new
   ruleset arrives holding: Concept 05's seed constants, Concept 06's seed curves and Concept 07/08's
   ladder and four rolls. **Moved here from `configStore` rather than copied**, because v3 Req 33.3
@@ -449,10 +455,14 @@ each later ticket adds.
   through the Kernel's `createFreshConfiguration`), `renameRuleset` (PATCH — writes the column *and*
   the document, so an export cannot carry a stale name) and `deleteRuleset` (DELETE — refused with a
   409 while a Game_Session was created from it, `?confirm=true` to go ahead, and the session stays
-  playable on its Snapshot). `rulesetPayloads.ts` holds what they share: the wire summary, the name
-  check, the `:id` reader and the schema-version gate. **One module per route on purpose** —
-  `routeGuards.test.ts` scans a *module* for a guard call, so four handlers in one file would let
-  one `requireOwner` stand for all four.
+  playable on its Snapshot), plus `getRuleset` / `saveRuleset` (RUL-02 — the document in display
+  form, and the revision-guarded `PUT`) and `copyRuleset` (RUL-03 — `POST /api/rulesets/:id/copy`,
+  the first path with an *action* segment after the id). `rulesetPayloads.ts` holds what they share:
+  the wire summary, the name check, the `:id` reader and the two schema-version gates — a **409**
+  for a stored row this build cannot read, a **400** for a submitted document that says the wrong
+  version, because those have different remedies. **One module per route on purpose** —
+  `routeGuards.test.ts` scans a *module* for a guard call, so several handlers in one file would let
+  one `requireOwner` stand for all of them.
 - `auth/` (TICKET-AUTH-01, TICKET-AUTH-02) — identity, and **only** identity; authorization is
   AUTH-03's and lives outside it. `authServer.ts` configures Better Auth (what is switched off and
   why is in its header); `authRoutes.ts` delegates the `/api/auth` subtree and adds the per-address
@@ -668,13 +678,18 @@ tones actually means.
 (TICKET-RUL-01). `RulesetsPanel.tsx` is configuration mode's entry point at `/rulesets`;
 `RulesetCard.tsx` is one row, and **the home badge is a prop rather than something inferred from
 which callbacks were passed**, because v3 Req 36.8 asks for it at *all* times and a row with no
-actions is exactly the row local mode is made of. `RulesetFormDialog.tsx` names a ruleset on both
-create and rename — one dialog, one set of name rules — and reuses `config/shared/FormDialogActions`
-across the feature-folder line rather than copying it. `useRulesetManager.ts` holds the decisions:
-the local half from `useConfigStore`, the account half from `services/api.ts`, and **no request at
-all while nobody is signed in** (D6), which its test asserts with `fetch` stubbed to throw. A delete
-the server refused comes back as a confirmation carrying **the server's own sentence**, not a guess
-about what it would say.
+actions is exactly the row local mode is made of. `RulesetFormDialog.tsx` names a ruleset on
+create, rename **and copy** — one dialog, one set of name rules, its title and verb from a
+`RULESET_DIALOG` mode rather than from a boolean (RUL-03 arriving as one extra row in that table is
+the evidence the shape was right) — and reuses `config/shared/FormDialogActions` across the
+feature-folder line rather than copying it. `useRulesetManager.ts` composes three hooks and holds
+almost nothing itself: `useAccountRulesets` (the listing and the writes), `useRulesetDeletion` (a
+delete plus the confirmation the server asked for) and `useRulesetDialog` (the three naming modes).
+The local half comes from `useConfigStore.localSummary` — **not `config`**, which since RUL-02 holds
+whichever ruleset is *open*. **No request is made at all while nobody is signed in** (D6), which the
+test asserts with `fetch` stubbed to throw. `useRulesetDialog`'s state is a discriminated union
+rather than `{ mode, ruleset? }`: the optional form made *rename with no ruleset* representable, and
+the only answer to that was to create one nobody asked for.
 
 `components/Header.tsx` sits at the root of `components/`, outside every feature folder.
 

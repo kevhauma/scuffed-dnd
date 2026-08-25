@@ -7,6 +7,7 @@
  * guarded route carries its own proof.
  */
 
+export * from './copyRuleset';
 export * from './createRuleset';
 export * from './deleteRuleset';
 export * from './getRuleset';

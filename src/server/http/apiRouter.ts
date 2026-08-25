@@ -24,6 +24,7 @@ import { AUTH_PREFIX, handleAuthRequest } from '../auth/authRoutes';
 import { authProviders } from '../routes/authProviders';
 import { health } from '../routes/health';
 import {
+  copyRuleset,
   createRuleset,
   deleteRuleset,
   getRuleset,
@@ -68,6 +69,7 @@ export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Respon
   'PUT /api/rulesets/:id': saveRuleset,
   'PATCH /api/rulesets/:id': renameRuleset,
   'DELETE /api/rulesets/:id': deleteRuleset,
+  'POST /api/rulesets/:id/copy': copyRuleset,
 };
 
 /** The path half of a `METHOD /path` key */

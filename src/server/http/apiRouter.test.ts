@@ -126,9 +126,12 @@ describe('handleApiRequest', () => {
     });
 
     it('matches segment counts exactly, so a deeper path is not swallowed', async () => {
-      // `:id` is one segment, not "the rest of the path" — RUL-03's `/api/rulesets/:id/copy` has
-      // to be able to arrive as its own route rather than as an id containing a slash
-      expect((await answer('/api/rulesets/abc/copy', 'PATCH')).status).toBe(404);
+      // `:id` is one segment, not "the rest of the path". RUL-03 proved the point by arriving:
+      // `/api/rulesets/:id/copy` is its own route rather than an id containing a slash, so `PATCH`
+      // on it is a **405** — a path that exists, answered by no such verb — while a path a segment
+      // deeper still matches nothing at all
+      expect((await answer('/api/rulesets/abc/copy', 'PATCH')).status).toBe(405);
+      expect((await answer('/api/rulesets/abc/copy/again', 'POST')).status).toBe(404);
     });
 
     it('does not let a parameter match an empty segment', async () => {

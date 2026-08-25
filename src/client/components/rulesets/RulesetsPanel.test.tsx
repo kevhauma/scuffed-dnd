@@ -17,7 +17,12 @@ import { describe, expect, it, vi } from 'vitest';
 
 const useRulesetManager = vi.fn();
 
-vi.mock('./useRulesetManager', () => ({ useRulesetManager: () => useRulesetManager() }));
+// Only the hook is replaced. The module also exports `RULESET_DIALOG`, which `RulesetFormDialog`
+// reads to pick its title — a whole-module factory left that `undefined` and the dialog threw.
+vi.mock('./useRulesetManager', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./useRulesetManager')>()),
+  useRulesetManager: () => useRulesetManager(),
+}));
 
 // `Link` needs a router context this test has no reason to build — the assertion is that an *open*
 // affordance is on the page, not that TanStack navigates, which is its own library's test
@@ -39,11 +44,11 @@ function signedOut(overrides: Record<string, unknown> = {}) {
     isAccountPending: false,
     accountRulesets: [],
     error: null,
-    isDialogOpen: false,
-    isRenaming: false,
+    dialogMode: null,
     form: { register: () => ({}), formState: { errors: {} } },
     openCreate: vi.fn(),
     openRename: vi.fn(),
+    openCopy: vi.fn(),
     openAccount: vi.fn(),
     openLocal: vi.fn(),
     closeDialog: vi.fn(),

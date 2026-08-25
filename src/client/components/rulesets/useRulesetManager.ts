@@ -19,28 +19,24 @@
  * epoch milliseconds before anything renders them, because a card whose job is a name, a badge and
  * a date should not be the place two storage formats meet.
  *
- * What is left beyond the composition is the **naming dialog**, which is shared: one dialog creates
- * and renames, because both edit the same single field.
+ * What is left beyond the composition is the **naming dialog**, which is shared: one dialog creates,
+ * renames and copies, because all three edit the same single field.
  *
  * **Validates: v3 Req 33.1, 33.2, 36.1, 36.8**
  */
 
 import { useNavigate } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
-import { type UseFormReturn, useForm } from 'react-hook-form';
+import type { UseFormReturn } from 'react-hook-form';
 import type { RulesetSummary } from '#shared/types/api';
 import { useConfigStore } from '../../stores/configStore';
 import { useAuth } from '../auth/useAuth';
 import { useAccountRulesets } from './useAccountRulesets';
 import type { PendingDelete } from './useRulesetDeletion';
+import type { RulesetDialogMode, RulesetFormData } from './useRulesetDialog';
+import { useRulesetDialog } from './useRulesetDialog';
 
 /** The name a brand-new local ruleset is given, matching the config dashboard's own */
 const DEFAULT_LOCAL_NAME = 'My Custom Game System';
-
-/** The one field either dialog edits */
-export interface RulesetFormData {
-  name: string;
-}
 
 /** The browser's own ruleset, reduced to what a row renders */
 export interface LocalRuleset {
@@ -63,12 +59,13 @@ export interface RulesetManager {
   accountRulesets: RulesetSummary[];
   error: string | null;
 
-  isDialogOpen: boolean;
-  /** True when the dialog is renaming rather than creating */
-  isRenaming: boolean;
+  /** What the naming dialog is doing, or `null` while it is closed */
+  dialogMode: RulesetDialogMode | null;
   form: UseFormReturn<RulesetFormData>;
   openCreate: () => void;
   openRename: (ruleset: RulesetSummary) => void;
+  /** Copy one, letting the User name the copy before it is created (TICKET-RUL-03) */
+  openCopy: (ruleset: RulesetSummary) => void;
   closeDialog: () => void;
   save: () => void;
 
@@ -113,32 +110,7 @@ export function useRulesetManager(): RulesetManager {
   const openAccountRuleset = useConfigStore((state) => state.openAccountRuleset);
   const openLocalRuleset = useConfigStore((state) => state.openLocalRuleset);
 
-  const [renaming, setRenaming] = useState<RulesetSummary | null>(null);
-  const [isDialogOpen, setDialogOpen] = useState(false);
-
-  const form = useForm<RulesetFormData>({ defaultValues: { name: '' } });
-
-  const openCreate = useCallback(() => {
-    setRenaming(null);
-    form.reset({ name: '' });
-    setDialogOpen(true);
-  }, [form]);
-
-  const openRename = useCallback(
-    (ruleset: RulesetSummary) => {
-      setRenaming(ruleset);
-      form.reset({ name: ruleset.name });
-      setDialogOpen(true);
-    },
-    [form]
-  );
-
-  // The dialog closes only on a write that landed, so a refusal leaves the User's typing in front
-  // of them alongside the reason — never a dialog that vanished over a change that did not happen
-  const save = form.handleSubmit(async ({ name }) => {
-    const landed = renaming ? await account.rename(renaming.id, name) : await account.create(name);
-    if (landed) setDialogOpen(false);
-  });
+  const dialog = useRulesetDialog(account);
 
   return {
     localRuleset: toLocalRuleset(localSummary),
@@ -150,13 +122,13 @@ export function useRulesetManager(): RulesetManager {
     accountRulesets: account.rulesets,
     error: account.error,
 
-    isDialogOpen,
-    isRenaming: renaming !== null,
-    form,
-    openCreate,
-    openRename,
-    closeDialog: () => setDialogOpen(false),
-    save: () => void save(),
+    dialogMode: dialog.mode,
+    form: dialog.form,
+    openCreate: dialog.openCreate,
+    openRename: dialog.openRename,
+    openCopy: dialog.openCopy,
+    closeDialog: dialog.close,
+    save: dialog.save,
 
     remove: account.remove,
     pendingDelete: account.pendingDelete,

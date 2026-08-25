@@ -30,9 +30,11 @@ export interface AccountRulesetsState extends RulesetDeletion {
   /** True while the answer is still unknown — neither a list nor "none" */
   isPending: boolean;
   error: string | null;
-  /** Both report whether the write landed, so a dialog closes only over a change that happened */
+  /** All three report whether the write landed, so a dialog closes only over a change that happened */
   create: (name: string) => Promise<boolean>;
   rename: (id: string, name: string) => Promise<boolean>;
+  /** Duplicate one under a new name (TICKET-RUL-03). The source is left untouched. */
+  copy: (id: string, name: string) => Promise<boolean>;
 }
 
 /** What a refusal should be shown as */
@@ -106,6 +108,11 @@ export function useAccountRulesets(enabled: boolean): AccountRulesetsState {
     rename: useCallback(
       (id: string, name: string) =>
         write(() => apiSend(`${RULESETS_PATH}/${id}`, 'PATCH', { name })),
+      [write]
+    ),
+    copy: useCallback(
+      (id: string, name: string) =>
+        write(() => apiSend(`${RULESETS_PATH}/${id}/copy`, 'POST', { name })),
       [write]
     ),
   };

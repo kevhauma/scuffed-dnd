@@ -54,6 +54,8 @@ export interface RulesetCardProps {
    */
   openAction?: ReactNode;
   onRename?: () => void;
+  /** Duplicate it under a new name (TICKET-RUL-03); absent for the browser's own ruleset */
+  onCopy?: () => void;
   onDelete?: () => void;
 }
 
@@ -68,6 +70,7 @@ export function RulesetCard({
   updatedAt,
   openAction,
   onRename,
+  onCopy,
   onDelete,
 }: RulesetCardProps) {
   return (
@@ -87,6 +90,11 @@ export function RulesetCard({
         {onRename && (
           <Button variant="secondary" size="sm" onClick={onRename}>
             Rename
+          </Button>
+        )}
+        {onCopy && (
+          <Button variant="secondary" size="sm" onClick={onCopy}>
+            Copy
           </Button>
         )}
         {onDelete && (

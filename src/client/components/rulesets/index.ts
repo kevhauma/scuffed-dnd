@@ -13,4 +13,5 @@ export * from './RulesetFormDialog';
 export * from './RulesetsPanel';
 export * from './useAccountRulesets';
 export * from './useRulesetDeletion';
+export * from './useRulesetDialog';
 export * from './useRulesetManager';

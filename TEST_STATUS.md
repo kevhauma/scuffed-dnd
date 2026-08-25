@@ -1,7 +1,8 @@
 # Test Status
 
-_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-RUL-02 — server-backed ruleset
-editing**. The checkpoints before it were **TICKET-RUL-01 — ruleset records** at 2313,
+_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-RUL-03 — copy a ruleset**.
+The checkpoints before it were **TICKET-RUL-02 — server-backed ruleset editing** at 2353,
+**TICKET-RUL-01 — ruleset records** at 2313,
 **TICKET-AUTH-04 — persistent sessions** at 2260,
 **TICKET-AUTH-03 — authorization guards** at 2203,
 **TICKET-AUTH-02 — social sign-in** at 2115,
@@ -17,12 +18,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 2353
-- **Passing**: 2353 (100%)
+- **Total tests**: 2370
+- **Passing**: 2370 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **142 files**: `server` in node, everything else in happy-dom.
+Split across **144 files**: `server` in node, everything else in happy-dom.
 
 ## The suite now runs in two environments
 
@@ -40,6 +41,29 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-RUL-03 — one test doing the work of thirty
+
+The **+17 over RUL-02** is TICKET-RUL-03: 7 in `shared/services/copyConfiguration.test.ts`, 8 in
+`server/routes/rulesets/copyRuleset.test.ts`, and 2 in `useRulesetManager.test.ts`.
+
+**The one worth reading is *"shares no object with the source, anywhere in the document"*.** A
+shallow copy of a `Configuration` passes every spot-check anybody would think to write — the name
+differs, the id differs, the stats look right — and shares `curve.rows[].values`, `statWeights`,
+`statValues` and `dieSizes` by reference, so retuning the copy retunes the original and nobody finds
+out until a table plays it. So the test does not check three fields: `sharedPaths` walks both
+documents in step and reports **every path at which they hold the same object**, and the expectation
+is that the list is empty. That is one assertion that cannot be outgrown by the shape of the data,
+against the real Ducklets corpus rather than a fixture with none of the nesting.
+
+The formula case is deliberately `toBe(2)` rather than `toEqual(source's answer)`: two identical
+*errors* would satisfy the second and not the first.
+
+**The review's one real finding was a state type, not a test.** `{ mode, ruleset?: RulesetSummary }`
+made *rename with no ruleset* representable, and the only answer the code had for that combination
+was to **create** a ruleset the User never asked for. A discriminated union deleted the branch
+instead of deciding what it should do — which is why no test was added for it: there is nothing left
+to test.
 
 ## TICKET-RUL-02 — a second destination, and the branch that is not in the store
 
@@ -707,11 +731,11 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `architecture/boundaries.test.ts` | 24.6 | TICKET-AUTH-01's run | 3 commits, 310 churn, 0.18 density | ▲ **Accelerating** |
 | `vitest.setup.ts` | 8.2 | TICKET-AUTH-01's run | 3 commits, 35 churn, 0.08 density | ▲ **Accelerating** |
 | `src/server/http/apiRouter.test.ts` | 23.9 | TICKET-AUTH-01's run | 4 commits, 134 churn, 0.16 density | ─ Stable |
-| `src/server/http/apiRouter.ts` | 23.9 | TICKET-AUTH-02's run | 5 commits, 187 churn, 0.14 density | ▲ **Accelerating** |
+| `src/server/http/apiRouter.ts` | 28.8 | TICKET-AUTH-02's run | 6 commits, 198 churn, 0.14 density | ▲ **Accelerating** |
 | `src/server/repositories/rulesetRepository.test.ts` | 32.9 | TICKET-AUTH-03's run | 4 commits, 550 churn, 0.24 density | ▲ **Accelerating** |
 | `src/server/repositories/eventRepository.test.ts` | 20.7 | TICKET-AUTH-03's run | 3 commits, 387 churn, 0.21 density | ▲ **Accelerating** |
 | `src/server/http/pipeline.test.ts` | 28.8 | TICKET-RUL-01's run | 4 commits, 272 churn, 0.21 density | ▲ **Accelerating** |
-| `src/server/http/apiRouter.test.ts` | 30.8 | TICKET-RUL-02's run | 6 commits, 226 churn, 0.15 density | ▲ **Accelerating** (was Stable) |
+| `src/server/http/apiRouter.test.ts` | 36.0 | TICKET-RUL-02's run | 7 commits, 235 churn, 0.15 density | ▲ **Accelerating** (was Stable) |
 
 **Both Accelerating rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they
 crossed the three-commit floor and became measurable at all. Recorded under the run that first saw
@@ -752,9 +776,13 @@ them, with the tickets that moved them named here rather than lost:
   `/api/rulesets/:id/copy` and GAM-01's session routes are the next edits; if either needs more
   than a literal `:id`, the matcher leaves.
 
-  **RUL-02 added two more routes and changed no machinery**, which is the reassuring version of this
-  row: `PATTERN_ROUTES` went from two entries to four and the matcher was untouched. The score rose
-  to 23.9 on churn alone, and the prediction above stands unchanged.
+  **RUL-02 and RUL-03 added three more routes between them and changed no machinery**, which is the
+  reassuring version of this row: `PATTERN_ROUTES` went from two entries to five, and the matcher —
+  the thing the paragraph above worried about — was untouched by either. Six commits and 28.8 now,
+  on churn alone. **RUL-03 was the first real test of the prediction**, because
+  `/api/rulesets/:id/copy` is the first path with an *action* segment after the id, and it needed
+  one line in the table and one widened `rulesetIdFrom`. The signal to split is still the fifth
+  route table or a matcher that grows a feature; it has not arrived.
 - **`src/server/http/apiRouter.test.ts`** — Stable at 23.9 in AUTH-01's run, Accelerating at 30.8
   now, moved by RUL-01 and RUL-02 in consecutive tickets. Both edits had the same shape and are
   worth noticing together: each new route made a *previously unanswerable* request answerable, and
@@ -763,6 +791,13 @@ them, with the tickets that moved them named here rather than lost:
   names a path or a verb nothing answers has a shelf life**, and the next ticket adding a route
   should expect to rename one. That is a property of what the file asserts rather than a defect in
   how it is written.
+
+  **RUL-03 was the next ticket, and it did exactly that** — a third time, with the third kind of
+  example: its `/api/rulesets/:id/copy` turned *"a deeper path is not swallowed"* from a 404 into a
+  405, because that path now exists. Seven commits, 36.0, still Accelerating. The prediction has now
+  held three times running, so treat it as the file's normal behaviour rather than as news: **a
+  ticket adding a route should open this file first**, and the case to look for is any assertion
+  whose subject is the *absence* of a route.
 - **`src/server/http/pipeline.test.ts`** — a new row, and RUL-01 is the first ticket in this
   milestone to touch it, which is what earns it one at last (AUTH-02's run flagged it while no
   ticket had). The edit was small and worth recording anyway: the *"named by exactly two modules"*
@@ -796,7 +831,7 @@ than recalled.
 
 ## Architecture rules: clean, and they cost nothing
 
-`yarn run arch` reports **zero error-level findings** and zero warnings, over 511 modules and 2256
+`yarn run arch` reports **zero error-level findings** and zero warnings, over 516 modules and 2281
 dependencies (437 / 1917 before TICKET-RUL-01). That is the baseline: an error-level finding is
 yours. `no-orphans` reports at *warning* severity by design and does not fail the build.
 

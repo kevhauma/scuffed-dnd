@@ -82,9 +82,10 @@ const RULESETS_PREFIX = '/api/rulesets/';
 /**
  * Which ruleset a path named
  *
- * `/api/rulesets/:id` — spelled against the collection's own path rather than as a segment index,
- * so `/api/rulesets/abc/copy` (RUL-03) and `/api/somewhere/else` both come back empty instead of
- * yielding a plausible-looking id.
+ * Spelled against the collection's own path rather than as a segment index. **Two shapes are real**
+ * — `/api/rulesets/:id` and `/api/rulesets/:id/<action>`, the second of which arrived with RUL-03's
+ * `/copy` — and nothing deeper is, so `/api/somewhere/else` and `/api/rulesets/a/b/c` both come back
+ * empty rather than yielding a plausible-looking id.
  *
  * **A handler reads it rather than being handed it**, deliberately. The alternative was a `params`
  * channel through `RequestScope`, and `pipeline.test.ts` asserts that exactly two modules name that
@@ -95,12 +96,15 @@ const RULESETS_PREFIX = '/api/rulesets/';
  * @returns The id segment, or an empty string when the path has none
  */
 export function rulesetIdFrom(url: URL): string {
-  const [id, ...rest] = url.pathname.replace(RULESETS_PREFIX, '').split('/');
+  if (!url.pathname.startsWith(RULESETS_PREFIX)) return '';
 
-  // Anything that is not exactly one segment under the collection is not a ruleset id. The router
-  // has already matched the shape in production, so this only fires for a handler called directly
-  // in a test — where an empty id is a 404 like any other unknown one rather than a crash.
-  return url.pathname.startsWith(RULESETS_PREFIX) && rest.length === 0 ? id : '';
+  const [id, ...rest] = url.pathname.slice(RULESETS_PREFIX.length).split('/');
+
+  // `/api/rulesets/:id` and `/api/rulesets/:id/<action>` are both real shapes — RUL-03's `/copy` is
+  // the first of the second kind — and nothing deeper is. The router has already matched one of
+  // them in production, so a miss here only happens for a handler called directly in a test, where
+  // an empty id is a 404 like any other unknown one rather than a crash.
+  return rest.length <= 1 ? id : '';
 }
 
 /**
