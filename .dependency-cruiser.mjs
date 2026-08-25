@@ -1,5 +1,5 @@
 /**
- * Architecture rules, as checks (TICKET-DX-07)
+ * Architecture rules, as checks (TICKET-DX-07, TICKET-DX-08)
  *
  * `src/` has exactly three roots — `shared/` (the Kernel), `client/` and `server/` — and the rule
  * between them is symmetric and mechanical: **`client/` and `server/` may each import `shared/`
@@ -11,9 +11,34 @@
  * violation cannot be committed. Every rule below is proven by a module that breaks it — see
  * [`architecture/`](./architecture/README.md).
  *
- * The wider architecture rules — store-owned persistence, repository-owned queries, UI primitives
- * as leaves — are TICKET-DX-08. This file lands the root boundary only, so that a failure here is
- * unambiguously about the roots.
+ * ## Which prose rule each check replaces
+ *
+ * DX-07 landed the root boundary; DX-08 encoded the rest of the rules
+ * [CLAUDE.md](./CLAUDE.md) has stated as prose since v1.0.
+ *
+ * | Rule | The prose it replaces |
+ * |---|---|
+ * | `no-client-to-server`, `no-server-to-client`, `no-shared-to-siblings` | "`src/` has exactly three roots, and the boundary between them is checked" (D14) |
+ * | `server-reaches-only-shared`, `client-reaches-only-shared` | the same rule, stated so a *fourth* root is refused rather than allowed |
+ * | `cross-root-imports-use-an-alias` | "Imports are relative within a root and aliased across one" |
+ * | `kernel-is-framework-free` | "`shared/` is the Kernel — pure, no React, no storage, no network" (D5) |
+ * | `types-are-the-bottom-layer` | the **bottom rung** of "`types → engine → services → stores → components → routes`". The rungs above it *inside* `shared/` are not checked — nothing stops `engine/` importing `shared/services/`; the rungs that cross a root are covered by the boundary rules instead |
+ * | `persistence-belongs-to-the-store` | "Persistence belongs to the store action" |
+ * | `queries-belong-to-repositories` | "Queries belong to `src/server/repositories/`" |
+ * | `ui-primitives-are-leaves` | "Base components (`components/ui/`) carry intrinsic styling only" — the import half of it |
+ * | `no-circular` | fallow's circular-dependency report, promoted from a review signal to a gate |
+ * | `no-dev-dep-in-production` | nothing; a production-install bug this repo had no guard against |
+ * | `no-undeclared-dependency` | "No new runtime dependencies without asking" (D11) |
+ * | `no-orphans` | nothing — a **warning**, because an entry point looks orphaned from inside `src/` |
+ *
+ * ## What this file cannot express
+ *
+ * dependency-cruiser sees imports. It cannot see a call. The obligations that are about call sites
+ * rather than edges stay purpose-written tests, and
+ * [`architecture/README.md`](./architecture/README.md) lists them with what covers each — the
+ * load-bearing one being AUTH-03's *every route naming an owned resource calls a guard*
+ * (v3 Req 51.10), which a handler importing `requireAccount` and never calling it satisfies
+ * perfectly.
  */
 
 /**
@@ -24,8 +49,27 @@
  * reported — so a real client module reaching `#server/boundaryFixtures/target` would pass. They
  * must stay visible as destinations and disappear only as sources.
  * `architecture/boundaries.test.ts` lifts this to cruise them.
+ *
+ * Matched anywhere under `src/` rather than only at a root, because DX-08's rules are scoped to
+ * directories *inside* a root — a fixture for `types-are-the-bottom-layer` has to live under
+ * `shared/types/` to be a source at all.
  */
-const FIXTURES = '^src/(client|server|shared)/boundaryFixtures/';
+export const FIXTURES = '/boundaryFixtures/';
+
+/**
+ * Test files, which are cruised but not shipped
+ *
+ * They stay in the graph because a test reaching across the root boundary is still a crossing, and
+ * `src/server/sharedKernel.test.ts` is the proof that the Kernel is reusable from the server. What
+ * they are exempt from is the two rules that are about *shipping*: `no-dev-dep-in-production`
+ * (vitest and fast-check are devDependencies, correctly) and `persistence-belongs-to-the-store`
+ * (a test mocking the storage service is doing the rule's work).
+ *
+ * `*.fixtures.ts` counts as a test file — `shared/services/importExport.fixtures.ts` exists only
+ * to be imported by a suite, and the day one reaches for `fast-check` it should not be told it has
+ * broken a production install.
+ */
+const TESTS = '\\.(test|fixtures)\\.[cm]?[jt]sx?$';
 
 /** @type {import('dependency-cruiser').IConfiguration} */
 export default {
@@ -98,6 +142,156 @@ export default {
           'aliased-tsconfig-paths',
         ],
       },
+    },
+    {
+      name: 'kernel-is-framework-free',
+      severity: 'error',
+      comment:
+        'The Kernel imported a framework. shared/ holds the one copy of every rule, called by ' +
+        'React on one side and by a request handler on the other (D5). The moment it imports ' +
+        'React, Zustand, a form library or the router it has acquired an environment, and a rule ' +
+        'with an environment can only be run by one of its two callers — which is the whole ' +
+        'reason the server would end up restating it.',
+      from: { path: '^src/shared/', pathNot: FIXTURES },
+      to: { path: 'node_modules/(react|react-dom|react-hook-form|zustand|@tanstack)(/|$)' },
+    },
+    {
+      name: 'types-are-the-bottom-layer',
+      severity: 'error',
+      comment:
+        'A declaration imported something with a runtime. shared/types/ is the bottom of the ' +
+        'layering — types → engine → services → stores → components → routes — and imports only ' +
+        'ever point up that list. It describes shapes and executes nothing, so every arrow points ' +
+        'at it and none points out of it.',
+      from: { path: '^src/shared/types/', pathNot: FIXTURES },
+      to: { pathNot: '^src/shared/types/' },
+    },
+    {
+      name: 'persistence-belongs-to-the-store',
+      severity: 'error',
+      comment:
+        'A component or a route imported the LocalStorage service. Persistence belongs to the ' +
+        'Zustand action: it patches state and persists in the same call, so there is exactly one ' +
+        'place a save can be forgotten. A component that saves is a component that can save half ' +
+        'of something and leave the store holding the other half.',
+      // Stated as "everything in client/ except the two layers that own persistence" rather than
+      // as "components and routes", for the reason server-reaches-only-shared gives above: a
+      // `client/hooks/` or `client/features/` added later without thinking should be refused
+      // rather than silently allowed. Closed by default; the openings are named.
+      from: {
+        path: '^src/client/',
+        pathNot: [
+          FIXTURES,
+          // The two layers whose job this is: the store patches state and persists in one action,
+          // and `services/configFiles.ts` reads the stored bytes to assemble a backup file.
+          '^src/client/(stores|services)/',
+          // Nothing ships a test, and a test that mocks the storage service or asserts what was
+          // written to it is doing the rule's work rather than breaking it.
+          TESTS,
+          // `useAppHydration` imports `isStorageAvailable` (a browser-capability probe, run before
+          // anything is read) and `StorageSchemaError` (an `instanceof` discriminant). It performs
+          // no load and no save — each of those is a store action it calls. Exempted by name
+          // rather than by widening the rule, so a second module needing the same thing is a
+          // decision rather than a silence.
+          '^src/client/components/shared/useAppHydration\\.ts$',
+        ],
+      },
+      to: { path: '^src/client/services/storage' },
+    },
+    {
+      name: 'queries-belong-to-repositories',
+      severity: 'error',
+      comment:
+        'A server module outside db/ and repositories/ reached the database. A handler calls a ' +
+        'repository; the connection and the query builder stay behind that door. This is the ' +
+        'server-side mirror of persistence-belongs-to-the-store and it is what keeps a schema ' +
+        'change to one directory (DB-01).',
+      from: { path: '^src/server/', pathNot: [FIXTURES, '^src/server/(db|repositories)/'] },
+      to: { path: 'node_modules/(drizzle-orm|better-sqlite3)(/|$)|^src/server/db/client' },
+    },
+    {
+      name: 'ui-primitives-are-leaves',
+      severity: 'error',
+      comment:
+        'A base component imported a store, a service or a feature component. components/ui/ is ' +
+        'the leaf layer: a primitive renders what it is handed and knows nothing about where the ' +
+        'value came from, which is the only reason every feature can reuse it. One that reads a ' +
+        'store is a feature component wearing the wrong folder. What a primitive may still reach ' +
+        'is the pure Kernel — FormulaEditor calls the formula validator, and that is correct.',
+      from: { path: '^src/client/components/ui/', pathNot: FIXTURES },
+      // "Anything in client/ that is not another primitive", plus the shared *services* — which are
+      // pure but are import/export and persistence-shaped, and nothing a primitive should hold.
+      // An allow-list rather than a list of today's feature folders, so `components/campaign/`
+      // added next year is refused rather than forgotten.
+      to: {
+        path: '^src/client/|^src/shared/services/',
+        pathNot: '^src/client/components/ui/',
+      },
+    },
+    {
+      name: 'no-circular',
+      severity: 'error',
+      comment:
+        'A dependency cycle. fallow has reported these as a review signal since v2.1; here it ' +
+        'fails the build, because a cycle is what makes "which module owns this?" unanswerable — ' +
+        'and every layering rule above is unprovable while one exists.',
+      from: { pathNot: FIXTURES },
+      to: {
+        circular: true,
+        // `routeTree.gen.ts` carries `import type { getRouter } from './router.tsx'` inside its
+        // `declare module` block, and `router.tsx` imports the tree — a cycle that is generated,
+        // type-only, and erased before anything runs. It is visible here only because
+        // `tsPreCompilationDeps` is on, which the root boundary needs and which is worth more than
+        // this one edge. The file may not be hand-edited (CLAUDE.md), so the edge is exempted by
+        // name rather than pretended away.
+        //
+        // **Both members are named, and that is not belt-and-braces.** A cycle is reported once,
+        // from whichever member the traversal reached first — but silencing that one edge does not
+        // silence the cycle, it re-surfaces from the other member. Verified: exempting only
+        // `routeTree.gen.ts` here moved the finding to `router.tsx → routeTree.gen.ts`. Naming the
+        // pair silences exactly this two-module cycle; a future cycle merely *passing through* the
+        // router is still reported from its own non-exempt edge.
+        pathNot: '^src/client/(routeTree\\.gen\\.ts|router\\.tsx)$',
+      },
+    },
+    {
+      name: 'no-dev-dep-in-production',
+      severity: 'error',
+      comment:
+        'A shipped module imported a devDependency. It works on this machine and fails in a ' +
+        'production install, where devDependencies are simply not there — the worst possible ' +
+        'place to find out. Test files are exempt because nothing ships them.',
+      from: { path: '^src/', pathNot: [FIXTURES, TESTS] },
+      to: { dependencyTypes: ['npm-dev'] },
+    },
+    {
+      name: 'no-undeclared-dependency',
+      severity: 'error',
+      comment:
+        'An import of a package that is not in package.json. It resolves today only because ' +
+        'something else happens to depend on it; the day that something bumps a major this ' +
+        'breaks for a reason nothing in this repo records. D11 lists what this milestone adds — ' +
+        'a package outside that list is a decision, not an import.',
+      from: { pathNot: FIXTURES },
+      to: { dependencyTypes: ['npm-no-pkg', 'npm-unknown'] },
+    },
+    {
+      name: 'no-orphans',
+      severity: 'warn',
+      comment:
+        'A module with no edges in either direction — it imports nothing and nothing imports it. ' +
+        'Note the narrowness, because the obvious reading of the name is wrong: dependency-cruiser ' +
+        "returns false the moment a module has one dependency, so a dead file that imports *anything* " +
+        'is not an orphan. This catches a self-contained leftover and nothing else. It is a warning ' +
+        'both because that is a small class and because `fallow dead-code` is what actually judges ' +
+        'reachability; this is the cheap first look, not the answer.',
+      // Only the fixtures need exempting, and only because `orphan.ts` is a real zero-edge module.
+      // Nothing else in `src/` can reach this rule: the server entry, the generated route tree and
+      // every test file all have imports of their own, so none of them is ever an orphan and none
+      // needs an exemption. An earlier draft listed all three and each line guarded nothing — which
+      // is the "reads as coverage" failure this ticket's Notes warn about, in the ticket's own config.
+      from: { orphan: true, pathNot: FIXTURES },
+      to: {},
     },
   ],
   options: {

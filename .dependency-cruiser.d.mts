@@ -12,4 +12,12 @@ import type { IConfiguration } from 'dependency-cruiser';
 
 declare const configuration: IConfiguration;
 
+/**
+ * The `from.pathNot` pattern that exempts a rule's own fixtures (TICKET-DX-08)
+ *
+ * Exported so `boundaries.test.ts` can lift **that one** exemption and keep every other, rather
+ * than re-typing the pattern beside the config and having the two disagree the day it changes.
+ */
+export declare const FIXTURES: string;
+
 export default configuration;

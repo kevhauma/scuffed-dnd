@@ -1,7 +1,8 @@
 # Test Status
 
-_Last verified: 2026-08-24 (`npx vitest run`), after **TICKET-DB-01 — SQLite, Drizzle and
-migrations**. The checkpoints before it were **TICKET-SRV-01 — the server layer** at 1883,
+_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-DX-08 — the architecture rules as
+checks**. The checkpoints before it were **TICKET-DB-01 — SQLite, Drizzle and migrations** at
+1925, **TICKET-SRV-01 — the server layer** at 1883,
 **TICKET-DX-07 — three roots** at 1847, the **equipment split and display builder** at 1834, the
 **character sheet rebuild** at 1777, the **tavern redesign** at 1732, and the
 [v2.1 code review](docs/v2.1_code_review/overview.md)'s **high-priority findings** (CR-01 to CR-07,
@@ -9,10 +10,33 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 1925
-- **Passing**: 1925 (100%)
+- **Total tests**: 1937
+- **Passing**: 1937 (100%)
 - **Skipped**: 0
 - **Failing**: 0
+
+The **+12 over DB-01** is TICKET-DX-08, and all twelve are in
+[`architecture/boundaries.test.ts`](architecture/boundaries.test.ts), which goes 9 → 21: one per
+new rule (`kernel-is-framework-free`, `types-are-the-bottom-layer`,
+`persistence-belongs-to-the-store`, `queries-belong-to-repositories`, `ui-primitives-are-leaves`,
+`no-circular`, `no-dev-dep-in-production`, `no-undeclared-dependency`, `no-orphans`) and three
+about the rule set as a whole. Those three are the ones worth naming:
+
+- **`no-orphans` reports at `warn`**, asserted on the severity of a real finding rather than on the
+  config literal — a warning that never reaches the report is the same as no rule. It stays a
+  warning because the class it catches is *tiny*: dependency-cruiser's orphan predicate is "no
+  dependencies **and** no dependents", so a dead file that imports anything at all is not an
+  orphan. `fallow dead-code` is what judges reachability; this is the cheap first look.
+- **A failure message names the decision**, asserted against the `err-long` reporter's actual text
+  for the persistence and Kernel-purity rules. `yarn run arch` gained `--output-type err-long` in
+  the same change: `err`, the CLI default, prints the edge and drops the `comment`, so every rule's
+  explanation was being written and then thrown away.
+- **No module that is not a fixture breaks any rule** — the second half of the same cruise. The
+  suite now cruises the whole of `src/` with *only* the `boundaryFixtures/` exemption lifted, which
+  is what makes a green `yarn run arch` mean "the tree is clean" rather than "the tool is blind".
+
+`libraryConventions.test.ts` was edited and stayed at 5 cases: nothing it checks was import-shaped,
+so `ui-primitives-are-leaves` had nothing to take from it (DX-08 criterion 8).
 
 The **+42 over SRV-01** is TICKET-DB-01: the connection (4), migrations (8), schema constraints
 (9), the ruleset repository (11) and the event repository (10). Each group answers a criterion
@@ -314,6 +338,11 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | --- | --- | --- | --- | --- |
 | _none recorded yet_ | | | | |
 
+**TICKET-DX-08 ran it and is owed no row.** `fallow health --hotspots --since 6m` returns two files
+above the threshold — `scripts/build-sheet-import.mjs` (100.0) and `vite.config.ts` (4.8) — both
+tagged **stable**, and DX-08 touched neither. 323 files are excluded for having fewer than three
+commits, which is DX-07's history reset below still doing its work.
+
 **Not yet populated.** The table was added with the rule; the first ticket to run
 **TICKET-DX-07 reset every file's churn history**, and the table is blind for roughly six months
 because of it: `fallow health --hotspots --since 6m` scores by commit count per *path*, and every
@@ -327,6 +356,40 @@ accelerating" — don't read it as a clean bill of health until a run has writte
 Snapshot with `fallow health --save-snapshot` and compare with `fallow health --trend` so the
 per-metric deltas (`hotspot_count`, `avg_cyclomatic`, `duplication_pct`, …) are measured rather
 than recalled.
+
+## Architecture rules: clean, and they cost nothing
+
+`yarn run arch` reports **zero error-level findings** and zero warnings, over 402 modules and 1808
+dependencies. That is the baseline: an error-level finding is yours. `no-orphans` reports at
+*warning* severity by design and does not fail the build.
+
+**Measured cost of DX-08's nine extra rules: none.** `depcruise src`, three runs each, same tree:
+
+| Rule set | Runs |
+|---|---|
+| DX-07's 6 rules | 3.65s / 3.60s / 3.95s |
+| DX-08's 15 rules | 3.74s / 3.71s / 3.66s |
+
+The difference is inside the run-to-run noise, and the reason is structural rather than lucky: the
+graph is built once and every rule is a pass over a graph that already exists. Building it is the
+cost; the rules are not. (Those figures include `npx` start-up; through `yarn run arch` the whole
+step is ~2.0s.) It runs in `yarn run check`, which the pre-commit hook runs, and the `verifier`
+subagent reports it as its fourth numbered step.
+
+**Four exemptions exist and each is recorded in `.dependency-cruiser.mjs` with its reason**, which
+is the honest half of "the existing tree produces no error-level finding":
+
+| Exempted | From | Why |
+|---|---|---|
+| `boundaryFixtures/` | every rule, as a *source* only | They are the modules that prove the rules fire. Exempted as sources rather than excluded, so an import *pointing at* one is still reported |
+| `*.test.ts(x)`, `*.fixtures.ts` | `persistence-belongs-to-the-store`, `no-dev-dep-in-production` | Nothing ships a test; a test mocking the storage service or importing `fast-check` is doing the rule's work rather than breaking it |
+| `client/components/shared/useAppHydration.ts` | `persistence-belongs-to-the-store` | Imports `isStorageAvailable` (a capability probe run before anything is read) and `StorageSchemaError` (an `instanceof` discriminant). It loads and saves nothing — each of those is a store action it calls |
+| `routeTree.gen.ts` ↔ `router.tsx` | `no-circular` | Generated, type-only, erased before anything runs. Visible only because `tsPreCompilationDeps` is on, which the root boundary needs. The file may not be hand-edited |
+
+`.fallowrc.jsonc` drops `src/**/boundaryFixtures/**` from fallow's analysis entirely for the
+matching reason: every fixture is a deliberate cycle, orphan, undeclared import or devDependency in
+shipped code, so fallow is *right* about all of them and every finding is noise. DX-07's
+`dynamicallyLoaded` only answered "is it reachable" and left the dependency findings standing.
 
 ## Lint and formatting: clean
 

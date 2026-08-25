@@ -4,6 +4,12 @@
  * The library's rules stated as assertions rather than as a comment in `index.ts`, so a
  * regression fails the suite instead of passing review.
  *
+ * **What this file covers and what `ui-primitives-are-leaves` covers** (TICKET-DX-08): the
+ * dependency-cruiser rule owns the library's *imports* — no store, no service, no feature
+ * component. Nothing here was ever import-shaped, so nothing moved out: every case below is about
+ * styling, the presence of a `.style.ts`, or the completeness of the barrel, none of which
+ * dependency-cruiser can see. The two are complementary rather than overlapping.
+ *
  * **Validates: Requirements 21.2, 21.3, 21.6, 21.7, 22.1, 22.4**
  */
 
@@ -13,9 +19,16 @@ import { describe, expect, it } from 'vitest';
 
 const UI_ROOT = resolve(process.cwd(), 'src/client/components/ui');
 
-/** Every file under components/ui, recursively */
+/**
+ * Every file under components/ui, recursively
+ *
+ * `boundaryFixtures/` is skipped: it holds the module that proves `ui-primitives-are-leaves`
+ * fires (TICKET-DX-08), which is deliberately not a component and would fail every rule below on
+ * the grounds of not being one.
+ */
 function uiFiles(dir: string = UI_ROOT): string[] {
   return readdirSync(dir).flatMap((entry) => {
+    if (entry === 'boundaryFixtures') return [];
     const full = join(dir, entry);
     return statSync(full).isDirectory() ? uiFiles(full) : [full];
   });

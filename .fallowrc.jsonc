@@ -1,6 +1,6 @@
-// fallow configuration (TICKET-DX-07)
+// fallow configuration (TICKET-DX-07, TICKET-DX-08)
 //
-// Two things fallow cannot see for itself once `src/` became three roots. Both are stated here
+// Three things fallow cannot see for itself once `src/` became three roots. Each is stated here
 // rather than suppressed file by file, so that a *new* unused file is still a finding.
 {
   // The TanStack Router plugin finds routes by convention at `src/routes/`, and DX-07 moved them
@@ -17,14 +17,24 @@
     "src/server/entry.ts"
   ],
 
-  // The modules that prove the root boundary. Nothing imports them — that is the point; they are
-  // cruised **by path** from `architecture/boundaries.test.ts`, which is exactly the kind of
-  // reference static reachability cannot follow. See `architecture/README.md`.
-  "dynamicallyLoaded": [
-    "src/client/boundaryFixtures/**",
-    "src/server/boundaryFixtures/**",
-    "src/shared/boundaryFixtures/**"
-  ],
+  // The modules that prove the architecture rules, dropped from fallow's analysis entirely
+  // (TICKET-DX-08). Every one of them is a deliberate violation — an unimported file, an import
+  // cycle, a devDependency in shipped code, a package absent from package.json — so fallow is
+  // *right* about all of them and every finding is noise. What judges them is
+  // `architecture/boundaries.test.ts`, which cruises `src/` with dependency-cruiser's own rules and
+  // the fixture exemption lifted; see `architecture/README.md`.
+  //
+  // `ignorePatterns` rather than DX-07's `dynamicallyLoaded`, which only answered "is it
+  // reachable" and left the dependency findings standing — and rather than `ignoreFindings`, which
+  // cannot reach a *manifest*-owned finding such as `dev-dependency-in-production`.
+  //
+  // One glob rather than one per root, because DX-08's rules are scoped to directories *inside* a
+  // root: a fixture has to live where the rule's `from` matches, which means under `shared/types/`
+  // and under `client/components/ui/`, not only at a root.
+  //
+  // Nothing else loses coverage. Every module the fixtures import — `services/storage`,
+  // `configStore`, the parser, the connection — has real consumers besides them.
+  "ignorePatterns": ["src/**/boundaryFixtures/**"],
 
   // `drizzle-kit` is a CLI (`yarn run db:generate`) and `drizzle.config.ts` is the file it reads;
   // neither is imported by anything in the tree.

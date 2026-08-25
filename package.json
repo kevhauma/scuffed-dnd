@@ -16,7 +16,7 @@
     "db:generate": "drizzle-kit generate",
     "format": "biome format",
     "lint": "biome lint",
-    "arch": "depcruise src --config .dependency-cruiser.mjs",
+    "arch": "depcruise src --config .dependency-cruiser.mjs --output-type err-long",
     "check": "biome check && yarn run arch"
   },
   "dependencies": {
