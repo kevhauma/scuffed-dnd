@@ -79,6 +79,21 @@ would be.
   no linked identity and a forgotten password is gone. That is why AUTH-01's sign-up points here, and
   why the linked-identities view is in this ticket rather than deferred to an account-settings page
   nobody has scheduled.
+- **This ticket has to settle `baseURL`, and it is a real tension with D1** (found while building
+  AUTH-01, recorded here rather than rediscovered). Better Auth is configured with **no `baseURL`**,
+  because D1 forbids a variable naming the backend — and it logs
+  `Base URL is not set … Without it the origin is derived from the incoming request, and callbacks
+  and redirects may not work correctly` on every start. For email/password that warning is
+  harmless and AUTH-01's tests prove it: there are no callbacks. **OAuth is exactly the case it
+  warns about.** A redirect URI has to be absolute, has to match what is registered with Google and
+  Discord, and deriving it from the request `Host` header means an attacker-controlled header can
+  steer a callback.
+
+  The option to reach for is Better Auth's **dynamic `baseURL` with `allowedHosts`**, which is not
+  the thing D1 rules out: it does not name *a backend to talk to*, it names which hosts this
+  deployment answers on — the same kind of statement as a certificate's subject. Whatever is
+  decided, decide it here and write it into D1 as a follow-on note, rather than leaving AUTH-01's
+  silence to be read as a decision.
 - **Resist a provider registry.** Two providers configured side by side is data; an abstraction for
   *n* providers is a framework, and Better Auth already owns that layer. What must be shared is the
   identity-rule path (31.7), not a plugin system.

@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SigninRouteImport } from './routes/signin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PlayIndexRouteImport } from './routes/play/index'
 import { Route as ConfigIndexRouteImport } from './routes/config/index'
@@ -26,6 +28,16 @@ import { Route as ConfigConstantsRouteImport } from './routes/config/constants'
 import { Route as ConfigArchetypesRouteImport } from './routes/config/archetypes'
 import { Route as PlayCharacterIdRouteImport } from './routes/play/character.$id'
 
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SigninRoute = SigninRouteImport.update({
+  id: '/signin',
+  path: '/signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -109,6 +121,8 @@ const PlayCharacterIdRoute = PlayCharacterIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
   '/config/archetypes': typeof ConfigArchetypesRoute
   '/config/constants': typeof ConfigConstantsRoute
   '/config/currency': typeof ConfigCurrencyRoute
@@ -127,6 +141,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
   '/config/archetypes': typeof ConfigArchetypesRoute
   '/config/constants': typeof ConfigConstantsRoute
   '/config/currency': typeof ConfigCurrencyRoute
@@ -146,6 +162,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
   '/config/archetypes': typeof ConfigArchetypesRoute
   '/config/constants': typeof ConfigConstantsRoute
   '/config/currency': typeof ConfigCurrencyRoute
@@ -166,6 +184,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/signin'
+    | '/signup'
     | '/config/archetypes'
     | '/config/constants'
     | '/config/currency'
@@ -184,6 +204,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/signin'
+    | '/signup'
     | '/config/archetypes'
     | '/config/constants'
     | '/config/currency'
@@ -202,6 +224,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/signin'
+    | '/signup'
     | '/config/archetypes'
     | '/config/constants'
     | '/config/currency'
@@ -221,6 +245,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SigninRoute: typeof SigninRoute
+  SignupRoute: typeof SignupRoute
   ConfigArchetypesRoute: typeof ConfigArchetypesRoute
   ConfigConstantsRoute: typeof ConfigConstantsRoute
   ConfigCurrencyRoute: typeof ConfigCurrencyRoute
@@ -240,6 +266,20 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signin': {
+      id: '/signin'
+      path: '/signin'
+      fullPath: '/signin'
+      preLoaderRoute: typeof SigninRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -357,6 +397,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SigninRoute: SigninRoute,
+  SignupRoute: SignupRoute,
   ConfigArchetypesRoute: ConfigArchetypesRoute,
   ConfigConstantsRoute: ConfigConstantsRoute,
   ConfigCurrencyRoute: ConfigCurrencyRoute,

@@ -13,9 +13,11 @@
  * - **Normalised** — accounts' ownership, memberships, invites and events. This is the server's own
  *   model rather than the ruleset's, and it is what the server joins on.
  *
- * **Auth tables are not here.** TICKET-AUTH-01 brings Better Auth's own schema against this same
- * database file, so the account columns below are ids the server holds but cannot yet enforce a
- * foreign key on — noted per column rather than silently.
+ * **Auth tables are next door.** TICKET-AUTH-01 brought Better Auth's own schema against this same
+ * database file, and it lives in [`authSchema.ts`](./authSchema.ts) because it is the *library's*
+ * shape rather than ours — re-exported below so `import * as schema` still sees one database. The
+ * account columns here are still ids the server holds without a foreign key on them, for the
+ * reason the next paragraph gives.
  *
  * **Those account foreign keys are not planned to be added afterwards, and that is a decision
  * rather than an oversight.** SQLite has no `ADD CONSTRAINT`; adding one means the twelve-step
@@ -33,6 +35,9 @@
 
 import { sql } from 'drizzle-orm';
 import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+
+/** Better Auth's four tables, which share this database file (TICKET-AUTH-01) */
+export * from './authSchema';
 
 /**
  * An epoch-millisecond column

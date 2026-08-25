@@ -17,6 +17,7 @@
 
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import { AccountBadge } from '../auth/AccountBadge';
 import { Button } from '../ui/Button/Button';
 import { Divider } from '../ui/Divider/Divider';
 import { Ornament } from '../ui/Ornament/Ornament';
@@ -108,24 +109,30 @@ export function AppShell({ children }: AppShellProps) {
             </span>
           </Link>
 
-          {/* Lit parchment for the mode you are in, unlit oak for the one you are not — the same
-              split the nav rail uses, so "where am I" is answered the same way twice */}
-          <nav aria-label="Mode" className="flex gap-2">
-            <Button
-              variant={mode === 'config' ? 'secondary' : 'plaque'}
-              onClick={() => switchMode('config')}
-              aria-pressed={mode === 'config'}
-            >
-              Configuration
-            </Button>
-            <Button
-              variant={mode === 'play' ? 'secondary' : 'plaque'}
-              onClick={() => switchMode('play')}
-              aria-pressed={mode === 'play'}
-            >
-              Play
-            </Button>
-          </nav>
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Lit parchment for the mode you are in, unlit oak for the one you are not — the same
+                split the nav rail uses, so "where am I" is answered the same way twice */}
+            <nav aria-label="Mode" className="flex gap-2">
+              <Button
+                variant={mode === 'config' ? 'secondary' : 'plaque'}
+                onClick={() => switchMode('config')}
+                aria-pressed={mode === 'config'}
+              >
+                Configuration
+              </Button>
+              <Button
+                variant={mode === 'play' ? 'secondary' : 'plaque'}
+                onClick={() => switchMode('play')}
+                aria-pressed={mode === 'play'}
+              >
+                Play
+              </Button>
+            </nav>
+
+            {/* Beside the mode switcher rather than above it: signing in is *smaller* than
+                choosing a mode, because it gates connected play and nothing else (D6) */}
+            <AccountBadge />
+          </div>
         </div>
 
         <nav

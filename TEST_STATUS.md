@@ -1,7 +1,8 @@
 # Test Status
 
-_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-DX-06 — the server test harness**.
-The checkpoints before it were **TICKET-DX-08 — the architecture rules as checks** at 1937,
+_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-AUTH-01 — email/password accounts**.
+The checkpoints before it were **TICKET-DX-06 — the server test harness** at 1970,
+**TICKET-DX-08 — the architecture rules as checks** at 1937,
 **TICKET-DB-01 — SQLite, Drizzle and migrations** at 1925, **TICKET-SRV-01 — the server layer** at
 1883,
 **TICKET-DX-07 — three roots** at 1847, the **equipment split and display builder** at 1834, the
@@ -11,10 +12,69 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 1970
-- **Passing**: 1970 (100%)
+- **Total tests**: 2040
+- **Passing**: 2040 (100%)
 - **Skipped**: 0
 - **Failing**: 0
+
+## The suite now runs in two environments
+
+`vitest.config.ts` splits the run on D14's root boundary: **`src/server/` in node**, everything else
+in **happy-dom**. That is not tidiness, and the reason is the most useful thing TICKET-AUTH-01
+found.
+
+**happy-dom's `Headers` silently discards `Set-Cookie`.** `get('set-cookie')` returns `null`,
+`getSetCookie()` returns `[]`, iteration yields nothing, and nothing throws anywhere. Every
+assertion about the Auth_Session cookie was therefore comparing an empty string with itself and
+agreeing — including one that asserted the cookie is *not* `Secure` in development, which passed
+for the worst possible reason. A test that cannot fail is worse than no test, so the split is a
+rule with a check behind it: `src/server/environment.test.ts` fails if a server test file ever runs
+somewhere with a `window` in it.
+
+The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
+environment that gives it one is an environment where a mistake reads as working code.
+
+The **+70 over DX-06** is TICKET-AUTH-01: 32 in `src/server/auth/` (the real Better Auth handler
+over a real migrated database), 17 in `src/client/components/auth/`, 9 more in `db/migrate.test.ts`
+for the second migration, 5 in `db/authSchema.test.ts`, 3 more in `pipeline.test.ts` and
+`apiRouter.test.ts`, 2 in the new `environment.test.ts`, and 5 in `env.test.ts` for the four new
+variables.
+
+**Nine of those came out of the `conventions-reviewer` pass and every one pins a defect that was
+reachable**, which is worth naming because all three of the serious ones passed their own tests
+before the review:
+
+- **The per-address limiter was check-then-act across an `await`** — nothing was counted until the
+  handler resolved, so a burst of parallel sign-ins all read a count of zero and all got a password
+  check. It constrained a *sequential* attacker only. A test now fires twelve concurrent attempts
+  and asserts at most five were tried.
+- **Better Auth's own limiter had been switched off wholesale**, which in production removed flood
+  protection from sign-up, password reset and every future OAuth route. It is on, with the one path
+  the custom limiter owns carved out; two tests hold both halves.
+- **The 429 body was shaped wrong**, so the client read `undefined` and told a locked-out person to
+  check their typing. Asserted server-side and confirmed in the browser.
+
+Enabling the library's limiter is also why every auth test request now carries its own
+`x-forwarded-for`: in a test environment Better Auth resolves every IP to localhost, so the file was
+one client and its fourth sign-up was refused. Giving each request an address is what production
+looks like — and it makes the per-address cases stronger, since every attempt now comes from a
+different client and only the *email* limit can be what refuses them.
+
+**Nothing in the auth suite is mocked**, and that is the point of it: whether a stored credential is
+really a hash, whether a wrong password and an unknown email are really byte-identical, and whether
+a captured cookie really stops working after sign-out are all claims about the *library's* behaviour
+under our configuration. A mock would assert our own assumptions back at us. The sign-out case in
+particular replays the same cookie afterwards rather than checking the client cleared it, which
+proves nothing about a stolen copy.
+
+`db/authSchema.test.ts` is the one worth copying elsewhere: it compares our Drizzle tables against
+Better Auth's own `getAuthTables()`, so an upgrade that adds a column is a failing test rather than
+somebody failing to sign in.
+
+**Six existing tests changed rather than were added**, each because the thing it asserted moved:
+`migrate.test.ts` counted six tables and one applied migration (now ten and two), `env.test.ts`'s
+`readEnv` cases needed the new required variable, and `AppShell.test.tsx` gained mocks for the
+account badge it now carries. None was deleted or loosened.
 
 The **+33 over DX-08** is TICKET-DX-06, and it is purely additive — 30 in a new
 `src/server/testing/harness.test.ts`, one in `architecture/boundaries.test.ts` for the new
@@ -381,12 +441,27 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 
 | File | Hotspot score | First flagged by | Latest | Status |
 | --- | --- | --- | --- | --- |
-| _none recorded yet_ | | | | |
+| `architecture/boundaries.test.ts` | 24.6 | TICKET-AUTH-01's run | 3 commits, 310 churn, 0.18 density | ▲ **Accelerating** |
+| `vitest.setup.ts` | 8.2 | TICKET-AUTH-01's run | 3 commits, 35 churn, 0.08 density | ▲ **Accelerating** |
+| `src/server/http/apiRouter.test.ts` | 19.1 | TICKET-AUTH-01's run | 3 commits, 119 churn, 0.14 density | ▼ Cooling |
 
-**TICKET-DX-08 ran it and is owed no row.** `fallow health --hotspots --since 6m` returns two files
-above the threshold — `scripts/build-sheet-import.mjs` (100.0) and `vite.config.ts` (4.8) — both
-tagged **stable**, and DX-08 touched neither. 323 files are excluded for having fewer than three
-commits, which is DX-07's history reset below still doing its work.
+**Both Accelerating rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they
+crossed the three-commit floor and became measurable at all. Recorded under the run that first saw
+them, with the tickets that moved them named here rather than lost:
+
+- **`boundaries.test.ts`** — DX-08 rewrote it (9 → 21 cases) and DX-06 added one. 310 churn over
+  three commits is a file being *reshaped*, not extended, and that is what the tag is for. It is
+  not yet a problem: the growth is one `it` per rule, which is the design. What would make it one is
+  the next rewrite of how it cruises — if a fourth ticket changes the harness rather than adding a
+  case, that is the signal to split the rule fixtures from the cruise machinery.
+- **`vitest.setup.ts`** — three consecutive tickets have each added a line to it (DB-01's
+  `DATABASE_URL`, DX-06's note, AUTH-01's `BETTER_AUTH_SECRET`). A five-line file with a comment
+  per line is not a maintenance risk; it is on the list because *every* server ticket touches it,
+  which is worth knowing before a fourth one does.
+
+`scripts/build-sheet-import.mjs` (83.3) and `vite.config.ts` (4.0) are above the threshold and
+**stable**, and no ticket in this milestone has touched either. 324 files are excluded for having
+fewer than three commits, which is DX-07's history reset below still doing its work.
 
 **Not yet populated.** The table was added with the rule; the first ticket to run
 **TICKET-DX-07 reset every file's churn history**, and the table is blind for roughly six months
@@ -404,7 +479,7 @@ than recalled.
 
 ## Architecture rules: clean, and they cost nothing
 
-`yarn run arch` reports **zero error-level findings** and zero warnings, over 408 modules and 1835
+`yarn run arch` reports **zero error-level findings** and zero warnings, over 437 modules and 1917
 dependencies. That is the baseline: an error-level finding is yours. `no-orphans` reports at
 *warning* severity by design and does not fail the build.
 

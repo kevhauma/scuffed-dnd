@@ -36,6 +36,12 @@
   // `configStore`, the parser, the connection — has real consumers besides them.
   "ignorePatterns": ["src/**/boundaryFixtures/**"],
 
+  // The route tree is **generated** by the TanStack router plugin and CLAUDE.md forbids editing it
+  // by hand (TICKET-AUTH-01). It is a table of near-identical route entries, so every route added
+  // makes it look more duplicated — a finding nobody can act on, against a file nobody may touch.
+  // Scoped to clone detection: it stays an `entry` above, because the routes really do hang off it.
+  "duplicates": { "ignore": ["src/client/routeTree.gen.ts"] },
+
   // `drizzle-kit` is a CLI (`yarn run db:generate`) and `drizzle.config.ts` is the file it reads;
   // neither is imported by anything in the tree.
   "ignoreDependencies": ["drizzle-kit"]

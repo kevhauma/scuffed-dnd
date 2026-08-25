@@ -192,6 +192,20 @@ describe('defineHandler', () => {
       expect(await response.json()).toEqual({ account: null });
     });
 
+    it('leaves identity resolution to exactly one module (TICKET-AUTH-01)', () => {
+      // `currentAccount.ts` claims to be the only place a request becomes an Account, and AUTH-03's
+      // guards will rest on that claim. Nothing structural enforces it — a handler could import
+      // `authServer` and call `api.getSession` itself, and no dependency-cruiser rule would see it,
+      // because rules match module edges and this is about *which* edges exist for one purpose.
+      const root = resolve(process.cwd(), 'src/server');
+      const askers = serverModules(root)
+        .filter((file) => /\bgetSession\b/.test(readFileSync(file, 'utf8')))
+        .map((file) => relative(root, file).replace(/\\/g, '/'))
+        .sort();
+
+      expect(askers).toEqual(['auth/currentAccount.ts']);
+    });
+
     it('is named by exactly two modules under src/server', () => {
       // `apiRouter.test.ts` proves the *router* passes no scope. This proves the rule the router
       // is one instance of: a pipeline that accepts an injected identity is only safe while the

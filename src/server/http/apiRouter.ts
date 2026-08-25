@@ -12,6 +12,7 @@
  * **Validates: v3 Req 47.6**
  */
 
+import { AUTH_PREFIX, handleAuthRequest } from '../auth/authRoutes';
 import { health } from '../routes/health';
 import { methodNotAllowed, notFound } from './appError';
 import { defineHandler } from './pipeline';
@@ -55,6 +56,13 @@ function lookupMethod(method: string): string {
 export async function handleApiRequest(request: Request): Promise<Response | null> {
   const { pathname } = new URL(request.url);
   if (!pathname.startsWith(API_PREFIX)) return null;
+
+  // Better Auth owns a whole subtree rather than a list of paths, and its handler already produces
+  // a finished `Response` with `Set-Cookie` on it (TICKET-AUTH-01). It is matched before the table
+  // for that reason: there is nothing here to route, only a prefix to hand over.
+  if (pathname === AUTH_PREFIX || pathname.startsWith(`${AUTH_PREFIX}/`)) {
+    return handleAuthRequest(request);
+  }
 
   const route = ROUTES[`${lookupMethod(request.method)} ${pathname}`];
 

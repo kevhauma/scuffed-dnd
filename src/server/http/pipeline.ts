@@ -13,18 +13,11 @@
  * **Validates: v3 Req 32.1**
  */
 
+import type { RequestAccount } from '../auth/account';
+import { accountFromRequest } from '../auth/currentAccount';
 import { AppError, badRequest, ERROR_CODE, type ErrorBody } from './appError';
 
-/**
- * Who is asking
- *
- * An id and nothing else, because an id is the whole of what authorization compares: every table
- * DB-01 defines keys on `*_account_id`. TICKET-AUTH-01 widens this to Better Auth's own account —
- * the point of naming it now is that `context.account.id` is the expression that survives.
- */
-export interface RequestAccount {
-  id: string;
-}
+export type { RequestAccount };
 
 /** What a handler is given */
 export interface RequestContext {
@@ -33,10 +26,10 @@ export interface RequestContext {
   /**
    * Who is asking, or nobody (v3 Req 32.1)
    *
-   * `null` until TICKET-AUTH-01 resolves the Auth_Session cookie, which is the only thing that
-   * will ever set it in production. It is here now, typed, so that every handler written before
-   * then is already shaped for the answer — and so DX-06's `callRoute` can say *as this account*
-   * and have the refusal tests the Definition of Done requires exist before the routes do.
+   * Resolved from the Auth_Session cookie by `auth/currentAccount.ts`, **once per request and
+   * nowhere else** (TICKET-AUTH-01) — an authorization rule is only as good as the number of
+   * places that decide who you are. A test may override it through {@link RequestScope}; nothing
+   * reachable from a socket can.
    */
   account: RequestAccount | null;
   /**
@@ -126,9 +119,12 @@ export function defineHandler(handler: Handler): Route {
     const context: RequestContext = {
       request,
       url: new URL(request.url),
-      // AUTH-01 replaces this default with the Auth_Session cookie's answer. Until then the only
-      // thing that can be anything but `null` is a test saying so through `RequestScope`.
-      account: scope?.account ?? null,
+      // The cookie is the answer in production; a `RequestScope` overrides it, and the only caller
+      // that can pass one is the test harness (TICKET-DX-06). `'account' in scope` rather than a
+      // `??`, so that a test saying `as: null` means *anonymous* rather than *ask the cookie* —
+      // otherwise the anonymous-refusal test would quietly pass for the wrong reason.
+      account:
+        scope && 'account' in scope ? (scope.account ?? null) : await accountFromRequest(request),
       json: <T>() => readJson<T>(request),
     };
 

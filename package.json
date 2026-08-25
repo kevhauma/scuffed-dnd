@@ -25,6 +25,7 @@
     "@tanstack/react-router-devtools": "^1.132.0",
     "@tanstack/react-start": "^1.132.0",
     "@tanstack/router-plugin": "^1.132.0",
+    "better-auth": "^1.7.1",
     "better-sqlite3": "^12",
     "drizzle-orm": "^0.45.2",
     "fallow": "^3.17.0",

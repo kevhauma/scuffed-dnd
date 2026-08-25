@@ -286,7 +286,7 @@ Server foundation — nothing here is user-visible, and everything after it depe
 
 Accounts:
 
-- [ ] [TICKET-AUTH-01](./tickets/TICKET-AUTH-01-email-password-accounts.md) — Email/password accounts and Auth_Sessions (v3 Req 30) — Better Auth on D2's database
+- [x] [TICKET-AUTH-01](./tickets/TICKET-AUTH-01-email-password-accounts.md) — Email/password accounts and Auth_Sessions (v3 Req 30) — Better Auth on D2's database
 - [ ] [TICKET-AUTH-02](./tickets/TICKET-AUTH-02-social-sign-in.md) — Social sign-in: Google **and Discord**, with identity linking (v3 Req 31) — needs AUTH-01's account table; each provider independently optional, and one shared rule path so the two cannot diverge. Under D12 this is the milestone's only account recovery, not a convenience
 - [ ] [TICKET-AUTH-03](./tickets/TICKET-AUTH-03-authorization-and-protected-routes.md) — Authorization primitives and protected routes (v3 Req 32) — **the ticket the rest of the milestone leans on**: `requireAccount`, the ownership guards, and the indistinguishable 404
 - [ ] [TICKET-AUTH-04](./tickets/TICKET-AUTH-04-persistent-sessions.md) — Persistent sessions with rolling renewal (v3 Req 48) — D13: closing the browser no longer signs you out. Last in this group because the expiry-mid-session surface reuses AUTH-03's return-to-destination redirect

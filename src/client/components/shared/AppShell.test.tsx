@@ -16,6 +16,8 @@ let pathname = '/config';
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigate,
+  // `AccountBadge` asks for one to invalidate after signing out (TICKET-AUTH-01)
+  useRouter: () => ({ invalidate: vi.fn() }),
   useRouterState: ({ select }: { select: (state: unknown) => unknown }) =>
     select({ location: { pathname } }),
   Link: ({ to, children, className }: { to: string; children: string; className?: string }) => (
@@ -23,6 +25,15 @@ vi.mock('@tanstack/react-router', () => ({
       {children}
     </a>
   ),
+}));
+
+// The shell carries the account badge, which asks the server who is signed in. Mocked to *signed
+// out* so these cases stay about the shell — `AccountBadge.test.tsx` owns the three auth states.
+vi.mock('../auth/authClient', () => ({
+  authClient: {
+    useSession: () => ({ data: null, isPending: false }),
+    signOut: vi.fn(),
+  },
 }));
 
 import { useUIStore } from '../../stores/uiStore';

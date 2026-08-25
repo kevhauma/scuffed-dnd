@@ -17,7 +17,9 @@ Run all four even if an earlier step fails, so the report is complete.
 Read [TEST_STATUS.md](../../TEST_STATUS.md) first — it records the current baseline for all four
 steps.
 
-**The test suite is green (1970 passing, 0 failing, 0 skipped) as of TICKET-DX-06.** For tests the
+**The test suite is green (2040 passing, 0 failing, 0 skipped) as of TICKET-AUTH-01.** It runs as
+**two projects** — `src/server/` in node, everything else in happy-dom — so `npx vitest run` reports
+both; a per-project count is normal, and the total is what the baseline names. For tests the
 bar is absolute: any failure, and any newly-skipped test, is a regression and is the finding. The
 old "no new failures beyond a documented list" bar is retired — do not reinstate it.
 

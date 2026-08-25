@@ -12,6 +12,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { AUTH_PREFIX } from '../auth/paths';
 import { API_PREFIX, handleApiRequest, ROUTES } from './apiRouter';
 import { ERROR_CODE } from './appError';
 
@@ -84,6 +85,20 @@ describe('handleApiRequest', () => {
   it('spells every route key as METHOD /path', () => {
     for (const key of Object.keys(ROUTES)) {
       expect(key, key).toMatch(/^(GET|POST|PATCH|PUT|DELETE) \/api\/\S*$/);
+    }
+  });
+
+  it('keeps the auth subtree inside the API prefix (TICKET-AUTH-01)', () => {
+    // `AUTH_PREFIX` cannot import `API_PREFIX` — the router imports the auth routes, so the other
+    // direction would be a cycle. This is the guarantee by a route that does not create one.
+    expect(AUTH_PREFIX.startsWith(API_PREFIX)).toBe(true);
+  });
+
+  it('lets no route table entry hide under the auth prefix (TICKET-AUTH-01)', () => {
+    // The prefix is matched *before* the table, so a `ROUTES` key beginning `/api/auth` would be
+    // silently unreachable — a route that exists, is listed, and never runs
+    for (const key of Object.keys(ROUTES)) {
+      expect(key.split(' ')[1]?.startsWith(AUTH_PREFIX), key).toBe(false);
     }
   });
 

@@ -1,20 +1,28 @@
 /**
- * Migration tests (TICKET-DB-01)
+ * Migration tests (TICKET-DB-01, TICKET-AUTH-01)
  *
  * The milestone's forward-only rule: *"Each migration ships a test that applies it to the previous
  * schema and asserts the resulting shape."* For `0000_initial` the previous schema is an empty
  * database, so this file also pins the two properties every later migration inherits — running
  * twice is a no-op, and a failure leaves nothing of itself behind.
  *
+ * `0001_auth_tables` is the first migration with a real previous schema, and its own block below
+ * applies it to a database sitting at `0000` **with rows in it** — because "the resulting shape" is
+ * only half the question, and the half that costs somebody their data is the other one.
+ *
  * **Validates: v3 Req 46.2**
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDatabase, type Database } from './client';
 import { appliedMigrations, MigrationError, runMigrations } from './migrate';
+
+/** Where the real migrations live */
+const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), 'migrations');
 
 const open: Database[] = [];
 const temporaryDirectories: string[] = [];
@@ -66,6 +74,43 @@ function migrationsFolderContaining(sql: string): string {
   return directory;
 }
 
+/**
+ * The real migrations, truncated after the given index
+ *
+ * Copies the actual `.sql` files rather than a paraphrase of them, so *the previous schema* means
+ * the schema the previous release really shipped — a hand-written approximation would be a second
+ * copy of the migration, drifting.
+ *
+ * @param upToIdx The last migration to include, by journal index
+ * @returns A folder drizzle's migrator will accept
+ */
+function migrationsUpTo(upToIdx: number): string {
+  const directory = mkdtempSync(join(tmpdir(), 'dnd-migrations-'));
+  temporaryDirectories.push(directory);
+  mkdirSync(join(directory, 'meta'), { recursive: true });
+
+  const journal = JSON.parse(
+    readFileSync(join(MIGRATIONS, 'meta', '_journal.json'), 'utf8')
+  ) as Journal;
+  const entries = journal.entries.filter((entry) => entry.idx <= upToIdx);
+
+  for (const entry of entries) {
+    copyFileSync(join(MIGRATIONS, `${entry.tag}.sql`), join(directory, `${entry.tag}.sql`));
+  }
+  writeFileSync(
+    join(directory, 'meta', '_journal.json'),
+    JSON.stringify({ ...journal, entries }),
+    'utf8'
+  );
+
+  return directory;
+}
+
+/** Drizzle's journal, as much of it as this file reads */
+interface Journal {
+  entries: { idx: number; tag: string }[];
+}
+
 afterEach(() => {
   for (const database of open.splice(0)) database.close();
   for (const directory of temporaryDirectories.splice(0)) {
@@ -74,19 +119,26 @@ afterEach(() => {
 });
 
 describe('runMigrations', () => {
-  describe('0000_initial, applied to an empty database', () => {
-    it('creates the six tables the server model needs', () => {
+  describe('applied to an empty database', () => {
+    it('creates the ten tables the server needs', () => {
       const database = emptyDatabase();
 
       runMigrations(database);
 
+      // Six from 0000_initial — the server's own model — and four from 0001_auth_tables, which are
+      // Better Auth's (TICKET-AUTH-01). Enumerated rather than counted, so that a table appearing
+      // or vanishing is a named difference rather than an off-by-one.
       expect(tableNames(database)).toEqual([
+        'account',
         'character',
         'event',
         'game_session',
         'ruleset',
+        'session',
         'session_invite',
         'session_member',
+        'user',
+        'verification',
       ]);
     });
 
@@ -126,14 +178,15 @@ describe('runMigrations', () => {
       }
     });
 
-    it('records itself, so a second run applies nothing', () => {
+    it('records each one, so a second run applies nothing', () => {
       const database = emptyDatabase();
 
       runMigrations(database);
       const afterFirst = appliedMigrations(database);
       runMigrations(database);
 
-      expect(afterFirst).toHaveLength(1);
+      // One entry per migration file this build carries — 0000_initial and 0001_auth_tables
+      expect(afterFirst).toHaveLength(2);
       expect(appliedMigrations(database)).toEqual(afterFirst);
     });
 
@@ -152,6 +205,97 @@ describe('runMigrations', () => {
 
       // A re-run that dropped and recreated would lose this row rather than fail loudly
       expect(database.sqlite.prepare('SELECT COUNT(*) c FROM ruleset').get()).toEqual({ c: 1 });
+    });
+  });
+
+  describe('0001_auth_tables, applied to a database sitting at 0000', () => {
+    /** A database at the previous schema, with a row in it that must survive */
+    function atZeroWithData(): Database {
+      const database = emptyDatabase();
+      runMigrations(database, migrationsUpTo(0));
+
+      database.sqlite
+        .prepare(
+          'INSERT INTO ruleset (id, owner_account_id, name, schema_version, revision, data, ' +
+            'created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        )
+        .run('r1', 'a1', 'Ducklets', 9, 1, '{"stats":[]}', 1, 1);
+
+      return database;
+    }
+
+    it('starts from a schema with none of the auth tables', () => {
+      // Otherwise the assertions below would pass against a database that already had them, which
+      // is the way a migration test quietly stops testing the migration
+      expect(tableNames(atZeroWithData())).not.toContain('user');
+    });
+
+    it('adds Better Auth’s four tables', () => {
+      const database = atZeroWithData();
+
+      runMigrations(database);
+
+      for (const table of ['user', 'session', 'account', 'verification']) {
+        expect(tableNames(database), table).toContain(table);
+      }
+    });
+
+    it('gives them the columns Better Auth reads', () => {
+      const database = atZeroWithData();
+
+      runMigrations(database);
+
+      expect(columnNames(database, 'user')).toEqual([
+        'created_at',
+        'email',
+        'email_verified',
+        'id',
+        'image',
+        'name',
+        'updated_at',
+      ]);
+      // `token` is what the cookie carries and `expires_at` is what AUTH-04 rolls forward
+      expect(columnNames(database, 'session')).toContain('token');
+      expect(columnNames(database, 'session')).toContain('expires_at');
+      // …and `password` is where the salted hash goes (v3 Req 30.3)
+      expect(columnNames(database, 'account')).toContain('password');
+    });
+
+    it('makes an email unique, so the duplicate refusal is a constraint', () => {
+      const database = atZeroWithData();
+      runMigrations(database);
+
+      const insert = database.sqlite.prepare(
+        'INSERT INTO user (id, name, email, email_verified, created_at, updated_at) ' +
+          'VALUES (?, ?, ?, ?, ?, ?)'
+      );
+      insert.run('u1', 'Ada', 'ada@example.com', 0, 1, 1);
+
+      // v3 Req 30.2 as a database constraint rather than a check a handler has to remember
+      expect(() => insert.run('u2', 'Someone', 'ada@example.com', 0, 1, 1)).toThrow(/UNIQUE/i);
+    });
+
+    it('leaves the rows that were already there', () => {
+      const database = atZeroWithData();
+
+      runMigrations(database);
+
+      // The half of "the resulting shape" that costs somebody their data if it is wrong
+      expect(database.sqlite.prepare('SELECT data FROM ruleset WHERE id = ?').get('r1')).toEqual({
+        data: '{"stats":[]}',
+      });
+    });
+
+    it('records itself beside 0000 rather than replacing it', () => {
+      const database = atZeroWithData();
+      const before = appliedMigrations(database);
+
+      runMigrations(database);
+
+      expect(before).toHaveLength(1);
+      expect(appliedMigrations(database)).toHaveLength(2);
+      // Forward-only means the earlier entry is still there and still first
+      expect(appliedMigrations(database)[0]).toBe(before[0]);
     });
   });
 

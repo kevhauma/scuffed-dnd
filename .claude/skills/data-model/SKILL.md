@@ -44,11 +44,18 @@ Two consequences worth holding on to before changing a persisted shape:
 |---|---|---|
 | `dnd_builder_config` | one `Configuration` object | `saveConfiguration()` ← `useConfigStore` |
 | `dnd_builder_characters` | `Character[]` | `saveCharacters()` ← `useCharacterStore` |
+| `better-auth.message` | a cross-tab ping: `{event, data:{trigger}, clientId, timestamp}` | **Better Auth's client**, on sign-out and profile updates (TICKET-AUTH-01) |
 
-There is **no third key**. `dnd_builder_ui_state` was defined and cleared by `clearAllData()` while
-nothing ever wrote it; CR-39 removed it. `useUIStore` is entirely in-memory — open dialogs, the
-active mode and roll history all end with the tab. Persisting any of that adds the key back in the
-same change as the code that writes it.
+**The app writes two keys; the third is the library's** and is not ours to manage. It carries **no
+identity** — the Auth_Session is an `HttpOnly` cookie that no client-side code can read (v3 Req
+30.4), and this is only a nudge telling other tabs to re-ask the server who is signed in.
+`clearAllData()` deliberately does not touch it: clearing the app's data is not signing out, and
+signing out is a server-side invalidation rather than a key to delete.
+
+`dnd_builder_ui_state` was defined and cleared by `clearAllData()` while nothing ever wrote it;
+CR-39 removed it. `useUIStore` is entirely in-memory — open dialogs, the active mode and roll
+history all end with the tab. Persisting any of that adds a key in the same change as the code that
+writes it.
 
 **One tab at a time, by decision** (CR-43). Nothing listens for the `storage` event, so two tabs
 each hydrate once at load and then last-write-wins on every action: the second tab's next edit

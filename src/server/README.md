@@ -15,9 +15,19 @@ client bundle, the API and (from LIVE-01) the socket, in both
 ([D1](../../docs/v3.0_backend/overview.md#d1--the-backend-lives-in-this-repo-on-tanstack-start)).
 
 ```
-request → entry.ts ─ /api/* ─→ http/apiRouter.ts → http/pipeline.ts → routes/<name>.ts
+request → entry.ts ─ /api/auth/* ─→ auth/authRoutes.ts → Better Auth's handler
+                   ├ /api/*      ─→ http/apiRouter.ts → http/pipeline.ts → routes/<name>.ts
                    └ anything else ─→ TanStack Start's SSR handler → the app
 ```
+
+**The auth subtree is matched first and does not go through `defineHandler`** (TICKET-AUTH-01).
+That pipeline exists to turn returned data into a response and thrown `AppError`s into statuses;
+Better Auth already produces a finished `Response` with `Set-Cookie` on it, and passing it through
+a second shaper could only damage it. Everything else keeps the shape below.
+
+**Every other route learns who is asking from the cookie**, resolved once per request in
+`auth/currentAccount.ts` and read as `context.account`. Nothing else resolves it — an authorization
+rule is only as good as the number of places that decide who you are.
 
 That shape is also the answer to *where an API route file lives*. The router generates its tree
 from a directory under `client/`; a route file there would import a `server/` module from
@@ -146,6 +156,7 @@ table never passes one** — `handleApiRequest` calls `route(request)` with a si
 | SRV-01 | `entry.ts`, `env.ts`, `http/` (pipeline, `AppError`, the route table), `routes/health` ✅ |
 | DB-01 | `db/` (connection, schema, migrations), `repositories/` ✅ |
 | DX-06 | `testing/` — the per-test database, `callRoute`, and the seeded fixtures ✅ |
-| AUTH-01–04 | `auth/`, the session and authorization guards |
+| AUTH-01 | `auth/` — Better Auth, the `/api/auth/*` subtree, the per-address sign-in limit, and the cookie the pipeline resolves ✅ |
+| AUTH-02–04 | the social providers, the authorization guards, and rolling renewal |
 | RUL/GAM/PLY/DM | `repositories/` and `routes/` per resource |
 | LIVE-01–03 | `ws/` — rooms, fan-out, presence |

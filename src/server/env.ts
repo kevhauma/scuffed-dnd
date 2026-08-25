@@ -49,6 +49,34 @@ export const ENV_VARIABLES = {
       'the working directory. `:memory:` is accepted and is what the tests use. The file and its ' +
       '-wal/-shm companions must live somewhere durable and backed up.',
   },
+  BETTER_AUTH_SECRET: {
+    required: true,
+    description:
+      'The key every Auth_Session cookie is signed with (TICKET-AUTH-01). Changing it signs ' +
+      'everybody out, which is also how you sign everybody out. Generate with ' +
+      '`openssl rand -base64 32`. Passed to Better Auth explicitly rather than left to the ' +
+      "library's own `process.env` read, because env.ts is the only reader of it in this repo.",
+  },
+  AUTH_SESSION_DAYS: {
+    required: false,
+    description:
+      'How long an Auth_Session lasts, in days (TICKET-AUTH-01, v3 Req 48.2). A number rather ' +
+      'than a literal in the auth config so that TICKET-AUTH-04 changes values and adds rotation ' +
+      'rather than changing the shape. Defaults to 7.',
+  },
+  AUTH_SIGNIN_MAX_ATTEMPTS: {
+    required: false,
+    description:
+      'How many failed sign-ins one email address may make inside the window before it is ' +
+      'refused (v3 Req 30.7). Defaults to 5. Set to 0 to disable — which is what the tests that ' +
+      'are not about rate limiting do.',
+  },
+  AUTH_SIGNIN_WINDOW_SECONDS: {
+    required: false,
+    description:
+      'The window AUTH_SIGNIN_MAX_ATTEMPTS is counted over, in seconds (v3 Req 30.7). Defaults ' +
+      'to 900 — fifteen minutes.',
+  },
 } as const satisfies Record<string, EnvVariable>;
 
 /** The builds the server distinguishes */
@@ -65,6 +93,42 @@ export interface ServerEnv {
   nodeEnv: NodeEnv;
   /** Where the SQLite file lives (TICKET-DB-01) */
   databaseUrl: string;
+  /** What Auth_Session cookies are signed with (TICKET-AUTH-01) */
+  authSecret: string;
+  /** How long an Auth_Session lasts, in seconds — AUTH-04 makes this the *idle* half */
+  authSessionSeconds: number;
+  /** Failed sign-ins allowed per email address inside the window; 0 disables the limit */
+  signInMaxAttempts: number;
+  /** The window those attempts are counted over, in seconds */
+  signInWindowSeconds: number;
+}
+
+/** What the optional auth settings mean when nothing sets them */
+const AUTH_DEFAULTS = {
+  SESSION_DAYS: 7,
+  SIGNIN_MAX_ATTEMPTS: 5,
+  SIGNIN_WINDOW_SECONDS: 900,
+} as const;
+
+const SECONDS_PER_DAY = 60 * 60 * 24;
+
+/**
+ * A non-negative integer from the environment, or the default
+ *
+ * Falls back rather than throwing, for the reason {@link asNodeEnv} does: a malformed *optional*
+ * setting is not a missing one, and refusing to start over a typo in a tuning knob is a worse
+ * failure than running with the documented default. A negative or non-numeric value is not
+ * silently treated as zero — zero is a meaningful value for the attempt limit.
+ *
+ * @param raw What the environment said
+ * @param fallback What to use when it said nothing usable
+ * @returns The number to use
+ */
+function asCount(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw.trim() === '') return fallback;
+
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
 /**
@@ -127,8 +191,16 @@ export function readEnv(source: Record<string, string | undefined> = process.env
 
   return {
     nodeEnv: asNodeEnv(source.NODE_ENV),
-    // Non-null by construction: DATABASE_URL is required, so `collectMissing` refused above
+    // Non-null by construction: both are required, so `collectMissing` refused above
     databaseUrl: source.DATABASE_URL as string,
+    authSecret: source.BETTER_AUTH_SECRET as string,
+    authSessionSeconds:
+      asCount(source.AUTH_SESSION_DAYS, AUTH_DEFAULTS.SESSION_DAYS) * SECONDS_PER_DAY,
+    signInMaxAttempts: asCount(source.AUTH_SIGNIN_MAX_ATTEMPTS, AUTH_DEFAULTS.SIGNIN_MAX_ATTEMPTS),
+    signInWindowSeconds: asCount(
+      source.AUTH_SIGNIN_WINDOW_SECONDS,
+      AUTH_DEFAULTS.SIGNIN_WINDOW_SECONDS
+    ),
   };
 }
 

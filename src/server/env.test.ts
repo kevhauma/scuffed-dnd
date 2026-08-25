@@ -77,13 +77,56 @@ describe('the server environment', () => {
 
   describe('readEnv', () => {
     /** The smallest complete environment — everything required and nothing else */
-    const complete = { DATABASE_URL: './data/app.db' };
+    const complete = { DATABASE_URL: './data/app.db', BETTER_AUTH_SECRET: 'a-test-secret' };
 
     it('defaults an unset NODE_ENV to development rather than guessing production', () => {
       expect(readEnv(complete)).toEqual({
         nodeEnv: NODE_ENV.DEVELOPMENT,
         databaseUrl: './data/app.db',
+        authSecret: 'a-test-secret',
+        // The documented defaults for the three optional auth settings (TICKET-AUTH-01). Asserted
+        // as values rather than as `expect.any(Number)`, because "7 days" and "5 attempts" are the
+        // decisions — a silent change to either is what this catches.
+        authSessionSeconds: 7 * 24 * 60 * 60,
+        signInMaxAttempts: 5,
+        signInWindowSeconds: 900,
       });
+    });
+
+    it('takes the auth settings from the environment when they are given', () => {
+      expect(
+        readEnv({
+          ...complete,
+          AUTH_SESSION_DAYS: '30',
+          AUTH_SIGNIN_MAX_ATTEMPTS: '3',
+          AUTH_SIGNIN_WINDOW_SECONDS: '60',
+        })
+      ).toMatchObject({
+        authSessionSeconds: 30 * 24 * 60 * 60,
+        signInMaxAttempts: 3,
+        signInWindowSeconds: 60,
+      });
+    });
+
+    it('keeps 0 attempts, because disabling the limit is a real setting', () => {
+      // The one value a `||` fallback would silently turn back into the default
+      expect(readEnv({ ...complete, AUTH_SIGNIN_MAX_ATTEMPTS: '0' }).signInMaxAttempts).toBe(0);
+    });
+
+    it('falls back rather than throwing on a malformed optional number', () => {
+      // Same reasoning as NODE_ENV below: a typo in a tuning knob is not a missing setting, and
+      // refusing to start over one is a worse failure than running with the documented default
+      for (const bad of ['not-a-number', '-1', '2.5', '']) {
+        expect(readEnv({ ...complete, AUTH_SIGNIN_MAX_ATTEMPTS: bad }).signInMaxAttempts, bad).toBe(
+          5
+        );
+      }
+    });
+
+    it('refuses an environment with no BETTER_AUTH_SECRET', () => {
+      // Without it Better Auth would either refuse to start or sign cookies with something
+      // guessable, and neither should be discovered on a first sign-in (TICKET-AUTH-01)
+      expect(() => readEnv({ DATABASE_URL: './data/app.db' })).toThrow(/BETTER_AUTH_SECRET/);
     });
 
     it('reads a NODE_ENV it understands', () => {
