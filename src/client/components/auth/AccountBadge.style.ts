@@ -2,7 +2,7 @@
  * Class strings for the account badge (TICKET-AUTH-01)
  *
  * One string, and it is on the **beam** — oak, not parchment — which is why it is
- * `parchment-300 → parchment-50` rather than `AuthForm.style.ts`'s `ink-900`. The two look alike
+ * `parchment-300 → parchment-50` rather than `authSurfaces.style.ts`'s `ink-900`. The two look alike
  * and read on opposite grounds; see that file for why they are not shared yet.
  */
 

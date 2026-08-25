@@ -19,7 +19,6 @@
 import { Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { Button } from '../ui/Button/Button';
-import { Text } from '../ui/Text/Text';
 import { signInLinkStyles } from './AccountBadge.style';
 import { authClient } from './authClient';
 import { useAuth } from './useAuth';
@@ -53,9 +52,14 @@ export function AccountBadge() {
 
   return (
     <div className="flex items-center gap-3">
-      <Text variant="caption" as="span" inverse title={email ?? undefined}>
+      {/* The address is the way to `/account` (TICKET-AUTH-02): the linked-identities view is the
+          only account surface there is, and a second control on the beam for it would be a control
+          most visitors never need */}
+      {/* `title` says where the link *goes*, not what it already says — the address is the visible
+          label, so repeating it in a tooltip would carry no information */}
+      <Link to="/account" className={signInLinkStyles} title="Your account">
         {email}
-      </Text>
+      </Link>
       <Button variant="plaque" onClick={signOut} disabled={isSigningOut}>
         {isSigningOut ? 'Signing out…' : 'Sign out'}
       </Button>

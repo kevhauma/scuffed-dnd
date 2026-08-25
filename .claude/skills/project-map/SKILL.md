@@ -75,9 +75,17 @@ rather than a read-only config UI).
 | `/play` | `routes/play/index.tsx` | `CharacterList` — the play-mode entry point |
 | `/play/create` | `routes/play/create.tsx` | `CharacterCreationWizard` — the four-step wizard |
 | `/play/character/$id` | `routes/play/character.$id.tsx` | `CharacterSheet` — takes the route param as `characterId` |
+| `/signin` | `routes/signin.tsx` | `AuthForm` in sign-in mode (TICKET-AUTH-01). A page rather than a dialog because TICKET-AUTH-03 sends an unauthenticated visitor here and returns them |
+| `/signup` | `routes/signup.tsx` | `AuthForm` in sign-up mode — carries the "there is no password reset" warning (v3 Req 30.10) |
+| `/account` | `routes/account.tsx` | `LinkedIdentities` (TICKET-AUTH-02) — which providers this Account holds, and a button for the one it does not. **Not guarded yet**: AUTH-03 brings the protected-route list, so today a signed-out visitor sees a card pointing at `/signin` |
 
 Route files stay thin: they render a feature component and pass route params down. Data fetching
-is a no-op here — everything comes from the Zustand stores.
+is a no-op here — everything comes from the Zustand stores. **The three auth routes are the
+exception and are meant to be**: they read a server fact, not a store (see `components/auth/`).
+
+**Every route above is open to a signed-out visitor**, which is D6 rather than an oversight — the
+whole configuration UI and the whole play surface are local mode. TICKET-AUTH-03 introduces the
+first protected ones, as an explicit list.
 
 **The whole configuration UI is mounted and browsable** as of TICKET-NAV-02 — all eight §11 panels
 have a route. Play mode's three routes are all real: `/play` (TICKET-CHAR-01), `/play/create`
@@ -377,9 +385,12 @@ each later ticket adds.
   the same module — one process, one origin, in both (D1). It is also *why* API route files are not
   in `client/routes/`: they never have to be, so D14's boundary needs no exception.
 - `env.ts` — the **only** reader of `process.env` in `src/`, asserted by a test that walks the
-  tree. `ENV_VARIABLES` is the table; `.env.example` is checked against it; required variables are
-  eager and a missing one names *every* missing key at once. Today the table holds only `NODE_ENV`
-  — TICKET-DB-01 adds the first required variable.
+  tree (a *test* may assign to it to arrange an environment; nothing may read one). `ENV_VARIABLES`
+  is the table; `.env.example` is checked against it; required variables are eager and a missing one
+  names *every* missing key at once. `DATABASE_URL` and `BETTER_AUTH_SECRET` are the two required
+  ones. **Two refusals are conditional rather than table-driven** (TICKET-AUTH-02), both failing
+  closed: half an OAuth credential pair names the missing half, and a configured provider with no
+  `AUTH_ALLOWED_HOSTS` refuses to start.
 - `http/AppError.ts` — the one error a handler throws on purpose: status + `ERROR_CODE` + a
   sentence. `notFound()` is deliberately the answer to both "missing" and "not yours" (v3 Req 32.5).
 - `http/pipeline.ts` — `defineHandler`. A handler **returns data and throws refusals**; it never
@@ -392,6 +403,18 @@ each later ticket adds.
 - `routes/health.ts` — `GET /api/health`. The dullest route on purpose: every later one copies it.
   Reports database reachability and the applied migration hash (v3 Req 47.5) by asking
   `db/health.ts` — a route never opens a connection.
+- `routes/authProviders.ts` — `GET /api/auth-providers` (TICKET-AUTH-02). Which social providers the
+  operator configured, **names only**, so the client knows which buttons it can draw. Public: the
+  person who needs the answer is by definition not signed in. Spelled with a hyphen because
+  `/api/auth` is delegated to Better Auth *whole*, before the route table is consulted.
+- `auth/` (TICKET-AUTH-01, TICKET-AUTH-02) — identity, and **only** identity; authorization is
+  AUTH-03's and lives outside it. `authServer.ts` configures Better Auth (what is switched off and
+  why is in its header); `authRoutes.ts` delegates the `/api/auth` subtree and adds the per-address
+  sign-in limit `signInRateLimit.ts` owns; `currentAccount.ts` resolves the cookie to an Account or
+  to nobody, once per request. AUTH-02 adds `socialProviders.ts` (env credentials → the library's
+  config block, each provider independently optional) and **`identityRules.ts`** — the one
+  provider-agnostic rule path v3 Req 31.7 asks for, reached through Better Auth's single
+  `user.validateUserInfo` gate, refusing a provider profile with no email or an unverified one.
 - `db/` (TICKET-DB-01) — `client.ts` owns the `better-sqlite3` connection (`foreign_keys = ON`,
   WAL) and `createDatabase(':memory:')` is what every test opens; `schema.ts` is the Drizzle schema
   and the place the document-vs-table decision (D4) and each cascade rule are written down;
@@ -545,6 +568,22 @@ called only by `RootLayout`), `StorageNotice.tsx` (the storage-unavailable messa
 start-fresh — TICKET-IO-03), and `StatModifierBadges.tsx` (a material tier's modifiers as
 forest/crimson chips; it takes the ruleset's stats too, because a modifier names its target by
 **id** and resolving that to an abbreviation belongs in one place — TICKET-MAT-01).
+
+**`auth/`** — signing in, barrelled by `auth/index.ts` (TICKET-AUTH-01, TICKET-AUTH-02). The one
+folder in `components/` with **no Zustand store behind it**, deliberately: a signed-in Account is a
+*server* fact held in an `HttpOnly` cookie this code cannot read, so a second copy in a store would
+be a second thing to get wrong. `authClient.ts` is Better Auth's browser half (it lives here rather
+than in `services/` because `createAuthClient` makes `useSession` a React hook); `useAuth.ts` wraps
+it — **`isPending` is a real third state and callers must handle it**, or the shell flashes *Sign
+in* at somebody who is already signed in. `AuthForm.tsx` + `useAuthForm.ts` are both surfaces,
+`AccountBadge.tsx` is the beam control, and AUTH-02 adds `useSocialProviders.ts` (asks
+`/api/auth-providers` which buttons are drawable), `SocialSignInButtons.tsx`, `LinkedIdentities.tsx`
++ `useLinkedIdentities.ts`, `SignedOutNotice.tsx`, and `providerLabel.ts` (the display names — the
+ids themselves are in `#shared/types/socialProvider`, because both roots name them).
+**`AuthAlert.tsx` is the folder's refusal box** — reach for it rather than writing another
+`role="alert"` div — and the folder's shared class strings live in **`authSurfaces.style.ts`**
+rather than in any one component's `.style.ts`, which is what four modules importing the same
+tones actually means.
 
 `components/Header.tsx` sits at the root of `components/`, outside the three folders.
 

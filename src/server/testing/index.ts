@@ -33,4 +33,5 @@
 
 export * from './callRoute';
 export * from './database';
+export * from './oauthProvider';
 export * from './seeds';

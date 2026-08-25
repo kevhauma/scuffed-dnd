@@ -1,13 +1,18 @@
 /**
- * Class strings for the auth surfaces (TICKET-AUTH-01)
+ * Class strings shared by the auth surfaces (TICKET-AUTH-01, TICKET-AUTH-02)
  *
  * The two boxes and the one link, out of the JSX for the reason the conventions give: a class
  * string long enough to wrap is a class string nobody re-reads in place.
  *
- * Deliberately **not** shared with `AccountBadge.style.ts`, whose link string is a near-duplicate
- * of `switchLinkStyles` below. Two instances is not three, and the two differ where it matters —
- * one is read on parchment and the other on oak, so sharing them would mean a variant prop before
- * anything needs one.
+ * **This was `AuthForm.style.ts` until AUTH-02**, and the rename is the point. A `Name.style.ts`
+ * belongs to `Name.tsx`; once `SocialSignInButtons`, `LinkedIdentities` and the `/account` route
+ * were all importing from it, one component owned three others' strings. A folder-level file says
+ * what is actually true — these are the *auth folder's* surface tones — without pretending a
+ * primitive was extracted.
+ *
+ * Deliberately **not** merged with `AccountBadge.style.ts`, whose link string is a near-duplicate
+ * of {@link switchLinkStyles}. The two differ where it matters: one is read on parchment and the
+ * other on oak, so sharing them would mean a variant prop before anything needs one.
  */
 
 /** The unwelcome-news box on sign-up: crimson enough to be read, not loud enough to be an error */

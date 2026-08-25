@@ -13,6 +13,7 @@
  */
 
 import { AUTH_PREFIX, handleAuthRequest } from '../auth/authRoutes';
+import { authProviders } from '../routes/authProviders';
 import { health } from '../routes/health';
 import { methodNotAllowed, notFound } from './appError';
 import { defineHandler } from './pipeline';
@@ -32,6 +33,9 @@ export const API_PREFIX = '/api/';
  */
 export const ROUTES: Record<string, (request: Request) => Promise<Response>> = {
   'GET /api/health': health,
+  // Not `/api/auth/providers`: the whole `/api/auth` subtree is handed to Better Auth above,
+  // before this table is consulted, so a path under it would never be reached (TICKET-AUTH-02)
+  'GET /api/auth-providers': authProviders,
 };
 
 /** The paths the table answers, whatever the method */

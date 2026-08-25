@@ -25,6 +25,14 @@ vi.mock('./authClient', () => ({
   },
 }));
 
+// The provider buttons are TICKET-AUTH-02's and have their own file; here the list is mocked so
+// this one stays about the *form* — and so that its default, an unconfigured deployment, is the
+// AUTH-01 card unchanged (v3 Req 31.6)
+const useSocialProviders = vi.fn();
+vi.mock('./useSocialProviders', () => ({
+  useSocialProviders: () => useSocialProviders(),
+}));
+
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ to, children, className }: { to: string; children: string; className?: string }) => (
     <a href={to} className={className}>
@@ -46,6 +54,7 @@ function submit(email = 'ada@example.com', password = 'correct-horse-battery') {
 beforeEach(() => {
   signInEmail.mockReset().mockResolvedValue({ error: null });
   signUpEmail.mockReset().mockResolvedValue({ error: null });
+  useSocialProviders.mockReset().mockReturnValue({ providers: [], isPending: false });
 });
 
 describe('AuthForm — signing in', () => {
@@ -160,6 +169,27 @@ describe('AuthForm — either surface', () => {
 
     expect(screen.getByText(/needs no account at all/i)).toBeTruthy();
   });
+
+  it.each([AUTH_MODE.SIGN_IN, AUTH_MODE.SIGN_UP])(
+    'should offer the configured providers on the %s surface (TICKET-AUTH-02)',
+    (mode) => {
+      // A first social sign-in *is* the sign-up, so the offer is the same on either card
+      useSocialProviders.mockReturnValue({ providers: ['google'], isPending: false });
+
+      render(<AuthForm mode={mode} onSuccess={vi.fn()} />);
+
+      expect(screen.getByRole('button', { name: /continue with google/i })).toBeTruthy();
+    }
+  );
+
+  it.each([AUTH_MODE.SIGN_IN, AUTH_MODE.SIGN_UP])(
+    'should show no provider button on the %s surface when none is configured (v3 Req 31.6)',
+    (mode) => {
+      render(<AuthForm mode={mode} onSuccess={vi.fn()} />);
+
+      expect(screen.queryByRole('button', { name: /continue with/i })).toBeNull();
+    }
+  );
 
   it('should compose primitives rather than raw form controls', () => {
     const { container } = render(<AuthForm mode={AUTH_MODE.SIGN_UP} onSuccess={vi.fn()} />);

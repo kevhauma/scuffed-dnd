@@ -157,6 +157,7 @@ table never passes one** — `handleApiRequest` calls `route(request)` with a si
 | DB-01 | `db/` (connection, schema, migrations), `repositories/` ✅ |
 | DX-06 | `testing/` — the per-test database, `callRoute`, and the seeded fixtures ✅ |
 | AUTH-01 | `auth/` — Better Auth, the `/api/auth/*` subtree, the per-address sign-in limit, and the cookie the pipeline resolves ✅ |
-| AUTH-02–04 | the social providers, the authorization guards, and rolling renewal |
+| AUTH-02 | `auth/socialProviders.ts` + `auth/identityRules.ts` — Google and Discord, each independently optional, behind **one** rule path; `routes/authProviders` so the client knows which buttons to draw ✅ |
+| AUTH-03–04 | the authorization guards, and rolling renewal |
 | RUL/GAM/PLY/DM | `repositories/` and `routes/` per resource |
 | LIVE-01–03 | `ws/` — rooms, fan-out, presence |

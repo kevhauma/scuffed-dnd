@@ -1,7 +1,8 @@
 # Test Status
 
-_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-AUTH-01 — email/password accounts**.
-The checkpoints before it were **TICKET-DX-06 — the server test harness** at 1970,
+_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-AUTH-02 — social sign-in**.
+The checkpoints before it were **TICKET-AUTH-01 — email/password accounts** at 2040,
+**TICKET-DX-06 — the server test harness** at 1970,
 **TICKET-DX-08 — the architecture rules as checks** at 1937,
 **TICKET-DB-01 — SQLite, Drizzle and migrations** at 1925, **TICKET-SRV-01 — the server layer** at
 1883,
@@ -12,8 +13,8 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 2040
-- **Passing**: 2040 (100%)
+- **Total tests**: 2115
+- **Passing**: 2115 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
@@ -33,6 +34,79 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-AUTH-02 — social sign-in, and the two library defaults it had to overrule
+
+The **+75 over AUTH-01** is TICKET-AUTH-02, purely additive: 30 in two new server files
+(`auth/identityRules.test.ts` 16, `auth/socialSignIn.test.ts` 14), 25 across five new client files
+(`SocialSignInButtons.test.tsx` 8, `useSocialProviders.test.ts` 7, `LinkedIdentities.test.tsx` 6,
+`AuthAlert.test.tsx` 2, `SignedOutNotice.test.tsx` 2), and 20 grown onto existing files — 12 in
+`env.test.ts` for the five new variables, 4 in `AuthForm.test.tsx`, 3 in `apiRouter.test.ts`, 1 in
+`AccountBadge.test.tsx`. Several are `it.each(SOCIAL_PROVIDERS)`, so they scale with the provider
+table rather than naming Google and Discord twice.
+
+**Five of those came out of the `conventions-reviewer` pass**, and the shape of what it caught is
+worth naming: none was a bug, and all five were *the third instance* of something. `AuthAlert`
+extracted a crimson `role="alert"` box that `AuthForm`, `SocialSignInButtons` and `LinkedIdentities`
+had each written by hand — the count the conventions name as the moment to share. `AuthForm.style.ts`
+became `authSurfaces.style.ts` because three other modules were importing a fourth's stylesheet.
+`SignedOutNotice` came out of `routes/account.tsx`, which had grown a branch with wording in it, and
+now has the test that will say out loud when AUTH-03 replaces it with a redirect. The review also
+found that `AccountBadge`'s new link to `/account` — the app's only navigation to that route — would
+have shipped green with the wrong `to`, since the existing case asserts text.
+
+**`socialSignIn.test.ts` drives the real authorization-code flow** — `sign-in/social`, then the
+callback, through `handleApiRequest` against a real migrated database — with only each provider's
+two HTTP endpoints stubbed. Three things that fixture had to learn, recorded so the next person does
+not rediscover them:
+
+- **The callback needs the state *cookie*, not just the state parameter.** Better Auth sets a signed
+  `state` cookie beside the value it puts in the authorization URL and refuses the callback if the
+  two disagree — `State not persisted correctly`. It is a CSRF binding, so a test that skipped it
+  would have been testing a flow no browser performs. The helper carries a cookie jar instead.
+- **Google's callback path only `decodeJwt`s the id_token**, so an unsigned but structurally valid
+  JWT is enough; signature verification lives on the separate id-token sign-in route, which this
+  application does not use. A fixture minting a real RS256 token would be asserting `jose` works.
+- **Discord's provider calls `BigInt(profile.id)`** when a profile has no avatar, to derive a default
+  one. The fixture gives every profile an avatar, which keeps `discord-subject-1` legible in a
+  failure message instead of forcing every id in the suite to be a numeric snowflake.
+
+**Two library defaults were wrong for this application and both are load-bearing**:
+
+- **`accountLinking.requireLocalEmailVerified` defaults to `true`**, and under D12 no password
+  Account is ever email-verified — there is no verification email to send. Left alone, v3 Req 31.3
+  (a verified provider email links onto an existing password Account) could never have happened,
+  and the test for it would have been red rather than the feature being quietly absent.
+- **Better Auth refuses an unverified provider email only when *linking* onto an existing user.** A
+  first sign-in with an unverified address would have created a fresh Account. That gap is closed by
+  our own `user.validateUserInfo` gate, which is also the single provider-agnostic path v3 Req 31.7
+  asks for — the library calls it before `create-user`, before `link-account` and on every provider
+  `sign-in`, for every provider, so there is no per-provider branch left to diverge.
+
+**The unconfigured deployment is the default every other server test runs under**, deliberately:
+the OAuth variables are set at the top of `socialSignIn.test.ts` rather than in `vitest.setup.ts`,
+and `serverEnv()` resolves lazily so a top-level assignment lands before the first request. So
+`auth.test.ts`'s 25 email/password cases are **unchanged**, which is the cheapest possible proof of
+v3 Req 31.6.
+
+**What keeps those five variables out of the other files is process isolation, not the module
+registry** — the registry only resets `serverEnv()`'s cache, while `process.env` is process-scoped.
+The guarantee is `vitest.config.ts` leaving `pool` and `isolate` at their defaults, a forked worker
+per file. Worth writing down because turning either off would make `apiRouter.test.ts`'s
+unconfigured-deployment case pass alone and fail in a full run.
+
+One existing assertion was made *less* strict and it was wrong before: `apiRouter.test.ts` compared
+route paths against `AUTH_PREFIX` with a bare string prefix, which made `/api/auth-providers` look
+like a collision with the delegated `/api/auth` subtree. The router matches the path itself or the
+path plus a separator; the test now asserts the router's own rule, with a companion case driving
+`/api/auth-providers` through it.
+
+`env.test.ts`'s **"only reader of `process.env`"** check split into two. A test file that *arranges*
+an environment before the lazy first read is exercising `env.ts`'s contract, not working around it —
+but a test that *consumes* a variable is exactly what the rule exists against. So non-test files
+must still be `env.ts` alone, and test files may assign to `process.env` and nothing else.
+
+## TICKET-AUTH-01 — email/password accounts
 
 The **+70 over DX-06** is TICKET-AUTH-01: 32 in `src/server/auth/` (the real Better Auth handler
 over a real migrated database), 17 in `src/client/components/auth/`, 9 more in `db/migrate.test.ts`
@@ -443,7 +517,8 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | --- | --- | --- | --- | --- |
 | `architecture/boundaries.test.ts` | 24.6 | TICKET-AUTH-01's run | 3 commits, 310 churn, 0.18 density | ▲ **Accelerating** |
 | `vitest.setup.ts` | 8.2 | TICKET-AUTH-01's run | 3 commits, 35 churn, 0.08 density | ▲ **Accelerating** |
-| `src/server/http/apiRouter.test.ts` | 19.1 | TICKET-AUTH-01's run | 3 commits, 119 churn, 0.14 density | ▼ Cooling |
+| `src/server/http/apiRouter.test.ts` | 23.9 | TICKET-AUTH-01's run | 4 commits, 134 churn, 0.16 density | ─ Stable |
+| `src/server/http/apiRouter.ts` | 13.4 | TICKET-AUTH-02's run | 3 commits, 86 churn, 0.12 density | ▲ **Accelerating** |
 
 **Both Accelerating rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they
 crossed the three-commit floor and became measurable at all. Recorded under the run that first saw
@@ -457,21 +532,31 @@ them, with the tickets that moved them named here rather than lost:
 - **`vitest.setup.ts`** — three consecutive tickets have each added a line to it (DB-01's
   `DATABASE_URL`, DX-06's note, AUTH-01's `BETTER_AUTH_SECRET`). A five-line file with a comment
   per line is not a maintenance risk; it is on the list because *every* server ticket touches it,
-  which is worth knowing before a fourth one does.
+  which is worth knowing before a fourth one does. **AUTH-02 deliberately did not add a fourth
+  line**: its OAuth variables are set at the top of `socialSignIn.test.ts` instead, so the
+  unconfigured deployment stays the *default* every other server test runs under.
+- **`src/server/http/apiRouter.ts`** — a new row, moved by AUTH-02's second route. Three tickets
+  have now edited it (SRV-01 wrote it, AUTH-01 added the auth delegation, AUTH-02 added
+  `/api/auth-providers`), which is exactly the shape the tag is for: a file every server ticket
+  passes through. It is not a problem yet — the route table is still a literal object anyone can
+  read in one screen — and the thing to watch is `ROUTES` growing path *parameters*. TICKET-RUL-01
+  brings `/api/rulesets/:id` and with it a matcher, and that is the edit that turns a readable table
+  into machinery worth splitting out.
 
-`scripts/build-sheet-import.mjs` (83.3) and `vite.config.ts` (4.0) are above the threshold and
-**stable**, and no ticket in this milestone has touched either. 324 files are excluded for having
-fewer than three commits, which is DX-07's history reset below still doing its work.
+`scripts/build-sheet-import.mjs` (68.2) and `vite.config.ts` (3.3) are above the threshold and
+**stable**, and no ticket in this milestone has touched either. `src/server/http/pipeline.ts` and
+`pipeline.test.ts` came back Accelerating in AUTH-02's run and are **not** given rows: the rule is
+about files a ticket *touched*, and this one did not touch either. `src/server/env.ts` and
+`env.test.ts` are both ▼ Cooling despite AUTH-02 adding five variables to them, which is the table
+working — the additions are table entries, not new machinery.
 
-**Not yet populated.** The table was added with the rule; the first ticket to run
-**TICKET-DX-07 reset every file's churn history**, and the table is blind for roughly six months
-because of it: `fallow health --hotspots --since 6m` scores by commit count per *path*, and every
-path under `src/` changed in one commit. Nothing was Accelerating at the move, so nothing is owed a
-row — but a quiet table between now and ~2027-02 means "the history restarted", not "the churn
-stopped". `--follow`-style rename tracking is not something fallow does today.
-
-`fallow health --hotspots` fills it in. An empty table means "not measured", not "nothing is
-accelerating" — don't read it as a clean bill of health until a run has written to it.
+**Read the table as partial rather than complete, and for one specific reason.**
+**TICKET-DX-07 reset every file's churn history**, so scoring is blind for roughly six months:
+`fallow health --hotspots --since 6m` counts commits per *path*, and every path under `src/` changed
+in one commit. Nothing was Accelerating at the move, so nothing is owed a backdated row — but a
+short table between now and ~2027-02 means "the history restarted", not "the churn stopped".
+`--follow`-style rename tracking is not something fallow does today. 337 files are excluded for
+having fewer than three commits, which is that reset still doing its work.
 
 Snapshot with `fallow health --save-snapshot` and compare with `fallow health --trend` so the
 per-metric deltas (`hotspot_count`, `avg_cyclomatic`, `duplication_pct`, …) are measured rather

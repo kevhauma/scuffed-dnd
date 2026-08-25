@@ -94,12 +94,40 @@ describe('handleApiRequest', () => {
     expect(AUTH_PREFIX.startsWith(API_PREFIX)).toBe(true);
   });
 
-  it('lets no route table entry hide under the auth prefix (TICKET-AUTH-01)', () => {
-    // The prefix is matched *before* the table, so a `ROUTES` key beginning `/api/auth` would be
-    // silently unreachable — a route that exists, is listed, and never runs
+  it('reports no providers when the deployment has configured none (v3 Req 31.6)', async () => {
+    // **This file is the unconfigured case**, and deliberately: it sets no OAuth variables, so the
+    // environment it reads is the one an operator who never wanted social sign-in has. The two
+    // buttons are absent because this list is empty, and nothing else about the app changes.
+    const response = await answer('/api/auth-providers');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ providers: [] });
+  });
+
+  it('answers the provider list to an anonymous caller, because that is who needs it', async () => {
+    // No cookie, no account, no guard — the person looking at the sign-in page is by definition
+    // not signed in, and a provider id is public the moment its button is on the page
+    expect((await answer('/api/auth-providers')).status).toBe(200);
+  });
+
+  it('lets no route table entry hide under the auth subtree (TICKET-AUTH-01)', () => {
+    // The auth subtree is matched *before* the table, so a `ROUTES` key inside it would be silently
+    // unreachable — a route that exists, is listed, and never runs.
+    //
+    // **The test asserts the router's own rule rather than a stricter one.** It used to compare a
+    // bare string prefix, which made `/api/auth-providers` (TICKET-AUTH-02) look like a collision:
+    // it shares six characters with `/api/auth` and is not under it. The router matches the path
+    // itself or the path plus a separator, and so does this.
     for (const key of Object.keys(ROUTES)) {
-      expect(key.split(' ')[1]?.startsWith(AUTH_PREFIX), key).toBe(false);
+      const path = key.split(' ')[1] ?? '';
+      expect(path === AUTH_PREFIX || path.startsWith(`${AUTH_PREFIX}/`), key).toBe(false);
     }
+  });
+
+  it('reaches a route whose path merely begins like the auth subtree (TICKET-AUTH-02)', async () => {
+    // The other half of the rule above, asserted through the router rather than about it: this is
+    // the reason `/api/auth-providers` is spelled with a hyphen instead of as `/api/auth/providers`
+    expect((await answer('/api/auth-providers')).status).toBe(200);
   });
 
   it('never hands a route an account, whatever the request carries (TICKET-DX-06)', async () => {

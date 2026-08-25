@@ -12,11 +12,17 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  SOCIAL_PROVIDER,
+  SOCIAL_PROVIDERS,
+  type SocialProvider,
+} from '#shared/types/socialProvider';
+import {
   collectMissing,
   ENV_VARIABLES,
   type EnvVariable,
   MissingEnvironmentError,
   NODE_ENV,
+  providerVariables,
   readEnv,
   serverEnv,
 } from './env';
@@ -90,6 +96,9 @@ describe('the server environment', () => {
         authSessionSeconds: 7 * 24 * 60 * 60,
         signInMaxAttempts: 5,
         signInWindowSeconds: 900,
+        // Neither provider configured is the *default* shape, not a degraded one (v3 Req 31.6)
+        allowedHosts: [],
+        socialProviders: { google: null, discord: null },
       });
     });
 
@@ -143,6 +152,83 @@ describe('the server environment', () => {
       expect(() => readEnv({})).toThrow(MissingEnvironmentError);
       expect(() => readEnv({})).toThrow(/DATABASE_URL/);
     });
+
+    describe('the social providers (TICKET-AUTH-02)', () => {
+      /** Everything one provider needs, plus the host list it makes compulsory */
+      function configured(provider: SocialProvider): Record<string, string> {
+        const names = providerVariables(provider);
+        return {
+          ...complete,
+          AUTH_ALLOWED_HOSTS: 'dnd.example.com',
+          [names.id]: `${provider}-id`,
+          [names.secret]: `${provider}-secret`,
+        };
+      }
+
+      it.each(SOCIAL_PROVIDERS)('reads %s from its own pair of variables', (provider) => {
+        expect(readEnv(configured(provider)).socialProviders[provider]).toEqual({
+          clientId: `${provider}-id`,
+          clientSecret: `${provider}-secret`,
+        });
+      });
+
+      it.each(SOCIAL_PROVIDERS)(
+        'leaves the other provider off when only %s is configured (v3 Req 31.6)',
+        (provider) => {
+          // The independence the requirement asks for: one configured provider says nothing about
+          // the other, and neither says anything about email/password
+          const other = SOCIAL_PROVIDERS.find((candidate) => candidate !== provider);
+          const env = readEnv(configured(provider));
+
+          expect(env.socialProviders[provider]).not.toBeNull();
+          expect(other && env.socialProviders[other]).toBeNull();
+        }
+      );
+
+      it.each(SOCIAL_PROVIDERS)('names the missing half of a %s pair', (provider) => {
+        const names = providerVariables(provider);
+        const half = { ...complete, AUTH_ALLOWED_HOSTS: 'a.example.com', [names.id]: 'an-id' };
+
+        // Silently ignoring one set variable is how an operator ends up staring at a missing
+        // button with the id right there in their .env
+        expect(() => readEnv(half)).toThrow(new RegExp(names.secret));
+      });
+
+      it('refuses to start with a provider configured and no allowed hosts', () => {
+        const { AUTH_ALLOWED_HOSTS: _omitted, ...withoutHosts } = configured(
+          SOCIAL_PROVIDER.GOOGLE
+        );
+
+        // Fails closed: without a host list the OAuth callback origin would be derived from an
+        // attacker-controlled `Host` header
+        expect(() => readEnv(withoutHosts)).toThrow(/AUTH_ALLOWED_HOSTS/);
+      });
+
+      it('asks for no host list when neither provider is configured', () => {
+        // The signed-out, no-accounts-anywhere deployment is still a supported one (D6)
+        expect(readEnv(complete).allowedHosts).toEqual([]);
+      });
+
+      it('splits the host list and drops the blanks', () => {
+        expect(
+          readEnv({
+            ...configured(SOCIAL_PROVIDER.DISCORD),
+            AUTH_ALLOWED_HOSTS: ' a.com , ,b.com ',
+          }).allowedHosts
+        ).toEqual(['a.com', 'b.com']);
+      });
+    });
+  });
+
+  describe('providerVariables', () => {
+    it.each(SOCIAL_PROVIDERS)('derives %s’s variable names, and the table declares them', (p) => {
+      // The drift check: the names the reader derives and the names `.env.example` is checked
+      // against are the same names, so a provider cannot be readable but undocumented
+      const names = providerVariables(p);
+
+      expect(Object.keys(ENV_VARIABLES)).toContain(names.id);
+      expect(Object.keys(ENV_VARIABLES)).toContain(names.secret);
+    });
   });
 
   describe('serverEnv', () => {
@@ -189,10 +275,37 @@ describe('the server environment', () => {
     const readers = sourceFiles(SRC_ROOT)
       // This file names the string it is looking for, which would otherwise make it its own match
       .filter((path) => path !== resolve(SRC_ROOT, 'server', 'env.test.ts'))
+      // Tests are held to the companion rule below rather than to this one — see it for why
+      .filter((path) => !/\.test\.tsx?$/.test(path))
       .filter((path) => readFileSync(path, 'utf8').includes('process.env'));
 
     expect(readers.map((path) => path.replace(SRC_ROOT, 'src').replaceAll('\\', '/'))).toEqual([
       'src/server/env.ts',
     ]);
+  });
+
+  it('is the only module that *reads* it, tests included (TICKET-AUTH-02)', () => {
+    // **A test may arrange an environment; it may not consume one.** `socialSignIn.test.ts` has to
+    // set the OAuth variables before the lazy first read, which is exercising this module's
+    // contract rather than working around it. Consuming a variable is the thing the rule exists
+    // against — that is how a setting ends up documented in one place and read in another — so the
+    // check narrows to reads here instead of exempting tests wholesale.
+    const assignment = /process\.env(?:\.[A-Z][A-Z0-9_]*|\[[^\]]+\])\s*\?{0,2}=[^=]/g;
+    // Comments go first, so that a doc block *explaining* this rule is not itself a violation of it
+    const comments = /\/\*[\s\S]*?\*\/|\/\/[^\n]*/g;
+
+    const consumers = sourceFiles(SRC_ROOT)
+      .filter((path) => path !== resolve(SRC_ROOT, 'server', 'env.test.ts'))
+      .filter((path) => /\.test\.tsx?$/.test(path))
+      .filter((path) =>
+        readFileSync(path, 'utf8')
+          .replace(comments, '')
+          .replace(assignment, '')
+          .includes('process.env')
+      );
+
+    expect(consumers.map((path) => path.replace(SRC_ROOT, 'src').replaceAll('\\', '/'))).toEqual(
+      []
+    );
   });
 });

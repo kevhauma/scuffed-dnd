@@ -20,7 +20,9 @@ import { Button } from '../ui/Button/Button';
 import { Card } from '../ui/Card/Card';
 import { FormField } from '../ui/FormField/FormField';
 import { Text } from '../ui/Text/Text';
-import { alertStyles, switchLinkStyles, warningStyles } from './AuthForm.style';
+import { AuthAlert } from './AuthAlert';
+import { switchLinkStyles, warningStyles } from './authSurfaces.style';
+import { SocialSignInButtons } from './SocialSignInButtons';
 import { AUTH_MODE, type AuthMode, MIN_PASSWORD_LENGTH, useAuthForm } from './useAuthForm';
 
 export interface AuthFormProps {
@@ -110,19 +112,16 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
           </div>
         )}
 
-        {error && (
-          // `role="alert"` because the message appears after a submit the User is waiting on, and
-          // a screen reader that does not announce it leaves them looking at an unchanged form
-          <div role="alert" className={alertStyles}>
-            <Text variant="error" as="p">
-              {error}
-            </Text>
-          </div>
-        )}
+        <AuthAlert message={error} />
 
         <Button type="submit" variant="primary" disabled={isSubmitting} className="w-full">
           {isSubmitting ? wording.busy : wording.submit}
         </Button>
+
+        {/* Below the password button on both surfaces, and absent entirely when the server has no
+            provider configured (TICKET-AUTH-02, v3 Req 31.6). A first social sign-in *is* the
+            sign-up, so the offer is the same on either card. */}
+        <SocialSignInButtons />
 
         <Text variant="caption" as="p" className="text-center">
           {wording.switchPrompt}{' '}

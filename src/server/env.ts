@@ -13,12 +13,19 @@
  * tests down with it — and they have no reason to care what a database URL says. The refusal names
  * *every* missing key at once; an operator filling in a `.env` should need one round trip, not four.
  *
- * Optional variables are a genuinely different case and this handles both: TICKET-AUTH-02 brings
- * two independently optional OAuth credential pairs, and an absent pair means that provider is off,
- * not that the server is broken.
+ * Optional variables are a genuinely different case and this handles both: TICKET-AUTH-02's two
+ * OAuth credential pairs are independently optional, and an absent pair means that provider is off
+ * rather than that the server is broken (v3 Req 31.6).
  *
- * **Validates: v3 Req 47.2, 47.3**
+ * **Two refusals are conditional rather than table-driven**, and both fail closed: half a
+ * credential pair names the missing half, and a configured provider with no `AUTH_ALLOWED_HOSTS`
+ * refuses to start rather than deriving an OAuth callback origin from an attacker-controlled
+ * `Host` header. See {@link readEnv}.
+ *
+ * **Validates: v3 Req 47.2, 47.3, 31.6, 31.8**
  */
+
+import { SOCIAL_PROVIDERS, type SocialProvider } from '#shared/types/socialProvider';
 
 /** What a variable is, as data — the table `.env.example` is checked against */
 export interface EnvVariable {
@@ -77,6 +84,37 @@ export const ENV_VARIABLES = {
       'The window AUTH_SIGNIN_MAX_ATTEMPTS is counted over, in seconds (v3 Req 30.7). Defaults ' +
       'to 900 — fifteen minutes.',
   },
+  AUTH_ALLOWED_HOSTS: {
+    required: false,
+    description:
+      'Comma-separated hostnames this deployment answers on (TICKET-AUTH-02, v3 Req 31.1). Not ' +
+      'an origin to talk to — the subject line of this server, the way a certificate names its ' +
+      'own hosts. It is what an OAuth redirect URI is built from, so that a forged Host header ' +
+      'cannot steer a callback. Required as soon as either provider below is configured, and ' +
+      'ignored otherwise. Wildcards are allowed, e.g. `*.example.com`.',
+  },
+  GOOGLE_CLIENT_ID: {
+    required: false,
+    description:
+      'The OAuth client id from the Google Cloud console (TICKET-AUTH-02). Optional: with the ' +
+      'pair unset the Google button is absent and nothing else changes.',
+  },
+  GOOGLE_CLIENT_SECRET: {
+    required: false,
+    description:
+      'The secret paired with GOOGLE_CLIENT_ID. Never reaches the client bundle — env.ts is ' +
+      'server-only and a boundary test proves it.',
+  },
+  DISCORD_CLIENT_ID: {
+    required: false,
+    description:
+      'The OAuth client id from the Discord developer portal (TICKET-AUTH-02). Optional, on the ' +
+      'same terms as the Google pair.',
+  },
+  DISCORD_CLIENT_SECRET: {
+    required: false,
+    description: 'The secret paired with DISCORD_CLIENT_ID. Server-only, like the Google one.',
+  },
 } as const satisfies Record<string, EnvVariable>;
 
 /** The builds the server distinguishes */
@@ -87,6 +125,17 @@ export const NODE_ENV = {
 } as const;
 
 export type NodeEnv = (typeof NODE_ENV)[keyof typeof NODE_ENV];
+
+/** One provider's OAuth credentials, both halves or neither (TICKET-AUTH-02) */
+export interface SocialProviderCredentials {
+  clientId: string;
+  clientSecret: string;
+}
+
+/** What every provider is configured as: its credentials, or `null` for "not configured" */
+export type SocialProviderCredentialMap = Readonly<
+  Record<SocialProvider, SocialProviderCredentials | null>
+>;
 
 /** The environment, resolved and coerced */
 export interface ServerEnv {
@@ -101,6 +150,10 @@ export interface ServerEnv {
   signInMaxAttempts: number;
   /** The window those attempts are counted over, in seconds */
   signInWindowSeconds: number;
+  /** The hostnames this deployment answers on; empty when no provider is configured */
+  allowedHosts: string[];
+  /** Each provider's credentials, or `null` (TICKET-AUTH-02) */
+  socialProviders: SocialProviderCredentialMap;
 }
 
 /** What the optional auth settings mean when nothing sets them */
@@ -179,6 +232,67 @@ function asNodeEnv(raw: string | undefined): NodeEnv {
 }
 
 /**
+ * The two variables a provider is configured through
+ *
+ * **Derived from the provider id rather than written beside it**, so `SOCIAL_PROVIDER` and the
+ * environment cannot name different things. The entries in {@link ENV_VARIABLES} are spelled out in
+ * full because that table is documentation — `env.test.ts` asserts these derived names all appear
+ * in it, which is the drift check without the unreadable computed keys.
+ *
+ * @param provider Which provider
+ * @returns The id and secret variable names
+ */
+export function providerVariables(provider: SocialProvider): { id: string; secret: string } {
+  const prefix = provider.toUpperCase();
+  return { id: `${prefix}_CLIENT_ID`, secret: `${prefix}_CLIENT_SECRET` };
+}
+
+/** A set value, or `undefined` — an empty string is a blank line in a `.env`, not a value */
+function value(source: Record<string, string | undefined>, key: string): string | undefined {
+  const raw = source[key];
+  return raw === undefined || raw.trim() === '' ? undefined : raw.trim();
+}
+
+/**
+ * A comma-separated list from the environment
+ *
+ * @param raw What the environment said
+ * @returns The entries, trimmed, with the empties dropped
+ */
+function asList(raw: string | undefined): string[] {
+  if (raw === undefined) return [];
+  return raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== '');
+}
+
+/** Every provider's credentials, and the half-pairs that make the environment incomplete */
+function readSocialProviders(source: Record<string, string | undefined>): {
+  providers: SocialProviderCredentialMap;
+  missing: string[];
+} {
+  const providers = {} as Record<SocialProvider, SocialProviderCredentials | null>;
+  const missing: string[] = [];
+
+  for (const provider of SOCIAL_PROVIDERS) {
+    const names = providerVariables(provider);
+    const clientId = value(source, names.id);
+    const clientSecret = value(source, names.secret);
+
+    providers[provider] = clientId && clientSecret ? { clientId, clientSecret } : null;
+
+    // **A half-configured pair is a mistake, not a disabled provider.** Silently ignoring one set
+    // variable is how an operator ends up staring at a missing button with the id right there in
+    // their `.env`; naming the absent half is one round trip to a working configuration.
+    if (clientId && !clientSecret) missing.push(names.secret);
+    if (clientSecret && !clientId) missing.push(names.id);
+  }
+
+  return { providers, missing };
+}
+
+/**
  * Read and coerce an environment, or refuse
  *
  * @param source Where to read from; defaults to the real one
@@ -189,7 +303,23 @@ export function readEnv(source: Record<string, string | undefined> = process.env
   const missing = collectMissing(ENV_VARIABLES, source);
   if (missing.length > 0) throw new MissingEnvironmentError(missing);
 
+  const { providers, missing: incomplete } = readSocialProviders(source);
+  const allowedHosts = asList(source.AUTH_ALLOWED_HOSTS);
+
+  // **Conditionally required, and it fails closed.** A provider with no allowed hosts would leave
+  // Better Auth deriving its callback origin from the request `Host` header, which an attacker
+  // controls — so the one case where that matters is the one case this refuses to start without.
+  // The condition lives here rather than as a third field on `EnvVariable`: one variable needs it,
+  // and a table column with a single user is a framework for a special case.
+  if (SOCIAL_PROVIDERS.some((provider) => providers[provider]) && allowedHosts.length === 0) {
+    incomplete.push('AUTH_ALLOWED_HOSTS');
+  }
+
+  if (incomplete.length > 0) throw new MissingEnvironmentError(incomplete);
+
   return {
+    allowedHosts,
+    socialProviders: providers,
     nodeEnv: asNodeEnv(source.NODE_ENV),
     // Non-null by construction: both are required, so `collectMissing` refused above
     databaseUrl: source.DATABASE_URL as string,

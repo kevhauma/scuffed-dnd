@@ -61,6 +61,16 @@ What follows from it:
   behind a proxy. Same reason: one thing to start, and dev and production differ in build speed
   rather than in shape.
 
+> **One variable does name hosts, and it arrived with TICKET-AUTH-02.** `AUTH_ALLOWED_HOSTS` is a
+> comma-separated list of the hostnames *this* deployment answers on, fed to Better Auth's dynamic
+> `baseURL`. It is not the thing this decision rules out: it does not name a backend to talk to, it
+> states which hosts this server is — the same kind of statement as a certificate's subject. It
+> exists because an OAuth redirect URI has to be absolute and has to match what is registered with
+> the provider, and an origin derived from an unbounded request `Host` header is one an attacker can
+> steer. It is **optional and unset** with no provider configured, which keeps a plain
+> email/password deployment exactly as D1 describes it; configure a provider without it and the
+> server refuses to start.
+
 **The Vitest config still omits `tanstackStart()`** (see [CLAUDE.md](../../CLAUDE.md) and
 [TEST_STATUS.md](../../TEST_STATUS.md)) — that stays true. Server code is tested by calling
 `src/server/` functions and route handlers directly, never by booting Nitro.
@@ -287,7 +297,7 @@ Server foundation — nothing here is user-visible, and everything after it depe
 Accounts:
 
 - [x] [TICKET-AUTH-01](./tickets/TICKET-AUTH-01-email-password-accounts.md) — Email/password accounts and Auth_Sessions (v3 Req 30) — Better Auth on D2's database
-- [ ] [TICKET-AUTH-02](./tickets/TICKET-AUTH-02-social-sign-in.md) — Social sign-in: Google **and Discord**, with identity linking (v3 Req 31) — needs AUTH-01's account table; each provider independently optional, and one shared rule path so the two cannot diverge. Under D12 this is the milestone's only account recovery, not a convenience
+- [x] [TICKET-AUTH-02](./tickets/TICKET-AUTH-02-social-sign-in.md) — Social sign-in: Google **and Discord**, with identity linking (v3 Req 31) — needs AUTH-01's account table; each provider independently optional, and one shared rule path so the two cannot diverge. Under D12 this is the milestone's only account recovery, not a convenience
 - [ ] [TICKET-AUTH-03](./tickets/TICKET-AUTH-03-authorization-and-protected-routes.md) — Authorization primitives and protected routes (v3 Req 32) — **the ticket the rest of the milestone leans on**: `requireAccount`, the ownership guards, and the indistinguishable 404
 - [ ] [TICKET-AUTH-04](./tickets/TICKET-AUTH-04-persistent-sessions.md) — Persistent sessions with rolling renewal (v3 Req 48) — D13: closing the browser no longer signs you out. Last in this group because the expiry-mid-session surface reuses AUTH-03's return-to-destination redirect
 

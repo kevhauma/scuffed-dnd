@@ -154,8 +154,13 @@ acceptance criteria.
   in a request body; the client keeps calculating for display and treats its answer as a
   prediction. Dice are rolled on the server.
 - **`src/server/env.ts` is the only reader of `process.env`**, and every variable it reads is
-  documented in `.env.example` — a test asserts the two name the same set. No variable names the
-  backend: the API is a relative path and the socket derives its URL from `window.location`.
+  documented in `.env.example` — a test asserts the two name the same set. A *test file* may
+  **assign** to `process.env` to arrange an environment before the lazy first read; nothing but
+  `env.ts` may read one, and `env.test.ts` holds both halves separately (TICKET-AUTH-02).
+  No variable names the backend: the API is a relative path and the socket derives its URL from
+  `window.location`. The one variable that names *hosts* is `AUTH_ALLOWED_HOSTS`, which states which
+  hosts this deployment answers on so an OAuth callback cannot be steered by a forged `Host` header
+  — see the note on [D1](docs/v3.0_backend/overview.md#d1--the-backend-lives-in-this-repo-on-tanstack-start).
 - **Queries belong to `src/server/repositories/`.** Nothing else imports Drizzle or the connection;
   a handler calls a repository. The server-side mirror of "persistence belongs to the store action",
   and TICKET-DX-08 makes it a dependency-cruiser rule.

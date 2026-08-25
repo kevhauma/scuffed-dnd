@@ -36,6 +36,16 @@ import { createDatabase, type Database, setProcessDatabase } from '../db/client'
 import { runMigrations } from '../db/migrate';
 
 /**
+ * The connection type, re-exported so a test can name it (TICKET-AUTH-02)
+ *
+ * A test that pulls rows out in a helper needs to say what it takes, and importing `db/client`
+ * to do so is a `queries-belong-to-repositories` violation — correctly, since that rule does not
+ * distinguish a type import from a query. The harness is already inside that door, so it hands
+ * the name out rather than every test file being told to infer it.
+ */
+export type { Database } from '../db/client';
+
+/**
  * Run something against a freshly migrated database of its own
  *
  * ```ts

@@ -24,19 +24,53 @@
  *
  * ## What is deliberately not configured
  *
- * **No `baseURL`.** The server hosts the client bundle, so every request is same-origin and the
- * origin is whatever the request arrived on
+ * **No static `baseURL`.** The server hosts the client bundle, so every request is same-origin and
+ * the origin is whatever the request arrived on
  * ([D1](../../../docs/v3.0_backend/overview.md#d1--the-backend-lives-in-this-repo-on-tanstack-start)).
  * A variable naming it would be a variable someone eventually points elsewhere (v3 Req 47.7), and
  * for the same reason there is no CORS layer and no `trustedOrigins` list.
  *
- * **Validates: v3 Req 30.1, 30.3, 30.4, 30.5, 30.9, 48.1**
+ * **What AUTH-02 adds instead is a `baseURL` bounded by `allowedHosts`**, and the distinction is
+ * the whole of D1's concern: `AUTH_ALLOWED_HOSTS` does not name *a backend to talk to*, it names
+ * which hosts this deployment answers on — the same kind of statement as a certificate's subject.
+ * OAuth is exactly the case the library's missing-baseURL warning is about: a redirect URI has to
+ * be absolute and has to match what is registered with the provider, and deriving one from an
+ * unbounded request `Host` means an attacker-controlled header can steer a callback. With no
+ * provider configured there is nothing to steer, the variable is unset, and the behaviour is
+ * AUTH-01's unchanged.
+ *
+ * **Validates: v3 Req 30.1, 30.3, 30.4, 30.5, 30.9, 31.1, 31.3, 31.4, 31.6, 31.7, 48.1**
  */
 
 import { betterAuth } from 'better-auth';
 import { authDatabaseAdapter, currentDatabaseKey } from '../db/authAdapter';
-import { serverEnv } from '../env';
+import { NODE_ENV, type ServerEnv, serverEnv } from '../env';
+import { refuseIdentity } from './identityRules';
 import { AUTH_PREFIX, SIGN_IN_ROUTE } from './paths';
+import { socialProviderConfig } from './socialProviders';
+
+/**
+ * What Better Auth is told its own origin is
+ *
+ * `undefined` when no host list is configured, which is the AUTH-01 shape: derive it from the
+ * request, warn about it, and be right, because email/password has no callbacks. With hosts
+ * configured it becomes a *bounded* derivation — the request's host if it is on the list, and a
+ * refusal otherwise.
+ *
+ * `protocol` follows the same reasoning as `useSecureCookies` below: a development server is plain
+ * HTTP, and forcing `https` there produces a callback URL the browser cannot reach.
+ *
+ * @param env The resolved environment
+ * @returns The `baseURL` option, or nothing
+ */
+function baseUrlFor(env: ServerEnv) {
+  if (env.allowedHosts.length === 0) return undefined;
+
+  return {
+    allowedHosts: env.allowedHosts,
+    protocol: env.nodeEnv === NODE_ENV.PRODUCTION ? ('https' as const) : ('auto' as const),
+  };
+}
 
 /**
  * Build an instance against the current database
@@ -49,6 +83,41 @@ function build() {
   return betterAuth({
     database: authDatabaseAdapter(),
     basePath: AUTH_PREFIX,
+    baseURL: baseUrlFor(env),
+    // Absent keys rather than blank credentials for an unconfigured provider, so its button is
+    // absent rather than present and broken (v3 Req 31.6)
+    socialProviders: socialProviderConfig(env),
+    user: {
+      // **The one path v3 Req 31.7 asks for.** Better Auth calls this before `create-user`, before
+      // `link-account` and on every provider `sign-in`, for every provider — so a rule written once
+      // here cannot apply to Google and miss Discord. The adapter is this shallow on purpose: the
+      // rule itself is a pure function, testable as one table for both providers.
+      validateUserInfo: ({ user, source }) =>
+        refuseIdentity({
+          // `sso` as well as `oauth`, even though no SSO provider is configured, for the reason
+          // `identityRules.ts` gives against keying on the provider *list*: a rule that only knows
+          // the transports in use today is a rule that silently stops applying to the next one
+          providerId: source.oauth?.providerId ?? source.sso?.providerId,
+          email: user.email,
+          emailVerified: user.emailVerified,
+        }) ?? undefined,
+    },
+    account: {
+      accountLinking: {
+        // v3 Req 31.3: a verified provider email matching an existing Account links to it rather
+        // than creating a second one
+        enabled: true,
+        // **False because D12 removed the only thing that could ever set it true.** The library
+        // defaults to requiring the *local* Account's address to be verified before a provider may
+        // link onto it — and this application sends no email, so no password Account is ever
+        // verified and Req 31.3 could never happen. The trust that check stands in for is supplied
+        // instead by the provider's own verified flag, which `identityRules.ts` refuses without.
+        requireLocalEmailVerified: false,
+        // Deliberately **not** listing the providers as trusted. Trust here means "link even on an
+        // unverified provider email", which is precisely what Req 31.4 forbids; leaving it empty
+        // keeps the library's own check as a second lock on the same door.
+      },
+    },
     // Passed rather than left to Better Auth's own environment read of `BETTER_AUTH_SECRET`:
     // `env.ts` is the only module in `src/` that reads the environment, and `env.test.ts` walks
     // the tree to keep it that way — by grep, which is why this comment does not spell the
@@ -71,7 +140,7 @@ function build() {
       // `httpOnly` and `sameSite: lax` are Better Auth's defaults and are what Req 30.4 asks for.
       // `Secure` is on in production and off in development, because a dev server is plain HTTP
       // and a Secure cookie there is a cookie the browser silently drops.
-      useSecureCookies: env.nodeEnv === 'production',
+      useSecureCookies: env.nodeEnv === NODE_ENV.PRODUCTION,
     },
     rateLimit: {
       // On everywhere, not only in production, which is the library's own default. The one path

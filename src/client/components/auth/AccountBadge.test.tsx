@@ -75,6 +75,18 @@ describe('AccountBadge', () => {
     expect(screen.getByText('ada@example.com')).toBeTruthy();
   });
 
+  it('should make the email the way to the account page (TICKET-AUTH-02)', () => {
+    useSession.mockReturnValue(SESSION.signedIn);
+
+    render(<AccountBadge />);
+
+    // This link is the app's **only** navigation to `/account`, so the destination is asserted
+    // rather than left to the previous test's text check, which passes for any `to`
+    expect(screen.getByRole('link', { name: 'ada@example.com' }).getAttribute('href')).toBe(
+      '/account'
+    );
+  });
+
   it('should sign out and let the router re-decide what it can show', async () => {
     useSession.mockReturnValue(SESSION.signedIn);
 
