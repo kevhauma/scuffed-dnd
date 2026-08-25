@@ -90,8 +90,10 @@ no `down` files: rolling back a schema change that has already accepted writes i
 and the answer is the backup. Generate a new one with `yarn run db:generate` after editing
 `db/schema.ts`, and ship it with a test that applies it to the previous schema.
 
-**Only `repositories/` may import the connection or Drizzle.** Handlers call repositories.
-TICKET-DX-08 turns that into a dependency-cruiser rule.
+**Only `db/`, `repositories/` and `testing/` may import the connection or Drizzle.** Handlers call
+repositories. `queries-belong-to-repositories` in
+[`.dependency-cruiser.mjs`](../../.dependency-cruiser.mjs) enforces it (TICKET-DX-08), and
+`testing/` is in the list only because `test-harness-stays-in-tests` locks it from the other side.
 
 | Relation | On delete | Why |
 |---|---|---|
@@ -101,12 +103,49 @@ TICKET-DX-08 turns that into a dependency-cruiser rule.
 | `character.session_id` | CASCADE | Characters are created per session (CHAR-04); the game is the unit |
 | `event.session_id` | CASCADE | An event about a deleted session describes nothing |
 
+## Testing a route
+
+[`testing/`](./testing/index.ts) is the harness every server test uses (TICKET-DX-06). Three
+pieces, and nothing else:
+
+```ts
+it('should refuse a stranger', () =>
+  withTestDatabase(async (database) => {
+    const owner = seedAccount();
+    const row = seedRuleset(database, { owner });
+    const params = { id: row.id };
+
+    expect((await callRoute(route, { as: null, params })).status).toBe(404);
+    expect((await callRoute(route, { as: seedAccount(), params })).status).toBe(404);
+    expect((await callRoute(route, { as: owner, params })).status).toBe(200);
+  }));
+```
+
+- **`withTestDatabase(run)`** — a fresh `:memory:` database, migrated, closed on the way out
+  including when the body throws. A callback rather than a `beforeEach` pair, because a hook pair
+  needs a file-scoped variable and that variable is how one test comes to see another's rows.
+  Measured at **~2–3 ms** per call.
+- **`callRoute(route, options)`** — calls the real route through the real pipeline. There is no
+  test server and no second pipeline: a route is already a function from `Request` to `Response`,
+  so the status a refusal produces here is the status it produces in production.
+- **`seedAccount` / `seedRuleset` / `seedSession` / `seedMember` / `seedCharacter`** — each returns
+  the row rather than an id, and a ruleset holds the **real Ducklets corpus** by default. A toy
+  ruleset with two stats will not catch a formula reference a snapshot copy broke.
+
+`as` reaches the handler through `RequestScope`, the pipeline's one injection point. **The route
+table never passes one** — `handleApiRequest` calls `route(request)` with a single argument, and
+`apiRouter.test.ts` asserts it — so nothing reachable from a socket can name an account, and
+`pipeline.test.ts` asserts that exactly two modules under `src/server` so much as *name*
+`RequestScope`. AUTH-01 makes the Auth_Session cookie the default this overrides, inside
+`defineHandler`, rather than a third caller.
+
 ## What lands here, and when
 
 | Ticket | What it adds |
 |---|---|
 | SRV-01 | `entry.ts`, `env.ts`, `http/` (pipeline, `AppError`, the route table), `routes/health` ✅ |
 | DB-01 | `db/` (connection, schema, migrations), `repositories/` ✅ |
+| DX-06 | `testing/` — the per-test database, `callRoute`, and the seeded fixtures ✅ |
 | AUTH-01–04 | `auth/`, the session and authorization guards |
 | RUL/GAM/PLY/DM | `repositories/` and `routes/` per resource |
 | LIVE-01–03 | `ws/` — rooms, fan-out, presence |

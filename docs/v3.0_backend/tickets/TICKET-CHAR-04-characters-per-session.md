@@ -66,6 +66,10 @@ as it does today or posts to the server. One wizard, two destinations.
 
 ## Notes
 
+- **Point `seedCharacter` at this ticket's repository when it lands** (TICKET-DX-06).
+  `src/server/testing/seeds.ts` writes the `character` table with raw Drizzle and defaults `data`
+  to `'{}'`, because nothing had yet decided what a session character's player state is. This
+  ticket decides it, and is where the fixture stops guessing.
 - **`configurationId` keeps its meaning and gains a sibling.** A local character still names the
   `Configuration` it was built on; a session character needs the Game_Session. Add
   `gameSessionId?` rather than overloading the existing field — a field called `configurationId`

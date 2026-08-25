@@ -86,4 +86,32 @@ describe('handleApiRequest', () => {
       expect(key, key).toMatch(/^(GET|POST|PATCH|PUT|DELETE) \/api\/\S*$/);
     }
   });
+
+  it('never hands a route an account, whatever the request carries (TICKET-DX-06)', async () => {
+    // `defineHandler` takes an optional `RequestScope`, and the whole safety argument for that
+    // parameter is that the router does not use it — a test's `callRoute` may say *as this
+    // account*, and nothing reachable from a socket may. Asserted on the call rather than by
+    // reading the source: the router is handed a route that reports what it was given.
+    const seen: Array<unknown> = [];
+    const spy = ((_request: Request, scope?: unknown) => {
+      seen.push(scope);
+      return Promise.resolve(new Response(null, { status: 204 }));
+    }) as (typeof ROUTES)[string];
+
+    const original = ROUTES['GET /api/health'];
+    ROUTES['GET /api/health'] = spy;
+
+    try {
+      // Everything an attacker controls: a header naming an account, and a body claiming one
+      await handleApiRequest(
+        new Request('http://localhost/api/health', {
+          headers: { 'x-account-id': 'somebody-else', authorization: 'Bearer somebody-else' },
+        })
+      );
+    } finally {
+      ROUTES['GET /api/health'] = original;
+    }
+
+    expect(seen).toStrictEqual([undefined]);
+  });
 });

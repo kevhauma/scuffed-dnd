@@ -1,12 +1,18 @@
 /**
- * Request pipeline tests (TICKET-SRV-01)
+ * Request pipeline tests (TICKET-SRV-01, TICKET-DX-06)
  *
  * The split this file is really about: a **refusal** explains itself to the client, and a **bug**
  * says nothing. Everything else here is plumbing around that one decision.
  *
+ * TICKET-DX-06 added the `RequestScope` block at the bottom, which is about a different kind of
+ * claim: the pipeline now accepts an injected account, and that is only sound while the set of
+ * modules able to inject one stays small enough to read.
+ *
  * **Validates: v3 Req 32.1**
  */
 
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppError, badRequest, ERROR_CODE, STATUS_FOR_CODE } from './appError';
 import { defineHandler } from './pipeline';
@@ -166,4 +172,53 @@ describe('defineHandler', () => {
       );
     });
   });
+
+  describe('RequestScope — who is allowed to say who is asking (TICKET-DX-06)', () => {
+    it('reaches the handler when a caller supplies it', async () => {
+      const handler = defineHandler((context) => ({ account: context.account?.id ?? null }));
+
+      const response = await handler(new Request('http://localhost/api/thing'), {
+        account: { id: 'a1' },
+      });
+
+      expect(await response.json()).toEqual({ account: 'a1' });
+    });
+
+    it('is null when nobody supplies one, which is every production call today', async () => {
+      const handler = defineHandler((context) => ({ account: context.account }));
+
+      const response = await handler(new Request('http://localhost/api/thing'));
+
+      expect(await response.json()).toEqual({ account: null });
+    });
+
+    it('is named by exactly two modules under src/server', () => {
+      // `apiRouter.test.ts` proves the *router* passes no scope. This proves the rule the router
+      // is one instance of: a pipeline that accepts an injected identity is only safe while the
+      // set of things that can inject one is small enough to read. dependency-cruiser cannot help
+      // — it matches module edges, not call arity — so the guard is a source scan.
+      //
+      // If a later ticket needs a third, that is a decision to take deliberately: add it here with
+      // the reason. AUTH-01 does *not* need one — it makes the Auth_Session cookie the default
+      // this overrides, inside `defineHandler`, rather than a second caller.
+      const root = resolve(process.cwd(), 'src/server');
+      const allowed = ['http/pipeline.ts', 'testing/callRoute.ts'];
+
+      const namers = serverModules(root)
+        .filter((file) => /\bRequestScope\b/.test(readFileSync(file, 'utf8')))
+        .map((file) => relative(root, file).replace(/\\/g, '/'))
+        .sort();
+
+      expect(namers).toEqual(allowed);
+    });
+  });
 });
+
+/** Every non-test module under `src/server`, recursively */
+function serverModules(dir: string): string[] {
+  return readdirSync(dir).flatMap((entry) => {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) return serverModules(full);
+    return full.endsWith('.ts') && !full.includes('.test.') ? [full] : [];
+  });
+}

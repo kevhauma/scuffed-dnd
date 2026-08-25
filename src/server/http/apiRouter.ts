@@ -24,6 +24,10 @@ export const API_PREFIX = '/api/';
  *
  * A plain object rather than a registration call: the whole API is readable in one place, and a
  * route that exists is a line here rather than a side effect of importing a file.
+ *
+ * Typed as *request in, response out* rather than as {@link Route}, and deliberately so: a
+ * `Route`'s second parameter is a test seam (TICKET-DX-06), and narrowing the table's type is what
+ * makes it a compile error for anything here to reach for it.
  */
 export const ROUTES: Record<string, (request: Request) => Promise<Response>> = {
   'GET /api/health': health,

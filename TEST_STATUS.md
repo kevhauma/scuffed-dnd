@@ -1,8 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-DX-08 — the architecture rules as
-checks**. The checkpoints before it were **TICKET-DB-01 — SQLite, Drizzle and migrations** at
-1925, **TICKET-SRV-01 — the server layer** at 1883,
+_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-DX-06 — the server test harness**.
+The checkpoints before it were **TICKET-DX-08 — the architecture rules as checks** at 1937,
+**TICKET-DB-01 — SQLite, Drizzle and migrations** at 1925, **TICKET-SRV-01 — the server layer** at
+1883,
 **TICKET-DX-07 — three roots** at 1847, the **equipment split and display builder** at 1834, the
 **character sheet rebuild** at 1777, the **tavern redesign** at 1732, and the
 [v2.1 code review](docs/v2.1_code_review/overview.md)'s **high-priority findings** (CR-01 to CR-07,
@@ -10,10 +11,51 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 1937
-- **Passing**: 1937 (100%)
+- **Total tests**: 1970
+- **Passing**: 1970 (100%)
 - **Skipped**: 0
 - **Failing**: 0
+
+The **+33 over DX-08** is TICKET-DX-06, and it is purely additive — 30 in a new
+`src/server/testing/harness.test.ts`, one in `architecture/boundaries.test.ts` for the new
+`test-harness-stays-in-tests` rule, one in `apiRouter.test.ts` and three in `pipeline.test.ts`.
+**The four outside the harness file are the load-bearing ones.** `defineHandler` now takes an
+optional `RequestScope`, which is how `callRoute` says *as this account* — and the entire safety
+argument for a pipeline that accepts an injected identity is that almost nothing passes one. Two
+tests hold that: `apiRouter.test.ts` swaps a spy into `ROUTES` and drives a request carrying both an
+`x-account-id` and an `Authorization` header, asserting the route was handed `undefined`; and
+`pipeline.test.ts` scans `src/server/` and asserts that exactly two modules so much as **name**
+`RequestScope`. The second exists because the first is about the router, and the router is one
+instance of the rule rather than the rule.
+
+**Four of the thirty came out of the `conventions-reviewer` pass, and one of them mattered a lot.**
+`setProcessDatabase` — the seam the whole `queries-belong-to-repositories` widening was bought for —
+had *no coverage*: deleting both of its calls left the suite green, while every future route test
+would silently have read an unmigrated, file-scoped database. It is now asserted through
+`/api/health`, which reports an applied migration inside `withTestDatabase` and none outside.
+
+The review also found that two **overlapping** `withTestDatabase` calls did not merely fail, they
+left a *closed* connection installed as the process database for the rest of the file — and because
+`getDatabase()` is `opened ??=`, a non-null closed handle is never replaced. The restore is now a
+compare-and-swap that throws, with a test that overlaps two calls deliberately and then checks the
+process database still works.
+
+Three server test files were **migrated, not rewritten**: `rulesetRepository.test.ts`,
+`eventRepository.test.ts` and `schema.test.ts` each had their own four-line `migratedDatabase()`
+and `afterEach` bookkeeping, which is exactly the triplication the harness exists to remove. Not one
+assertion changed and the count is unmoved. `eventRepository.test.ts` also lost a hand-written
+`INSERT INTO game_session`, which mattered more than tidiness: it was a second definition of what a
+session row looks like, and the next migration would have had to remember it.
+
+`schema.test.ts` deliberately **keeps** its own raw-SQL `seedSession`. The harness's seats a DM in
+`session_member`, and the *refuses a second DM* case needs a session with nobody in it — the file's
+whole premise is that the database enforces these rules rather than a repository being careful.
+
+**Measured cost of a per-test database: ~2–3 ms**, and no suite regression at all. `schema.test.ts`
+reports 2–3 ms per case for open + migrate + close plus its own raw SQL (15 ms for the first, which
+carries module init). Whole-suite, three runs each: **before 29.03 / 28.02 / 27.55 s**, **after
+27.26 / 27.35 / 24.59 s** — unchanged, inside the noise, with 33 more tests and roughly 70 more
+databases opened.
 
 The **+12 over DB-01** is TICKET-DX-08, and all twelve are in
 [`architecture/boundaries.test.ts`](architecture/boundaries.test.ts), which goes 9 → 21: one per
@@ -53,8 +95,11 @@ missing directory, so the first `yarn dev` on a clean machine died at start-up w
 
 **The suite now opens real databases.** Every one is `:memory:`, opened and closed per test, so
 there is no fixture file and no cleanup to forget; `vitest.setup.ts` sets `DATABASE_URL=:memory:`
-so a test that merely *imports* a route module does not need one of its own. TICKET-DX-06 folds
-both into the server test harness.
+so a test that merely *imports* a route module does not need one of its own. TICKET-DX-06 folded
+the opening and closing into `withTestDatabase` — but **left the `vitest.setup.ts` line where it
+is**, which is the opposite of what this paragraph originally predicted: `env.ts` can be asked for
+a value at *import* time, before any test body has run, so no harness function could be early
+enough.
 
 The **+36 over DX-07** is TICKET-SRV-01: the environment loader (14, including the three contracts
 that keep `.env.example` and `env.ts` naming the same set, keep `process.env` to one reader, and
@@ -359,7 +404,7 @@ than recalled.
 
 ## Architecture rules: clean, and they cost nothing
 
-`yarn run arch` reports **zero error-level findings** and zero warnings, over 402 modules and 1808
+`yarn run arch` reports **zero error-level findings** and zero warnings, over 408 modules and 1835
 dependencies. That is the baseline: an error-level finding is yours. `no-orphans` reports at
 *warning* severity by design and does not fail the build.
 
@@ -376,7 +421,7 @@ cost; the rules are not. (Those figures include `npx` start-up; through `yarn ru
 step is ~2.0s.) It runs in `yarn run check`, which the pre-commit hook runs, and the `verifier`
 subagent reports it as its fourth numbered step.
 
-**Four exemptions exist and each is recorded in `.dependency-cruiser.mjs` with its reason**, which
+**Five exemptions exist and each is recorded in `.dependency-cruiser.mjs` with its reason**, which
 is the honest half of "the existing tree produces no error-level finding":
 
 | Exempted | From | Why |
@@ -385,6 +430,7 @@ is the honest half of "the existing tree produces no error-level finding":
 | `*.test.ts(x)`, `*.fixtures.ts` | `persistence-belongs-to-the-store`, `no-dev-dep-in-production` | Nothing ships a test; a test mocking the storage service or importing `fast-check` is doing the rule's work rather than breaking it |
 | `client/components/shared/useAppHydration.ts` | `persistence-belongs-to-the-store` | Imports `isStorageAvailable` (a capability probe run before anything is read) and `StorageSchemaError` (an `instanceof` discriminant). It loads and saves nothing — each of those is a store action it calls |
 | `routeTree.gen.ts` ↔ `router.tsx` | `no-circular` | Generated, type-only, erased before anything runs. Visible only because `tsPreCompilationDeps` is on, which the root boundary needs. The file may not be hand-edited |
+| `server/testing/` | `queries-belong-to-repositories` | A harness that seeds rows is doing repository work by definition (DX-06). Widened only because `test-harness-stays-in-tests` locks the door from the other side: nothing that answers a real request may import it |
 
 `.fallowrc.jsonc` drops `src/**/boundaryFixtures/**` from fallow's analysis entirely for the
 matching reason: every fixture is a deliberate cycle, orphan, undeclared import or devDependency in

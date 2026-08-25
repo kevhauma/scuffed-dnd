@@ -131,6 +131,12 @@ describe('the layering rules', () => {
     );
   });
 
+  it('refuses production code reaching the test harness', () => {
+    expect(rulesBrokenBy('src/server/boundaryFixtures/reachesTestHarness.ts')).toContain(
+      'test-harness-stays-in-tests'
+    );
+  });
+
   it('refuses a base component reading a store', () => {
     expect(rulesBrokenBy('src/client/components/ui/boundaryFixtures/reachesTheStore.ts')).toContain(
       'ui-primitives-are-leaves'

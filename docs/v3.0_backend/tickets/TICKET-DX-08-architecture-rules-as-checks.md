@@ -101,7 +101,7 @@ let alone proven, before it exists.
       `check`. Measured at 3 runs per rule set: 6 rules 3.65/3.60/3.95s, 15 rules 3.74/3.71/3.66s —
       **no measurable cost**, because the graph is built once and a rule is a pass over a graph
       that already exists.
-- [x] *(with one caveat, below)* The **`verifier` subagent** reports the dependency-cruiser result:
+- [x] The **`verifier` subagent** reports the dependency-cruiser result:
       [.claude/agents/verifier.md](../../../.claude/agents/verifier.md) lists the check as a numbered
       step beside `npx vitest run` / `npx tsc --noEmit` / `yarn run lint`, states its baseline (zero
       error-level findings — `no-orphans` warnings are not regressions, and any recorded exemption is
@@ -111,11 +111,10 @@ let alone proven, before it exists.
       → `yarn run arch` added as step 4 with its baseline and all five exemptions named. The
       agent's stale baselines (400 tests, 9 typecheck errors, 35 lint errors — numbers three
       milestones old, against which it would have reported lint as *improved by 35*) were corrected
-      in the same edit. **The caveat:** the proof run loaded the agent definition as it stood at
-      session start, so the subagent ran three steps rather than four and the step-4 PASS/FAIL line
-      is unproven — the edit is correct and takes effect in a fresh session, but this criterion is
-      ticked on the edit plus a stronger substitute rather than on the run asked for. See the
-      implementation note.
+      in the same edit. The deliberate-violation run itself caught the planted
+      `import { create } from 'zustand'` by a different route than planned — see the implementation
+      note, which is worth reading because the route it took is the more durable one. The step-4
+      PASS/FAIL line was confirmed during TICKET-DX-06.
 - [x] The obligations dependency-cruiser cannot express are listed with what covers them instead —
       at minimum AUTH-03's "every route naming an owned resource calls a guard", which is about call
       sites rather than imports and stays a purpose-written test (v3 Req 51.10).
@@ -170,8 +169,11 @@ whoever is reading the prompt cooperates; the same rule asserted by a test in th
 verifier step remains the right thing to have — it names the finding in the report rather than
 leaving it as one failing test among 1937 — but it is now the convenience rather than the guard.
 
-The step-4 line itself is unproven and will be true from the next session. It is called out above
-rather than ticked silently.
+**Discharged during TICKET-DX-06.** The next `verifier` launch after this ticket landed ran
+`yarn run arch` as its fourth numbered step and carried a PASS line for it — *no dependency
+violations, 408 modules / 1830 dependencies* — and read the exemption list out of the brief closely
+enough to notice the tree had grown a fifth that its copy did not list. So the step-4 line works;
+what had gone stale was the loaded copy within one session, not the edit.
 
 **The `conventions-reviewer` pass, and the one finding that mattered.** `no-orphans` did not mean
 what its comment said. dependency-cruiser's orphan predicate is **no dependencies *and* no

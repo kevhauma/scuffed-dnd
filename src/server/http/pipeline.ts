@@ -15,6 +15,17 @@
 
 import { AppError, badRequest, ERROR_CODE, type ErrorBody } from './appError';
 
+/**
+ * Who is asking
+ *
+ * An id and nothing else, because an id is the whole of what authorization compares: every table
+ * DB-01 defines keys on `*_account_id`. TICKET-AUTH-01 widens this to Better Auth's own account —
+ * the point of naming it now is that `context.account.id` is the expression that survives.
+ */
+export interface RequestAccount {
+  id: string;
+}
+
 /** What a handler is given */
 export interface RequestContext {
   request: Request;
@@ -22,10 +33,12 @@ export interface RequestContext {
   /**
    * Who is asking, or nobody (v3 Req 32.1)
    *
-   * `null` until TICKET-AUTH-03 resolves the Auth_Session cookie. It is here now, typed, so that
-   * every handler written before then is already shaped for the answer.
+   * `null` until TICKET-AUTH-01 resolves the Auth_Session cookie, which is the only thing that
+   * will ever set it in production. It is here now, typed, so that every handler written before
+   * then is already shaped for the answer — and so DX-06's `callRoute` can say *as this account*
+   * and have the refusal tests the Definition of Done requires exist before the routes do.
    */
-  account: null;
+  account: RequestAccount | null;
   /**
    * The request body as JSON
    *
@@ -36,6 +49,25 @@ export interface RequestContext {
 
 /** What a handler is: data in, data out, refusals thrown. `undefined` means "nothing to say". */
 export type Handler = (context: RequestContext) => Promise<unknown> | unknown;
+
+/**
+ * What a caller may fill in that the request itself does not carry (TICKET-DX-06)
+ *
+ * **The route table never passes one**, and that is the whole safety argument: `handleApiRequest`
+ * calls `route(request)` with a single argument, so nothing reachable from a socket can name an
+ * account. The only caller is `testing/callRoute.ts`, which is how a refusal test says *as this
+ * account* / *as nobody* in one line, and `apiRouter.test.ts` asserts that a route reached through
+ * the router is anonymous no matter what.
+ *
+ * When TICKET-AUTH-01 resolves the Auth_Session cookie, that resolution becomes the **default**
+ * this overrides rather than a second path beside it.
+ */
+export interface RequestScope {
+  account?: RequestAccount | null;
+}
+
+/** A route: a request, optionally scoped, in — a response out. Never throws. */
+export type Route = (request: Request, scope?: RequestScope) => Promise<Response>;
 
 /** The status a successful handler's data is sent with */
 const OK = 200;
@@ -87,14 +119,16 @@ async function readJson<T>(request: Request): Promise<T> {
  * Wrap a handler into something that answers a `Request`
  *
  * @param handler What the route does
- * @returns A function from request to response that cannot throw
+ * @returns A {@link Route} — a function from request to response that cannot throw
  */
-export function defineHandler(handler: Handler): (request: Request) => Promise<Response> {
-  return async (request) => {
+export function defineHandler(handler: Handler): Route {
+  return async (request, scope) => {
     const context: RequestContext = {
       request,
       url: new URL(request.url),
-      account: null,
+      // AUTH-01 replaces this default with the Auth_Session cookie's answer. Until then the only
+      // thing that can be anything but `null` is a test saying so through `RequestScope`.
+      account: scope?.account ?? null,
       json: <T>() => readJson<T>(request),
     };
 

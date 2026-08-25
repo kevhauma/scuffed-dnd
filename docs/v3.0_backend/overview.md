@@ -282,7 +282,7 @@ Server foundation — nothing here is user-visible, and everything after it depe
 - [x] [TICKET-SRV-01](./tickets/TICKET-SRV-01-server-layer-and-kernel-boundary.md) — The server layer and the Kernel boundary (v3 Req 45, 47) — fills DX-07's empty `server/` root: the env loader and the request pipeline that every later ticket plugs into
 - [x] [TICKET-DB-01](./tickets/TICKET-DB-01-sqlite-drizzle-and-migrations.md) — SQLite, Drizzle and migrations (v3 Req 46) — the database file, the schema for the server's own model, and the migration runner
 - [x] [TICKET-DX-08](./tickets/TICKET-DX-08-architecture-rules-as-checks.md) — The project's architecture rules, as dependency-cruiser rules (v3 Req 51) — **after DB-01**, because two of the rules are about a database layer that has to exist first. Encodes what CLAUDE.md has stated as prose since v1.0: store-owned persistence, repository-owned queries, a framework-free Kernel, UI primitives as leaves
-- [ ] [TICKET-DX-06](./tickets/TICKET-DX-06-server-test-harness.md) — Server test harness (v3 Req 45.3) — in-memory database per test, a request helper, and seeded fixtures; **before AUTH-01** so every server ticket after it is testable the same way
+- [x] [TICKET-DX-06](./tickets/TICKET-DX-06-server-test-harness.md) — Server test harness (v3 Req 45.3) — in-memory database per test, a request helper, and seeded fixtures; **before AUTH-01** so every server ticket after it is testable the same way
 
 Accounts:
 

@@ -52,6 +52,11 @@ Thursday does not re-price every character at Friday's table.
 
 ## Notes
 
+- **Point `seedSession` at this ticket's repository when it lands** (TICKET-DX-06).
+  `src/server/testing/seeds.ts` writes `game_session` and `session_member` with raw Drizzle,
+  because no session repository existed when the harness was built. That is a second definition of
+  what a session row looks like — the same defect DX-06 removed from `eventRepository.test.ts` —
+  and it is only tolerable while it is temporary. This ticket is where it stops being temporary.
 - **The refusal in criterion three is the ticket's real content.** Without it, D7 only defers the
   problem: the DM eventually refreshes and breaks the table anyway, just later and with less
   warning. Reuse the Kernel — a character is invalid against a Snapshot exactly when

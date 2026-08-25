@@ -25,6 +25,7 @@
  * | `types-are-the-bottom-layer` | the **bottom rung** of "`types → engine → services → stores → components → routes`". The rungs above it *inside* `shared/` are not checked — nothing stops `engine/` importing `shared/services/`; the rungs that cross a root are covered by the boundary rules instead |
  * | `persistence-belongs-to-the-store` | "Persistence belongs to the store action" |
  * | `queries-belong-to-repositories` | "Queries belong to `src/server/repositories/`" |
+ * | `test-harness-stays-in-tests` | nothing — added by DX-06, and it is what pays for `testing/` being allowed through the rule above |
  * | `ui-primitives-are-leaves` | "Base components (`components/ui/`) carry intrinsic styling only" — the import half of it |
  * | `no-circular` | fallow's circular-dependency report, promoted from a review signal to a gate |
  * | `no-dev-dep-in-production` | nothing; a production-install bug this repo had no guard against |
@@ -202,11 +203,16 @@ export default {
       name: 'queries-belong-to-repositories',
       severity: 'error',
       comment:
-        'A server module outside db/ and repositories/ reached the database. A handler calls a ' +
-        'repository; the connection and the query builder stay behind that door. This is the ' +
-        'server-side mirror of persistence-belongs-to-the-store and it is what keeps a schema ' +
-        'change to one directory (DB-01).',
-      from: { path: '^src/server/', pathNot: [FIXTURES, '^src/server/(db|repositories)/'] },
+        'A server module outside db/, repositories/ and testing/ reached the database. A handler ' +
+        'calls a repository; the connection and the query builder stay behind that door. This is ' +
+        'the server-side mirror of persistence-belongs-to-the-store and it is what keeps a schema ' +
+        'change to one directory (DB-01). testing/ is in the list because a harness that seeds ' +
+        'rows is doing repository work by definition (DX-06) — and it is only safe to widen the ' +
+        'door because test-harness-stays-in-tests below locks it from the other side.',
+      from: {
+        path: '^src/server/',
+        pathNot: [FIXTURES, '^src/server/(db|repositories|testing)/'],
+      },
       to: { path: 'node_modules/(drizzle-orm|better-sqlite3)(/|$)|^src/server/db/client' },
     },
     {
@@ -227,6 +233,18 @@ export default {
         path: '^src/client/|^src/shared/services/',
         pathNot: '^src/client/components/ui/',
       },
+    },
+    {
+      name: 'test-harness-stays-in-tests',
+      severity: 'error',
+      comment:
+        'Production code imported the test harness. server/testing/ opens databases, seeds rows ' +
+        'and — through callRoute — hands a handler an account nobody authenticated. It is allowed ' +
+        'to reach the connection directly (see queries-belong-to-repositories) precisely because ' +
+        'nothing that answers a real request can reach *it*. A shipped module importing this is ' +
+        'the one way that trade stops being sound (DX-06).',
+      from: { path: '^src/server/', pathNot: [FIXTURES, TESTS, '^src/server/testing/'] },
+      to: { path: '^src/server/testing/' },
     },
     {
       name: 'no-circular',

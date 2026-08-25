@@ -17,7 +17,7 @@ Run all four even if an earlier step fails, so the report is complete.
 Read [TEST_STATUS.md](../../TEST_STATUS.md) first — it records the current baseline for all four
 steps.
 
-**The test suite is green (1937 passing, 0 failing, 0 skipped) as of TICKET-DX-08.** For tests the
+**The test suite is green (1970 passing, 0 failing, 0 skipped) as of TICKET-DX-06.** For tests the
 bar is absolute: any failure, and any newly-skipped test, is a regression and is the finding. The
 old "no new failures beyond a documented list" bar is retired — do not reinstate it.
 
@@ -33,15 +33,16 @@ Three of the four steps are at zero; typecheck is the only one with a baseline t
   step 4.
 - **Architecture** (TICKET-DX-08): **zero error-level findings**, and zero warnings. `no-orphans`
   reports at *warning* severity and is not a regression — warnings do not fail the build and do not
-  go in the report as findings. **Four** exemptions exist, each with its reason in a comment at its
+  go in the report as findings. **Five** exemptions exist, each with its reason in a comment at its
   line in `.dependency-cruiser.mjs` and tabled in TEST_STATUS.md:
   1. `boundaryFixtures/` as a *source*, on every rule
   2. test and `*.fixtures.ts` files, under `persistence-belongs-to-the-store` and
      `no-dev-dep-in-production`
   3. `client/components/shared/useAppHydration.ts`, under `persistence-belongs-to-the-store`
   4. the generated `routeTree.gen.ts` ↔ `router.tsx` type-only cycle, under `no-circular`
+  5. `server/testing/`, under `queries-belong-to-repositories` (DX-06)
 
-  An error-level finding outside those four is the finding. Quote dependency-cruiser's own message —
+  An error-level finding outside those five is the finding. Quote dependency-cruiser's own message —
   it runs with `--output-type err-long`, so the rule's `comment` names the decision that was
   crossed, and that sentence is the most useful thing you can put in the report.
 
