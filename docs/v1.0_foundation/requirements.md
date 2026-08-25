@@ -40,10 +40,20 @@ This document specifies requirements for a custom DnD experience builder - a Rea
 5. THE Application SHALL allow Users to import configurations from JSON files
 6. THE Application SHALL prevent data loss by validating imported configurations before applying them
 
-> **Decision (2026-07-30):** the Application holds **one** configuration at a time. The plural in
-> this requirement refers to exported JSON files, not to an in-app configuration picker — keeping
-> several rulesets around is done by exporting and re-importing (criteria 4 and 5). See
+> **Decision (2026-07-30), superseded in part (2026-08-25):** the Application holds **one**
+> configuration at a time. The plural in this requirement referred to exported JSON files, not to an
+> in-app configuration picker — keeping several rulesets around was done by exporting and
+> re-importing (criteria 4 and 5). See
 > [overview.md](./overview.md#spec-decisions-answered-2026-07-30).
+>
+> **What changed:**
+> [TICKET-RUL-01](../v3.0_backend/tickets/TICKET-RUL-01-ruleset-records.md) gave an **Account**
+> many named Rulesets on the server (v3 Req 33), so the plural now means what it says — for an
+> Account. **This browser still holds exactly one**, in `dnd_builder_config`, and that half of the
+> decision is deliberately kept rather than left behind: it is what makes local mode identical to
+> v2.0 for a visitor who never signs in
+> ([D6](../v3.0_backend/overview.md#d6--local-mode-stays-sign-in-gates-connected-play-only)).
+> The two homes are shown side by side at `/rulesets` and never merged.
 
 ### Requirement 2: Main Skills Configuration
 

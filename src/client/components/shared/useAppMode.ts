@@ -20,6 +20,10 @@ import { useUIStore } from '../../stores/uiStore';
 export function modeForPath(pathname: string): AppMode | null {
   if (pathname === '/play' || pathname.startsWith('/play/')) return 'play';
   if (pathname === '/config' || pathname.startsWith('/config/')) return 'config';
+  // `/rulesets` is configuration mode's entry point since TICKET-RUL-01, so it belongs to that
+  // mode — including under Requirement 19.6's lock. Picking which ruleset to edit is *reaching*
+  // configuration, and leaving it outside the lock would be a door beside a locked door.
+  if (pathname === '/rulesets' || pathname.startsWith('/rulesets/')) return 'config';
   return null;
 }
 

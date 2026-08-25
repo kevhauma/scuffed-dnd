@@ -80,7 +80,18 @@ as part of the action. That is the equivalent of a repository layer here.
 
 ## Configuration (the ruleset)
 
-One `Configuration` per browser: id, name, version, **`schemaVersion: 9`**, timestamps,
+One `Configuration` per browser — **and many per Account** (TICKET-RUL-01). The browser still holds
+exactly one, in `dnd_builder_config`, and that is what keeps local mode identical to v2.0; an
+Account holds as many rows as it likes in the server's `ruleset` table, each with the same
+`Configuration` as its `data` document (D4). The two homes are shown side by side at `/rulesets` and
+there is no sync between them —
+[`useRulesetManager`](../../../src/client/components/rulesets/useRulesetManager.ts) is where the
+local half and the account half meet without touching. **A new ruleset is seeded identically in both
+homes**, by
+[`createFreshConfiguration`](../../../src/shared/services/freshConfiguration.ts) in the Kernel, which
+both `useConfigStore.initializeConfig` and `POST /api/rulesets` call (v3 Req 33.3).
+
+A `Configuration` is: id, name, version, **`schemaVersion: 9`**, timestamps,
 plus the entity arrays — `stats`, `skills`,
 `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
 `currencyTiers`, the optional `constants` (TICKET-CST-01), `curves` (TICKET-CRV-01),

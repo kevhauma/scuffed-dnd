@@ -1,7 +1,8 @@
 # Test Status
 
-_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-AUTH-04 — persistent sessions**.
-The checkpoints before it were **TICKET-AUTH-03 — authorization guards** at 2203,
+_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-RUL-01 — ruleset records**.
+The checkpoints before it were **TICKET-AUTH-04 — persistent sessions** at 2260,
+**TICKET-AUTH-03 — authorization guards** at 2203,
 **TICKET-AUTH-02 — social sign-in** at 2115,
 **TICKET-AUTH-01 — email/password accounts** at 2040,
 **TICKET-DX-06 — the server test harness** at 1970,
@@ -15,10 +16,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 2260
-- **Passing**: 2260 (100%)
+- **Total tests**: 2313
+- **Passing**: 2313 (100%)
 - **Skipped**: 0
 - **Failing**: 0
+
+Split by project: **`server` across 21 files** (node), **`app` across 117 files** (happy-dom).
 
 ## The suite now runs in two environments
 
@@ -36,6 +39,37 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-RUL-01 — the first owned resource
+
+The **+53 over AUTH-04** is TICKET-RUL-01: 19 in `server/routes/rulesets/rulesets.test.ts` (the four
+routes, each proving its three refusals), 7 in `shared/services/freshConfiguration.test.ts`, 6 in
+`repositories/rulesetRepository.test.ts` for the lifecycle a route drives, 15 across the three new
+`client/components/rulesets/` files, and the rest in `apiRouter.test.ts`, `pipeline.test.ts`,
+`AppShell.test.tsx` and `protectedRoutes.test.ts`.
+
+**The two tests worth reading are the ones that assert against a *function* rather than a literal.**
+`createFreshConfiguration` moved out of `configStore` into the Kernel so the server and the browser
+seed a new ruleset with one implementation (v3 Req 33.3) — and the test for that pins
+`crypto.randomUUID` and the clock, calls the route, then compares the stored document with a second
+call of the function under the same pinning. Stripping the ids out of both sides instead would have
+compared a redacted ruleset against a redacted ruleset and would not have noticed a roll that lost
+its `ladderId`. The other is the delete: after the Owner confirms, the test reads the *game session*
+back and asserts its snapshot still deep-equals the whole Ducklets corpus while `ruleset_id` is now
+null. That is D7 stated as an assertion rather than as a paragraph.
+
+**One existing guard was loosened deliberately, and it is the kind worth flagging.**
+`pipeline.test.ts`'s *"named by exactly two modules under src/server"* was a raw text search for
+`RequestScope`, so two RUL-01 modules **explaining in a comment why they do not widen it** failed
+it. The scan now strips comments first. That is a real weakening of a literal check and the right
+call anyway: the modules do not name the type in code, they cannot inject an account, and a guard
+that punishes a module for documenting the rule teaches people to stop documenting it. A new case
+asserts the stripping is narrow — prose out, an actual `const s: RequestScope` still found.
+
+**Local mode is proven by a request that never happens.** `useRulesetManager.test.ts` stubs `fetch`
+to **throw** rather than counting calls, because a hook that fetched and ignored the answer would
+satisfy a call-count assertion. That is Definition-of-Done rule 5 in one line, and no existing
+`configStore`, `characterStore` or component test had to change for it.
 
 ## TICKET-AUTH-04 — rolling renewal, and two defects a review found
 
@@ -634,6 +668,7 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/server/http/apiRouter.ts` | 15.8 | TICKET-AUTH-02's run | 4 commits, 90 churn, 0.12 density | ▲ **Accelerating** |
 | `src/server/repositories/rulesetRepository.test.ts` | 24.6 | TICKET-AUTH-03's run | 3 commits, 474 churn, 0.25 density | ▲ **Accelerating** |
 | `src/server/repositories/eventRepository.test.ts` | 20.7 | TICKET-AUTH-03's run | 3 commits, 387 churn, 0.21 density | ▲ **Accelerating** |
+| `src/server/http/pipeline.test.ts` | 21.6 | TICKET-RUL-01's run | 3 commits, 240 churn, 0.21 density | ▲ **Accelerating** |
 
 **Both Accelerating rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they
 crossed the three-commit floor and became measurable at all. Recorded under the run that first saw
@@ -664,11 +699,32 @@ them, with the tickets that moved them named here rather than lost:
   brings `/api/rulesets/:id` and with it a matcher, and that is the edit that turns a readable table
   into machinery worth splitting out.
 
-`scripts/build-sheet-import.mjs` (68.2) and `vite.config.ts` (3.3) are above the threshold and
-**stable**, and no ticket in this milestone has touched either. `src/server/http/pipeline.ts` and
-`pipeline.test.ts` came back Accelerating in AUTH-02's run and are **not** given rows: the rule is
-about files a ticket *touched*, and this one did not touch either. `src/server/env.ts` and
-`env.test.ts` are both ▼ Cooling despite AUTH-02 adding five variables to them, which is the table
+  **RUL-01 made that edit, and the prediction half came true.** The score is 20.5 and the file is
+  still Accelerating: four tickets, `PATTERN_ROUTES` beside `ROUTES`, and three helpers
+  (`segments`, `matchesPattern`, `findRoute`) that are machinery rather than table. It was kept
+  here deliberately — the matcher is fifteen lines, has no regular expressions and no wildcards,
+  and splitting it into its own module while it has two entries would be a file per function. **The
+  signal to split is the fifth route table or a matcher that grows a feature** (optional segments,
+  a wildcard, a parameter that has to be handed to the handler). RUL-03's
+  `/api/rulesets/:id/copy` and GAM-01's session routes are the next edits; if either needs more
+  than a literal `:id`, the matcher leaves.
+- **`src/server/http/pipeline.test.ts`** — a new row, and RUL-01 is the first ticket in this
+  milestone to touch it, which is what earns it one at last (AUTH-02's run flagged it while no
+  ticket had). The edit was small and worth recording anyway: the *"named by exactly two modules"*
+  scan was a raw text search, so RUL-01's two modules **explaining in a comment why they do not
+  widen `RequestScope`** tripped it. The scan now strips comments before looking — the discipline
+  `routes/routeGuards.test.ts` already used — and a new case proves the stripping is narrow rather
+  than greedy. A guard that punishes a module for documenting the rule teaches people to stop
+  documenting it. 240 churn over three commits is the file being *reshaped* by DX-06 and AUTH-01
+  rather than by growth; what would make the tag real is a fourth ticket changing how it scans
+  rather than what it scans for.
+
+`scripts/build-sheet-import.mjs` (62.5) and `vite.config.ts` (3.3) are above the threshold and
+**stable**, and no ticket in this milestone has touched either. `src/server/testing/database.ts`,
+`src/client/routeTree.gen.ts` and the four `auth/` surfaces came back Accelerating in RUL-01's run
+and are **not** given rows: the rule is about files a ticket *touched*, and RUL-01 touched none of
+them by hand — `routeTree.gen.ts` is generated and may not be edited at all. `src/server/env.ts` and
+`env.test.ts` are both ─ Stable despite AUTH-02 adding five variables to them, which is the table
 working — the additions are table entries, not new machinery.
 
 **Read the table as partial rather than complete, and for one specific reason.**
@@ -685,9 +741,9 @@ than recalled.
 
 ## Architecture rules: clean, and they cost nothing
 
-`yarn run arch` reports **zero error-level findings** and zero warnings, over 437 modules and 1917
-dependencies. That is the baseline: an error-level finding is yours. `no-orphans` reports at
-*warning* severity by design and does not fail the build.
+`yarn run arch` reports **zero error-level findings** and zero warnings, over 501 modules and 2180
+dependencies (437 / 1917 before TICKET-RUL-01). That is the baseline: an error-level finding is
+yours. `no-orphans` reports at *warning* severity by design and does not fail the build.
 
 **Measured cost of DX-08's nine extra rules: none.** `depcruise src`, three runs each, same tree:
 

@@ -235,10 +235,15 @@ formula with `String.includes` — ask the parser.
 
 ### Routing
 
-TanStack Router, file-based: files in `src/client/routes/` become routes. `/config/*` is Configuration
-mode (dashboard, skills, stats, materials, items, races, currency, focus stat); `/play/*` is Play
-mode (character list, creation wizard, character sheet).
+TanStack Router, file-based: files in `src/client/routes/` become routes. `/rulesets` is where
+Configuration mode starts — the two homes a ruleset can live in, *this browser* and *your account*
+(TICKET-RUL-01); `/config/*` is the eleven configuration sections; `/play/*` is Play mode (character
+list, creation wizard, character sheet).
 **`src/client/routeTree.gen.ts` is generated — never edit it by hand.**
+
+**A route is open unless it is listed.** `components/auth/protectedRoutes.ts` is an explicit
+allow-list and the default is open, because signed out the app is the whole v2.0 product against
+LocalStorage. `/rulesets` is deliberately *not* on that list.
 
 ---
 

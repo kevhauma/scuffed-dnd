@@ -27,9 +27,9 @@
  * **Validates: v3 Req 32.3, 32.4**
  */
 
-import { and, eq } from 'drizzle-orm';
+import { and, count, eq } from 'drizzle-orm';
 import { type Database, getDatabase } from '../db/client';
-import { sessionMember } from '../db/schema';
+import { gameSession, sessionMember } from '../db/schema';
 
 /** Somebody's seat at a table, and the role they hold in it */
 export type SessionMemberRow = typeof sessionMember.$inferSelect;
@@ -58,5 +58,30 @@ export function findSessionMember(
       .from(sessionMember)
       .where(and(eq(sessionMember.sessionId, sessionId), eq(sessionMember.accountId, accountId)))
       .get() ?? null
+  );
+}
+
+/**
+ * How many games are being played from one ruleset (TICKET-RUL-01, v3 Req 33.7)
+ *
+ * The whole of "refuse to delete a Ruleset that a Game_Session was created from". **A count rather
+ * than the rows**, because the route needs a number to put in a sentence — *three sessions were
+ * started from this ruleset* — and nothing about which ones; loading them would be loading three
+ * pinned Snapshots to ask a yes/no question.
+ *
+ * @param rulesetId Which ruleset
+ * @param database The connection; defaults to the process's
+ * @returns How many sessions still point at it
+ */
+export function countSessionsFromRuleset(
+  rulesetId: string,
+  database: Database = getDatabase()
+): number {
+  return (
+    database.db
+      .select({ total: count() })
+      .from(gameSession)
+      .where(eq(gameSession.rulesetId, rulesetId))
+      .get()?.total ?? 0
   );
 }

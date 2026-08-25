@@ -41,6 +41,11 @@ function everyRoute(): string[] {
 /** The local-mode surfaces D6 promises a signed-out visitor, named so a rename is a failure */
 const LOCAL_MODE_ROUTES = [
   '/',
+  // Configuration mode's entry point since TICKET-RUL-01, and **deliberately open**: signed out it
+  // shows the browser's own ruleset and opens it for editing, with no redirect and no sign-in wall
+  // (v3 Req 36.1). A future ticket protecting it would break local mode for every visitor, and
+  // would fail here rather than in somebody's browser.
+  '/rulesets',
   '/config/',
   '/config/skills',
   '/config/stats',

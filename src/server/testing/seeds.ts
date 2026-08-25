@@ -137,10 +137,12 @@ export function seedAccount(id: string = nextId('account')): RequestAccount {
 /**
  * What a seeded ruleset may be told
  *
- * Every option here has a caller. `schemaVersion` and `now` were drafted alongside them and
- * removed: nothing needed either, and an option nothing passes is a promise the fixtures have not
- * been asked to keep. The corpus's own schema version is what a seeded row carries, which is the
- * answer a test would have wanted anyway.
+ * Every option here has a caller. `now` was drafted alongside them and removed: nothing needed it,
+ * and an option nothing passes is a promise the fixtures have not been asked to keep.
+ *
+ * **`schemaVersion` was removed for that reason and came back with TICKET-RUL-01**, which needed a
+ * row this build cannot read in order to prove the server refuses one (v3 Req 33.4). It defaults to
+ * the corpus's own, so nothing that does not care has to say.
  */
 export interface SeedRulesetOptions {
   id?: string;
@@ -148,6 +150,8 @@ export interface SeedRulesetOptions {
   name?: string;
   /** The document as JSON text; defaults to the Ducklets corpus */
   data?: string;
+  /** What the **column** says the document is; defaults to the corpus's own version */
+  schemaVersion?: number;
 }
 
 /** An account or a bare id, as an id */
@@ -174,7 +178,7 @@ export function seedRuleset(database: Database, options: SeedRulesetOptions = {}
       id: options.id ?? nextId('ruleset'),
       ownerAccountId: accountId(options.owner ?? seedAccount()),
       name: options.name ?? 'Ducklets',
-      schemaVersion: corpusSchemaVersion(),
+      schemaVersion: options.schemaVersion ?? corpusSchemaVersion(),
       data: options.data ?? corpus,
       now: SEEDED_AT,
     },
@@ -305,4 +309,17 @@ export function seedCharacter(database: Database, options: SeedCharacterOptions)
 /** Every ruleset row, for a test that counts rather than looks one up */
 export function allRulesets(database: Database): RulesetRow[] {
   return database.db.select().from(ruleset).all();
+}
+
+/**
+ * Every game session row (TICKET-RUL-01)
+ *
+ * The counterpart to {@link allRulesets}, and it exists for one question RUL-01 has to answer with
+ * evidence: after an Owner confirms deleting a ruleset a table was playing from, **is that table
+ * still there?** There is no `findGameSession` in the repository — GAM-01 writes the reads it
+ * needs — so the harness hands the rows over rather than a route-facing function being invented for
+ * a test to call.
+ */
+export function allGameSessions(database: Database): GameSessionRow[] {
+  return database.db.select().from(gameSession).all();
 }

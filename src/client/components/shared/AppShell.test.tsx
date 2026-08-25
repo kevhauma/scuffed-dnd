@@ -56,9 +56,16 @@ describe('modeForPath', () => {
     expect(modeForPath('/')).toBeNull();
   });
 
+  it('should treat the ruleset list as configuration mode (TICKET-RUL-01)', () => {
+    // It is the mode's entry point, so it belongs to the mode — including under Requirement 19.6's
+    // play-mode lock. Leaving it outside would be a door beside a locked door.
+    expect(modeForPath('/rulesets')).toBe('config');
+  });
+
   it('should not mistake a path that merely begins with the same letters', () => {
     expect(modeForPath('/playground')).toBeNull();
     expect(modeForPath('/configuration-notes')).toBeNull();
+    expect(modeForPath('/rulesets-archive')).toBeNull();
   });
 });
 

@@ -5,9 +5,17 @@
  * as `null` and falls through to TanStack Start's SSR handler — one process serving the client
  * bundle, the API and (from LIVE-01) the socket, which is D1's whole point.
  *
- * **Matching is exact, deliberately.** There are no path parameters because no route needs one
- * yet; TICKET-RUL-01 brings `/api/rulesets/:id` and extends this then. A pattern matcher written
- * now would be written against imagined routes.
+ * **Two tables, because there are two kinds of path** (TICKET-RUL-01). Most routes are a literal
+ * string and are looked up in a map. `/api/rulesets/:id` is not, so {@link PATTERN_ROUTES} matches
+ * by segment shape — checked only when the exact table misses, so the common path stays a map
+ * lookup. The matcher is deliberately the smallest thing that works: one parameter per segment,
+ * no optional segments, no regular expressions, no wildcards. A router with features no route uses
+ * is a router nobody can predict.
+ *
+ * **A matched parameter is not handed to the handler**, which reads it back off `context.url`. The
+ * alternative was a `params` channel through `RequestScope`, and `pipeline.test.ts` asserts that
+ * exactly two modules name that type — it is the seam that lets a caller say *who is asking*, and
+ * widening it to carry path segments would trade a real security guard for a convenience.
  *
  * **Validates: v3 Req 47.6**
  */
@@ -15,6 +23,7 @@
 import { AUTH_PREFIX, handleAuthRequest } from '../auth/authRoutes';
 import { authProviders } from '../routes/authProviders';
 import { health } from '../routes/health';
+import { createRuleset, deleteRuleset, listRulesets, renameRuleset } from '../routes/rulesets';
 import { methodNotAllowed, notFound } from './appError';
 import { defineHandler } from './pipeline';
 
@@ -36,10 +45,84 @@ export const ROUTES: Record<string, (request: Request) => Promise<Response>> = {
   // Not `/api/auth/providers`: the whole `/api/auth` subtree is handed to Better Auth above,
   // before this table is consulted, so a path under it would never be reached (TICKET-AUTH-02)
   'GET /api/auth-providers': authProviders,
+  'GET /api/rulesets': listRulesets,
+  'POST /api/rulesets': createRuleset,
 };
 
-/** The paths the table answers, whatever the method */
-const KNOWN_PATHS = new Set(Object.keys(ROUTES).map((key) => key.split(' ')[1]));
+/**
+ * The routes whose path names a resource, keyed `METHOD /path/with/:parameter`
+ *
+ * Separate from {@link ROUTES} rather than mixed into it, so the cost of pattern matching is paid
+ * only by the requests that need it and so the exact table stays a map lookup that cannot surprise
+ * anyone.
+ */
+export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Response>> = {
+  'PATCH /api/rulesets/:id': renameRuleset,
+  'DELETE /api/rulesets/:id': deleteRuleset,
+};
+
+/** The path half of a `METHOD /path` key */
+function patternOf(key: string): string {
+  return key.split(' ')[1] ?? '';
+}
+
+/** A path split into its segments, with the leading empty one dropped */
+function segments(path: string): string[] {
+  return path.split('/').filter((segment) => segment !== '');
+}
+
+/**
+ * Whether a concrete path is what a pattern describes
+ *
+ * A `:name` segment matches exactly one non-empty segment. Everything else is compared literally.
+ *
+ * @param pattern The pattern half of a {@link PATTERN_ROUTES} key
+ * @param pathname The path that arrived
+ * @returns True when the two have the same shape
+ */
+function matchesPattern(pattern: string, pathname: string): boolean {
+  const expected = segments(pattern);
+  const actual = segments(pathname);
+
+  if (expected.length !== actual.length) return false;
+
+  return expected.every((segment, index) => segment.startsWith(':') || segment === actual[index]);
+}
+
+/** The literal paths the exact table answers, whatever the method — built once, not per request */
+const KNOWN_PATHS = new Set(Object.keys(ROUTES).map(patternOf));
+
+/** The patterns the other table answers, likewise */
+const KNOWN_PATTERNS = [...new Set(Object.keys(PATTERN_ROUTES).map(patternOf))];
+
+/** The paths either table answers, whatever the method — patterns matched by shape */
+function pathIsKnown(pathname: string): boolean {
+  return (
+    KNOWN_PATHS.has(pathname) || KNOWN_PATTERNS.some((pattern) => matchesPattern(pattern, pathname))
+  );
+}
+
+/**
+ * The handler for a request, if there is one
+ *
+ * @param method The method to look up as — `HEAD` has already become `GET`
+ * @param pathname The path that arrived
+ * @returns The route, or `undefined` when nothing answers this method at this path
+ */
+function findRoute(
+  method: string,
+  pathname: string
+): ((request: Request) => Promise<Response>) | undefined {
+  const exact = ROUTES[`${method} ${pathname}`];
+  if (exact) return exact;
+
+  const key = Object.keys(PATTERN_ROUTES).find(
+    (candidate) =>
+      candidate.startsWith(`${method} `) && matchesPattern(patternOf(candidate), pathname)
+  );
+
+  return key ? PATTERN_ROUTES[key] : undefined;
+}
 
 /**
  * What a request is looked up as
@@ -68,7 +151,7 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     return handleAuthRequest(request);
   }
 
-  const route = ROUTES[`${lookupMethod(request.method)} ${pathname}`];
+  const route = findRoute(lookupMethod(request.method), pathname);
 
   if (route) {
     const response = await route(request);
@@ -83,7 +166,7 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
   // Neither message repeats the path or the method back: the status carries the meaning, and an
   // unbounded echo of attacker-controlled text into a response body earns nothing.
   return defineHandler(() => {
-    throw KNOWN_PATHS.has(pathname)
+    throw pathIsKnown(pathname)
       ? methodNotAllowed('That method is not allowed on this path.')
       : notFound('No API route matches that path.');
   })(request);

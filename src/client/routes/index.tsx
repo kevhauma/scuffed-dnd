@@ -20,11 +20,14 @@ export const Route = createFileRoute('/')({ component: Home });
 /** What each mode actually does, as the app now stands */
 const MODES = [
   {
-    to: '/config',
+    // `/rulesets` rather than `/config` since TICKET-RUL-01: which ruleset you are about to edit is
+    // the question that comes first, and it is where both homes are visible at once
+    to: '/rulesets',
     heading: 'Configuration Mode',
     lead: 'Design every part of your game system:',
     action: 'Start Configuring',
     points: [
+      'Keep a ruleset in this browser, or several on your account',
       'Define stats — invested, derived from a formula, or a resource pool',
       'Build skills as weighted stats, plus what a Player invests',
       'Tune the numbers once as constants and curves',

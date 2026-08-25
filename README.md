@@ -24,11 +24,12 @@ src/
 │   ├── routes/                   # TanStack Router file-based routes
 │   │   ├── __root.tsx            # Root layout with mode switcher
 │   │   ├── index.tsx             # Landing page
+│   │   ├── rulesets.tsx          # The two homes a ruleset lives in — mode entry point
 │   │   ├── config/               # Configuration mode routes
 │   │   └── play/                 # Play mode routes
 │   ├── stores/                   # Zustand state stores
-│   ├── services/                 # LocalStorage, Blob/File download and upload
-│   ├── components/               # ui/ primitives → config/, play/, shared/
+│   ├── services/                 # LocalStorage, Blob/File download, the /api/* client
+│   ├── components/               # ui/ primitives → config/, play/, rulesets/, auth/, shared/
 │   ├── integration/              # The nothing-mocked suites
 │   ├── router.tsx                # Router creation
 │   ├── routeTree.gen.ts          # Generated — never hand-edit
@@ -66,6 +67,8 @@ yarn build
 ## Features
 
 ### Configuration Mode
+- Keep one ruleset in this browser, or several on your account — the two are shown side by side and
+  never merged
 - Define custom skills with 3-letter codes
 - Create stats with formula-based calculations
 - Build materials with bonuses and tiers

@@ -79,6 +79,33 @@ export interface ValidationResult {
 }
 
 /**
+ * Refuse a document written against a persisted shape this build does not read (TICKET-RUL-01)
+ *
+ * **One gate, so there is one message.** v3 Req 33.4 asks the server to reject a Ruleset whose
+ * `schemaVersion` is not the supported one *with the version stated*, and RUL-01's criterion adds
+ * "reusing the import path's message rather than a new one". A second copy of these four sentences
+ * in `src/server/` would be a second thing to bring forward at the next bump — and the two would
+ * disagree in front of a User who had opened the same file two ways.
+ *
+ * Extracted from {@link importConfiguration} rather than written beside it, so the browser import
+ * and the server write are provably the same refusal.
+ *
+ * @param found What the document claims to be, or `undefined` when it claims nothing
+ * @throws {SchemaVersionError} When it is anything other than `SUPPORTED_SCHEMA_VERSION`
+ */
+export function assertSupportedSchemaVersion(found: unknown): void {
+  if (found === SUPPORTED_SCHEMA_VERSION) return;
+
+  throw new SchemaVersionError(
+    'This file was exported by an older version of the app and cannot be imported. Its ' +
+      'stats, skills and characters have no faithful place in the current model. Keep the ' +
+      'file — nothing here has changed — and rebuild the ruleset, or export it again from a ' +
+      'build that understands it.',
+    found
+  );
+}
+
+/**
  * Serialise a configuration to the JSON text an export file carries
  *
  * The whole of what "exporting" means once the browser is taken out of it: references resolved to
@@ -869,16 +896,7 @@ export function importConfiguration(json: string): Configuration {
   try {
     const data = JSON.parse(json);
 
-    const found = (data as Record<string, unknown> | null)?.schemaVersion;
-    if (found !== SUPPORTED_SCHEMA_VERSION) {
-      throw new SchemaVersionError(
-        'This file was exported by an older version of the app and cannot be imported. Its ' +
-          'stats, skills and characters have no faithful place in the current model. Keep the ' +
-          'file — nothing here has changed — and rebuild the ruleset, or export it again from a ' +
-          'build that understands it.',
-        found
-      );
-    }
+    assertSupportedSchemaVersion((data as Record<string, unknown> | null)?.schemaVersion);
 
     const validation = validateConfigurationShape(data);
 

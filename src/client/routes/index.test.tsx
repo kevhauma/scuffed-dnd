@@ -28,8 +28,10 @@ describe('/', () => {
     render(<Home />);
 
     expect(screen.getByRole('heading', { level: 1, name: 'Custom DnD Builder' })).toBeDefined();
+    // `/rulesets` rather than `/config` since TICKET-RUL-01: configuration mode's entry point is
+    // now *which* ruleset, and both homes are visible there at once (v3 Req 36.8)
     expect(screen.getByRole('link', { name: 'Start Configuring' }).getAttribute('href')).toBe(
-      '/config'
+      '/rulesets'
     );
     expect(screen.getByRole('link', { name: 'Play Now' }).getAttribute('href')).toBe('/play');
   });

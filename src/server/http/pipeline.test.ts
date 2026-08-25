@@ -199,7 +199,7 @@ describe('defineHandler', () => {
       // because rules match module edges and this is about *which* edges exist for one purpose.
       const root = resolve(process.cwd(), 'src/server');
       const askers = serverModules(root)
-        .filter((file) => /\bgetSession\b/.test(readFileSync(file, 'utf8')))
+        .filter((file) => /\bgetSession\b/.test(codeIn(file)))
         .map((file) => relative(root, file).replace(/\\/g, '/'))
         .sort();
 
@@ -214,19 +214,45 @@ describe('defineHandler', () => {
       //
       // If a later ticket needs a third, that is a decision to take deliberately: add it here with
       // the reason. AUTH-01 does *not* need one — it makes the Auth_Session cookie the default
-      // this overrides, inside `defineHandler`, rather than a second caller.
+      // this overrides, inside `defineHandler`, rather than a second caller. TICKET-RUL-01 does not
+      // either, and made the scan read **code rather than prose** to say so: `apiRouter.ts` and
+      // `routes/rulesets/rulesetPayloads.ts` each explain in a comment why they read a path
+      // parameter off the URL instead of widening this seam, and a guard that punished a module for
+      // documenting the rule would teach people to stop documenting it.
       const root = resolve(process.cwd(), 'src/server');
       const allowed = ['http/pipeline.ts', 'testing/callRoute.ts'];
 
       const namers = serverModules(root)
-        .filter((file) => /\bRequestScope\b/.test(readFileSync(file, 'utf8')))
+        .filter((file) => /\bRequestScope\b/.test(codeIn(file)))
         .map((file) => relative(root, file).replace(/\\/g, '/'))
         .sort();
 
       expect(namers).toEqual(allowed);
     });
+
+    it('still catches a module that names it in code rather than in a comment', () => {
+      // The scan above ignores comments, so this proves the ignoring is narrow: strip the prose and
+      // an actual reference is still there to find. Without this, "no third namer" could become
+      // true by the stripper being too greedy rather than by the rule holding.
+      expect(/\bRequestScope\b/.test(stripComments('// mentions RequestScope\nconst a = 1;'))).toBe(
+        false
+      );
+      expect(
+        /\bRequestScope\b/.test(stripComments('/** doc */\nconst s: RequestScope = {};'))
+      ).toBe(true);
+    });
   });
 });
+
+/** A module's source with block and line comments removed */
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+}
+
+/** What a module actually *does*, as text — the same discipline `routes/routeGuards.test.ts` uses */
+function codeIn(file: string): string {
+  return stripComments(readFileSync(file, 'utf8'));
+}
 
 /** Every non-test module under `src/server`, recursively */
 function serverModules(dir: string): string[] {

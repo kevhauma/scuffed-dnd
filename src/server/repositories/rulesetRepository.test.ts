@@ -20,7 +20,15 @@ import { serializeConfiguration } from '#shared/services/importExport';
 import type { Configuration } from '#shared/types/config';
 import type { Database } from '../db/client';
 import { realRulesetJson, withTestDatabase } from '../testing';
-import { findRuleset, insertRuleset, updateRulesetData, WRITE_OUTCOME } from './rulesetRepository';
+import {
+  findRuleset,
+  insertRuleset,
+  listRulesetsByOwner,
+  removeRuleset,
+  updateRulesetData,
+  updateRulesetName,
+  WRITE_OUTCOME,
+} from './rulesetRepository';
 
 /** The real ruleset the sheet produced — 306 KB of it */
 const ducklets = realRulesetJson();
@@ -151,6 +159,72 @@ describe('rulesetRepository', () => {
         const retried = updateRulesetData('r1', 2, '{"second":true}', 3, database);
 
         expect(retried.outcome === WRITE_OUTCOME.WRITTEN && retried.row.revision).toBe(3);
+      }));
+  });
+
+  describe('the lifecycle a route drives (TICKET-RUL-01)', () => {
+    it('lists an owner’s rulesets without their documents, on the real corpus', () =>
+      withTestDatabase((database) => {
+        // The rule the list endpoint rests on, asserted where it is actually enforced: the query
+        // does not select `data`, so a route cannot leak 306 KB per row by forgetting to strip it
+        storeDucklets(database, 'r1', 'a1');
+
+        const [listed] = listRulesetsByOwner('a1', database);
+
+        expect(listed.name).toBe('Ducklets');
+        expect('data' in listed).toBe(false);
+      }));
+
+    it('lists nobody else’s', () =>
+      withTestDatabase((database) => {
+        storeDucklets(database, 'r1', 'a1');
+
+        expect(listRulesetsByOwner('a2', database)).toEqual([]);
+      }));
+
+    it('orders by the most recent edit', () =>
+      withTestDatabase((database) => {
+        storeDucklets(database, 'older', 'a1');
+        storeDucklets(database, 'newer', 'a1');
+        updateRulesetName('newer', 1, 'Renamed', '{}', 1_700_000_100_000, database);
+
+        expect(listRulesetsByOwner('a1', database).map((row) => row.id)).toEqual([
+          'newer',
+          'older',
+        ]);
+      }));
+
+    it('renames the column and stores the document it was handed', () =>
+      withTestDatabase((database) => {
+        storeDucklets(database);
+
+        const result = updateRulesetName('r1', 1, 'Redux', '{"name":"Redux"}', 2, database);
+
+        expect(result.outcome).toBe(WRITE_OUTCOME.WRITTEN);
+        expect(findRuleset('r1', database)?.name).toBe('Redux');
+        expect(findRuleset('r1', database)?.data).toBe('{"name":"Redux"}');
+        // A rename writes `data`, so it is a write and bumps the revision like any other (Req 33.6)
+        expect(findRuleset('r1', database)?.revision).toBe(2);
+      }));
+
+    it('refuses a rename whose base revision is behind', () =>
+      withTestDatabase((database) => {
+        storeDucklets(database);
+        updateRulesetData('r1', 1, '{"someone":"else"}', 2, database);
+
+        // Not a silent overwrite: the rename would have discarded the save it never saw (Req 33.8)
+        expect(updateRulesetName('r1', 1, 'Redux', '{}', 3, database).outcome).toBe(
+          WRITE_OUTCOME.STALE
+        );
+      }));
+
+    it('removes a ruleset, and says so when there was none to remove', () =>
+      withTestDatabase((database) => {
+        storeDucklets(database);
+
+        expect(removeRuleset('r1', database)).toBe(true);
+        expect(findRuleset('r1', database)).toBeNull();
+        expect(removeRuleset('r1', database)).toBe(false);
       }));
   });
 });

@@ -11,40 +11,38 @@
  * `not_found`, or a status outside 200–599, which would throw inside the pipeline's own catch and
  * escape the one thing it promises never happens.
  *
+ * **The codes and the body shape moved to the Kernel in TICKET-RUL-01**, and only they did. A
+ * refusal is a *contract* — the client branches on `code` and renders `message` — so it belongs
+ * where both roots can name it (`#shared/types/api`), and the client's copy of the enum went with
+ * it. What stays here is the behaviour: which status a code is sent with, the error class, and the
+ * factories. Nothing in `client/` learns how a refusal is made.
+ *
  * **Validates: v3 Req 32.5**
  */
 
-/** The machine-readable half of a refusal — a client switches on this, never on the message */
-export const ERROR_CODE = {
-  BAD_REQUEST: 'bad_request',
-  /** Nobody is signed in, on a route that needs somebody to be (TICKET-AUTH-03) */
-  UNAUTHENTICATED: 'unauthenticated',
-  NOT_FOUND: 'not_found',
-  METHOD_NOT_ALLOWED: 'method_not_allowed',
-  INTERNAL: 'internal',
-} as const;
+import { ERROR_CODE, type ErrorBody, type ErrorCode } from '#shared/types/api';
 
-export type ErrorCode = (typeof ERROR_CODE)[keyof typeof ERROR_CODE];
+export { ERROR_CODE };
+export type { ErrorBody, ErrorCode };
 
 /**
  * What each code means on the wire
  *
  * Deliberately short: a code with no producer is a code nobody has decided the meaning of yet.
- * AUTH-03 and RUL-02 add theirs — `conflict` for the `revision` guard in particular — when they
- * have something that throws them.
+ * `conflict` arrived with TICKET-RUL-01, which has two producers for it — a delete a Game_Session
+ * stands in the way of, and a write whose base `revision` is behind. RUL-02 reuses the second.
+ *
+ * **This half is deliberately server-only.** A status is what *this* server chooses to send; the
+ * client already has the status on the response and has no use for the map.
  */
 export const STATUS_FOR_CODE: Record<ErrorCode, number> = {
   [ERROR_CODE.BAD_REQUEST]: 400,
   [ERROR_CODE.UNAUTHENTICATED]: 401,
   [ERROR_CODE.NOT_FOUND]: 404,
   [ERROR_CODE.METHOD_NOT_ALLOWED]: 405,
+  [ERROR_CODE.CONFLICT]: 409,
   [ERROR_CODE.INTERNAL]: 500,
 };
-
-/** The body every refusal has, whichever route produced it */
-export interface ErrorBody {
-  error: { code: ErrorCode; message: string };
-}
 
 /** A refusal a handler chose to make */
 export class AppError extends Error {
@@ -74,6 +72,21 @@ export function badRequest(message: string): AppError {
 /** No route answers this method at this path */
 export function methodNotAllowed(message: string): AppError {
   return new AppError(ERROR_CODE.METHOD_NOT_ALLOWED, message);
+}
+
+/**
+ * The caller may do this, and right now the resource will not let them (TICKET-RUL-01)
+ *
+ * **Distinct from {@link notFound} without weakening it.** Every conflict is thrown *after* a
+ * successful ownership check, so the caller already knows the resource exists — telling them *why*
+ * their write did not land leaks nothing they had not earned, and withholding it would leave them
+ * with a refusal they cannot act on. v3 Req 33.8 is explicit that a refused write is a conflict the
+ * User can resolve, never a silent loss.
+ *
+ * The message is where the resolution goes: what is in the way, and what confirming would do.
+ */
+export function conflict(message: string): AppError {
+  return new AppError(ERROR_CODE.CONFLICT, message);
 }
 
 /**

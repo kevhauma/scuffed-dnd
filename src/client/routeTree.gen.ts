@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SigninRouteImport } from './routes/signin'
+import { Route as RulesetsRouteImport } from './routes/rulesets'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PlayIndexRouteImport } from './routes/play/index'
@@ -37,6 +38,11 @@ const SignupRoute = SignupRouteImport.update({
 const SigninRoute = SigninRouteImport.update({
   id: '/signin',
   path: '/signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RulesetsRoute = RulesetsRouteImport.update({
+  id: '/rulesets',
+  path: '/rulesets',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccountRoute = AccountRouteImport.update({
@@ -128,6 +134,7 @@ const PlayCharacterIdRoute = PlayCharacterIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/rulesets': typeof RulesetsRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/config/archetypes': typeof ConfigArchetypesRoute
@@ -149,6 +156,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/rulesets': typeof RulesetsRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/config/archetypes': typeof ConfigArchetypesRoute
@@ -171,6 +179,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/rulesets': typeof RulesetsRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/config/archetypes': typeof ConfigArchetypesRoute
@@ -194,6 +203,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/account'
+    | '/rulesets'
     | '/signin'
     | '/signup'
     | '/config/archetypes'
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/account'
+    | '/rulesets'
     | '/signin'
     | '/signup'
     | '/config/archetypes'
@@ -236,6 +247,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/account'
+    | '/rulesets'
     | '/signin'
     | '/signup'
     | '/config/archetypes'
@@ -258,6 +270,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
+  RulesetsRoute: typeof RulesetsRoute
   SigninRoute: typeof SigninRoute
   SignupRoute: typeof SignupRoute
   ConfigArchetypesRoute: typeof ConfigArchetypesRoute
@@ -291,6 +304,13 @@ declare module '@tanstack/react-router' {
       path: '/signin'
       fullPath: '/signin'
       preLoaderRoute: typeof SigninRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rulesets': {
+      id: '/rulesets'
+      path: '/rulesets'
+      fullPath: '/rulesets'
+      preLoaderRoute: typeof RulesetsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/account': {
@@ -418,6 +438,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
+  RulesetsRoute: RulesetsRoute,
   SigninRoute: SigninRoute,
   SignupRoute: SignupRoute,
   ConfigArchetypesRoute: ConfigArchetypesRoute,

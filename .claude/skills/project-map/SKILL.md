@@ -23,7 +23,8 @@ and `.dependency-cruiser.mjs` refuses the rest in `yarn run check` and the pre-c
 ones above it in this list, never below:
 
 ```
-shared/types/       pure type definitions, no runtime code
+shared/types/       pure type definitions, no runtime code — including `api.ts`, the HTTP wire
+                    contract (`ERROR_CODE`, `ErrorBody`, `RulesetSummary`) both roots name
 shared/engine/      formula parser/evaluator/validator + the derived-value calculators
 shared/services/    shape validation, import semantics, serialisation — no browser APIs
 client/services/    LocalStorage persistence, Blob/File download and upload
@@ -61,6 +62,7 @@ rather than a read-only config UI).
 | Route | File | State |
 |---|---|---|
 | `/` | `routes/index.tsx` | landing page, feature overview |
+| `/rulesets` | `routes/rulesets.tsx` | `RulesetsPanel` (components/rulesets/) — **Configuration mode's entry point** since TICKET-RUL-01: the two homes a ruleset can live in, *this browser* and *your account*, never merged (v3 Req 36.8). **Deliberately not protected** — signed out it is the local row plus a sign-in prompt (v3 Req 36.1) |
 | `/config` | `routes/config/index.tsx` | `ConfigDashboard` (components/config/dashboard/) — validation status, the "Validate Configuration" action, the `ConfigTransferPanel` (rename/export/import), and a card index of the nine sections below |
 | `/config/skills` | `routes/config/skills.tsx` | `SkillsPanel` alone (main skills merged into stats — TICKET-STAT-01; the speciality panel became the weighted `SkillsPanel` — TICKET-SKL-02; the combat panel moved to `/config/rolls` as roll definitions — TICKET-ROLL-06) |
 | `/config/stats` | `routes/config/stats.tsx` | `StatsConfigPanel` — the unified Stat: invested, resource and derived alike, every field in one editor with drag/arrow reordering (TICKET-STAT-02). The flat point-budget field is gone — TICKET-RES-02 derives it |
@@ -359,6 +361,14 @@ between the roots is exactly *"does this touch a browser API"*.
   table. The `Shape` suffix (CR-21) separates it from `engine/validator.ts`'s
   `validateConfiguration`, which checks *referential integrity of a loaded config*. Complementary,
   both run on an import.
+  `importExport.ts` also exports `assertSupportedSchemaVersion` (TICKET-RUL-01) — the version gate
+  pulled out of `importConfiguration` so the server refuses a stale document with the *same*
+  sentence the Import button produces, rather than a second copy of it.
+- `freshConfiguration.ts` — `createFreshConfiguration(name)` (TICKET-RUL-01). What a brand-new
+  ruleset arrives holding: Concept 05's seed constants, Concept 06's seed curves and Concept 07/08's
+  ladder and four rolls. **Moved here from `configStore` rather than copied**, because v3 Req 33.3
+  asks that a server-created ruleset and a browser-created one be the same ruleset — so
+  `useConfigStore.initializeConfig` and `POST /api/rulesets` call one function.
 - `importExport.fixtures.ts` — `makeValidConfiguration()`, the one ruleset both halves' tests are
   written against.
 
@@ -371,6 +381,11 @@ between the roots is exactly *"does this touch a browser API"*.
   that works on data this build cannot open (TICKET-IO-03) — and the `StorageError` /
   `StorageQuotaError` / `StorageParseError` / `StorageSchemaError` classes.
   See the **data-model** skill.
+- `api.ts` — `apiRequest` / `apiSend` / `ApiError` (TICKET-RUL-01), the client's way of calling
+  `/api/*`. **A relative path with no configurable base**, because the backend is this server (D1).
+  `ApiError.code` is typed against `#shared/types/api`'s `ERROR_CODE`, so a caller branching on a
+  refusal writes `ERROR_CODE.CONFLICT` and a renamed code breaks both roots at once. Better Auth
+  keeps its own client for `/api/auth/*`; local mode never calls this at all.
 - `configFiles.ts` — `exportConfiguration` (Blob), `downloadConfiguration`,
   `downloadStoredBackup` (the raw-bytes backup behind `IncompatibleDataNotice`), and
   `importConfigurationFromFile`. Thin: every one of them calls the shared half for the actual
@@ -400,9 +415,12 @@ each later ticket adds.
   builds a `Response`, picks a status, or catches its own errors. An `AppError` becomes its status
   and code; anything else is a bug, logged server-side and answered with a bare 500.
   `RequestContext.account` is `null` until TICKET-AUTH-03 resolves it.
-- `http/apiRouter.ts` — the route table, keyed `METHOD /path`, and the prefix test that decides
-  whether a request is API traffic at all. Matching is **exact**; TICKET-RUL-01 brings the first
-  path parameter and extends it then.
+- `http/apiRouter.ts` — the route tables, keyed `METHOD /path`, and the prefix test that decides
+  whether a request is API traffic at all. **Two tables since TICKET-RUL-01**: `ROUTES` is exact and
+  is a map lookup; `PATTERN_ROUTES` holds the paths carrying a `:parameter` and is matched by
+  segment shape, only when the exact table misses. A matched parameter is **not** handed to the
+  handler — the handler reads it off `context.url`, because the alternative was widening
+  `RequestScope`, which `pipeline.test.ts` guards as the *who is asking* seam.
 - `routes/health.ts` — `GET /api/health`. The dullest route on purpose: every later one copies it.
   Reports database reachability and the applied migration hash (v3 Req 47.5) by asking
   `db/health.ts` — a route never opens a connection.
@@ -410,6 +428,15 @@ each later ticket adds.
   operator configured, **names only**, so the client knows which buttons it can draw. Public: the
   person who needs the answer is by definition not signed in. Spelled with a hyphen because
   `/api/auth` is delegated to Better Auth *whole*, before the route table is consulted.
+- `routes/rulesets/` (TICKET-RUL-01) — `/api/rulesets`: `listRulesets` (GET, scoped by
+  `requireAccount`, and the payload carries **no `data` document**), `createRuleset` (POST, seeded
+  through the Kernel's `createFreshConfiguration`), `renameRuleset` (PATCH — writes the column *and*
+  the document, so an export cannot carry a stale name) and `deleteRuleset` (DELETE — refused with a
+  409 while a Game_Session was created from it, `?confirm=true` to go ahead, and the session stays
+  playable on its Snapshot). `rulesetPayloads.ts` holds what they share: the wire summary, the name
+  check, the `:id` reader and the schema-version gate. **One module per route on purpose** —
+  `routeGuards.test.ts` scans a *module* for a guard call, so four handlers in one file would let
+  one `requireOwner` stand for all four.
 - `auth/` (TICKET-AUTH-01, TICKET-AUTH-02) — identity, and **only** identity; authorization is
   AUTH-03's and lives outside it. `authServer.ts` configures Better Auth (what is switched off and
   why is in its header); `authRoutes.ts` delegates the `/api/auth` subtree and adds the per-address
@@ -446,7 +473,9 @@ each later ticket adds.
   so the loser of a race updates zero rows) and `eventRepository` (append-only, `seq` unique per
   session by constraint); AUTH-03 added `gameSessionRepository` (membership by session + account)
   and `characterRepository`, both read-only until GAM-01 and CHAR-04. Each later ticket adds its own
-  aggregate.
+  aggregate. **RUL-01 added the four a handler actually calls**: `listRulesetsByOwner` (which does
+  not select `data`), `renameRuleset`, `deleteRuleset`, and `countSessionsFromRuleset` on the
+  session side, which is the whole of Req 33.7's delete guard.
   **Every function takes its connection as a defaulted *last* parameter** — `findRuleset(id)` in
   production, `findRuleset(id, database)` in a test. That is not style: the same rule that keeps
   queries here forbids a handler from importing `db/client`, so a connection-first signature is one
@@ -619,7 +648,19 @@ than into a second redirect.
 rather than in any one component's `.style.ts`, which is what four modules importing the same
 tones actually means.
 
-`components/Header.tsx` sits at the root of `components/`, outside the three folders.
+**`rulesets/`** — the two homes a ruleset can live in, barrelled by `rulesets/index.ts`
+(TICKET-RUL-01). `RulesetsPanel.tsx` is configuration mode's entry point at `/rulesets`;
+`RulesetCard.tsx` is one row, and **the home badge is a prop rather than something inferred from
+which callbacks were passed**, because v3 Req 36.8 asks for it at *all* times and a row with no
+actions is exactly the row local mode is made of. `RulesetFormDialog.tsx` names a ruleset on both
+create and rename — one dialog, one set of name rules — and reuses `config/shared/FormDialogActions`
+across the feature-folder line rather than copying it. `useRulesetManager.ts` holds the decisions:
+the local half from `useConfigStore`, the account half from `services/api.ts`, and **no request at
+all while nobody is signed in** (D6), which its test asserts with `fetch` stubbed to throw. A delete
+the server refused comes back as a confirmation carrying **the server's own sentence**, not a guess
+about what it would say.
+
+`components/Header.tsx` sits at the root of `components/`, outside every feature folder.
 
 ## Docs
 

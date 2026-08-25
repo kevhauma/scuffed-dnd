@@ -28,6 +28,9 @@ import { useAppMode } from './useAppMode';
 
 /** Sections reachable in configuration mode (Requirement 19.4) */
 const CONFIG_NAV = [
+  // First, because it is the mode's entry point since TICKET-RUL-01: which ruleset you are editing
+  // is a question that comes before every section below it
+  { to: '/rulesets', label: 'Rulesets' },
   { to: '/config', label: 'Dashboard' },
   { to: '/config/skills', label: 'Skills' },
   { to: '/config/stats', label: 'Stats' },

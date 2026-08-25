@@ -13,8 +13,19 @@
 
 import { describe, expect, it } from 'vitest';
 import { AUTH_PREFIX } from '../auth/paths';
-import { API_PREFIX, handleApiRequest, ROUTES } from './apiRouter';
+import { withTestDatabase } from '../testing/database';
+import { API_PREFIX, handleApiRequest, PATTERN_ROUTES, ROUTES } from './apiRouter';
 import { ERROR_CODE } from './appError';
+
+/**
+ * Every route key, exact and patterned alike (TICKET-RUL-01)
+ *
+ * The table-shape assertions below are about *every* route, and a second table that they did not
+ * walk would be a second table where a key could hide under the auth subtree or forget the API
+ * prefix. One list, so adding a third table is a compile-visible edit here rather than a silent
+ * gap.
+ */
+const ROUTE_KEYS = [...Object.keys(ROUTES), ...Object.keys(PATTERN_ROUTES)];
 
 function request(path: string, method = 'GET'): Request {
   return new Request(`http://localhost${path}`, { method });
@@ -46,7 +57,9 @@ describe('handleApiRequest', () => {
   });
 
   it('404s an API path that does not exist', async () => {
-    const response = await answer('/api/rulesets');
+    // Was `/api/rulesets` until TICKET-RUL-01 made that a real route — a nice reminder that a
+    // "nothing is here" test has to name a path nothing will ever be at
+    const response = await answer('/api/nowhere');
 
     expect(response.status).toBe(404);
     expect((await response.json()).error.code).toBe(ERROR_CODE.NOT_FOUND);
@@ -77,15 +90,48 @@ describe('handleApiRequest', () => {
   });
 
   it('keeps every route under one prefix, so the fall-through rule is a prefix test', () => {
-    for (const key of Object.keys(ROUTES)) {
+    for (const key of ROUTE_KEYS) {
       expect(key.split(' ')[1]?.startsWith(API_PREFIX), key).toBe(true);
     }
   });
 
   it('spells every route key as METHOD /path', () => {
-    for (const key of Object.keys(ROUTES)) {
+    for (const key of ROUTE_KEYS) {
       expect(key, key).toMatch(/^(GET|POST|PATCH|PUT|DELETE) \/api\/\S*$/);
     }
+  });
+
+  describe('path parameters (TICKET-RUL-01)', () => {
+    // The router's half of `/api/rulesets/:id`. That the guarded handlers behind it refuse an
+    // anonymous caller is proven in `routes/rulesets/rulesets.test.ts`; what these assert is that
+    // the request **reaches** one, which a 401 from the pipeline shows and a 404 from the router
+    // would not.
+    // A real database, because these two reach a handler that looks a ruleset up — the guard
+    // refuses the anonymous caller, but `requireOwner(context, findRuleset(id))` evaluates its
+    // argument first, which is the shape `auth/guards.ts` documents
+    it('reaches a route whose path carries a parameter', () =>
+      withTestDatabase(async () => {
+        expect((await answer('/api/rulesets/abc', 'PATCH')).status).toBe(401);
+        expect((await answer('/api/rulesets/abc', 'DELETE')).status).toBe(401);
+      }));
+
+    it('405s a parameterised path with a verb no route answers', async () => {
+      const response = await answer('/api/rulesets/abc', 'PUT');
+
+      expect(response.status).toBe(405);
+      expect((await response.json()).error.code).toBe(ERROR_CODE.METHOD_NOT_ALLOWED);
+    });
+
+    it('matches segment counts exactly, so a deeper path is not swallowed', async () => {
+      // `:id` is one segment, not "the rest of the path" — RUL-03's `/api/rulesets/:id/copy` has
+      // to be able to arrive as its own route rather than as an id containing a slash
+      expect((await answer('/api/rulesets/abc/copy', 'PATCH')).status).toBe(404);
+    });
+
+    it('does not let a parameter match an empty segment', async () => {
+      // `/api/rulesets/` is the collection with a trailing slash, not a ruleset with no id
+      expect((await answer('/api/rulesets/', 'DELETE')).status).toBe(404);
+    });
   });
 
   it('keeps the auth subtree inside the API prefix (TICKET-AUTH-01)', () => {
@@ -118,7 +164,7 @@ describe('handleApiRequest', () => {
     // bare string prefix, which made `/api/auth-providers` (TICKET-AUTH-02) look like a collision:
     // it shares six characters with `/api/auth` and is not under it. The router matches the path
     // itself or the path plus a separator, and so does this.
-    for (const key of Object.keys(ROUTES)) {
+    for (const key of ROUTE_KEYS) {
       const path = key.split(' ')[1] ?? '';
       expect(path === AUTH_PREFIX || path.startsWith(`${AUTH_PREFIX}/`), key).toBe(false);
     }
