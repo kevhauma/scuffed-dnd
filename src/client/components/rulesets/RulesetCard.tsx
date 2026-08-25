@@ -14,32 +14,28 @@
  */
 
 import type { ReactNode } from 'react';
+// The home a ruleset lives in is a *destination* before it is a label, so the set is declared where
+// the destination is decided (`services/rulesetSync.ts`, TICKET-RUL-02) and this renders it. Two
+// copies of the same two strings is exactly what the const-object rule exists to prevent.
+import { RULESET_HOME, type RulesetHomeKind } from '../../services/rulesetSync';
 import { Button } from '../ui/Button/Button';
 import { Text } from '../ui/Text/Text';
 import { accountHomeBadgeStyles, browserHomeBadgeStyles, rulesetRowStyles } from './rulesets.style';
 
-/** Which home a ruleset lives in — the two are never merged into one undifferentiated list (D6) */
-export const RULESET_HOME = {
-  BROWSER: 'browser',
-  ACCOUNT: 'account',
-} as const;
-
-export type RulesetHome = (typeof RULESET_HOME)[keyof typeof RULESET_HOME];
-
 /** What each home is called, in the words the User reads */
-const HOME_LABEL: Record<RulesetHome, string> = {
+const HOME_LABEL: Record<RulesetHomeKind, string> = {
   [RULESET_HOME.BROWSER]: 'This browser',
   [RULESET_HOME.ACCOUNT]: 'Your account',
 };
 
-const HOME_BADGE: Record<RulesetHome, string> = {
+const HOME_BADGE: Record<RulesetHomeKind, string> = {
   [RULESET_HOME.BROWSER]: browserHomeBadgeStyles,
   [RULESET_HOME.ACCOUNT]: accountHomeBadgeStyles,
 };
 
 export interface RulesetCardProps {
   name: string;
-  home: RulesetHome;
+  home: RulesetHomeKind;
   /**
    * When it was last saved, in epoch milliseconds
    *

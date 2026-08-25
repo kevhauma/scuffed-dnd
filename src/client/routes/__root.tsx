@@ -12,6 +12,7 @@ import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 
 import { AppShell } from '../components/shared/AppShell';
 import { IncompatibleDataNotice } from '../components/shared/IncompatibleDataNotice';
+import { SaveConflictBanner } from '../components/shared/SaveConflictBanner';
 import { StorageFailureBanner } from '../components/shared/StorageFailureBanner';
 import { StorageNotice } from '../components/shared/StorageNotice';
 import { useAppHydration } from '../components/shared/useAppHydration';
@@ -100,6 +101,9 @@ export function RootLayout() {
       {/* Above the routes rather than instead of them (CR-11): a refused *write* leaves everything
           readable and exportable, so the app stays usable while the banner says what stopped */}
       <StorageFailureBanner />
+      {/* Its server-side counterpart (TICKET-RUL-02). Beside rather than merged, because the two
+          say opposite things about where the User's edit now is — see the banner's own header */}
+      <SaveConflictBanner />
       <Outlet />
     </AppShell>
   );

@@ -12,7 +12,7 @@
  * **Validates: v3 Req 36.1, 36.8**
  */
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 const useRulesetManager = vi.fn();
@@ -44,6 +44,8 @@ function signedOut(overrides: Record<string, unknown> = {}) {
     form: { register: () => ({}), formState: { errors: {} } },
     openCreate: vi.fn(),
     openRename: vi.fn(),
+    openAccount: vi.fn(),
+    openLocal: vi.fn(),
     closeDialog: vi.fn(),
     save: vi.fn(),
     remove: vi.fn(),
@@ -56,12 +58,17 @@ function signedOut(overrides: Record<string, unknown> = {}) {
 
 describe('RulesetsPanel', () => {
   it('shows the browser’s ruleset to a signed-out visitor, with a way to open it', () => {
-    useRulesetManager.mockReturnValue(signedOut());
+    const openLocal = vi.fn();
+    useRulesetManager.mockReturnValue(signedOut({ openLocal }));
 
     render(<RulesetsPanel />);
 
     expect(screen.getByText('Ducklets')).toBeTruthy();
-    expect(screen.getByText('Open').getAttribute('href')).toBe('/config');
+    // A button rather than a link since TICKET-RUL-02: opening re-points the config store at this
+    // home, that can fail, and a `<Link>` would navigate anyway — landing the User in Configuration
+    // mode editing the *Account's* ruleset believing it was this browser's
+    fireEvent.click(screen.getByText('Open'));
+    expect(openLocal).toHaveBeenCalledTimes(1);
   });
 
   it('offers a sign-in prompt rather than a wall or an empty state', () => {

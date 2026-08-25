@@ -15,6 +15,8 @@
  * **Validates: v3 Req 32.5, 33.1, 33.8**
  */
 
+import type { Configuration } from './config';
+
 /**
  * The machine-readable half of a refusal — a client switches on this, never on the message
  *
@@ -36,6 +38,24 @@ export type ErrorCode = (typeof ERROR_CODE)[keyof typeof ERROR_CODE];
 /** The body every refusal has, whichever route produced it */
 export interface ErrorBody {
   error: { code: ErrorCode; message: string };
+}
+
+/**
+ * What a refusal may carry beside its sentence (TICKET-RUL-02)
+ *
+ * **Declared here rather than as `Record<string, unknown>` on the server**, which is what it was
+ * until the RUL-02 review pointed out the hole: an open record accepts `currentRev` as happily as
+ * `currentRevision`, so a typo would compile on the server and read as `undefined` on the client.
+ * The whole reason this module exists is that a shape both roots use is checked once.
+ *
+ * Only what a caller has to **act** on belongs here. What a stack trace would say is how this
+ * server is built, and that still never leaves it.
+ */
+export interface ErrorDetails {
+  /** On a `conflict` from a write: what the resource's revision actually is now */
+  currentRevision?: number;
+  /** On a `bad_request` from shape validation: what failed, in the validator's own words */
+  fields?: string[];
 }
 
 /**
@@ -63,3 +83,54 @@ export interface RulesetSummary {
 export interface RulesetListing {
   rulesets: RulesetSummary[];
 }
+
+/**
+ * One ruleset **with** its document (TICKET-RUL-02)
+ *
+ * What `GET /api/rulesets/:id` answers and what `PUT` gives back. Deliberately a different type
+ * from {@link RulesetSummary} rather than a summary with an optional field: a listing that could
+ * carry a document is a listing somebody will eventually render from and then edit, and the whole
+ * point of the split is that they cannot.
+ *
+ * `configuration` is in **display** form — every formula spelled with the entity's current name,
+ * exactly as `importConfiguration` hands one back. The server stores the id-resolved form
+ * (TICKET-REF-01) and translates at this boundary, which is the same thing `storage.ts` and the
+ * export path do.
+ */
+export interface RulesetDocument extends RulesetSummary {
+  /**
+   * The ruleset itself, typed
+   *
+   * Unlike {@link RulesetSaveRequest.configuration}, which is whatever a client sent and is
+   * `unknown` until it has been validated. This one the **server** just produced from a document it
+   * had already gated, so typing it is not a claim about untrusted input — and leaving it `unknown`
+   * only moved an unchecked `as Configuration` into the config store, where a wrong response would
+   * land in every panel.
+   */
+  configuration: Configuration;
+}
+
+/**
+ * What a client sends to save a ruleset (v3 Req 33.6)
+ *
+ * **`revision` is what the caller believed it was**, not what they want it to become — the server
+ * increments. A write whose base revision is behind is refused with a `conflict` rather than
+ * merged, and the User meets a question rather than a disappearance (v3 Req 33.8).
+ *
+ * Nothing derived crosses the wire: a `Configuration` is entirely authored data. Stat values,
+ * levels, point budgets and roll results are re-derived server-side from it and are refused as
+ * input everywhere they appear (the milestone's third Definition-of-Done rule).
+ */
+export interface RulesetSaveRequest {
+  revision: number;
+  configuration: unknown;
+}
+
+/**
+ * What a refused save says beyond its message (v3 Req 33.8)
+ *
+ * Two shapes rather than a free-text message, because the client has to *act*: a conflict needs the
+ * revision it is behind so a reload can be offered, and a shape failure needs the fields so the
+ * User can be told which part of their ruleset the server could not read.
+ */
+export type RulesetSaveRefusal = ErrorBody & ErrorDetails;

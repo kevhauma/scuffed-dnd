@@ -1,7 +1,8 @@
 # Test Status
 
-_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-RUL-01 — ruleset records**.
-The checkpoints before it were **TICKET-AUTH-04 — persistent sessions** at 2260,
+_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-RUL-02 — server-backed ruleset
+editing**. The checkpoints before it were **TICKET-RUL-01 — ruleset records** at 2313,
+**TICKET-AUTH-04 — persistent sessions** at 2260,
 **TICKET-AUTH-03 — authorization guards** at 2203,
 **TICKET-AUTH-02 — social sign-in** at 2115,
 **TICKET-AUTH-01 — email/password accounts** at 2040,
@@ -16,12 +17,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 2313
-- **Passing**: 2313 (100%)
+- **Total tests**: 2353
+- **Passing**: 2353 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split by project: **`server` across 21 files** (node), **`app` across 117 files** (happy-dom).
+Split across **142 files**: `server` in node, everything else in happy-dom.
 
 ## The suite now runs in two environments
 
@@ -39,6 +40,47 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-RUL-02 — a second destination, and the branch that is not in the store
+
+The **+40 over RUL-01** is TICKET-RUL-02: 12 in `server/routes/rulesets/rulesetEditing.test.ts`,
+10 in `client/services/rulesetSync.test.ts`, 14 in `client/stores/configStore.homes.test.ts`, and 4
+in `SaveConflictBanner.test.tsx`.
+
+**Eight of those came from the review rather than from the plan**, and they are the interesting
+ones: `conventions-reviewer` found four defects the original tests had not, two of them races the
+suite could not have caught by accident. The worst was a **data-loss path** — with an account
+ruleset open, *Import Configuration* sent the imported document out as a `PUT` over the Account's
+ruleset — and the second worst was `rulesetSync` **manufacturing its own conflicts** by capturing
+the base revision when an edit was scheduled rather than when it was sent. Each fix landed with the
+test that reproduces it; the ticket lists all four.
+
+**`configStore.test.ts` was not touched, and that is the result rather than an omission.** The
+milestone's fifth Definition-of-Done rule says a ticket that has to edit local mode's tests to make
+server mode fit has probably put the branch in the wrong place. The branch went into
+`services/rulesetSync.ts`, the store gained one field, and every one of the existing store tests
+passed unchanged.
+
+**Two tests are about a request that must not happen.** `fetch` is stubbed to **throw**, not
+counted, in both the service and the store suites — a path that fetched and ignored the answer
+satisfies a call-count assertion and has still broken D6. The auth half of the same promise (v3 Req
+36.2, *signing in shall not alter the LocalStorage keys*) is a claim about code that does not exist,
+so it is checked by a source scan over every `components/auth/` module plus `/signin` and `/signup`,
+with a floor assertion so the scan cannot pass by looking at nothing.
+
+**One test was written wrong first and is worth recording.** The round-trip case initially asserted
+that the *server* would re-spell a formula in a document whose stat had been renamed but whose
+formula still named the old abbreviation. It does not, and should not: resolving-to-ids, renaming,
+and spelling back out is the client's translation (`applyRenameSafely`), and the server's obligation
+is only to round-trip losslessly. The test now saves, reads back, renames through the same Kernel
+pair, saves again, and asserts `max(1, round(ZIP / const.apt_value))` — which is the property that
+would actually break if the server stored display form.
+
+**A hazard the ticket did not name got a test anyway**: two overlapping `PUT`s for one ruleset would
+race the revision guard against *each other*, and the loser's conflict would be the client's own
+doing rather than a second Owner's — a conflict the User cannot act on, because nobody else did
+anything. `rulesetSync` keeps one write in flight per ruleset and *"never has two writes in flight
+for one ruleset at once"* holds it there.
 
 ## TICKET-RUL-01 — the first owned resource
 
@@ -665,10 +707,11 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `architecture/boundaries.test.ts` | 24.6 | TICKET-AUTH-01's run | 3 commits, 310 churn, 0.18 density | ▲ **Accelerating** |
 | `vitest.setup.ts` | 8.2 | TICKET-AUTH-01's run | 3 commits, 35 churn, 0.08 density | ▲ **Accelerating** |
 | `src/server/http/apiRouter.test.ts` | 23.9 | TICKET-AUTH-01's run | 4 commits, 134 churn, 0.16 density | ─ Stable |
-| `src/server/http/apiRouter.ts` | 15.8 | TICKET-AUTH-02's run | 4 commits, 90 churn, 0.12 density | ▲ **Accelerating** |
-| `src/server/repositories/rulesetRepository.test.ts` | 24.6 | TICKET-AUTH-03's run | 3 commits, 474 churn, 0.25 density | ▲ **Accelerating** |
+| `src/server/http/apiRouter.ts` | 23.9 | TICKET-AUTH-02's run | 5 commits, 187 churn, 0.14 density | ▲ **Accelerating** |
+| `src/server/repositories/rulesetRepository.test.ts` | 32.9 | TICKET-AUTH-03's run | 4 commits, 550 churn, 0.24 density | ▲ **Accelerating** |
 | `src/server/repositories/eventRepository.test.ts` | 20.7 | TICKET-AUTH-03's run | 3 commits, 387 churn, 0.21 density | ▲ **Accelerating** |
-| `src/server/http/pipeline.test.ts` | 21.6 | TICKET-RUL-01's run | 3 commits, 240 churn, 0.21 density | ▲ **Accelerating** |
+| `src/server/http/pipeline.test.ts` | 28.8 | TICKET-RUL-01's run | 4 commits, 272 churn, 0.21 density | ▲ **Accelerating** |
+| `src/server/http/apiRouter.test.ts` | 30.8 | TICKET-RUL-02's run | 6 commits, 226 churn, 0.15 density | ▲ **Accelerating** (was Stable) |
 
 **Both Accelerating rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they
 crossed the three-commit floor and became measurable at all. Recorded under the run that first saw
@@ -708,6 +751,18 @@ them, with the tickets that moved them named here rather than lost:
   a wildcard, a parameter that has to be handed to the handler). RUL-03's
   `/api/rulesets/:id/copy` and GAM-01's session routes are the next edits; if either needs more
   than a literal `:id`, the matcher leaves.
+
+  **RUL-02 added two more routes and changed no machinery**, which is the reassuring version of this
+  row: `PATTERN_ROUTES` went from two entries to four and the matcher was untouched. The score rose
+  to 23.9 on churn alone, and the prediction above stands unchanged.
+- **`src/server/http/apiRouter.test.ts`** — Stable at 23.9 in AUTH-01's run, Accelerating at 30.8
+  now, moved by RUL-01 and RUL-02 in consecutive tickets. Both edits had the same shape and are
+  worth noticing together: each new route made a *previously unanswerable* request answerable, and
+  each broke a test that had picked that very request as its example of "nothing is here". RUL-01
+  retired `/api/rulesets` as the 404 example; RUL-02 retired `PUT` as the 405 example. **A test that
+  names a path or a verb nothing answers has a shelf life**, and the next ticket adding a route
+  should expect to rename one. That is a property of what the file asserts rather than a defect in
+  how it is written.
 - **`src/server/http/pipeline.test.ts`** — a new row, and RUL-01 is the first ticket in this
   milestone to touch it, which is what earns it one at last (AUTH-02's run flagged it while no
   ticket had). The edit was small and worth recording anyway: the *"named by exactly two modules"*
@@ -741,7 +796,7 @@ than recalled.
 
 ## Architecture rules: clean, and they cost nothing
 
-`yarn run arch` reports **zero error-level findings** and zero warnings, over 501 modules and 2180
+`yarn run arch` reports **zero error-level findings** and zero warnings, over 511 modules and 2256
 dependencies (437 / 1917 before TICKET-RUL-01). That is the baseline: an error-level finding is
 yours. `no-orphans` reports at *warning* severity by design and does not fail the build.
 

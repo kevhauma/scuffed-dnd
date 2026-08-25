@@ -20,10 +20,10 @@
  * **Validates: v3 Req 32.5**
  */
 
-import { ERROR_CODE, type ErrorBody, type ErrorCode } from '#shared/types/api';
+import { ERROR_CODE, type ErrorBody, type ErrorCode, type ErrorDetails } from '#shared/types/api';
 
 export { ERROR_CODE };
-export type { ErrorBody, ErrorCode };
+export type { ErrorBody, ErrorCode, ErrorDetails };
 
 /**
  * What each code means on the wire
@@ -51,7 +51,14 @@ export class AppError extends Error {
 
   constructor(
     public readonly code: ErrorCode,
-    message: string
+    message: string,
+    /**
+     * Extra the client needs in order to act; merged into the wire body beside `error`
+     *
+     * Typed against the **shared** `ErrorDetails` rather than an open record, so a misspelled key
+     * is a compile error on this side instead of an `undefined` on the other.
+     */
+    public readonly details: ErrorDetails = {}
   ) {
     super(message);
     this.name = 'AppError';
@@ -59,14 +66,14 @@ export class AppError extends Error {
   }
 
   /** The wire form — the only shape a client ever parses */
-  toBody(): ErrorBody {
-    return { error: { code: this.code, message: this.message } };
+  toBody(): ErrorBody & ErrorDetails {
+    return { ...this.details, error: { code: this.code, message: this.message } };
   }
 }
 
 /** The request body was unreadable or did not say what it must */
-export function badRequest(message: string): AppError {
-  return new AppError(ERROR_CODE.BAD_REQUEST, message);
+export function badRequest(message: string, details?: ErrorDetails): AppError {
+  return new AppError(ERROR_CODE.BAD_REQUEST, message, details);
 }
 
 /** No route answers this method at this path */
@@ -85,8 +92,8 @@ export function methodNotAllowed(message: string): AppError {
  *
  * The message is where the resolution goes: what is in the way, and what confirming would do.
  */
-export function conflict(message: string): AppError {
-  return new AppError(ERROR_CODE.CONFLICT, message);
+export function conflict(message: string, details?: ErrorDetails): AppError {
+  return new AppError(ERROR_CODE.CONFLICT, message, details);
 }
 
 /**

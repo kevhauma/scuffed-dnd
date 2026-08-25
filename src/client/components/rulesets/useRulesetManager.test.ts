@@ -38,7 +38,7 @@ function jsonResponse(status: number, body: unknown): Response {
 
 beforeEach(() => {
   useAuth.mockReturnValue({ email: null, isPending: false, isSignedIn: false });
-  useConfigStore.setState({ config: null, isLoaded: true });
+  useConfigStore.setState({ config: null, localSummary: null, isLoaded: true });
   vi.unstubAllGlobals();
 });
 
@@ -64,8 +64,10 @@ describe('useRulesetManager', () => {
     // A ruleset written before the field existed, or one somebody hand-edited. `Date.parse` gives
     // NaN, `toLocaleString` renders that as "Invalid Date", and neither is worth a second failure
     // mode on a list — so the row draws with the epoch instead.
+    // `localSummary`, not `config`: since TICKET-RUL-02 `config` holds whichever ruleset is open,
+    // and the local row must keep saying what *this browser* holds even while that is the account's
     useConfigStore.setState({
-      config: { name: 'Ducklets', updatedAt: 'not a date' } as never,
+      localSummary: { name: 'Ducklets', updatedAt: 'not a date' },
       isLoaded: true,
     });
     vi.stubGlobal('fetch', vi.fn());
@@ -77,7 +79,7 @@ describe('useRulesetManager', () => {
 
   it('reports the browser’s ruleset whether or not anybody is signed in', () => {
     useConfigStore.setState({
-      config: { name: 'Ducklets', updatedAt: '2026-08-01T10:00:00.000Z' } as never,
+      localSummary: { name: 'Ducklets', updatedAt: '2026-08-01T10:00:00.000Z' },
       isLoaded: true,
     });
     vi.stubGlobal('fetch', vi.fn());

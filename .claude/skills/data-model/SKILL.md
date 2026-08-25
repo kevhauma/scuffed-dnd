@@ -78,6 +78,15 @@ All access goes through [src/client/services/storage.ts](../../../src/client/ser
 and never call the storage service directly either** — they go through the store, which persists
 as part of the action. That is the equivalent of a repository layer here.
 
+**Since TICKET-RUL-02 the store has a second destination, and the rule above is unchanged.**
+`useConfigStore.source` says which home the open ruleset lives in, and
+[`services/rulesetSync.ts`](../../../src/client/services/rulesetSync.ts) is the only module that
+decides where a save goes: the browser home writes `saveConfiguration` exactly as before (a
+synchronous write whose throw the action still catches and rolls back), and the account home sends a
+debounced `PUT` guarded by `revision`. A server refusal does **not** roll the edit back — it becomes
+`useUIStore.saveConflict` with the edit still on screen, because a conflict means somebody else's
+change also exists rather than that this one cannot be kept (v3 Req 33.8).
+
 ## Configuration (the ruleset)
 
 One `Configuration` per browser — **and many per Account** (TICKET-RUL-01). The browser still holds

@@ -59,6 +59,46 @@ interface StorageFailure {
 }
 
 /**
+ * Which of the server's two ruleset failures happened (TICKET-RUL-02)
+ *
+ * They share a banner because they share a shape — a sentence from the server and nothing the app
+ * can do about it — but **not a heading**, and the heading is the part that has to be true. *This
+ * change was not saved* is a lie about a ruleset that could not be opened, where no change was
+ * being saved at all.
+ */
+export const RULESET_ALERT = {
+  /** A `PUT` the server refused: somebody else wrote, or the document was unreadable */
+  SAVE_REFUSED: 'save-refused',
+  /** A ruleset that could not be read; whatever was open is still open and untouched */
+  LOAD_FAILED: 'load-failed',
+} as const;
+
+export type RulesetAlertKind = (typeof RULESET_ALERT)[keyof typeof RULESET_ALERT];
+
+/**
+ * Something the server refused about a ruleset (TICKET-RUL-02)
+ *
+ * Deliberately separate from {@link StorageFailure}, which it superficially resembles. The
+ * difference is what the User should do: a full LocalStorage means the change *could not be kept*
+ * and was rolled back, while a refused server save means the change is still in front of them and
+ * something else needs deciding. v3 Req 33.8 asks for a conflict the User can resolve and never a
+ * silent loss, and a shared banner would have to hedge on which of those it was.
+ *
+ * The message is **the server's own**: it knows which revision is ahead and which fields it
+ * refused, and a sentence written here would be a staler second account of the same refusal.
+ *
+ * Module-local, like {@link StorageFailure} beside it and for the reason its header gives: the
+ * banner reads it off the store and TypeScript infers, so exporting it would be supported API
+ * nothing consumes (the CR-39 rule).
+ */
+interface RulesetAlert {
+  kind: RulesetAlertKind;
+  message: string;
+  /** What a shape check refused, in the validator's own words; absent otherwise */
+  fields?: string[];
+}
+
+/**
  * UI store state
  */
 interface UIState {
@@ -90,6 +130,18 @@ interface UIState {
   reportStorageFailure: (error: unknown) => void;
   /** The User acknowledging the banner; the next failed write brings it straight back */
   dismissStorageFailure: () => void;
+
+  /**
+   * Something the server refused about a ruleset, or `null` (TICKET-RUL-02, v3 Req 33.8)
+   *
+   * One at a time, for the same reason `storageFailure` is: a stale revision refuses every save
+   * the same way until it is resolved, and a stack of identical banners says nothing extra. A save
+   * that *lands* clears it, which is where this differs from `storageFailure` — a successful save
+   * is the resolution, while a successful write says nothing about a disk that was full.
+   */
+  rulesetAlert: RulesetAlert | null;
+  reportRulesetAlert: (alert: RulesetAlert) => void;
+  dismissRulesetAlert: () => void;
 
   // Roll history
   rollHistory: RollResult[];
@@ -190,6 +242,17 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   dismissStorageFailure: () => {
     set({ storageFailure: null });
+  },
+
+  // What the server refused about a ruleset
+  rulesetAlert: null,
+
+  reportRulesetAlert: (alert: RulesetAlert) => {
+    set({ rulesetAlert: alert });
+  },
+
+  dismissRulesetAlert: () => {
+    set({ rulesetAlert: null });
   },
 
   // Roll history

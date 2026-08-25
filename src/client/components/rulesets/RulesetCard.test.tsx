@@ -12,7 +12,8 @@
 
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { RULESET_HOME, RulesetCard } from './RulesetCard';
+import { RULESET_HOME } from '../../services/rulesetSync';
+import { RulesetCard } from './RulesetCard';
 
 describe('RulesetCard', () => {
   it('states its home whichever one it is', () => {

@@ -25,6 +25,7 @@
  * **Validates: v3 Req 33.1, 33.2, 36.1, 36.8**
  */
 
+import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { type UseFormReturn, useForm } from 'react-hook-form';
 import type { RulesetSummary } from '#shared/types/api';
@@ -75,6 +76,11 @@ export interface RulesetManager {
   pendingDelete: PendingDelete | null;
   confirmDelete: () => void;
   cancelDelete: () => void;
+
+  /** Load an account ruleset into the config store, then go and edit it (TICKET-RUL-02) */
+  openAccount: (ruleset: RulesetSummary) => void;
+  /** Point the config store back at the browser's own ruleset before editing it */
+  openLocal: () => void;
 }
 
 /**
@@ -85,21 +91,27 @@ export interface RulesetManager {
  * rather than throwing, so it falls back to the epoch's `0` and reads as an old date. Either way
  * the row draws; neither is worth a second failure mode on a list.
  */
-function toLocalRuleset(config: { name: string; updatedAt: string } | null): LocalRuleset | null {
-  if (!config) return null;
+function toLocalRuleset(summary: { name: string; updatedAt: string } | null): LocalRuleset | null {
+  if (!summary) return null;
 
-  const parsed = Date.parse(config.updatedAt);
+  const parsed = Date.parse(summary.updatedAt);
 
-  return { name: config.name, updatedAt: Number.isNaN(parsed) ? 0 : parsed };
+  return { name: summary.name, updatedAt: Number.isNaN(parsed) ? 0 : parsed };
 }
 
 export function useRulesetManager(): RulesetManager {
+  const navigate = useNavigate();
   const { isSignedIn, isPending: isAuthPending } = useAuth();
   const account = useAccountRulesets(isSignedIn);
 
-  const config = useConfigStore((state) => state.config);
+  // **`localSummary`, not `config`.** `config` holds whichever ruleset is open, which is the
+  // *account's* whenever one is; reading it here would put the account's name under a heading
+  // saying "This browser". The store keeps the local summary alongside for exactly this row.
+  const localSummary = useConfigStore((state) => state.localSummary);
   const isLocalLoaded = useConfigStore((state) => state.isLoaded);
   const initializeConfig = useConfigStore((state) => state.initializeConfig);
+  const openAccountRuleset = useConfigStore((state) => state.openAccountRuleset);
+  const openLocalRuleset = useConfigStore((state) => state.openLocalRuleset);
 
   const [renaming, setRenaming] = useState<RulesetSummary | null>(null);
   const [isDialogOpen, setDialogOpen] = useState(false);
@@ -129,7 +141,7 @@ export function useRulesetManager(): RulesetManager {
   });
 
   return {
-    localRuleset: toLocalRuleset(config),
+    localRuleset: toLocalRuleset(localSummary),
     isLocalLoaded,
     createLocalRuleset: () => initializeConfig(DEFAULT_LOCAL_NAME),
 
@@ -150,5 +162,20 @@ export function useRulesetManager(): RulesetManager {
     pendingDelete: account.pendingDelete,
     confirmDelete: account.confirmDelete,
     cancelDelete: account.cancelDelete,
+
+    // The navigation waits for the load: opening the panels before the document lands would put
+    // Configuration mode in front of whichever ruleset happened to be open a moment ago, and a
+    // failed load leaves the User where they are, with the reason on screen
+    openAccount: (ruleset: RulesetSummary) => {
+      void openAccountRuleset(ruleset.id).then((opened) => {
+        if (opened) void navigate({ to: '/config' });
+      });
+    },
+    // Same rule for the local home: navigate only if the store really opened it. Reading
+    // LocalStorage can fail, and Configuration mode reached after a failed open would be showing
+    // whatever was open before — which is the *Account's* ruleset if one was
+    openLocal: () => {
+      if (openLocalRuleset()) void navigate({ to: '/config' });
+    },
   };
 }

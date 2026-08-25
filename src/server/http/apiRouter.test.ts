@@ -111,12 +111,15 @@ describe('handleApiRequest', () => {
     // argument first, which is the shape `auth/guards.ts` documents
     it('reaches a route whose path carries a parameter', () =>
       withTestDatabase(async () => {
-        expect((await answer('/api/rulesets/abc', 'PATCH')).status).toBe(401);
-        expect((await answer('/api/rulesets/abc', 'DELETE')).status).toBe(401);
+        for (const method of ['GET', 'PUT', 'PATCH', 'DELETE']) {
+          expect((await answer('/api/rulesets/abc', method)).status, method).toBe(401);
+        }
       }));
 
     it('405s a parameterised path with a verb no route answers', async () => {
-      const response = await answer('/api/rulesets/abc', 'PUT');
+      // `POST` rather than `PUT`: TICKET-RUL-02 made `PUT` a real route, which is a nice reminder
+      // that a "nothing answers this" test has to name a verb nothing will answer
+      const response = await answer('/api/rulesets/abc', 'POST');
 
       expect(response.status).toBe(405);
       expect((await response.json()).error.code).toBe(ERROR_CODE.METHOD_NOT_ALLOWED);

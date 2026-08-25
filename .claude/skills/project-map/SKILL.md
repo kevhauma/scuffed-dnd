@@ -116,14 +116,23 @@ Two things to know about route files here:
 ## Stores (`src/client/stores/`)
 
 Three plain Zustand stores, each with a colocated `*.test.ts`. They are the only place that
-calls the storage service; components and hooks never persist directly.
+persists; components and hooks never persist directly.
+
+**Since TICKET-RUL-02 `useConfigStore` has two destinations**, and the branch is *not* in the store:
+`source` says which home the open ruleset lives in and `services/rulesetSync.ts` decides where a
+save goes. Every CRUD action kept its signature and still calls one `autoSave`. The local path is
+byte-for-byte v2.0's; the account path is a debounced `PUT` guarded by `revision`, and a refusal
+becomes `useUIStore.saveConflict` **without rolling the edit back** — the opposite of the
+LocalStorage path, deliberately, because there the change cannot be kept and here somebody else's
+change also exists (v3 Req 33.8).
 
 | Store | Owns | Persists to |
 |---|---|---|
 | `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), skills, roll definitions, dice ladders, materials + categories, items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
 | `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience`, and `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02). `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
-| `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history | not persisted |
+| `useConfigStore` (cont.) | `source` + `openAccountRuleset(id)` / `openLocalRuleset()` (TICKET-RUL-02) — which home is open, and the two ways to change it. Opening one home reads nothing from the other | via `services/rulesetSync.ts` |
+| `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history, `storageFailure` and `saveConflict` (TICKET-RUL-02 — a *server* refusal, with the edit still on screen) | not persisted |
 
 Read the store's own type block (`ConfigState`, `CharacterState`, `UIState`) for the exact action
 list — it changes more often than this table.
@@ -384,8 +393,15 @@ between the roots is exactly *"does this touch a browser API"*.
 - `api.ts` — `apiRequest` / `apiSend` / `ApiError` (TICKET-RUL-01), the client's way of calling
   `/api/*`. **A relative path with no configurable base**, because the backend is this server (D1).
   `ApiError.code` is typed against `#shared/types/api`'s `ERROR_CODE`, so a caller branching on a
-  refusal writes `ERROR_CODE.CONFLICT` and a renamed code breaks both roots at once. Better Auth
-  keeps its own client for `/api/auth/*`; local mode never calls this at all.
+  refusal writes `ERROR_CODE.CONFLICT` and a renamed code breaks both roots at once; `ApiError.body`
+  carries the details a route attached (a conflict's `currentRevision`, a shape refusal's `fields`).
+  Better Auth keeps its own client for `/api/auth/*`; local mode never calls this at all.
+- `rulesetSync.ts` — **the one place a ruleset edit's destination is decided** (TICKET-RUL-02).
+  `persistRuleset(source, config)`: the browser home writes LocalStorage synchronously, exactly as
+  v2.0 did down to letting `storage.ts`'s throw out; the account home debounces (800 ms), coalesces
+  a burst into one `PUT` carrying the last state, and keeps at most one write in flight per ruleset.
+  It also owns `RULESET_HOME` and `RulesetSource` — which home is open is a *destination* before it
+  is a badge, so the set is declared here and `RulesetCard` renders it.
 - `configFiles.ts` — `exportConfiguration` (Blob), `downloadConfiguration`,
   `downloadStoredBackup` (the raw-bytes backup behind `IncompatibleDataNotice`), and
   `importConfigurationFromFile`. Thin: every one of them calls the shared half for the actual

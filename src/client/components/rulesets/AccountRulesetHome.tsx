@@ -12,10 +12,11 @@
 
 import { Link } from '@tanstack/react-router';
 import type { RulesetSummary } from '#shared/types/api';
+import { RULESET_HOME } from '../../services/rulesetSync';
 import { Button } from '../ui/Button/Button';
 import { Card } from '../ui/Card/Card';
 import { Text } from '../ui/Text/Text';
-import { RULESET_HOME, RulesetCard } from './RulesetCard';
+import { RulesetCard } from './RulesetCard';
 import { homeSectionStyles, openLinkStyles } from './rulesets.style';
 
 export interface AccountRulesetHomeProps {
@@ -26,6 +27,8 @@ export interface AccountRulesetHomeProps {
   onCreate: () => void;
   onRename: (ruleset: RulesetSummary) => void;
   onDelete: (ruleset: RulesetSummary) => void;
+  /** Load it into the config store and go to Configuration mode (TICKET-RUL-02) */
+  onOpen: (ruleset: RulesetSummary) => void;
 }
 
 /** What fills the section, given which of the four states it is in */
@@ -35,6 +38,7 @@ function Body({
   rulesets,
   onRename,
   onDelete,
+  onOpen,
 }: Omit<AccountRulesetHomeProps, 'onCreate'>) {
   if (!isSignedIn) {
     return (
@@ -74,6 +78,13 @@ function Body({
           name={ruleset.name}
           home={RULESET_HOME.ACCOUNT}
           updatedAt={ruleset.updatedAt}
+          // A button rather than a `Link`: opening loads the document into the store *first*, and
+          // navigating before that lands would put the config panels in front of the wrong ruleset
+          openAction={
+            <Button variant="secondary" size="sm" onClick={() => onOpen(ruleset)}>
+              Open
+            </Button>
+          }
           onRename={() => onRename(ruleset)}
           onDelete={() => onDelete(ruleset)}
         />

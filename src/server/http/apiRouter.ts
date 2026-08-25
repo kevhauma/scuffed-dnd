@@ -23,7 +23,14 @@
 import { AUTH_PREFIX, handleAuthRequest } from '../auth/authRoutes';
 import { authProviders } from '../routes/authProviders';
 import { health } from '../routes/health';
-import { createRuleset, deleteRuleset, listRulesets, renameRuleset } from '../routes/rulesets';
+import {
+  createRuleset,
+  deleteRuleset,
+  getRuleset,
+  listRulesets,
+  renameRuleset,
+  saveRuleset,
+} from '../routes/rulesets';
 import { methodNotAllowed, notFound } from './appError';
 import { defineHandler } from './pipeline';
 
@@ -57,6 +64,8 @@ export const ROUTES: Record<string, (request: Request) => Promise<Response>> = {
  * anyone.
  */
 export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Response>> = {
+  'GET /api/rulesets/:id': getRuleset,
+  'PUT /api/rulesets/:id': saveRuleset,
   'PATCH /api/rulesets/:id': renameRuleset,
   'DELETE /api/rulesets/:id': deleteRuleset,
 };

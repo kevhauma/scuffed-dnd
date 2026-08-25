@@ -56,6 +56,7 @@ export function RulesetsPanel() {
         ruleset={manager.localRuleset}
         isLoaded={manager.isLocalLoaded}
         onCreate={manager.createLocalRuleset}
+        onOpen={manager.openLocal}
       />
 
       <AccountRulesetHome
@@ -65,6 +66,7 @@ export function RulesetsPanel() {
         onCreate={manager.openCreate}
         onRename={manager.openRename}
         onDelete={manager.remove}
+        onOpen={manager.openAccount}
       />
 
       <RulesetFormDialog

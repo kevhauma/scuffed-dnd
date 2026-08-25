@@ -56,7 +56,16 @@ export class ApiError extends Error {
     message: string,
     /** The HTTP status, or 0 when the request never reached the server */
     public readonly status: number,
-    public readonly code: ApiErrorCode
+    public readonly code: ApiErrorCode,
+    /**
+     * The whole refusal body, for the details a route attached beside `error` (TICKET-RUL-02)
+     *
+     * A conflict carries the revision it is behind and a shape refusal carries the failing fields
+     * — both things the caller has to act on and cannot work out. `null` when there was no readable
+     * body at all. Typed loosely on purpose: the caller knows which route it called and casts to
+     * that route's refusal shape, rather than this module knowing every one of them.
+     */
+    public readonly body: unknown = null
   ) {
     super(message);
     this.name = 'ApiError';
@@ -117,7 +126,8 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     throw new ApiError(
       messageFrom(body, response.status),
       response.status,
-      body?.error?.code ?? TRANSPORT_CODE.UNKNOWN
+      body?.error?.code ?? TRANSPORT_CODE.UNKNOWN,
+      body
     );
   }
 

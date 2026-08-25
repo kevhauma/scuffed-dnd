@@ -13,7 +13,13 @@
  * **Validates: v3 Req 33.1, 33.4, 33.8**
  */
 
-import { assertSupportedSchemaVersion, SchemaVersionError } from '#shared/services/importExport';
+import { toDisplayConfiguration } from '#shared/engine/formula/references';
+import {
+  assertSupportedSchemaVersion,
+  SchemaVersionError,
+  serializeConfiguration,
+  validateConfigurationShape,
+} from '#shared/services/importExport';
 import type { RulesetSummary } from '#shared/types/api';
 import { type Configuration, SUPPORTED_SCHEMA_VERSION } from '#shared/types/config';
 import { badRequest, conflict } from '../../http/appError';
@@ -126,4 +132,76 @@ export function documentOf(row: RulesetRow): Configuration {
   }
 
   return JSON.parse(row.data) as Configuration;
+}
+
+/**
+ * The same document, in the form a client edits (TICKET-RUL-02)
+ *
+ * `toDisplayConfiguration` re-spells every formula, racial modifier and material bonus with
+ * whatever the entity it points at is *currently called*. That is what makes a rename harmless: the
+ * column stores ids, so nothing is identified by a spelling, and this puts the spellings back on
+ * the way out.
+ *
+ * **The server is a third boundary of the same kind** as `client/services/storage.ts` and the
+ * import/export path (TICKET-REF-01), not a new kind — the pair is the same pair, applied at the
+ * wire instead of at a file.
+ *
+ * @param row The stored ruleset
+ * @returns Its document with references spelled out
+ * @throws {AppError} 409 when the row is at a schema version this build does not read
+ */
+export function displayDocumentOf(row: RulesetRow): Configuration {
+  return toDisplayConfiguration(documentOf(row));
+}
+
+/**
+ * A `Configuration` a client sent, ready to store (v3 Req 33.4, 33.5)
+ *
+ * Three gates in the order the browser's own Import button runs them, and for the same reason it
+ * runs them that way: **the version gate first**, so a document from another build is refused whole
+ * rather than reported field by field, then the shape check, then serialisation.
+ *
+ * **The version refusal here is a 400, not the 409 {@link documentOf} throws**, and the difference
+ * is which document is at the wrong version. There, a *stored row* the caller owns is unreadable —
+ * the state of the resource refuses them, and there is nothing wrong with what they sent. Here the
+ * caller **sent** the wrong thing. The client maps `conflict` to *somebody else wrote in between*,
+ * which has a different remedy (reload) from *this build cannot read that file* (refresh the app,
+ * or export it from a build that can), so the two cannot share a code.
+ *
+ * **Nothing is persisted when any of them fails.** The caller gets the JSON text or an `AppError`,
+ * so there is no half-applied state to reason about — the write either happens with a validated
+ * document or does not happen.
+ *
+ * The failing fields ride along on the refusal because a client has to be able to say *which part
+ * of your ruleset could not be read*; a bare "validation failed" is a refusal nobody can act on.
+ *
+ * @param submitted Whatever arrived in the request body's `configuration`
+ * @returns The document as JSON text in **stored** form, ready for the column
+ * @throws {AppError} 400 for the wrong schema version and for a shape the server cannot read
+ */
+export function storableDocument(submitted: unknown): string {
+  try {
+    assertSupportedSchemaVersion((submitted as Record<string, unknown> | null)?.schemaVersion);
+  } catch (error) {
+    if (error instanceof SchemaVersionError) {
+      throw badRequest(
+        `${error.message} (That ruleset states schema version ${String(error.foundVersion)}; ` +
+          `this build reads version ${SUPPORTED_SCHEMA_VERSION}.)`
+      );
+    }
+    throw error;
+  }
+
+  const validation = validateConfigurationShape(submitted);
+
+  if (!validation.isValid) {
+    throw badRequest(
+      'That ruleset is not a shape this server can read, so nothing was saved.',
+      // The validator's own words, unedited: it names the field and what was wrong with it, and
+      // rewording them here would be a second vocabulary for the same failures
+      { fields: validation.errors }
+    );
+  }
+
+  return serializeConfiguration(submitted as Configuration);
 }

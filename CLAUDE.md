@@ -100,7 +100,11 @@ acceptance criteria.
 
 - **Persistence belongs to the store action.** A component, hook, or engine module never calls
   `localStorage`, `saveConfiguration()`, or `saveCharacters()` — it calls a Zustand action, which
-  patches state and persists.
+  patches state and persists. **The action now has two destinations and still owns the decision to
+  persist** (TICKET-RUL-02): `useConfigStore.source` says which home the open ruleset lives in, and
+  `client/services/rulesetSync.ts` is the *only* module that branches on it — the browser home
+  writes LocalStorage exactly as before, the account home sends a debounced revision-guarded `PUT`.
+  A component still never reaches either.
 - **Derived values are computed, never stored.** Composed stat values, the stat total, skill levels
   and bonuses, combat bonuses, equipment bonuses, and **the character's level** come from
   `engine/calculator.ts` / `engine/calculators/*` / `engine/characterSummary.ts` at read time.

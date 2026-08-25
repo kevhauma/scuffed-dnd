@@ -12,12 +12,12 @@
  * **Validates: v3 Req 36.1, 36.8**
  */
 
-import { Link } from '@tanstack/react-router';
+import { RULESET_HOME } from '../../services/rulesetSync';
 import { Button } from '../ui/Button/Button';
 import { Card } from '../ui/Card/Card';
 import { Text } from '../ui/Text/Text';
-import { RULESET_HOME, RulesetCard } from './RulesetCard';
-import { homeSectionStyles, openLinkStyles } from './rulesets.style';
+import { RulesetCard } from './RulesetCard';
+import { homeSectionStyles } from './rulesets.style';
 import type { LocalRuleset } from './useRulesetManager';
 
 export interface BrowserRulesetHomeProps {
@@ -26,9 +26,16 @@ export interface BrowserRulesetHomeProps {
   /** False until LocalStorage has been read — "none yet" and "not looked yet" are different */
   isLoaded: boolean;
   onCreate: () => void;
+  /** Point the config store back at this browser's ruleset before the panels render it */
+  onOpen: () => void;
 }
 
-export function BrowserRulesetHome({ ruleset, isLoaded, onCreate }: BrowserRulesetHomeProps) {
+export function BrowserRulesetHome({
+  ruleset,
+  isLoaded,
+  onCreate,
+  onOpen,
+}: BrowserRulesetHomeProps) {
   return (
     <Card className="p-6">
       <section className={homeSectionStyles}>
@@ -49,9 +56,15 @@ export function BrowserRulesetHome({ ruleset, isLoaded, onCreate }: BrowserRules
             home={RULESET_HOME.BROWSER}
             updatedAt={ruleset.updatedAt}
             openAction={
-              <Link to="/config" className={openLinkStyles}>
+              // A button rather than a `Link`, the same shape the account rows use and for the same
+              // reason: re-pointing the store at this home can *fail* — `loadConfiguration` throws
+              // on stored data this build cannot read — and a `<Link>`'s navigation happens whatever
+              // its `onClick` did. That would land the User in Configuration mode editing the
+              // **Account's** ruleset believing it was this browser's, with every keystroke saving
+              // there. Navigating only on success is the whole point.
+              <Button variant="secondary" size="sm" onClick={onOpen}>
                 Open
-              </Link>
+              </Button>
             }
           />
         ) : (
