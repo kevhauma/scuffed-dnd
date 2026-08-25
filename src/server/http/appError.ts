@@ -17,6 +17,8 @@
 /** The machine-readable half of a refusal — a client switches on this, never on the message */
 export const ERROR_CODE = {
   BAD_REQUEST: 'bad_request',
+  /** Nobody is signed in, on a route that needs somebody to be (TICKET-AUTH-03) */
+  UNAUTHENTICATED: 'unauthenticated',
   NOT_FOUND: 'not_found',
   METHOD_NOT_ALLOWED: 'method_not_allowed',
   INTERNAL: 'internal',
@@ -33,6 +35,7 @@ export type ErrorCode = (typeof ERROR_CODE)[keyof typeof ERROR_CODE];
  */
 export const STATUS_FOR_CODE: Record<ErrorCode, number> = {
   [ERROR_CODE.BAD_REQUEST]: 400,
+  [ERROR_CODE.UNAUTHENTICATED]: 401,
   [ERROR_CODE.NOT_FOUND]: 404,
   [ERROR_CODE.METHOD_NOT_ALLOWED]: 405,
   [ERROR_CODE.INTERNAL]: 500,
@@ -71,6 +74,23 @@ export function badRequest(message: string): AppError {
 /** No route answers this method at this path */
 export function methodNotAllowed(message: string): AppError {
   return new AppError(ERROR_CODE.METHOD_NOT_ALLOWED, message);
+}
+
+/**
+ * Nobody is signed in (TICKET-AUTH-03, v3 Req 32.1)
+ *
+ * **A 401 here does not undo {@link notFound}'s blurring**, which is the question to ask of it. It
+ * is thrown *before any lookup*, so it says something about the caller and nothing about whether a
+ * resource exists — an anonymous caller gets the identical answer for a ruleset that is there, one
+ * that is not, and one belonging to somebody else. What v3 Req 32.5 forbids is telling apart *those
+ * three*, and this cannot: only a signed-in caller ever reaches a lookup, and for them every
+ * refusal is a 404.
+ *
+ * The client half of this is the redirect to sign-in, which needs to know the difference between
+ * "sign in and try again" and "there is nothing here" to be able to return you afterwards.
+ */
+export function unauthenticated(message = 'Sign in to do that.'): AppError {
+  return new AppError(ERROR_CODE.UNAUTHENTICATED, message);
 }
 
 /**

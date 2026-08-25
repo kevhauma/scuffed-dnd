@@ -13,14 +13,15 @@
  *     const owner = seedAccount();
  *     const row = seedRuleset(database, { owner });
  *
- *     expect((await callRoute(route, { as: null, params: { id: row.id } })).status).toBe(404);
+ *     expect((await callRoute(route, { as: null, params: { id: row.id } })).status).toBe(401);
  *     expect((await callRoute(route, { as: seedAccount(), params: { id: row.id } })).status).toBe(404);
  *     expect((await callRoute(route, { as: owner, params: { id: row.id } })).status).toBe(200);
  *   }));
  * ```
  *
- * The two 404s are deliberate rather than lazy — see `callRoute.ts` for why an owned resource
- * answers a stranger and a missing row identically (v3 Req 32.5).
+ * The stranger's 404 is deliberate rather than lazy — see `callRoute.ts` for why an owned resource
+ * answers a stranger and a missing row identically, and why the anonymous caller's 401 does not
+ * undo that (v3 Req 32.5).
  *
  * **Nothing here may be imported by production code** — `test-harness-stays-in-tests` in
  * `.dependency-cruiser.mjs` refuses it, which is what pays for `testing/` being allowed to reach

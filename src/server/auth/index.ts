@@ -1,16 +1,18 @@
 /**
  * Identity (TICKET-AUTH-01)
  *
- * This root answers *who is this* and nothing else. **Authorization — who may touch which ruleset,
- * session and character — is v3 Req 32 and belongs to TICKET-AUTH-03**, which builds its guards on
- * top of what `currentAccount.ts` resolves. The split is deliberate: a library decides identity, and
- * no library decides access.
+ * This root answers two questions and keeps them apart. **Identity** — *who is this* — is Better
+ * Auth's, resolved once per request by `currentAccount.ts`. **Authorization** — *may they touch this
+ * ruleset, session or character* — is v3 Req 32, lives in [`guards.ts`](./guards.ts), and no library
+ * decides it. That split is D3's whole reason for choosing a library for the first and writing the
+ * second by hand.
  */
 
 export * from './account';
 export * from './authRoutes';
 export * from './authServer';
 export * from './currentAccount';
+export * from './guards';
 export * from './identityRules';
 export * from './paths';
 export * from './signInRateLimit';

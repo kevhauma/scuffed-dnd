@@ -13,7 +13,7 @@
  */
 
 import { and, eq } from 'drizzle-orm';
-import type { Database } from '../db/client';
+import { type Database, getDatabase } from '../db/client';
 import { ruleset } from '../db/schema';
 
 /**
@@ -60,11 +60,11 @@ export type RulesetWriteResult =
 /**
  * Store a new ruleset at revision 1
  *
- * @param database The connection
  * @param input What to store
+ * @param database The connection; defaults to the process's
  * @returns The stored row
  */
-export function insertRuleset(database: Database, input: NewRuleset): RulesetRow {
+export function insertRuleset(input: NewRuleset, database: Database = getDatabase()): RulesetRow {
   return database.db
     .insert(ruleset)
     .values({
@@ -84,11 +84,11 @@ export function insertRuleset(database: Database, input: NewRuleset): RulesetRow
 /**
  * One ruleset by id
  *
- * @param database The connection
  * @param id Which one
+ * @param database The connection; defaults to the process's
  * @returns The row, or `null` when there is none
  */
-export function findRuleset(database: Database, id: string): RulesetRow | null {
+export function findRuleset(id: string, database: Database = getDatabase()): RulesetRow | null {
   return database.db.select().from(ruleset).where(eq(ruleset.id, id)).get() ?? null;
 }
 
@@ -103,19 +103,19 @@ export function findRuleset(database: Database, id: string): RulesetRow | null {
  *
  * The second read only happens on the failure path, and only to tell *stale* from *missing*.
  *
- * @param database The connection
  * @param id Which ruleset
  * @param baseRevision What the caller believed it was
  * @param data The new document as JSON text
  * @param now Epoch milliseconds
+ * @param database The connection; defaults to the process's
  * @returns What happened, and the row the caller needs to act on it
  */
 export function updateRulesetData(
-  database: Database,
   id: string,
   baseRevision: number,
   data: string,
-  now: number
+  now: number,
+  database: Database = getDatabase()
 ): RulesetWriteResult {
   const row = database.db
     .update(ruleset)
@@ -126,7 +126,7 @@ export function updateRulesetData(
 
   if (row) return { outcome: WRITE_OUTCOME.WRITTEN, row };
 
-  const current = findRuleset(database, id);
+  const current = findRuleset(id, database);
 
   return current ? { outcome: WRITE_OUTCOME.STALE, current } : { outcome: WRITE_OUTCOME.MISSING };
 }

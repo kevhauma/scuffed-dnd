@@ -73,7 +73,7 @@ describe('withTestDatabase', () => {
     withTestDatabase((database) => {
       // A connection with no schema throws on the first select; this passing *is* the assertion
       // that `runMigrations` ran
-      expect(findRuleset(database, 'nothing-here')).toBeNull();
+      expect(findRuleset('nothing-here', database)).toBeNull();
     }));
 
   it('should close the database when the body throws', () => {
@@ -242,7 +242,7 @@ describe('a refusal test, in three lines', () => {
 
       /** The guard every owned-resource route will carry, in the shape AUTH-03 will provide it */
       const route = defineHandler((context: RequestContext) => {
-        const found = findRuleset(database, context.url.searchParams.get('id') ?? '');
+        const found = findRuleset(context.url.searchParams.get('id') ?? '', database);
         // One answer for "no such ruleset" and for "not yours" — a 403 would confirm it exists
         if (!found || found.ownerAccountId !== context.account?.id) throw notFound('Not found');
         return { name: found.name };
@@ -260,7 +260,7 @@ describe('a refusal test, in three lines', () => {
       const row = seedRuleset(database);
 
       const route = defineHandler((context: RequestContext) => {
-        const found = findRuleset(database, context.url.searchParams.get('id') ?? '');
+        const found = findRuleset(context.url.searchParams.get('id') ?? '', database);
         if (!found || found.ownerAccountId !== context.account?.id) throw notFound('Not found');
         return { name: found.name };
       });
@@ -280,7 +280,7 @@ describe('the seeded fixtures', () => {
 
       expect(row.revision).toBe(1);
       expect(row.data).toBe(realRulesetJson());
-      expect(findRuleset(database, row.id)?.data).toBe(realRulesetJson());
+      expect(findRuleset(row.id, database)?.data).toBe(realRulesetJson());
     }));
 
   it('should seed a session with its snapshot copied and its DM seated', () =>

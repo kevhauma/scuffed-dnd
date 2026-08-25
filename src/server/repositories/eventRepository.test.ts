@@ -25,14 +25,17 @@ function seedTwoSessions(database: Database): void {
 }
 
 function append(database: Database, id: string, sessionId: string, type = 'rolled') {
-  return appendEvent(database, {
-    id,
-    sessionId,
-    actorAccountId: 'a1',
-    type,
-    payload: '{"total":17}',
-    now: 1,
-  });
+  return appendEvent(
+    {
+      id,
+      sessionId,
+      actorAccountId: 'a1',
+      type,
+      payload: '{"total":17}',
+      now: 1,
+    },
+    database
+  );
 }
 
 describe('eventRepository', () => {
@@ -75,14 +78,17 @@ describe('eventRepository', () => {
       withTestDatabase((database) => {
         seedTwoSessions(database);
 
-        const row = appendEvent(database, {
-          id: 'e1',
-          sessionId: 's1',
-          actorAccountId: null,
-          type: 'snapshot_pulled',
-          payload: '{}',
-          now: 1,
-        });
+        const row = appendEvent(
+          {
+            id: 'e1',
+            sessionId: 's1',
+            actorAccountId: null,
+            type: 'snapshot_pulled',
+            payload: '{}',
+            now: 1,
+          },
+          database
+        );
 
         expect(row.actorAccountId).toBeNull();
       }));
@@ -101,7 +107,7 @@ describe('eventRepository', () => {
         append(database, 'e2', 's1');
         append(database, 'e3', 's1');
 
-        expect(eventsSince(database, 's1', 1).map((row) => row.seq)).toEqual([2, 3]);
+        expect(eventsSince('s1', 1, database).map((row) => row.seq)).toEqual([2, 3]);
       }));
 
     it('returns the whole log for 0', () =>
@@ -110,7 +116,7 @@ describe('eventRepository', () => {
         append(database, 'e1', 's1');
         append(database, 'e2', 's1');
 
-        expect(eventsSince(database, 's1', 0)).toHaveLength(2);
+        expect(eventsSince('s1', 0, database)).toHaveLength(2);
       }));
 
     it('returns nothing when the caller is already up to date', () =>
@@ -118,7 +124,7 @@ describe('eventRepository', () => {
         seedTwoSessions(database);
         append(database, 'e1', 's1');
 
-        expect(eventsSince(database, 's1', 1)).toEqual([]);
+        expect(eventsSince('s1', 1, database)).toEqual([]);
       }));
 
     it('never returns another session’s events', () =>
@@ -127,7 +133,7 @@ describe('eventRepository', () => {
         append(database, 'e1', 's1');
         append(database, 'e2', 's2');
 
-        expect(eventsSince(database, 's1', 0).map((row) => row.id)).toEqual(['e1']);
+        expect(eventsSince('s1', 0, database).map((row) => row.id)).toEqual(['e1']);
       }));
   });
 });

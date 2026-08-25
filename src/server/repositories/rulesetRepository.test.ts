@@ -26,14 +26,17 @@ import { findRuleset, insertRuleset, updateRulesetData, WRITE_OUTCOME } from './
 const ducklets = realRulesetJson();
 
 function storeDucklets(database: Database, id = 'r1', owner = 'a1') {
-  return insertRuleset(database, {
-    id,
-    ownerAccountId: owner,
-    name: 'Ducklets',
-    schemaVersion: 9,
-    data: ducklets,
-    now: 1_700_000_000_000,
-  });
+  return insertRuleset(
+    {
+      id,
+      ownerAccountId: owner,
+      name: 'Ducklets',
+      schemaVersion: 9,
+      data: ducklets,
+      now: 1_700_000_000_000,
+    },
+    database
+  );
 }
 
 describe('rulesetRepository', () => {
@@ -42,14 +45,14 @@ describe('rulesetRepository', () => {
       withTestDatabase((database) => {
         storeDucklets(database);
 
-        expect(findRuleset(database, 'r1')?.data).toBe(ducklets);
+        expect(findRuleset('r1', database)?.data).toBe(ducklets);
       }));
 
     it('brings back a Configuration that still parses, formulas and all', () =>
       withTestDatabase((database) => {
         storeDucklets(database);
 
-        const stored = JSON.parse(findRuleset(database, 'r1')?.data ?? '') as Configuration;
+        const stored = JSON.parse(findRuleset('r1', database)?.data ?? '') as Configuration;
         const original = JSON.parse(ducklets) as Configuration;
 
         expect(stored).toEqual(original);
@@ -63,7 +66,7 @@ describe('rulesetRepository', () => {
         const configuration = JSON.parse(ducklets) as Configuration;
         const serialised = serializeConfiguration(configuration);
 
-        insertRuleset(database, {
+        insertRuleset({
           id: 'r2',
           ownerAccountId: 'a1',
           name: 'Ducklets',
@@ -74,7 +77,7 @@ describe('rulesetRepository', () => {
 
         // The server stores exactly what `serializeConfiguration` produced — one serialisation, not
         // a second one this layer invented (D5)
-        expect(findRuleset(database, 'r2')?.data).toBe(serialised);
+        expect(findRuleset('r2', database)?.data).toBe(serialised);
       }));
   });
 
@@ -93,7 +96,7 @@ describe('rulesetRepository', () => {
   describe('findRuleset', () => {
     it('returns null for an id that does not exist rather than throwing', () =>
       withTestDatabase((database) => {
-        expect(findRuleset(database, 'nope')).toBeNull();
+        expect(findRuleset('nope', database)).toBeNull();
       }));
   });
 
@@ -102,7 +105,7 @@ describe('rulesetRepository', () => {
       withTestDatabase((database) => {
         storeDucklets(database);
 
-        const result = updateRulesetData(database, 'r1', 1, '{"changed":true}', 2);
+        const result = updateRulesetData('r1', 1, '{"changed":true}', 2, database);
 
         expect(result.outcome).toBe(WRITE_OUTCOME.WRITTEN);
         if (result.outcome !== WRITE_OUTCOME.WRITTEN) return;
@@ -113,22 +116,22 @@ describe('rulesetRepository', () => {
     it('refuses a stale base revision and changes nothing', () =>
       withTestDatabase((database) => {
         storeDucklets(database);
-        updateRulesetData(database, 'r1', 1, '{"first":true}', 2);
+        updateRulesetData('r1', 1, '{"first":true}', 2, database);
 
         // Someone else saved in between; this caller read revision 1 and is now wrong
-        const loser = updateRulesetData(database, 'r1', 1, '{"second":true}', 3);
+        const loser = updateRulesetData('r1', 1, '{"second":true}', 3, database);
 
         expect(loser.outcome).toBe(WRITE_OUTCOME.STALE);
-        expect(findRuleset(database, 'r1')?.data).toBe('{"first":true}');
-        expect(findRuleset(database, 'r1')?.revision).toBe(2);
+        expect(findRuleset('r1', database)?.data).toBe('{"first":true}');
+        expect(findRuleset('r1', database)?.revision).toBe(2);
       }));
 
     it('hands a stale caller the current row, so the conflict is resolvable', () =>
       withTestDatabase((database) => {
         storeDucklets(database);
-        updateRulesetData(database, 'r1', 1, '{"first":true}', 2);
+        updateRulesetData('r1', 1, '{"first":true}', 2, database);
 
-        const loser = updateRulesetData(database, 'r1', 1, '{"second":true}', 3);
+        const loser = updateRulesetData('r1', 1, '{"second":true}', 3, database);
 
         // v3 Req 33.8: a refused write is a conflict the User can resolve, never a silent loss
         expect(loser.outcome === WRITE_OUTCOME.STALE && loser.current.revision).toBe(2);
@@ -137,15 +140,15 @@ describe('rulesetRepository', () => {
     it('tells an unknown id apart from a stale revision', () =>
       withTestDatabase((database) => {
         // Collapsing the two into one answer would make RUL-02 read again to decide 404 or 409
-        expect(updateRulesetData(database, 'nope', 1, '{}', 1).outcome).toBe(WRITE_OUTCOME.MISSING);
+        expect(updateRulesetData('nope', 1, '{}', 1, database).outcome).toBe(WRITE_OUTCOME.MISSING);
       }));
 
     it('lets a caller that re-read the row succeed', () =>
       withTestDatabase((database) => {
         storeDucklets(database);
-        updateRulesetData(database, 'r1', 1, '{"first":true}', 2);
+        updateRulesetData('r1', 1, '{"first":true}', 2, database);
 
-        const retried = updateRulesetData(database, 'r1', 2, '{"second":true}', 3);
+        const retried = updateRulesetData('r1', 2, '{"second":true}', 3, database);
 
         expect(retried.outcome === WRITE_OUTCOME.WRITTEN && retried.row.revision).toBe(3);
       }));

@@ -163,7 +163,22 @@ acceptance criteria.
   — see the note on [D1](docs/v3.0_backend/overview.md#d1--the-backend-lives-in-this-repo-on-tanstack-start).
 - **Queries belong to `src/server/repositories/`.** Nothing else imports Drizzle or the connection;
   a handler calls a repository. The server-side mirror of "persistence belongs to the store action",
-  and TICKET-DX-08 makes it a dependency-cruiser rule.
+  and TICKET-DX-08 makes it a dependency-cruiser rule. A repository function takes its connection as
+  a **defaulted last parameter** (`findRuleset(id)` in production, `findRuleset(id, database)` in a
+  test) — a connection-first signature is one no handler can call, because it would have to import
+  `db/client` to build the argument.
+- **Authorization lives in `src/server/auth/guards.ts` and nowhere else** (TICKET-AUTH-03). A route
+  naming an owned resource calls `requireOwner` / `requireMember` / `requireDM` /
+  `requireCharacterWriter`, each of which returns the loaded row. **401 is thrown before any lookup;
+  everything after a lookup is the same 404** — an unauthorized read and a missing record are
+  indistinguishable (v3 Req 32.5), and a 403 would confirm the resource exists.
+  `src/server/routes/routeGuards.test.ts` walks every module containing `defineHandler(` and fails
+  on one that reads an owned identifier without calling a guard; dependency-cruiser cannot, because
+  the obligation is a call site rather than an import.
+- **Client route protection is an explicit allow-list, and the default is open** (D6). A route is
+  protected only by appearing in `client/components/auth/protectedRoutes.ts` *and* composing
+  `RequireAccount`; `protectedRoutes.test.ts` enumerates the generated route tree and asserts both.
+  The client check is a courtesy — the server refuses the same request whatever the browser did.
 - **A document change is not a migration.** `ruleset.data`, `game_session.snapshot` and
   `character.data` are JSON text (D4), so reshaping what is *inside* them follows the `data-model`
   skill and bumps `SUPPORTED_SCHEMA_VERSION`. Changing the normalised half means editing

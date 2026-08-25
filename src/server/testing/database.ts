@@ -52,7 +52,7 @@ export type { Database } from '../db/client';
  * it('should store a ruleset', () =>
  *   withTestDatabase((database) => {
  *     const row = seedRuleset(database);
- *     expect(findRuleset(database, row.id)).not.toBeNull();
+ *     expect(findRuleset(row.id, database)).not.toBeNull();
  *   }));
  * ```
  *
@@ -87,8 +87,10 @@ export function withTestDatabase<T>(run: (database: Database) => T): T {
       ? null
       : new Error(
           'withTestDatabase calls overlapped: the process database was not this call’s to ' +
-            'restore. Two calls ran at once in one module registry — it.concurrent, or a ' +
-            'Promise.all of two calls in one test. Run them one after another.'
+            'restore. Two calls ran at once in one module registry — it.concurrent, a ' +
+            'Promise.all of two calls in one test, or (TICKET-AUTH-03) a **timed-out** test whose ' +
+            'body Vitest abandoned while it still held the database. That third cause is a ' +
+            'cascade: fix the timeout, not this.'
         );
   };
 

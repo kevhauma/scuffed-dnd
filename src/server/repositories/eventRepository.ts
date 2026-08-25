@@ -15,7 +15,7 @@
  */
 
 import { and, desc, eq, gt } from 'drizzle-orm';
-import type { Database } from '../db/client';
+import { type Database, getDatabase } from '../db/client';
 import { event } from '../db/schema';
 
 /**
@@ -57,7 +57,7 @@ export interface NewEvent {
  * @param input The event
  * @returns The stored row, with the sequence number it was given
  */
-export function appendEvent(database: Database, input: NewEvent): EventRow {
+export function appendEvent(input: NewEvent, database: Database = getDatabase()): EventRow {
   return database.db.transaction(
     (tx) => {
       const latest = tx
@@ -96,7 +96,11 @@ export function appendEvent(database: Database, input: NewEvent): EventRow {
  * @param afterSeq The last sequence number the caller has; `0` for everything
  * @returns The events in order
  */
-export function eventsSince(database: Database, sessionId: string, afterSeq: number): EventRow[] {
+export function eventsSince(
+  sessionId: string,
+  afterSeq: number,
+  database: Database = getDatabase()
+): EventRow[] {
   return database.db
     .select()
     .from(event)

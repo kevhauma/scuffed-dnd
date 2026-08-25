@@ -10,16 +10,21 @@
  * non-owner and a non-member. This exists so that is three lines:
  *
  * ```ts
- * expect((await callRoute(route, { as: null })).status).toBe(404);
+ * expect((await callRoute(route, { as: null })).status).toBe(401);
  * expect((await callRoute(route, { as: stranger })).status).toBe(404);
  * expect((await callRoute(route, { as: owner })).status).toBe(200);
  * ```
  *
- * **404 rather than 401 for the anonymous caller**, on a route naming an owned resource: v3 Req
- * 32.5 asks an unauthorized read and a missing record to be indistinguishable, and the cheapest way
- * to keep that true is for every refusal on such a route to be the same refusal. A route whose
- * existence is not itself a secret may answer 401; a route that would confirm somebody else's
- * ruleset exists may not.
+ * **401 for the anonymous caller, 404 for everybody else** — and this paragraph used to say 404 for
+ * all three, which TICKET-AUTH-03 corrected when it wrote the guards. v3 Req 32.5 asks that an
+ * unauthorized read and a missing record be indistinguishable, and they are: every *post-lookup*
+ * refusal is the same 404. `unauthenticated` is thrown **before any lookup**, so it says something
+ * about the caller and nothing about the resource — an anonymous caller gets the identical answer
+ * for a ruleset that exists, one that does not, and one belonging to somebody else. Keeping it
+ * distinct is what lets the client offer *sign in and come back here* rather than a dead end.
+ *
+ * So the three-line proof above is `404, 404, 200` for owner / stranger / missing with a signed-in
+ * caller, and `401` for `as: null`.
  *
  * **Validates: v3 Req 45.3**
  */

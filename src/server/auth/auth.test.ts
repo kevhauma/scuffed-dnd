@@ -80,6 +80,27 @@ function cookieFrom(response: Response): string {
   return header.split(';')[0] as string;
 }
 
+/**
+ * The three cases below spend nearly all their time in a password KDF
+ *
+ * **Raised for them alone, and no assertion is weakened by it** (TICKET-AUTH-03). Better Auth uses
+ * a deliberately expensive hash: *forgets an address that signs in successfully* performs a sign-up
+ * and ten sign-ins in sequence, and *spends comparable time on an unknown email as on a wrong
+ * password* only means anything because the unknown-email path hashes against a dummy credential
+ * rather than returning early. Both are the point of the tests.
+ *
+ * At Vitest's 5-second default the slowest ran at ~2.4s — under 2x headroom — which was survivable
+ * until AUTH-03 added a second project's worth of parallel load and they started timing out
+ * intermittently. A timeout firing under CPU contention is not a failing assertion, it is a flaky
+ * suite; it also surfaced as a misleading *withTestDatabase calls overlapped* cascade from the
+ * abandoned test body.
+ *
+ * **Per-test rather than file-wide**, so a genuine hang in one of the fast cases still surfaces in
+ * five seconds instead of thirty. The alternative — lowering the KDF cost for tests — would make
+ * every claim in this file a claim about a configuration production does not use.
+ */
+const KDF_BOUND = { timeout: 30_000 };
+
 beforeEach(() => {
   resetSignInFailures();
 });
@@ -177,7 +198,7 @@ describe('sign-in', () => {
       expect(await wrongPassword.text()).toBe(await unknownEmail.text());
     }));
 
-  it('spends comparable time on an unknown email as on a wrong password', () =>
+  it('spends comparable time on an unknown email as on a wrong password', KDF_BOUND, () =>
     withTestDatabase(async () => {
       await signUp();
 
@@ -204,7 +225,8 @@ describe('sign-in', () => {
       // which is a hundred-fold difference, not a subtle one. `authSchema.test.ts` is the
       // precedent: assert the library's behaviour rather than cite it.
       expect(unknownEmail).toBeGreaterThan(wrongPassword / 10);
-    }));
+    })
+  );
 
   it('does not set a session cookie on a failure', () =>
     withTestDatabase(async (database) => {
@@ -325,7 +347,7 @@ describe('the sign-in limit, end to end', () => {
       expect(response.status).not.toBe(200);
     }));
 
-  it('does not limit a different address', () =>
+  it('does not limit a different address', KDF_BOUND, () =>
     withTestDatabase(async () => {
       await signUp();
       await signUp('grace@example.com');
@@ -333,9 +355,10 @@ describe('the sign-in limit, end to end', () => {
       for (let attempt = 0; attempt < 6; attempt += 1) await signIn(EMAIL, 'wrong');
 
       expect((await signIn('grace@example.com')).status).toBe(200);
-    }));
+    })
+  );
 
-  it('forgets an address that signs in successfully', () =>
+  it('forgets an address that signs in successfully', KDF_BOUND, () =>
     withTestDatabase(async () => {
       await signUp();
 
@@ -346,7 +369,8 @@ describe('the sign-in limit, end to end', () => {
       // …and the budget is whole again rather than one away from locking them out
       for (let attempt = 0; attempt < 4; attempt += 1) await signIn(EMAIL, 'wrong');
       expect((await signIn()).status).toBe(200);
-    }));
+    })
+  );
 });
 
 describe('the Auth_Session cookie', () => {

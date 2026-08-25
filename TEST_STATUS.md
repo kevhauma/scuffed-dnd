@@ -1,7 +1,8 @@
 # Test Status
 
-_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-AUTH-02 — social sign-in**.
-The checkpoints before it were **TICKET-AUTH-01 — email/password accounts** at 2040,
+_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-AUTH-03 — authorization guards**.
+The checkpoints before it were **TICKET-AUTH-02 — social sign-in** at 2115,
+**TICKET-AUTH-01 — email/password accounts** at 2040,
 **TICKET-DX-06 — the server test harness** at 1970,
 **TICKET-DX-08 — the architecture rules as checks** at 1937,
 **TICKET-DB-01 — SQLite, Drizzle and migrations** at 1925, **TICKET-SRV-01 — the server layer** at
@@ -13,8 +14,8 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 2115
-- **Passing**: 2115 (100%)
+- **Total tests**: 2203
+- **Passing**: 2203 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
@@ -34,6 +35,65 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-AUTH-03 — the authorization guards, and what only a browser could find
+
+The **+88 over AUTH-02** is TICKET-AUTH-03: 23 in `auth/guards.test.ts`, 9 in
+`routes/routeGuards.test.ts`, and the rest across four new client files
+(`protectedRoutes.test.ts` 9, `signInDestination.test.ts` 33, `RequireAccount.test.tsx` 7,
+`routes/authRoutes.test.tsx` 10) plus small additions elsewhere. Nothing was deleted except
+AUTH-02's `SignedOutNotice` and its two cases, which this ticket replaced with a real redirect —
+its own docblock had said it would.
+
+**Three of the guards' tests exist because of a distinction this ticket had to settle.** An
+anonymous caller gets **401**, everybody else gets **404**. That looks like it contradicts v3 Req
+32.5 and does not: `unauthenticated` is thrown *before any lookup*, so it says something about the
+caller and nothing about the resource — the same answer for a ruleset that exists, one that does
+not, and one belonging to somebody else. Every *post-lookup* refusal is the identical 404, asserted
+on the serialised response rather than on the thrown error. DX-06's `callRoute.ts` had anticipated
+404-for-anonymous in prose; that header is corrected rather than left to be read as a decision.
+
+### The browser check earned its place twice, and neither bug was visible from a unit test
+
+Both were found by driving the real flow, and both are the kind a test written against the same
+wrong assumption would have confirmed rather than caught:
+
+- **A redirect loop that compounded its own query string.** `RequireAccount` read the destination
+  *live* from the location — but the location stops being the guard's the moment the redirect
+  starts, so `/signin?redirect=/account` became the next destination, and the next, until the
+  address bar held two thousand characters of `%252525…Fsignin%25253Fredirect`. The fix is a `useRef`
+  captured at mount and a dependency list without the location; `safeDestination` refusing
+  `/signin` outright is the second lock.
+- **A sign-in that silently never navigated.** Against `@tanstack/react-router` 1.163.2, three
+  different APIs each did nothing on a built URL: `navigate({ to })` wants a route *template*, so a
+  destination carrying a query string matches nothing; `navigate({ href })` without a `to` builds
+  the *current* location, sees no change and returns; `router.history.replace` moved nothing either.
+  Signed in, still looking at the sign-in form, no error anywhere. `window.location.replace` is the
+  browser API for a built URL and is right on its own terms here — the shell has to re-read who is
+  signed in — and it is why `safeDestination` is load-bearing rather than defensive.
+
+### One security defect, found in review rather than by a test
+
+`safeDestination` judged the string the browser is **given** rather than the one it will **read**.
+The WHATWG URL parser strips every tab, LF and CR *before* parsing, so `/⇥/evil.example` starts with
+exactly one `/`, is not `//`, is not `/\` — and arrives as `https://evil.example`. Verified against
+the real parser. It now normalises before judging *and* returns the normalised form, and the test
+asserts agreement with `new URL()` rather than restating the rule.
+
+### Two things this ticket fixed that it also caused
+
+- **A flake.** `auth/auth.test.ts`'s slowest cases are password-KDF-bound — one performs a sign-up
+  and ten sign-ins in sequence — and ran at ~2.4s against Vitest's 5s default. AUTH-03's added
+  parallel load tipped them over intermittently, which also surfaced as a misleading
+  *withTestDatabase calls overlapped* cascade from the abandoned test body. Three cases now carry an
+  explicit 30s timeout; the rest of the file keeps the default, so a genuine hang still surfaces in
+  five seconds. The harness's error message names the third cause now.
+- **A second repository convention.** The new repositories take their connection as a defaulted
+  *last* parameter, because `queries-belong-to-repositories` forbids a handler from importing
+  `db/client` — which means DB-01's connection-first `findRuleset(database, id)` was, as written,
+  uncallable from any route. Rather than leave two conventions in one directory, `rulesetRepository`
+  and `eventRepository` were converted in the same change. `db/client.ts` had documented the
+  intended shape all along.
 
 ## TICKET-AUTH-02 — social sign-in, and the two library defaults it had to overrule
 

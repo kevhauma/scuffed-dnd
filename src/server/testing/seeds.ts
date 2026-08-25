@@ -169,14 +169,17 @@ function accountId(owner: RequestAccount | string): string {
  * @returns The stored row
  */
 export function seedRuleset(database: Database, options: SeedRulesetOptions = {}): RulesetRow {
-  return insertRuleset(database, {
-    id: options.id ?? nextId('ruleset'),
-    ownerAccountId: accountId(options.owner ?? seedAccount()),
-    name: options.name ?? 'Ducklets',
-    schemaVersion: corpusSchemaVersion(),
-    data: options.data ?? corpus,
-    now: SEEDED_AT,
-  });
+  return insertRuleset(
+    {
+      id: options.id ?? nextId('ruleset'),
+      ownerAccountId: accountId(options.owner ?? seedAccount()),
+      name: options.name ?? 'Ducklets',
+      schemaVersion: corpusSchemaVersion(),
+      data: options.data ?? corpus,
+      now: SEEDED_AT,
+    },
+    database
+  );
 }
 
 /** What a seeded game session may be told */

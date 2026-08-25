@@ -77,15 +77,18 @@ rather than a read-only config UI).
 | `/play/character/$id` | `routes/play/character.$id.tsx` | `CharacterSheet` — takes the route param as `characterId` |
 | `/signin` | `routes/signin.tsx` | `AuthForm` in sign-in mode (TICKET-AUTH-01). A page rather than a dialog because TICKET-AUTH-03 sends an unauthenticated visitor here and returns them |
 | `/signup` | `routes/signup.tsx` | `AuthForm` in sign-up mode — carries the "there is no password reset" warning (v3 Req 30.10) |
-| `/account` | `routes/account.tsx` | `LinkedIdentities` (TICKET-AUTH-02) — which providers this Account holds, and a button for the one it does not. **Not guarded yet**: AUTH-03 brings the protected-route list, so today a signed-out visitor sees a card pointing at `/signin` |
+| `/account` | `routes/account.tsx` | `LinkedIdentities` (TICKET-AUTH-02) — which providers this Account holds, and a button for the one it does not. **The milestone's first protected route** (AUTH-03): it composes `RequireAccount`, and it is the only entry in `PROTECTED_ROUTES` |
 
 Route files stay thin: they render a feature component and pass route params down. Data fetching
 is a no-op here — everything comes from the Zustand stores. **The three auth routes are the
 exception and are meant to be**: they read a server fact, not a store (see `components/auth/`).
 
-**Every route above is open to a signed-out visitor**, which is D6 rather than an oversight — the
-whole configuration UI and the whole play surface are local mode. TICKET-AUTH-03 introduces the
-first protected ones, as an explicit list.
+**Every route above except `/account` is open to a signed-out visitor**, which is D6 rather than an
+oversight — the whole configuration UI and the whole play surface are local mode. Protection is an
+**explicit list** in `components/auth/protectedRoutes.ts`, so a future route is open unless somebody
+says otherwise, and `protectedRoutes.test.ts` enumerates `routeTree.gen.ts` to prove both halves:
+that the protected subset is exactly that list, and that each listed route's module really composes
+`<RequireAccount>`.
 
 **The whole configuration UI is mounted and browsable** as of TICKET-NAV-02 — all eight §11 panels
 have a route. Play mode's three routes are all real: `/play` (TICKET-CHAR-01), `/play/create`
@@ -415,6 +418,14 @@ each later ticket adds.
   config block, each provider independently optional) and **`identityRules.ts`** — the one
   provider-agnostic rule path v3 Req 31.7 asks for, reached through Better Auth's single
   `user.validateUserInfo` gate, refusing a provider profile with no email or an unverified one.
+  **AUTH-03 adds [`guards.ts`](../../../src/server/auth/guards.ts), and it is the only module that
+  decides *may they*** — `requireAccount`, `requireOwner`, `requireMember`, `requireDM`,
+  `requireCharacterWriter`. Two refusals and the line between them is the design: **401 before any
+  lookup** (so it says nothing about the resource, and the client can offer sign-in), **404 for
+  everything after** — wrong Account, non-member, player-asking-for-DM and missing id are one
+  answer, which is v3 Req 32.5. Each guard returns the loaded row so a handler does not fetch
+  twice. `routes/routeGuards.test.ts` walks every module containing `defineHandler(` and fails on
+  one that reads an owned identifier without calling a guard.
 - `db/` (TICKET-DB-01) — `client.ts` owns the `better-sqlite3` connection (`foreign_keys = ON`,
   WAL) and `createDatabase(':memory:')` is what every test opens; `schema.ts` is the Drizzle schema
   and the place the document-vs-table decision (D4) and each cascade rule are written down;
@@ -424,7 +435,13 @@ each later ticket adds.
   build SQL or touch Drizzle, and TICKET-DX-08 makes that a dependency-cruiser rule. DB-01 landed
   `rulesetRepository` (including the revision guard: the check and the increment are one statement,
   so the loser of a race updates zero rows) and `eventRepository` (append-only, `seq` unique per
-  session by constraint). Each later ticket adds its own aggregate.
+  session by constraint); AUTH-03 added `gameSessionRepository` (membership by session + account)
+  and `characterRepository`, both read-only until GAM-01 and CHAR-04. Each later ticket adds its own
+  aggregate.
+  **Every function takes its connection as a defaulted *last* parameter** — `findRuleset(id)` in
+  production, `findRuleset(id, database)` in a test. That is not style: the same rule that keeps
+  queries here forbids a handler from importing `db/client`, so a connection-first signature is one
+  no route can call. AUTH-03 converted DB-01's two to match.
 
 Server tests call handlers directly with a `Request` and **never boot Nitro** —
 `vitest.config.ts` still omits `tanstackStart()`, for the reason its own header records.
@@ -578,8 +595,13 @@ it — **`isPending` is a real third state and callers must handle it**, or the 
 in* at somebody who is already signed in. `AuthForm.tsx` + `useAuthForm.ts` are both surfaces,
 `AccountBadge.tsx` is the beam control, and AUTH-02 adds `useSocialProviders.ts` (asks
 `/api/auth-providers` which buttons are drawable), `SocialSignInButtons.tsx`, `LinkedIdentities.tsx`
-+ `useLinkedIdentities.ts`, `SignedOutNotice.tsx`, and `providerLabel.ts` (the display names — the
-ids themselves are in `#shared/types/socialProvider`, because both roots name them).
++ `useLinkedIdentities.ts`, and `providerLabel.ts` (the display names — the ids themselves are in
+`#shared/types/socialProvider`, because both roots name them). **AUTH-03 adds the protection
+mechanism**: `protectedRoutes.ts` (the explicit list), `RequireAccount.tsx` (pending → nothing,
+signed in → children, signed out → a redirect carrying where to come back to) and
+`signInDestination.ts` — the open-redirect guard, which normalises tab/LF/CR *before* judging a
+destination's shape because the URL parser strips them first, and which `/signin` applies again on
+the way out.
 **`AuthAlert.tsx` is the folder's refusal box** — reach for it rather than writing another
 `role="alert"` div — and the folder's shared class strings live in **`authSurfaces.style.ts`**
 rather than in any one component's `.style.ts`, which is what four modules importing the same
