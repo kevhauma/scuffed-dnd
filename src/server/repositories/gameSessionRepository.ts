@@ -33,6 +33,7 @@ import {
   character,
   gameSession,
   MEMBER_ROLE,
+  type MemberRole,
   SESSION_STATUS,
   type SessionStatus,
   sessionMember,
@@ -169,6 +170,78 @@ export function insertGameSession(
 
     return session;
   });
+}
+
+/**
+ * What taking a seat needs to be told (TICKET-GAM-02)
+ *
+ * **The session row rather than its id**, and the reason is the same one that named
+ * `insertUnseatedCharacter`: `routes/routeGuards.test.ts` reads a handler that spells `sessionId` as
+ * *this route had better call a resource guard*, and `redeemInvite` is the one route in the
+ * milestone that cannot — redeeming a code is the act of becoming a Member. Taking the loaded row
+ * keeps the word out of that handler, and is the better signature anyway: every caller has the row,
+ * because every caller had to resolve it before it could seat anybody.
+ */
+export interface NewSessionMember {
+  id: string;
+  session: GameSessionRow;
+  accountId: string;
+  role: MemberRole;
+  /** Epoch milliseconds */
+  now: number;
+}
+
+/** A seat taken, and whether this call is what took it */
+export interface SeatResult {
+  membership: SessionMemberRow;
+  /** False when the Account was already at the table — the row is the one they already had */
+  joined: boolean;
+}
+
+/**
+ * Seat an Account at a table, or hand back the seat they already have (v3 Req 38.7)
+ *
+ * **Idempotent by constraint rather than by checking first.** `session_member_unique` already
+ * refuses a second row per Account per session, so `ON CONFLICT DO NOTHING` and a read-back is both
+ * shorter than read-then-insert and correct under a double-click — where read-then-insert is a race
+ * that ends in a constraint error the User reads as *you are not welcome*.
+ *
+ * The ticket is emphatic that this matters: somebody will click the link twice, bookmark it, or
+ * paste it into the group chat and click their own paste, and an error there is exactly the wrong
+ * answer.
+ *
+ * @param input Who is sitting down, where, and in what role
+ * @param database The connection; defaults to the process's
+ * @returns Their membership, and whether it is new
+ */
+export function seatSessionMember(
+  input: NewSessionMember,
+  database: Database = getDatabase()
+): SeatResult {
+  const inserted = database.db
+    .insert(sessionMember)
+    .values({
+      id: input.id,
+      sessionId: input.session.id,
+      accountId: input.accountId,
+      role: input.role,
+      joinedAt: input.now,
+    })
+    .onConflictDoNothing()
+    .returning()
+    .all();
+
+  if (inserted.length > 0) return { membership: inserted[0], joined: true };
+
+  const existing = findSessionMember(input.session.id, input.accountId, database);
+
+  // The conflict clause fired, so a row exists by definition. A `null` here would mean the unique
+  // index and this read disagree about what a membership is keyed on.
+  if (!existing) {
+    throw new Error(`seatSessionMember: ${input.accountId} conflicted but has no seat`);
+  }
+
+  return { membership: existing, joined: false };
 }
 
 /**

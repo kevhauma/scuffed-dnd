@@ -31,6 +31,15 @@ export const ERROR_CODE = {
   METHOD_NOT_ALLOWED: 'method_not_allowed',
   /** The request was understood and refused by the *state* of the resource (TICKET-RUL-01) */
   CONFLICT: 'conflict',
+  /**
+   * The caller has been trying too often (TICKET-GAM-02)
+   *
+   * The first producer is invite-code redemption, where the limiter is half of what makes a
+   * human-typeable code safe. Distinct from every other refusal because the remedy is *wait* rather
+   * than *change something* — a client that treated it as a bad-request would tell somebody to fix
+   * a code that was fine.
+   */
+  TOO_MANY_REQUESTS: 'too_many_requests',
   INTERNAL: 'internal',
 } as const;
 
@@ -248,6 +257,22 @@ export interface GameSessionListing {
  */
 export interface GameSessionDocument extends GameSessionSummary {
   snapshot: Configuration;
+  /**
+   * The code this table is currently handing out — **DM only** (TICKET-GAM-02)
+   *
+   * Absent for a player, and absent for a DM whose session has none. It rides on the session rather
+   * than earning a route of its own because it is *part of what a DM sees when they look at their
+   * table*, and a second request to fetch one string is a second thing to keep in step.
+   *
+   * A player holding it could invite the table's next member, which is the DM's decision.
+   *
+   * **It carries `expiresAt`, and the review is why.** An expired code is deliberately still shown
+   * — a DM looking at a stale one should be told it is stale rather than shown nothing, which they
+   * would read as *I never issued one* — but a bare string cannot say that, so the surface rendered
+   * a dead code as the live invitation with a *Copy link* beside it. The rationale was only
+   * implementable once the expiry came with it.
+   */
+  invite?: SessionInvite;
 }
 
 /** What a client sends to start a table (v3 Req 37.1) */
@@ -255,6 +280,43 @@ export interface GameSessionCreateRequest {
   /** Which Ruleset to copy. The Account must own it; the copy is what the table plays. */
   rulesetId: string;
   name: string;
+}
+
+/**
+ * The code a DM hands out, as the DM sees it (v3 Req 38.1, 38.2, TICKET-GAM-02)
+ *
+ * **Only ever sent to the DM.** It is the credential for joining, so a player holding one could
+ * invite the table's next member — which is the DM's decision, not theirs.
+ */
+export interface SessionInvite {
+  /** Hyphenated for reading aloud — `A1B2C-3D4E5`. Typed back in any case, with or without it. */
+  code: string;
+  expiresAt: number;
+}
+
+/**
+ * What somebody following an invite link is shown **before** they join (v3 Req 38.1)
+ *
+ * Deliberately thin: the table's name and nothing about who is at it. Somebody holding a code has
+ * not joined yet, and a preview that listed the members would make an unredeemed code a way to read
+ * a roster.
+ */
+export interface InvitePreview {
+  sessionName: string;
+  /** False when the code is real but the session has been archived — join is refused, and says so */
+  isJoinable: boolean;
+}
+
+/**
+ * What redeeming a code answers with (v3 Req 38.7)
+ *
+ * `joined` is false when the Account was **already** at the table, which is a success rather than an
+ * error — somebody will click the link twice, and telling them *you are not welcome* for it is
+ * exactly the wrong answer.
+ */
+export interface InviteRedemption {
+  session: GameSessionSummary;
+  joined: boolean;
 }
 
 /**

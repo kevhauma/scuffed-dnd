@@ -1,8 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-26 (`npx vitest run`), after **TICKET-GAM-01 — game sessions and pinned
-Snapshots**.
-The checkpoints before it were **TICKET-IO-04 — import creates a ruleset** at 2474,
+_Last verified: 2026-08-26 (`npx vitest run`), after **TICKET-GAM-02 — invite codes and joining a
+table**.
+The checkpoints before it were **TICKET-GAM-01 — game sessions and pinned Snapshots** at 2526,
+**TICKET-IO-04 — import creates a ruleset** at 2474,
 **TICKET-RUL-03 — copy a ruleset** at 2370,
 **TICKET-RUL-02 — server-backed ruleset editing** at 2353,
 **TICKET-RUL-01 — ruleset records** at 2313,
@@ -21,12 +22,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 2526
-- **Passing**: 2526 (100%)
+- **Total tests**: 2625
+- **Passing**: 2625 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **155 files**: `server` in node, everything else in happy-dom.
+Split across **162 files**: `server` in node, everything else in happy-dom.
 
 ## The suite now runs in two environments
 
@@ -44,6 +45,71 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-GAM-02 — a credential is the one thing a happy-path test cannot cover
+
+The **+99 over GAM-01** is TICKET-GAM-02: 33 in `server/routes/invites/invites.test.ts`, 15 in
+`server/routes/invites/inviteCode.test.ts`, 12 in `client/components/sessions/SessionList.test.tsx`,
+10 in `InviteCodePanel.test.tsx`, 9 in `JoinSessionPanel.test.tsx`, 8 in `StartSessionForm.test.tsx`,
+7 in `useJoinSession.test.ts`, and 5 across the two auth files a redirect-carrying sign-in touched.
+
+**An invite code is a bearer credential, so most of its tests are about the ways it can be abused
+rather than the way it is used.** The happy path — issue, paste, join — is four assertions. The rest
+are the refusals: a code that never existed, one taken back, one that ran out, and a table that has
+been archived, which v3 Req 38.4 asks to be four distinguishable sentences rather than one polite
+shrug. Each is a different thing for the person holding the code to *do*, and a shared "invalid
+code" would leave all four of them guessing.
+
+**The `conventions-reviewer` pass found the hole that made the security argument false.** The
+feature's whole defence is *fifty bits makes brute force expensive, and the limiter makes it
+impossible to pay for* — but the limiter was consulted by `redeemInvite` alone, leaving
+`GET /api/invites/:code` as an unmetered oracle over the same code space. Sign-up is open, so any
+Account could walk it at whatever rate the process serves and read three distinguishable answers —
+404, a 409 naming *revoked* or *expired*, or a 200 carrying the session's name — never touching
+either bucket, and spend a single `POST` on the hit. Both routes now enter through
+`resolveInviteFor`, sharing the buckets deliberately: two limiters would be defeated by alternating
+between them. `resolveInvite` beneath it is **not exported**, so reaching past the limiter is not
+something a later route can do by accident — and fallow reported the export as dead the moment the
+second caller went away, which is the check noticing the same thing the review did.
+
+**Every refusal spends an attempt, not only the unknown-code one.** An attacker learns as much from
+*expired* as from *no such code* — both say a code existed — so a limiter counting misses alone would
+have had a hole in exactly the shape of a hit.
+
+**One 500 was reachable by anybody signed in, and removing the decode was the wrong fix.**
+`decodeURIComponent` throws `URIError` on a lone `%`, which is not an `AppError`, so the pipeline
+logged it as a bug and answered 500 — an unbounded stream of them for the price of `/api/invites/%`.
+The first attempt dropped the decode entirely and **broke a passing test**: a code typed with a space
+arrives as `%20`, and normalisation would have kept the `20` as digits. The decode is now guarded and
+falls back to the raw segment, so a malformed path gets the 404 it deserves and a well-formed
+encoding still decodes. The test that failed was right; the fix that made it pass would have been
+wrong.
+
+**`InviteCodePanel` earns a test file of its own** as the only surface in the app that renders a
+credential. The server deliberately still sends an expired code — a DM shown nothing would read that
+as *I never issued one* — so this is the one place the difference becomes visible, and the review
+found it rendering a dead code as the live invitation with a *Copy link* beside it. The wire shape
+changed with the fix: `inviteCode: string` became `invite: { code, expiresAt }`, because a bare
+string cannot say *this ran out a week ago*.
+
+**The code and the link are asserted as text, not only as buttons.** `navigator.clipboard` needs a
+secure context and a permission, and somebody without one still has to be able to read and select
+both.
+
+**The browser check found a defect no unit test was positioned to see.** The *Create one* link under
+the sign-in form dropped the `?redirect=` it was standing on, so following an invite link while
+signed out, then signing up rather than in, landed on the home page with the invitation lost.
+`destinationSearch` and `AuthForm`'s `switchSearch` carry it across the switch, and `/signup` now
+honours it the way `/signin` already did.
+
+**`protectedRoutes.test.ts` gained the case that makes the allow-list falsifiable.** It already
+proved every declared prefix composes `RequireAccount`; it now also fails on a prefix that protects
+**nothing** — a typo'd entry used to read as a route being guarded when no such route existed.
+
+**Everything `fallow` reported was fixed rather than suppressed.** Four of them were component
+complexity, and the split each one wanted was the same split a test wanted: `SessionRow`, `Body`,
+`LiveCode` and `Form` came out of their parents, and two of the four parents got a test file at the
+same time.
 
 ## TICKET-GAM-01 — proving a pinned Snapshot by calculating, not by comparing
 
@@ -859,13 +925,18 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/server/repositories/eventRepository.test.ts` | 20.7 | TICKET-AUTH-03's run | 3 commits, 387 churn, 0.21 density | ▲ **Accelerating** |
 | `src/server/http/pipeline.test.ts` | 28.8 | TICKET-RUL-01's run | 4 commits, 272 churn, 0.21 density | ▲ **Accelerating** |
 | `src/server/http/apiRouter.test.ts` | 49.4 | TICKET-RUL-02's run | 9 commits, 0.16 density | ─ Stable — **cooled by TICKET-GAM-01** |
-| `src/server/db/migrate.test.ts` | — | TICKET-IO-04's run | 3 commits, 0.10 density | ▲ **Accelerating** |
+| `src/server/db/migrate.test.ts` | 13.7 | TICKET-IO-04's run | 4 commits, 0.10 density | ▼ Cooling — **cooled by TICKET-GAM-01** |
 | `src/server/routes/rulesets/rulesetPayloads.ts` | 9.6 | TICKET-IO-04's run | 4 commits, 0.09 density | ▼ Cooling — **cooled by TICKET-GAM-01** |
 | `src/server/testing/seeds.ts` | 12.4 | TICKET-IO-04's run | 4 commits, 0.09 density | ▼ Cooling — **cooled by TICKET-GAM-01** |
-| `src/client/components/rulesets/useRulesetManager.ts` | — | TICKET-IO-04's run | 3 commits, 0.09 density | ▲ **Accelerating** |
-| `src/client/components/rulesets/RulesetsPanel.tsx` | — | TICKET-IO-04's run | 3 commits, 0.04 density | ▲ **Accelerating** |
-| `src/client/components/rulesets/RulesetsPanel.test.tsx` | — | TICKET-IO-04's run | 3 commits, 0.08 density | ▲ **Accelerating** |
-| `src/client/components/rulesets/AccountRulesetHome.tsx` | — | TICKET-IO-04's run | 3 commits, 0.10 density | ▲ **Accelerating** |
+| `src/client/components/rulesets/useRulesetManager.ts` | 12.4 | TICKET-IO-04's run | 4 commits, 0.09 density | ▼ Cooling — **cooled by TICKET-GAM-01** |
+| `src/client/components/rulesets/RulesetsPanel.tsx` | 5.5 | TICKET-IO-04's run | 4 commits, 0.04 density | ▼ Cooling — **cooled by TICKET-GAM-01** |
+| `src/client/components/rulesets/RulesetsPanel.test.tsx` | 15.1 | TICKET-IO-04's run | 4 commits, 0.08 density | ▼ Cooling — **cooled by TICKET-GAM-01** |
+| `src/client/components/rulesets/AccountRulesetHome.tsx` | — | TICKET-IO-04's run | 3 commits, 0.10 density | ▼ Cooling — **cooled by TICKET-GAM-01** |
+| `src/server/http/appError.ts` | 8.2 | TICKET-GAM-02's run | 4 commits, 0.09 density | ▲ **Accelerating** |
+| `src/client/components/shared/AppShell.tsx` | 5.1 | TICKET-GAM-02's run | 3 commits, 0.05 density | ▲ **Accelerating** |
+| `src/client/components/auth/AuthForm.tsx` | 6.2 | TICKET-GAM-02's run | 3 commits, 0.07 density | ▲ **Accelerating** |
+| `src/client/routes/signin.tsx` | 7.2 | TICKET-GAM-02's run | 3 commits, 0.07 density | ▲ **Accelerating** |
+| `src/client/routeTree.gen.ts` | 5.5 | TICKET-GAM-02's run | 4 commits, 0.03 density | ▲ **Accelerating** — generated |
 
 **Both Accelerating rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they
 crossed the three-commit floor and became measurable at all. Recorded under the run that first saw
@@ -959,6 +1030,15 @@ them, with the tickets that moved them named here rather than lost:
   three re-inferred row types for a repository call and three re-exports. That is what the
   prediction above asked for in reverse — the fifth ticket to touch `rulesetPayloads.ts` took a gate
   function *out* rather than adding a third.
+
+  **GAM-02's run says all seven cooled, not two**, and the correction is worth keeping rather than
+  quietly overwriting. The paragraph above named the two whose cooling had a *reason* — a function
+  moved out, a raw insert replaced — and read the rest as still climbing. They were not: the other
+  five cooled for the duller reason, which is that GAM-01 and GAM-02 added a whole feature without
+  touching the ruleset surfaces at all. **That is the tag behaving correctly and the note above
+  reading it too eagerly**: churn velocity falls when a ticket goes elsewhere, and that is not the
+  same as a file getting easier. Their rows keep the ticket that cooled them; nothing about the code
+  changed.
 - **`src/server/http/pipeline.test.ts`** — a new row, and RUL-01 is the first ticket in this
   milestone to touch it, which is what earns it one at last (AUTH-02's run flagged it while no
   ticket had). The edit was small and worth recording anyway: the *"named by exactly two modules"*
@@ -969,12 +1049,33 @@ them, with the tickets that moved them named here rather than lost:
   documenting it. 240 churn over three commits is the file being *reshaped* by DX-06 and AUTH-01
   rather than by growth; what would make the tag real is a fourth ticket changing how it scans
   rather than what it scans for.
+- **GAM-02's five rows are two different stories, and only one of them is about this ticket.**
+  `appError.ts` is the real one: four tickets have now added an error to it (`conflict`,
+  `unprocessable`, `tooManyRequests`), and every one arrived the same way — a route needed a status
+  the module did not have. It is still a status table and a constructor per row, which is the
+  cheapest shape this could be, so the tag is not yet pointing at a defect. **The signal is a
+  constructor that takes anything but a message** — a retry-after header, a field list, a machine
+  code beyond `ERROR_CODE` — because that is the edit that turns a table into a protocol and wants
+  its own module.
+- **The three `auth/` rows and `routeTree.gen.ts` earn rows for the first time**, and the reason
+  they were skipped in RUL-01's run is exactly the reason they cannot be skipped now: the rule is
+  about files a ticket *touched by hand*, and GAM-02 touched three of them. `signin.tsx`,
+  `AuthForm.tsx` and `AppShell.tsx` were all edited to carry a `?redirect=` across the sign-in ↔
+  sign-up switch. The densities are 0.05–0.07 — the bottom of the table — and the churn is one
+  concern threading through three files, which is what a redirect *is*. **The signal to watch is a
+  fourth destination**: two (`/account`, and now any protected route) are carried by
+  `signInDestination.ts` as data; a third kind of destination that needs its own rule is the edit
+  that makes this a router concern rather than a form one.
+- **`routeTree.gen.ts` keeps its row and will never earn an action.** It is generated and may not be
+  edited, so its Accelerating tag is a fact about how many tickets added routes rather than about
+  the file. It is listed because the rule says a touched file gets a row, and silently exempting
+  the one file that always qualifies would make the table's completeness a judgement call.
 
 `scripts/build-sheet-import.mjs` (62.5) and `vite.config.ts` (3.3) are above the threshold and
-**stable**, and no ticket in this milestone has touched either. `src/server/testing/database.ts`,
-`src/client/routeTree.gen.ts` and the four `auth/` surfaces came back Accelerating in RUL-01's run
-and are **not** given rows: the rule is about files a ticket *touched*, and RUL-01 touched none of
-them by hand — `routeTree.gen.ts` is generated and may not be edited at all. `src/server/env.ts` and
+**stable**, and no ticket in this milestone has touched either. `src/server/testing/database.ts` and the
+`auth/` test files came back Accelerating in RUL-01's run and are **not** given rows: the rule is
+about files a ticket *touched*, and RUL-01 touched none of them by hand. **GAM-02 is where that
+exemption ran out** for four of them — see its rows above. `src/server/env.ts` and
 `env.test.ts` are both ─ Stable despite AUTH-02 adding five variables to them, which is the table
 working — the additions are table entries, not new machinery.
 
@@ -992,9 +1093,9 @@ than recalled.
 
 ## Architecture rules: clean, and they cost nothing
 
-`yarn run arch` reports **zero error-level findings** and zero warnings, over 549 modules and 2495
-dependencies (537 / 2396 before TICKET-GAM-01, 516 / 2281 before TICKET-IO-04, 437 / 1917 before
-TICKET-RUL-01). That is the baseline: an error-level finding is
+`yarn run arch` reports **zero error-level findings** and zero warnings, over 578 modules and 2650
+dependencies (549 / 2495 before TICKET-GAM-02, 537 / 2396 before TICKET-GAM-01, 516 / 2281 before
+TICKET-IO-04, 437 / 1917 before TICKET-RUL-01). That is the baseline: an error-level finding is
 yours. `no-orphans` reports at *warning* severity by design and does not fail the build.
 
 **Measured cost of DX-08's nine extra rules: none.** `depcruise src`, three runs each, same tree:

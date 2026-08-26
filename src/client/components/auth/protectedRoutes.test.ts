@@ -38,6 +38,21 @@ function everyRoute(): string[] {
   return [...block.matchAll(/'([^']*)'/g)].map((match) => match[1] as string);
 }
 
+/**
+ * Every route in the tree that needs an Account, as the generator spells it
+ *
+ * **Distinct from `PROTECTED_ROUTES`, which is a list of *prefixes***, and the two stopped being the
+ * same list when TICKET-GAM-02 added `/join`: that prefix has no route of its own, and the route it
+ * guards is `/join/$code`. Keeping both means both directions stay checked — a route that quietly
+ * became protected fails the first assertion below, and a prefix guarding nothing fails the second.
+ */
+const PROTECTED_TREE_PATHS = ['/account', '/sessions', '/join/$code'];
+
+/** Whether a prefix guards a path — `isProtectedRoute`'s rule, for one prefix at a time */
+function coveredBy(prefix: string, path: string): boolean {
+  return path === prefix || path.startsWith(`${prefix}/`);
+}
+
 /** The local-mode surfaces D6 promises a signed-out visitor, named so a rename is a failure */
 const LOCAL_MODE_ROUTES = [
   '/',
@@ -72,9 +87,23 @@ describe('the route tree', () => {
     const protectedPaths = everyRoute().filter(isProtectedRoute).sort();
 
     // Not "the list is short" — "the list is *this*". A future route that quietly became protected
-    // shows up here as a path nobody put in `PROTECTED_ROUTES`. Both sides sorted, because the
-    // route tree's order is the generator's and the list's is ours, and neither is the assertion.
-    expect(protectedPaths).toEqual([...PROTECTED_ROUTES].sort());
+    // shows up here as a path nobody put in `PROTECTED_TREE_PATHS`. Both sides sorted, because the
+    // route tree's order is the generator's and this one's is ours, and neither is the assertion.
+    expect(protectedPaths).toEqual([...PROTECTED_TREE_PATHS].sort());
+  });
+
+  it('declares no prefix that protects nothing (TICKET-GAM-02)', () => {
+    // **The other direction, which the assertion above stopped covering when `/join` arrived.**
+    // Until then every prefix in `PROTECTED_ROUTES` was itself a route, so comparing the two lists
+    // caught a dead entry for free. `/join` is a prefix whose route is `/join/$code`, so the lists
+    // are now different kinds of thing — and a prefix guarding a route that has been deleted or
+    // renamed is exactly the rot this file exists against.
+    for (const prefix of PROTECTED_ROUTES) {
+      expect(
+        PROTECTED_TREE_PATHS.filter((path) => coveredBy(prefix, path)),
+        prefix
+      ).not.toEqual([]);
+    }
   });
 
   it('leaves every local-mode route open to a signed-out visitor (D6)', () => {
@@ -99,11 +128,16 @@ describe('the route tree', () => {
   it('has a route module wrapping each listed route in RequireAccount', () => {
     // **The list is a claim; this is what makes it true.** `PROTECTED_ROUTES` has no runtime
     // consumer — protection is delivered by each route composing `RequireAccount` — so without this
-    // the day GAM-01 adds `/sessions` to the list and forgets the wrapper, every test still passes
-    // and a file in the repo asserts a wide-open route is protected. Source-walked for the same
-    // reason `routes/routeGuards.test.ts` walks the server: the obligation is a *call site*.
-    for (const route of PROTECTED_ROUTES) {
-      const source = readFileSync(resolve(ROUTES_DIR, `${route.replace(/^\//, '')}.tsx`), 'utf8');
+    // the day a ticket adds a path to the list and forgets the wrapper, every test still passes and
+    // a file in the repo asserts a wide-open route is protected. Source-walked for the same reason
+    // `routes/routeGuards.test.ts` walks the server: the obligation is a *call site*.
+    //
+    // Walked over the **tree paths** rather than the prefixes since TICKET-GAM-02, because a prefix
+    // is not always a module: `/join` has no `join.tsx`, and the wrapper it needs is in
+    // `join.$code.tsx`. A generated route's file is its path with the separators as dots.
+    for (const route of PROTECTED_TREE_PATHS) {
+      const file = `${route.replace(/^\//, '').replaceAll('/', '.')}.tsx`;
+      const source = readFileSync(resolve(ROUTES_DIR, file), 'utf8');
 
       expect(source, route).toContain('<RequireAccount>');
     }

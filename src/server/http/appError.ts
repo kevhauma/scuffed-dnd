@@ -41,6 +41,7 @@ export const STATUS_FOR_CODE: Record<ErrorCode, number> = {
   [ERROR_CODE.NOT_FOUND]: 404,
   [ERROR_CODE.METHOD_NOT_ALLOWED]: 405,
   [ERROR_CODE.CONFLICT]: 409,
+  [ERROR_CODE.TOO_MANY_REQUESTS]: 429,
   [ERROR_CODE.INTERNAL]: 500,
 };
 
@@ -111,6 +112,21 @@ export function conflict(message: string, details?: ErrorDetails): AppError {
  */
 export function unauthenticated(message = 'Sign in to do that.'): AppError {
   return new AppError(ERROR_CODE.UNAUTHENTICATED, message);
+}
+
+/**
+ * The caller has been trying too often (TICKET-GAM-02)
+ *
+ * **The first `AppError` 429 in the tree**, and worth distinguishing from AUTH-01's sign-in limit,
+ * which produces its status through Better Auth's own machinery rather than through here. What they
+ * share is the reasoning: a refusal whose remedy is *wait* has to be told apart from one whose
+ * remedy is *fix your input*, or the client tells somebody to correct a code that was correct.
+ *
+ * The message carries the wait, because a 429 with no idea how long is a 429 people retry
+ * immediately.
+ */
+export function tooManyRequests(message: string): AppError {
+  return new AppError(ERROR_CODE.TOO_MANY_REQUESTS, message);
 }
 
 /**

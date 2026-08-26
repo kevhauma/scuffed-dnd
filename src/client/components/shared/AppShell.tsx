@@ -49,6 +49,10 @@ const CONFIG_NAV = [
 const PLAY_NAV = [
   { to: '/play', label: 'Characters' },
   { to: '/play/create', label: 'New Character' },
+  // Play mode rather than configuration mode, because a game session is where you *play* — and it
+  // sits after the two local entries deliberately: signed out those still work completely and this
+  // one asks for an account (D6, TICKET-GAM-02)
+  { to: '/sessions', label: 'Games' },
 ] as const;
 
 /**

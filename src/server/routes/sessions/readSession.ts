@@ -22,12 +22,40 @@
  * **Validates: v3 Req 32.1, 32.3, 32.5, 37.2, 37.5**
  */
 
-import type { GameSessionDocument } from '#shared/types/api';
+import type { GameSessionDocument, MemberRole, SessionInvite } from '#shared/types/api';
+import { MEMBER_ROLE } from '#shared/types/api';
 import { requireMember } from '../../auth/guards';
 import { notFound } from '../../http/appError';
 import { defineHandler } from '../../http/pipeline';
 import { findGameSession } from '../../repositories/gameSessionRepository';
+import { activeInviteForSession } from '../../repositories/sessionInviteRepository';
+import { formatInviteCode } from '../invites/inviteCode';
 import { sessionIdFrom, snapshotOf, toSessionSummary } from './sessionPayloads';
+
+/**
+ * The code this table is handing out, for the DM and for nobody else (TICKET-GAM-02)
+ *
+ * **The query only runs for a DM**, so a player's read costs nothing extra — and the field is absent
+ * rather than empty for them, because *there is no code* and *you may not see the code* should not
+ * look the same to a client.
+ *
+ * An expired code is still shown. A DM looking at a stale one should be told it is stale rather than
+ * shown nothing, and *nothing* is what they would read as *I have not issued one yet*.
+ *
+ * @param sessionId Which table
+ * @param role What the asking Account is at it
+ * @returns The hyphenated code, or `undefined`
+ */
+function inviteFor(sessionId: string, role: MemberRole): SessionInvite | undefined {
+  if (role !== MEMBER_ROLE.DM) return undefined;
+
+  const invite = activeInviteForSession(sessionId);
+
+  // **With its expiry**, because a code and *how long it is good for* are one fact: a client handed
+  // only the string cannot tell a live invitation from a fortnight-old one, and would offer *Copy
+  // link* for both
+  return invite ? { code: formatInviteCode(invite.code), expiresAt: invite.expiresAt } : undefined;
+}
 
 export const readSession = defineHandler((context): GameSessionDocument => {
   const sessionId = sessionIdFrom(context.url);
@@ -41,5 +69,9 @@ export const readSession = defineHandler((context): GameSessionDocument => {
   // non-member gets rather than a 500, because from the caller's side the two are one fact.
   if (!row) throw notFound();
 
-  return { ...toSessionSummary(row, membership.role), snapshot: snapshotOf(row) };
+  return {
+    ...toSessionSummary(row, membership.role),
+    snapshot: snapshotOf(row),
+    invite: inviteFor(sessionId, membership.role),
+  };
 });

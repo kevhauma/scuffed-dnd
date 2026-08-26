@@ -8,8 +8,10 @@
 
 export * from './archiveSession';
 export * from './createSession';
+export * from './issueInvite';
 export * from './listSessions';
 export * from './readSession';
 export * from './refreshSnapshot';
+export * from './revokeInvite';
 export * from './sessionPayloads';
 export * from './snapshotConflicts';

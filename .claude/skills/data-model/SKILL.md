@@ -63,6 +63,16 @@ Three things follow, and the first is the one to hold on to:
 - **Storing a whole ruleset per table is accepted duplication**, and the alternative (a
   content-addressed ruleset-version table) is a versioning system the milestone put out of scope.
 
+**TICKET-GAM-02 needed no migration**, which is worth recording as the shape of a well-sized ticket
+rather than as luck: `session_invite` and `session_member` were both in DB-01's schema and unused,
+so the whole feature is rows in existing tables. Two properties of those rows are enforced by the
+database rather than by code and must not be re-implemented above it — **one live invite per
+session** (issuing revokes-then-inserts in a single transaction, so reissuing is what retires the
+previous code) and **one membership row per (session, account)**, which is what lets
+`seatSessionMember` be `ON CONFLICT DO NOTHING` plus a read-back and makes a double-clicked invite
+link idempotent by constraint. An invite code is never written into a document; it is a column, and
+`game_session.snapshot` knows nothing about it.
+
 Two consequences worth holding on to before changing a persisted shape:
 
 - **A document change is not a migration.** Adding `grantedStatPoints` (DM-01) or `purse` (CUR-02)

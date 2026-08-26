@@ -30,6 +30,16 @@ export interface AuthFormProps {
   mode: AuthMode;
   /** Where to go once the Account is signed in */
   onSuccess: () => void;
+  /**
+   * What the link to the *other* surface should carry (TICKET-GAM-02)
+   *
+   * **The destination has to survive the hop between these two cards.** Somebody following an invite
+   * link who has no account yet arrives at `/signin`, clicks *Create one*, and used to land on the
+   * home page with the invitation gone — which for an invitation is the common case rather than an
+   * edge of it. Passing the search through means the round trip is *link → sign-in → sign-up →
+   * back to the invitation* rather than a dead end two clicks in.
+   */
+  switchSearch?: { redirect?: string };
 }
 
 /** What each surface calls itself */
@@ -52,7 +62,7 @@ const WORDING = {
   },
 } as const;
 
-export function AuthForm({ mode, onSuccess }: AuthFormProps) {
+export function AuthForm({ mode, onSuccess, switchSearch }: AuthFormProps) {
   const { form, error, isSubmitting, submit } = useAuthForm(mode, onSuccess);
   const { register, formState } = form;
   const wording = WORDING[mode];
@@ -133,7 +143,7 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
 
         <Text variant="caption" as="p" className="text-center">
           {wording.switchPrompt}{' '}
-          <Link to={wording.switchTo} className={switchLinkStyles}>
+          <Link to={wording.switchTo} search={switchSearch} className={switchLinkStyles}>
             {wording.switchLabel}
           </Link>
         </Text>

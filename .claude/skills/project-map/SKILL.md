@@ -80,19 +80,23 @@ rather than a read-only config UI).
 | `/play/create` | `routes/play/create.tsx` | `CharacterCreationWizard` — the four-step wizard |
 | `/play/character/$id` | `routes/play/character.$id.tsx` | `CharacterSheet` — takes the route param as `characterId` |
 | `/signin` | `routes/signin.tsx` | `AuthForm` in sign-in mode (TICKET-AUTH-01). A page rather than a dialog because TICKET-AUTH-03 sends an unauthenticated visitor here and returns them |
-| `/signup` | `routes/signup.tsx` | `AuthForm` in sign-up mode — carries the "there is no password reset" warning (v3 Req 30.10) |
-| `/account` | `routes/account.tsx` | `LinkedIdentities` (TICKET-AUTH-02) + `ActiveSessions` (AUTH-04) — how to get back into this Account, and who else is already in it. **The milestone's first protected route** (AUTH-03): it composes `RequireAccount`, and it is the only entry in `PROTECTED_ROUTES` |
+| `/signup` | `routes/signup.tsx` | `AuthForm` in sign-up mode — carries the "there is no password reset" warning (v3 Req 30.10). **Honours `?redirect=` since TICKET-GAM-02**, which it never did: an invitee without an account is the common case for an invitation, and they used to create one and land on the home page with the invitation gone |
+| `/account` | `routes/account.tsx` | `LinkedIdentities` (TICKET-AUTH-02) + `ActiveSessions` (AUTH-04) — how to get back into this Account, and who else is already in it. **The milestone's first protected route** (AUTH-03): it composes `RequireAccount` |
+| `/sessions` | `routes/sessions.tsx` | `SessionsPanel` (components/sessions/, TICKET-GAM-02) — start a table from a ruleset you own, the games you are in, and for a DM the invitation. **Deliberately not the lobby**: nothing here shows other people, which is GAM-04's. Protected |
+| `/join/$code` | `routes/join.$code.tsx` | `JoinSessionPanel` (TICKET-GAM-02) — what an invite link opens. Previews before it joins, so clicking a link seats nobody; joining is an explicit action. Protected, which is what routes a signed-out invitee through sign-in and back |
 
 Route files stay thin: they render a feature component and pass route params down. Data fetching
 is a no-op here — everything comes from the Zustand stores. **The three auth routes are the
 exception and are meant to be**: they read a server fact, not a store (see `components/auth/`).
 
-**Every route above except `/account` is open to a signed-out visitor**, which is D6 rather than an
-oversight — the whole configuration UI and the whole play surface are local mode. Protection is an
-**explicit list** in `components/auth/protectedRoutes.ts`, so a future route is open unless somebody
-says otherwise, and `protectedRoutes.test.ts` enumerates `routeTree.gen.ts` to prove both halves:
-that the protected subset is exactly that list, and that each listed route's module really composes
-`<RequireAccount>`.
+**Every route above except `/account`, `/sessions` and `/join/$code` is open to a signed-out
+visitor**, which is D6 rather than an oversight — the whole configuration UI and the whole play
+surface are local mode. Protection is an **explicit list** in `components/auth/protectedRoutes.ts`,
+so a future route is open unless somebody says otherwise, and `protectedRoutes.test.ts` enumerates
+`routeTree.gen.ts` to prove three things: that the protected subset is exactly that list, that each
+listed route's module really composes `<RequireAccount>`, and — since GAM-02 — that **no listed
+prefix protects nothing**, because a typo'd entry used to read as a route being guarded when no such
+route existed.
 
 **The whole configuration UI is mounted and browsable** as of TICKET-NAV-02 — all eight §11 panels
 have a route. Play mode's three routes are all real: `/play` (TICKET-CHAR-01), `/play/create`
@@ -509,6 +513,24 @@ each later ticket adds.
 - `routes/entityName.ts` (TICKET-GAM-01) — `requiredName(body, subject)`. The name rule every
   aggregate's `nameFrom` wraps; extracted at the **second** caller because `fallow` measured the
   ruleset and session copies as a 25-line clone.
+- `routes/invites/` (TICKET-GAM-02) — `GET`/`POST /api/invites/:code`, **the only two routes in the
+  milestone reached without a membership**: you are not a Member yet, which is the point. What
+  stands in for a guard is the code itself, the limiter, and four distinguishable refusals.
+  `inviteCode.ts` mints one — `crypto.getRandomValues` over ten characters of Crockford's Base32
+  (≈50 bits), and `normalizeInviteCode` reads `O` as `0` and `I`/`L` as `1` so hearing a code wrong
+  is not a failure. `redemptionLimit.ts` is a per-Account **and** per-code bucket, in memory.
+  `invitePayloads.ts` is the module to read first: **`resolveInviteFor` is the only door**, and the
+  `resolveInvite` beneath it is deliberately not exported — the GAM-02 review found `GET` bypassing
+  the limiter, which made an unmetered oracle of the preview route and the whole "fifty bits is
+  expensive to guess" argument false. `previewInvite` answers an archived table **200 with
+  `isJoinable: false`** while `redeemInvite` refuses it 409, which is the one asymmetry: *this game
+  has ended* is a sentence to read, not an error to decode.
+  **`redeemInvite` never spells `sessionId`** — `seatSessionMember` takes the loaded session row —
+  because `routeGuards.test.ts` reads a handler naming one as *this route had better call a resource
+  guard*, and this is the act that cannot. Same trade as IO-04's `insertUnseatedCharacter`.
+  Beside them, `routes/sessions/issueInvite.ts` and `revokeInvite.ts` are the DM's half; **archived
+  refuses issuing but allows revoking**, because a DM who archived first must still be able to
+  invalidate a link they posted publicly.
 - `auth/` (TICKET-AUTH-01, TICKET-AUTH-02) — identity, and **only** identity; authorization is
   AUTH-03's and lives outside it. `authServer.ts` configures Better Auth (what is switched off and
   why is in its header); `authRoutes.ts` delegates the `/api/auth` subtree and adds the per-address
@@ -556,6 +578,11 @@ each later ticket adds.
   reads that table and not `dm_account_id`), `findGameSession`, `listSessionsForAccount` (joined on
   membership, `snapshot` deliberately unselected), `updateSessionSnapshot`, `archiveGameSession` and
   `charactersInSession`.
+  **GAM-02 added `sessionInviteRepository`** (`issueSessionInvite` — revoke-then-insert in one
+  transaction, so reissuing is what retires the previous code; `findInviteByCode`;
+  `activeInviteForSession`; `revokeSessionInvites`) and `gameSessionRepository.seatSessionMember`,
+  which is **idempotent by constraint**: `ON CONFLICT DO NOTHING` plus a read-back returning
+  `{ membership, joined }`, so a double-clicked invite link cannot race itself into a second row.
   **Every function takes its connection as a defaulted *last* parameter** — `findRuleset(id)` in
   production, `findRuleset(id, database)` in a test. That is not style: the same rule that keeps
   queries here forbids a handler from importing `db/client`, so a connection-first signature is one
@@ -727,6 +754,12 @@ than into a second redirect.
 `role="alert"` div — and the folder's shared class strings live in **`authSurfaces.style.ts`**
 rather than in any one component's `.style.ts`, which is what four modules importing the same
 tones actually means.
+**GAM-02 made the destination survive the sign-in ↔ sign-up switch.** `signInDestination.ts` gained
+`destinationSearch(search)` — one `validateSearch` both auth routes use, so the open-redirect refusal
+is written once rather than twice — and `AuthForm` gained `switchSearch`, which is what the *Create
+one* / *Sign in instead* link carries. Before that, following an invite link signed out reached
+`/signin?redirect=…` correctly and then lost it the moment the visitor did the thing an invitee
+without an account has to do.
 
 **`rulesets/`** — the two homes a ruleset can live in, barrelled by `rulesets/index.ts`
 (TICKET-RUL-01). `RulesetsPanel.tsx` is configuration mode's entry point at `/rulesets`;
@@ -755,6 +788,23 @@ offers `downloadStoredBackup` first (v3 Req 36.4) and says in words that the bro
 wrong with it"* from a refusal, because v3 Req 35.3 makes that report advisory. The *upload* button
 reaches the row through `RulesetCard`'s `openAction` slot rather than a new prop named after its one
 caller.
+
+**`sessions/`** — the connected-play surfaces, barrelled by `sessions/index.ts` (TICKET-GAM-02) and
+**deliberately the smallest thing that makes invitations real**, not the lobby. `SessionsPanel.tsx`
+is `/sessions`, composing `StartSessionForm` (pick a ruleset you own, name the table),
+`SessionList` (the games you are in, with a role badge from a `ROLE_BADGE` table) and, per row for a
+DM, `InviteCodePanel`. `JoinSessionPanel.tsx` is `/join/$code`, driven by `useJoinSession(code)`,
+which **previews before it joins** — mounting the hook seats nobody, which is what makes an invite
+link safe to click — and reports *already a member* as an outcome rather than an error (v3 Req 38.7),
+because somebody clicking their own paste into the group chat is not doing anything wrong.
+`InviteCodePanel` is the one surface in the app that renders a **credential**, and it earns a test
+file of its own for it: the code and the link are shown as selectable text and not only behind a
+*Copy* button (`navigator.clipboard` needs a secure context and a permission), and a code the server
+still sends but which has **expired** says so — the server keeps sending it deliberately, since a DM
+shown nothing would read that as *I never issued one*. `useSessionInvite` holds a `showing` ref so a
+slow response cannot overwrite a code issued since. Wording for a refusal is the **server's**
+sentence rendered, never a summary: v3 Req 38.4 asks for four distinct messages and a surface that
+flattened them would be inventing a fifth nobody decided on.
 
 `components/Header.tsx` sits at the root of `components/`, outside every feature folder.
 

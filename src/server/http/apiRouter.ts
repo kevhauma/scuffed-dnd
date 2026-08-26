@@ -23,6 +23,7 @@
 import { AUTH_PREFIX, handleAuthRequest } from '../auth/authRoutes';
 import { authProviders } from '../routes/authProviders';
 import { health } from '../routes/health';
+import { previewInvite, redeemInvite } from '../routes/invites';
 import {
   copyRuleset,
   createRuleset,
@@ -36,9 +37,11 @@ import {
 import {
   archiveSession,
   createSession,
+  issueInvite,
   listSessions,
   readSession,
   refreshSnapshot,
+  revokeInvite,
 } from '../routes/sessions';
 import { uploadPrompt } from '../routes/uploadPrompt';
 import { methodNotAllowed, notFound } from './appError';
@@ -89,6 +92,11 @@ export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Respon
   'GET /api/sessions/:id': readSession,
   'POST /api/sessions/:id/archive': archiveSession,
   'POST /api/sessions/:id/snapshot': refreshSnapshot,
+  'POST /api/sessions/:id/invite': issueInvite,
+  'DELETE /api/sessions/:id/invite': revokeInvite,
+  // The two routes reached without a membership — redeeming a code is how one begins (TICKET-GAM-02)
+  'GET /api/invites/:code': previewInvite,
+  'POST /api/invites/:code': redeemInvite,
 };
 
 /** The path half of a `METHOD /path` key */

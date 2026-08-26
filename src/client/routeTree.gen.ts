@@ -11,12 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SigninRouteImport } from './routes/signin'
+import { Route as SessionsRouteImport } from './routes/sessions'
 import { Route as RulesetsRouteImport } from './routes/rulesets'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PlayIndexRouteImport } from './routes/play/index'
 import { Route as ConfigIndexRouteImport } from './routes/config/index'
 import { Route as PlayCreateRouteImport } from './routes/play/create'
+import { Route as JoinCodeRouteImport } from './routes/join.$code'
 import { Route as ConfigStatsRouteImport } from './routes/config/stats'
 import { Route as ConfigSkillsRouteImport } from './routes/config/skills'
 import { Route as ConfigRollsRouteImport } from './routes/config/rolls'
@@ -38,6 +40,11 @@ const SignupRoute = SignupRouteImport.update({
 const SigninRoute = SigninRouteImport.update({
   id: '/signin',
   path: '/signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SessionsRoute = SessionsRouteImport.update({
+  id: '/sessions',
+  path: '/sessions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RulesetsRoute = RulesetsRouteImport.update({
@@ -68,6 +75,11 @@ const ConfigIndexRoute = ConfigIndexRouteImport.update({
 const PlayCreateRoute = PlayCreateRouteImport.update({
   id: '/play/create',
   path: '/play/create',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JoinCodeRoute = JoinCodeRouteImport.update({
+  id: '/join/$code',
+  path: '/join/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfigStatsRoute = ConfigStatsRouteImport.update({
@@ -135,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/rulesets': typeof RulesetsRoute
+  '/sessions': typeof SessionsRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/config/archetypes': typeof ConfigArchetypesRoute
@@ -148,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/config/rolls': typeof ConfigRollsRoute
   '/config/skills': typeof ConfigSkillsRoute
   '/config/stats': typeof ConfigStatsRoute
+  '/join/$code': typeof JoinCodeRoute
   '/play/create': typeof PlayCreateRoute
   '/config/': typeof ConfigIndexRoute
   '/play/': typeof PlayIndexRoute
@@ -157,6 +171,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/rulesets': typeof RulesetsRoute
+  '/sessions': typeof SessionsRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/config/archetypes': typeof ConfigArchetypesRoute
@@ -170,6 +185,7 @@ export interface FileRoutesByTo {
   '/config/rolls': typeof ConfigRollsRoute
   '/config/skills': typeof ConfigSkillsRoute
   '/config/stats': typeof ConfigStatsRoute
+  '/join/$code': typeof JoinCodeRoute
   '/play/create': typeof PlayCreateRoute
   '/config': typeof ConfigIndexRoute
   '/play': typeof PlayIndexRoute
@@ -180,6 +196,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/rulesets': typeof RulesetsRoute
+  '/sessions': typeof SessionsRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/config/archetypes': typeof ConfigArchetypesRoute
@@ -193,6 +210,7 @@ export interface FileRoutesById {
   '/config/rolls': typeof ConfigRollsRoute
   '/config/skills': typeof ConfigSkillsRoute
   '/config/stats': typeof ConfigStatsRoute
+  '/join/$code': typeof JoinCodeRoute
   '/play/create': typeof PlayCreateRoute
   '/config/': typeof ConfigIndexRoute
   '/play/': typeof PlayIndexRoute
@@ -204,6 +222,7 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/rulesets'
+    | '/sessions'
     | '/signin'
     | '/signup'
     | '/config/archetypes'
@@ -217,6 +236,7 @@ export interface FileRouteTypes {
     | '/config/rolls'
     | '/config/skills'
     | '/config/stats'
+    | '/join/$code'
     | '/play/create'
     | '/config/'
     | '/play/'
@@ -226,6 +246,7 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/rulesets'
+    | '/sessions'
     | '/signin'
     | '/signup'
     | '/config/archetypes'
@@ -239,6 +260,7 @@ export interface FileRouteTypes {
     | '/config/rolls'
     | '/config/skills'
     | '/config/stats'
+    | '/join/$code'
     | '/play/create'
     | '/config'
     | '/play'
@@ -248,6 +270,7 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/rulesets'
+    | '/sessions'
     | '/signin'
     | '/signup'
     | '/config/archetypes'
@@ -261,6 +284,7 @@ export interface FileRouteTypes {
     | '/config/rolls'
     | '/config/skills'
     | '/config/stats'
+    | '/join/$code'
     | '/play/create'
     | '/config/'
     | '/play/'
@@ -271,6 +295,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
   RulesetsRoute: typeof RulesetsRoute
+  SessionsRoute: typeof SessionsRoute
   SigninRoute: typeof SigninRoute
   SignupRoute: typeof SignupRoute
   ConfigArchetypesRoute: typeof ConfigArchetypesRoute
@@ -284,6 +309,7 @@ export interface RootRouteChildren {
   ConfigRollsRoute: typeof ConfigRollsRoute
   ConfigSkillsRoute: typeof ConfigSkillsRoute
   ConfigStatsRoute: typeof ConfigStatsRoute
+  JoinCodeRoute: typeof JoinCodeRoute
   PlayCreateRoute: typeof PlayCreateRoute
   ConfigIndexRoute: typeof ConfigIndexRoute
   PlayIndexRoute: typeof PlayIndexRoute
@@ -304,6 +330,13 @@ declare module '@tanstack/react-router' {
       path: '/signin'
       fullPath: '/signin'
       preLoaderRoute: typeof SigninRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sessions': {
+      id: '/sessions'
+      path: '/sessions'
+      fullPath: '/sessions'
+      preLoaderRoute: typeof SessionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rulesets': {
@@ -346,6 +379,13 @@ declare module '@tanstack/react-router' {
       path: '/play/create'
       fullPath: '/play/create'
       preLoaderRoute: typeof PlayCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/join/$code': {
+      id: '/join/$code'
+      path: '/join/$code'
+      fullPath: '/join/$code'
+      preLoaderRoute: typeof JoinCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/config/stats': {
@@ -439,6 +479,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
   RulesetsRoute: RulesetsRoute,
+  SessionsRoute: SessionsRoute,
   SigninRoute: SigninRoute,
   SignupRoute: SignupRoute,
   ConfigArchetypesRoute: ConfigArchetypesRoute,
@@ -452,6 +493,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConfigRollsRoute: ConfigRollsRoute,
   ConfigSkillsRoute: ConfigSkillsRoute,
   ConfigStatsRoute: ConfigStatsRoute,
+  JoinCodeRoute: JoinCodeRoute,
   PlayCreateRoute: PlayCreateRoute,
   ConfigIndexRoute: ConfigIndexRoute,
   PlayIndexRoute: PlayIndexRoute,

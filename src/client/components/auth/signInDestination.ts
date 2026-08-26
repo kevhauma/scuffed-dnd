@@ -96,6 +96,29 @@ export function safeDestination(raw: unknown): string {
 }
 
 /**
+ * A destination read off a route's search, validated at the door (TICKET-GAM-02)
+ *
+ * **Both auth surfaces need this, and one of them did not have it.** `/signin` has validated its
+ * `redirect` since AUTH-03; `/signup` did not, and *Create one* dropped the destination on the
+ * floor — so somebody following an invitation who has no account yet reached sign-up, created one,
+ * and landed on the home page with the invitation gone. That is the common case for an invite link
+ * rather than an edge of it (v3 Req 32.7, TICKET-GAM-02's criterion six).
+ *
+ * Extracted rather than copied for the reason `entityName.ts` gives, with one more: this is the
+ * function that refuses an off-origin destination, and a second copy of a security check is a second
+ * thing to get subtly wrong.
+ *
+ * @param search Whatever the router parsed out of the query string
+ * @returns The `redirect` key, present only when one arrived — absent rather than `/`, so that
+ *   every navigation to these pages does not start carrying a pointless `?redirect=/`
+ */
+export function destinationSearch(search: Record<string, unknown>): { redirect?: string } {
+  const raw = search[REDIRECT_PARAM];
+
+  return raw === undefined ? {} : { [REDIRECT_PARAM]: safeDestination(raw) };
+}
+
+/**
  * The search object a link to sign-in carries
  *
  * A function rather than a literal at each call site, so the key is spelled once and

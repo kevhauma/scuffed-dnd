@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_DESTINATION,
+  destinationSearch,
   REDIRECT_PARAM,
   safeDestination,
   signInSearch,
@@ -104,5 +105,35 @@ describe('signInSearch', () => {
     expect(signInSearch('https://evil.example')).toEqual({
       [REDIRECT_PARAM]: DEFAULT_DESTINATION,
     });
+  });
+});
+
+describe('destinationSearch (TICKET-GAM-02)', () => {
+  it('keeps a same-origin destination', () => {
+    expect(destinationSearch({ [REDIRECT_PARAM]: '/join/A1B2C-3D4E5' })).toEqual({
+      [REDIRECT_PARAM]: '/join/A1B2C-3D4E5',
+    });
+  });
+
+  it('drops the key entirely when nothing arrived', () => {
+    // Rather than defaulting to `/` — otherwise every plain *Sign in* link starts carrying a
+    // `?redirect=/` that says nothing
+    expect(destinationSearch({})).toEqual({});
+  });
+
+  it('refuses an off-origin destination at the door', () => {
+    expect(destinationSearch({ [REDIRECT_PARAM]: 'https://evil.example' })).toEqual({
+      [REDIRECT_PARAM]: DEFAULT_DESTINATION,
+    });
+  });
+
+  it('is the same refusal `/signin` already applied, so the two doors cannot drift', () => {
+    // The point of extracting it: `/signup` had **no** validation at all until GAM-02, and a second
+    // hand-written copy of a security check is a second thing to get subtly wrong
+    for (const raw of ['//evil.example', '/\\evil.example', '/\t/evil.example', 'javascript:1']) {
+      expect(destinationSearch({ [REDIRECT_PARAM]: raw })[REDIRECT_PARAM], raw).toBe(
+        DEFAULT_DESTINATION
+      );
+    }
   });
 });

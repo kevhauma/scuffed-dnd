@@ -18,8 +18,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { AuthForm } from '../components/auth/AuthForm';
 import { expiredNoticeStyles } from '../components/auth/authSurfaces.style';
 import {
+  destinationSearch,
   EXPIRED_PARAM,
-  REDIRECT_PARAM,
   safeDestination,
 } from '../components/auth/signInDestination';
 import { AUTH_MODE } from '../components/auth/useAuthForm';
@@ -29,20 +29,18 @@ export const Route = createFileRoute('/signin')({
   // **Optional, so a plain *Sign in* link stays a plain link.** Declaring it required would make
   // every navigation here — the beam's link, the sign-up page's — carry `?redirect=/`, which is a
   // query string that says nothing and a type error at four call sites that have nothing to say.
-  validateSearch: (search: Record<string, unknown>): { redirect?: string; expired?: boolean } => {
-    const raw = search[REDIRECT_PARAM];
-
-    return {
-      ...(raw === undefined ? {} : { redirect: safeDestination(raw) }),
-      // Coerced rather than trusted: it arrives as the string `"true"` on a page load and as a
-      // boolean on a client-side navigation. Anything else drops the key entirely rather than
-      // carrying a present-and-false — a query string should say what happened, not enumerate what
-      // did not.
-      ...(search[EXPIRED_PARAM] === true || search[EXPIRED_PARAM] === 'true'
-        ? { expired: true as const }
-        : {}),
-    };
-  },
+  validateSearch: (search: Record<string, unknown>): { redirect?: string; expired?: boolean } => ({
+    // The destination half is `destinationSearch`, shared with `/signup` since TICKET-GAM-02 —
+    // one refusal of an off-origin destination rather than two copies of a security check
+    ...destinationSearch(search),
+    // Coerced rather than trusted: it arrives as the string `"true"` on a page load and as a
+    // boolean on a client-side navigation. Anything else drops the key entirely rather than
+    // carrying a present-and-false — a query string should say what happened, not enumerate what
+    // did not. Sign-up has no counterpart: an expiry never sends anybody to create an account.
+    ...(search[EXPIRED_PARAM] === true || search[EXPIRED_PARAM] === 'true'
+      ? { expired: true as const }
+      : {}),
+  }),
   component: SignInPage,
 });
 
@@ -66,6 +64,9 @@ export function SignInPage() {
 
       <AuthForm
         mode={AUTH_MODE.SIGN_IN}
+        // Carried on to `/signup`, so somebody following an invitation who has no account yet keeps
+        // it across *Create one* rather than losing it two clicks in (TICKET-GAM-02)
+        switchSearch={redirect === undefined ? undefined : { redirect }}
         onSuccess={() => {
           // Back where they were headed, or home when they came here on purpose.
           //
