@@ -28,6 +28,20 @@
  * exact failure mode this project's test discipline exists against, so the split is a rule rather
  * than a workaround: `src/server/environment.test.ts` fails if a server test file ever runs
  * somewhere with a `window` in it.
+ *
+ * ## The server project gets a longer timeout (TICKET-GAM-03)
+ *
+ * Vitest's default is **5 seconds**, and `auth/auth.test.ts` drives the real Better Auth handler:
+ * one sign-up and seven sign-ins in a single case, each of which runs a **scrypt** password hash.
+ * That hash is slow *on purpose* — it is the whole security property — so the case's floor is a
+ * second or two on an idle machine and several times that on a busy one. It began timing out
+ * intermittently as the suite grew past 2,600 tests, which is a machine-speed failure wearing a
+ * test's clothes: nothing about it is an assertion that stopped holding.
+ *
+ * **This is not weakening a check.** Every assertion still has to pass and none was relaxed; what
+ * changed is how long a deliberately expensive operation is allowed to take. Scoped to the server
+ * project because that is where the hashing, the migrations and the 306 KB corpus live — the app
+ * project stays at the default, where five seconds is a generous budget for rendering a component.
  */
 import viteReact from '@vitejs/plugin-react'
 import tsconfigPaths from 'vite-tsconfig-paths'
@@ -51,6 +65,9 @@ const config = defineConfig({
           name: 'server',
           environment: 'node',
           include: ['src/server/**/*.test.ts'],
+          // See the header: scrypt is slow by design, and 5s is a machine-speed cliff rather than
+          // a budget any of these cases should be held to
+          testTimeout: 30_000,
         },
       },
       {

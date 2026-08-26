@@ -1,8 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-26 (`npx vitest run`), after **TICKET-GAM-02 — invite codes and joining a
-table**.
-The checkpoints before it were **TICKET-GAM-01 — game sessions and pinned Snapshots** at 2526,
+_Last verified: 2026-08-26 (`npx vitest run`), after **TICKET-GAM-03 — invite by email, delivered
+on-platform**.
+The checkpoints before it were **TICKET-GAM-02 — invite codes and joining a table** at 2625,
+**TICKET-GAM-01 — game sessions and pinned Snapshots** at 2526,
 **TICKET-IO-04 — import creates a ruleset** at 2474,
 **TICKET-RUL-03 — copy a ruleset** at 2370,
 **TICKET-RUL-02 — server-backed ruleset editing** at 2353,
@@ -22,12 +23,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 2625
-- **Passing**: 2625 (100%)
+- **Total tests**: 2707
+- **Passing**: 2707 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **162 files**: `server` in node, everything else in happy-dom.
+Split across **168 files**: `server` in node, everything else in happy-dom.
 
 ## The suite now runs in two environments
 
@@ -45,6 +46,50 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-GAM-03 — delivery with no transport, and a column that became nullable
+
+The **+82 over GAM-02** is TICKET-GAM-03: 23 in `server/routes/invitations/invitations.test.ts`,
+16 in `invitationPayloads.test.ts`, 14 in `client/components/sessions/AddressedInvitePanel.test.tsx`,
+8 in `db/migrate.test.ts`, 7 in `PendingInvitations.test.tsx`, 7 in `useSessionInvitations.test.ts`,
+6 in `useInvitations.test.ts`, and 1 in `architecture/boundaries.test.ts`.
+
+**The interesting half is the migration, not the feature.** `session_invite.code` became nullable so
+that an addressed invitation has no code *at all* rather than a secret one nobody is shown — which
+is the second table recreate in this tree, and the same hazard `0003_uploaded_characters` documented:
+drizzle-kit emits `PRAGMA foreign_keys=OFF`, that pragma is a **no-op inside a transaction**, and the
+migrator runs every file in one. So `0004`'s block seeds a real invite row behind a real foreign key
+and asserts it survives the `DROP TABLE`, that the cascade came back, and — the assertion the whole
+nullable-column decision rests on — that two `NULL` codes may coexist while two identical real ones
+still may not.
+
+**Four assertions in the route suite are about the two mechanisms not being wired together**, which
+is a thing no happy path would ever notice: reissuing the shared code must not withdraw the four
+letters a DM sent last week, revoking one letter must not close the table's door, and an addressed
+row must not surface in the DM's *code* panel. All three are one `isNull(email)` away from being
+wrong, so all three are tested from the route rather than from the query.
+
+**The invitee's list is tested through `window` focus**, deliberately. Nothing is pushed (D12) and an
+invitee is by definition not in a LIVE-01 room, so the focus listener *is* the delivery mechanism —
+if it goes, the feature silently degrades from *it just shows up* to *reload the page*, which is
+exactly the kind of regression a test of the happy path would not see.
+
+### The server project's timeout went from 5 seconds to 30
+
+**A test began failing that had nothing wrong with it.** `auth/auth.test.ts`'s *refuses an address
+that has spent its attempts* drives the real Better Auth handler through one sign-up and seven
+sign-ins, each of which runs a **scrypt** password hash — slow on purpose, because that is the
+security property. Vitest's default budget is five seconds, and somewhere past 2,600 tests the
+suite got busy enough that the case started overrunning it: `Error: Test timed out in 5000ms`,
+never an assertion, and only on some runs. Measured rather than guessed — the tree without GAM-03
+was green twice, the tree with it failed two runs in four, and the failures moved around inside
+that one `describe` block, which is what a machine-speed cliff looks like and what a broken rule
+never does.
+
+`vitest.config.ts` now sets `testTimeout: 30_000` on the **server** project only. Nothing was
+relaxed: every assertion still has to pass, and what changed is how long a deliberately expensive
+operation is allowed to take. The app project stays at the default, where five seconds is generous
+for rendering a component. Three consecutive full runs green afterwards.
 
 ## TICKET-GAM-02 — a credential is the one thing a happy-path test cannot cover
 
@@ -917,7 +962,7 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 
 | File | Hotspot score | First flagged by | Latest | Status |
 | --- | --- | --- | --- | --- |
-| `architecture/boundaries.test.ts` | 24.6 | TICKET-AUTH-01's run | 3 commits, 310 churn, 0.18 density | ▲ **Accelerating** |
+| `architecture/boundaries.test.ts` | 18.4 | TICKET-AUTH-01's run | 3 commits, 310 churn, 0.18 density | ▲ **Accelerating — TICKET-GAM-03** |
 | `vitest.setup.ts` | 8.2 | TICKET-AUTH-01's run | 3 commits, 35 churn, 0.08 density | ▲ **Accelerating** |
 | `src/server/http/apiRouter.test.ts` | 23.9 | TICKET-AUTH-01's run | 4 commits, 134 churn, 0.16 density | ─ Stable |
 | `src/server/http/apiRouter.ts` | 35.7 | TICKET-AUTH-02's run | 8 commits, 0.14 density | ─ Stable — **cooled by TICKET-GAM-01** |

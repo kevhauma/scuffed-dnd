@@ -21,17 +21,8 @@ import { defineHandler } from '../../http/pipeline';
 import { findGameSession } from '../../repositories/gameSessionRepository';
 import { issueSessionInvite } from '../../repositories/sessionInviteRepository';
 import { formatInviteCode, generateInviteCode } from '../invites/inviteCode';
+import { INVITE_LIFETIME_MS } from '../invites/invitePayloads';
 import { requireActive, sessionIdFrom } from './sessionPayloads';
-
-/**
- * How long a code lives
- *
- * Long enough that a DM can hand it out on Monday for a game on Saturday and nobody has to think
- * about it; short enough that a code pasted into a group chat two years ago is not a way in. It is
- * not configurable for `redemptionLimit`'s reason — nobody tunes this, and a variable is one more
- * thing to set wrong.
- */
-const INVITE_LIFETIME_MS = 14 * 24 * 60 * 60 * 1000;
 
 export const issueInvite = defineHandler((context): SessionInvite => {
   const sessionId = sessionIdFrom(context.url);

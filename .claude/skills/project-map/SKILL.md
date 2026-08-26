@@ -82,7 +82,7 @@ rather than a read-only config UI).
 | `/signin` | `routes/signin.tsx` | `AuthForm` in sign-in mode (TICKET-AUTH-01). A page rather than a dialog because TICKET-AUTH-03 sends an unauthenticated visitor here and returns them |
 | `/signup` | `routes/signup.tsx` | `AuthForm` in sign-up mode — carries the "there is no password reset" warning (v3 Req 30.10). **Honours `?redirect=` since TICKET-GAM-02**, which it never did: an invitee without an account is the common case for an invitation, and they used to create one and land on the home page with the invitation gone |
 | `/account` | `routes/account.tsx` | `LinkedIdentities` (TICKET-AUTH-02) + `ActiveSessions` (AUTH-04) — how to get back into this Account, and who else is already in it. **The milestone's first protected route** (AUTH-03): it composes `RequireAccount` |
-| `/sessions` | `routes/sessions.tsx` | `SessionsPanel` (components/sessions/, TICKET-GAM-02) — start a table from a ruleset you own, the games you are in, and for a DM the invitation. **Deliberately not the lobby**: nothing here shows other people, which is GAM-04's. Protected |
+| `/sessions` | `routes/sessions.tsx` | `SessionsPanel` (components/sessions/, TICKET-GAM-02) — start a table from a ruleset you own, the games you are in, and for a DM the invitation. Since GAM-03 it also carries **the invitations waiting for *this Account*** (`PendingInvitations`), which is the only Account-scoped thing on the page. **Deliberately not the lobby**: nothing here shows other people, which is GAM-04's. Protected |
 | `/join/$code` | `routes/join.$code.tsx` | `JoinSessionPanel` (TICKET-GAM-02) — what an invite link opens. Previews before it joins, so clicking a link seats nobody; joining is an explicit action. Protected, which is what routes a signed-out invitee through sign-in and back |
 
 Route files stay thin: they render a feature component and pass route params down. Data fetching
@@ -531,6 +531,16 @@ each later ticket adds.
   Beside them, `routes/sessions/issueInvite.ts` and `revokeInvite.ts` are the DM's half; **archived
   refuses issuing but allows revoking**, because a DM who archived first must still be able to
   invalidate a link they posted publicly.
+- `routes/invitations/` (TICKET-GAM-03) — the **addressed** invitation, and the first collection in
+  the app scoped to an **Account** rather than to a ruleset or a session: an invitee is not a Member
+  of the table that wrote to them, so there is no session id they could put in the path.
+  `GET /api/invitations` is what is waiting for you, `POST /api/invitations/:id/accept` and
+  `/decline`, `DELETE /api/invitations/:id` is the DM taking one back. `invitationPayloads.ts` holds
+  `inviteStateOf` — the five states are **derived from four timestamps** rather than stored, and
+  `settledRefusal` turns each into its own sentence (v3 Req 38.4). The DM's half lives next door as
+  `routes/sessions/inviteByEmail.ts` and `listSessionInvites.ts`, because that half really is about
+  *this table*. **No mail is sent, ever** (D12), and since GAM-03 that is a dependency-cruiser rule
+  — `the-server-sends-no-mail` — rather than a paragraph.
 - `auth/` (TICKET-AUTH-01, TICKET-AUTH-02) — identity, and **only** identity; authorization is
   AUTH-03's and lives outside it. `authServer.ts` configures Better Auth (what is switched off and
   why is in its header); `authRoutes.ts` delegates the `/api/auth` subtree and adds the per-address
@@ -541,7 +551,9 @@ each later ticket adds.
   `user.validateUserInfo` gate, refusing a provider profile with no email or an unverified one.
   **AUTH-03 adds [`guards.ts`](../../../src/server/auth/guards.ts), and it is the only module that
   decides *may they*** — `requireAccount`, `requireOwner`, `requireMember`, `requireDM`,
-  `requireCharacterWriter`. Two refusals and the line between them is the design: **401 before any
+  `requireCharacterWriter`, and GAM-03's **`requireInvitee`**, the odd one: an invitee owns nothing
+  and sits at no table, so what stands in for ownership is that the invitation's `email` matches the
+  one their Account registered. Two refusals and the line between them is the design: **401 before any
   lookup** (so it says nothing about the resource, and the client can offer sign-in), **404 for
   everything after** — wrong Account, non-member, player-asking-for-DM and missing id are one
   answer, which is v3 Req 32.5. Each guard returns the loaded row so a handler does not fetch
@@ -583,6 +595,17 @@ each later ticket adds.
   `activeInviteForSession`; `revokeSessionInvites`) and `gameSessionRepository.seatSessionMember`,
   which is **idempotent by constraint**: `ON CONFLICT DO NOTHING` plus a read-back returning
   `{ membership, joined }`, so a double-clicked invite link cannot race itself into a second row.
+  **GAM-03 split `session_invite` into two kinds of row and every query says which it means**:
+  a *shared door* has a `code` and `email IS NULL`; an *addressed letter* has an `email` and
+  `code IS NULL` (nullable since migration 0004), so there is no second way to redeem one. The two
+  places `email IS NULL` is load-bearing are `activeInviteForSession` and `revokeSessionInvites` —
+  reissuing the code must not withdraw four letters, and the DM's code panel must not show one.
+  `findInviteByCode` needs no such clause: an addressed row's `code` is `NULL` and `= ?` never
+  matches it. It also added `insertAddressedInvite`, `findSessionInvite`,
+  `pendingInviteFor`, `listAddressedInvites`, `listPendingInvitationsFor` (keyed on the **address**,
+  which is what makes an invitation sent before the Account existed surface the moment it does) and
+  the three settle writes, plus **`accountRepository`** — an address book over Better Auth's `user`
+  table, read-only, because identity is the library's to write.
   **Every function takes its connection as a defaulted *last* parameter** — `findRuleset(id)` in
   production, `findRuleset(id, database)` in a test. That is not style: the same rule that keeps
   queries here forbids a handler from importing `db/client`, so a connection-first signature is one
@@ -805,6 +828,16 @@ shown nothing would read that as *I never issued one*. `useSessionInvite` holds 
 slow response cannot overwrite a code issued since. Wording for a refusal is the **server's**
 sentence rendered, never a summary: v3 Req 38.4 asks for four distinct messages and a surface that
 flattened them would be inventing a fifth nobody decided on.
+
+**GAM-03 added the other kind of invitation, on both sides of it.** For the DM, `AddressedInvitePanel`
+sits under `InviteCodePanel` in an expanded row, driven by `useSessionInvitations(sessionId)` — a
+second hook rather than a second concern inside `useSessionInvite`, because a table has exactly one
+code and an unbounded number of letters. For the invitee, `PendingInvitations` sits **above** the
+games list on `/sessions`, driven by `useInvitations()`, and **renders nothing at all when nothing is
+waiting**: it is a notification area rather than a section of the page. That hook is the whole
+delivery mechanism (D12) — it reads on mount and **on `window` focus**, because nothing is pushed
+and an invitee is by definition not in any LIVE-01 room yet, so an invitation arrives by the tab
+coming back to the front and asking.
 
 `components/Header.tsx` sits at the root of `components/`, outside every feature folder.
 

@@ -8,7 +8,9 @@
 
 export * from './archiveSession';
 export * from './createSession';
+export * from './inviteByEmail';
 export * from './issueInvite';
+export * from './listSessionInvites';
 export * from './listSessions';
 export * from './readSession';
 export * from './refreshSnapshot';

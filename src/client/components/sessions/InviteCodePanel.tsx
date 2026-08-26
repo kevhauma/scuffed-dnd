@@ -25,6 +25,7 @@ import type { SessionInvite } from '#shared/types/api';
 import { Button } from '../ui/Button/Button';
 import { Card } from '../ui/Card/Card';
 import { Text } from '../ui/Text/Text';
+import { readableMoment } from './sessionMoment';
 import { alertStyles, inviteCodeStyles, sectionStyles } from './sessions.style';
 
 export interface InviteCodePanelProps {
@@ -48,11 +49,6 @@ export interface InviteCodePanelProps {
  */
 function joinLink(code: string): string {
   return `${window.location.origin}/join/${encodeURIComponent(code)}`;
-}
-
-/** When a code runs out, in the reader's own locale */
-function expiresOn(expiresAt: number): string {
-  return new Date(expiresAt).toLocaleString();
 }
 
 /** The invitation as it stands, with the two things a DM does to it */
@@ -79,13 +75,13 @@ function LiveCode({
     <div className="flex flex-col gap-3">
       {isExpired ? (
         <Text variant="warning" as="p">
-          This code expired on {expiresOn(invite.expiresAt)} and no longer works. Make a new one
-          when you want to let somebody in.
+          This code expired on {readableMoment(invite.expiresAt)} and no longer works. Make a new
+          one when you want to let somebody in.
         </Text>
       ) : (
         <Text variant="body-small-secondary" as="p">
           Read this out, or send the link. Anyone signed in who has it can join as a player, until{' '}
-          {expiresOn(invite.expiresAt)}.
+          {readableMoment(invite.expiresAt)}.
         </Text>
       )}
 

@@ -158,7 +158,7 @@ table never passes one** — `handleApiRequest` calls `route(request)` with a si
 | DX-06 | `testing/` — the per-test database, `callRoute`, and the seeded fixtures ✅ |
 | AUTH-01 | `auth/` — Better Auth, the `/api/auth/*` subtree, the per-address sign-in limit, and the cookie the pipeline resolves ✅ |
 | AUTH-02 | `auth/socialProviders.ts` + `auth/identityRules.ts` — Google and Discord, each independently optional, behind **one** rule path; `routes/authProviders` so the client knows which buttons to draw ✅ |
-| AUTH-03 | `auth/guards.ts` — the five guards every later route spends one line on, 401-before-lookup and one 404 after; `repositories/gameSessionRepository` + `characterRepository`; `routes/routeGuards.test.ts`, which fails on a handler that names an owned resource and calls no guard ✅ |
+| AUTH-03 | `auth/guards.ts` — the five guards every later route spends one line on (GAM-03 added a sixth, `requireInvitee`), 401-before-lookup and one 404 after; `repositories/gameSessionRepository` + `characterRepository`; `routes/routeGuards.test.ts`, which fails on a handler that names an owned resource and calls no guard ✅ |
 | AUTH-04 | `auth/sessionLifetime.ts` — an idle window, an absolute ceiling and identifier rotation, as pure functions; `db/authAdapter.ts` grows into a **wrapper** that applies them, because only the adapter sees the stored row and the pending write at once; migration `0002` for the grace window's two columns ✅ |
 | RUL/GAM/PLY/DM | `repositories/` and `routes/` per resource |
 | LIVE-01–03 | `ws/` — rooms, fan-out, presence |

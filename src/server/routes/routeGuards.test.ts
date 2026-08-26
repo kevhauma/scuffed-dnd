@@ -71,8 +71,18 @@ const OWNED_PARAMETERS = [
  * identifier out of the request has to say something about **that** resource, and only these four
  * do. A handler calling `requireAccount` and then reading a `rulesetId` is exactly the mistake
  * worth catching.
+ *
+ * `requireInvitee` joined the list with TICKET-GAM-03. It is the odd one — an invitee owns nothing
+ * and sits at no table — but it answers the same question about the same kind of identifier: *may
+ * this caller act on the row this id names?*
  */
-const RESOURCE_GUARDS = ['requireOwner', 'requireMember', 'requireDM', 'requireCharacterWriter'];
+const RESOURCE_GUARDS = [
+  'requireOwner',
+  'requireMember',
+  'requireDM',
+  'requireCharacterWriter',
+  'requireInvitee',
+];
 
 /**
  * Whether a module's source names an owned resource without guarding it

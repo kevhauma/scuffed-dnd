@@ -247,6 +247,27 @@ export default {
       to: { path: '^src/server/testing/' },
     },
     {
+      name: 'the-server-sends-no-mail',
+      severity: 'error',
+      comment:
+        'A server module imported a mail client or a raw socket. This application sends nothing ' +
+        '— no SMTP configuration, no provider account, no mail port (D12) — and "invite by email" ' +
+        'is delivered on-platform instead: the Account holding the address sees the invitation in ' +
+        'the app. That decision is worth a check rather than a paragraph, because the way it gets ' +
+        'reversed is not a discussion but a dependency added under something else. If outbound ' +
+        'mail is ever wanted it arrives as its own ticket with a port and one provider, and this ' +
+        'rule is what that ticket has to delete on the way past.',
+      from: { path: '^src/server/', pathNot: FIXTURES },
+      // `net`, `tls` and `dgram` are what an SMTP client is built out of. `http`/`https` are
+      // deliberately **not** here: LIVE-01 attaches the WebSocket server to this process's own
+      // HTTP listener, and a rule that forbade that would be forbidding the milestone.
+      to: {
+        path:
+          '^(node:)?(net|tls|dgram)$|' +
+          'node_modules/(nodemailer|@sendgrid|mailgun[^/]*|postmark|resend|emailjs[^/]*)(/|$)',
+      },
+    },
+    {
       name: 'no-circular',
       severity: 'error',
       comment:

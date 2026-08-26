@@ -320,6 +320,86 @@ export interface InviteRedemption {
 }
 
 /**
+ * What has become of one addressed invitation (v3 Req 38.4, TICKET-GAM-03)
+ *
+ * **Five values because the requirement asks for a distinct message for each**, and the DM's list is
+ * where four of them are read side by side: *they have not answered yet*, *they said no*, *it ran
+ * out*, *I took it back* and *they are in* are five different situations, and a DM deciding whether
+ * to invite somebody again cannot act on a shared "not pending".
+ *
+ * The state is **derived** from the row's four timestamps at read time rather than stored beside
+ * them — a stored copy is a second answer to the same question, and the one that goes stale is
+ * always the one somebody renders.
+ */
+export const INVITE_STATE = {
+  /** Nobody has answered and nothing has expired it */
+  PENDING: 'pending',
+  /** The invitee joined */
+  ACCEPTED: 'accepted',
+  /** The invitee turned it down — the same address may be invited again */
+  DECLINED: 'declined',
+  /** Its lifetime ran out before anybody answered */
+  EXPIRED: 'expired',
+  /** The DM took it back */
+  REVOKED: 'revoked',
+} as const;
+
+export type InviteState = (typeof INVITE_STATE)[keyof typeof INVITE_STATE];
+
+/** What a DM sends to invite an address (v3 Req 38.3) */
+export interface AddressedInviteRequest {
+  email: string;
+}
+
+/**
+ * One addressed invitation, as the DM who sent it sees it (v3 Req 38.3, 38.4)
+ *
+ * **No code, because an addressed invitation has none** — it is redeemed from the invitee's own
+ * pending list, by the Account whose address it names. A DM's copy is an address and a state.
+ */
+export interface AddressedInvite {
+  id: string;
+  email: string;
+  state: InviteState;
+  /**
+   * When it runs out — rendered beside a pending one, so *waiting* comes with *until when*
+   *
+   * **There is no `createdAt` beside it**, though the listing is ordered by one: ordering is the
+   * repository's `ORDER BY`, which needs the column and not the wire field. A field the server
+   * populates and nothing renders is a claim that something uses it.
+   */
+  expiresAt: number;
+}
+
+/** What `GET /api/sessions/:id/invitations` answers — the DM's own outbox, newest first */
+export interface AddressedInviteListing {
+  invites: AddressedInvite[];
+}
+
+/**
+ * One invitation waiting for the Account that reads it (v3 Req 38.5, 38.7)
+ *
+ * **The first shape in the app scoped to an Account rather than to a ruleset or a session**, and
+ * deliberately shaped as a notification rather than as a session: what the invitee needs in order
+ * to decide is the table's name, who asked them and how long they have — not the session's id,
+ * which they are not a Member of and have no route to read.
+ */
+export interface PendingInvitation {
+  /** The invitation's own id — what accept and decline are addressed to */
+  id: string;
+  sessionName: string;
+  /** Who asked them, by the name that Account signed up with */
+  invitedBy: string;
+  /** When it runs out — *how long you have* is half of what makes an invitation actionable */
+  expiresAt: number;
+}
+
+/** What `GET /api/invitations` answers — everything waiting for this Account, soonest to expire first */
+export interface PendingInvitationListing {
+  invitations: PendingInvitation[];
+}
+
+/**
  * Why a Snapshot refresh was refused (v3 Req 37.6)
  *
  * **One entry per character that would break, naming the character and what breaks** — the ticket's

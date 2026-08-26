@@ -15,6 +15,7 @@
  */
 
 import { Text } from '../ui/Text/Text';
+import { PendingInvitations } from './PendingInvitations';
 import { SessionList } from './SessionList';
 import { StartSessionForm } from './StartSessionForm';
 import { alertStyles } from './sessions.style';
@@ -43,6 +44,18 @@ export function SessionsPanel() {
         </div>
       )}
 
+      {/* **Above the games list, and above the form.** An invitation is the only thing on this
+          page somebody else is waiting on an answer to, and it renders nothing at all when there
+          is none — so it costs the ordinary visit no space (TICKET-GAM-03). */}
+      <PendingInvitations
+        invitations={manager.waiting.invitations}
+        isPending={manager.waiting.isPending}
+        isBusy={manager.waiting.isBusy}
+        error={manager.waiting.error}
+        onAccept={manager.acceptInvitation}
+        onDecline={manager.declineInvitation}
+      />
+
       <StartSessionForm rulesets={manager.rulesets} onStart={manager.start} />
 
       <SessionList
@@ -51,6 +64,7 @@ export function SessionsPanel() {
         openSessionId={manager.openSessionId}
         onToggle={manager.toggle}
         invite={manager.invite}
+        invitations={manager.invitations}
       />
     </div>
   );

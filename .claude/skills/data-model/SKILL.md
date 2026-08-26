@@ -73,6 +73,24 @@ previous code) and **one membership row per (session, account)**, which is what 
 link idempotent by constraint. An invite code is never written into a document; it is a column, and
 `game_session.snapshot` knows nothing about it.
 
+**TICKET-GAM-03 did need one, and it is the smallest kind**: `session_invite.code` became
+**nullable** (`0004_addressed_invites`). One table now holds two kinds of row and every query says
+which it means — a *shared door* has a `code` and `email IS NULL`, an *addressed letter* has an
+`email` and `code IS NULL`. That is not tidiness: a `NULL` code makes *this invitation is not
+redeemable by code* true of the **row** rather than true of whichever lookups happen to filter it
+out, and SQLite counts `NULL`s as distinct so the unique index on `code` is untouched. Two rules
+follow, and neither may be re-derived elsewhere:
+
+- **The five invite states are derived from four timestamps** — `revoked_at`, `declined_at`,
+  `redeemed_at` and `expires_at` versus the clock — by `routes/invitations/invitationPayloads.ts`.
+  There is deliberately no `state` column: a stored copy is the one that goes stale, which is the
+  same rule the character's level rests on.
+- **A settle write only lands on a pending row.** Accepting, declining and revoking all go through
+  one statement whose `WHERE` carries the pending condition, so the loser of any race updates
+  nothing rather than overwriting somebody's answer — and a declined invitation keeps saying
+  `declined` even after the DM revokes it, because *they turned you down* is the more useful of the
+  two facts.
+
 Two consequences worth holding on to before changing a persisted shape:
 
 - **A document change is not a migration.** Adding `grantedStatPoints` (DM-01) or `purse` (CUR-02)

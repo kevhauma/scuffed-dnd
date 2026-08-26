@@ -137,6 +137,14 @@ describe('the layering rules', () => {
     );
   });
 
+  it('refuses a server module reaching for a socket to send mail down (TICKET-GAM-03)', () => {
+    // D12 as a check rather than a paragraph: "invite by email" is delivered on-platform, and the
+    // way that decision gets reversed is a dependency added under something else
+    expect(rulesBrokenBy('src/server/boundaryFixtures/sendsMail.ts')).toContain(
+      'the-server-sends-no-mail'
+    );
+  });
+
   it('refuses a base component reading a store', () => {
     expect(rulesBrokenBy('src/client/components/ui/boundaryFixtures/reachesTheStore.ts')).toContain(
       'ui-primitives-are-leaves'

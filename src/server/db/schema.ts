@@ -209,7 +209,21 @@ export const sessionInvite = sqliteTable(
     sessionId: text('session_id')
       .notNull()
       .references(() => gameSession.id, { onDelete: 'cascade' }),
-    code: text('code').notNull(),
+    /**
+     * The shared code, or `NULL` for an addressed invitation (TICKET-GAM-03)
+     *
+     * **Nullable, and the two columns below it are why.** An invitation is *either* the session's
+     * shared door — a code anybody holding it may walk through — *or* a letter to one address. An
+     * addressed row carrying a code as well would be a second, secret way to redeem it, sitting in a
+     * column nothing ever shows anybody: exactly the sort of thing that stops being unreachable the
+     * first time somebody widens a query. `NULL` makes *this invitation is not redeemable by code*
+     * true of the row rather than true of the lookups that happen to filter it out.
+     *
+     * SQLite treats `NULL`s as distinct in a unique index, so `session_invite_code_unique` below
+     * still holds for every real code and imposes nothing on the addressed rows.
+     */
+    code: text('code'),
+    /** The address it was sent to, or `NULL` for the shared code (TICKET-GAM-03) */
     email: text('email'),
     expiresAt: epochMs('expires_at').notNull(),
     revokedAt: epochMs('revoked_at'),

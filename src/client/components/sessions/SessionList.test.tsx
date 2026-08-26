@@ -17,6 +17,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { GameSessionSummary, MemberRole } from '#shared/types/api';
 import { MEMBER_ROLE, SESSION_STATUS } from '#shared/types/api';
 import { SessionList } from './SessionList';
+import type { SessionInvitationsState } from './useSessionInvitations';
 import type { SessionInviteState } from './useSessionInvite';
 
 /** One table, as the listing carries it */
@@ -50,6 +51,19 @@ function invite(overrides: Partial<SessionInviteState> = {}): SessionInviteState
   };
 }
 
+/** The addressed-invitations hook's state, inert unless a case says otherwise (TICKET-GAM-03) */
+function invitations(overrides: Partial<SessionInvitationsState> = {}): SessionInvitationsState {
+  return {
+    invites: [],
+    isPending: false,
+    isBusy: false,
+    error: null,
+    send: vi.fn(async () => true),
+    revoke: vi.fn(),
+    ...overrides,
+  };
+}
+
 /** The list with everything defaulted to "one table you run" */
 function renderList(props: Partial<React.ComponentProps<typeof SessionList>> = {}) {
   const onToggle = vi.fn();
@@ -61,6 +75,7 @@ function renderList(props: Partial<React.ComponentProps<typeof SessionList>> = {
       openSessionId={null}
       onToggle={onToggle}
       invite={invite()}
+      invitations={invitations()}
       {...props}
     />
   );

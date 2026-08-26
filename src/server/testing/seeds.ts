@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 import type { Configuration } from '#shared/types/config';
 import type { Database } from '../db/client';
 import {
+  authUser,
   character,
   gameSession,
   MEMBER_ROLE,
@@ -137,6 +138,56 @@ export function realConfiguration(): Configuration {
  * @returns The acting account
  */
 export function seedAccount(id: string = nextId('account')): RequestAccount {
+  return { id };
+}
+
+/** What a seeded registered Account may be told */
+export interface SeedRegisteredAccountOptions {
+  id?: string;
+  /** Defaults to one derived from the id, so two seeded Accounts never share an address */
+  email?: string;
+  name?: string;
+}
+
+/**
+ * An Account that really has a row in Better Auth's `user` table (TICKET-GAM-03)
+ *
+ * **Beside {@link seedAccount} rather than replacing it**, and the difference is the point. Most
+ * authorization compares an id, which is all `seedAccount` has ever needed to hand out — and making
+ * that function insert would mean threading a `database` through a hundred call sites to record
+ * something none of them reads. What GAM-03 introduced is the first rule that compares something
+ * *else*: an invitation is matched to the Account holding an **email address**, so a test about one
+ * needs an Account that has one.
+ *
+ * The row is written with Drizzle rather than through Better Auth, for `seedCharacter`'s reason:
+ * signing an account up would run the library's whole password pipeline to produce a row whose only
+ * interesting column here is `email`. `auth.test.ts` is where the real sign-up is exercised.
+ *
+ * @param database The connection
+ * @param options Anything the test cares about; the rest is filled in
+ * @returns The acting account, whose id is now resolvable to a name and an address
+ */
+export function seedRegisteredAccount(
+  database: Database,
+  options: SeedRegisteredAccountOptions = {}
+): RequestAccount {
+  const id = options.id ?? nextId('account');
+
+  database.db
+    .insert(authUser)
+    .values({
+      id,
+      name: options.name ?? id,
+      // Lower-cased here, because that is the form Better Auth stores and the form every
+      // comparison is made in — a fixture holding `Account-3@example.test` would be testing the
+      // normalisation rather than the rule
+      email: (options.email ?? `${id}@example.test`).toLowerCase(),
+      emailVerified: false,
+      createdAt: new Date(SEEDED_AT),
+      updatedAt: new Date(SEEDED_AT),
+    })
+    .run();
+
   return { id };
 }
 

@@ -17,7 +17,9 @@ import { MEMBER_ROLE, SESSION_STATUS } from '#shared/types/api';
 import { Button } from '../ui/Button/Button';
 import { Card } from '../ui/Card/Card';
 import { Text } from '../ui/Text/Text';
+import { AddressedInvitePanel } from './AddressedInvitePanel';
 import { InviteCodePanel } from './InviteCodePanel';
+import { readableMoment } from './sessionMoment';
 import {
   archivedBadgeStyles,
   dmBadgeStyles,
@@ -25,6 +27,7 @@ import {
   sectionStyles,
   sessionRowStyles,
 } from './sessions.style';
+import type { SessionInvitationsState } from './useSessionInvitations';
 import type { SessionInviteState } from './useSessionInvite';
 
 export interface SessionListProps {
@@ -34,13 +37,10 @@ export interface SessionListProps {
   /** Which row is expanded, or `null` */
   openSessionId: string | null;
   onToggle: (sessionId: string) => void;
-  /** The open row's invitation */
+  /** The open row's shared code */
   invite: SessionInviteState;
-}
-
-/** A moment somebody can read, in their own locale */
-function startedOn(createdAt: number): string {
-  return new Date(createdAt).toLocaleString();
+  /** The open row's addressed invitations (TICKET-GAM-03) */
+  invitations: SessionInvitationsState;
 }
 
 /**
@@ -60,14 +60,19 @@ function SessionRow({
   isOpen,
   onToggle,
   invite,
+  invitations,
 }: {
   session: GameSessionSummary;
   isOpen: boolean;
   onToggle: () => void;
   invite: SessionInviteState;
+  invitations: SessionInvitationsState;
 }) {
   const isDm = session.role === MEMBER_ROLE.DM;
   const badge = ROLE_BADGE[session.role];
+  // The server refuses both kinds of invitation on an archived table (`requireActive`), so both
+  // panels say so before the click rather than offering a button that always 409s
+  const canInvite = session.status !== SESSION_STATUS.ARCHIVED;
 
   return (
     <div className="flex flex-col gap-3">
@@ -78,7 +83,7 @@ function SessionRow({
             {session.name}
           </Text>
           <Text variant="caption" as="span">
-            Started {startedOn(session.createdAt)}
+            Started {readableMoment(session.createdAt)}
           </Text>
           {session.status === SESSION_STATUS.ARCHIVED && (
             <span className={archivedBadgeStyles}>Archived</span>
@@ -93,17 +98,26 @@ function SessionRow({
       </div>
 
       {isDm && isOpen && (
-        <InviteCodePanel
-          invite={invite.invite}
-          // The server refuses to issue one on an archived table (`requireActive`), so the panel
-          // says so before the click rather than offering a button that always 409s
-          canInvite={session.status !== SESSION_STATUS.ARCHIVED}
-          isPending={invite.isPending}
-          isBusy={invite.isBusy}
-          error={invite.error}
-          onIssue={invite.issue}
-          onRevoke={invite.revoke}
-        />
+        <>
+          <InviteCodePanel
+            invite={invite.invite}
+            canInvite={canInvite}
+            isPending={invite.isPending}
+            isBusy={invite.isBusy}
+            error={invite.error}
+            onIssue={invite.issue}
+            onRevoke={invite.revoke}
+          />
+          <AddressedInvitePanel
+            invites={invitations.invites}
+            canInvite={canInvite}
+            isPending={invitations.isPending}
+            isBusy={invitations.isBusy}
+            error={invitations.error}
+            onInvite={invitations.send}
+            onRevoke={invitations.revoke}
+          />
+        </>
       )}
     </div>
   );
@@ -117,7 +131,14 @@ function SessionRow({
  * — so a polite *sign in to see your games* here was a second design for the same case, shipped
  * beside the redirect and unreachable behind it.
  */
-function Body({ sessions, isPending, openSessionId, onToggle, invite }: SessionListProps) {
+function Body({
+  sessions,
+  isPending,
+  openSessionId,
+  onToggle,
+  invite,
+  invitations,
+}: SessionListProps) {
   if (isPending) {
     return (
       <Text variant="caption" as="p">
@@ -143,6 +164,7 @@ function Body({ sessions, isPending, openSessionId, onToggle, invite }: SessionL
           isOpen={openSessionId === session.id}
           onToggle={() => onToggle(session.id)}
           invite={invite}
+          invitations={invitations}
         />
       ))}
     </>

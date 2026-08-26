@@ -20,6 +20,8 @@
 import { useCallback, useState } from 'react';
 import type { GameSessionSummary, RulesetSummary } from '#shared/types/api';
 import { useAccountRulesets } from '../rulesets/useAccountRulesets';
+import { type InvitationsState, useInvitations } from './useInvitations';
+import { type SessionInvitationsState, useSessionInvitations } from './useSessionInvitations';
 import type { SessionInviteState } from './useSessionInvite';
 import { useSessionInvite } from './useSessionInvite';
 import { useSessions } from './useSessions';
@@ -38,6 +40,15 @@ export interface SessionsManager {
   toggle: (sessionId: string) => void;
   /** The open table's invitation, inert while none is open */
   invite: SessionInviteState;
+  /** The open table's addressed invitations, likewise (TICKET-GAM-03) */
+  invitations: SessionInvitationsState;
+
+  /** What is waiting for **this Account**, whoever's table sent it (TICKET-GAM-03) */
+  waiting: InvitationsState;
+  /** Take one up, which seats this Account and puts a new game in the list above */
+  acceptInvitation: (invitationId: string) => void;
+  /** Turn one down — a recorded outcome the DM sees, not a dismissal */
+  declineInvitation: (invitationId: string) => void;
 
   /** Start a table. Reports whether it landed, so a form only clears over a change that happened. */
   start: (rulesetId: string, name: string) => Promise<boolean>;
@@ -51,6 +62,12 @@ export function useSessionsManager(): SessionsManager {
 
   const [openSessionId, setOpenSessionId] = useState<string | null>(null);
   const invite = useSessionInvite(openSessionId);
+  const invitations = useSessionInvitations(openSessionId);
+  const waiting = useInvitations();
+
+  const reloadSessions = sessions.reload;
+  const acceptWaiting = waiting.accept;
+  const declineWaiting = waiting.decline;
 
   return {
     isPending: sessions.isPending,
@@ -66,6 +83,27 @@ export function useSessionsManager(): SessionsManager {
       []
     ),
     invite,
+    invitations,
+
+    waiting,
+    acceptInvitation: useCallback(
+      (invitationId: string) => {
+        // Accepting seats this Account at a table it was not at a moment ago, so the games list
+        // above is now out of date — reloaded only over an acceptance that landed, which is why
+        // `accept` reports rather than assumes
+        void acceptWaiting(invitationId).then((joined) => {
+          if (joined) reloadSessions();
+        });
+      },
+      [acceptWaiting, reloadSessions]
+    ),
+    // No reload: declining changes nothing about which games this Account is in. Here beside
+    // `acceptInvitation` all the same, so the panel reaches one level into the manager for both
+    // rather than through it for one of them
+    declineInvitation: useCallback(
+      (invitationId: string) => void declineWaiting(invitationId),
+      [declineWaiting]
+    ),
 
     start: useCallback(
       (rulesetId: string, name: string) => sessions.create({ rulesetId, name }),

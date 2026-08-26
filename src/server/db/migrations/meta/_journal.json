@@ -29,6 +29,13 @@
       "when": 1787752554738,
       "tag": "0003_uploaded_characters",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1787768807072,
+      "tag": "0004_addressed_invites",
+      "breakpoints": true
     }
   ]
 }

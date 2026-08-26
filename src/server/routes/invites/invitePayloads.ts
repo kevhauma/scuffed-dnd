@@ -29,6 +29,20 @@ import { isRedemptionLimited, recordRedemptionFailure } from './redemptionLimit'
 const INVITES_PREFIX = '/api/invites/';
 
 /**
+ * How long an invitation lives, of either kind
+ *
+ * Long enough that a DM can hand one out on Monday for a game on Saturday and nobody has to think
+ * about it; short enough that a code pasted into a group chat two years ago is not a way in. It is
+ * not configurable for `redemptionLimit`'s reason — nobody tunes this, and a variable is one more
+ * thing to set wrong.
+ *
+ * **One number for the shared code and the addressed letter** (TICKET-GAM-03). It moved here from
+ * `issueInvite.ts` when the second kind arrived: two constants would be two answers to *how long
+ * does an invitation last*, and the day they disagreed nothing would say which was meant.
+ */
+export const INVITE_LIFETIME_MS = 14 * 24 * 60 * 60 * 1000;
+
+/**
  * Which code a path named, in the form a stored one is comparable to
  *
  * Normalised here rather than at each caller, so there is no path on which a raw string reaches a

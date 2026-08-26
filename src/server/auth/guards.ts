@@ -50,8 +50,10 @@
 
 import { MEMBER_ROLE } from '../db/schema';
 import { type AppError, notFound, unauthenticated } from '../http/appError';
+import { findAccountById } from '../repositories/accountRepository';
 import { type CharacterRow, findCharacter } from '../repositories/characterRepository';
 import { findSessionMember, type SessionMemberRow } from '../repositories/gameSessionRepository';
+import { findSessionInvite, type SessionInviteRow } from '../repositories/sessionInviteRepository';
 import type { RequestAccount } from './account';
 
 /**
@@ -168,6 +170,45 @@ export function requireDM(asking: Asking, sessionId: string): SessionMemberRow {
   }
 
   return membership;
+}
+
+/**
+ * An invitation addressed to the asking Account (v3 Req 32.5, 38.3, TICKET-GAM-03)
+ *
+ * **The one guard whose subject is not a resource the Account owns or sits at**, and it exists for
+ * exactly that reason: an invitee is by definition not a Member yet, so `requireMember` cannot speak
+ * for them and `requireOwner` has no column to compare. What stands in for ownership is the address
+ * — the invitation names one, the Account registered one, and they have to be the same string.
+ *
+ * **Every way this can fail is the same 404**, including *this invitation is real and belongs to
+ * somebody else*. That is Req 32.5 applied to the shape it matters most in: an invitation id that
+ * came back *no* rather than *not found* would let anybody holding one confirm that a particular
+ * address had been invited to a particular table.
+ *
+ * **A shared code is refused here too** (`email IS NULL`). It is not addressed to anybody, so it is
+ * not addressed to *them* — and redeeming one is `POST /api/invites/:code`'s job, where the code is
+ * the credential and the limiter is the lock.
+ *
+ * @param asking Who is asking
+ * @param inviteId Which invitation
+ * @returns The invitation row, now known to be theirs
+ * @throws {AppError} 401 for nobody, 404 for a missing id, a shared code and somebody else's letter
+ */
+export function requireInvitee(asking: Asking, inviteId: string): SessionInviteRow {
+  const account = requireAccount(asking);
+
+  const identity = findAccountById(account.id);
+  if (!identity) throw refuse(`account ${account.id} has no identity to match an invitation to`);
+
+  const invite = findSessionInvite(inviteId);
+
+  if (!invite) throw refuse('no such invitation');
+  if (invite.email === null) throw refuse(`invite ${inviteId} is a shared code, not a letter`);
+  if (invite.email !== identity.email) {
+    throw refuse(`invite ${inviteId} is not addressed to account ${account.id}`);
+  }
+
+  return invite;
 }
 
 /**

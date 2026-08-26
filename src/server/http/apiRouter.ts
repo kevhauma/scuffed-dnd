@@ -23,6 +23,12 @@
 import { AUTH_PREFIX, handleAuthRequest } from '../auth/authRoutes';
 import { authProviders } from '../routes/authProviders';
 import { health } from '../routes/health';
+import {
+  acceptInvitation,
+  declineInvitation,
+  listInvitations,
+  revokeInvitation,
+} from '../routes/invitations';
 import { previewInvite, redeemInvite } from '../routes/invites';
 import {
   copyRuleset,
@@ -37,7 +43,9 @@ import {
 import {
   archiveSession,
   createSession,
+  inviteByEmail,
   issueInvite,
+  listSessionInvites,
   listSessions,
   readSession,
   refreshSnapshot,
@@ -74,6 +82,10 @@ export const ROUTES: Record<string, (request: Request) => Promise<Response>> = {
   'POST /api/account/upload-prompt': uploadPrompt,
   'GET /api/sessions': listSessions,
   'POST /api/sessions': createSession,
+  // Scoped to the caller's own email address rather than to a session — an invitee is not a Member
+  // of the table that wrote to them, so there is no session id they could put in this path
+  // (TICKET-GAM-03)
+  'GET /api/invitations': listInvitations,
 };
 
 /**
@@ -94,6 +106,15 @@ export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Respon
   'POST /api/sessions/:id/snapshot': refreshSnapshot,
   'POST /api/sessions/:id/invite': issueInvite,
   'DELETE /api/sessions/:id/invite': revokeInvite,
+  // Addressed invitations — the DM's half, which is about *this table's* outbox (TICKET-GAM-03).
+  // `invite` and `invitations` are different collections rather than a singular and a plural: one
+  // is the session's shared door, the other is the letters it has sent.
+  'POST /api/sessions/:id/invitations': inviteByEmail,
+  'GET /api/sessions/:id/invitations': listSessionInvites,
+  // …and the invitee's half, addressed by the invitation's own id
+  'POST /api/invitations/:id/accept': acceptInvitation,
+  'POST /api/invitations/:id/decline': declineInvitation,
+  'DELETE /api/invitations/:id': revokeInvitation,
   // The two routes reached without a membership — redeeming a code is how one begins (TICKET-GAM-02)
   'GET /api/invites/:code': previewInvite,
   'POST /api/invites/:code': redeemInvite,

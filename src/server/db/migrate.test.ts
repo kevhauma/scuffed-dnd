@@ -493,6 +493,153 @@ describe('runMigrations', () => {
     });
   });
 
+  describe('0004_addressed_invites, applied to a database sitting at 0003', () => {
+    /**
+     * A database at the previous schema, with a live shared invite code on it
+     *
+     * The second nullability change in this tree, and the same recreate-with-foreign-keys-live
+     * hazard 0003 documents — this time on `session_invite`, whose row must survive a
+     * `DROP TABLE` performed against a `game_session` it references (TICKET-GAM-03).
+     */
+    function atThreeWithACode(): Database {
+      const database = emptyDatabase();
+      runMigrations(database, migrationsUpTo(3));
+
+      database.sqlite
+        .prepare(
+          'INSERT INTO ruleset (id, owner_account_id, name, schema_version, revision, data, ' +
+            'created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        )
+        .run('r1', 'acc1', 'Ducklets', 2, 1, '{}', 1, 1);
+      database.sqlite
+        .prepare(
+          'INSERT INTO game_session (id, ruleset_id, dm_account_id, name, status, snapshot, ' +
+            'snapshot_schema_version, snapshot_taken_at, created_at, updated_at) ' +
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        )
+        .run('g1', 'r1', 'acc1', 'Tuesday night', 'active', '{}', 2, 1, 1, 1);
+      database.sqlite
+        .prepare(
+          'INSERT INTO session_invite (id, session_id, code, email, expires_at, created_at) ' +
+            'VALUES (?, ?, ?, ?, ?, ?)'
+        )
+        .run('i1', 'g1', 'A1B2C3D4E5', null, 9_999_999_999_999, 1);
+
+      return database;
+    }
+
+    it('starts from a schema that insists on a code', () => {
+      const database = atThreeWithACode();
+
+      // Otherwise everything below would pass against a database that was already nullable
+      expect(() =>
+        database.sqlite
+          .prepare(
+            'INSERT INTO session_invite (id, session_id, code, email, expires_at, created_at) ' +
+              'VALUES (?, ?, ?, ?, ?, ?)'
+          )
+          .run('i2', 'g1', null, 'ada@example.test', 9_999_999_999_999, 1)
+      ).toThrow();
+    });
+
+    it('keeps the live code, still pointing at its session', () => {
+      const database = atThreeWithACode();
+
+      runMigrations(database);
+
+      // The row survived a `DROP TABLE session_invite` performed with foreign keys enforced
+      expect(
+        database.sqlite
+          .prepare('SELECT id, session_id, code, email FROM session_invite WHERE id = ?')
+          .get('i1')
+      ).toEqual({ id: 'i1', session_id: 'g1', code: 'A1B2C3D4E5', email: null });
+    });
+
+    it('lets an addressed invitation exist with no code afterwards', () => {
+      const database = atThreeWithACode();
+
+      runMigrations(database);
+
+      database.sqlite
+        .prepare(
+          'INSERT INTO session_invite (id, session_id, code, email, expires_at, created_at) ' +
+            'VALUES (?, ?, ?, ?, ?, ?)'
+        )
+        .run('i2', 'g1', null, 'ada@example.test', 9_999_999_999_999, 1);
+
+      expect(
+        database.sqlite.prepare('SELECT code FROM session_invite WHERE id = ?').get('i2')
+      ).toEqual({ code: null });
+    });
+
+    it('lets two addressed invitations coexist, because SQLite counts NULLs as distinct', () => {
+      const database = atThreeWithACode();
+
+      runMigrations(database);
+
+      const insert = database.sqlite.prepare(
+        'INSERT INTO session_invite (id, session_id, code, email, expires_at, created_at) ' +
+          'VALUES (?, ?, ?, ?, ?, ?)'
+      );
+      insert.run('i2', 'g1', null, 'ada@example.test', 9_999_999_999_999, 1);
+      insert.run('i3', 'g1', null, 'bob@example.test', 9_999_999_999_999, 1);
+
+      // The unique index on `code` is what this could have broken, and the whole nullable-column
+      // decision rests on it not having
+      expect(database.sqlite.prepare('SELECT count(*) AS n FROM session_invite').get()).toEqual({
+        n: 3,
+      });
+    });
+
+    it('still refuses two invitations sharing one real code', () => {
+      const database = atThreeWithACode();
+
+      runMigrations(database);
+
+      expect(() =>
+        database.sqlite
+          .prepare(
+            'INSERT INTO session_invite (id, session_id, code, email, expires_at, created_at) ' +
+              'VALUES (?, ?, ?, ?, ?, ?)'
+          )
+          .run('i2', 'g1', 'A1B2C3D4E5', null, 9_999_999_999_999, 1)
+      ).toThrow();
+    });
+
+    it('keeps the cascade, so deleting a session still takes its invitations', () => {
+      const database = atThreeWithACode();
+
+      runMigrations(database);
+      database.sqlite.prepare('DELETE FROM game_session WHERE id = ?').run('g1');
+
+      expect(database.sqlite.prepare('SELECT id FROM session_invite').all()).toEqual([]);
+    });
+
+    it('keeps both indexes on the recreated table', () => {
+      const database = atThreeWithACode();
+
+      runMigrations(database);
+
+      const indexes = database.sqlite
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'session_invite'"
+        )
+        .all()
+        .map((row) => (row as { name: string }).name);
+
+      expect(indexes).toContain('session_invite_email_idx');
+      expect(indexes).toContain('session_invite_session_idx');
+    });
+
+    it('records itself beside the four before it', () => {
+      const database = atThreeWithACode();
+
+      runMigrations(database);
+
+      expect(appliedMigrations(database)).toHaveLength(MIGRATION_COUNT);
+    });
+  });
+
   describe('a migration that fails', () => {
     it('refuses with a MigrationError naming the cause', () => {
       const database = emptyDatabase();
