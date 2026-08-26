@@ -33,6 +33,15 @@ as it does today or posts to the server. One wizard, two destinations.
 - IO-04's upload can produce Characters attached to an account Ruleset and no session. This ticket
   decides what those are.
 
+  **IO-04 shipped them and left them with no surface, which its review flagged and this ticket
+  owns.** As of IO-04, `POST /api/rulesets/import` writes `character` rows with `session_id IS NULL`
+  and `data.configurationId` pointing at the ruleset it created. There is **no route that lists or
+  deletes a character**, and `removeRuleset` deletes only the ruleset — the `ON DELETE cascade` from
+  `game_session` can never fire for a row that is at no table. So an Account that uploads a roster
+  and then deletes the ruleset keeps the character rows permanently, invisible to every surface and
+  pointing at an id that no longer resolves. Nothing is *broken* by that today — no read path reaches
+  them — but they accumulate, and the fix belongs with the ticket that gives a character a home.
+
 ## Desired result (to-be)
 
 - `character` rows scoped to a Game_Session and owned by an Account, created and read through routes
@@ -61,6 +70,12 @@ as it does today or posts to the server. One wizard, two destinations.
       the network stubbed to throw — creating and playing a character needs no account (v3 Req 40.0).
 - [ ] An uploaded character from IO-04 that belongs to no session is readable by its owner and is
       stated as not being at a table — it is not silently invisible.
+- [ ] An uploaded character can be **removed**, and deleting the ruleset it was uploaded with does
+      not leave it behind. Today `removeRuleset` deletes only the ruleset and the cascade from
+      `game_session` cannot reach a row at no table, so uploading and deleting repeatedly accumulates
+      rows nothing can see — see *Current situation*. Whichever way this is closed (a real
+      `ruleset_id` column with a cascade, or an explicit sweep in the delete route), the test is
+      *upload a roster, delete the ruleset, and count the `character` table*.
 - [ ] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions` skill,
       plus a live browser check (ask the User first).
 

@@ -138,7 +138,26 @@ describe('handleApiRequest', () => {
       // `/api/rulesets/` is the collection with a trailing slash, not a ruleset with no id
       expect((await answer('/api/rulesets/', 'DELETE')).status).toBe(404);
     });
+
+    it('prefers the exact table to a pattern that would also match (TICKET-IO-04)', () =>
+      withTestDatabase(async () => {
+        // `POST /api/rulesets/import` is a literal path sitting one segment under a collection whose
+        // other verbs are parameterised. The exact table is consulted first, which is what makes it
+        // reachable at all — and what stops a ruleset that happens to be *called* `import` from
+        // shadowing it, since `POST /api/rulesets/:id` is not a route in the first place
+        expect((await answer('/api/rulesets/import', 'POST')).status).toBe(401);
+
+        // …while the pattern still owns the other verbs at the same shape of path
+        expect((await answer('/api/rulesets/import', 'GET')).status).toBe(401);
+      }));
   });
+
+  it('reaches the once-per-Account upload prompt (TICKET-IO-04)', () =>
+    withTestDatabase(async () => {
+      expect((await answer('/api/account/upload-prompt', 'POST')).status).toBe(401);
+      // A `GET` is a different mistake from a path that is not there, and the router says so
+      expect((await answer('/api/account/upload-prompt', 'GET')).status).toBe(405);
+    }));
 
   it('keeps the auth subtree inside the API prefix (TICKET-AUTH-01)', () => {
     // `AUTH_PREFIX` cannot import `API_PREFIX` — the router imports the auth routes, so the other

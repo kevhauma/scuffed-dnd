@@ -136,3 +136,38 @@ export async function importConfigurationFromFile(file: File): Promise<Configura
     throw new ImportExportError('Failed to read file', error);
   }
 }
+
+/**
+ * Read a file as an unvalidated JSON document (TICKET-IO-04)
+ *
+ * The **server** import path's half of {@link importConfigurationFromFile}: the same read, stopping
+ * one step earlier. Nothing is gated or validated here, because on that path the gating is the
+ * server's — running the Kernel's checks in the browser first would mean a file could be refused by
+ * two different sentences depending on which check happened to fire, and v3 Req 35.2 asks for the
+ * server to run them.
+ *
+ * What is still done here is the parse, because *"that file is not JSON"* is a browser fact: the
+ * bytes never leave the machine, and posting them to find out would be a request whose answer is
+ * already known.
+ *
+ * @param file The file the User picked
+ * @returns Whatever it holds, parsed and otherwise untouched
+ * @throws {ImportExportError} If it cannot be read, or is not JSON
+ */
+export async function readConfigurationDocument(file: File): Promise<unknown> {
+  let text: string;
+
+  try {
+    text = await file.text();
+  } catch (error) {
+    throw new ImportExportError('Failed to read file', error);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    // The same sentence `importConfiguration` produces for the same file, so a User who tried both
+    // paths with one bad file is told one thing
+    throw new ImportExportError('Invalid JSON format', error);
+  }
+}

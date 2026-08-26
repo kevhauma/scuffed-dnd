@@ -28,6 +28,15 @@ export interface BrowserRulesetHomeProps {
   onCreate: () => void;
   /** Point the config store back at this browser's ruleset before the panels render it */
   onOpen: () => void;
+  /**
+   * Whether copying this ruleset onto an Account is on offer (TICKET-IO-04)
+   *
+   * False signed out, which is the whole of what an Account buys here — and false when this browser
+   * holds nothing, because there would be nothing to copy.
+   */
+  canUpload: boolean;
+  /** Open the copy-to-my-account confirmation. It asks before it does anything (v3 Req 36.3). */
+  onUpload: () => void;
 }
 
 export function BrowserRulesetHome({
@@ -35,6 +44,8 @@ export function BrowserRulesetHome({
   isLoaded,
   onCreate,
   onOpen,
+  canUpload,
+  onUpload,
 }: BrowserRulesetHomeProps) {
   return (
     <Card className="p-6">
@@ -56,15 +67,29 @@ export function BrowserRulesetHome({
             home={RULESET_HOME.BROWSER}
             updatedAt={ruleset.updatedAt}
             openAction={
-              // A button rather than a `Link`, the same shape the account rows use and for the same
-              // reason: re-pointing the store at this home can *fail* — `loadConfiguration` throws
-              // on stored data this build cannot read — and a `<Link>`'s navigation happens whatever
-              // its `onClick` did. That would land the User in Configuration mode editing the
-              // **Account's** ruleset believing it was this browser's, with every keystroke saving
-              // there. Navigating only on success is the whole point.
-              <Button variant="secondary" size="sm" onClick={onOpen}>
-                Open
-              </Button>
+              <>
+                {/*
+                  A button rather than a `Link`, the same shape the account rows use and for the same
+                  reason: re-pointing the store at this home can *fail* — `loadConfiguration` throws
+                  on stored data this build cannot read — and a `<Link>`'s navigation happens whatever
+                  its `onClick` did. That would land the User in Configuration mode editing the
+                  **Account's** ruleset believing it was this browser's, with every keystroke saving
+                  there. Navigating only on success is the whole point.
+                */}
+                <Button variant="secondary" size="sm" onClick={onOpen}>
+                  Open
+                </Button>
+                {/*
+                  Through the `openAction` slot rather than a `RulesetCard` prop named after this one
+                  caller — the conventions' "extend the shell through its slot" rule. The account
+                  rows have no use for it: their ruleset is already on the account.
+                */}
+                {canUpload && (
+                  <Button variant="secondary" size="sm" onClick={onUpload}>
+                    Copy to my account
+                  </Button>
+                )}
+              </>
             }
           />
         ) : (

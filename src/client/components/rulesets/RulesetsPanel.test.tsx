@@ -57,6 +57,21 @@ function signedOut(overrides: Record<string, unknown> = {}) {
     pendingDelete: null,
     confirmDelete: vi.fn(),
     cancelDelete: vi.fn(),
+    // TICKET-IO-04's composed sub-hook. Signed out every one of these is inert, which is the point:
+    // there is no Account to put anything on, so no affordance appears and nothing is requested.
+    transfer: {
+      result: null,
+      failure: null,
+      isBusy: false,
+      dismissResult: vi.fn(),
+      importFile: vi.fn(),
+      pendingUpload: null,
+      canUpload: false,
+      openUpload: vi.fn(),
+      cancelUpload: vi.fn(),
+      confirmUpload: vi.fn(),
+      downloadBackup: vi.fn(),
+    },
     ...overrides,
   };
 }
@@ -148,5 +163,68 @@ describe('RulesetsPanel', () => {
     render(<RulesetsPanel />);
 
     expect(screen.getByRole('alert').textContent).toContain('Could not reach the server.');
+  });
+
+  describe('the two refusals do not mask each other (the IO-04 review)', () => {
+    /** A manager with a stale listing error and a fresh transfer refusal at the same time */
+    function bothFailing(transfer: Record<string, unknown> = {}) {
+      const base = signedOut({ isSignedIn: true, error: 'Could not load your rulesets.' });
+
+      return {
+        ...base,
+        transfer: {
+          ...base.transfer,
+          failure: { message: 'That ruleset is not a shape this server can read.', fields: [] },
+          ...transfer,
+        },
+      };
+    }
+
+    it('shows both, rather than the account error swallowing the transfer one', () => {
+      // `useAccountRulesets`'s error survives until the next *write*, so one failed listing on page
+      // load used to hide every later import refusal behind a `??`
+      useRulesetManager.mockReturnValue(bothFailing());
+
+      render(<RulesetsPanel />);
+
+      const announced = screen.getAllByRole('alert').map((node) => node.textContent ?? '');
+
+      expect(announced.some((text) => text.includes('Could not load your rulesets.'))).toBe(true);
+      expect(announced.some((text) => text.includes('not a shape this server can read'))).toBe(
+        true
+      );
+    });
+
+    it('lists the failing fields the server named', () => {
+      useRulesetManager.mockReturnValue(
+        bothFailing({
+          failure: {
+            message: 'That ruleset is not a shape this server can read.',
+            fields: ["Field 'stats' must be an array"],
+          },
+        })
+      );
+
+      render(<RulesetsPanel />);
+
+      expect(screen.getByText("Field 'stats' must be an array")).toBeTruthy();
+    });
+
+    it('leaves the transfer refusal to the dialog while the dialog is open', () => {
+      // Otherwise it renders under a `fixed inset-0` blurred overlay, which is no message at all
+      useRulesetManager.mockReturnValue(
+        bothFailing({
+          pendingUpload: { name: 'Ducklets', characterCount: 0, request: { configuration: {} } },
+        })
+      );
+
+      render(<RulesetsPanel />);
+
+      const announced = screen.getAllByRole('alert').map((node) => node.textContent ?? '');
+
+      expect(announced.filter((text) => text.includes('not a shape this server can read'))).toEqual(
+        ['That ruleset is not a shape this server can read.']
+      );
+    });
   });
 });

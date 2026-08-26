@@ -43,28 +43,157 @@ explicit, repeatable, and a copy rather than a move.
   Character, and leaving both LocalStorage keys byte-identical afterwards. Offered once unprompted on
   first sign-in; reachable on demand forever after.
 
+## Implementation notes (2026-08-26)
+
+**One server route serves both paths, and the second one was never written.** The to-be describes
+`POST /api/rulesets/import` and an upload action as two things, and they are two things *on the
+client* — where the bytes came from is a fact about the browser. Server-side they are one operation:
+gate → shape-check → referential report → create, never overwrite. A second route would have been a
+second copy of that chain to keep in step, so the upload posts to the same route with a `characters`
+array the file path never sends. Criterion 6 is unchanged by this; only the number of routes is.
+
+**`character.session_id` became nullable, which is a real migration** (`0003_uploaded_characters`).
+An uploaded character was built against a *local* ruleset, so no Snapshot exists for it to be at a
+table against — the ticket's own notes say so — and inventing a session to hold one would put people
+at a game nobody started. The generated SQL is the table recreate the schema file warns about
+(`PRAGMA foreign_keys=OFF` is a no-op inside drizzle's transaction), so it ships with a test that
+applies it to a 0002 database holding a seated character behind a live foreign key.
+
+**The once-per-Account prompt is claimed, not read.** `POST /api/account/upload-prompt` is an
+`INSERT … ON CONFLICT DO NOTHING` whose answer is whether it inserted, so two tabs restoring one
+session cannot both be told yes — a `GET` that reported and left the marking to a second request
+could. It is deliberately not offered when this browser holds nothing to upload, because spending
+the one offer on an empty dialog would mean the Account never gets it.
+
+**`insertUnseatedCharacter` exists partly because of `routeGuards.test.ts`.** That detector is a text
+scan over handler modules and flags any that names `sessionId` without calling a resource guard —
+which a handler writing `sessionId: null` does. Naming the repository function for the domain state
+instead of weakening the detector is the trade: the one thing worse than it flagging this would be it
+learning enough exceptions to miss a real one.
+
+### What the `conventions-reviewer` pass changed (2026-08-26)
+
+Eight findings, all reachable, each landing with the test that reproduces it. The two worth reading
+are the first and the fourth, because neither was visible from the tests as written:
+
+1. **A failed upload was invisible.** The confirmation stays open over a refusal — correct, the
+   decision is still the User's — but the reason was rendered on the page *behind* it, under
+   `Dialog`'s `fixed inset-0` blurred overlay with the page scroll locked. *Copying…* flipped back to
+   *Copy to my account* and nothing else happened. `UploadToAccountDialog` now carries its own
+   refusal, and `RulesetsPanel` renders the page-level one **only while the dialog is closed**.
+2. **A stale listing error masked every later one.** `RulesetsPanel` coalesced the two with `??`,
+   and `useAccountRulesets` never cleared its error except on a write — so one failed load on page
+   open (offline, an expired session) hid every import refusal after it. Two alerts now, and `load`
+   clears on success.
+3. **The failing fields were thrown away.** The server attaches them to a shape refusal so a client
+   can say *which part could not be read*; the client read only `error.message`, which made the
+   account path vaguer than the config dashboard's for the same file. `TransferFailure` carries both.
+4. **`uploadedCharacterErrors` was the browser's predicate doing an untrusted-boundary job.**
+   `isReadableCharacter` is `!== undefined` on two fields — which accepts `null` and accepts a
+   scalar — and nothing checked `raceIds`, `inventory` or the timestamps. A `Character` stored that
+   way is a `TypeError` for whichever surface reads it first, the server's own re-derivation
+   included. The server-facing half now checks every field a reader dereferences; the browser's own
+   predicate is unchanged, because the bytes it guards are ones this app wrote.
+5. **The ruleset and its roster were not one write.** A failure part-way through the loop left the
+   Account holding the ruleset and half the characters while the client was told the whole thing
+   failed. `insertRulesetWithCharacters` wraps both in a transaction.
+6. **Uploaded characters have no surface and no way out** — recorded on
+   [TICKET-CHAR-04](./TICKET-CHAR-04-characters-per-session.md) as a criterion rather than fixed
+   here: `removeRuleset` deletes only the ruleset, and the cascade from `game_session` cannot reach
+   a row at no table, so uploading and deleting repeatedly accumulates invisible rows. Nothing reads
+   them today; the ticket that gives a character a home is the one that owes them a delete.
+7. **A 120-character cap refused a file the app itself could have exported.** `nameFrom` is the rule
+   for a request *body*; a document's name is data the User already has, and
+   `validateConfigurationShape` imposes no cap, so the import path truncates instead.
+8. **The file-import path had no busy guard**, so picking twice quickly created two rulesets from one
+   intention. It now matches `confirmUpload`, and the button says *Adding…*.
+
+Plus three housekeeping items: `types/index.ts` gained the new `validation` line, `useUploadPrompt`
+gained the colocated test it was missing, and `insertCharacter` — a module-private wrapper with one
+caller and a `sessionId` no reachable caller could set — collapsed into `insertUnseatedCharacter`.
+`useRulesetTransfer` was 96 lines doing four things; the request half is now
+[`useAccountImport`](../../../src/client/components/rulesets/useAccountImport.ts).
+
 ## Acceptance criteria
 
-- [ ] Signed out, import and export work end to end with the network stubbed to throw — local mode
+- [x] Signed out, import and export work end to end with the network stubbed to throw — local mode
       provably needs no server.
-- [ ] Signed in, importing a corpus file creates a new Ruleset and leaves every existing one
+      (`ConfigTransferPanel.test.ts`'s *"exports and imports end to end with the network
+      unreachable"* — `fetch` stubbed to **throw**, export reaches `downloadConfiguration`, a file
+      import lands in the store, and `fetch` was never called. `useRulesetManager.test.ts`'s *"issues
+      no request at all while nobody is signed in"* covers the list page unchanged. Live: signed out,
+      `/rulesets` offers only *Start one in this browser* and *Sign in* — no import, no upload.)
+- [x] Signed in, importing a corpus file creates a new Ruleset and leaves every existing one
       untouched, including the local one; the response carries the created ruleset and the report.
-- [ ] A v1 file, a wrong `schemaVersion`, a shape failure and a retired field each produce their
+      (`importRuleset.test.ts` *"leaves every existing ruleset exactly as it was"* reads the
+      pre-existing row back and `toEqual`s the whole row; *"names the created ruleset after the
+      document, at revision 1"*. Live: importing `broken-ruleset.json` added *Imported From A File*
+      beside three untouched rulesets, the browser's included.)
+- [x] A v1 file, a wrong `schemaVersion`, a shape failure and a retired field each produce their
       existing distinct message on **both** paths, and each persists nothing.
-- [ ] A referentially broken but structurally valid file **is** created, with its errors reported —
+      (`importRuleset.test.ts`'s four *"the four refusals, each persisting nothing"* cases — each
+      asserts the message **and** `allRulesets(database)` is empty. The messages are the browser's
+      because `importedDocument` calls the Kernel's own `importParsedConfiguration`, the function
+      `importConfiguration` now also calls. Live: a `schemaVersion: 1` file produced *"This file was
+      exported by an older version of the app… (That ruleset states schema version 1; this build
+      reads version 9.)"* and added nothing.)
+- [x] A referentially broken but structurally valid file **is** created, with its errors reported —
       the v1.0 rule that a repairable ruleset reaches the User, not a refusal.
-- [ ] Export → import through the server reproduces an equivalent Ruleset, formulas included; the
+      (`importRuleset.test.ts` *"creates a referentially broken but structurally valid ruleset, and
+      says what is wrong"* — 200, one row, `report.isValid` false, the missing ladder named. Live:
+      the banner read *"…added to your account. It was kept as it is; the checks below found problems
+      to fix."* above *Roll "Melee" uses a dice ladder that does not exist: no-such-ladder*.)
+- [x] Export → import through the server reproduces an equivalent Ruleset, formulas included; the
       existing round-trip test is extended to the server path rather than duplicated.
-- [ ] An upload copies: after it, both LocalStorage keys are byte-identical and the account holds a
+      (`importRuleset.test.ts` *"gives back a ruleset equivalent to the one exported, formulas
+      included"* — the Ducklets corpus through `serializeConfiguration`, posted, read back out of the
+      `data` column and compared field-for-field against the export minus the three identities an
+      import deliberately replaces.)
+- [x] An upload copies: after it, both LocalStorage keys are byte-identical and the account holds a
       new Ruleset and the claimed Characters (v3 Req 36.5).
-- [ ] Uploading twice creates two independent account rulesets rather than erroring or silently
+      (`rulesetUpload.test.ts` *"leaves both stored keys byte-identical"* compares the raw strings
+      before and after; `importRuleset.test.ts` *"creates one row per stored character, owned by the
+      Account and at no table"* and *"points every uploaded character at the ruleset it just
+      created"*. Live: after *Copy to my account*, `dnd_builder_config` and `dnd_builder_characters`
+      were both `=== ` their captured values, and the banner read *"…and 2 characters added to your
+      account"*.)
+- [x] Uploading twice creates two independent account rulesets rather than erroring or silently
       updating the first — it is a copy each time, and the User is told what already exists.
-- [ ] The first-sign-in prompt appears once per Account and never again, while the action stays
+      (`importRuleset.test.ts` *"makes the same file twice into two independent rulesets"* — two
+      200s, different ids, two rows, and neither id is the one the file carried. Live: two
+      *My Custom Game System* rows under *Your account*, each with its own timestamp, beside the
+      browser's own.)
+- [x] The first-sign-in prompt appears once per Account and never again, while the action stays
       reachable from the ruleset list (v3 Req 36.6).
-- [ ] Unsupported stored data meets the existing `IncompatibleDataNotice` rather than a new message,
+      (`uploadPrompt.test.ts` — *"never offers it again to that Account"*, *"asks each Account on the
+      same machine separately"*, and *"hands the offer to exactly one of two calls made at once"*,
+      which is the case a read-then-write would fail. `useRulesetTransfer.test.ts` *"does not spend
+      the one prompt on a browser holding nothing"*. Live: the dialog opened unprompted on first
+      sign-in, and did not reappear on reload while *Copy to my account* stayed on the row.)
+- [x] Unsupported stored data meets the existing `IncompatibleDataNotice` rather than a new message,
       and is never uploaded.
-- [ ] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions` skill,
+      (`rulesetUpload.test.ts` *"refuses stored data this build cannot read rather than uploading
+      it"* — `readBrowserUpload` throws the **same** `StorageSchemaError` the notice is built around,
+      because it reads through `loadConfiguration`/`loadCharacters` rather than off the keys. No new
+      message exists to test; `useAppHydration` renders the notice instead of the app, so the upload
+      affordance is unreachable in that state.)
+- [x] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions` skill,
       plus a live browser check (ask the User first).
+      (`npx vitest run` 2474 passed / 0 failed / 0 skipped; `npx tsc --noEmit` at the documented
+      2-error baseline; `yarn run check` clean **and `yarn run lint --max-diagnostics=1000` reporting
+      nothing** — the `verifier` found four info-severity diagnostics that `check` exits 0 on, now
+      recorded in TEST_STATUS.md as a limit of the gate; `fallow audit --base main` verdict **pass**
+      with 0 introduced dead code, complexity or duplication. Everything it *did* find was removed
+      rather than suppressed: an unused `insertCharacter` export, two unread type re-exports, an
+      unused `failureOf`, and an `inventoryErrors` over the complexity threshold.
+      `conventions-reviewer` found eight defects, every one fixed with the test that reproduces it —
+      see the section above. Browser check run at the User's request against `yarn dev`, evidence in
+      the criteria above, plus a re-check of the refused path afterwards: the reason now renders
+      **inside** the dialog with the failing field named, and `GET /api/rulesets` still answered 3.)
+
+      One thing the browser check surfaced that is **not** this ticket's: `/rulesets` logs a React
+      hydration mismatch. Reproduced on `main` with this work stashed, so it predates IO-04 and is
+      left for a ticket of its own rather than quietly fixed here.
 
 ## Notes
 

@@ -16,13 +16,15 @@
 import { toDisplayConfiguration } from '#shared/engine/formula/references';
 import {
   assertSupportedSchemaVersion,
+  importParsedConfiguration,
   SchemaVersionError,
   serializeConfiguration,
+  ValidationError,
   validateConfigurationShape,
 } from '#shared/services/importExport';
 import type { RulesetSummary } from '#shared/types/api';
 import { type Configuration, SUPPORTED_SCHEMA_VERSION } from '#shared/types/config';
-import { badRequest, conflict } from '../../http/appError';
+import { type AppError, badRequest, conflict } from '../../http/appError';
 import type { RulesetRow, RulesetSummaryRow } from '../../repositories/rulesetRepository';
 
 /**
@@ -187,25 +189,76 @@ export function storableDocument(submitted: unknown): string {
   try {
     assertSupportedSchemaVersion((submitted as Record<string, unknown> | null)?.schemaVersion);
   } catch (error) {
-    if (error instanceof SchemaVersionError) {
-      throw badRequest(
-        `${error.message} (That ruleset states schema version ${String(error.foundVersion)}; ` +
-          `this build reads version ${SUPPORTED_SCHEMA_VERSION}.)`
-      );
-    }
-    throw error;
+    throw wrongVersionSent(error);
   }
 
   const validation = validateConfigurationShape(submitted);
 
   if (!validation.isValid) {
-    throw badRequest(
-      'That ruleset is not a shape this server can read, so nothing was saved.',
-      // The validator's own words, unedited: it names the field and what was wrong with it, and
-      // rewording them here would be a second vocabulary for the same failures
-      { fields: validation.errors }
-    );
+    throw wrongShapeSent(validation.errors);
   }
 
   return serializeConfiguration(submitted as Configuration);
+}
+
+/**
+ * A document the caller sent at a version this build does not read, as a refusal
+ *
+ * The **400**, not the 409 {@link documentOf} throws — see that docblock for which document is at
+ * the wrong version in each case. Extracted so `PUT` and `POST /api/rulesets/import` refuse an old
+ * file with one sentence rather than two that agree today (TICKET-IO-04).
+ *
+ * @param error Whatever the gate threw
+ * @returns The refusal to throw, or the original error when it was not a version failure
+ */
+function wrongVersionSent(error: unknown): unknown {
+  if (!(error instanceof SchemaVersionError)) return error;
+
+  return badRequest(
+    `${error.message} (That ruleset states schema version ${String(error.foundVersion)}; ` +
+      `this build reads version ${SUPPORTED_SCHEMA_VERSION}.)`
+  );
+}
+
+/**
+ * A document whose shape the server could not read, as a refusal
+ *
+ * @param fields The validator's own words, unedited: it names the field and what was wrong with it,
+ *   and rewording them here would be a second vocabulary for the same failures
+ * @returns The refusal to throw
+ */
+function wrongShapeSent(fields: string[]): AppError {
+  return badRequest('That ruleset is not a shape this server can read, so nothing was saved.', {
+    fields,
+  });
+}
+
+/**
+ * A `Configuration` a client asked the server to **import** (v3 Req 35.1, 35.2)
+ *
+ * The browser's own import chain, run server-side: `importParsedConfiguration` gates the version,
+ * checks the shape — retired fields included — mints the reference ids a file predating
+ * TICKET-REF-01 does not carry, and hands back the display form. **The same function the browser
+ * calls**, which is what makes "each produces its existing distinct message on both paths" a fact
+ * about one implementation rather than a promise about two.
+ *
+ * The difference from {@link storableDocument}, and the reason both exist: a `PUT` carries a
+ * document this app itself produced moments ago and must round-trip it untouched, while an import
+ * carries a *file* — possibly hand-edited, possibly older than reference ids — and has to be
+ * brought up to the current shape before anything looks at it.
+ *
+ * **Nothing is persisted when any gate fails.** The caller gets an `AppError`, and the route has not
+ * reached an insert.
+ *
+ * @param submitted Whatever arrived in the request body's `configuration`
+ * @returns The document in display form, ready to be copied and stored
+ * @throws {AppError} 400 for the wrong schema version and for a shape the server cannot read
+ */
+export function importedDocument(submitted: unknown): Configuration {
+  try {
+    return importParsedConfiguration(submitted);
+  } catch (error) {
+    if (error instanceof ValidationError) throw wrongShapeSent(error.errors);
+    throw wrongVersionSent(error);
+  }
 }

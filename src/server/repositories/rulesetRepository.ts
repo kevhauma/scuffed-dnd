@@ -15,6 +15,7 @@
 import { and, desc, eq } from 'drizzle-orm';
 import { type Database, getDatabase } from '../db/client';
 import { ruleset } from '../db/schema';
+import { insertUnseatedCharacter, type NewUnseatedCharacter } from './characterRepository';
 
 /**
  * A ruleset row as the server holds it — `data` is still JSON text
@@ -79,6 +80,38 @@ export function insertRuleset(input: NewRuleset, database: Database = getDatabas
     })
     .returning()
     .get();
+}
+
+/**
+ * Store a ruleset and the characters uploaded with it, or store neither (TICKET-IO-04)
+ *
+ * **One transaction, and the review is why it is one.** The route validated every character before
+ * writing anything — its own docblock says a partial roster is unacceptable — and then wrote the
+ * ruleset and looped the inserts unguarded. A failure part-way through (`SQLITE_TOOBIG`, a full
+ * disk, a busy timeout) would leave the Account holding the ruleset and *some* of its characters
+ * while the client was told the whole thing failed, which is the worst of both answers: the User
+ * retries, and now there are two rulesets and a duplicated half-roster.
+ *
+ * `better-sqlite3` transactions are synchronous and run on the connection they were opened on, so
+ * the statements below — issued through the same `database` — are inside this one. That is also why
+ * every repository function here is sync: an `await` inside a transaction callback would commit
+ * around the thing it was meant to wrap.
+ *
+ * @param input The ruleset, and the characters to create beside it
+ * @param database The connection; defaults to the process's
+ * @returns The stored ruleset row
+ */
+export function insertRulesetWithCharacters(
+  input: { ruleset: NewRuleset; characters: NewUnseatedCharacter[] },
+  database: Database = getDatabase()
+): RulesetRow {
+  return database.db.transaction(() => {
+    const row = insertRuleset(input.ruleset, database);
+
+    for (const uploaded of input.characters) insertUnseatedCharacter(uploaded, database);
+
+    return row;
+  });
 }
 
 /**

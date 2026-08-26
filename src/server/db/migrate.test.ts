@@ -131,16 +131,18 @@ afterEach(() => {
 
 describe('runMigrations', () => {
   describe('applied to an empty database', () => {
-    it('creates the ten tables the server needs', () => {
+    it('creates the eleven tables the server needs', () => {
       const database = emptyDatabase();
 
       runMigrations(database);
 
-      // Six from 0000_initial — the server's own model — and four from 0001_auth_tables, which are
-      // Better Auth's (TICKET-AUTH-01). Enumerated rather than counted, so that a table appearing
-      // or vanishing is a named difference rather than an off-by-one.
+      // Six from 0000_initial — the server's own model — four from 0001_auth_tables, which are
+      // Better Auth's (TICKET-AUTH-01), and one from 0003_uploaded_characters (TICKET-IO-04).
+      // Enumerated rather than counted, so that a table appearing or vanishing is a named
+      // difference rather than an off-by-one.
       expect(tableNames(database)).toEqual([
         'account',
+        'account_upload_prompt',
         'character',
         'event',
         'game_session',
@@ -361,6 +363,129 @@ describe('runMigrations', () => {
 
     it('records itself beside the two before it', () => {
       const database = atOneWithASession();
+
+      runMigrations(database);
+
+      expect(appliedMigrations(database)).toHaveLength(MIGRATION_COUNT);
+    });
+  });
+
+  describe('0003_uploaded_characters, applied to a database sitting at 0002', () => {
+    /**
+     * A database at the previous schema, with a seated character on it that must survive
+     *
+     * **This is the migration whose generated SQL the schema file warns about**: making a column
+     * nullable in SQLite is a table recreate, and the `PRAGMA foreign_keys=OFF` drizzle-kit emits is
+     * a **no-op inside a transaction**, which is where the migrator runs it. So the recreate happens
+     * with foreign keys live, and the only honest way to know it survives that is to put a real row
+     * behind a real foreign key and run it.
+     */
+    function atTwoWithACharacter(): Database {
+      const database = emptyDatabase();
+      runMigrations(database, migrationsUpTo(2));
+
+      database.sqlite
+        .prepare(
+          'INSERT INTO ruleset (id, owner_account_id, name, schema_version, revision, data, ' +
+            'created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        )
+        .run('r1', 'acc1', 'Ducklets', 2, 1, '{}', 1, 1);
+      database.sqlite
+        .prepare(
+          'INSERT INTO game_session (id, ruleset_id, dm_account_id, name, status, snapshot, ' +
+            'snapshot_schema_version, snapshot_taken_at, created_at, updated_at) ' +
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        )
+        .run('g1', 'r1', 'acc1', 'Tuesday night', 'active', '{}', 2, 1, 1, 1);
+      database.sqlite
+        .prepare(
+          'INSERT INTO character (id, session_id, owner_account_id, name, revision, data, ' +
+            'created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        )
+        .run('c1', 'g1', 'acc1', 'Quackers', 1, '{"name":"Quackers"}', 1, 1);
+
+      return database;
+    }
+
+    it('starts from a schema with neither the prompt table nor a nullable session', () => {
+      const database = atTwoWithACharacter();
+
+      // Otherwise everything below would pass against a database that already had them
+      expect(tableNames(database)).not.toContain('account_upload_prompt');
+      expect(() =>
+        database.sqlite
+          .prepare(
+            'INSERT INTO character (id, session_id, owner_account_id, name, revision, data, ' +
+              'created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+          )
+          .run('c2', null, 'acc1', 'Unseated', 1, '{}', 1, 1)
+      ).toThrow();
+    });
+
+    it('adds the table the once-per-Account prompt is claimed in', () => {
+      const database = atTwoWithACharacter();
+
+      runMigrations(database);
+
+      expect(tableNames(database)).toContain('account_upload_prompt');
+    });
+
+    it('keeps the seated character, still pointing at its session', () => {
+      const database = atTwoWithACharacter();
+
+      runMigrations(database);
+
+      // The row survived a `DROP TABLE character` performed with foreign keys enforced — the exact
+      // thing the schema docblock says to test rather than assume
+      expect(
+        database.sqlite.prepare('SELECT id, session_id, name FROM character WHERE id = ?').get('c1')
+      ).toEqual({ id: 'c1', session_id: 'g1', name: 'Quackers' });
+    });
+
+    it('lets a character exist at no table afterwards', () => {
+      const database = atTwoWithACharacter();
+
+      runMigrations(database);
+
+      database.sqlite
+        .prepare(
+          'INSERT INTO character (id, session_id, owner_account_id, name, revision, data, ' +
+            'created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        )
+        .run('c2', null, 'acc1', 'Unseated', 1, '{}', 1, 1);
+
+      expect(
+        database.sqlite.prepare('SELECT session_id FROM character WHERE id = ?').get('c2')
+      ).toEqual({ session_id: null });
+    });
+
+    it('keeps the cascade, so deleting a session still takes its characters', () => {
+      const database = atTwoWithACharacter();
+
+      runMigrations(database);
+      database.sqlite.prepare('DELETE FROM game_session WHERE id = ?').run('g1');
+
+      // The recreate rewrote the foreign key; a migration that dropped the `ON DELETE cascade`
+      // would leave a character behind pointing at a session that is gone
+      expect(database.sqlite.prepare('SELECT id FROM character').all()).toEqual([]);
+    });
+
+    it('keeps both indexes on the recreated table', () => {
+      const database = atTwoWithACharacter();
+
+      runMigrations(database);
+
+      const indexes = database.sqlite
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'character'")
+        .all()
+        .map((row) => (row as { name: string }).name);
+
+      expect(indexes).toContain('character_session_idx');
+      expect(indexes).toContain('character_owner_idx');
+    });
+
+    it('records itself beside the three before it', () => {
+      const database = atTwoWithACharacter();
 
       runMigrations(database);
 

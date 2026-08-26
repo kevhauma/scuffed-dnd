@@ -46,11 +46,16 @@ export interface RulesetCardProps {
    */
   updatedAt: number;
   /**
-   * The link that opens it, supplied by the caller
+   * The controls that lead *out* of this row, supplied by the caller
    *
-   * A `to` string would not do: TanStack Router types `<Link to>` against the generated route tree,
+   * Named for opening because that is all it carried at first, and it still carries that: a `to`
+   * string would not do, since TanStack Router types `<Link to>` against the generated route tree,
    * so a route only known as `string` is a type error — and defeating that would defeat the one
    * thing the generated tree is for. The caller has the literal; it passes the link.
+   *
+   * **It is a slot rather than one prop per action** (TICKET-IO-04), which is what let the browser
+   * row gain *Copy to my account* without this component learning a second thing it can never do
+   * for the account rows — their ruleset is already on the account.
    */
   openAction?: ReactNode;
   onRename?: () => void;

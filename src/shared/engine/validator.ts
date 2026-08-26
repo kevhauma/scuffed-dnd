@@ -27,6 +27,7 @@ import type {
   Stat,
 } from '../types/config';
 import { POINT_BUY_CURVE_NAME } from '../types/config';
+import type { ValidationIssue, ValidationReport } from '../types/validation';
 import { cellKey, isWithinLayout } from './equipmentLayout';
 import { buildReferenceResolver, skillMemberName, statMemberName } from './formula/references';
 import type { FormulaScope } from './formula/scoping';
@@ -57,37 +58,18 @@ function roundWeightSum(sum: number): number {
 }
 
 /**
- * Validation issue severity levels
+ * The report, re-exported from where it lives a rung lower since TICKET-IO-04
  *
- * `information` arrived with TICKET-SKL-03 for Concept 02's balance rule, which is explicitly *not*
- * a mistake: a skill weighted well above ~0.5 is a deliberate choice as often as an accident, and
- * reporting it as a warning would train the User to ignore warnings. It never affects `isValid`.
+ * This module is where a report is *built* and where its existing consumers import its type from,
+ * so changing their import lines to record that a declaration moved house would be churn with no
+ * reader. The move happened because `types/api.ts` puts a report on the wire and may not import
+ * anything with a runtime — see [`types/validation.ts`](../types/validation.ts).
+ *
+ * **Only `ValidationReport`**, because only it has a consumer out here. `ValidationIssue` and
+ * `ValidationSeverity` are imported from `#shared/types/validation` by whoever needs them; a
+ * re-export nobody reads is a claim that something does.
  */
-export type ValidationSeverity = 'error' | 'warning' | 'information';
-
-/**
- * Validation issue
- */
-export interface ValidationIssue {
-  severity: ValidationSeverity;
-  category: string;
-  message: string;
-  entityType?: string;
-  entityId?: string;
-  entityName?: string;
-}
-
-/**
- * Validation report containing all detected issues
- */
-export interface ValidationReport {
-  isValid: boolean;
-  errors: ValidationIssue[];
-  warnings: ValidationIssue[];
-  /** Observations that are worth stating and are not defects — see {@link ValidationSeverity} */
-  information: ValidationIssue[];
-  timestamp: string;
-}
+export type { ValidationReport } from '../types/validation';
 
 /**
  * Every rule the report is made of, in the order it is reported (CR-19)

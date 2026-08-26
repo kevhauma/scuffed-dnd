@@ -878,6 +878,38 @@ export function validateConfigurationShape(data: unknown): ValidationResult {
 }
 
 /**
+ * Import a configuration that has already been parsed (TICKET-IO-04)
+ *
+ * **The whole of what "importing" means once the JSON text is out of it**: the version gate, the
+ * shape check — retired fields included — then the reference ids a file predating TICKET-REF-01
+ * does not carry, then the display spellings. Extracted from {@link importConfiguration} so the
+ * server's `POST /api/rulesets/import` runs the *same* three gates in the same order rather than a
+ * second chain that agrees on the day it is written (v3 Req 35.2).
+ *
+ * Text is deliberately not this function's business. The browser has a `File` and the server has a
+ * request body it has already parsed; making one of them re-serialise so the other could parse
+ * would be a round-trip performed to satisfy a signature.
+ *
+ * @param data The parsed document, from a file or from a request body
+ * @returns The configuration in **display** form, with every reference id minted
+ * @throws {SchemaVersionError} If the document was written against another persisted shape
+ * @throws {ValidationError} If the shape check finds anything
+ */
+export function importParsedConfiguration(data: unknown): Configuration {
+  assertSupportedSchemaVersion((data as Record<string, unknown> | null)?.schemaVersion);
+
+  const validation = validateConfigurationShape(data);
+
+  if (!validation.isValid) {
+    throw new ValidationError('Configuration validation failed', validation.errors);
+  }
+
+  return toDisplayConfiguration(
+    ensureReferenceIds(data as Configuration, () => crypto.randomUUID())
+  );
+}
+
+/**
  * Import configuration from JSON string
  *
  * Parses and validates JSON string, returning a Configuration object.
@@ -894,19 +926,7 @@ export function validateConfigurationShape(data: unknown): ValidationResult {
  */
 export function importConfiguration(json: string): Configuration {
   try {
-    const data = JSON.parse(json);
-
-    assertSupportedSchemaVersion((data as Record<string, unknown> | null)?.schemaVersion);
-
-    const validation = validateConfigurationShape(data);
-
-    if (!validation.isValid) {
-      throw new ValidationError('Configuration validation failed', validation.errors);
-    }
-
-    return toDisplayConfiguration(
-      ensureReferenceIds(data as Configuration, () => crypto.randomUUID())
-    );
+    return importParsedConfiguration(JSON.parse(json));
   } catch (error) {
     if (error instanceof ValidationError || error instanceof SchemaVersionError) {
       throw error;

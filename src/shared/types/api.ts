@@ -16,6 +16,7 @@
  */
 
 import type { Configuration } from './config';
+import type { ValidationReport } from './validation';
 
 /**
  * The machine-readable half of a refusal — a client switches on this, never on the message
@@ -124,6 +125,57 @@ export interface RulesetDocument extends RulesetSummary {
 export interface RulesetSaveRequest {
   revision: number;
   configuration: unknown;
+}
+
+/**
+ * What a client sends to create a ruleset from a document it already has (v3 Req 35.1, 36.5)
+ *
+ * **One request shape for both of IO-04's paths**, because server-side they are one operation.
+ * *Import this file* and *upload this browser's ruleset* differ in where the client got the bytes,
+ * which is a fact about the client; what the server does with them — gate, shape-check, create,
+ * never overwrite — is identical, and two routes would be two places for that chain to drift.
+ *
+ * `configuration` is `unknown` for {@link RulesetSaveRequest}'s reason: it is whatever a client
+ * sent, and it is untrusted until the Kernel's own import gates have run on it.
+ */
+export interface RulesetImportRequest {
+  configuration: unknown;
+  /**
+   * The Characters to bring along, or nothing
+   *
+   * Absent on the file-import path — a `Configuration` file has never carried characters — and the
+   * browser's stored roster on the upload path. Each becomes a Character owned by the Account and
+   * belonging to **no Game_Session**: they were built against a local ruleset rather than against a
+   * Snapshot, and inventing a session to hold them would put people at a table nobody started.
+   */
+  characters?: unknown[];
+}
+
+/**
+ * What an accepted import answers with (v3 Req 35.3, 35.5)
+ *
+ * The created ruleset — so the client can name it, rather than saying "imported" and leaving the
+ * User to find it — and the engine's **referential** report, which is reported and not fatal. That
+ * is the v1.0 rule carried onto the server path unchanged: a ruleset that parses but does not hang
+ * together still reaches the User, because refusing it would leave them unable to repair it in the
+ * app.
+ */
+export interface RulesetImportResult extends RulesetSummary {
+  report: ValidationReport;
+  /** How many Characters were created alongside it — zero on the file-import path */
+  charactersCreated: number;
+}
+
+/**
+ * Whether this Account is owed its one unprompted offer to upload (v3 Req 36.6)
+ *
+ * **The answer is produced by claiming it, not by reading it.** `POST /api/account/upload-prompt`
+ * returns `true` to exactly one caller ever; every later call — another tab, another device, the
+ * next sign-in — gets `false`. A `GET` that only reported would leave the marking to a second
+ * request nobody can guarantee arrives.
+ */
+export interface UploadPromptClaim {
+  shouldPrompt: boolean;
 }
 
 /**

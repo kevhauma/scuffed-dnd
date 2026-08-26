@@ -17,6 +17,9 @@ import {
   toDisplayConfiguration,
   toStoredConfiguration,
 } from '#shared/engine/formula/references';
+// The rule lives in the Kernel since TICKET-IO-04, because the upload asks the server the same
+// question about the same records — see `shared/services/characterShape.ts`
+import { isReadableCharacter } from '#shared/services/characterShape';
 import type { Character } from '#shared/types/character';
 import { type Configuration, SUPPORTED_SCHEMA_VERSION } from '#shared/types/config';
 
@@ -175,27 +178,6 @@ export function saveCharacters(characters: Character[]): void {
     }
     throw new StorageError('Failed to save characters', error);
   }
-}
-
-/**
- * Whether a stored record is a character this build can read
- *
- * A character written before TICKET-STAT-01 has no `investedStatPoints` at all, and every read of
- * it would be a crash rather than a number. `experience` joined the check with TICKET-RES-01 and
- * is the one whose absence is *quiet* rather than loud: `lookupCurve(curve, undefined)` falls
- * through every range check and returns the first row — a confident **level 1** — and an award
- * computes `undefined + n` and persists `NaN`.
- *
- * Checked here rather than left to the schemaVersion gate because that gate reads the
- * *Configuration*: a characters key beside a fresh or absent config never meets it
- * (TICKET-IO-03 implementation note 5).
- */
-function isReadableCharacter(character: Character | null | undefined): boolean {
-  return (
-    character?.investedStatPoints !== undefined &&
-    character?.currentResourceValues !== undefined &&
-    Number.isFinite(character?.experience)
-  );
 }
 
 /**

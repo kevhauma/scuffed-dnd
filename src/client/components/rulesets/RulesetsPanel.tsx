@@ -25,8 +25,10 @@ import { Text } from '../ui/Text/Text';
 import { AccountRulesetHome } from './AccountRulesetHome';
 import { BrowserRulesetHome } from './BrowserRulesetHome';
 import { DeleteRulesetConfirmation } from './DeleteRulesetConfirmation';
+import { RulesetAlert } from './RulesetAlert';
 import { RulesetFormDialog } from './RulesetFormDialog';
-import { alertStyles } from './rulesets.style';
+import { RulesetTransferResult } from './RulesetTransferResult';
+import { UploadToAccountDialog } from './UploadToAccountDialog';
 import { useRulesetManager } from './useRulesetManager';
 
 export function RulesetsPanel() {
@@ -44,19 +46,38 @@ export function RulesetsPanel() {
         </Text>
       </div>
 
-      {manager.error && (
-        <div role="alert" className={alertStyles}>
-          <Text variant="error" as="p">
-            {manager.error}
-          </Text>
-        </div>
+      {/*
+        Two alerts, not one coalesced with `??` (the IO-04 review). `useAccountRulesets`'s error
+        survives until the next *write*, so a listing that failed once on page load would have
+        masked every later import refusal — including the one the upload dialog is the only other
+        surface for.
+      */}
+      <RulesetAlert message={manager.error} />
+
+      {/*
+        The transfer's own, and only while the confirmation is closed. While it is open the dialog
+        carries its own copy — this one would be behind the overlay, which is the bug the review
+        found.
+      */}
+      {!manager.transfer.pendingUpload && (
+        <RulesetAlert
+          message={manager.transfer.failure?.message ?? null}
+          fields={manager.transfer.failure?.fields}
+        />
       )}
+
+      <RulesetTransferResult
+        result={manager.transfer.result}
+        onDismiss={manager.transfer.dismissResult}
+      />
 
       <BrowserRulesetHome
         ruleset={manager.localRuleset}
         isLoaded={manager.isLocalLoaded}
         onCreate={manager.createLocalRuleset}
         onOpen={manager.openLocal}
+        canUpload={manager.transfer.canUpload}
+        onUpload={manager.transfer.openUpload}
       />
 
       <AccountRulesetHome
@@ -64,6 +85,8 @@ export function RulesetsPanel() {
         isPending={manager.isAccountPending}
         rulesets={manager.accountRulesets}
         onCreate={manager.openCreate}
+        onImportFile={manager.transfer.importFile}
+        isImporting={manager.transfer.isBusy}
         onRename={manager.openRename}
         onCopy={manager.openCopy}
         onDelete={manager.remove}
@@ -81,6 +104,15 @@ export function RulesetsPanel() {
         pending={manager.pendingDelete}
         onConfirm={manager.confirmDelete}
         onCancel={manager.cancelDelete}
+      />
+
+      <UploadToAccountDialog
+        upload={manager.transfer.pendingUpload}
+        isBusy={manager.transfer.isBusy}
+        failure={manager.transfer.failure}
+        onBackup={manager.transfer.downloadBackup}
+        onConfirm={manager.transfer.confirmUpload}
+        onCancel={manager.transfer.cancelUpload}
       />
     </div>
   );

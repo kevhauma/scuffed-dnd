@@ -180,6 +180,13 @@ export function requireDM(asking: Asking, sessionId: string): SessionMemberRow {
  * The membership is only looked up when the caller is *not* the owner, which is the common path;
  * a player writing to their own sheet costs one query.
  *
+ * **A character at no table has exactly one writer, and that falls out of the rule rather than being
+ * a case bolted onto it** (TICKET-IO-04). An uploaded character has `session_id IS NULL`, so there is
+ * no table for anybody to be the DM of — the second half of the rule simply has nothing to match,
+ * and the owner is the only Account left. Written as an early refusal rather than passing `null` to
+ * `findSessionMember`, because *"look up the members of no session"* is a question with no right
+ * answer and a lookup that returns nothing would be the right result for the wrong reason.
+ *
  * @param asking Who is asking
  * @param characterId Which character
  * @returns The character row
@@ -191,6 +198,10 @@ export function requireCharacterWriter(asking: Asking, characterId: string): Cha
 
   if (!row) throw refuse('no such character');
   if (row.ownerAccountId === account.id) return row;
+
+  if (row.sessionId === null) {
+    throw refuse(`character ${characterId} is at no table, so only its owner may write to it`);
+  }
 
   if (findSessionMember(row.sessionId, account.id)?.role !== MEMBER_ROLE.DM) {
     throw refuse(`account ${account.id} neither owns character ${characterId} nor runs its table`);

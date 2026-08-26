@@ -372,6 +372,12 @@ carrying a user story, the as-is / to-be, and acceptance criteria.
   the *structure* of untrusted imported JSON; `engine/validator.ts`'s `validateConfiguration`
   checks the *referential integrity* of a loaded config. They are complementary, not
   interchangeable — they shared a name until CR-21 renamed the service one.
+- **A route handler that so much as writes the word `sessionId` must call a resource guard.**
+  `src/server/routes/routeGuards.test.ts` is a text scan over every module containing
+  `defineHandler(`, and it is deliberately blunt: it cannot tell a *read* of a session id from a
+  *write* of one. If it flags your handler and the flag is genuinely wrong, name the operation in
+  the repository instead (TICKET-IO-04's `insertUnseatedCharacter` is the precedent) — do not teach
+  the detector an exception, because a detector with exceptions is one that will miss a real one.
 
 ---
 

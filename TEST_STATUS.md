@@ -1,7 +1,8 @@
 # Test Status
 
-_Last verified: 2026-08-25 (`npx vitest run`), after **TICKET-RUL-03 — copy a ruleset**.
-The checkpoints before it were **TICKET-RUL-02 — server-backed ruleset editing** at 2353,
+_Last verified: 2026-08-26 (`npx vitest run`), after **TICKET-IO-04 — import creates a ruleset**.
+The checkpoints before it were **TICKET-RUL-03 — copy a ruleset** at 2370,
+**TICKET-RUL-02 — server-backed ruleset editing** at 2353,
 **TICKET-RUL-01 — ruleset records** at 2313,
 **TICKET-AUTH-04 — persistent sessions** at 2260,
 **TICKET-AUTH-03 — authorization guards** at 2203,
@@ -18,12 +19,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 2370
-- **Passing**: 2370 (100%)
+- **Total tests**: 2474
+- **Passing**: 2474 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **144 files**: `server` in node, everything else in happy-dom.
+Split across **152 files**: `server` in node, everything else in happy-dom.
 
 ## The suite now runs in two environments
 
@@ -41,6 +42,63 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-IO-04 — two assertions that had to compare bytes
+
+The **+104 over RUL-03** is TICKET-IO-04: 23 in `server/routes/rulesets/importRuleset.test.ts`, 21 in
+`shared/services/characterShape.test.ts`, 12 each in `useRulesetTransfer.test.ts` and
+`UploadToAccountDialog.test.tsx`, 10 in `client/services/rulesetUpload.test.ts`, 7 more in
+`db/migrate.test.ts` for the fourth migration, 5 each in `server/routes/uploadPrompt.test.ts`,
+`useUploadPrompt.test.ts` and `RulesetTransferResult.test.tsx`, 3 in `RulesetsPanel.test.tsx`, 2 in
+`apiRouter.test.ts` and 1 in `ConfigTransferPanel.test.tsx`.
+
+**Twenty-six of those came out of the `conventions-reviewer` pass**, and the shape of what it caught
+is worth naming: **none was found by a test failing**, and the two worst were invisible *by
+construction*. A refused upload rendered its reason on the page **behind** the confirmation dialog —
+under a `fixed inset-0` blurred overlay with the page scroll locked — so *Copying…* flipped back to
+*Copy to my account* and nothing else happened; the hook test asserted hook state and passed
+happily. And `uploadedCharacterErrors` was the *browser's* predicate guarding a **request body**:
+`investedStatPoints !== undefined` accepts `null` and accepts a number, so the server would store a
+`Character` that is a `TypeError` for whichever surface reads it. The browser check found the first
+one only because the fix was already in; the ticket has all eight.
+
+**The load-bearing one is *"leaves both stored keys byte-identical"*.** v3 Req 36.5 says an upload
+**copies**, and the failure that rule exists against is silent: a "move" that cleared LocalStorage,
+or a well-meant normalising rewrite on the way past, would both leave the User's browser subtly
+different and neither would fail a test that counted requests or checked a name. Capturing the two
+raw strings and comparing them afterwards is the only assertion a path that writes something
+*equivalent* cannot satisfy. It is the same discipline `downloadStoredBackup` has used since
+TICKET-IO-03, applied to the other direction.
+
+**Its counterpart on the server is the migration test.** Making `character.session_id` nullable in
+SQLite is a table recreate, and the schema file has warned since DB-01 that drizzle-kit's generated
+`PRAGMA foreign_keys=OFF` is a **no-op inside a transaction** — which is where the migrator runs it.
+So `0003_uploaded_characters` is applied to a real 0002 database holding a seated character behind a
+live foreign key, and four cases check what a recreate is capable of losing quietly: the row, the
+`ON DELETE cascade`, both indexes, and the ability to insert a character at no table at all. The
+analysis said it was safe because nothing references `character`; the test is what makes that a fact.
+
+**`uploadPrompt.test.ts` is five cases about one `INSERT`**, and the one worth reading fires three
+claims with `Promise.all`. A read-then-write passes every sequential case and fails that one — and
+being asked twice is precisely the failure v3 Req 36.6 is about, on the one occasion it is about.
+
+**Three refusal cases assert the table, not the status.** v3 Req 35.2 says *persists nothing when any
+of them fails*, and a 400 that had already inserted would satisfy a status assertion perfectly. Each
+of the four refusals therefore ends with `allRulesets(database)` being empty, and the mixed
+ruleset-plus-characters refusal checks both tables — the ruleset is the half that would have been
+written first.
+
+**Two existing counts moved rather than grew.** `migrate.test.ts`'s table list went from ten names to
+eleven (enumerated, so a table appearing is a named difference), and `apiRouter.test.ts` gained the
+case the hotspot table predicted it would: `POST /api/rulesets/import` is a literal path one segment
+under a collection whose other verbs are parameterised, so it is in the **exact** table and the
+assertion is that exact beats pattern. That file's *"a ticket adding a route should open this file
+first"* note has now held four times running.
+
+**The `fallow` pass removed two things this ticket had introduced rather than suppressing them**: an
+exported `insertCharacter` whose only caller was `insertUnseatedCharacter` beside it — now
+module-private until TICKET-CHAR-04 has a real `sessionId` to pass — and two of the three type
+re-exports on `engine/validator.ts` that nothing outside reads.
 
 ## TICKET-RUL-03 — one test doing the work of thirty
 
@@ -735,7 +793,14 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/server/repositories/rulesetRepository.test.ts` | 32.9 | TICKET-AUTH-03's run | 4 commits, 550 churn, 0.24 density | ▲ **Accelerating** |
 | `src/server/repositories/eventRepository.test.ts` | 20.7 | TICKET-AUTH-03's run | 3 commits, 387 churn, 0.21 density | ▲ **Accelerating** |
 | `src/server/http/pipeline.test.ts` | 28.8 | TICKET-RUL-01's run | 4 commits, 272 churn, 0.21 density | ▲ **Accelerating** |
-| `src/server/http/apiRouter.test.ts` | 36.0 | TICKET-RUL-02's run | 7 commits, 235 churn, 0.15 density | ▲ **Accelerating** (was Stable) |
+| `src/server/http/apiRouter.test.ts` | 36.0 | TICKET-RUL-02's run | 8 commits, 0.16 density | ▲ **Accelerating** (was Stable) |
+| `src/server/db/migrate.test.ts` | — | TICKET-IO-04's run | 3 commits, 0.10 density | ▲ **Accelerating** |
+| `src/server/routes/rulesets/rulesetPayloads.ts` | — | TICKET-IO-04's run | 3 commits, 0.09 density | ▲ **Accelerating** |
+| `src/server/testing/seeds.ts` | — | TICKET-IO-04's run | 3 commits, 0.09 density | ▲ **Accelerating** |
+| `src/client/components/rulesets/useRulesetManager.ts` | — | TICKET-IO-04's run | 3 commits, 0.09 density | ▲ **Accelerating** |
+| `src/client/components/rulesets/RulesetsPanel.tsx` | — | TICKET-IO-04's run | 3 commits, 0.04 density | ▲ **Accelerating** |
+| `src/client/components/rulesets/RulesetsPanel.test.tsx` | — | TICKET-IO-04's run | 3 commits, 0.08 density | ▲ **Accelerating** |
+| `src/client/components/rulesets/AccountRulesetHome.tsx` | — | TICKET-IO-04's run | 3 commits, 0.10 density | ▲ **Accelerating** |
 
 **Both Accelerating rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they
 crossed the three-commit floor and became measurable at all. Recorded under the run that first saw
@@ -798,6 +863,18 @@ them, with the tickets that moved them named here rather than lost:
   held three times running, so treat it as the file's normal behaviour rather than as news: **a
   ticket adding a route should open this file first**, and the case to look for is any assertion
   whose subject is the *absence* of a route.
+- **IO-04's seven rows are one event, and reading them separately would overstate them.** Every one
+  crossed the **three-commit floor** in this ticket — which is the first moment `fallow health` can
+  score a file at all — and the complexity densities are 0.04 to 0.10, the low end of the table.
+  What they have in common is that DX-07 reset the churn history and the RUL/IO tickets are the
+  first three or four commits any of these paths have had since. `rulesetPayloads.ts` is the only
+  one where the tag points at something real: it has now been extended by RUL-01, RUL-02 and IO-04,
+  and IO-04 split its two refusal messages into `wrongVersionSent` / `wrongShapeSent` so a save and
+  an import could share them. **The signal to watch is a fifth ticket adding a third gate function
+  to it** — at which point "the wire ↔ row boundary" has become a validation layer and wants its own
+  module. The six client and harness rows are growth (`seeds.ts` gained one function,
+  `RulesetsPanel.tsx` two elements), and a ticket that only *reads* them should not expect to find
+  anything hard.
 - **`src/server/http/pipeline.test.ts`** — a new row, and RUL-01 is the first ticket in this
   milestone to touch it, which is what earns it one at last (AUTH-02's run flagged it while no
   ticket had). The edit was small and worth recording anyway: the *"named by exactly two modules"*
@@ -831,8 +908,9 @@ than recalled.
 
 ## Architecture rules: clean, and they cost nothing
 
-`yarn run arch` reports **zero error-level findings** and zero warnings, over 516 modules and 2281
-dependencies (437 / 1917 before TICKET-RUL-01). That is the baseline: an error-level finding is
+`yarn run arch` reports **zero error-level findings** and zero warnings, over 537 modules and 2396
+dependencies (516 / 2281 before TICKET-IO-04, 437 / 1917 before TICKET-RUL-01). That is the
+baseline: an error-level finding is
 yours. `no-orphans` reports at *warning* severity by design and does not fail the build.
 
 **Measured cost of DX-08's nine extra rules: none.** `depcruise src`, three runs each, same tree:
@@ -878,3 +956,11 @@ on every commit — enable it in a fresh clone with `git config core.hooksPath .
 Three suppressions exist, each with a stated reason: two in `Dialog.tsx` and `Label.tsx` where a
 base primitive cannot see the association the caller owns. No lint rule is disabled in
 `biome.json`.
+
+**One limit of the gate, found by the `verifier` on TICKET-IO-04 and worth knowing.** `yarn run
+check` exits **0** on **info**-severity findings, so the pre-commit hook cannot catch that class —
+IO-04 landed four `lint/complexity/useLiteralKeys` diagnostics that both `yarn run check` and
+`biome lint` reported and neither failed on. They were fixed rather than left (a `as never` plus
+bracket indexing became the cast-to-a-named-shape the sibling route suites use), and the lesson is
+the general one: *"clean as of TICKET-DX-02"* means **no diagnostics**, not *"the hook exits 0"*.
+Read the output, not the exit code — `yarn run lint --max-diagnostics=1000` prints them all.

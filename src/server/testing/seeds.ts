@@ -323,3 +323,15 @@ export function allRulesets(database: Database): RulesetRow[] {
 export function allGameSessions(database: Database): GameSessionRow[] {
   return database.db.select().from(gameSession).all();
 }
+
+/**
+ * Every character row (TICKET-IO-04)
+ *
+ * The third of the same kind, and it exists for the question the upload has to answer with evidence:
+ * after an Account uploads this browser's data, **what is on the Account?** One ruleset and one row
+ * per stored Character, each at no table — which is a statement about the whole table rather than
+ * about a row a test already knows the id of.
+ */
+export function allCharacters(database: Database): CharacterRow[] {
+  return database.db.select().from(character).all();
+}

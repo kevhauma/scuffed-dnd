@@ -102,6 +102,33 @@ describe('ConfigTransferPanel', () => {
     expect(vi.mocked(downloadConfiguration).mock.calls[0][0].name).toBe('Test Config');
   });
 
+  it('exports and imports end to end with the network unreachable (TICKET-IO-04)', async () => {
+    // **`fetch` throws rather than being counted**, which is the same discipline RUL-01 and RUL-02
+    // used and for the same reason: a path that fetched and ignored the answer would satisfy a
+    // call-count assertion and would still have broken local mode. v3 Req 35.0 and 36.1 say this
+    // surface needs no server at all, and a throwing `fetch` is the only stub that proves it.
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => {
+      throw new Error('local mode must not reach the network');
+    });
+
+    render(<ConfigTransferPanel />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export Configuration' }));
+    expect(downloadConfiguration).toHaveBeenCalledTimes(1);
+
+    choose(
+      jsonFile('other.json', JSON.stringify(createConfig({ id: 'off', name: 'Offline Import' })))
+    );
+    confirmImport();
+
+    await waitFor(() => {
+      expect(useConfigStore.getState().config?.name).toBe('Offline Import');
+    });
+
+    // …and the import replaced *this browser's* ruleset rather than creating anything anywhere
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('should ask before replacing the current ruleset', () => {
     render(<ConfigTransferPanel />);
 

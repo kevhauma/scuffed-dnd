@@ -24,7 +24,27 @@ a JSON document, with `schemaVersion` and `revision` as real columns
 ([D4](../../../docs/v3.0_backend/overview.md#d4--a-ruleset-is-stored-as-a-json-document-not-normalised)).
 TICKET-RUL-01/02 add the records and routes. There is **no sync** between the two homes and no
 background copying — an edit saves to whichever one is open, and uploading is an explicit,
-repeatable copy. Nothing below changes when that arrives.
+repeatable copy. Nothing below changed when that arrived.
+
+**TICKET-IO-04 built that copy, and it is a copy in the strict sense**: `POST /api/rulesets/import`
+takes a document (from a file, or read out of this browser's keys) and **creates** a Ruleset, never
+overwrites one. Both LocalStorage keys are byte-identical afterwards, which
+`client/services/rulesetUpload.test.ts` asserts by comparing the raw strings rather than by counting
+requests. Two consequences for the shapes below:
+
+- **A `character` row may now belong to no Game_Session.** `character.session_id` became nullable in
+  migration `0003_uploaded_characters`, because an uploaded character was built against a *local*
+  ruleset and there is no Snapshot for it to be valid against. `session_id IS NULL` means *at no
+  table*, and `requireCharacterWriter` reads it as *only the owner may write to this one*.
+  TICKET-CHAR-04 decides whether one can later be brought into a session.
+- **Every uploaded character's `configurationId` is rewritten** to the ruleset the import just
+  created, and its `id` is reminted — otherwise the same roster uploaded twice would collide on a
+  primary key, and every copy would point at a ruleset that exists only in somebody's browser.
+
+Whether a stored character can be read at all is one rule in one place since IO-04:
+[`shared/services/characterShape.ts`](../../../src/shared/services/characterShape.ts). The browser
+asks it on load (`loadCharacters` refuses a roster rather than dropping records — CR-05) and the
+server asks it on upload.
 
 Two consequences worth holding on to before changing a persisted shape:
 

@@ -28,10 +28,12 @@ import {
   createRuleset,
   deleteRuleset,
   getRuleset,
+  importRuleset,
   listRulesets,
   renameRuleset,
   saveRuleset,
 } from '../routes/rulesets';
+import { uploadPrompt } from '../routes/uploadPrompt';
 import { methodNotAllowed, notFound } from './appError';
 import { defineHandler } from './pipeline';
 
@@ -55,6 +57,11 @@ export const ROUTES: Record<string, (request: Request) => Promise<Response>> = {
   'GET /api/auth-providers': authProviders,
   'GET /api/rulesets': listRulesets,
   'POST /api/rulesets': createRuleset,
+  // A literal path in the **exact** table, and it has to be: `POST /api/rulesets/:id` is not a route,
+  // so a pattern-only lookup would answer this 405. Exact matches are tried first, which also means
+  // this cannot be shadowed by a ruleset that happens to be called `import` (TICKET-IO-04)
+  'POST /api/rulesets/import': importRuleset,
+  'POST /api/account/upload-prompt': uploadPrompt,
 };
 
 /**

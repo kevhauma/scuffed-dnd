@@ -34,6 +34,8 @@ import { useAccountRulesets } from './useAccountRulesets';
 import type { PendingDelete } from './useRulesetDeletion';
 import type { RulesetDialogMode, RulesetFormData } from './useRulesetDialog';
 import { useRulesetDialog } from './useRulesetDialog';
+import type { RulesetTransfer } from './useRulesetTransfer';
+import { useRulesetTransfer } from './useRulesetTransfer';
 
 /** The name a brand-new local ruleset is given, matching the config dashboard's own */
 const DEFAULT_LOCAL_NAME = 'My Custom Game System';
@@ -78,6 +80,15 @@ export interface RulesetManager {
   openAccount: (ruleset: RulesetSummary) => void;
   /** Point the config store back at the browser's own ruleset before editing it */
   openLocal: () => void;
+
+  /**
+   * Putting a document on the Account — from a file, or from this browser (TICKET-IO-04)
+   *
+   * Composed rather than flattened into the twenty fields above it. The two homes are this hook's
+   * subject; *moving something between them* is its own concern with its own dialog, its own result
+   * and its own hook, the way the naming dialog and the delete confirmation already are.
+   */
+  transfer: RulesetTransfer;
 }
 
 /**
@@ -111,6 +122,13 @@ export function useRulesetManager(): RulesetManager {
   const openLocalRuleset = useConfigStore((state) => state.openLocalRuleset);
 
   const dialog = useRulesetDialog(account);
+  const transfer = useRulesetTransfer({
+    isSignedIn,
+    // The store's answer rather than a LocalStorage probe: the summary is already here, and reading
+    // the key to decide whether to draw one button would parse a 306 KB document every render
+    hasLocalRuleset: localSummary !== null,
+    onCreated: account.reload,
+  });
 
   return {
     localRuleset: toLocalRuleset(localSummary),
@@ -149,5 +167,7 @@ export function useRulesetManager(): RulesetManager {
     openLocal: () => {
       if (openLocalRuleset()) void navigate({ to: '/config' });
     },
+
+    transfer,
   };
 }

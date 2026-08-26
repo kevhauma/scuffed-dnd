@@ -229,14 +229,20 @@ export const sessionInvite = sqliteTable(
  * `data` holds only what the Kernel sanctions as player state. That set grows twice this milestone
  * — `grantedStatPoints` in DM-01, `purse` in CUR-02 — and both are **document** changes rather than
  * migrations, which is the point of D4.
+ *
+ * **`session_id` is nullable, and that is TICKET-IO-04's doing** (v3 Req 36.5). A character uploaded
+ * from a browser was built against a *local* ruleset rather than against any Snapshot, so it belongs
+ * to the Account and sits at no table — which is a real state and not a placeholder for one. The
+ * alternative was inventing a session to hold them, which would put characters in a game nobody
+ * started and make "who is at this table" a lie. TICKET-CHAR-04 decides whether one can later be
+ * brought into a session; until then `session_id IS NULL` means *not at a table*, and
+ * `requireCharacterWriter` reads it as "only the owner may write to this one".
  */
 export const character = sqliteTable(
   'character',
   {
     id: text('id').primaryKey(),
-    sessionId: text('session_id')
-      .notNull()
-      .references(() => gameSession.id, { onDelete: 'cascade' }),
+    sessionId: text('session_id').references(() => gameSession.id, { onDelete: 'cascade' }),
     /** Better Auth's account id — see the note on `ruleset.ownerAccountId` */
     ownerAccountId: text('owner_account_id').notNull(),
     name: text('name').notNull(),
@@ -250,6 +256,25 @@ export const character = sqliteTable(
     index('character_owner_idx').on(table.ownerAccountId),
   ]
 );
+
+/**
+ * Which Accounts have already been offered the upload (v3 Req 36.6, TICKET-IO-04)
+ *
+ * **Per Account and server-side, both deliberately.** Two Accounts on one machine must each be
+ * asked, and a LocalStorage flag would be cleared by exactly the browser maintenance that makes
+ * people sign in fresh — so the one place that can answer "has *this* Account been asked?" is here.
+ *
+ * A row means *asked*, and the primary key is what makes claiming it a single statement:
+ * `INSERT … ON CONFLICT DO NOTHING` prompts exactly once even if two tabs ask at the same moment.
+ * There is no column for the answer, because there is no answer to record — declining the prompt and
+ * never seeing it again are the same outcome, and the action stays reachable from the ruleset list
+ * forever either way.
+ */
+export const accountUploadPrompt = sqliteTable('account_upload_prompt', {
+  /** Better Auth's account id — see the note on `ruleset.ownerAccountId` */
+  accountId: text('account_id').primaryKey(),
+  promptedAt: epochMs('prompted_at').notNull(),
+});
 
 /**
  * Everything that happened, in order (v3 Req 44)

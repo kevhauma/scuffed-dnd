@@ -11,6 +11,7 @@ export * from './copyRuleset';
 export * from './createRuleset';
 export * from './deleteRuleset';
 export * from './getRuleset';
+export * from './importRuleset';
 export * from './listRulesets';
 export * from './renameRuleset';
 export * from './rulesetPayloads';

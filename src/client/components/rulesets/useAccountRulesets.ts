@@ -35,6 +35,16 @@ export interface AccountRulesetsState extends RulesetDeletion {
   rename: (id: string, name: string) => Promise<boolean>;
   /** Duplicate one under a new name (TICKET-RUL-03). The source is left untouched. */
   copy: (id: string, name: string) => Promise<boolean>;
+  /**
+   * Read the listing again (TICKET-IO-04)
+   *
+   * For a write this hook did not make. Import and upload create a ruleset through
+   * `services/rulesetUpload.ts` — a different transport concern with its own dialog — and the
+   * listing has to show what appeared. Exposing the reload is smaller than moving those two calls in
+   * here, where they would drag a file reader and a LocalStorage read into the hook whose job is a
+   * list.
+   */
+  reload: () => void;
 }
 
 /** What a refusal should be shown as */
@@ -55,6 +65,10 @@ export function useAccountRulesets(enabled: boolean): AccountRulesetsState {
   const load = useCallback(async () => {
     try {
       setRulesets((await apiRequest<RulesetListing>(RULESETS_PATH)).rulesets);
+      // **Cleared on success, which it was not until the IO-04 review.** A listing that failed once
+      // — offline on page load, an expired session — left this set forever, and `RulesetsPanel`
+      // showed it in place of every later refusal from anywhere else on the page.
+      setError(null);
     } catch (cause) {
       setError(messageOf(cause));
       setRulesets([]);
@@ -115,5 +129,6 @@ export function useAccountRulesets(enabled: boolean): AccountRulesetsState {
         write(() => apiSend(`${RULESETS_PATH}/${id}/copy`, 'POST', { name })),
       [write]
     ),
+    reload: useCallback(() => void load(), [load]),
   };
 }

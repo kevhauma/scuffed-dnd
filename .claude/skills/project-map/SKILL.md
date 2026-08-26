@@ -24,7 +24,9 @@ ones above it in this list, never below:
 
 ```
 shared/types/       pure type definitions, no runtime code — including `api.ts`, the HTTP wire
-                    contract (`ERROR_CODE`, `ErrorBody`, `RulesetSummary`) both roots name
+                    contract (`ERROR_CODE`, `ErrorBody`, `RulesetSummary`) both roots name, and
+                    `validation.ts`, where `ValidationReport` moved when IO-04 put one on the wire
+                    (`engine/validator.ts` still re-exports it, and still builds one)
 shared/engine/      formula parser/evaluator/validator + the derived-value calculators
 shared/services/    shape validation, import semantics, serialisation — no browser APIs
 client/services/    LocalStorage persistence, Blob/File download and upload
@@ -372,7 +374,17 @@ between the roots is exactly *"does this touch a browser API"*.
   both run on an import.
   `importExport.ts` also exports `assertSupportedSchemaVersion` (TICKET-RUL-01) — the version gate
   pulled out of `importConfiguration` so the server refuses a stale document with the *same*
-  sentence the Import button produces, rather than a second copy of it.
+  sentence the Import button produces, rather than a second copy of it — and
+  **`importParsedConfiguration`** (TICKET-IO-04), which is the whole import chain with the
+  `JSON.parse` taken off the front, so `POST /api/rulesets/import` runs the browser's three gates in
+  the browser's order rather than a second chain beside it.
+- `characterShape.ts` — `isReadableCharacter` (moved out of `client/services/storage.ts`, which now
+  imports it) and `uploadedCharacterErrors` (TICKET-IO-04). *Can this build read this stored
+  character?* is a question both roots ask about the same records — the browser on load, the server
+  on upload — and two answers to it is how a browser that refuses a roster and a server that happily
+  stores it end up in one app. Deliberately **not** `validateConfigurationShape`'s counterpart: it
+  checks the three strings a row is stored under plus the four sanctioned pieces of player state,
+  and nothing derived, because nothing derived is accepted.
 - `copyConfiguration.ts` — `copyConfiguration(source, options)` and `copyName(name)`
   (TICKET-RUL-03). The **only** deep copy of a `Configuration` in the tree, and deliberately so:
   GAM-01's Snapshot is the same operation with a different destination and must not reach for its
@@ -409,9 +421,18 @@ between the roots is exactly *"does this touch a browser API"*.
   It also owns `RULESET_HOME` and `RulesetSource` — which home is open is a *destination* before it
   is a badge, so the set is declared here and `RulesetCard` renders it.
 - `configFiles.ts` — `exportConfiguration` (Blob), `downloadConfiguration`,
-  `downloadStoredBackup` (the raw-bytes backup behind `IncompatibleDataNotice`), and
-  `importConfigurationFromFile`. Thin: every one of them calls the shared half for the actual
-  reasoning and only owns the `Blob`, the anchor and the `File`.
+  `downloadStoredBackup` (the raw-bytes backup behind `IncompatibleDataNotice`),
+  `importConfigurationFromFile` and `readConfigurationDocument` (IO-04 — the same read stopping one
+  step short of the gates, for the path where the *server* runs them). Thin: every one of them calls
+  the shared half for the actual reasoning and only owns the `Blob`, the anchor and the `File`.
+- `rulesetUpload.ts` — **D6's bridge between the two homes, and it only ever goes one way**
+  (TICKET-IO-04). `readBrowserUpload()` reads LocalStorage through `loadConfiguration` /
+  `loadCharacters` — so unreadable stored data throws the *same* `StorageSchemaError`
+  `IncompatibleDataNotice` is built around rather than getting a second message (v3 Req 36.7) — and
+  hands back the document in **stored** form beside the characters built on it. `importToAccount()`
+  posts it; `claimUploadPrompt()` takes the once-per-Account offer. **Nothing here writes**: the
+  module imports only the loading half of `storage.ts`, which is what makes "an upload copies"
+  structural rather than careful.
 
 ## Server (`src/server/`)
 
@@ -463,6 +484,17 @@ each later ticket adds.
   version, because those have different remedies. **One module per route on purpose** —
   `routeGuards.test.ts` scans a *module* for a guard call, so several handlers in one file would let
   one `requireOwner` stand for all of them.
+  **IO-04 adds `importRuleset` — `POST /api/rulesets/import`, and it is one route serving two client
+  paths.** *Import a file* and *upload this browser's ruleset* differ only in where the bytes came
+  from; the server runs the Kernel's own `importParsedConfiguration` gates, mints a fresh ruleset id
+  through `copyConfiguration`, and creates one character per entry in the request's optional
+  `characters` array — each with a new id, a rewritten `configurationId`, and **no session**. The
+  referential report rides back on the response rather than refusing the write (v3 Req 35.3). Its
+  path is a **literal** in `ROUTES` rather than a pattern, because `POST /api/rulesets/:id` is not a
+  route and a pattern-only lookup would answer it 405.
+- `routes/uploadPrompt.ts` (TICKET-IO-04) — `POST /api/account/upload-prompt`. The one unprompted
+  offer to upload, **claimed rather than read**: an `INSERT … ON CONFLICT DO NOTHING` whose answer is
+  whether it inserted, so two tabs restoring one session cannot both be told yes (v3 Req 36.6).
 - `auth/` (TICKET-AUTH-01, TICKET-AUTH-02) — identity, and **only** identity; authorization is
   AUTH-03's and lives outside it. `authServer.ts` configures Better Auth (what is switched off and
   why is in its header); `authRoutes.ts` delegates the `/api/auth` subtree and adds the per-address
@@ -502,6 +534,8 @@ each later ticket adds.
   aggregate. **RUL-01 added the four a handler actually calls**: `listRulesetsByOwner` (which does
   not select `data`), `renameRuleset`, `deleteRuleset`, and `countSessionsFromRuleset` on the
   session side, which is the whole of Req 33.7's delete guard.
+  **IO-04 added `insertUnseatedCharacter`** (a character owned by an Account and at **no** table —
+  `session_id` became nullable in migration 0003) and `accountPromptRepository.claimUploadPrompt`.
   **Every function takes its connection as a defaulted *last* parameter** — `findRuleset(id)` in
   production, `findRuleset(id, database)` in a test. That is not style: the same rule that keeps
   queries here forbids a handler from importing `db/client`, so a connection-first signature is one
@@ -690,6 +724,17 @@ whichever ruleset is *open*. **No request is made at all while nobody is signed 
 test asserts with `fetch` stubbed to throw. `useRulesetDialog`'s state is a discriminated union
 rather than `{ mode, ruleset? }`: the optional form made *rename with no ruleset* representable, and
 the only answer to that was to create one nobody asked for.
+**TICKET-IO-04 adds a fourth composed hook and two components.** `useRulesetTransfer.ts` owns both
+ways of putting a document on the Account — a file the User picked, and a copy of this browser's —
+because they are one request with two sources, and it delegates the once-per-Account offer to
+`useUploadPrompt.ts`. `UploadToAccountDialog.tsx` is the question that stands between the click and
+the copy: it names the ruleset, counts the characters, states that they will sit at **no table**,
+offers `downloadStoredBackup` first (v3 Req 36.4) and says in words that the browser's copy stays.
+`RulesetTransferResult.tsx` reports what landed and renders the referential report through the
+`ValidationReport` primitive — the wording distinguishes *"it was kept as it is, and here is what is
+wrong with it"* from a refusal, because v3 Req 35.3 makes that report advisory. The *upload* button
+reaches the row through `RulesetCard`'s `openAction` slot rather than a new prop named after its one
+caller.
 
 `components/Header.tsx` sits at the root of `components/`, outside every feature folder.
 

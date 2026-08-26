@@ -7,10 +7,16 @@
  * absence of an Account and an Account with nothing in it are drawn differently rather than
  * collapsed into one apologetic line.
  *
- * **Validates: v3 Req 33.1, 33.8, 36.1, 36.8**
+ * **One deliberate exception to the "no raw HTML controls" rule**, the same one
+ * `ConfigTransferPanel` takes and for the same reason: a `<input type="file">` cannot be styled and
+ * has no base-component equivalent, so it is visually hidden and driven from a `Button`. Every
+ * control the User sees is still a base component.
+ *
+ * **Validates: v3 Req 33.1, 33.8, 35.1, 36.1, 36.8**
  */
 
 import { Link } from '@tanstack/react-router';
+import { useRef } from 'react';
 import type { RulesetSummary } from '#shared/types/api';
 import { RULESET_HOME } from '../../services/rulesetSync';
 import { Button } from '../ui/Button/Button';
@@ -25,6 +31,17 @@ export interface AccountRulesetHomeProps {
   isPending: boolean;
   rulesets: RulesetSummary[];
   onCreate: () => void;
+  /**
+   * Create one from a file the User picked (TICKET-IO-04)
+   *
+   * Here rather than beside the config dashboard's Import button, because the two mean different
+   * things and always will: that one **replaces** this browser's ruleset, which is what import has
+   * meant since v1.0 and still means signed out (v3 Req 35.0). This one **creates**, which is only
+   * possible now that an Account's rulesets are plural.
+   */
+  onImportFile: (file: File | null) => void;
+  /** True while an import or an upload is on the wire — picking a second file must not start one */
+  isImporting: boolean;
   onRename: (ruleset: RulesetSummary) => void;
   /** Duplicate it under a new name (TICKET-RUL-03) */
   onCopy: (ruleset: RulesetSummary) => void;
@@ -42,7 +59,7 @@ function Body({
   onCopy,
   onDelete,
   onOpen,
-}: Omit<AccountRulesetHomeProps, 'onCreate'>) {
+}: Omit<AccountRulesetHomeProps, 'onCreate' | 'onImportFile' | 'isImporting'>) {
   if (!isSignedIn) {
     return (
       <div className="flex flex-col items-start gap-3">
@@ -97,7 +114,14 @@ function Body({
   );
 }
 
-export function AccountRulesetHome({ onCreate, ...state }: AccountRulesetHomeProps) {
+export function AccountRulesetHome({
+  onCreate,
+  onImportFile,
+  isImporting,
+  ...state
+}: AccountRulesetHomeProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   return (
     <Card className="p-6">
       <section className={homeSectionStyles}>
@@ -106,9 +130,33 @@ export function AccountRulesetHome({ onCreate, ...state }: AccountRulesetHomePro
             Your account
           </Text>
           {state.isSignedIn && (
-            <Button variant="primary" size="sm" onClick={onCreate}>
-              New ruleset
-            </Button>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={isImporting}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {isImporting ? 'Adding…' : 'Import a file'}
+              </Button>
+              <Button variant="primary" size="sm" onClick={onCreate}>
+                New ruleset
+              </Button>
+
+              {/* Hidden on purpose — see the note at the top of this file */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json,.json"
+                aria-label="Ruleset file to add to your account"
+                className="sr-only"
+                onChange={(event) => {
+                  onImportFile(event.target.files?.[0] ?? null);
+                  // Clear the input so choosing the same file twice fires a change both times
+                  event.target.value = '';
+                }}
+              />
+            </div>
           )}
         </div>
 
