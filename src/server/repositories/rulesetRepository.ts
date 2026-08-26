@@ -102,13 +102,25 @@ export function insertRuleset(input: NewRuleset, database: Database = getDatabas
  * @returns The stored ruleset row
  */
 export function insertRulesetWithCharacters(
-  input: { ruleset: NewRuleset; characters: NewUnseatedCharacter[] },
+  input: {
+    ruleset: NewRuleset;
+    /**
+     * The roster, **without** the ruleset each belongs to (TICKET-CHAR-04)
+     *
+     * Filled in below from the row this call is creating. A caller that repeated it would be a
+     * caller that could disagree with it — and there is only one answer, because an uploaded
+     * character belongs to the ruleset it was uploaded with by definition.
+     */
+    characters: Omit<NewUnseatedCharacter, 'rulesetId'>[];
+  },
   database: Database = getDatabase()
 ): RulesetRow {
   return database.db.transaction(() => {
     const row = insertRuleset(input.ruleset, database);
 
-    for (const uploaded of input.characters) insertUnseatedCharacter(uploaded, database);
+    for (const uploaded of input.characters) {
+      insertUnseatedCharacter({ ...uploaded, rulesetId: row.id }, database);
+    }
 
     return row;
   });

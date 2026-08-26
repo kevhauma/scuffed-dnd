@@ -36,6 +36,13 @@
       "when": 1787768807072,
       "tag": "0004_addressed_invites",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1787775581169,
+      "tag": "0005_uploaded_character_ruleset",
+      "breakpoints": true
     }
   ]
 }

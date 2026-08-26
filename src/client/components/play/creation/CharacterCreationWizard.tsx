@@ -50,6 +50,8 @@ export function CharacterCreationWizard() {
     handleBack,
     handleCancel,
     handleConfirm,
+    isSubmitting,
+    submitError,
   } = useCharacterCreation();
 
   // A character cannot be built without a ruleset, so no form is offered
@@ -147,6 +149,15 @@ export function CharacterCreationWizard() {
         </Text>
       )}
 
+      {/* The server's refusal, distinct from a step's own (TICKET-CHAR-04). A step error is
+          something the Player can see in front of them and fix; this one arrived from a table's
+          rules after they pressed the button, so it says why in the server's words. */}
+      {submitError && (
+        <Text variant="error" as="p" className="mt-4">
+          {submitError}
+        </Text>
+      )}
+
       <div className="mt-6 flex flex-wrap justify-between gap-3">
         <Button variant="ghost" onClick={handleCancel}>
           Cancel
@@ -157,8 +168,12 @@ export function CharacterCreationWizard() {
             Back
           </Button>
           {isLastStep ? (
-            <Button variant="primary" onClick={handleConfirm} disabled={stepError !== null}>
-              Create Character
+            <Button
+              variant="primary"
+              onClick={handleConfirm}
+              disabled={stepError !== null || isSubmitting}
+            >
+              {isSubmitting ? 'Creating…' : 'Create Character'}
             </Button>
           ) : (
             <Button variant="primary" onClick={handleNext} disabled={!canGoNext}>

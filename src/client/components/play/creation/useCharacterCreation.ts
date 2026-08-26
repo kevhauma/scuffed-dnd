@@ -24,12 +24,12 @@ import type {
   CharacterCreationData,
 } from '#shared/types/character';
 import type { Stat } from '#shared/types/config';
-import { useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
 import type { DerivedValue } from '../shared/derivedValue';
 import { toDerivedValue } from '../shared/derivedValue';
 import type { PointBudgetView } from '../shared/pointBudgetView';
 import { toPointBudgetView } from '../shared/pointBudgetView';
+import { useCharacterSubmit } from './useCharacterSubmit';
 
 /**
  * The wizard's steps, in order — exposed to callers as the hook's `steps`
@@ -133,7 +133,10 @@ export function useCharacterCreation() {
   const navigate = useNavigate();
 
   const config = useConfigStore((state) => state.config);
-  const createCharacter = useCharacterStore((state) => state.createCharacter);
+  // Which ruleset is open, and therefore where a character built against it goes. Read here and
+  // handed on; the wizard never decides it — see `useCharacterSubmit`.
+  const source = useConfigStore((state) => state.source);
+  const submission = useCharacterSubmit(source);
 
   const [stepIndex, setStepIndex] = useState(0);
 
@@ -379,15 +382,17 @@ export function useCharacterCreation() {
     navigate({ to: '/play' });
   };
 
+  /**
+   * Submit, to whichever home the open ruleset lives in (TICKET-CHAR-04)
+   *
+   * **One wizard, two destinations**, and the wizard does not know which — that whole half is
+   * [`useCharacterSubmit`](./useCharacterSubmit.ts). What is left here is the guard the *steps* own:
+   * a wizard with a step error or no ruleset has nothing to submit.
+   */
   const handleConfirm = () => {
     if (!config || stepError !== null) return;
 
-    // Persistence belongs to the store action
-    // `null` means the store refused the data; nothing was saved, so the wizard stays put
-    const character = createCharacter(creationData, config);
-    if (!character) return;
-
-    navigate({ to: '/play/character/$id', params: { id: character.id } });
+    submission.submit(creationData, config);
   };
 
   return {
@@ -427,5 +432,9 @@ export function useCharacterCreation() {
     handleBack,
     handleCancel,
     handleConfirm,
+    /** True while a submit is on the wire — the session path is a request (TICKET-CHAR-04) */
+    isSubmitting: submission.isSubmitting,
+    /** Why the last submit was refused, in the server's own words where there is one */
+    submitError: submission.submitError,
   };
 }

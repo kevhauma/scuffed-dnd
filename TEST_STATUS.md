@@ -1,8 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-26 (`npx vitest run`), after **TICKET-GAM-04 — membership, roles and the
-session lobby**.
-The checkpoints before it were **TICKET-GAM-03 — invite by email** at 2707,
+_Last verified: 2026-08-26 (`npx vitest run`), after **TICKET-CHAR-04 — characters are created per
+session**.
+The checkpoints before it were **TICKET-GAM-04 — membership, roles and the session lobby** at 2754,
+**TICKET-GAM-03 — invite by email** at 2707,
 **TICKET-GAM-02 — invite codes and joining a table** at 2625,
 **TICKET-GAM-01 — game sessions and pinned Snapshots** at 2526,
 **TICKET-IO-04 — import creates a ruleset** at 2474,
@@ -24,12 +25,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 2754
-- **Passing**: 2754 (100%)
+- **Total tests**: 2801
+- **Passing**: 2801 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **171 files**: `server` in node, everything else in happy-dom.
+Split across **174 files**: `server` in node, everything else in happy-dom.
 
 ## The suite now runs in two environments
 
@@ -47,6 +48,42 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-CHAR-04 — a rule with two callers, and a migration `drizzle-kit` got wrong
+
+The **+47 over GAM-04** is TICKET-CHAR-04: 26 in `server/routes/characters/characters.test.ts`,
+9 in `client/components/sessions/SessionCharacters.test.tsx`, 6 in `db/migrate.test.ts`, 4 in
+`client/stores/characterCreationDestination.test.ts`, and 2 in `client/integration/integration.test.ts`.
+
+**The migration test exists because the generator was wrong.** `drizzle-kit` emits
+`ALTER TABLE character ADD ruleset_id text REFERENCES ruleset(id)` and silently drops the
+`ON DELETE cascade` — a column that reads correctly in `schema.ts` and does nothing at all in the
+database. The cascade *is* the feature: without it, uploading a roster and deleting the ruleset
+leaves rows nothing can see and nothing can delete, which is exactly the hole IO-04's own review
+flagged. So the SQL is hand-written, and *cascades, which is the whole reason the SQL is
+hand-written* deletes a ruleset and counts what is left. There is a second case beside it that a
+generated migration would also have passed: the session's own `ruleset_id` is `SET NULL`, not
+cascade, and a table must keep playing when its ruleset goes (D7).
+
+**The derived-value rejection is tested field by field rather than in one case.** Seven names —
+`statValues`, `level`, `statTotal`, `pointBudget`, `currentResourceValues`, `experience`,
+`rollResults` — each asserted to come back a 400 **naming itself**. One case sending all seven
+would pass against an implementation that caught only the first, and the requirement is that a
+client is told which of its fields was a claim it had no business making. A companion case sends a
+field that is *not* a derived value and asserts it is ignored, so *reject what the engine owns*
+cannot quietly become *reject anything unexpected*.
+
+**Both destinations are driven with `fetch` stubbed, and each asserts the other was untouched.**
+`characterCreationDestination.test.ts` is about the one branch in the app that decides whether a new
+character goes to LocalStorage or to a table — the failure there is not a crash but a character
+written to the wrong home, which nothing else would notice. The local case stubs `fetch` to
+**throw**, so *asked the network nothing* is a real assertion; the session case asserts the request
+body carries only the Player's five choices and that `dnd_builder_characters` is still empty.
+
+**Local mode got its own block in the integration suite** (v3 Req 40.0), with `fetch` replaced by
+something that throws rather than by a stub returning an error — a stub a `catch` could swallow into
+a plausible-looking success. Creating a character, reading its sheet through the calculator, and
+surviving a reload, with nothing mocked underneath.
 
 ## TICKET-GAM-04 — the criterion that says a *retained* thing is writable by nobody
 
@@ -1019,6 +1056,11 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/client/routes/signin.tsx` | 7.2 | TICKET-GAM-02's run | 3 commits, 0.07 density | ▲ **Accelerating** |
 | `src/client/routeTree.gen.ts` | 5.5 | TICKET-GAM-02's run | 4 commits, 0.03 density | ▲ **Accelerating** — generated |
 | `src/server/auth/guards.ts` | 8.3 | TICKET-GAM-04's run | 3 commits, 252 churn, 0.08 density | ▲ **Accelerating — TICKET-GAM-04** |
+| `src/client/stores/configStore.ts` | 18.5 | TICKET-CHAR-04's run | 3 commits, 1900 churn, 0.18 density | ▲ **Accelerating — TICKET-CHAR-04** |
+| `src/client/components/sessions/useSessionsManager.ts` | 12.5 | TICKET-CHAR-04's run | 3 commits, 165 churn, 0.12 density | ▲ **Accelerating — TICKET-CHAR-04** |
+| `src/client/components/sessions/SessionList.test.tsx` | 10.4 | TICKET-CHAR-04's run | 3 commits, 213 churn, 0.10 density | ▲ **Accelerating — TICKET-CHAR-04** |
+| `src/client/components/sessions/SessionList.tsx` | 4.2 | TICKET-CHAR-04's run | 3 commits, 334 churn, 0.04 density | ▲ **Accelerating — TICKET-CHAR-04** |
+| `src/client/components/sessions/SessionsPanel.tsx` | 3.1 | TICKET-CHAR-04's run | 3 commits, 75 churn, 0.03 density | ▲ **Accelerating — TICKET-CHAR-04** |
 
 **Both Accelerating rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they
 crossed the three-commit floor and became measurable at all. Recorded under the run that first saw
@@ -1152,6 +1194,24 @@ them, with the tickets that moved them named here rather than lost:
   edited, so its Accelerating tag is a fact about how many tickets added routes rather than about
   the file. It is listed because the rule says a touched file gets a row, and silently exempting
   the one file that always qualifies would make the table's completeness a judgement call.
+- **The four `sessions/` rows are one event, and it is the fourth panel in one row.** GAM-02 built
+  `SessionList` with one thing behind a row, GAM-03 added a second, GAM-04 a third and CHAR-04 a
+  fourth — so `SessionList.tsx`, its test, `SessionsPanel.tsx` and `useSessionsManager.ts` have each
+  been edited by three consecutive tickets, which is exactly what the tag is for. The densities are
+  0.03 to 0.12, the bottom of the table, and the growth is a prop per panel rather than machinery.
+  **CHAR-04 moved one piece out rather than adding to it** — `isOpeningRules` and
+  `makeCharacterHere` went to `useSessionCharacters`, which already owns that row's characters — and
+  the review is what asked for it. **The signal to watch is a fifth panel**: at that point the row's
+  contents want to be a list the manager maps over rather than four named props threaded through
+  three components, and `SessionSection` (the `Card → section → heading → lead → alert` frame those
+  four panels now share) is the first thing to lift out.
+- **`src/client/stores/configStore.ts` — a new row, and the churn number is misleading on its own.**
+  1,900 over three commits is a 700-line store that RUL-02 rewrote the persistence half of; CHAR-04
+  added one action to it. Density 0.18 is real, though, and it is the highest on this table. **The
+  signal is a fourth home**: `RulesetSource` is a three-member union now, and each member costs an
+  action, a branch in `persistRuleset` and a row in every `Record<RulesetHomeKind, …>` — a fourth
+  would be the point at which *where does this ruleset live* wants a module of its own rather than a
+  field on the config store.
 - **`src/server/auth/guards.ts` — a new row, moved by TICKET-GAM-04**, and the only file this
   milestone has that is *the* place a rule lives. Three tickets have edited it: AUTH-03 wrote it,
   GAM-03 added `requireInvitee`, GAM-04 reordered `requireCharacterWriter` for retention. The

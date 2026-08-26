@@ -254,15 +254,38 @@ export const sessionInvite = sqliteTable(
  * from a browser was built against a *local* ruleset rather than against any Snapshot, so it belongs
  * to the Account and sits at no table — which is a real state and not a placeholder for one. The
  * alternative was inventing a session to hold them, which would put characters in a game nobody
- * started and make "who is at this table" a lie. TICKET-CHAR-04 decides whether one can later be
- * brought into a session; until then `session_id IS NULL` means *not at a table*, and
- * `requireCharacterWriter` reads it as "only the owner may write to this one".
+ * started and make "who is at this table" a lie. `session_id IS NULL` means *not at a table*, and
+ * `requireCharacterWriter` reads it as "only the owner may write to this one" — which TICKET-GAM-04
+ * then sharpened: a character whose owner has **left** the table is writable by nobody at all.
+ *
+ * **`ruleset_id` is TICKET-CHAR-04's, and it is the other half of that state** (v3 Req 40.7). An
+ * uploaded character was built against a *ruleset* rather than against a Snapshot, and until this
+ * ticket the only record of which one was `configurationId` **inside** `data` — which the server
+ * may not query on (D4) and which nothing cascaded from. So uploading a roster and deleting the
+ * ruleset left the rows behind permanently, invisible to every surface and pointing at an id that
+ * no longer resolves. A real column with `ON DELETE CASCADE` makes the cleanup structural instead
+ * of a sweep somebody has to remember; the alternative considered was `json_extract` in the delete
+ * route, which would have put a query inside a document and made D4 exceptional.
+ *
+ * **Exactly one of the two is set.** A session character plays against a Snapshot and names no
+ * ruleset; an uploaded one names a ruleset and sits at no table. Both `NULL` would be a character
+ * belonging to nothing, and both set would be a character with two sets of rules — neither is a
+ * state this app has, which is why the pair reads as a discriminator rather than as two options.
  */
 export const character = sqliteTable(
   'character',
   {
     id: text('id').primaryKey(),
     sessionId: text('session_id').references(() => gameSession.id, { onDelete: 'cascade' }),
+    /**
+     * The Ruleset an **uploaded** character was built against, or `NULL` for a session one
+     *
+     * `ON DELETE CASCADE`, unlike `game_session.ruleset_id`'s `SET NULL` — and the difference is
+     * the whole point. A session holds a pinned Snapshot, so it keeps playing when its ruleset
+     * goes; an uploaded character holds nothing, and outliving its rules leaves a row no surface
+     * can render and no rule can price.
+     */
+    rulesetId: text('ruleset_id').references(() => ruleset.id, { onDelete: 'cascade' }),
     /** Better Auth's account id — see the note on `ruleset.ownerAccountId` */
     ownerAccountId: text('owner_account_id').notNull(),
     name: text('name').notNull(),
@@ -274,6 +297,9 @@ export const character = sqliteTable(
   (table) => [
     index('character_session_idx').on(table.sessionId),
     index('character_owner_idx').on(table.ownerAccountId),
+    // SQLite does not index a child key for you, and the CASCADE above scans this on every
+    // ruleset delete — the same reason `game_session_ruleset_idx` exists
+    index('character_ruleset_idx').on(table.rulesetId),
   ]
 );
 

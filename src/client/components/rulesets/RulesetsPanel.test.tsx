@@ -44,6 +44,10 @@ function signedOut(overrides: Record<string, unknown> = {}) {
     isAccountPending: false,
     accountRulesets: [],
     error: null,
+    // The Account's characters at no table (TICKET-CHAR-04) — none by default, which is what the
+    // panel renders nothing for
+    unseated: { characters: [], isPending: false, isBusy: false, error: null, remove: vi.fn() },
+    removeUnseated: vi.fn(),
     dialogMode: null,
     form: { register: () => ({}), formState: { errors: {} } },
     openCreate: vi.fn(),

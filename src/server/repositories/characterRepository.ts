@@ -21,7 +21,7 @@
  * **Validates: v3 Req 32.4**
  */
 
-import { eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { type Database, getDatabase } from '../db/client';
 import { character } from '../db/schema';
 
@@ -44,6 +44,15 @@ export interface NewUnseatedCharacter {
   id: string;
   ownerAccountId: string;
   name: string;
+  /**
+   * The Ruleset it was built against (TICKET-CHAR-04)
+   *
+   * A real column since migration 0005, so deleting that ruleset takes the character with it. The
+   * id is also inside `data.configurationId`, and that copy is the *document's* business — the
+   * server may not query on it (D4), which is why leaving it as the only record left uploaded rows
+   * behind forever.
+   */
+  rulesetId: string;
   /** The player state as JSON text — serialised by the caller, never by this layer (D4) */
   data: string;
   /** Epoch milliseconds; passed in rather than read from the clock so a caller can be deterministic */
@@ -62,8 +71,10 @@ export interface NewUnseatedCharacter {
  *
  * **One function, not a private general one behind it.** The first draft had an `insertCharacter`
  * taking a nullable `sessionId` that only this could call — a shape built for TICKET-CHAR-04, which
- * does not exist yet, and exactly the option-nothing-passes the conventions rule out. CHAR-04 splits
- * it when it has a real session to pass.
+ * did not exist yet, and exactly the option-nothing-passes the conventions rule out. **CHAR-04 did
+ * not split it either**: it added {@link insertSessionCharacter} beside this one, because the two
+ * differ in more than a nullable field — this names a `ruleset_id` and that names a `session_id`,
+ * and exactly one of the pair is ever set.
  *
  * @param input What to store, minus the session it does not have
  * @param database The connection; defaults to the process's
@@ -78,6 +89,7 @@ export function insertUnseatedCharacter(
     .values({
       id: input.id,
       sessionId: null,
+      rulesetId: input.rulesetId,
       ownerAccountId: input.ownerAccountId,
       name: input.name,
       revision: 1,
@@ -87,4 +99,90 @@ export function insertUnseatedCharacter(
     })
     .returning()
     .get();
+}
+
+/** What creating a character **at a table** needs to be told (TICKET-CHAR-04) */
+export interface NewSessionCharacter {
+  id: string;
+  /** The table it plays at; its rules are that table's pinned Snapshot, never a ruleset */
+  sessionId: string;
+  ownerAccountId: string;
+  name: string;
+  /** The player state as JSON text — serialised by the caller, never by this layer (D4) */
+  data: string;
+  /** Epoch milliseconds */
+  now: number;
+}
+
+/**
+ * Store a character built against a session's Snapshot (v3 Req 40.1)
+ *
+ * The counterpart to {@link insertUnseatedCharacter}, and the pair is the whole of what a character
+ * can belong to: a table, or a ruleset on an Account. `ruleset_id` is **null** here deliberately —
+ * a session character plays by the Snapshot, so pointing it at the ruleset the Snapshot was taken
+ * from would give it a second set of rules and a cascade that could delete it mid-campaign.
+ *
+ * @param input What to store
+ * @param database The connection; defaults to the process's
+ * @returns The stored row
+ */
+export function insertSessionCharacter(
+  input: NewSessionCharacter,
+  database: Database = getDatabase()
+): CharacterRow {
+  return database.db
+    .insert(character)
+    .values({
+      id: input.id,
+      sessionId: input.sessionId,
+      rulesetId: null,
+      ownerAccountId: input.ownerAccountId,
+      name: input.name,
+      revision: 1,
+      data: input.data,
+      createdAt: input.now,
+      updatedAt: input.now,
+    })
+    .returning()
+    .get();
+}
+
+/**
+ * The characters an Account has that sit at **no** table (v3 Req 40.7)
+ *
+ * IO-04's uploads, which until CHAR-04 had no route that could see them at all — they were written,
+ * counted once in the upload's answer, and then invisible. That is what the ticket calls *not
+ * silently invisible*: they are somebody's characters, they are readable, and the surface that
+ * lists them says in words that they are at no table.
+ *
+ * @param accountId Whose
+ * @param database The connection; defaults to the process's
+ * @returns The rows, newest first
+ */
+export function listUnseatedCharacters(
+  accountId: string,
+  database: Database = getDatabase()
+): CharacterRow[] {
+  return database.db
+    .select()
+    .from(character)
+    .where(and(eq(character.ownerAccountId, accountId), isNull(character.sessionId)))
+    .orderBy(desc(character.createdAt))
+    .all();
+}
+
+/**
+ * Delete one character
+ *
+ * **Which characters may be deleted is the route's question, not this one's**, and the answer is
+ * deliberately narrow: only one at no table. A character at a table is part of the campaign's
+ * history — GAM-04 decided a departing player's are *retained* — so who may delete one of those,
+ * and whether the Event log tolerates it, is its own ticket rather than a flag here.
+ *
+ * @param id Which one
+ * @param database The connection; defaults to the process's
+ * @returns True when a row was actually deleted
+ */
+export function removeCharacter(id: string, database: Database = getDatabase()): boolean {
+  return database.db.delete(character).where(eq(character.id, id)).returning().all().length > 0;
 }

@@ -28,6 +28,7 @@ import { DeleteRulesetConfirmation } from './DeleteRulesetConfirmation';
 import { RulesetAlert } from './RulesetAlert';
 import { RulesetFormDialog } from './RulesetFormDialog';
 import { RulesetTransferResult } from './RulesetTransferResult';
+import { UnseatedCharacters } from './UnseatedCharacters';
 import { UploadToAccountDialog } from './UploadToAccountDialog';
 import { useRulesetManager } from './useRulesetManager';
 
@@ -91,6 +92,15 @@ export function RulesetsPanel() {
         onCopy={manager.openCopy}
         onDelete={manager.remove}
         onOpen={manager.openAccount}
+      />
+
+      {/* Under the account home, because that is what they belong to — and it renders nothing at
+          all unless this Account has uploaded some (TICKET-CHAR-04) */}
+      <UnseatedCharacters
+        characters={manager.unseated.characters}
+        isBusy={manager.unseated.isBusy}
+        error={manager.unseated.error}
+        onRemove={manager.removeUnseated}
       />
 
       <RulesetFormDialog

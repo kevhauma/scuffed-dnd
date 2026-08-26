@@ -587,9 +587,12 @@ describe('POST /api/sessions/:id/snapshot', () => {
         const dm = seedAccount();
         const ruleset = seedRuleset(database, { owner: dm });
         const { session } = seedSession(database, { dm, from: ruleset });
-        // The harness's default `data` — a character CHAR-04 has not defined yet. Refreshing while
-        // unable to tell whether somebody breaks is what this route exists to prevent.
-        seedCharacter(database, { session, owner: dm, name: 'Unreadable' });
+        // **Said explicitly since TICKET-CHAR-04.** This used to lean on the harness's default,
+        // which was `'{}'` while nothing had decided what a session character's player state is;
+        // that ticket decided, so the default is now a readable character and a test about the
+        // unreadable case has to write one. Refreshing while unable to tell whether somebody breaks
+        // is what this route exists to prevent.
+        seedCharacter(database, { session, owner: dm, name: 'Unreadable', data: '{}' });
 
         const response = await refresh(session.id, dm);
 

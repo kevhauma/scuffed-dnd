@@ -36,6 +36,7 @@ import {
   seedCharacter,
   seedMember,
   seedRegisteredAccount,
+  seedRuleset,
   seedSession,
   withTestDatabase,
 } from '../../testing';
@@ -281,6 +282,7 @@ describe('what happens to the Characters', () => {
       const uploaded = insertUnseatedCharacter(
         {
           id: 'uploaded-1',
+          rulesetId: seedRuleset(database, { owner: player }).id,
           ownerAccountId: player.id,
           name: 'Quackers at home',
           data: '{}',

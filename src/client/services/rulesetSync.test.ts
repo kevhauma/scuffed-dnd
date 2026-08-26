@@ -92,6 +92,40 @@ describe('persistRuleset — the browser home', () => {
   });
 });
 
+describe('persistRuleset — the session home (TICKET-CHAR-04)', () => {
+  /**
+   * A game's pinned Snapshot, which takes no edits at all (D7)
+   *
+   * This is the answer to *can any surface write to a Snapshot?*, and it is answered **here** rather
+   * than by each panel knowing not to offer one — which is the whole reason the home is a value in
+   * this union instead of a flag somewhere.
+   */
+  const AT_A_TABLE = { home: RULESET_HOME.SESSION, sessionId: 'session-1' } as const;
+
+  it('refuses the edit, writes no LocalStorage and sends no request', async () => {
+    const fetchMock = vi.fn(() => {
+      throw new Error('a Snapshot takes no edits');
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const outcome = await persistRuleset(AT_A_TABLE, ruleset('Ducklets'));
+
+    expect(outcome.outcome).toBe(SAVE_OUTCOME.FAILED);
+    expect(storage.saveConfiguration).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('says why, rather than discarding the edit quietly', () => {
+    // A surface that silently dropped a change would leave somebody retuning a stat for ten
+    // minutes and wondering why nothing stuck
+    return persistRuleset(AT_A_TABLE, ruleset('Ducklets')).then((outcome) => {
+      expect(outcome.outcome === SAVE_OUTCOME.FAILED && outcome.message).toMatch(
+        /copy of the rules your game is played by/i
+      );
+    });
+  });
+});
+
 describe('persistRuleset — the account home', () => {
   it('coalesces a burst of edits into one request carrying the last state', async () => {
     vi.useFakeTimers();

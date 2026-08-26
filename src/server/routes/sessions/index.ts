@@ -7,9 +7,11 @@
  */
 
 export * from './archiveSession';
+export * from './createCharacter';
 export * from './createSession';
 export * from './inviteByEmail';
 export * from './issueInvite';
+export * from './listCharacters';
 export * from './listMembers';
 export * from './listSessionInvites';
 export * from './listSessions';

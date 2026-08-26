@@ -22,6 +22,7 @@ import type { GameSessionSummary, RulesetSummary } from '#shared/types/api';
 import { useAuth } from '../auth/useAuth';
 import { useAccountRulesets } from '../rulesets/useAccountRulesets';
 import { type InvitationsState, useInvitations } from './useInvitations';
+import { type SessionCharactersState, useSessionCharacters } from './useSessionCharacters';
 import { type SessionInvitationsState, useSessionInvitations } from './useSessionInvitations';
 import type { SessionInviteState } from './useSessionInvite';
 import { useSessionInvite } from './useSessionInvite';
@@ -60,6 +61,15 @@ export interface SessionsManager {
   /** Hand the open table to another Member */
   transferDm: (accountId: string) => void;
 
+  /**
+   * What is at the open table, and the way to join it (TICKET-CHAR-04)
+   *
+   * **Passed through whole**, unlike `members` above — the difference is that its one action is
+   * navigation rather than a write, so there is no games-list reload for this manager to wrap it
+   * in. Opening a table's rules and going to the wizard is `useSessionCharacters`'s own.
+   */
+  characters: SessionCharactersState;
+
   /** What is waiting for **this Account**, whoever's table sent it (TICKET-GAM-03) */
   waiting: InvitationsState;
   /** Take one up, which seats this Account and puts a new game in the list above */
@@ -81,6 +91,7 @@ export function useSessionsManager(): SessionsManager {
   const invite = useSessionInvite(openSessionId);
   const invitations = useSessionInvitations(openSessionId);
   const members = useSessionMembers(openSessionId);
+  const characters = useSessionCharacters(openSessionId);
   const waiting = useInvitations();
   const { accountId } = useAuth();
 
@@ -136,6 +147,8 @@ export function useSessionsManager(): SessionsManager {
       },
       [transferSeat, reloadSessions]
     ),
+
+    characters,
 
     waiting,
     acceptInvitation: useCallback(

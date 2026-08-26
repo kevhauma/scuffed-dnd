@@ -26,7 +26,7 @@
  * **Validates: v3 Req 33.5, 33.6, 33.8, 36.2**
  */
 
-import type { RulesetDocument, RulesetSaveRefusal } from '#shared/types/api';
+import type { GameSessionDocument, RulesetDocument, RulesetSaveRefusal } from '#shared/types/api';
 import { ERROR_CODE } from '#shared/types/api';
 import type { Configuration } from '#shared/types/config';
 import { ApiError, apiRequest } from './api';
@@ -35,10 +35,25 @@ import { saveConfiguration } from './storage';
 /** Where `/api/rulesets` lives — a relative path, because there is only ever one origin (D1) */
 const RULESETS_PATH = '/api/rulesets';
 
-/** Where the open ruleset lives — the two homes, as a value the store can hold */
+/** Where a session's own routes live — the Snapshot is read through the session that pinned it */
+const SESSIONS_PATH = '/api/sessions';
+
+/** Where the open ruleset lives — the homes, as a value the store can hold */
 export const RULESET_HOME = {
   BROWSER: 'browser',
   ACCOUNT: 'account',
+  /**
+   * A game session's pinned Snapshot (TICKET-CHAR-04)
+   *
+   * **The read-only home.** The other two are places an edit goes; this one is a copy the table
+   * plays by, taken when the session began and changed only by a DM deliberately refreshing it
+   * ([D7](../../../docs/v3.0_backend/overview.md#d7--a-game-session-plays-against-a-pinned-snapshot)).
+   * It is in this union rather than beside it because the question the union answers is *which
+   * ruleset is open* — and when a Player is building a character at a table, the answer is the
+   * Snapshot. What follows is that {@link persistRuleset} refuses it, which is how a configuration
+   * panel opened against one cannot quietly write to a game in progress.
+   */
+  SESSION: 'session',
 } as const;
 
 export type RulesetHomeKind = (typeof RULESET_HOME)[keyof typeof RULESET_HOME];
@@ -53,7 +68,8 @@ export type RulesetHomeKind = (typeof RULESET_HOME)[keyof typeof RULESET_HOME];
  */
 export type RulesetSource =
   | { home: typeof RULESET_HOME.BROWSER }
-  | { home: typeof RULESET_HOME.ACCOUNT; id: string; revision: number };
+  | { home: typeof RULESET_HOME.ACCOUNT; id: string; revision: number }
+  | { home: typeof RULESET_HOME.SESSION; sessionId: string };
 
 /** The browser's own ruleset — what a signed-out visitor always has open */
 export const LOCAL_SOURCE: RulesetSource = { home: RULESET_HOME.BROWSER };
@@ -145,6 +161,19 @@ export function persistRuleset(source: RulesetSource, config: Configuration): Pr
     // unwritable store by throwing, and `configStore`'s `autoSave` has caught that since CR-11
     saveConfiguration(config);
     return Promise.resolve({ outcome: SAVE_OUTCOME.SAVED });
+  }
+
+  if (source.home === RULESET_HOME.SESSION) {
+    // **A Snapshot takes no edits** (D7, TICKET-CHAR-04). Refused rather than ignored: a surface
+    // that quietly discarded a change would leave somebody retuning a stat for ten minutes and
+    // wondering why nothing stuck. The route that would accept one does not exist — pulling new
+    // rules into a running game is `POST /api/sessions/:id/snapshot`, and it is the DM's.
+    return Promise.resolve({
+      outcome: SAVE_OUTCOME.FAILED,
+      message:
+        'This is the copy of the rules your game is played by, so it cannot be edited here. Edit ' +
+        'the ruleset it came from, then pull the new rules into the game.',
+    });
   }
 
   return scheduleSave(source.id, source.revision, config);
@@ -284,6 +313,26 @@ async function sendSave(
  */
 export function fetchRuleset(id: string): Promise<RulesetDocument> {
   return apiRequest<RulesetDocument>(`${RULESETS_PATH}/${id}`);
+}
+
+/**
+ * Read the rules a game session plays by (TICKET-CHAR-04)
+ *
+ * {@link fetchRuleset}'s counterpart for the third home, and here for its reason: the store owns
+ * *what to do* with a ruleset and this module owns *how one is fetched*. `openSessionSnapshot`
+ * called `apiRequest` directly in a first draft, which made the claim above only half true again
+ * and put a fourth spelling of `/api/sessions` in the tree.
+ *
+ * **It answers the whole session and the caller takes the Snapshot**, rather than pretending there
+ * is a rules-only route: there is not, and a function that hid that would be describing an API this
+ * server does not have.
+ *
+ * @param sessionId Which table
+ * @returns The session, whose `snapshot` is the ruleset it plays by
+ * @throws {ApiError} As `apiRequest` does — a refusal, or an unreachable server
+ */
+export function fetchSessionSnapshot(sessionId: string): Promise<GameSessionDocument> {
+  return apiRequest<GameSessionDocument>(`${SESSIONS_PATH}/${sessionId}`);
 }
 
 /**

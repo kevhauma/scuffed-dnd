@@ -537,6 +537,15 @@ each later ticket adds.
   than a second file; `POST /api/sessions/:id/dm` transfers the role, in one transaction that
   demotes before it promotes because `session_member_one_dm` is a partial unique index. The DM's own
   seat is refused (v3 Req 39.6) and the refusal names the way out.
+  **CHAR-04 added the characters half**: `POST /api/sessions/:id/characters` builds one against the
+  **Snapshot** through the Kernel's `buildCharacter` and `characterCreationErrors` — the same two
+  functions the browser's store calls — and `GET /api/sessions/:id/characters` is every Member's,
+  because a game is played out loud. `routes/characters/characterPayloads.ts` holds the rule the
+  ticket exists for: a body carrying a **derived** field is refused *by name* rather than stripped.
+- `routes/characters/` (TICKET-CHAR-04) — the Account-scoped half of a character: `GET /api/characters`
+  is the ones that sit at **no table** (IO-04's uploads, which had no surface at all until now) and
+  `DELETE /api/characters/:id` removes one. A character *at* a table is refused with a 409 — GAM-04
+  settled that a departing player's are retained, so deleting one is its own ticket.
 - `routes/invitations/` (TICKET-GAM-03) — the **addressed** invitation, and the first collection in
   the app scoped to an **Account** rather than to a ruleset or a session: an invitee is not a Member
   of the table that wrote to them, so there is no session id they could put in the path.
@@ -842,6 +851,18 @@ shown nothing would read that as *I never issued one*. `useSessionInvite` holds 
 slow response cannot overwrite a code issued since. Wording for a refusal is the **server's**
 sentence rendered, never a summary: v3 Req 38.4 asks for four distinct messages and a surface that
 flattened them would be inventing a fifth nobody decided on.
+
+**CHAR-04 gave a character a second home, and the branch is one line in one place.**
+`services/characterSync.ts` is to a character what `rulesetSync.ts` is to a ruleset — the only module
+that decides where a new one goes — and `characterStore.createCharacterHere(source, data, config)` is
+what the wizard calls. **The source is passed in rather than read**, because `configStore` already
+imports `characterStore` and reaching back would be a cycle `no-circular` refuses. `RULESET_HOME`
+grew a third value, `SESSION`: a game's pinned Snapshot, which `persistRuleset` **refuses** to write
+to, so a configuration panel opened against one cannot edit a game in progress. `SessionCharacters`
+(driven by `useSessionCharacters`) sits under the lobby in an expanded row and its button opens that
+Snapshot before sending the Player to the same four creation steps they get signed out. **It opens no
+sheet**: nothing can write to a session character until TICKET-PLY-01, and a sheet whose controls
+silently lost what they changed would be worse than none.
 
 **GAM-04 added `SessionLobby`, and it is the first surface in the app that shows other people.** It
 sits at the top of an expanded row — **every** row now, not just a DM's, because a table is other

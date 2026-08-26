@@ -92,6 +92,13 @@ function renderList(props: Partial<React.ComponentProps<typeof SessionList>> = {
       invite={invite()}
       invitations={invitations()}
       members={members()}
+      characters={{
+        characters: [],
+        isPending: false,
+        error: null,
+        isOpeningRules: false,
+        makeCharacterHere: vi.fn(),
+      }}
       accountId="account-1"
       onRemoveMember={vi.fn()}
       onTransferDm={vi.fn()}

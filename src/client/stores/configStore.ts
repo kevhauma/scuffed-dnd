@@ -58,6 +58,7 @@ import { ApiError } from '../services/api';
 import {
   cancelPendingSaves,
   fetchRuleset,
+  fetchSessionSnapshot,
   LOCAL_SOURCE,
   persistRuleset,
   RULESET_HOME,
@@ -156,6 +157,21 @@ interface ConfigState {
    * @returns Whether it opened; `false` leaves whatever was open exactly as it was
    */
   openAccountRuleset: (id: string) => Promise<boolean>;
+  /**
+   * Open the rules a game session plays by (TICKET-CHAR-04)
+   *
+   * **The Snapshot, never the Ruleset it was taken from** (D7). A table stopped following its
+   * ruleset the moment the session began, so this is what a character built at that table has to be
+   * priced by — and it is what the creation wizard runs against once this is open.
+   *
+   * **Read-only, and the store does not have to remember that**: `persistRuleset` refuses the
+   * session home, so an edit made against it is refused where every other edit is decided rather
+   * than by each surface knowing not to offer one.
+   *
+   * @param sessionId Which table's rules
+   * @returns Whether they opened; `false` leaves whatever was open exactly as it was
+   */
+  openSessionSnapshot: (sessionId: string) => Promise<boolean>;
   /**
    * Go back to the ruleset this browser holds (TICKET-RUL-02)
    *
@@ -786,6 +802,36 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
           error instanceof ApiError
             ? error.message
             : 'Could not open that ruleset. Check your connection and try again.',
+      });
+
+      return false;
+    }
+  },
+
+  openSessionSnapshot: async (sessionId: string) => {
+    // Anything queued was aimed at the ruleset that is about to stop being open — `openAccountRuleset`'s
+    // reason, and it matters more here because what replaces it accepts no writes at all
+    cancelPendingSaves();
+
+    try {
+      // Through `rulesetSync`, like every other ruleset read: that module owns *how* one is
+      // fetched and this store owns what to do with it (RUL-02's own rule)
+      const session = await fetchSessionSnapshot(sessionId);
+
+      set({
+        config: session.snapshot,
+        isLoaded: true,
+        source: { home: RULESET_HOME.SESSION, sessionId },
+      });
+
+      return true;
+    } catch (error) {
+      useUIStore.getState().reportRulesetAlert({
+        kind: RULESET_ALERT.LOAD_FAILED,
+        message:
+          error instanceof ApiError
+            ? error.message
+            : 'Could not open that game’s rules. Check your connection and try again.',
       });
 
       return false;

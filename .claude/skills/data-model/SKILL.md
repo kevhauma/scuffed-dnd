@@ -101,6 +101,23 @@ rests on ownership never moving. Transferring the DM role writes `session_member
 **and** `game_session.dm_account_id` in one transaction — the membership is the authority and the
 column is the mirror, and a listing that read a stale mirror would name the wrong DM.
 
+**TICKET-CHAR-04 needed one, and it is the shape of a state that was only half recorded.**
+`character.ruleset_id` (migration `0005_uploaded_character_ruleset`) with `ON DELETE CASCADE`.
+**Exactly one of `session_id` and `ruleset_id` is set**: a session character plays by a Snapshot and
+names no ruleset, an uploaded one names a ruleset and sits at no table. Before it, which ruleset an
+uploaded character belonged to lived only in `data.configurationId` — inside a document, which the
+server may not query on (D4) and which nothing could cascade from, so deleting the ruleset left
+invisible rows forever. Two things follow:
+
+- **`drizzle-kit` cannot generate this one.** It emits the `ALTER TABLE … ADD` without the
+  `ON DELETE cascade`, which reads correctly in `schema.ts` and does nothing in the database. The
+  SQL is hand-written and the migration test deletes a ruleset and counts rows.
+- **A new character's shape is the Kernel's**, in `shared/services/characterCreation.ts`:
+  `buildCharacter` seeds `currentResourceValues` from the Snapshot's maxima and sets `experience` to
+  0, and both the browser's store and `POST /api/sessions/:id/characters` call it. Neither restates
+  it. `characterCreationErrors` beside it is the *wizard's and the server's* rule set — the store
+  keeps its own two narrower refusals, deliberately, so local mode is unchanged.
+
 Two consequences worth holding on to before changing a persisted shape:
 
 - **A document change is not a migration.** Adding `grantedStatPoints` (DM-01) or `purse` (CUR-02)

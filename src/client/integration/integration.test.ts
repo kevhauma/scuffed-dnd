@@ -12,12 +12,13 @@
  * **Validates: Requirements 17.1, 17.2, 17.3, 17.4, 3.6, 4.4, 5.4**
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { calculateCharacter } from '#shared/engine/calculator';
 import { describeFormulaError, isFormulaError, numberOr } from '#shared/engine/formula/errors';
 import type { Character } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
 import type { FormulaError } from '#shared/types/formula';
+import { LOCAL_SOURCE } from '../services/rulesetSync';
 import { loadCharacters, loadConfiguration, saveCharacters } from '../services/storage';
 import { useCharacterStore } from '../stores/characterStore';
 import { useConfigStore } from '../stores/configStore';
@@ -253,6 +254,84 @@ describe('persistence round trip', () => {
     // The store's own tests mock this module out, so this is the only place it is proven
     expect(loadConfiguration()?.id).toBe('config1');
     expect(loadCharacters()).toEqual([]);
+  });
+});
+
+describe('local mode, with the network unavailable (TICKET-CHAR-04, v3 Req 40.0)', () => {
+  /**
+   * The signed-out promise, asserted rather than assumed
+   *
+   * D6 says the app a visitor gets without an account is the whole v2.0 product, and CHAR-04 is the
+   * ticket most able to break that: it gives a character a *second* home, and the way that goes
+   * wrong is a creation path that reaches the network on the way to LocalStorage. So `fetch` is
+   * replaced with something that throws — not a stub returning an error, which a `catch` could
+   * swallow into a plausible-looking success, but a hard failure that would surface as a rejected
+   * promise or a crash.
+   *
+   * **`createCharacterHere` is what the wizard's `handleConfirm` calls**, so that is what these
+   * drive — the review caught this file exercising `createCharacter` beneath it, which is the path
+   * a signed-out visitor no longer takes and therefore not the one criterion 6 is about.
+   * `calculateCharacter` is what the sheet reads. Between them they are the loop the criterion
+   * names, with nothing mocked underneath.
+   */
+  beforeEach(() => {
+    localStorage.clear();
+    useConfigStore.setState({ config: null, isLoaded: false });
+    useCharacterStore.setState({ characters: [], isLoaded: false });
+    vi.stubGlobal('fetch', () => {
+      throw new Error('local mode must not reach the network');
+    });
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('should create a character and read its sheet with no account anywhere', async () => {
+    const config = createConfig();
+    useConfigStore.setState({ config, isLoaded: true });
+
+    const { created } = await useCharacterStore.getState().createCharacterHere(
+      LOCAL_SOURCE,
+      {
+        name: 'Offline Ducklet',
+        raceIds: [],
+        investedStatPoints: { STR: 1 },
+        investedSkillPoints: {},
+      },
+      config
+    );
+
+    expect(created).not.toBeNull();
+    if (!created) return;
+
+    // In the browser's own storage, which is the only place it went
+    expect(localStorage.getItem('dnd_builder_characters')).toContain('Offline Ducklet');
+
+    // …and the sheet reads: the calculator is pure and needs no server to price a stat
+    const calculated = calculateCharacter(created, config);
+    expect(numberOr(calculated.statValues.STR, -1)).toBeGreaterThanOrEqual(0);
+
+    // The Kernel builder the server also calls seeded the resource pool here too, with no request
+    expect(created.currentResourceValues).toBeDefined();
+    expect(created.experience).toBe(0);
+  });
+
+  it('should survive a reload without asking anything of the network', async () => {
+    const config = createConfig();
+    useConfigStore.setState({ config, isLoaded: true });
+    await useCharacterStore
+      .getState()
+      .createCharacterHere(
+        LOCAL_SOURCE,
+        { name: 'Offline Ducklet', raceIds: [], investedStatPoints: {}, investedSkillPoints: {} },
+        config
+      );
+
+    useCharacterStore.setState({ characters: [], isLoaded: false });
+    useCharacterStore.getState().loadCharacters();
+
+    expect(useCharacterStore.getState().characters.map((one) => one.name)).toEqual([
+      'Offline Ducklet',
+    ]);
   });
 });
 

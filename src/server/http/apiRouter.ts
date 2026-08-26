@@ -22,6 +22,7 @@
 
 import { AUTH_PREFIX, handleAuthRequest } from '../auth/authRoutes';
 import { authProviders } from '../routes/authProviders';
+import { deleteCharacter, listMyCharacters } from '../routes/characters';
 import { health } from '../routes/health';
 import {
   acceptInvitation,
@@ -42,9 +43,11 @@ import {
 } from '../routes/rulesets';
 import {
   archiveSession,
+  createCharacter,
   createSession,
   inviteByEmail,
   issueInvite,
+  listCharacters,
   listMembers,
   listSessionInvites,
   listSessions,
@@ -89,6 +92,9 @@ export const ROUTES: Record<string, (request: Request) => Promise<Response>> = {
   // of the table that wrote to them, so there is no session id they could put in this path
   // (TICKET-GAM-03)
   'GET /api/invitations': listInvitations,
+  // Also scoped to the caller: the characters they uploaded, which sit at no table and are reached
+  // through no session (TICKET-CHAR-04)
+  'GET /api/characters': listMyCharacters,
 };
 
 /**
@@ -120,6 +126,12 @@ export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Respon
   'DELETE /api/sessions/:id/members/:accountId': removeMember,
   // The **role**, not a person: `POST` sets who runs this table, and the outgoing DM stays at it
   'POST /api/sessions/:id/dm': transferDm,
+  // Characters belong to the table they were built against (TICKET-CHAR-04), so they are reached
+  // through it — every Member reads them all, and `DELETE /api/characters/:id` is deliberately not
+  // the same collection: it removes an **uploaded** character, which is at no table at all
+  'POST /api/sessions/:id/characters': createCharacter,
+  'GET /api/sessions/:id/characters': listCharacters,
+  'DELETE /api/characters/:id': deleteCharacter,
   // …and the invitee's half, addressed by the invitation's own id
   'POST /api/invitations/:id/accept': acceptInvitation,
   'POST /api/invitations/:id/decline': declineInvitation,

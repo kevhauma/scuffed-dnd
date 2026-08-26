@@ -22,6 +22,7 @@ import { Card } from '../ui/Card/Card';
 import { Text } from '../ui/Text/Text';
 import { AddressedInvitePanel } from './AddressedInvitePanel';
 import { InviteCodePanel } from './InviteCodePanel';
+import { SessionCharacters } from './SessionCharacters';
 import { SessionLobby } from './SessionLobby';
 import { readableMoment } from './sessionMoment';
 import {
@@ -31,6 +32,7 @@ import {
   sectionStyles,
   sessionRowStyles,
 } from './sessions.style';
+import type { SessionCharactersState } from './useSessionCharacters';
 import type { SessionInvitationsState } from './useSessionInvitations';
 import type { SessionInviteState } from './useSessionInvite';
 import type { SessionMembersState } from './useSessionMembers';
@@ -48,6 +50,8 @@ export interface SessionListProps {
   invitations: SessionInvitationsState;
   /** Who is at the open row's table — without its writes, which arrive wrapped below */
   members: Omit<SessionMembersState, 'remove' | 'transfer'>;
+  /** What is at the open row's table (TICKET-CHAR-04) */
+  characters: SessionCharactersState;
   /** Which Account is reading, so the lobby can tell its own row apart */
   accountId: string | null;
   onRemoveMember: (accountId: string) => void;
@@ -73,6 +77,7 @@ function SessionRow({
   invite,
   invitations,
   members,
+  characters,
   accountId,
   onRemoveMember,
   onTransferDm,
@@ -82,13 +87,21 @@ function SessionRow({
   onToggle: () => void;
 } & Pick<
   SessionListProps,
-  'invite' | 'invitations' | 'members' | 'accountId' | 'onRemoveMember' | 'onTransferDm'
+  | 'invite'
+  | 'invitations'
+  | 'members'
+  | 'characters'
+  | 'accountId'
+  | 'onRemoveMember'
+  | 'onTransferDm'
 >) {
   const isDm = session.role === MEMBER_ROLE.DM;
   const badge = ROLE_BADGE[session.role];
-  // The server refuses both kinds of invitation on an archived table (`requireActive`), so both
-  // panels say so before the click rather than offering a button that always 409s
-  const canInvite = session.status !== SESSION_STATUS.ARCHIVED;
+  // **Named for what it is rather than for its first caller.** `requireActive` refuses every write
+  // on an archived table — both invitations, the DM transfer, and creating a character — so each
+  // panel says so before the click rather than offering a button that always 409s. It was
+  // `canInvite` until CHAR-04 gave it a third meaning it did not read as.
+  const isActive = session.status !== SESSION_STATUS.ARCHIVED;
 
   return (
     <div className="flex flex-col gap-3">
@@ -122,7 +135,7 @@ function SessionRow({
             isDm={isDm}
             // The server refuses to hand an archived game over (`requireActive`), so the button is
             // absent rather than offered and always 409ing
-            canTransfer={canInvite}
+            canTransfer={isActive}
             isPending={members.isPending}
             isBusy={members.isBusy}
             error={members.error}
@@ -130,11 +143,24 @@ function SessionRow({
             onTransfer={onTransferDm}
           />
 
+          {/* Below the roster and above the invitations: *who is here* is what a table is, *what is
+              on it* is what they are playing, and the invitations are for people who are not here
+              yet (TICKET-CHAR-04) */}
+          <SessionCharacters
+            characters={characters.characters}
+            accountId={accountId}
+            canCreate={isActive}
+            isPending={characters.isPending}
+            isOpening={characters.isOpeningRules}
+            error={characters.error}
+            onCreate={characters.makeCharacterHere}
+          />
+
           {isDm && (
             <>
               <InviteCodePanel
                 invite={invite.invite}
-                canInvite={canInvite}
+                canInvite={isActive}
                 isPending={invite.isPending}
                 isBusy={invite.isBusy}
                 error={invite.error}
@@ -143,7 +169,7 @@ function SessionRow({
               />
               <AddressedInvitePanel
                 invites={invitations.invites}
-                canInvite={canInvite}
+                canInvite={isActive}
                 isPending={invitations.isPending}
                 isBusy={invitations.isBusy}
                 error={invitations.error}

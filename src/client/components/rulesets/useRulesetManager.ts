@@ -36,6 +36,7 @@ import type { RulesetDialogMode, RulesetFormData } from './useRulesetDialog';
 import { useRulesetDialog } from './useRulesetDialog';
 import type { RulesetTransfer } from './useRulesetTransfer';
 import { useRulesetTransfer } from './useRulesetTransfer';
+import { type UnseatedCharactersState, useUnseatedCharacters } from './useUnseatedCharacters';
 
 /** The name a brand-new local ruleset is given, matching the config dashboard's own */
 const DEFAULT_LOCAL_NAME = 'My Custom Game System';
@@ -60,6 +61,17 @@ export interface RulesetManager {
   isAccountPending: boolean;
   accountRulesets: RulesetSummary[];
   error: string | null;
+
+  /**
+   * The Account's characters that sit at no table (TICKET-CHAR-04, v3 Req 40.7)
+   *
+   * IO-04's uploads. They live here rather than under Play mode because they belong to a *ruleset*
+   * on the Account — which is what this page is about — and because deleting that ruleset takes
+   * them with it, so the two are worth seeing together.
+   */
+  unseated: UnseatedCharactersState;
+  /** Throw one away (v3 Req 40.8) */
+  removeUnseated: (characterId: string) => void;
 
   /** What the naming dialog is doing, or `null` while it is closed */
   dialogMode: RulesetDialogMode | null;
@@ -121,6 +133,11 @@ export function useRulesetManager(): RulesetManager {
   const openAccountRuleset = useConfigStore((state) => state.openAccountRuleset);
   const openLocalRuleset = useConfigStore((state) => state.openLocalRuleset);
 
+  // The Account's characters that sit at no table — IO-04's uploads, which had no surface at all
+  // until TICKET-CHAR-04. Signed out there is no Account to have any, hence the same flag
+  // `useAccountRulesets` takes.
+  const unseated = useUnseatedCharacters(isSignedIn);
+
   const dialog = useRulesetDialog(account);
   const transfer = useRulesetTransfer({
     isSignedIn,
@@ -139,6 +156,13 @@ export function useRulesetManager(): RulesetManager {
     isAccountPending: isAuthPending || account.isPending,
     accountRulesets: account.rulesets,
     error: account.error,
+
+    unseated,
+    // **Reloads the rulesets too**, because a delete that emptied the last of them changes nothing
+    // about the rulesets — but the reverse is not true, and this is the pair worth keeping in step:
+    // deleting a *ruleset* cascades to its uploaded characters, so `remove` below is the only place
+    // one of them can go without the other list already knowing
+    removeUnseated: (characterId: string) => void unseated.remove(characterId),
 
     dialogMode: dialog.mode,
     form: dialog.form,

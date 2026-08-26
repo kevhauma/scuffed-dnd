@@ -66,6 +66,7 @@ export function SessionsPanel() {
         invite={manager.invite}
         invitations={manager.invitations}
         members={manager.members}
+        characters={manager.characters}
         accountId={manager.accountId}
         onRemoveMember={manager.removeMember}
         onTransferDm={manager.transferDm}

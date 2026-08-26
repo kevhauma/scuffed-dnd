@@ -13,9 +13,12 @@ import { calculateCharacter } from '#shared/engine/calculator';
 import { MAX_RACE_COUNT } from '#shared/engine/calculators/statCalculator';
 import { asNumber } from '#shared/engine/formula/errors';
 import { validateStatAllocation } from '#shared/engine/skillAllocation';
+import { buildCharacter } from '#shared/services/characterCreation';
 import type { Character, CharacterCreationData, Inventory } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
 import type { FormulaResult } from '#shared/types/formula';
+import { CREATION_OUTCOME, createSessionCharacter } from '../services/characterSync';
+import { RULESET_HOME, type RulesetSource } from '../services/rulesetSync';
 import { loadCharacters, saveCharacters } from '../services/storage';
 import { useUIStore } from './uiStore';
 
@@ -37,6 +40,17 @@ type CharacterPatch = Partial<Pick<Character, 'name' | 'raceIds' | 'archetypeId'
 /**
  * Character store state
  */
+/**
+ * What creating a character came to (TICKET-CHAR-04)
+ *
+ * A discriminated union rather than `Character | null`, because the **session** path has something
+ * to say when it refuses: the server names the rule that was broken — an unaffordable allocation, a
+ * missing archetype, a race the Snapshot does not have — and a bare `null` would throw that away
+ * and leave the wizard showing a Player a spinner that stopped. The local path has no such sentence
+ * and says so in one of its own.
+ */
+type CharacterCreation = { created: Character } | { created: null; message: string };
+
 interface CharacterState {
   characters: Character[];
   isLoaded: boolean;
@@ -62,6 +76,36 @@ interface CharacterState {
    * budget cannot pay for, checked here as well as in the wizard so the rule has one home.
    */
   createCharacter: (data: CharacterCreationData, config: Configuration) => Character | null;
+  /**
+   * Write a new character to **whichever home the open ruleset lives in** (TICKET-CHAR-04)
+   *
+   * The action the creation wizard calls, and the one place the two destinations meet. Which they
+   * are is `useConfigStore.source`'s answer and the branch belongs to
+   * [`characterSync`](../services/characterSync.ts) — the same shape RUL-02 gave a ruleset's save,
+   * for the same reason: a component that decided this would be a component that could decide it
+   * differently from the next one.
+   *
+   * **Local mode goes through {@link createCharacter} unchanged**, synchronous LocalStorage write
+   * and all. The promise here is for the *session* path, which is a request; a signed-out visitor
+   * pays nothing for it beyond an already-resolved promise (D6).
+   *
+   * **The source is passed in rather than read**, and that is a real constraint rather than a
+   * preference: `configStore` already imports this module — it clears the roster when a User starts
+   * fresh — so reaching back for `useConfigStore` here would be a dependency cycle, which
+   * `no-circular` refuses and which would make *which store owns this* unanswerable. The caller
+   * reads one field off the config store and hands it over; the decision is still made here.
+   *
+   * @param source Which ruleset is open, and therefore where the character goes
+   * @param data The Player's choices
+   * @param config The ruleset they were made against — the browser's, or a session's Snapshot
+   * @returns The character, or the reason there is none — the server's own sentence on the session
+   *   path, which names the rule it broke
+   */
+  createCharacterHere: (
+    source: RulesetSource,
+    data: CharacterCreationData,
+    config: Configuration
+  ) => Promise<CharacterCreation>;
   /**
    * Patch the fields of a character that no other action owns
    *
@@ -256,61 +300,6 @@ function hasBlendableRaces(raceIds: string[]): boolean {
 }
 
 /**
- * Create character from creation data
- *
- * A new character starts at full: `currentResourceValues` is seeded to the calculated maxima,
- * since a Player expects a fresh character to be at full health rather than at zero. Seeding
- * happens here, where the rest of the character shape is assembled, rather than in the wizard.
- *
- * **Only `isResource` stats are seeded** (TICKET-STAT-01). v1 gave every stat a current value,
- * which is what made "current Strength" a thing the app believed in; a stat you cannot spend has
- * no current distinct from its value.
- */
-function createCharacterFromData(data: CharacterCreationData, config: Configuration): Character {
-  const now = new Date().toISOString();
-  const character: Character = {
-    id: crypto.randomUUID(),
-    name: data.name,
-    configurationId: config.id,
-    raceIds: data.raceIds,
-    investedStatPoints: data.investedStatPoints,
-    archetypeId: data.archetypeId,
-    investedSkillPoints: data.investedSkillPoints,
-    currentResourceValues: {},
-    // A fresh character has earned nothing, which the seeded curve reads as level 1 (TICKET-RES-01)
-    experience: 0,
-    inventory: {
-      equippedItems: {},
-      miscItems: [],
-    },
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  try {
-    // Seed only the resource stats that actually produced a number; a stat with a broken formula
-    // starts absent rather than at a made-up zero.
-    const statValues = calculateCharacter(character, config).statValues;
-    const resourceIds = new Set(
-      config.stats.filter((stat) => stat.isResource).map((stat) => stat.id)
-    );
-
-    const seeded: Record<string, number> = {};
-    for (const [statId, result] of Object.entries(statValues)) {
-      if (!resourceIds.has(statId)) continue;
-      const max = asNumber(result);
-      if (max !== undefined) seeded[statId] = max;
-    }
-
-    return { ...character, currentResourceValues: seeded };
-  } catch {
-    // A ruleset with a broken formula must not block character creation; the sheet will
-    // surface the formula error where it can be acted on.
-    return character;
-  }
-}
-
-/**
  * Decide whether an item may occupy an equipment slot
  *
  * Requirement 12.3: an item goes in the slot type it declares, and only that one. An item the
@@ -466,7 +455,15 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   createCharacter: (data: CharacterCreationData, config: Configuration) => {
     if (!hasBlendableRaces(data.raceIds)) return null;
 
-    const character = createCharacterFromData(data, config);
+    // **The character's shape is the Kernel's since TICKET-CHAR-04**, so the browser and
+    // `POST /api/sessions/:id/characters` mint the same thing — a resource seeded from the same
+    // maxima, an experience of 0, an empty inventory. What stays here is *this store's* two
+    // refusals; the fuller set the wizard applies is `characterCreationErrors`, which the server
+    // route calls because it has no wizard standing in front of it.
+    const character = buildCharacter(data, config, {
+      id: crypto.randomUUID(),
+      now: new Date().toISOString(),
+    });
 
     // The same engine verdict `setInvestedStatPoints` asks for, so creation and the level-up spend
     // cannot disagree about what is affordable. The wizard's step already blocks this, but the
@@ -478,6 +475,34 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     const updated = autoSave([...characters, character]);
     set({ characters: updated });
     return character;
+  },
+
+  createCharacterHere: async (
+    source: RulesetSource,
+    data: CharacterCreationData,
+    config: Configuration
+  ) => {
+    // **The only branch on the home, and it is one line** — everything about *how* a session
+    // character is created lives in `characterSync`, the way a ruleset's server save lives in
+    // `rulesetSync` (TICKET-RUL-02's shape, one aggregate over)
+    if (source.home === RULESET_HOME.SESSION) {
+      const outcome = await createSessionCharacter(source.sessionId, data);
+
+      return outcome.outcome === CREATION_OUTCOME.CREATED
+        ? { created: outcome.character }
+        : { created: null, message: outcome.message };
+    }
+
+    // Local mode, unchanged from v2.0 down to the synchronous write. A signed-out visitor pays an
+    // already-resolved promise for the shared signature and nothing else (D6).
+    const created = get().createCharacter(data, config);
+
+    return created
+      ? { created }
+      : {
+          created: null,
+          message: 'That character cannot be saved as it stands. Check the points you have spent.',
+        };
   },
 
   // Update character — see `CharacterPatch` for what this may and may not touch

@@ -307,6 +307,19 @@ it is built on that table's rules.
    Character carrying a derived value
 6. THE Client SHALL run the existing creation wizard against the Snapshot, and SHALL create the
    Character through the server rather than in a local store
+7. THE Server SHALL scope a Character uploaded from a browser (Req 36.5) to the Ruleset it was
+   built against and to no Game_Session, and THE Client SHALL show its owner that it is at no table
+   rather than leaving it unreachable
+8. WHEN a Ruleset is deleted, THE Server SHALL delete the Characters uploaded with it, and SHALL
+   allow an owner to delete one directly
+
+> **7 and 8 were added by TICKET-CHAR-04**, and the honest version of why is that they were *its
+> acceptance criteria first*. TICKET-IO-04 created a state this requirement did not describe — a
+> Character owned by an Account, built against a Ruleset, at no table — and its own review flagged
+> that nothing listed, deleted or cascaded to one. CHAR-04 owns closing that, so the behaviour it
+> closes it with belongs here rather than only in a ticket. Criterion 1 above still reads *"scope
+> every server-owned Character to exactly one Game_Session"*; 7 is the deliberate exception to it,
+> and naming it as one is the point of writing it down.
 
 ### Requirement 41: Player Actions
 

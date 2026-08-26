@@ -15,6 +15,7 @@
  * **Validates: v3 Req 32.5, 33.1, 33.8**
  */
 
+import type { Character } from './character';
 import type { Configuration } from './config';
 import type { ValidationReport } from './validation';
 
@@ -455,6 +456,61 @@ export interface SessionMemberListing {
 export interface TransferDmRequest {
   /** The Member who becomes the DM. They must already be at the table. */
   accountId: string;
+}
+
+/**
+ * What a client sends to create a character (v3 Req 40.1, 40.5, TICKET-CHAR-04)
+ *
+ * **Exactly the Player's choices, and nothing derived.** A stat value, a level, a point budget and
+ * a roll result are all computed from these five fields against the session's Snapshot, so a body
+ * carrying one is either confused or lying — and either way the server rejects it **by name**
+ * rather than stripping it silently (the milestone's third Definition-of-Done rule). Silently
+ * ignoring a field is how a client comes to believe it is being honoured.
+ *
+ * `currentResourceValues` is not here either, though it is genuinely stored: a *fresh* character's
+ * is seeded from the Snapshot's maxima by the Kernel, and letting a client send one would let it
+ * start at any number it liked.
+ */
+export interface CharacterCreateRequest {
+  name: string;
+  raceIds: string[];
+  /** Points spent per stat id — what they *buy* is the point-buy curve's answer, never sent */
+  investedStatPoints: Record<string, number>;
+  /** Required when the Snapshot defines any archetypes, and refused when it defines none */
+  archetypeId?: string;
+  investedSkillPoints: Record<string, number>;
+}
+
+/**
+ * One character as the server holds it (v3 Req 40.1, 40.4)
+ *
+ * **`character` is the player state and nothing else** — the Kernel's `Character`, exactly what a
+ * local one in LocalStorage is. Every derived number the sheet shows is computed from it against
+ * the ruleset it belongs to, which is the session's Snapshot or, for an uploaded one, the Ruleset
+ * `rulesetId` names.
+ *
+ * `revision` rides along for TICKET-PLY-01's write guard, which is the same shape RUL-02's save
+ * uses; nothing writes a character yet.
+ */
+export interface CharacterDocument {
+  id: string;
+  /** The table it plays at, or `null` for one uploaded from a browser (v3 Req 36.5) */
+  sessionId: string | null;
+  /** The Ruleset it was built against, or `null` for a session character playing by a Snapshot */
+  rulesetId: string | null;
+  /** Whose it is — every Member of a session reads them all, and writes only their own */
+  ownerAccountId: string;
+  name: string;
+  revision: number;
+  /** Epoch milliseconds */
+  createdAt: number;
+  updatedAt: number;
+  character: Character;
+}
+
+/** What `GET /api/sessions/:id/characters` and `GET /api/characters` answer */
+export interface CharacterListing {
+  characters: CharacterDocument[];
 }
 
 /**

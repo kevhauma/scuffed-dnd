@@ -1,0 +1,444 @@
+/**
+ * Creating and reading a character at a table (TICKET-CHAR-04)
+ *
+ * The six things this file is really about, one per acceptance criterion:
+ *
+ * 1. **Every Member reads every character; no other Account reads any** (v3 Req 40.2).
+ * 2. **A non-member's creation is refused indistinguishably from a missing session** — the same
+ *    404, on the same shaped request, which is v3 Req 32.5 at the surface people actually reach.
+ * 3. **A derived value is rejected by name, not stripped.** The milestone's third
+ *    Definition-of-Done rule, and the one most easily satisfied wrongly: taking the five fields we
+ *    want and ignoring the rest passes every happy-path test and lets a client believe its `level`
+ *    was honoured.
+ * 4. **The Kernel's rules run server-side** — race cardinality, the archetype requirement, and
+ *    `validateStatAllocation`'s affordability refusal — each asserted by a **rejected request**
+ *    rather than by reading the code.
+ * 5. **`currentResourceValues` is seeded from the Snapshot's maxima**, and only for `isResource`
+ *    stats, exactly as the browser's store does.
+ * 6. **An uploaded character is readable and is stated as being at no table**, and can be removed —
+ *    which is the hole IO-04's own review left open.
+ *
+ * **Against the real corpus throughout.** A two-stat ruleset cannot tell whether a resource was
+ * seeded from the right formula, and the seeded Ducklets ruleset can.
+ *
+ * **Validates: v3 Req 32.1, 32.3, 32.4, 32.5, 36.5, 37.5, 40.1-40.5, 40.7, 40.8, 45.1**
+ */
+
+import { describe, expect, it } from 'vitest';
+import type {
+  CharacterCreateRequest,
+  CharacterDocument,
+  CharacterListing,
+} from '#shared/types/api';
+import type { Configuration } from '#shared/types/config';
+import { findCharacter, insertUnseatedCharacter } from '../../repositories/characterRepository';
+import {
+  type CallOptions,
+  callRoute,
+  type Database,
+  type GameSessionRow,
+  seedAccount,
+  seedCharacter,
+  seedMember,
+  seedRuleset,
+  seedSession,
+  withTestDatabase,
+} from '../../testing';
+import { archiveSession } from '../sessions/archiveSession';
+import { createCharacter } from '../sessions/createCharacter';
+import { listCharacters } from '../sessions/listCharacters';
+import { snapshotOf } from '../sessions/sessionPayloads';
+import { deleteCharacter } from './deleteCharacter';
+import { listMyCharacters } from './listMyCharacters';
+
+/** Create a character at a table, as somebody */
+function create(sessionId: string, body: Partial<CharacterCreateRequest>, as: CallOptions['as']) {
+  return callRoute<CharacterDocument>(createCharacter, {
+    as,
+    method: 'POST',
+    path: `/api/sessions/${sessionId}/characters`,
+    body,
+  });
+}
+
+/** Read a table's characters, as somebody */
+function listAtTable(sessionId: string, as: CallOptions['as']) {
+  return callRoute<CharacterListing>(listCharacters, {
+    as,
+    path: `/api/sessions/${sessionId}/characters`,
+  });
+}
+
+/** Read my own characters that sit at no table */
+function listMine(as: CallOptions['as']) {
+  return callRoute<CharacterListing>(listMyCharacters, { as, path: '/api/characters' });
+}
+
+/** Throw one away, as somebody */
+function remove(characterId: string, as: CallOptions['as']) {
+  return callRoute(deleteCharacter, {
+    as,
+    method: 'DELETE',
+    path: `/api/characters/${characterId}`,
+  });
+}
+
+/** What a refusal said */
+function messageOf(body: unknown): string {
+  return (body as { error: { message: string } }).error.message;
+}
+
+/** A table with a DM and a player, both able to make a character at it */
+function aTable(database: Database) {
+  const dm = seedAccount();
+  const player = seedAccount();
+  const { session } = seedSession(database, { dm });
+  seedMember(database, { session, account: player });
+
+  return { dm, player, session };
+}
+
+/** The rules the table plays by, as the routes read them */
+function rulesOf(session: GameSessionRow): Configuration {
+  return snapshotOf(session);
+}
+
+/** A creation body that the corpus accepts — no points spent, one archetype if the corpus has any */
+function validBody(session: GameSessionRow, overrides: Partial<CharacterCreateRequest> = {}) {
+  const rules = rulesOf(session);
+
+  return {
+    name: 'Quackers',
+    raceIds: [],
+    investedStatPoints: {},
+    investedSkillPoints: {},
+    archetypeId: rules.archetypes?.[0]?.id,
+    ...overrides,
+  };
+}
+
+describe('creating a character at a table', () => {
+  it('should be open to every Member and to nobody else', () =>
+    withTestDatabase(async (database) => {
+      const { dm, player, session } = aTable(database);
+
+      expect((await create(session.id, validBody(session), null)).status).toBe(401);
+      // A stranger and a session that never existed are the same answer (v3 Req 32.5)
+      expect((await create(session.id, validBody(session), seedAccount())).status).toBe(404);
+      expect((await create('no-such-session', validBody(session), seedAccount())).status).toBe(404);
+
+      expect((await create(session.id, validBody(session), player)).status).toBe(200);
+      // The DM plays too — a rule that let them run a table but not sit at one would be a rule
+      // about our data model rather than about tables
+      expect((await create(session.id, validBody(session), dm)).status).toBe(200);
+    }));
+
+  it('should store it against the table, naming no ruleset', () =>
+    withTestDatabase(async (database) => {
+      const { player, session } = aTable(database);
+
+      const made = await create(session.id, validBody(session), player);
+
+      expect(made.body.sessionId).toBe(session.id);
+      // A session character plays by the Snapshot; pointing it at the ruleset the Snapshot came
+      // from would give it a second set of rules and a cascade that could delete it mid-campaign
+      expect(made.body.rulesetId).toBeNull();
+      expect(made.body.ownerAccountId).toBe(player.id);
+      expect(made.body.character.experience).toBe(0);
+    }));
+
+  it('should seed every resource stat to its maximum, and nothing else', () =>
+    withTestDatabase(async (database) => {
+      const { player, session } = aTable(database);
+      const rules = rulesOf(session);
+
+      const made = await create(session.id, validBody(session), player);
+      const seeded = made.body.character.currentResourceValues;
+
+      const resourceIds = rules.stats.filter((stat) => stat.isResource).map((stat) => stat.id);
+
+      // The corpus has resources, so this is a real assertion rather than an empty one
+      expect(resourceIds.length).toBeGreaterThan(0);
+      expect(Object.keys(seeded).length).toBeGreaterThan(0);
+      // A stat you cannot spend has no *current* distinct from its value (TICKET-STAT-01)
+      expect(Object.keys(seeded).every((statId) => resourceIds.includes(statId))).toBe(true);
+      // Numbers, not the `FormulaResult`s the calculator hands back — and **no assertion that they
+      // are positive**: a resource whose formula reads zero at level 1 is a ruleset's business, and
+      // a test that insisted otherwise would be asserting the corpus rather than the seeding
+      expect(Object.values(seeded).every((value) => Number.isFinite(value))).toBe(true);
+
+      // The other half of *seeded from the maxima*: the same numbers the calculator produces for
+      // this character against this Snapshot, rather than any number at all
+      const { calculateCharacter } = await import('#shared/engine/calculator');
+      const { asNumber } = await import('#shared/engine/formula/errors');
+      const { statValues } = calculateCharacter(made.body.character, rules);
+
+      for (const [statId, current] of Object.entries(seeded)) {
+        expect(current).toBe(asNumber(statValues[statId]));
+      }
+    }));
+
+  it('should refuse an archived table', () =>
+    withTestDatabase(async (database) => {
+      const { dm, player, session } = aTable(database);
+
+      await callRoute(archiveSession, {
+        as: dm,
+        method: 'POST',
+        path: `/api/sessions/${session.id}/archive`,
+        body: {},
+      });
+
+      expect((await create(session.id, validBody(session), player)).status).toBe(409);
+    }));
+});
+
+describe('the derived values a client may not send', () => {
+  it.each([
+    ['statValues', { alpha: 12 }],
+    ['level', 7],
+    ['statTotal', 42],
+    ['pointBudget', 99],
+    ['currentResourceValues', { alpha: 3 }],
+    ['experience', 5000],
+    ['rollResults', [{ total: 20 }]],
+  ])('should reject %s by name rather than stripping it', (field, value) =>
+    withTestDatabase(async (database) => {
+      const { player, session } = aTable(database);
+
+      const refused = await create(
+        session.id,
+        { ...validBody(session), [field]: value } as Partial<CharacterCreateRequest>,
+        player
+      );
+
+      expect(refused.status).toBe(400);
+      // **By name.** Ignoring it would pass every happy-path test and let a client believe the
+      // value was honoured, which is how a sheet and a client come to disagree with no explanation
+      expect(messageOf(refused.body)).toContain(field);
+    })
+  );
+
+  it('should ignore a field that is not a claim about a rule', () =>
+    withTestDatabase(async (database) => {
+      const { player, session } = aTable(database);
+
+      // Noise, not a derived value — refusing it would make the API brittle for no safety
+      const made = await create(
+        session.id,
+        { ...validBody(session), favouriteColour: 'teal' } as Partial<CharacterCreateRequest>,
+        player
+      );
+
+      expect(made.status).toBe(200);
+    }));
+
+  it('should refuse a malformed allocation before the engine sees it', () =>
+    withTestDatabase(async (database) => {
+      const { player, session } = aTable(database);
+
+      const refused = await create(
+        session.id,
+        { ...validBody(session), investedStatPoints: { alpha: 1.5 } },
+        player
+      );
+
+      expect(refused.status).toBe(400);
+      // A fractional or infinite spend comes back from the engine as an *unpriceable gain*, which
+      // reads as the ruleset's fault and sends the reader looking in the wrong place
+      expect(messageOf(refused.body)).toContain('whole number');
+    }));
+});
+
+describe('the Kernel’s own rules, applied server-side', () => {
+  it('should refuse more races than a character can blend', () =>
+    withTestDatabase(async (database) => {
+      const { player, session } = aTable(database);
+      const raceIds = rulesOf(session)
+        .races.slice(0, 3)
+        .map((race) => race.id);
+
+      expect(raceIds).toHaveLength(3);
+
+      const refused = await create(session.id, validBody(session, { raceIds }), player);
+
+      expect(refused.status).toBe(400);
+      expect(messageOf(refused.body)).toContain('blend');
+    }));
+
+  it('should require an archetype when the Snapshot defines any', () =>
+    withTestDatabase(async (database) => {
+      const { player, session } = aTable(database);
+
+      expect(rulesOf(session).archetypes?.length).toBeGreaterThan(0);
+
+      const refused = await create(
+        session.id,
+        { ...validBody(session), archetypeId: undefined },
+        player
+      );
+
+      expect(refused.status).toBe(400);
+      expect(messageOf(refused.body)).toContain('archetype');
+    }));
+
+  it('should refuse an archetype the Snapshot does not have', () =>
+    withTestDatabase(async (database) => {
+      const { player, session } = aTable(database);
+
+      const refused = await create(
+        session.id,
+        validBody(session, { archetypeId: 'not-an-archetype' }),
+        player
+      );
+
+      expect(refused.status).toBe(400);
+    }));
+
+  it('should refuse an allocation the character cannot afford', () =>
+    withTestDatabase(async (database) => {
+      const { player, session } = aTable(database);
+      const rules = rulesOf(session);
+      const investable = rules.stats.find((stat) => stat.formula === undefined);
+
+      if (!investable) throw new Error('the corpus should have an investable stat');
+
+      // A fresh character is at level 1's budget, so this is far past it
+      const refused = await create(
+        session.id,
+        validBody(session, { investedStatPoints: { [investable.id]: 9_999 } }),
+        player
+      );
+
+      expect(refused.status).toBe(400);
+      expect(messageOf(refused.body)).toMatch(/spends 9999 points|cannot take those points/);
+    }));
+
+  it('should refuse a race the Snapshot does not have', () =>
+    withTestDatabase(async (database) => {
+      const { player, session } = aTable(database);
+
+      expect(
+        (await create(session.id, validBody(session, { raceIds: ['not-a-race'] }), player)).status
+      ).toBe(400);
+    }));
+});
+
+describe('reading a table’s characters', () => {
+  it('should show every Member all of them, and nobody else any', () =>
+    withTestDatabase(async (database) => {
+      const { dm, player, session } = aTable(database);
+      await create(session.id, validBody(session), player);
+
+      expect((await listAtTable(session.id, null)).status).toBe(401);
+      expect((await listAtTable(session.id, seedAccount())).status).toBe(404);
+
+      // A game is played out loud: the DM reads the player's sheet and the player reads the party's
+      expect((await listAtTable(session.id, dm)).body.characters).toHaveLength(1);
+      expect((await listAtTable(session.id, player)).body.characters).toHaveLength(1);
+    }));
+
+  it('should keep a departed Member’s character in the list (v3 Req 39.3)', () =>
+    withTestDatabase(async (database) => {
+      const { dm, player, session } = aTable(database);
+      await create(session.id, validBody(session), player);
+
+      // What removing them does — the seat goes and the character stays. A listing that filtered
+      // them would be quietly undoing GAM-04's retention rule.
+      const { removeSessionMember } = await import('../../repositories/gameSessionRepository');
+      removeSessionMember(session.id, player.id, database);
+
+      expect((await listAtTable(session.id, dm)).body.characters).toHaveLength(1);
+    }));
+
+  it('should hand back the player state as an object, not as text', () =>
+    withTestDatabase(async (database) => {
+      const { player, session } = aTable(database);
+      await create(session.id, validBody(session), player);
+
+      const [listed] = (await listAtTable(session.id, player)).body.characters;
+
+      expect(listed.character.name).toBe('Quackers');
+      expect(listed.character.inventory).toEqual({ equippedItems: {}, miscItems: [] });
+    }));
+});
+
+describe('the characters at no table', () => {
+  /** One uploaded character, owned by an Account and built against a ruleset (TICKET-IO-04) */
+  function anUploadedCharacter(database: Database, owner = seedAccount()) {
+    const ruleset = seedRuleset(database, { owner });
+    const row = insertUnseatedCharacter(
+      {
+        id: 'uploaded-1',
+        rulesetId: ruleset.id,
+        ownerAccountId: owner.id,
+        name: 'Quackers at home',
+        data: JSON.stringify({ name: 'Quackers at home' }),
+        now: Date.now(),
+      },
+      database
+    );
+
+    return { owner, ruleset, row };
+  }
+
+  it('should be readable by their owner and by nobody else', () =>
+    withTestDatabase(async (database) => {
+      const { owner } = anUploadedCharacter(database);
+
+      expect((await listMine(null)).status).toBe(401);
+      expect((await listMine(seedAccount())).body.characters).toEqual([]);
+
+      const mine = (await listMine(owner)).body.characters;
+
+      expect(mine).toHaveLength(1);
+      // *Not at a table* is the fact the surface renders, so it has to be on the wire
+      expect(mine[0].sessionId).toBeNull();
+      expect(mine[0].rulesetId).not.toBeNull();
+    }));
+
+  it('should leave a character that is at a table out of that list', () =>
+    withTestDatabase(async (database) => {
+      const { player, session } = aTable(database);
+      seedCharacter(database, { session, owner: player });
+
+      // It is reached through its table, where the answer includes the other players' — a combined
+      // list would be a second way in with a second set of visibility rules
+      expect((await listMine(player)).body.characters).toEqual([]);
+    }));
+
+  it('should be removable by its owner and by nobody else', () =>
+    withTestDatabase(async (database) => {
+      const { owner, row } = anUploadedCharacter(database);
+
+      expect((await remove(row.id, null)).status).toBe(401);
+      expect((await remove(row.id, seedAccount())).status).toBe(404);
+      expect((await remove(row.id, owner)).status).toBe(204);
+      expect(findCharacter(row.id, database)).toBeNull();
+    }));
+
+  it('should refuse to remove one that is at a table, and say where it lives', () =>
+    withTestDatabase(async (database) => {
+      const { player, session } = aTable(database);
+      const seated = seedCharacter(database, { session, owner: player });
+
+      const refused = await remove(seated.id, player);
+
+      expect(refused.status).toBe(409);
+      expect(messageOf(refused.body)).toContain('at a table');
+      expect(findCharacter(seated.id, database)).not.toBeNull();
+    }));
+
+  it('should go when the ruleset it was uploaded with goes (v3 Req 40.8)', () =>
+    withTestDatabase(async (database) => {
+      const { ruleset } = anUploadedCharacter(database);
+      const { removeRuleset } = await import('../../repositories/rulesetRepository');
+
+      removeRuleset(ruleset.id, database);
+
+      // The hole IO-04's review left open: before migration 0005 the only record of which ruleset
+      // an uploaded character belonged to was inside its document, so nothing cascaded and the
+      // rows accumulated forever, invisible to every surface
+      expect(findCharacter('uploaded-1', database)).toBeNull();
+    }));
+});

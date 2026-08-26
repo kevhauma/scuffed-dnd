@@ -4,7 +4,7 @@
  * **Validates: Requirements 11.1-11.6, 21.1-21.5**
  */
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Configuration } from '#shared/types/config';
 
@@ -563,7 +563,7 @@ describe('CharacterCreationWizard', () => {
     expect(rowValue('Melee')).toBe('Melee0'); // STR 0 + STL 0
   });
 
-  it('should create the character once and navigate to its sheet', () => {
+  it('should create the character once and navigate to its sheet', async () => {
     render(<CharacterCreationWizard />);
 
     fireEvent.change(nameField(), { target: { value: 'Aria' } });
@@ -594,10 +594,16 @@ describe('CharacterCreationWizard', () => {
     expect(characters[0].currentResourceValues).toEqual({ health: 50 });
     expect(characters[0]).not.toHaveProperty('mainSkillLevels');
 
-    expect(navigate).toHaveBeenCalledWith({
-      to: '/play/character/$id',
-      params: { id: characters[0].id },
-    });
+    // **Awaited since TICKET-CHAR-04.** The write is still synchronous — the assertions above run
+    // straight after the click and pass — but the *navigation* is now a microtask later, because
+    // one submit serves two destinations and the other one is a request. That is the whole of what
+    // changed for local mode.
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith({
+        to: '/play/character/$id',
+        params: { id: characters[0].id },
+      })
+    );
   });
 
   it('should render an explanatory state and no form without a configuration', () => {

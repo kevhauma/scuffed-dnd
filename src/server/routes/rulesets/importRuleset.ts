@@ -190,6 +190,13 @@ export const importRuleset = defineHandler(async (context): Promise<RulesetImpor
         configurationId: document.id,
       };
 
+      // **Which ruleset these belong to is filled in by the repository**, from the row it is
+      // creating in the same transaction (TICKET-CHAR-04). Two reasons, and the second is the one
+      // that decided it: a caller repeating the id is a caller who can disagree with it — and
+      // `routes/routeGuards.test.ts` reads the word `rulesetId` in a handler as *this route names
+      // an owned resource and had better guard it*, which this one cannot, because it is the route
+      // that **creates** the ruleset. Same trade as `insertUnseatedCharacter`'s own docblock
+      // records for `sessionId`.
       return {
         id: stored.id,
         ownerAccountId: account.id,

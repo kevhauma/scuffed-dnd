@@ -317,7 +317,7 @@ Game sessions:
 
 Characters and play:
 
-- [ ] [TICKET-CHAR-04](./tickets/TICKET-CHAR-04-characters-per-session.md) — Characters are created per session (v3 Req 40) — the creation wizard runs against the Snapshot and posts to the server
+- [x] [TICKET-CHAR-04](./tickets/TICKET-CHAR-04-characters-per-session.md) — Characters are created per session (v3 Req 40) — the creation wizard runs against the Snapshot and posts to the server. Added **Req 40.7 and 40.8**: IO-04's uploaded characters had no requirement describing them and no surface listing them, and this is the ticket that owns closing that. A session character's **sheet** is deliberately not here — nothing can write to one until PLY-01
 - [ ] [TICKET-PLY-01](./tickets/TICKET-PLY-01-player-actions-through-the-server.md) — Player actions go through the server (v3 Req 41) — spend, resources, inventory; the Kernel checks run server-side
 - [ ] [TICKET-ROLL-07](./tickets/TICKET-ROLL-07-server-resolved-rolls.md) — Server-resolved rolls and the session roll log (v3 Req 41.6, 45.2) — the RNG moves; `useUIStore`'s history becomes a projection of Events
 - [ ] [TICKET-CUR-02](./tickets/TICKET-CUR-02-character-purse.md) — A character carries a purse (v3 Req 43) — a persisted-shape change with a `schemaVersion` bump and a `docs/imports/` fragment; **before DM-02**, which edits it

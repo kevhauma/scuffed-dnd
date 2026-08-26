@@ -56,28 +56,87 @@ as it does today or posts to the server. One wizard, two destinations.
 
 ## Acceptance criteria
 
-- [ ] A Player creates a character in a session; the DM and every other Member can read it, and no
-      other Account can.
-- [ ] A non-member's creation attempt is refused, indistinguishably from a missing session.
-- [ ] A submitted body carrying `statValues`, `level`, `statTotal` or a roll result is rejected with
-      the offending field named — not silently stripped.
-- [ ] Server-side creation applies the same rules the wizard does: race cardinality (`MAX_RACE_COUNT`),
+- [x] A Player creates a character in a session; the DM and every other Member can read it, and no
+      other Account can. (`POST` / `GET /api/sessions/:id/characters` →
+      [createCharacter.ts](../../../src/server/routes/sessions/createCharacter.ts),
+      [listCharacters.ts](../../../src/server/routes/sessions/listCharacters.ts), both behind
+      `requireMember`. `characters.test.ts` — *should be open to every Member and to nobody else*
+      (which also asserts the **DM** may create one: a DM plays too) and *should show every Member
+      all of them, and nobody else any*.)
+- [x] A non-member's creation attempt is refused, indistinguishably from a missing session.
+      (`characters.test.ts` — the same case sends an identically-shaped request to a real session as
+      a stranger and to `no-such-session`, and asserts both are 404.)
+- [x] A submitted body carrying `statValues`, `level`, `statTotal` or a roll result is rejected with
+      the offending field named — not silently stripped. (`creationDataFrom` in
+      [characterPayloads.ts](../../../src/server/routes/characters/characterPayloads.ts).
+      `characters.test.ts` — *should reject %s by name rather than stripping it*, run over **seven**
+      fields separately, because one case sending all of them would pass against an implementation
+      that caught only the first. `currentResourceValues` and `experience` are on the list too: a
+      *fresh* character's are seeded and zero by definition. A companion case sends a field that is
+      not a derived value and asserts it is **ignored**, so the rule cannot drift into *reject
+      anything unexpected*.)
+- [x] Server-side creation applies the same rules the wizard does: race cardinality (`MAX_RACE_COUNT`),
       the archetype requirement when the Snapshot defines archetypes, and `validateStatAllocation`'s
       affordability refusal — each asserted by a rejected request, not by reading the code.
-- [ ] `currentResourceValues` is seeded from the Snapshot's calculated maxima at creation, exactly as
-      `createCharacter` does today, and only for `isResource` stats.
-- [ ] Signed out, the wizard and the sheet work end to end against the local `Configuration` with
+      (`characterCreationErrors` in
+      [characterCreation.ts](../../../src/shared/services/characterCreation.ts) — the Kernel's, so
+      there is one copy. `characters.test.ts`'s *the Kernel's own rules, applied server-side* block:
+      four rejected requests against the real Ducklets corpus, each first asserting the corpus
+      really has the thing being tested — three races to over-blend with, archetypes to require —
+      so none of them can pass by having nothing to check.)
+- [x] `currentResourceValues` is seeded from the Snapshot's calculated maxima at creation, exactly as
+      `createCharacter` does today, and only for `isResource` stats. (`buildCharacter` is now the
+      **only** implementation: `characterStore.createCharacter` calls it, and so does the route.
+      `characters.test.ts` — *should seed every resource stat to its maximum, and nothing else*,
+      which asserts every seeded key is a resource **and** that each value equals what
+      `calculateCharacter` produces for that character against that Snapshot.)
+- [x] Signed out, the wizard and the sheet work end to end against the local `Configuration` with
       the network stubbed to throw — creating and playing a character needs no account (v3 Req 40.0).
-- [ ] An uploaded character from IO-04 that belongs to no session is readable by its owner and is
+      (`integration.test.ts`'s *local mode, with the network unavailable* block, with nothing mocked
+      underneath and `fetch` replaced by something that **throws** rather than a stub returning an
+      error — a stub a `catch` could swallow into a plausible-looking success. Creates, reads the
+      sheet through the calculator, and survives a reload. The existing `characterStore` and wizard
+      tests also pass **unchanged**, which is the milestone's own cheapest proof.)
+- [x] An uploaded character from IO-04 that belongs to no session is readable by its owner and is
       stated as not being at a table — it is not silently invisible.
-- [ ] An uploaded character can be **removed**, and deleting the ruleset it was uploaded with does
-      not leave it behind. Today `removeRuleset` deletes only the ruleset and the cascade from
-      `game_session` cannot reach a row at no table, so uploading and deleting repeatedly accumulates
-      rows nothing can see — see *Current situation*. Whichever way this is closed (a real
-      `ruleset_id` column with a cascade, or an explicit sweep in the delete route), the test is
-      *upload a roster, delete the ruleset, and count the `character` table*.
-- [ ] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions` skill,
+      (`GET /api/characters` →
+      [listMyCharacters.ts](../../../src/server/routes/characters/listMyCharacters.ts), scoped by
+      the caller, **and a surface that renders it**:
+      [UnseatedCharacters.tsx](../../../src/client/components/rulesets/UnseatedCharacters.tsx) under
+      the account home on `/rulesets`, absent rather than empty when there are none. The criterion is
+      worded in User terms and the first pass shipped the route only — the review caught that.
+      `characters.test.ts` — *should be readable by their owner and by nobody else*, which asserts
+      `sessionId` is null and `rulesetId` is not, and *should leave a character that is at a table
+      out of that list*; `UnseatedCharacters.test.tsx` — *says in words that they are in no game*.)
+- [x] An uploaded character can be **removed**, and deleting the ruleset it was uploaded with does
+      not leave it behind. (Closed the **structural** way: `character.ruleset_id` with
+      `ON DELETE CASCADE`, migration `0005_uploaded_character_ruleset`, backfilled from
+      `data.configurationId`. The SQL is hand-written because `drizzle-kit` emits the `ALTER TABLE`
+      **without** the cascade — a column that reads correctly in `schema.ts` and does nothing in the
+      database — and `migrate.test.ts` deletes a ruleset and counts what is left, which is the test
+      this criterion asks for. `DELETE /api/characters/:id` removes one directly, reached from the
+      panel above, and refuses a character at a table with a 409 that says where it lives.)
+- [x] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions` skill,
       plus a live browser check (ask the User first).
+
+      `npx vitest run` **2827 passed / 0 failed / 0 skipped**; `npx tsc --noEmit` at the documented
+      2-error baseline; `yarn run check` clean. The `conventions-reviewer` subagent reviewed the diff
+      with `fallow` folded in, and **its three P1s are fixed** — see *Found by the review* below.
+
+      **Verified live at `localhost:3000`**, signed in as one account, on a table it runs:
+      *Characters at this table* renders under the lobby with its lead about the pinned copy of the
+      rules; *Make a character here* opens that table's Snapshot and lands on the same four-step
+      wizard (which reports *This ruleset defines no races* — the Snapshot's own answer, not the
+      browser ruleset's); creating posts to `POST /api/sessions/:id/characters` (200) and returns to
+      the games list; and re-opening the row shows **Yours — Quackers**, with the lobby's own
+      characters line naming it too. Re-checked after the review's refactors. No console errors.
+
+      **One live path could not be reached with this machine's data**: the *Characters at no table*
+      panel needs an uploaded character, and uploading this browser's roster is refused by IO-04's
+      own shape check — *characters[0].investedStatPoints must be an object of finite numbers keyed
+      by stat id*, a v1-shaped character in the dev database. That refusal is IO-04 working, not a
+      defect here; the panel is correctly **absent** with nothing to show, and its rendering, its
+      wording and its delete are covered by `UnseatedCharacters.test.tsx`.
 
 ## Notes
 
@@ -98,3 +157,58 @@ as it does today or posts to the server. One wizard, two destinations.
 - Character *deletion* is not in this ticket, deliberately. GAM-04 already decided a departing
   player's characters are retained; who may delete one, and whether the Event log tolerates it, is a
   question worth its own ticket rather than a paragraph here.
+
+### Decided while building
+
+- **`configurationId` kept its meaning and gained no sibling.** The Notes proposed a
+  `gameSessionId?` on `Character` for a session character. It is not there: `configurationId` names
+  *the ruleset this character is read against*, and for a session character that ruleset **is** the
+  session's Snapshot — which is reached by the session's id, so the field already holds it. A second
+  optional field would have been a second answer to *where does this character live* that the two
+  could disagree about, and the thing that actually needed recording was the **uploaded** case,
+  which got a real `ruleset_id` column. No `SUPPORTED_SCHEMA_VERSION` bump either way: nothing about
+  the persisted document changed.
+- **`characterCreationErrors` is the wizard's and the server's rule set, not the store's.** Pointing
+  `characterStore.createCharacter` at it made two existing local-mode tests fail — it is stricter
+  than the store ever was, requiring an archetype and a known race — and the milestone's fifth
+  Definition-of-Done rule says a ticket that has to edit those has put the branch in the wrong
+  place. So the store keeps its own two narrower refusals and shares only `buildCharacter`, and the
+  full set runs where there is no wizard standing in front of it.
+- **The session home is read-only, and that is enforced in `persistRuleset` rather than per
+  surface.** `RULESET_HOME.SESSION` is the third value in a union that answers *where do this
+  ruleset's edits go*, and the answer for a Snapshot is *nowhere* (D7). Refused with a sentence
+  rather than ignored: a panel that silently discarded an edit would leave somebody retuning a stat
+  and wondering why nothing stuck.
+- **The wizard's session path opens no sheet afterwards.** It returns to the games list. Nothing can
+  write to a session character yet — spending points and moving a resource go through the server
+  with a revision guard, which is **TICKET-PLY-01's** — and a sheet whose every control quietly lost
+  what it changed would be worse than no sheet. `useCharacterStore` therefore does **not** cache a
+  session's characters, which the ticket's to-be anticipated: caching them would put them behind
+  actions that write LocalStorage, and that is the shape of the data-loss path this defers instead.
+- **Nothing in `docs/imports/` changed.** No `Configuration` entity is added or reshaped;
+  `character.ruleset_id` is a column on the server's own model (D4), and the source spreadsheet has
+  nothing to say about which server row a character belongs to.
+
+### Found by the review
+
+Three things the `conventions-reviewer` pass caught that were wrong rather than merely improvable:
+
+- **Requirement 40 had six criteria and this ticket cited eight.** `40.7` and `40.8` did not exist,
+  and several `40.2`/`40.3` citations pointed at criteria that say something else. The uploaded
+  character's read and delete genuinely had no requirement behind them — IO-04 created that state
+  and described it nowhere — so **`requirements.md` gained 40.7 and 40.8**, which is the honest
+  half to write first; a criterion invented in a JSDoc line is a criterion nobody can find. The
+  mis-mapped citations were corrected against the real list.
+- **Criteria 7 and 8 were met on the wire only.** Both are worded in User terms and neither route
+  had a client caller — an uploaded character was still invisible to every page anybody could
+  reach, which is the exact words of criterion 7. `UnseatedCharacters` on `/rulesets` closes it.
+- **`investedSkillPoints` was the one input nothing policed, and the server was laxer than the
+  browser.** `characterStore.setInvestedSkillPoints` refuses a negative; nothing on the server did,
+  and no rule looked at skill ids at all — so points could be spent on a skill the Snapshot does not
+  have. That is v3 Req 45.3 exactly backwards, since the server is the authoritative side.
+  `pointMap` now refuses a negative and `characterCreationErrors` refuses an unknown skill id.
+
+Also from it: the local-mode integration test was driving `createCharacter` rather than the
+`createCharacterHere` the wizard now calls — passing, but not about the path the criterion names —
+and `seedCharacter`'s docblock claimed its default `configurationId` was the shape production
+writes, which it is not.

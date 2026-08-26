@@ -17,25 +17,37 @@ import type { ReactNode } from 'react';
 // The home a ruleset lives in is a *destination* before it is a label, so the set is declared where
 // the destination is decided (`services/rulesetSync.ts`, TICKET-RUL-02) and this renders it. Two
 // copies of the same two strings is exactly what the const-object rule exists to prevent.
-import { RULESET_HOME, type RulesetHomeKind } from '../../services/rulesetSync';
+import { RULESET_HOME } from '../../services/rulesetSync';
 import { Button } from '../ui/Button/Button';
 import { Text } from '../ui/Text/Text';
 import { accountHomeBadgeStyles, browserHomeBadgeStyles, rulesetRowStyles } from './rulesets.style';
 
+/**
+ * The homes a **card** can be in (TICKET-CHAR-04)
+ *
+ * `RulesetHomeKind` gained a third value — a game's pinned Snapshot — and this card cannot be in it:
+ * a Snapshot is not a ruleset in anybody's list, it is the copy one game plays by, reached from that
+ * game. So the prop is narrowed rather than the tables being padded with a row nothing renders.
+ *
+ * **Still spelled through the constant**, so this is not a bare string union and a renamed home is
+ * a compile error here rather than a silent mismatch.
+ */
+export type RulesetCardHome = typeof RULESET_HOME.BROWSER | typeof RULESET_HOME.ACCOUNT;
+
 /** What each home is called, in the words the User reads */
-const HOME_LABEL: Record<RulesetHomeKind, string> = {
+const HOME_LABEL: Record<RulesetCardHome, string> = {
   [RULESET_HOME.BROWSER]: 'This browser',
   [RULESET_HOME.ACCOUNT]: 'Your account',
 };
 
-const HOME_BADGE: Record<RulesetHomeKind, string> = {
+const HOME_BADGE: Record<RulesetCardHome, string> = {
   [RULESET_HOME.BROWSER]: browserHomeBadgeStyles,
   [RULESET_HOME.ACCOUNT]: accountHomeBadgeStyles,
 };
 
 export interface RulesetCardProps {
   name: string;
-  home: RulesetHomeKind;
+  home: RulesetCardHome;
   /**
    * When it was last saved, in epoch milliseconds
    *

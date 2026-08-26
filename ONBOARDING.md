@@ -238,7 +238,9 @@ formula with `String.includes` — ask the parser.
 TanStack Router, file-based: files in `src/client/routes/` become routes. `/rulesets` is where
 Configuration mode starts — the two homes a ruleset can live in, *this browser* and *your account*
 (TICKET-RUL-01); `/config/*` is the eleven configuration sections; `/play/*` is Play mode (character
-list, creation wizard, character sheet).
+list, creation wizard, character sheet). `/sessions` is connected play, and it is where a **third**
+home is reached from: a game's pinned Snapshot, which the creation wizard runs against when a
+character is being made at a table and which nothing may edit (TICKET-CHAR-04).
 **`src/client/routeTree.gen.ts` is generated — never edit it by hand.**
 
 **A route is open unless it is listed.** `components/auth/protectedRoutes.ts` is an explicit

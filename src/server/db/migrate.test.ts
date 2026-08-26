@@ -640,6 +640,110 @@ describe('runMigrations', () => {
     });
   });
 
+  describe('0005_uploaded_character_ruleset, applied to a database sitting at 0004', () => {
+    /**
+     * A database at the previous schema, holding both kinds of character
+     *
+     * **Hand-written rather than generated, and the test is why.** `drizzle-kit` emits
+     * `ALTER TABLE … ADD ruleset_id text REFERENCES ruleset(id)` and drops the `ON DELETE cascade`
+     * — a column that looks right in `schema.ts` and does nothing at all in the database. The
+     * cascade *is* the feature here (TICKET-CHAR-04), so it is written by hand and asserted below
+     * by deleting a ruleset and counting rows.
+     */
+    function atFourWithCharacters(): Database {
+      const database = emptyDatabase();
+      runMigrations(database, migrationsUpTo(4));
+
+      database.sqlite
+        .prepare(
+          'INSERT INTO ruleset (id, owner_account_id, name, schema_version, revision, data, ' +
+            'created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        )
+        .run('r1', 'acc1', 'Ducklets', 2, 1, '{}', 1, 1);
+      database.sqlite
+        .prepare(
+          'INSERT INTO game_session (id, ruleset_id, dm_account_id, name, status, snapshot, ' +
+            'snapshot_schema_version, snapshot_taken_at, created_at, updated_at) ' +
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        )
+        .run('g1', 'r1', 'acc1', 'Tuesday night', 'active', '{}', 2, 1, 1, 1);
+
+      const insertCharacter = database.sqlite.prepare(
+        'INSERT INTO character (id, session_id, owner_account_id, name, revision, data, ' +
+          'created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      );
+      // The uploaded kind: at no table, naming its ruleset only inside `data` (TICKET-IO-04)
+      insertCharacter.run('c1', null, 'acc1', 'Quackers', 1, '{"configurationId":"r1"}', 1, 1);
+      // …and one at a table, which must be left alone by all of it
+      insertCharacter.run('c2', 'g1', 'acc1', 'Seated', 1, '{"configurationId":"snapshot"}', 1, 1);
+
+      return database;
+    }
+
+    it('starts from a schema with nowhere to put a ruleset', () => {
+      const database = atFourWithCharacters();
+
+      expect(columnNames(database, 'character')).not.toContain('ruleset_id');
+    });
+
+    it('backfills an uploaded character from the id inside its document', () => {
+      const database = atFourWithCharacters();
+
+      runMigrations(database);
+
+      // The one-off `json_extract` the column exists to make unnecessary from here on
+      expect(
+        database.sqlite.prepare('SELECT ruleset_id FROM character WHERE id = ?').get('c1')
+      ).toEqual({ ruleset_id: 'r1' });
+    });
+
+    it('leaves a seated character naming no ruleset', () => {
+      const database = atFourWithCharacters();
+
+      runMigrations(database);
+
+      // A session character plays against a Snapshot; `configurationId` inside its document names
+      // that, not a row in `ruleset`, so the backfill must not reach it
+      expect(
+        database.sqlite.prepare('SELECT ruleset_id FROM character WHERE id = ?').get('c2')
+      ).toEqual({ ruleset_id: null });
+    });
+
+    it('cascades, which is the whole reason the SQL is hand-written', () => {
+      const database = atFourWithCharacters();
+
+      runMigrations(database);
+      database.sqlite.prepare('DELETE FROM ruleset WHERE id = ?').run('r1');
+
+      // `drizzle-kit` emits this ALTER without `ON DELETE cascade`, so a generated migration would
+      // leave the uploaded character behind and this assertion is what catches that
+      expect(database.sqlite.prepare('SELECT id FROM character ORDER BY id').all()).toEqual([
+        { id: 'c2' },
+      ]);
+    });
+
+    it('leaves the session playable when its ruleset goes', () => {
+      const database = atFourWithCharacters();
+
+      runMigrations(database);
+      database.sqlite.prepare('DELETE FROM ruleset WHERE id = ?').run('r1');
+
+      // D7: `game_session.ruleset_id` is SET NULL, not cascade — the table keeps its Snapshot, and
+      // adding a cascade next door must not have changed that
+      expect(database.sqlite.prepare('SELECT id, ruleset_id FROM game_session').all()).toEqual([
+        { id: 'g1', ruleset_id: null },
+      ]);
+    });
+
+    it('records itself beside the five before it', () => {
+      const database = atFourWithCharacters();
+
+      runMigrations(database);
+
+      expect(appliedMigrations(database)).toHaveLength(MIGRATION_COUNT);
+    });
+  });
+
   describe('a migration that fails', () => {
     it('refuses with a MigrationError naming the cause', () => {
       const database = emptyDatabase();

@@ -147,6 +147,81 @@ describe('the two homes', () => {
   });
 });
 
+describe('the third home — a game’s pinned Snapshot (TICKET-CHAR-04)', () => {
+  /** What `GET /api/sessions/:id` answers with, snapshot and all */
+  function sessionResponse(name: string): Response {
+    return new Response(
+      JSON.stringify({
+        id: 'session-1',
+        rulesetId: 'r1',
+        name: 'Friday night',
+        status: 'active',
+        role: 'player',
+        snapshotTakenAt: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        snapshot: ruleset(name),
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    );
+  }
+
+  it('opens the Snapshot and points the home at the session', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => sessionResponse('Pinned at the table'))
+    );
+
+    const opened = await act(() => useConfigStore.getState().openSessionSnapshot('session-1'));
+
+    expect(opened).toBe(true);
+    expect(useConfigStore.getState().config?.name).toBe('Pinned at the table');
+    expect(useConfigStore.getState().source).toEqual({
+      home: RULESET_HOME.SESSION,
+      sessionId: 'session-1',
+    });
+  });
+
+  it('writes nothing to this browser on the way', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => sessionResponse('Pinned at the table'))
+    );
+
+    await act(() => useConfigStore.getState().openSessionSnapshot('session-1'));
+
+    // The homes never meet: the browser's own ruleset is untouched and still there to go back to
+    expect(storage.saveConfiguration).not.toHaveBeenCalled();
+  });
+
+  it('leaves whatever was open alone when it cannot be read', async () => {
+    useConfigStore.setState({ config: ruleset('Still mine'), isLoaded: true });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 404 }))
+    );
+
+    const opened = await act(() => useConfigStore.getState().openSessionSnapshot('session-1'));
+
+    expect(opened).toBe(false);
+    expect(useConfigStore.getState().config?.name).toBe('Still mine');
+    expect(useConfigStore.getState().source).toEqual({ home: RULESET_HOME.BROWSER });
+    // A **load** failure, reported where a load failure is reported
+    expect(useUIStore.getState().rulesetAlert).not.toBeNull();
+  });
+
+  it('goes back to the browser’s own ruleset when asked', () => {
+    useConfigStore.setState({ source: { home: RULESET_HOME.SESSION, sessionId: 'session-1' } });
+
+    act(() => useConfigStore.getState().openLocalRuleset());
+
+    // What the wizard does after creating a character at a table, so `/config` is never left
+    // showing a game's rules with nothing saying so (v3 Req 36.8)
+    expect(useConfigStore.getState().source).toEqual({ home: RULESET_HOME.BROWSER });
+    expect(useConfigStore.getState().config?.name).toBe('In this browser');
+  });
+});
+
 describe('what “this browser” holds while the account’s ruleset is open', () => {
   it('keeps reporting the browser’s own ruleset, not the one in memory', () => {
     // `/rulesets` draws both homes at once, so the local row cannot read `config` — that is the

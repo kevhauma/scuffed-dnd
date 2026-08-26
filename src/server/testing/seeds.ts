@@ -13,9 +13,10 @@
  *
  * **Where a repository exists, the seed calls it.** `seedRuleset` goes through `insertRuleset` and
  * `seedSession` through `insertGameSession` (TICKET-GAM-01), so a change to how either is stored
- * reaches the fixtures without anyone remembering to update them. `seedCharacter` still writes with
- * Drizzle because TICKET-CHAR-04 has not built the create it needs — **point it at that when it
- * lands**, rather than leaving a second way to create a character in the tree.
+ * reaches the fixtures without anyone remembering to update them. **TICKET-CHAR-04 finished the
+ * job**: `seedCharacter` goes through `insertSessionCharacter`, so there is no longer a second way
+ * to create a character in the tree, and the fixture cannot get wrong what the repository knows —
+ * that a session character names no ruleset, which a raw insert had no reason to know.
  *
  * **Validates: v3 Req 45.3**
  */
@@ -23,6 +24,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { Character } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
 import type { Database } from '../db/client';
 import {
@@ -35,7 +37,7 @@ import {
   sessionMember,
 } from '../db/schema';
 import type { RequestAccount } from '../http/pipeline';
-import type { CharacterRow } from '../repositories/characterRepository';
+import { type CharacterRow, insertSessionCharacter } from '../repositories/characterRepository';
 import {
   findSessionMember,
   type GameSessionRow,
@@ -364,29 +366,73 @@ export interface SeedCharacterOptions {
 /**
  * A character in a session
  *
- * `data` defaults to an empty object rather than to a plausible-looking character: what belongs in
- * there is the Kernel's answer, and CHAR-04 is the ticket that decides it. A fixture guessing now
- * would be a second definition of player state for a later ticket to disagree with.
+ * **Through `insertSessionCharacter` since TICKET-CHAR-04**, which is what this file's header asked
+ * for: the fixture stopped writing the `character` table itself the moment there was a repository
+ * function that knew how one is stored — including that a session character names **no** ruleset,
+ * which a raw insert had no reason to know and would have got wrong.
+ *
+ * `data` also stopped being `'{}'`. That was honest while nothing had decided what a session
+ * character's player state is; CHAR-04 decided, and the default is now a real `Character` that
+ * `isReadableCharacter` accepts, so a route that parses one in a test is parsing a shape it can
+ * parse in production. It is deliberately **not** run through `buildCharacter`: seeding the
+ * resource maxima means evaluating every formula in a 306 KB ruleset, per character, in fixtures
+ * that mostly care about who owns what.
+ *
+ * **`configurationId` is a placeholder here and production's is not the same value.** A real one
+ * names the Snapshot, which `copyConfiguration` mints a fresh id for when the session is created —
+ * neither the session's id nor the ruleset's. Nothing in the tree reads a *session* character's
+ * `configurationId` yet (the sheet is TICKET-PLY-01's), so the fixture puts the session id there as
+ * the nearest true thing and says so rather than implying a shape production produces. The first
+ * test that depends on it should pass `data` and mean it.
  *
  * @param database The connection
  * @param options Which session it belongs to, and anything else the test cares about
  * @returns The stored row
  */
 export function seedCharacter(database: Database, options: SeedCharacterOptions): CharacterRow {
-  return database.db
-    .insert(character)
-    .values({
-      id: options.id ?? nextId('character'),
+  const id = options.id ?? nextId('character');
+  const name = options.name ?? 'Ducklet';
+
+  return insertSessionCharacter(
+    {
+      id,
       sessionId: options.session.id,
       ownerAccountId: accountId(options.owner ?? seedAccount()),
-      name: options.name ?? 'Ducklet',
-      revision: 1,
-      data: options.data ?? '{}',
-      createdAt: SEEDED_AT,
-      updatedAt: SEEDED_AT,
-    })
-    .returning()
-    .get();
+      name,
+      data: options.data ?? JSON.stringify(plainCharacter(id, name, options.session.id)),
+      now: SEEDED_AT,
+    },
+    database
+  );
+}
+
+/**
+ * The least a `Character` can be and still be one
+ *
+ * Every field `isReadableCharacter` requires, and nothing invented beyond them: no races, no
+ * allocation, no experience. A fixture that picked a race would be making a claim about the corpus
+ * that the next ruleset change could quietly falsify.
+ *
+ * @param id The character's id
+ * @param name What it is called
+ * @param sessionId The table it plays at, stood in `configurationId` as a placeholder — see the
+ *   note on {@link seedCharacter} for why that is not the value production writes
+ * @returns The player state
+ */
+function plainCharacter(id: string, name: string, sessionId: string): Character {
+  return {
+    id,
+    name,
+    configurationId: sessionId,
+    raceIds: [],
+    investedStatPoints: {},
+    investedSkillPoints: {},
+    currentResourceValues: {},
+    experience: 0,
+    inventory: { equippedItems: {}, miscItems: [] },
+    createdAt: new Date(SEEDED_AT).toISOString(),
+    updatedAt: new Date(SEEDED_AT).toISOString(),
+  };
 }
 
 /** Every ruleset row, for a test that counts rather than looks one up */
