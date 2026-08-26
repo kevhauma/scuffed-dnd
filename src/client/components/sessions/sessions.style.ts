@@ -48,6 +48,17 @@ export const playerBadgeStyles = `${badgeStyles} text-royal`;
 export const archivedBadgeStyles = `${badgeStyles} text-stone-400`;
 
 /**
+ * *We cannot tell whether they are connected* — the lobby's column until LIVE-03 (TICKET-GAM-04)
+ *
+ * The same `stone` as an archived table, and for the same reason: neither is good news or bad, and
+ * colouring either one would be a claim. Here rather than in the component even though the string
+ * is identical to the line above — the note on `archivedBadgeStyles` records how a stone token
+ * silently resolved to stock Tailwind grey in the GAM-02 review, and a second copy in a second file
+ * is exactly how that comes back.
+ */
+export const unknownBadgeStyles = `${badgeStyles} text-stone-400`;
+
+/**
  * The code itself, set so it can be read aloud from across a table
  *
  * Monospaced and widely tracked because that is what the whole alphabet decision was for: the

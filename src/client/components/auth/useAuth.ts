@@ -22,6 +22,16 @@ import { authClient } from './authClient';
 
 /** What the shell and the guards need to know */
 export interface AuthState {
+  /**
+   * The signed-in Account's id, or null when nobody is signed in (TICKET-GAM-04)
+   *
+   * **The same id every server table keys on**, which is what makes it useful: GAM-04's lobby is
+   * the first surface listing *other people*, and it has to tell which row is you before it can
+   * offer *Leave* on yours and *Remove* on theirs. The alternative was a per-caller `isYou` on the
+   * wire; this is the same fact the cookie already established, so asking the server to repeat it
+   * would be a second copy of something the client is holding anyway.
+   */
+  accountId: string | null;
   /** The signed-in Account's email, or null when nobody is signed in */
   email: string | null;
   /** True while the answer is still unknown — neither signed in nor signed out */
@@ -39,6 +49,7 @@ export function useAuth(): AuthState {
   const { data, isPending } = authClient.useSession();
 
   return {
+    accountId: data?.user.id ?? null,
     email: data?.user.email ?? null,
     isPending,
     isSignedIn: Boolean(data?.user),

@@ -70,13 +70,23 @@ export const SESSION_SUBJECT = 'game session';
 /** The collection every session id sits one segment under */
 const SESSIONS_PREFIX = '/api/sessions/';
 
+/** The one sub-collection that carries an id of its own (TICKET-GAM-04) */
+const MEMBERS_SEGMENT = 'members';
+
 /**
  * Which session a path named
  *
  * `rulesetIdFrom`'s twin, and deliberately a second small function rather than a shared one
  * parameterised by prefix: the two are four lines each, and a `idFrom(url, prefix)` would be an
- * abstraction whose only content is the thing that differs. **Two shapes are real** —
- * `/api/sessions/:id` and `/api/sessions/:id/<action>` — and nothing deeper is.
+ * abstraction whose only content is the thing that differs.
+ *
+ * **Three shapes are real** — `/api/sessions/:id`, `/api/sessions/:id/<action>` and, since
+ * TICKET-GAM-04, `/api/sessions/:id/members/:accountId`. Nothing else is, and the third is named
+ * rather than admitted as *any two-deep path*: a depth cap alone would read `/api/sessions/abc/x/y`
+ * as naming session `abc`, which is a plausible-looking id built out of nonsense. In production the
+ * router has already matched a real route before any handler runs, so a miss here only happens for a
+ * handler called directly in a test — where an empty id is a 404 like any other unknown one rather
+ * than a crash.
  *
  * @param url The request URL
  * @returns The id segment, or an empty string when the path has none
@@ -86,7 +96,26 @@ export function sessionIdFrom(url: URL): string {
 
   const [id, ...rest] = url.pathname.slice(SESSIONS_PREFIX.length).split('/');
 
-  return rest.length <= 1 ? id : '';
+  if (rest.length <= 1) return id;
+
+  return rest.length === 2 && rest[0] === MEMBERS_SEGMENT ? id : '';
+}
+
+/**
+ * Which Member a path named (TICKET-GAM-04)
+ *
+ * Only `/api/sessions/:id/members/:accountId` carries one, so anything else is an empty string and
+ * the route it reaches will refuse it like any other unknown Member.
+ *
+ * @param url The request URL
+ * @returns The account id segment, or an empty string when the path names no Member
+ */
+export function memberAccountIdFrom(url: URL): string {
+  if (!url.pathname.startsWith(SESSIONS_PREFIX)) return '';
+
+  const [, collection, accountId, ...rest] = url.pathname.slice(SESSIONS_PREFIX.length).split('/');
+
+  return collection === MEMBERS_SEGMENT && rest.length === 0 ? (accountId ?? '') : '';
 }
 
 /**

@@ -27,9 +27,10 @@
  * **Validates: v3 Req 32.3, 32.4**
  */
 
-import { and, count, desc, eq } from 'drizzle-orm';
+import { and, asc, count, desc, eq } from 'drizzle-orm';
 import { type Database, getDatabase } from '../db/client';
 import {
+  authUser,
   character,
   gameSession,
   MEMBER_ROLE,
@@ -471,4 +472,134 @@ export function charactersInSession(
   database: Database = getDatabase()
 ): CharacterRow[] {
   return database.db.select().from(character).where(eq(character.sessionId, sessionId)).all();
+}
+
+/** Who is at a table, with the name their Account signed up with (TICKET-GAM-04) */
+export interface SessionMemberRowWithName extends SessionMemberRow {
+  /** `null` when the Account's `user` row has gone — the seat outlives the profile */
+  name: string | null;
+}
+
+/**
+ * Everyone at a table, the DM first and then in the order they joined (v3 Req 39.7)
+ *
+ * **Left-joined on the Account**, so a membership whose `user` row has gone still appears rather
+ * than dropping somebody silently out of a roster. Naming them is the route's problem.
+ *
+ * **Ordered by when they joined, and nothing else.** The lobby shows the DM first, which is a
+ * decision about how a roster is *read* and belongs to the route that renders one — a first draft
+ * did it here with `ORDER BY role`, which works only because `'dm'` happens to sort before
+ * `'player'`, so renaming a `MEMBER_ROLE` value would have silently reordered the page.
+ *
+ * @param sessionId Which table
+ * @param database The connection; defaults to the process's
+ * @returns The membership rows, each with a name where there is one
+ */
+export function listSessionMembers(
+  sessionId: string,
+  database: Database = getDatabase()
+): SessionMemberRowWithName[] {
+  return database.db
+    .select({
+      id: sessionMember.id,
+      sessionId: sessionMember.sessionId,
+      accountId: sessionMember.accountId,
+      role: sessionMember.role,
+      joinedAt: sessionMember.joinedAt,
+      name: authUser.name,
+    })
+    .from(sessionMember)
+    .leftJoin(authUser, eq(authUser.id, sessionMember.accountId))
+    .where(eq(sessionMember.sessionId, sessionId))
+    .orderBy(asc(sessionMember.joinedAt))
+    .all();
+}
+
+/**
+ * Take a seat away (v3 Req 39.3, 39.5)
+ *
+ * **One function for *remove* and for *leave*, because they are one act with two actors.** Who is
+ * allowed to do it is the route's question and the guards'; what happens to the table is identical
+ * either way, and two functions would be two places for the retention rule to be forgotten.
+ *
+ * **Nothing touches `character`.** That is the retention rule, and it is enforced by this function
+ * doing nothing about it rather than by a `WHERE` somebody has to remember — a departed Member's
+ * Characters keep their `session_id` and their `owner_account_id`, which is also what makes a
+ * rejoin restore write access without reassigning anything.
+ *
+ * @param sessionId Which table
+ * @param accountId Whose seat
+ * @param database The connection; defaults to the process's
+ * @returns True when a seat was actually taken away
+ */
+export function removeSessionMember(
+  sessionId: string,
+  accountId: string,
+  database: Database = getDatabase()
+): boolean {
+  return (
+    database.db
+      .delete(sessionMember)
+      .where(and(eq(sessionMember.sessionId, sessionId), eq(sessionMember.accountId, accountId)))
+      .returning()
+      .all().length > 0
+  );
+}
+
+/**
+ * Hand the table over (v3 Req 39.2, 39.4)
+ *
+ * **Three writes in one transaction, because the invariant spans all three.** The session's
+ * `dm_account_id`, the outgoing DM's membership row and the incoming one — and the schema carries a
+ * **partial unique index** (`session_member_one_dm`) that refuses two `dm` rows per session, so the
+ * demotion has to land before the promotion or the statement fails. Ordered that way deliberately:
+ * a transaction that failed halfway would roll back to exactly one DM, which is the criterion.
+ *
+ * **`session_member` is the authority and `dm_account_id` is the mirror**, which is `auth/guards.ts`'s
+ * rule — but both are written, because a listing that read the stale column would show the wrong
+ * person running the game.
+ *
+ * @param sessionId Which table
+ * @param from The outgoing DM's account id
+ * @param to The incoming DM's account id — they must already be a Member
+ * @param now Epoch milliseconds
+ * @param database The connection; defaults to the process's
+ * @returns The session **as it is now** — the route answers with it, and a row read before the
+ *   write would carry the old `dm_account_id` and the old `updated_at`
+ */
+export function transferDungeonMaster(
+  sessionId: string,
+  from: string,
+  to: string,
+  now: number,
+  database: Database = getDatabase()
+): GameSessionRow {
+  return database.db.transaction((tx) => {
+    // **Demote first.** The partial unique index allows one `dm` row per session, so promoting
+    // before demoting would fail on the constraint rather than on anything a caller did wrong.
+    tx.update(sessionMember)
+      .set({ role: MEMBER_ROLE.PLAYER })
+      .where(and(eq(sessionMember.sessionId, sessionId), eq(sessionMember.accountId, from)))
+      .run();
+
+    const promoted = tx
+      .update(sessionMember)
+      .set({ role: MEMBER_ROLE.DM })
+      .where(and(eq(sessionMember.sessionId, sessionId), eq(sessionMember.accountId, to)))
+      .returning()
+      .get();
+
+    // The route checked they are a Member before calling; if that is no longer true the whole
+    // transaction rolls back rather than leaving a table with no DM at all
+    if (!promoted) {
+      throw new Error(`transferDungeonMaster: ${to} is not a member of ${sessionId}`);
+    }
+
+    return tx
+      .update(gameSession)
+      .set({ dmAccountId: to, updatedAt: now })
+      .where(eq(gameSession.id, sessionId))
+      .returning()
+      .get();
+  });
 }

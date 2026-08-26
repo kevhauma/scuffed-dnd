@@ -19,6 +19,7 @@ import { MEMBER_ROLE, SESSION_STATUS } from '#shared/types/api';
 import { SessionList } from './SessionList';
 import type { SessionInvitationsState } from './useSessionInvitations';
 import type { SessionInviteState } from './useSessionInvite';
+import type { SessionMembersState } from './useSessionMembers';
 
 /** One table, as the listing carries it */
 function session(overrides: Partial<GameSessionSummary> = {}): GameSessionSummary {
@@ -64,6 +65,20 @@ function invitations(overrides: Partial<SessionInvitationsState> = {}): SessionI
   };
 }
 
+/** The roster hook's state, inert unless a case says otherwise (TICKET-GAM-04) */
+function members(overrides: Partial<SessionMembersState> = {}): SessionMembersState {
+  return {
+    members: [],
+    departedCharacters: [],
+    isPending: false,
+    isBusy: false,
+    error: null,
+    remove: vi.fn(async () => true),
+    transfer: vi.fn(async () => true),
+    ...overrides,
+  };
+}
+
 /** The list with everything defaulted to "one table you run" */
 function renderList(props: Partial<React.ComponentProps<typeof SessionList>> = {}) {
   const onToggle = vi.fn();
@@ -76,6 +91,10 @@ function renderList(props: Partial<React.ComponentProps<typeof SessionList>> = {
       onToggle={onToggle}
       invite={invite()}
       invitations={invitations()}
+      members={members()}
+      accountId="account-1"
+      onRemoveMember={vi.fn()}
+      onTransferDm={vi.fn()}
       {...props}
     />
   );
@@ -101,16 +120,19 @@ describe('SessionList', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('offers the invitation only on a table you run', () => {
+  it('lets a player open their row too, since TICKET-GAM-04', () => {
+    // It used to be the DM's alone, because the only thing behind a row was the invitation. The
+    // lobby is everybody's: a table is other people, and a player who could not see who else was
+    // at theirs would be playing alone with extra steps (v3 Req 39.7).
     renderList({ sessions: [session({ role: MEMBER_ROLE.PLAYER })] });
 
-    expect(screen.queryByRole('button', { name: 'Invite' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Who is here' })).toBeTruthy();
   });
 
-  it('opens the invitation on request', () => {
+  it('opens the row on request', () => {
     const { onToggle } = renderList();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Invite' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Who is here' }));
 
     expect(onToggle).toHaveBeenCalledWith('session-1');
   });
@@ -128,11 +150,15 @@ describe('SessionList', () => {
   });
 
   it('never shows a code on a player’s row, whatever the hook holds', () => {
-    // The server omits `inviteCode` for a player, so the hook would hold `null` — but the row does
-    // not expand at all, which is the client mirroring the rule rather than relying on it
+    // The server omits `invite` for a player, so the hook would hold `null` — and since GAM-04 a
+    // player's row **does** expand, onto the lobby. What keeps the code off it is the `isDm` gate
+    // around both invitation panels, which is the client mirroring the server's rule rather than
+    // relying on it. This case hands the hook a live code to prove the gate is what does the work.
     renderList({ sessions: [session({ role: MEMBER_ROLE.PLAYER })], openSessionId: 'session-1' });
 
     expect(screen.queryByText('A1B2C-3D4E5')).toBeNull();
+    // …and the lobby really did render, so this is not passing by showing nothing at all
+    expect(screen.getByText('Who is at this table')).toBeTruthy();
   });
 
   it('says nothing is here rather than showing an empty list', () => {

@@ -400,6 +400,64 @@ export interface PendingInvitationListing {
 }
 
 /**
+ * One Character, as a name on somebody else's row (TICKET-GAM-04)
+ *
+ * **Deliberately two fields.** The lobby says *who is at this table and what are they playing*; a
+ * sheet is CHAR-04's, and a member list that carried whole characters would be a list somebody
+ * renders a sheet from — `RulesetSummary`'s rule, one aggregate over.
+ */
+export interface SessionCharacterSummary {
+  id: string;
+  name: string;
+}
+
+/**
+ * One Member of a table (v3 Req 39.7, TICKET-GAM-04)
+ *
+ * **There is no `presence` field, and its absence is the design.** The requirement asks the lobby to
+ * show a connection state, and the server cannot observe one until LIVE-01's socket exists — so the
+ * column is rendered as *Unknown* by the client rather than sent as a value the server invented.
+ * Shipping `presence: 'unknown'` would be a field with one possible value and a claim the server
+ * cannot support; LIVE-03 adds it here when there is something real to put in it.
+ */
+export interface SessionMemberSummary {
+  /** Better Auth's account id — what remove and transfer are addressed to */
+  accountId: string;
+  /** The name that Account signed up with */
+  name: string;
+  role: MemberRole;
+  joinedAt: number;
+  /**
+   * Their Characters at this table, retained even after they leave (v3 Req 39.3, 39.5)
+   *
+   * A departed Member keeps no row here — they are gone from the list — but their characters stay
+   * in the session and appear on {@link SessionMemberListing.departedCharacters}.
+   */
+  characters: SessionCharacterSummary[];
+}
+
+/**
+ * What `GET /api/sessions/:id/members` answers (v3 Req 39.7)
+ *
+ * **Characters outlive memberships**, which is the one thing this shape has to express that a plain
+ * list of Members cannot: removing somebody retains their Characters as read-only rather than
+ * deleting them (v3 Req 39.3), so a session can hold a character whose owner is nobody at the table.
+ * They are listed separately rather than under a ghost Member, because *who is here* and *what is
+ * still on the table* are two different questions and answering them in one list makes both unclear.
+ */
+export interface SessionMemberListing {
+  members: SessionMemberSummary[];
+  /** Characters whose owner has left or been removed — readable by Members, writable by nobody */
+  departedCharacters: SessionCharacterSummary[];
+}
+
+/** What a DM sends to hand the table over (v3 Req 39.4) */
+export interface TransferDmRequest {
+  /** The Member who becomes the DM. They must already be at the table. */
+  accountId: string;
+}
+
+/**
  * Why a Snapshot refresh was refused (v3 Req 37.6)
  *
  * **One entry per character that would break, naming the character and what breaks** — the ticket's

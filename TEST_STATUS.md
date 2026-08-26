@@ -1,8 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-26 (`npx vitest run`), after **TICKET-GAM-03 — invite by email, delivered
-on-platform**.
-The checkpoints before it were **TICKET-GAM-02 — invite codes and joining a table** at 2625,
+_Last verified: 2026-08-26 (`npx vitest run`), after **TICKET-GAM-04 — membership, roles and the
+session lobby**.
+The checkpoints before it were **TICKET-GAM-03 — invite by email** at 2707,
+**TICKET-GAM-02 — invite codes and joining a table** at 2625,
 **TICKET-GAM-01 — game sessions and pinned Snapshots** at 2526,
 **TICKET-IO-04 — import creates a ruleset** at 2474,
 **TICKET-RUL-03 — copy a ruleset** at 2370,
@@ -23,12 +24,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 2707
-- **Passing**: 2707 (100%)
+- **Total tests**: 2754
+- **Passing**: 2754 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **168 files**: `server` in node, everything else in happy-dom.
+Split across **171 files**: `server` in node, everything else in happy-dom.
 
 ## The suite now runs in two environments
 
@@ -46,6 +47,41 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-GAM-04 — the criterion that says a *retained* thing is writable by nobody
+
+The **+47 over GAM-03** is TICKET-GAM-04: 24 in `server/routes/sessions/membership.test.ts`,
+13 in `client/components/sessions/SessionLobby.test.tsx`, 9 in `useSessionMembers.test.ts`, and 1
+in `auth/guards.test.ts`.
+
+**Retention is easy to implement as *the owner keeps writing*, and the criterion says the
+opposite.** Removing a Member keeps their Characters at the table, readable by the remaining
+Members and writable by **nobody — the DM's own controls included** (v3 Req 39.3). So
+`requireCharacterWriter` had to start asking about the **owner's** membership before it asks
+anything about the caller, and the test that matters most walks the whole arc in one case: the
+owner may write, the DM may write, the owner is removed, and now neither may. A pair of assertions
+either side of one `remove` is the only shape that catches a guard which checks the wrong person.
+
+**Two of AUTH-03's existing guard tests had to change, and that is worth saying out loud rather than
+letting a diff imply it.** Their fixtures seeded a character whose owner had never been seated —
+which nothing cared about under the old rule, and which is now the *orphan* case. They were
+testing v3 Req 32.4 by accident against a row that no longer means what they meant; seating the
+owner is what makes them test the thing their names claim again, and the orphan case got a test of
+its own beside them.
+
+**One DM per session is asserted against the database, not against the route.** The route never
+tries to create a second, so a test that only drove routes would be proving the route's own
+caution. `session_member_one_dm` is a partial unique index, and the case inserts straight past
+every guard to watch it refuse (v3 Req 39.2) — plus a second case that counts the DMs after a
+transfer, which is the one moment the constraint is actually under pressure.
+
+**Two cases came out of the review rather than out of the plan**, and both are the same shape — a
+success that could pass for a failure. Giving up your own seat is followed by a re-read of a route
+you have just stopped being able to see, so `useSessionMembers.test.ts`'s *treats a 404 on the
+re-read as "you have left", not as a fault* drives the whole arc with a `fetch` that starts
+answering 404 after the `DELETE`; and `membership.test.ts`'s *should answer with the session as it
+is now, not as it was read* catches a transfer answering from the row it loaded **before** it
+wrote. Neither was visible from either end alone.
 
 ## TICKET-GAM-03 — delivery with no transport, and a column that became nullable
 
@@ -982,6 +1018,7 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/client/components/auth/AuthForm.tsx` | 6.2 | TICKET-GAM-02's run | 3 commits, 0.07 density | ▲ **Accelerating** |
 | `src/client/routes/signin.tsx` | 7.2 | TICKET-GAM-02's run | 3 commits, 0.07 density | ▲ **Accelerating** |
 | `src/client/routeTree.gen.ts` | 5.5 | TICKET-GAM-02's run | 4 commits, 0.03 density | ▲ **Accelerating** — generated |
+| `src/server/auth/guards.ts` | 8.3 | TICKET-GAM-04's run | 3 commits, 252 churn, 0.08 density | ▲ **Accelerating — TICKET-GAM-04** |
 
 **Both Accelerating rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they
 crossed the three-commit floor and became measurable at all. Recorded under the run that first saw
@@ -1115,6 +1152,16 @@ them, with the tickets that moved them named here rather than lost:
   edited, so its Accelerating tag is a fact about how many tickets added routes rather than about
   the file. It is listed because the rule says a touched file gets a row, and silently exempting
   the one file that always qualifies would make the table's completeness a judgement call.
+- **`src/server/auth/guards.ts` — a new row, moved by TICKET-GAM-04**, and the only file this
+  milestone has that is *the* place a rule lives. Three tickets have edited it: AUTH-03 wrote it,
+  GAM-03 added `requireInvitee`, GAM-04 reordered `requireCharacterWriter` for retention. The
+  density is 0.08 — the bottom of the table — and the churn is what a file of six small functions
+  looks like when each ticket adds or reshapes exactly one. **What makes it worth a row anyway is
+  its fan-in of 30**: it is the module nothing may duplicate, so a mistake here is a mistake
+  everywhere at once, and that is the argument for reading it slowly rather than for splitting it
+  up. **The signal is a guard that needs a second lookup to answer** — `requireCharacterWriter` now
+  takes two, which is the most any of them does; a third would mean the question has stopped being
+  *may they?* and started being a query, and the query belongs in a repository.
 
 `scripts/build-sheet-import.mjs` (62.5) and `vite.config.ts` (3.3) are above the threshold and
 **stable**, and no ticket in this milestone has touched either. `src/server/testing/database.ts` and the

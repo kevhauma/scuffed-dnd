@@ -531,6 +531,12 @@ each later ticket adds.
   Beside them, `routes/sessions/issueInvite.ts` and `revokeInvite.ts` are the DM's half; **archived
   refuses issuing but allows revoking**, because a DM who archived first must still be able to
   invalidate a link they posted publicly.
+  **GAM-04 closed the membership half**: `GET /api/sessions/:id/members` is the lobby (every Member
+  reads it, not just the DM); `DELETE /api/sessions/:id/members/:accountId` is **remove and leave in
+  one route**, because they are one act with two actors and who may ask is three comparisons rather
+  than a second file; `POST /api/sessions/:id/dm` transfers the role, in one transaction that
+  demotes before it promotes because `session_member_one_dm` is a partial unique index. The DM's own
+  seat is refused (v3 Req 39.6) and the refusal names the way out.
 - `routes/invitations/` (TICKET-GAM-03) — the **addressed** invitation, and the first collection in
   the app scoped to an **Account** rather than to a ruleset or a session: an invitee is not a Member
   of the table that wrote to them, so there is no session id they could put in the path.
@@ -553,7 +559,10 @@ each later ticket adds.
   decides *may they*** — `requireAccount`, `requireOwner`, `requireMember`, `requireDM`,
   `requireCharacterWriter`, and GAM-03's **`requireInvitee`**, the odd one: an invitee owns nothing
   and sits at no table, so what stands in for ownership is that the invitation's `email` matches the
-  one their Account registered. Two refusals and the line between them is the design: **401 before any
+  one their Account registered. **GAM-04 changed `requireCharacterWriter`**: it asks whether the
+  **owner** still holds a seat before it asks anything about the caller, so a departed Member's
+  Characters are read-only for everybody — the DM included — which is what retention means
+  (v3 Req 39.3). Two refusals and the line between them is the design: **401 before any
   lookup** (so it says nothing about the resource, and the client can offer sign-in), **404 for
   everything after** — wrong Account, non-member, player-asking-for-DM and missing id are one
   answer, which is v3 Req 32.5. Each guard returns the loaded row so a handler does not fetch
@@ -606,6 +615,11 @@ each later ticket adds.
   which is what makes an invitation sent before the Account existed surface the moment it does) and
   the three settle writes, plus **`accountRepository`** — an address book over Better Auth's `user`
   table, read-only, because identity is the library's to write.
+  **GAM-04 added the membership writes**: `listSessionMembers` (left-joined on the Account, so a
+  seat outlives a missing profile), `departedCharactersInSession`, `removeSessionMember` — which
+  touches **only** `session_member`, and that *is* the retention rule rather than a `WHERE` somebody
+  has to remember — and `transferDungeonMaster`, one transaction over three rows, demoting before
+  promoting because the partial unique index allows one `dm` per session.
   **Every function takes its connection as a defaulted *last* parameter** — `findRuleset(id)` in
   production, `findRuleset(id, database)` in a test. That is not style: the same rule that keeps
   queries here forbids a handler from importing `db/client`, so a connection-first signature is one
@@ -828,6 +842,19 @@ shown nothing would read that as *I never issued one*. `useSessionInvite` holds 
 slow response cannot overwrite a code issued since. Wording for a refusal is the **server's**
 sentence rendered, never a summary: v3 Req 38.4 asks for four distinct messages and a surface that
 flattened them would be inventing a fifth nobody decided on.
+
+**GAM-04 added `SessionLobby`, and it is the first surface in the app that shows other people.** It
+sits at the top of an expanded row — **every** row now, not just a DM's, because a table is other
+people and a player who could not see who else was at theirs would be playing alone with extra
+steps. Driven by `useSessionMembers(sessionId)`, the third hook on that keyed-on-the-open-row
+skeleton. Three things about it are decisions rather than details: the connection column says
+**Unknown** because the app genuinely cannot tell until LIVE-03 and *Offline* would be a claim it
+cannot support; all three actions confirm through `ui/Dialog` and each sentence says **nothing is
+deleted**, because *removed* reads like *deleted* and here it is not; and a DM's own row offers
+neither *Leave* nor *Remove*, which is v3 Req 39.6 drawn rather than guessed. **TICKET-DM-04 grows
+this into the DM's roster** — it is the session's one member list, not a page that needs a sibling.
+`useAuth` gained `accountId` for it, so the lobby can tell which row is yours without the server
+sending a per-caller flag.
 
 **GAM-03 added the other kind of invitation, on both sides of it.** For the DM, `AddressedInvitePanel`
 sits under `InviteCodePanel` in an expanded row, driven by `useSessionInvitations(sessionId)` — a

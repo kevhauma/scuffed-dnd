@@ -6,10 +6,13 @@
  * different situations with different affordances, and a row that left the reader to infer which
  * would be a row that leaves them to guess whether they can invite anybody.
  *
- * **Only a DM's row expands**, because the only thing behind it today is the invitation and that is
- * the DM's. GAM-04's roster is what gives a player something to open.
+ * **Every row expands, since TICKET-GAM-04.** It used to be the DM's alone, because the only thing
+ * behind one was the invitation — and that is still the DM's. What everybody now gets is the lobby:
+ * a table is other people, and a player who could not see who else was at theirs would be playing
+ * alone with extra steps. So the button is *Who is here* rather than *Invite*, and the invitation
+ * panels sit under it for the one Member they belong to.
  *
- * **Validates: v3 Req 37.1, 38.1**
+ * **Validates: v3 Req 37.1, 38.1, 39.7**
  */
 
 import type { GameSessionSummary, MemberRole } from '#shared/types/api';
@@ -19,6 +22,7 @@ import { Card } from '../ui/Card/Card';
 import { Text } from '../ui/Text/Text';
 import { AddressedInvitePanel } from './AddressedInvitePanel';
 import { InviteCodePanel } from './InviteCodePanel';
+import { SessionLobby } from './SessionLobby';
 import { readableMoment } from './sessionMoment';
 import {
   archivedBadgeStyles,
@@ -29,6 +33,7 @@ import {
 } from './sessions.style';
 import type { SessionInvitationsState } from './useSessionInvitations';
 import type { SessionInviteState } from './useSessionInvite';
+import type { SessionMembersState } from './useSessionMembers';
 
 export interface SessionListProps {
   sessions: GameSessionSummary[];
@@ -41,6 +46,12 @@ export interface SessionListProps {
   invite: SessionInviteState;
   /** The open row's addressed invitations (TICKET-GAM-03) */
   invitations: SessionInvitationsState;
+  /** Who is at the open row's table — without its writes, which arrive wrapped below */
+  members: Omit<SessionMembersState, 'remove' | 'transfer'>;
+  /** Which Account is reading, so the lobby can tell its own row apart */
+  accountId: string | null;
+  onRemoveMember: (accountId: string) => void;
+  onTransferDm: (accountId: string) => void;
 }
 
 /**
@@ -54,20 +65,25 @@ const ROLE_BADGE: Record<MemberRole, { label: string; className: string }> = {
   [MEMBER_ROLE.PLAYER]: { label: 'You play here', className: playerBadgeStyles },
 };
 
-/** One table, and the invitation behind it when it is yours and open */
+/** One table: who is at it, and — for its DM — the two ways to invite somebody else */
 function SessionRow({
   session,
   isOpen,
   onToggle,
   invite,
   invitations,
+  members,
+  accountId,
+  onRemoveMember,
+  onTransferDm,
 }: {
   session: GameSessionSummary;
   isOpen: boolean;
   onToggle: () => void;
-  invite: SessionInviteState;
-  invitations: SessionInvitationsState;
-}) {
+} & Pick<
+  SessionListProps,
+  'invite' | 'invitations' | 'members' | 'accountId' | 'onRemoveMember' | 'onTransferDm'
+>) {
   const isDm = session.role === MEMBER_ROLE.DM;
   const badge = ROLE_BADGE[session.role];
   // The server refuses both kinds of invitation on an archived table (`requireActive`), so both
@@ -90,33 +106,52 @@ function SessionRow({
           )}
         </div>
 
-        {isDm && (
-          <Button variant="secondary" size="sm" onClick={onToggle}>
-            {isOpen ? 'Hide invite' : 'Invite'}
-          </Button>
-        )}
+        {/* Every row, since GAM-04 — a player has a lobby to open even though the invitations
+            behind it are not theirs */}
+        <Button variant="secondary" size="sm" onClick={onToggle}>
+          {isOpen ? 'Hide' : 'Who is here'}
+        </Button>
       </div>
 
-      {isDm && isOpen && (
+      {isOpen && (
         <>
-          <InviteCodePanel
-            invite={invite.invite}
-            canInvite={canInvite}
-            isPending={invite.isPending}
-            isBusy={invite.isBusy}
-            error={invite.error}
-            onIssue={invite.issue}
-            onRevoke={invite.revoke}
+          <SessionLobby
+            members={members.members}
+            departedCharacters={members.departedCharacters}
+            accountId={accountId}
+            isDm={isDm}
+            // The server refuses to hand an archived game over (`requireActive`), so the button is
+            // absent rather than offered and always 409ing
+            canTransfer={canInvite}
+            isPending={members.isPending}
+            isBusy={members.isBusy}
+            error={members.error}
+            onRemove={onRemoveMember}
+            onTransfer={onTransferDm}
           />
-          <AddressedInvitePanel
-            invites={invitations.invites}
-            canInvite={canInvite}
-            isPending={invitations.isPending}
-            isBusy={invitations.isBusy}
-            error={invitations.error}
-            onInvite={invitations.send}
-            onRevoke={invitations.revoke}
-          />
+
+          {isDm && (
+            <>
+              <InviteCodePanel
+                invite={invite.invite}
+                canInvite={canInvite}
+                isPending={invite.isPending}
+                isBusy={invite.isBusy}
+                error={invite.error}
+                onIssue={invite.issue}
+                onRevoke={invite.revoke}
+              />
+              <AddressedInvitePanel
+                invites={invitations.invites}
+                canInvite={canInvite}
+                isPending={invitations.isPending}
+                isBusy={invitations.isBusy}
+                error={invitations.error}
+                onInvite={invitations.send}
+                onRevoke={invitations.revoke}
+              />
+            </>
+          )}
         </>
       )}
     </div>
@@ -131,14 +166,7 @@ function SessionRow({
  * — so a polite *sign in to see your games* here was a second design for the same case, shipped
  * beside the redirect and unreachable behind it.
  */
-function Body({
-  sessions,
-  isPending,
-  openSessionId,
-  onToggle,
-  invite,
-  invitations,
-}: SessionListProps) {
+function Body({ sessions, isPending, openSessionId, onToggle, ...row }: SessionListProps) {
   if (isPending) {
     return (
       <Text variant="caption" as="p">
@@ -163,8 +191,10 @@ function Body({
           session={session}
           isOpen={openSessionId === session.id}
           onToggle={() => onToggle(session.id)}
-          invite={invite}
-          invitations={invitations}
+          // The rest is *the open row's* state — every row is handed it and only the open one
+          // reads it, which is what keeps the whole surface one request per table rather than one
+          // per row (`useSessionsManager` keys all three hooks on `openSessionId`)
+          {...row}
         />
       ))}
     </>

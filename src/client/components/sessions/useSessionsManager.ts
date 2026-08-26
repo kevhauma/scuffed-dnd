@@ -19,11 +19,13 @@
 
 import { useCallback, useState } from 'react';
 import type { GameSessionSummary, RulesetSummary } from '#shared/types/api';
+import { useAuth } from '../auth/useAuth';
 import { useAccountRulesets } from '../rulesets/useAccountRulesets';
 import { type InvitationsState, useInvitations } from './useInvitations';
 import { type SessionInvitationsState, useSessionInvitations } from './useSessionInvitations';
 import type { SessionInviteState } from './useSessionInvite';
 import { useSessionInvite } from './useSessionInvite';
+import { type SessionMembersState, useSessionMembers } from './useSessionMembers';
 import { useSessions } from './useSessions';
 
 /** What the sessions surface needs */
@@ -42,6 +44,21 @@ export interface SessionsManager {
   invite: SessionInviteState;
   /** The open table's addressed invitations, likewise (TICKET-GAM-03) */
   invitations: SessionInvitationsState;
+  /**
+   * Who is at the open table (TICKET-GAM-04)
+   *
+   * **Without its two writes**, which the manager wraps as `removeMember` and `transferDm` below.
+   * Handing the raw pair out as well would put two live routes to one action on the same surface,
+   * and the unwrapped one silently skips the games-list reload — an affordance nothing may call is
+   * one somebody eventually calls.
+   */
+  members: Omit<SessionMembersState, 'remove' | 'transfer'>;
+  /** Which Account is reading, so the lobby can tell its own row apart */
+  accountId: string | null;
+  /** Take a seat away — the DM removing somebody, or anybody giving up their own */
+  removeMember: (accountId: string) => void;
+  /** Hand the open table to another Member */
+  transferDm: (accountId: string) => void;
 
   /** What is waiting for **this Account**, whoever's table sent it (TICKET-GAM-03) */
   waiting: InvitationsState;
@@ -63,11 +80,15 @@ export function useSessionsManager(): SessionsManager {
   const [openSessionId, setOpenSessionId] = useState<string | null>(null);
   const invite = useSessionInvite(openSessionId);
   const invitations = useSessionInvitations(openSessionId);
+  const members = useSessionMembers(openSessionId);
   const waiting = useInvitations();
+  const { accountId } = useAuth();
 
   const reloadSessions = sessions.reload;
   const acceptWaiting = waiting.accept;
   const declineWaiting = waiting.decline;
+  const removeSeat = members.remove;
+  const transferSeat = members.transfer;
 
   return {
     isPending: sessions.isPending,
@@ -84,6 +105,37 @@ export function useSessionsManager(): SessionsManager {
     ),
     invite,
     invitations,
+    members,
+    accountId,
+    // **The games list is reloaded only when it can have changed**, which is not both writes and
+    // not every removal: a DM taking somebody else's seat changes that table's roster and nothing
+    // about which tables *this* Account is at. Reloading anyway would be a request per removal that
+    // can only ever come back identical.
+    removeMember: useCallback(
+      (target: string) => {
+        void removeSeat(target).then((removed) => {
+          // Somebody else's seat: the roster the panel is showing has already been re-read
+          if (!removed || target !== accountId) return;
+
+          // Giving up **your own** closes the row and refreshes the list, because the table is
+          // about to leave it. The re-read that `useSessionMembers` has just done came back 404 —
+          // correctly, and it treats that as *you are not here any more* rather than as a fault.
+          setOpenSessionId(null);
+          reloadSessions();
+        });
+      },
+      [removeSeat, reloadSessions, accountId]
+    ),
+    // Handing the game over leaves the table in the list with a different badge on it, so the
+    // listing really is stale afterwards
+    transferDm: useCallback(
+      (target: string) => {
+        void transferSeat(target).then((handed) => {
+          if (handed) reloadSessions();
+        });
+      },
+      [transferSeat, reloadSessions]
+    ),
 
     waiting,
     acceptInvitation: useCallback(

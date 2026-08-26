@@ -1,9 +1,9 @@
 /**
- * Game sessions — the tables an Account sits at (TICKET-GAM-02)
+ * Game sessions — the tables an Account sits at, and who is at them
  *
- * **Not the lobby.** TICKET-GAM-04 builds the roster and the membership controls; what is here is
- * what GAM-02 needs to be a feature rather than an API — starting a table, getting a code out of it,
- * and following one in.
+ * GAM-02 started a table and got a code out of it, GAM-03 added the addressed invitation, and
+ * **TICKET-GAM-04 added the lobby** — the first surface in the app that shows other people, and the
+ * one TICKET-DM-04 later grows into the DM's roster rather than replacing.
  */
 
 export * from './AddressedInvitePanel';
@@ -11,6 +11,7 @@ export * from './InviteCodePanel';
 export * from './JoinSessionPanel';
 export * from './PendingInvitations';
 export * from './SessionList';
+export * from './SessionLobby';
 export * from './SessionsPanel';
 export * from './StartSessionForm';
 export * from './sessionMoment';
@@ -18,5 +19,7 @@ export * from './useInvitations';
 export * from './useJoinSession';
 export * from './useSessionInvitations';
 export * from './useSessionInvite';
+export * from './useSessionMembers';
+export * from './useSessionResource';
 export * from './useSessions';
 export * from './useSessionsManager';

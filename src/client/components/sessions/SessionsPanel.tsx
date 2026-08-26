@@ -65,6 +65,10 @@ export function SessionsPanel() {
         onToggle={manager.toggle}
         invite={manager.invite}
         invitations={manager.invitations}
+        members={manager.members}
+        accountId={manager.accountId}
+        onRemoveMember={manager.removeMember}
+        onTransferDm={manager.transferDm}
       />
     </div>
   );

@@ -7,18 +7,20 @@
  * which is what those two acts are called at a table.
  *
  * **The invitation arrives with the session**, not from a route of its own: `GET /api/sessions/:id`
- * carries `invite` for a DM and omits it for everybody else. So this hook opens the session to read
- * one, and re-opens it after a write rather than trusting what it sent.
+ * carries `invite` for a DM and omits it for everybody else. So this reads the session to find one,
+ * and re-reads after a write rather than trusting what it sent.
+ *
+ * The reading, the staleness guard and the busy flag are
+ * [`useSessionResource`](./useSessionResource.ts)'s since TICKET-GAM-04 — this was the first of the
+ * three surfaces keyed on the open row, and the third is what earned them one implementation.
  *
  * **Validates: v3 Req 38.1, 38.2**
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
 import type { GameSessionDocument, SessionInvite } from '#shared/types/api';
-import { ApiError, apiRequest, apiSend } from '../../services/api';
-
-/** Where a session's own routes live */
-const SESSIONS_PATH = '/api/sessions';
+import { apiRequest, apiSend } from '../../services/api';
+import { SESSIONS_PATH, useSessionResource } from './useSessionResource';
 
 /** What the DM's invite surface needs */
 export interface SessionInviteState {
@@ -40,11 +42,6 @@ export interface SessionInviteState {
   revoke: () => void;
 }
 
-/** What a refusal should be shown as */
-function messageOf(error: unknown): string {
-  return error instanceof ApiError ? error.message : 'Something went wrong. Try again.';
-}
-
 /**
  * Drive one table's invitation
  *
@@ -52,81 +49,23 @@ function messageOf(error: unknown): string {
  * @returns The invitation and the two ways to change it
  */
 export function useSessionInvite(sessionId: string | null): SessionInviteState {
-  const [invite, setInvite] = useState<SessionInvite | null>(null);
-  const [isPending, setIsPending] = useState(false);
-  const [isBusy, setIsBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  /**
-   * Which table the surface is actually showing
-   *
-   * **The staleness guard `useJoinSession` has and this did not** (the GAM-02 review). A request
-   * cannot be cancelled, so expanding table A and then table B in quick succession can land A's
-   * answer after B's — and `setInvite` would put A's code under B's panel, which is the one kind of
-   * mistake this surface must not make.
-   */
-  const showing = useRef<string | null>(sessionId);
-  showing.current = sessionId;
-
-  const load = useCallback(async (id: string) => {
-    setIsPending(true);
-
-    try {
-      const session = await apiRequest<GameSessionDocument>(`${SESSIONS_PATH}/${id}`);
-
-      if (showing.current !== id) return;
-
-      // Absent for a player and for a DM with no live code — both read as "there is nothing to show
-      // you", which is the truth in each case
-      setInvite(session.invite ?? null);
-      setError(null);
-    } catch (cause) {
-      if (showing.current === id) setError(messageOf(cause));
-    } finally {
-      if (showing.current === id) setIsPending(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!sessionId) {
-      setInvite(null);
-      setError(null);
-      return;
-    }
-
-    void load(sessionId);
-  }, [sessionId, load]);
-
-  /** Run a write, then re-read rather than trusting what the write said */
-  const write = useCallback(
-    async (act: (id: string) => Promise<unknown>) => {
-      if (!sessionId || isBusy) return;
-
-      setIsBusy(true);
-      setError(null);
-
-      try {
-        await act(sessionId);
-        await load(sessionId);
-      } catch (cause) {
-        setError(messageOf(cause));
-      } finally {
-        setIsBusy(false);
-      }
-    },
-    [sessionId, isBusy, load]
+  const { data, isPending, isBusy, error, write } = useSessionResource<GameSessionDocument>(
+    sessionId,
+    (id) => `${SESSIONS_PATH}/${id}`
   );
 
   return {
-    invite,
+    // Absent for a player and for a DM with no live code — both read as "there is nothing to show
+    // you", which is the truth in each case
+    invite: data?.invite ?? null,
     isPending,
     isBusy,
     error,
-    issue: () => {
+    issue: useCallback(() => {
       void write((id) => apiSend<SessionInvite>(`${SESSIONS_PATH}/${id}/invite`, 'POST', {}));
-    },
-    revoke: () => {
+    }, [write]),
+    revoke: useCallback(() => {
       void write((id) => apiRequest<void>(`${SESSIONS_PATH}/${id}/invite`, { method: 'DELETE' }));
-    },
+    }, [write]),
   };
 }

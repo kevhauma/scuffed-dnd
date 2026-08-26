@@ -91,6 +91,16 @@ follow, and neither may be re-derived elsewhere:
   `declined` even after the DM revokes it, because *they turned you down* is the more useful of the
   two facts.
 
+**TICKET-GAM-04 needed no migration either, and its rule is about rows that are *not* deleted.**
+Removing a Member — or a Member leaving; they are one act — deletes one `session_member` row and
+**nothing else**. Their Characters keep both `session_id` and `owner_account_id`, which is what
+makes them readable by the remaining Members, writable by nobody (`requireCharacterWriter` checks
+the *owner's* membership, not only the caller's), and writable again the moment that Account
+rejoins, with nothing to repair. Do not reassign character ownership on removal: the whole property
+rests on ownership never moving. Transferring the DM role writes `session_member.role` on two rows
+**and** `game_session.dm_account_id` in one transaction — the membership is the authority and the
+column is the mirror, and a listing that read a stale mirror would name the wrong DM.
+
 Two consequences worth holding on to before changing a persisted shape:
 
 - **A document change is not a migration.** Adding `grantedStatPoints` (DM-01) or `purse` (CUR-02)

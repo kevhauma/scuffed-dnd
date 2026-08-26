@@ -20,6 +20,8 @@ import { ERROR_CODE } from '../http/appError';
 import { defineHandler } from '../http/pipeline';
 import {
   callRoute,
+  type Database,
+  type GameSessionRow,
   seedAccount,
   seedCharacter,
   seedMember,
@@ -181,11 +183,25 @@ describe('requireDM', () => {
 });
 
 describe('requireCharacterWriter', () => {
+  /**
+   * A character owned by somebody who is **at** the table
+   *
+   * The seating is not decoration, and TICKET-GAM-04 is why these fixtures gained it: retention
+   * makes a departed Member's Characters read-only for everybody (v3 Req 39.3), so the guard now
+   * asks whether the **owner** still holds a seat before it asks anything about the caller. A
+   * fixture whose owner was never seated is testing the orphan case by accident, which is a real
+   * case with its own tests in `routes/sessions/membership.test.ts` and not what these two are for.
+   */
+  function aSeatedCharacter(database: Database, session: GameSessionRow, owner: RequestAccount) {
+    seedMember(database, { session, account: owner, role: MEMBER_ROLE.PLAYER });
+    return seedCharacter(database, { session, owner });
+  }
+
   it('lets the owning player write (v3 Req 32.4)', () =>
     withTestDatabase((database) => {
       const player = seedAccount();
       const { session } = seedSession(database);
-      const row = seedCharacter(database, { session, owner: player });
+      const row = aSeatedCharacter(database, session, player);
 
       expect(requireCharacterWriter(asking(player), row.id)).toMatchObject({ id: row.id });
     }));
@@ -194,10 +210,22 @@ describe('requireCharacterWriter', () => {
     withTestDatabase((database) => {
       const dm = seedAccount();
       const { session } = seedSession(database, { dm });
-      const row = seedCharacter(database, { session, owner: seedAccount() });
+      const row = aSeatedCharacter(database, session, seedAccount());
 
       // The half that makes TICKET-DM-01 possible without every DM route restating who a DM is
       expect(requireCharacterWriter(asking(dm), row.id)).toMatchObject({ id: row.id });
+    }));
+
+  it('refuses everybody once the owner has left the table (v3 Req 39.3)', () =>
+    withTestDatabase((database) => {
+      const dm = seedAccount();
+      const owner = seedAccount();
+      const { session } = seedSession(database, { dm });
+      // Owned by an Account with no seat — what a removal leaves behind
+      const row = seedCharacter(database, { session, owner });
+
+      expect(refusalOf(() => requireCharacterWriter(asking(owner), row.id)).status).toBe(404);
+      expect(refusalOf(() => requireCharacterWriter(asking(dm), row.id)).status).toBe(404);
     }));
 
   it('refuses another table’s DM', () =>

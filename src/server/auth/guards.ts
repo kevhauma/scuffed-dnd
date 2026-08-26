@@ -218,9 +218,6 @@ export function requireInvitee(asking: Asking, inviteId: string): SessionInviteR
  * session it belongs to — that second half is what makes TICKET-DM-01's controls possible without
  * every DM route restating who a DM is.
  *
- * The membership is only looked up when the caller is *not* the owner, which is the common path;
- * a player writing to their own sheet costs one query.
- *
  * **A character at no table has exactly one writer, and that falls out of the rule rather than being
  * a case bolted onto it** (TICKET-IO-04). An uploaded character has `session_id IS NULL`, so there is
  * no table for anybody to be the DM of — the second half of the rule simply has nothing to match,
@@ -228,21 +225,48 @@ export function requireInvitee(asking: Asking, inviteId: string): SessionInviteR
  * `findSessionMember`, because *"look up the members of no session"* is a question with no right
  * answer and a lookup that returns nothing would be the right result for the wrong reason.
  *
+ * **A character whose owner has left the table has *no* writer** (TICKET-GAM-04, v3 Req 39.3, 39.5).
+ * Removing a Member retains their Characters rather than deleting them — a character is part of the
+ * campaign's history — and what retention means is *readable by the Members, writable by nobody,
+ * including the DM's own controls*. So the owner's membership is checked **before** either branch
+ * rather than only on the caller's side: the previous shape returned early for the owner, which
+ * would have let a removed player keep writing to their own sheet, and it asked only about the
+ * caller, which would have let the DM edit a departed player's character.
+ *
+ * **It costs the common path one lookup it was not paying**, and that is worth stating rather than
+ * glossing: the old shape returned the owner's own sheet after zero membership queries, and this one
+ * asks first. That is the price of the criterion — there is no way to know whether a seat is still
+ * held without looking — and it buys the rule at the only place that can enforce it for every write
+ * route at once. A rejoin then restores access with no repair, because ownership is by Account id
+ * and was never moved.
+ *
  * @param asking Who is asking
  * @param characterId Which character
  * @returns The character row
- * @throws {AppError} 401 for nobody, 404 for anybody else's character and for a missing id
+ * @throws {AppError} 401 for nobody, 404 for anybody else's character, for a missing id, and for
+ *   one whose owner has left the table
  */
 export function requireCharacterWriter(asking: Asking, characterId: string): CharacterRow {
   const account = requireAccount(asking);
   const row = findCharacter(characterId);
 
   if (!row) throw refuse('no such character');
-  if (row.ownerAccountId === account.id) return row;
 
   if (row.sessionId === null) {
-    throw refuse(`character ${characterId} is at no table, so only its owner may write to it`);
+    if (row.ownerAccountId !== account.id) {
+      throw refuse(`character ${characterId} is at no table, so only its owner may write to it`);
+    }
+    return row;
   }
+
+  // The retention rule: a seat that is gone takes every write with it, the owner's included
+  if (!findSessionMember(row.sessionId, row.ownerAccountId)) {
+    throw refuse(
+      `character ${characterId} belongs to somebody who has left session ${row.sessionId}`
+    );
+  }
+
+  if (row.ownerAccountId === account.id) return row;
 
   if (findSessionMember(row.sessionId, account.id)?.role !== MEMBER_ROLE.DM) {
     throw refuse(`account ${account.id} neither owns character ${characterId} nor runs its table`);

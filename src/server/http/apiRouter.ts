@@ -45,11 +45,14 @@ import {
   createSession,
   inviteByEmail,
   issueInvite,
+  listMembers,
   listSessionInvites,
   listSessions,
   readSession,
   refreshSnapshot,
+  removeMember,
   revokeInvite,
+  transferDm,
 } from '../routes/sessions';
 import { uploadPrompt } from '../routes/uploadPrompt';
 import { methodNotAllowed, notFound } from './appError';
@@ -111,6 +114,12 @@ export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Respon
   // is the session's shared door, the other is the letters it has sent.
   'POST /api/sessions/:id/invitations': inviteByEmail,
   'GET /api/sessions/:id/invitations': listSessionInvites,
+  // Membership (TICKET-GAM-04). Removing and leaving are one route because they are one act with
+  // two actors — who may ask is three comparisons in the handler, not a second path
+  'GET /api/sessions/:id/members': listMembers,
+  'DELETE /api/sessions/:id/members/:accountId': removeMember,
+  // The **role**, not a person: `POST` sets who runs this table, and the outgoing DM stays at it
+  'POST /api/sessions/:id/dm': transferDm,
   // …and the invitee's half, addressed by the invitation's own id
   'POST /api/invitations/:id/accept': acceptInvitation,
   'POST /api/invitations/:id/decline': declineInvitation,
