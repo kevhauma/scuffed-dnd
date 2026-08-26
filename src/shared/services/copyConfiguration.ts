@@ -28,14 +28,26 @@ import type { Configuration } from '../types/config';
 /**
  * What a copy may be told about itself; everything else comes from the source
  *
- * **One option, because one caller passes one.** A draft had `id` and `now` beside it, and the
- * RUL-03 review was right that nothing outside the tests wanted either — `crypto.randomUUID()` and
- * the clock already cover every real call, and an option nothing passes is a promise this module
- * has not been asked to keep. GAM-01 is not a caller until it exists.
+ * **`id` arrived with TICKET-GAM-01, which is the caller RUL-03 said would come.** That review
+ * dropped `id` and `now` because *"nothing outside the tests wanted either… GAM-01 is not a caller
+ * until it exists"*. It exists: a session's Snapshot is refreshed in place, and a refresh that
+ * minted a new document id would silently break every character at the table — `configurationId` is
+ * how a character says which rules it was built against, and `useCharacterSheet` renders
+ * *configuration-mismatch* when the two disagree. `now` is still absent, for the reason it was
+ * dropped.
  */
 export interface CopyOptions {
   /** What to call it. Defaults to {@link copyName} of the source's. */
   name?: string;
+  /**
+   * What identity to give it. Defaults to a fresh one.
+   *
+   * Pass this only when the copy is **replacing** a document that already had an identity somebody
+   * else is holding — which today means a Snapshot refresh, and nothing else. A copy that is a *new*
+   * thing takes the default, because two documents sharing an id is how a character ends up
+   * matching rules it was never built against.
+   */
+  id?: string;
 }
 
 /**
@@ -69,7 +81,7 @@ export function copyConfiguration(source: Configuration, options: CopyOptions = 
 
   return {
     ...copy,
-    id: crypto.randomUUID(),
+    id: options.id ?? crypto.randomUUID(),
     name: options.name ?? copyName(source.name),
     // Both, and the same moment: a copy was not *created* before it was copied, so a `createdAt`
     // inherited from the source would date it to the original's birthday

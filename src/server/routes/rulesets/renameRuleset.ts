@@ -23,12 +23,13 @@ import {
   updateRulesetName,
   WRITE_OUTCOME,
 } from '../../repositories/rulesetRepository';
-import { documentOf, nameFrom, rulesetIdFrom, toSummary } from './rulesetPayloads';
+import { requiredName } from '../entityName';
+import { documentOf, RULESET_SUBJECT, rulesetIdFrom, toSummary } from './rulesetPayloads';
 
 export const renameRuleset = defineHandler(async (context): Promise<RulesetSummary> => {
   const rulesetId = rulesetIdFrom(context.url);
   const row = requireOwner(context, findRuleset(rulesetId));
-  const name = nameFrom(await context.json());
+  const name = requiredName(await context.json(), RULESET_SUBJECT);
 
   // The document is already in stored form and stays in it — only `name` changes, so there is
   // nothing here for `toStoredConfiguration` to do and a round-trip through it would be a

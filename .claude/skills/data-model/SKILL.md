@@ -46,6 +46,23 @@ Whether a stored character can be read at all is one rule in one place since IO-
 asks it on load (`loadCharacters` refuses a roster rather than dropping records — CR-05) and the
 server asks it on upload.
 
+**A third home arrived with TICKET-GAM-01, and it is a *copy* rather than a reference.** A
+Game_Session stores a **Snapshot**: the whole `Configuration` as it stood when the session was
+created ([D7](../../../docs/v3.0_backend/overview.md#d7--a-game-session-plays-against-a-pinned-snapshot)).
+Three things follow, and the first is the one to hold on to:
+
+- **Editing a Ruleset never changes a running game.** Nothing in `src/server/` loads a Ruleset by a
+  session's `ruleset_id` to evaluate a rule; `sessionPayloads.snapshotOf` reads the pinned column and
+  is the only way a session's rules are obtained. `game_session.ruleset_id` is provenance — *this
+  table came from that ruleset* — and is `ON DELETE SET NULL`, so deleting the ruleset leaves the
+  game playable and merely anonymous about where it came from.
+- **Pulling the ruleset's current state in is a deliberate act that can be refused.**
+  `POST /api/sessions/:id/snapshot` compares every character at the table against the candidate and
+  refuses when one would break (v3 Req 37.6), naming the character and the stat. Validity is
+  `validateStatAllocation`'s answer, not a second definition.
+- **Storing a whole ruleset per table is accepted duplication**, and the alternative (a
+  content-addressed ruleset-version table) is a versioning system the milestone put out of scope.
+
 Two consequences worth holding on to before changing a persisted shape:
 
 - **A document change is not a migration.** Adding `grantedStatPoints` (DM-01) or `purse` (CUR-02)

@@ -1,7 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-26 (`npx vitest run`), after **TICKET-IO-04 — import creates a ruleset**.
-The checkpoints before it were **TICKET-RUL-03 — copy a ruleset** at 2370,
+_Last verified: 2026-08-26 (`npx vitest run`), after **TICKET-GAM-01 — game sessions and pinned
+Snapshots**.
+The checkpoints before it were **TICKET-IO-04 — import creates a ruleset** at 2474,
+**TICKET-RUL-03 — copy a ruleset** at 2370,
 **TICKET-RUL-02 — server-backed ruleset editing** at 2353,
 **TICKET-RUL-01 — ruleset records** at 2313,
 **TICKET-AUTH-04 — persistent sessions** at 2260,
@@ -19,12 +21,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 2474
-- **Passing**: 2474 (100%)
+- **Total tests**: 2526
+- **Passing**: 2526 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **152 files**: `server` in node, everything else in happy-dom.
+Split across **155 files**: `server` in node, everything else in happy-dom.
 
 ## The suite now runs in two environments
 
@@ -42,6 +44,69 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-GAM-01 — proving a pinned Snapshot by calculating, not by comparing
+
+The **+52 over IO-04** is TICKET-GAM-01: 30 in `server/routes/sessions/sessions.test.ts`, 13 in
+`server/repositories/gameSessionRepository.test.ts`, 7 in
+`server/routes/sessions/pinnedSnapshot.test.ts`, and 2 in `apiRouter.test.ts`.
+
+**The `conventions-reviewer` pass found the defect this ticket most needed catching**, and no test
+in the suite could have: the refresh minted a **new `Configuration.id`** each time, so a refresh
+`snapshotConflicts` had *cleared* would still orphan every character at the table —
+`useCharacterSheet` renders *configuration-mismatch* when a character's `configurationId` disagrees
+with the loaded document. The conflict check is structurally blind to it, because
+`validateStatAllocation` is about allocations and a document's own id is not one. Six more findings
+came with it, from an unguarded `JSON.parse` that answered a DM with a 500 to the Snapshot write and
+its Event being two transactions.
+
+**`pinnedSnapshot.test.ts` closes a gap in the ticket's own to-be**, which asked for D7 *"enforced by
+… nothing in `src/server/` loading a Ruleset by the session's `ruleset_id` for gameplay"*. That half
+had only prose behind it: dependency-cruiser sees imports, and `refreshSnapshot` imports
+`findRuleset` legitimately — the obligation is about *why*. It is a source scan with a two-entry
+allow-list, and **writing it found a second defect at once**: the first marker list named only the
+guards and `sessionIdFrom`, so `createSession` — the one route that unarguably reads a Ruleset —
+escaped the scan entirely. A detector whose blind spot is the module that does the thing is worse
+than none.
+
+**The test that carries D7 does not compare documents.** *"Leaves a character's calculated values
+identical after the ruleset is edited"* doubles every `point_buy` row on the source ruleset and then
+calls `calculateCharacter` against the session's Snapshot before and after, asserting the same
+number. A document comparison would have been the obvious assertion and the weaker one: it can pass
+while the code that actually plays the game reads somewhere else. What the milestone promises is
+that *a DM's Thursday tinkering does not re-price Friday's table*, and that is a claim about a
+number.
+
+**Its companion is the structural one.** *"Shares no object with the source, anywhere in the
+document"* is `copyConfiguration.test.ts`'s `sharedPaths` walk, run through this path — because a
+shallow Snapshot passes every spot-check anybody would write and lets a later ruleset edit reach into
+a running game through a shared array.
+
+**The deep-equal criterion is asserted in display form, and the reason is worth recording.** Every
+document the server writes goes through `serializeConfiguration`, so a formula the corpus file
+happens to spell `stats.dex` comes back as `stats.[stat-dex]` — a difference in how a reference is
+written down, not in what it points at. The first version of the test compared stored bytes, failed,
+and was *right to fail*: it was pinning the corpus's spelling rather than the rule. Comparing the
+display forms is the claim that matters, and it is the form the game is played in.
+
+**`insertGameSession` has a test that makes the second insert throw**, by reusing a membership id.
+A session whose `session_member` row failed would be a table its own DM is locked out of —
+`requireDM` reads that table and not `dm_account_id` — so the transaction is not tidiness, and
+proving it needs a failure that happens *after* the first row is written.
+
+**One ordering bug was found by the router test rather than the route's own.** `POST /api/sessions`
+read its body before any guard, so an anonymous caller with no body met a 400 about their JSON
+instead of a 401. `requireAccount` now runs first; `requireOwner` still does the real work once the
+`rulesetId` is known.
+
+**Everything `fallow` reported was fixed rather than suppressed**, and two of the four were the kind
+that only shows up when a second aggregate arrives: `GameSessionRow` and `SessionMemberRow` were
+declared *both* in `testing/seeds.ts` and in the new repository, and `toSummary` / `nameFrom` now
+existed twice one barrel apart. The fixture's types became re-exports, the session's summary became
+`toSessionSummary`, and the 25-line name-validator clone became
+[`routes/entityName.ts`](src/server/routes/entityName.ts) — extracted at the **second** caller
+against the usual rule, because the rule is aimed at speculative generality and this was measured
+duplication with two live callers.
 
 ## TICKET-IO-04 — two assertions that had to compare bytes
 
@@ -789,14 +854,14 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `architecture/boundaries.test.ts` | 24.6 | TICKET-AUTH-01's run | 3 commits, 310 churn, 0.18 density | ▲ **Accelerating** |
 | `vitest.setup.ts` | 8.2 | TICKET-AUTH-01's run | 3 commits, 35 churn, 0.08 density | ▲ **Accelerating** |
 | `src/server/http/apiRouter.test.ts` | 23.9 | TICKET-AUTH-01's run | 4 commits, 134 churn, 0.16 density | ─ Stable |
-| `src/server/http/apiRouter.ts` | 28.8 | TICKET-AUTH-02's run | 6 commits, 198 churn, 0.14 density | ▲ **Accelerating** |
+| `src/server/http/apiRouter.ts` | 35.7 | TICKET-AUTH-02's run | 8 commits, 0.14 density | ─ Stable — **cooled by TICKET-GAM-01** |
 | `src/server/repositories/rulesetRepository.test.ts` | 32.9 | TICKET-AUTH-03's run | 4 commits, 550 churn, 0.24 density | ▲ **Accelerating** |
 | `src/server/repositories/eventRepository.test.ts` | 20.7 | TICKET-AUTH-03's run | 3 commits, 387 churn, 0.21 density | ▲ **Accelerating** |
 | `src/server/http/pipeline.test.ts` | 28.8 | TICKET-RUL-01's run | 4 commits, 272 churn, 0.21 density | ▲ **Accelerating** |
-| `src/server/http/apiRouter.test.ts` | 36.0 | TICKET-RUL-02's run | 8 commits, 0.16 density | ▲ **Accelerating** (was Stable) |
+| `src/server/http/apiRouter.test.ts` | 49.4 | TICKET-RUL-02's run | 9 commits, 0.16 density | ─ Stable — **cooled by TICKET-GAM-01** |
 | `src/server/db/migrate.test.ts` | — | TICKET-IO-04's run | 3 commits, 0.10 density | ▲ **Accelerating** |
-| `src/server/routes/rulesets/rulesetPayloads.ts` | — | TICKET-IO-04's run | 3 commits, 0.09 density | ▲ **Accelerating** |
-| `src/server/testing/seeds.ts` | — | TICKET-IO-04's run | 3 commits, 0.09 density | ▲ **Accelerating** |
+| `src/server/routes/rulesets/rulesetPayloads.ts` | 9.6 | TICKET-IO-04's run | 4 commits, 0.09 density | ▼ Cooling — **cooled by TICKET-GAM-01** |
+| `src/server/testing/seeds.ts` | 12.4 | TICKET-IO-04's run | 4 commits, 0.09 density | ▼ Cooling — **cooled by TICKET-GAM-01** |
 | `src/client/components/rulesets/useRulesetManager.ts` | — | TICKET-IO-04's run | 3 commits, 0.09 density | ▲ **Accelerating** |
 | `src/client/components/rulesets/RulesetsPanel.tsx` | — | TICKET-IO-04's run | 3 commits, 0.04 density | ▲ **Accelerating** |
 | `src/client/components/rulesets/RulesetsPanel.test.tsx` | — | TICKET-IO-04's run | 3 commits, 0.08 density | ▲ **Accelerating** |
@@ -863,6 +928,18 @@ them, with the tickets that moved them named here rather than lost:
   held three times running, so treat it as the file's normal behaviour rather than as news: **a
   ticket adding a route should open this file first**, and the case to look for is any assertion
   whose subject is the *absence* of a route.
+
+  **GAM-01 added five routes and cooled both `apiRouter` rows to Stable**, which is worth reading as
+  the tag working rather than as the problem going away. The score went *up* (35.7 / 49.4) and the
+  velocity turned, because five routes cost the router **eight table lines and no machinery**: the
+  matcher `apiRouter.ts` has worried about since RUL-01 handled a second collection, a second
+  parameterised path and — for the first time — **two different action segments under one id** with
+  nothing added to it. That was the fifth route table's worth of growth without the fifth route
+  table, and the prediction *"the signal to split is a matcher that grows a feature"* is now three
+  tickets old and still unmet. The test file's prediction held for a fourth time in a different key:
+  GAM-01 did not retire an absence assertion, it added two (`/api/sessions/abc/nonsense` is a 404,
+  `GET` on `/archive` is a 405) — so the file's pattern is *each new collection brings its own
+  absence cases*, and the shelf-life warning applies to those in turn.
 - **IO-04's seven rows are one event, and reading them separately would overstate them.** Every one
   crossed the **three-commit floor** in this ticket — which is the first moment `fallow health` can
   score a file at all — and the complexity densities are 0.04 to 0.10, the low end of the table.
@@ -875,6 +952,13 @@ them, with the tickets that moved them named here rather than lost:
   module. The six client and harness rows are growth (`seeds.ts` gained one function,
   `RulesetsPanel.tsx` two elements), and a ticket that only *reads* them should not expect to find
   anything hard.
+
+  **GAM-01 cooled two of the seven** — `rulesetPayloads.ts` (9.6) and `seeds.ts` (12.4) are both
+  ▼ Cooling — and the reason is the useful half. Each got *smaller*: `nameFrom` left the payload
+  module for `routes/entityName.ts`, and `seeds.ts` swapped its raw `game_session` insert and its
+  three re-inferred row types for a repository call and three re-exports. That is what the
+  prediction above asked for in reverse — the fifth ticket to touch `rulesetPayloads.ts` took a gate
+  function *out* rather than adding a third.
 - **`src/server/http/pipeline.test.ts`** — a new row, and RUL-01 is the first ticket in this
   milestone to touch it, which is what earns it one at last (AUTH-02's run flagged it while no
   ticket had). The edit was small and worth recording anyway: the *"named by exactly two modules"*
@@ -908,9 +992,9 @@ than recalled.
 
 ## Architecture rules: clean, and they cost nothing
 
-`yarn run arch` reports **zero error-level findings** and zero warnings, over 537 modules and 2396
-dependencies (516 / 2281 before TICKET-IO-04, 437 / 1917 before TICKET-RUL-01). That is the
-baseline: an error-level finding is
+`yarn run arch` reports **zero error-level findings** and zero warnings, over 549 modules and 2495
+dependencies (537 / 2396 before TICKET-GAM-01, 516 / 2281 before TICKET-IO-04, 437 / 1917 before
+TICKET-RUL-01). That is the baseline: an error-level finding is
 yours. `no-orphans` reports at *warning* severity by design and does not fail the build.
 
 **Measured cost of DX-08's nine extra rules: none.** `depcruise src`, three runs each, same tree:

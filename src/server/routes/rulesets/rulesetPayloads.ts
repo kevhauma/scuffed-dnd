@@ -47,36 +47,17 @@ export function toSummary(row: RulesetRow | RulesetSummaryRow): RulesetSummary {
   };
 }
 
-/** The longest a ruleset name may be — a column with no bound is a column somebody fills */
-const MAX_NAME_LENGTH = 120;
-
 /**
- * The name a request body asked for
+ * What a ruleset calls itself in a refusal — the one thing its name rule does not share
  *
- * **Uniqueness is deliberately not checked** (TICKET-RUL-01's notes): two rulesets called
- * "Ducklets" is the User's business, and the id is the identity as it is everywhere else here.
- * What is checked is that there is a name at all, because a blank row in the list is one the User
- * cannot tell from any other.
- *
- * @param body The parsed request body
- * @returns The trimmed name
- * @throws {AppError} 400 when it is absent, blank or too long
+ * The rule itself was written out here until TICKET-GAM-01 wrote a second copy for sessions and
+ * `fallow dupes` measured the two at 25 identical lines; it lives in
+ * [`entityName.ts`](../entityName.ts) now, along with the reasoning and with why uniqueness is
+ * deliberately not among the things checked. **The noun is exported rather than wrapped in a
+ * `nameFrom` of its own**, matching `SESSION_SUBJECT` next door: a one-line delegation under a
+ * twelve-line docblock is not an abstraction, and two idioms for one call is worse than either.
  */
-export function nameFrom(body: unknown): string {
-  const value = (body as { name?: unknown } | null)?.name;
-
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw badRequest('A ruleset needs a name.');
-  }
-
-  const name = value.trim();
-
-  if (name.length > MAX_NAME_LENGTH) {
-    throw badRequest(`A ruleset name is at most ${MAX_NAME_LENGTH} characters.`);
-  }
-
-  return name;
-}
+export const RULESET_SUBJECT = 'ruleset';
 
 /** The collection every ruleset id sits one segment under */
 const RULESETS_PREFIX = '/api/rulesets/';

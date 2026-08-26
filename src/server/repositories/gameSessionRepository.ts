@@ -6,12 +6,12 @@
  * the session, and the queries GAM-01 adds here will join the two. Splitting them would be
  * splitting a thing, not a layer.
  *
- * **One read, because the guards need exactly one.** A `findGameSession` and a `hasSessionRole`
- * were drafted beside it and deleted: nothing called either, and an exported function with no
- * caller is a claim that something uses it. TICKET-GAM-01 through GAM-04 bring create,
- * join, remove, leave and transfer-DM against their own routes and their own authorization tests;
- * writing them now would be writing them blind. This exists early for the reason AUTH-03 exists
- * early — a guard has to be callable before the first resource it protects is built.
+ * **AUTH-03 landed one read, because the guards needed exactly one**, and deleted a `findGameSession`
+ * and a `hasSessionRole` drafted beside it: nothing called either, and an exported function with no
+ * caller is a claim that something uses it. **TICKET-GAM-01 is the ticket that had callers** and adds
+ * the session's own lifecycle — create, read, list, archive and the Snapshot refresh. GAM-02 through
+ * GAM-04 bring join, remove, leave and transfer-DM against their own routes and their own
+ * authorization tests.
  *
  * ## The connection is optional, and that is the shape every later repository should copy
  *
@@ -27,12 +27,24 @@
  * **Validates: v3 Req 32.3, 32.4**
  */
 
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, desc, eq } from 'drizzle-orm';
 import { type Database, getDatabase } from '../db/client';
-import { gameSession, sessionMember } from '../db/schema';
+import {
+  character,
+  gameSession,
+  MEMBER_ROLE,
+  SESSION_STATUS,
+  type SessionStatus,
+  sessionMember,
+} from '../db/schema';
+import type { CharacterRow } from './characterRepository';
+import { appendEvent } from './eventRepository';
 
 /** Somebody's seat at a table, and the role they hold in it */
 export type SessionMemberRow = typeof sessionMember.$inferSelect;
+
+/** A game session as the server holds it — `snapshot` is still JSON text (D4) */
+export type GameSessionRow = typeof gameSession.$inferSelect;
 
 /**
  * One Account's membership of one session
@@ -84,4 +96,306 @@ export function countSessionsFromRuleset(
       .where(eq(gameSession.rulesetId, rulesetId))
       .get()?.total ?? 0
   );
+}
+
+/** What starting a table needs to be told (TICKET-GAM-01) */
+export interface NewGameSession {
+  id: string;
+  /** The ruleset it was created from — provenance, not rules; the Snapshot is the rules (D7) */
+  rulesetId: string;
+  /** The Account starting it, seated as DM in the same write */
+  dmAccountId: string;
+  name: string;
+  /** The pinned `Configuration` as JSON text — copied by the caller, never referenced */
+  snapshot: string;
+  snapshotSchemaVersion: number;
+  /** Epoch milliseconds; passed in rather than read from the clock so a caller can be deterministic */
+  now: number;
+  /** The membership row's id, minted by the caller like every other id here */
+  memberId: string;
+}
+
+/**
+ * Start a table, and seat its DM (v3 Req 37.1)
+ *
+ * **Both rows or neither.** The DM is recorded on the session *and* as a `session_member` row with
+ * role `dm` — a denormalisation the schema explains and GAM-04's transfer relies on — and a session
+ * whose membership row failed to write is a table its own DM cannot see: `requireDM` reads
+ * `session_member`, so the creator would be locked out of the game they just started. One
+ * transaction is what makes that unreachable rather than unlikely.
+ *
+ * **The statements go through the `tx` handle**, not through the outer `database`. On
+ * `better-sqlite3` those are the same synchronous connection, so either would work today — and
+ * *"correct because the driver happens to be synchronous"* is the kind of correctness that stops
+ * being true silently. Using the handle drizzle hands the callback makes it correct for the reason
+ * it looks correct. It is also why every repository function here is sync: an `await` inside a
+ * transaction callback would commit around the thing it was meant to wrap.
+ *
+ * @param input The session and the seat
+ * @param database The connection; defaults to the process's
+ * @returns The stored session row
+ */
+export function insertGameSession(
+  input: NewGameSession,
+  database: Database = getDatabase()
+): GameSessionRow {
+  return database.db.transaction((tx) => {
+    const session = tx
+      .insert(gameSession)
+      .values({
+        id: input.id,
+        rulesetId: input.rulesetId,
+        dmAccountId: input.dmAccountId,
+        name: input.name,
+        status: SESSION_STATUS.ACTIVE,
+        snapshot: input.snapshot,
+        snapshotSchemaVersion: input.snapshotSchemaVersion,
+        snapshotTakenAt: input.now,
+        createdAt: input.now,
+        updatedAt: input.now,
+      })
+      .returning()
+      .get();
+
+    tx.insert(sessionMember)
+      .values({
+        id: input.memberId,
+        sessionId: session.id,
+        accountId: input.dmAccountId,
+        role: MEMBER_ROLE.DM,
+        joinedAt: input.now,
+      })
+      .run();
+
+    return session;
+  });
+}
+
+/**
+ * One session by id
+ *
+ * **This is a read of the session, not a permission check.** Every caller pairs it with
+ * `requireMember` or `requireDM`, which ask `session_member` — so a row coming back here says
+ * nothing about who may see it.
+ *
+ * @param id Which session
+ * @param database The connection; defaults to the process's
+ * @returns The row, or `null` when there is none
+ */
+export function findGameSession(
+  id: string,
+  database: Database = getDatabase()
+): GameSessionRow | null {
+  return database.db.select().from(gameSession).where(eq(gameSession.id, id)).get() ?? null;
+}
+
+/**
+ * A session row **without its Snapshot** (TICKET-GAM-01)
+ *
+ * `RulesetSummaryRow`'s counterpart, and it exists for the identical reason: a listing that carried
+ * whole documents would hand a client tens of kilobytes per table it is merely naming, and invite one
+ * that renders from the list and then plays against the copy it happens to hold. The query refuses to
+ * *select* the column and this refuses to *name* it.
+ */
+export interface GameSessionSummaryRow {
+  id: string;
+  rulesetId: string | null;
+  name: string;
+  status: SessionStatus;
+  snapshotTakenAt: number;
+  createdAt: number;
+  updatedAt: number;
+  /** What the asking Account is at this table — the join is what makes one query enough */
+  role: SessionMemberRow['role'];
+}
+
+/**
+ * The columns a summary is, named once so the listing cannot quietly grow a `snapshot`
+ *
+ * **Exactly what `toSessionSummary` puts on the wire, and nothing else.** `dmAccountId` and
+ * `snapshotSchemaVersion` were here until the GAM-01 review pointed out that no caller reads either
+ * — a selected column nothing maps is a field introduced dead, and this app has no external
+ * consumers to be keeping it for. TICKET-GAM-04's lobby wants `dmAccountId`; it adds it back with
+ * the surface that reads it.
+ */
+const SUMMARY_COLUMNS = {
+  id: gameSession.id,
+  rulesetId: gameSession.rulesetId,
+  name: gameSession.name,
+  status: gameSession.status,
+  snapshotTakenAt: gameSession.snapshotTakenAt,
+  createdAt: gameSession.createdAt,
+  updatedAt: gameSession.updatedAt,
+  role: sessionMember.role,
+};
+
+/**
+ * Every table one Account sits at, newest first (v3 Req 37)
+ *
+ * **Joined on the membership rather than on `dm_account_id`**, which is the same decision
+ * `auth/guards.ts` records: `session_member` is the authority on who is at a table, and a listing
+ * that read the denormalised column would show a DM their games and a player none of theirs.
+ *
+ * @param accountId Whose tables
+ * @param database The connection; defaults to the process's
+ * @returns Their sessions, without the Snapshots
+ */
+export function listSessionsForAccount(
+  accountId: string,
+  database: Database = getDatabase()
+): GameSessionSummaryRow[] {
+  return database.db
+    .select(SUMMARY_COLUMNS)
+    .from(sessionMember)
+    .innerJoin(gameSession, eq(sessionMember.sessionId, gameSession.id))
+    .where(eq(sessionMember.accountId, accountId))
+    .orderBy(desc(gameSession.updatedAt))
+    .all();
+}
+
+/**
+ * Pin a new Snapshot onto a session (v3 Req 37.3)
+ *
+ * **Whether the refresh is safe is decided above this line** — the route compares every character
+ * against the candidate Snapshot and refuses when one would break (v3 Req 37.6). What is left here
+ * is the write, and the one thing worth saying about it is what it touches: the Snapshot, its
+ * version and `snapshot_taken_at`, and nothing else. `ruleset_id` is unchanged because the session
+ * still came from that ruleset, and `created_at` is unchanged because the table is the same table.
+ *
+ * @param id Which session
+ * @param snapshot The new pinned document as JSON text
+ * @param schemaVersion The document's own version
+ * @param now Epoch milliseconds
+ * @param database The connection; defaults to the process's
+ * @returns The updated row, or `null` when there is no such session
+ */
+export function updateSessionSnapshot(
+  id: string,
+  snapshot: string,
+  schemaVersion: number,
+  now: number,
+  database: Database = getDatabase()
+): GameSessionRow | null {
+  return (
+    database.db
+      .update(gameSession)
+      .set({
+        snapshot,
+        snapshotSchemaVersion: schemaVersion,
+        snapshotTakenAt: now,
+        updatedAt: now,
+      })
+      .where(eq(gameSession.id, id))
+      .returning()
+      .get() ?? null
+  );
+}
+
+/** What pinning a new Snapshot needs to be told, log entry included */
+export interface SnapshotRefresh {
+  sessionId: string;
+  /** The new pinned document as JSON text */
+  snapshot: string;
+  schemaVersion: number;
+  /** The Account that asked for it, for the Event's actor */
+  actorAccountId: string;
+  /** The Event's id, minted by the caller like every other id here */
+  eventId: string;
+  type: string;
+  /** The Event's own shape as JSON text */
+  payload: string;
+  now: number;
+}
+
+/**
+ * Pin a new Snapshot **and** record that it happened (v3 Req 37.3)
+ *
+ * **One transaction, because the two halves are one fact.** `appendEvent` can be refused — its
+ * `UNIQUE(session_id, seq)` index is what makes the log gapless, and the repository deliberately
+ * does not retry — so a refresh that wrote the Snapshot and then failed to write the Event would
+ * have moved the rules under a live table with nothing in the log to say so. LIVE-02 fans out from
+ * that log, so *nobody at the table would be told*. It is the identical argument
+ * {@link insertGameSession} makes for the session and its DM's seat, one route over.
+ *
+ * @param input The Snapshot and the Event to record beside it
+ * @param database The connection; defaults to the process's
+ * @returns The updated row, or `null` when there is no such session — in which case nothing is written
+ */
+export function refreshSessionSnapshot(
+  input: SnapshotRefresh,
+  database: Database = getDatabase()
+): GameSessionRow | null {
+  return database.db.transaction(() => {
+    const row = updateSessionSnapshot(
+      input.sessionId,
+      input.snapshot,
+      input.schemaVersion,
+      input.now,
+      database
+    );
+
+    // Nothing to record against a session that is not there, and nothing has been written either —
+    // the update matched no row
+    if (!row) return null;
+
+    appendEvent(
+      {
+        id: input.eventId,
+        sessionId: input.sessionId,
+        actorAccountId: input.actorAccountId,
+        type: input.type,
+        payload: input.payload,
+        now: input.now,
+      },
+      database
+    );
+
+    return row;
+  });
+}
+
+/**
+ * Put a session beyond writing (v3 Req 37.5)
+ *
+ * Archiving is a status, not a delete: the game is readable forever afterwards — its Snapshot, its
+ * characters and its Event log all stay — and only writes are refused. There is deliberately no
+ * un-archive here; whether a table can be reopened is a question GAM-04 is closer to than this is,
+ * and a function nothing calls would be an answer nobody has given.
+ *
+ * @param id Which session
+ * @param now Epoch milliseconds
+ * @param database The connection; defaults to the process's
+ * @returns The updated row, or `null` when there is no such session
+ */
+export function archiveGameSession(
+  id: string,
+  now: number,
+  database: Database = getDatabase()
+): GameSessionRow | null {
+  return (
+    database.db
+      .update(gameSession)
+      .set({ status: SESSION_STATUS.ARCHIVED, updatedAt: now })
+      .where(eq(gameSession.id, id))
+      .returning()
+      .get() ?? null
+  );
+}
+
+/**
+ * Every character at a table (TICKET-GAM-01)
+ *
+ * Here rather than in `characterRepository` because the question is *about the session* — it is what
+ * a Snapshot refresh has to ask before it is allowed to happen (v3 Req 37.6). CHAR-04 brings the
+ * reads that are about a character.
+ *
+ * @param sessionId Which session
+ * @param database The connection; defaults to the process's
+ * @returns The character rows, `data` still JSON text
+ */
+export function charactersInSession(
+  sessionId: string,
+  database: Database = getDatabase()
+): CharacterRow[] {
+  return database.db.select().from(character).where(eq(character.sessionId, sessionId)).all();
 }

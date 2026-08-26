@@ -57,6 +57,14 @@ export interface ErrorDetails {
   currentRevision?: number;
   /** On a `bad_request` from shape validation: what failed, in the validator's own words */
   fields?: string[];
+  /**
+   * On a refused Snapshot refresh: which characters would break, and how (TICKET-GAM-01)
+   *
+   * Declared here rather than as its own loose bag for the reason the docblock above gives — the
+   * server attaches it through the same `details` channel every other refusal uses, so it has to be
+   * a field this contract names or it cannot be attached at all.
+   */
+  conflicts?: SnapshotConflict[];
 }
 
 /**
@@ -176,6 +184,91 @@ export interface RulesetImportResult extends RulesetSummary {
  */
 export interface UploadPromptClaim {
   shouldPrompt: boolean;
+}
+
+/**
+ * What an Account may do at a table (v3 Req 39)
+ *
+ * The client's copy of `session_member.role`, in the Kernel for the reason this whole module is:
+ * the server produces it and the client branches on it, so a second declaration on either side is
+ * one that can drift.
+ */
+export const MEMBER_ROLE = {
+  DM: 'dm',
+  PLAYER: 'player',
+} as const;
+
+export type MemberRole = (typeof MEMBER_ROLE)[keyof typeof MEMBER_ROLE];
+
+/** What a Game_Session currently is (v3 Req 37.5) */
+export const SESSION_STATUS = {
+  ACTIVE: 'active',
+  /** Readable forever; accepts no writes */
+  ARCHIVED: 'archived',
+} as const;
+
+export type SessionStatus = (typeof SESSION_STATUS)[keyof typeof SESSION_STATUS];
+
+/**
+ * A Game_Session as a client sees it in a listing (TICKET-GAM-01)
+ *
+ * **There is no `snapshot` here, for {@link RulesetSummary}'s reason** and one more of its own: a
+ * Snapshot is what the table *plays against* (D7), so a client holding one from a list is a client
+ * that can compute against rules it never asked the server to confirm.
+ *
+ * `role` is what the asking Account is at this table — it comes from the membership the listing
+ * joined on, so the answer is per-caller rather than a property of the session.
+ */
+export interface GameSessionSummary {
+  id: string;
+  /** The Ruleset it was created from, or `null` once that ruleset has been deleted */
+  rulesetId: string | null;
+  name: string;
+  status: SessionStatus;
+  role: MemberRole;
+  /** When the pinned Snapshot was taken — epoch milliseconds, like every timestamp here */
+  snapshotTakenAt: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** What `GET /api/sessions` answers — every table this Account sits at, newest first */
+export interface GameSessionListing {
+  sessions: GameSessionSummary[];
+}
+
+/**
+ * One session **with** the Snapshot it plays against (v3 Req 37.2)
+ *
+ * `RulesetDocument`'s counterpart, and the same split for the same reason: a listing that could
+ * carry a document is a listing somebody renders from.
+ *
+ * `snapshot` is in **display** form — every formula spelled with the entity's current name — which
+ * is the boundary `storage.ts`, the export path and `GET /api/rulesets/:id` already apply.
+ */
+export interface GameSessionDocument extends GameSessionSummary {
+  snapshot: Configuration;
+}
+
+/** What a client sends to start a table (v3 Req 37.1) */
+export interface GameSessionCreateRequest {
+  /** Which Ruleset to copy. The Account must own it; the copy is what the table plays. */
+  rulesetId: string;
+  name: string;
+}
+
+/**
+ * Why a Snapshot refresh was refused (v3 Req 37.6)
+ *
+ * **One entry per character that would break, naming the character and what breaks** — the ticket's
+ * own words. A generic *"some characters would be invalid"* is a refusal a DM cannot act on: they
+ * cannot tell whether to fix the ruleset, fix a character, or leave the table where it is.
+ */
+export interface SnapshotConflict {
+  characterId: string;
+  characterName: string;
+  /** What the new Snapshot would break about them, as a sentence */
+  reason: string;
 }
 
 /**

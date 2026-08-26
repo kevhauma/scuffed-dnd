@@ -310,7 +310,7 @@ Rulesets on the server:
 
 Game sessions:
 
-- [ ] [TICKET-GAM-01](./tickets/TICKET-GAM-01-game-sessions-and-snapshots.md) — Game sessions and pinned Snapshots (v3 Req 37) — D7; the second owned resource and the room every later ticket scopes to
+- [x] [TICKET-GAM-01](./tickets/TICKET-GAM-01-game-sessions-and-snapshots.md) — Game sessions and pinned Snapshots (v3 Req 37) — D7; the second owned resource and the room every later ticket scopes to
 - [ ] [TICKET-GAM-02](./tickets/TICKET-GAM-02-join-by-invite-code.md) — Join by invite code (v3 Req 38.1, 38.2, 38.4, 38.7) — the path a table actually uses
 - [ ] [TICKET-GAM-03](./tickets/TICKET-GAM-03-invite-by-email.md) — Invite by email, delivered on-platform (v3 Req 38.3, 38.5–38.7) — D12: no mail is sent; the Account holding that address sees a pending invitation in the app, and one for an unregistered address waits for it
 - [ ] [TICKET-GAM-04](./tickets/TICKET-GAM-04-membership-roles-and-lobby.md) — Membership, roles and the session lobby (v3 Req 39) — remove, leave, transfer DM; the first surface that shows other people

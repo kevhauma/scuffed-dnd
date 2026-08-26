@@ -23,7 +23,8 @@ import type { RulesetSummary } from '#shared/types/api';
 import { requireOwner } from '../../auth/guards';
 import { defineHandler } from '../../http/pipeline';
 import { findRuleset, insertRuleset } from '../../repositories/rulesetRepository';
-import { displayDocumentOf, nameFrom, rulesetIdFrom, toSummary } from './rulesetPayloads';
+import { requiredName } from '../entityName';
+import { displayDocumentOf, RULESET_SUBJECT, rulesetIdFrom, toSummary } from './rulesetPayloads';
 
 /** What a copy request may say; a name is optional and is defaulted by the Kernel */
 interface CopyRequest {
@@ -59,7 +60,7 @@ export const copyRuleset = defineHandler(async (context): Promise<RulesetSummary
     // the one the User just read in the list and asked to copy. Writing it into the document too
     // keeps the copy's two names in step from its first moment, which is the invariant RUL-01's
     // rename established.
-    name: body.name === undefined ? copyName(row.name) : nameFrom(body),
+    name: body.name === undefined ? copyName(row.name) : requiredName(body, RULESET_SUBJECT),
   });
 
   return toSummary(

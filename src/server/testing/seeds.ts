@@ -11,11 +11,11 @@
  * it, a session's snapshot is taken from it, and a test that genuinely wants two stats passes
  * `data`. See {@link seedRuleset} for why that is one function rather than two.
  *
- * **Where a repository exists, the seed calls it.** `seedRuleset` goes through `insertRuleset`, so
- * a change to how a ruleset is stored reaches the fixtures without anyone remembering to update
- * them. `seedSession` and `seedCharacter` write with Drizzle because GAM-01 and CHAR-04 have not
- * built their repositories yet — **point them at those when they land**, rather than leaving a
- * second way to create a session in the tree.
+ * **Where a repository exists, the seed calls it.** `seedRuleset` goes through `insertRuleset` and
+ * `seedSession` through `insertGameSession` (TICKET-GAM-01), so a change to how either is stored
+ * reaches the fixtures without anyone remembering to update them. `seedCharacter` still writes with
+ * Drizzle because TICKET-CHAR-04 has not built the create it needs — **point it at that when it
+ * lands**, rather than leaving a second way to create a character in the tree.
  *
  * **Validates: v3 Req 45.3**
  */
@@ -31,10 +31,16 @@ import {
   MEMBER_ROLE,
   type MemberRole,
   ruleset,
-  SESSION_STATUS,
   sessionMember,
 } from '../db/schema';
 import type { RequestAccount } from '../http/pipeline';
+import type { CharacterRow } from '../repositories/characterRepository';
+import {
+  findSessionMember,
+  type GameSessionRow,
+  insertGameSession,
+  type SessionMemberRow,
+} from '../repositories/gameSessionRepository';
 import { insertRuleset, type RulesetRow } from '../repositories/rulesetRepository';
 
 /**
@@ -194,11 +200,30 @@ export interface SeedSessionOptions {
   /** The ruleset it was created from; defaults to a freshly seeded one */
   from?: RulesetRow;
   name?: string;
+  /**
+   * The pinned document as JSON text; defaults to the source ruleset's own (TICKET-GAM-01)
+   *
+   * For the one thing a Snapshot can be that a ruleset cannot: **different from the ruleset it came
+   * from**. That is the whole of D7, so a test proving a session ignores a later edit needs to say
+   * so directly rather than by editing a row and hoping.
+   */
+  snapshot?: string;
 }
 
-export type GameSessionRow = typeof gameSession.$inferSelect;
-export type SessionMemberRow = typeof sessionMember.$inferSelect;
-export type CharacterRow = typeof character.$inferSelect;
+/**
+ * The row types the seeds hand back
+ *
+ * **Re-exported from the repositories rather than re-inferred** (TICKET-GAM-01). They were declared
+ * here because no session repository existed; now that one does, two `export type GameSessionRow`
+ * in one barrel's reach is an ambiguity waiting to resolve the wrong way — and a fixture that infers
+ * its own row type is the same second-definition problem `seedSession` writing raw SQL was.
+ * `CharacterRow` follows the same rule from `characterRepository`.
+ */
+export type { CharacterRow } from '../repositories/characterRepository';
+export type {
+  GameSessionRow,
+  SessionMemberRow,
+} from '../repositories/gameSessionRepository';
 
 /**
  * A game session with its Snapshot pinned and its DM seated
@@ -206,6 +231,11 @@ export type CharacterRow = typeof character.$inferSelect;
  * Both halves, because a session without its mirroring `session_member` row is a session no
  * "who is at this table" query can see — and D7's whole point is that the snapshot is a **copy**
  * taken at creation, so it is copied here rather than referenced.
+ *
+ * **Through `insertGameSession` since TICKET-GAM-01**, which is what the DX-06 note asked for: this
+ * used to write both tables with raw Drizzle because no session repository existed, and a fixture
+ * that defines what a session row looks like is a second definition for the next migration to
+ * remember. The seeded row is now the row a real `POST /api/sessions` produces.
  *
  * @param database The connection
  * @param options Anything the test cares about; the rest is filled in
@@ -218,24 +248,26 @@ export function seedSession(
   const source = options.from ?? seedRuleset(database);
   const dmAccountId = accountId(options.dm ?? seedAccount());
 
-  const session = database.db
-    .insert(gameSession)
-    .values({
+  const session = insertGameSession(
+    {
       id: options.id ?? nextId('session'),
       rulesetId: source.id,
       dmAccountId,
       name: options.name ?? 'Tuesday night',
-      status: SESSION_STATUS.ACTIVE,
-      snapshot: source.data,
+      // The stored text verbatim, which is what a Snapshot is: a copy of the ruleset as it stood
+      snapshot: options.snapshot ?? source.data,
       snapshotSchemaVersion: source.schemaVersion,
-      snapshotTakenAt: SEEDED_AT,
-      createdAt: SEEDED_AT,
-      updatedAt: SEEDED_AT,
-    })
-    .returning()
-    .get();
+      now: SEEDED_AT,
+      memberId: nextId('member'),
+    },
+    database
+  );
 
-  const dm = seedMember(database, { session, account: dmAccountId, role: MEMBER_ROLE.DM });
+  // Seated by `insertGameSession` in the same transaction; read back rather than inserted again,
+  // because a second `dm` row is what the partial unique index exists to refuse
+  const dm = findSessionMember(session.id, dmAccountId, database);
+
+  if (!dm) throw new Error(`seedSession: ${session.id} has no DM membership, which cannot happen`);
 
   return { session, dm };
 }
@@ -316,9 +348,12 @@ export function allRulesets(database: Database): RulesetRow[] {
  *
  * The counterpart to {@link allRulesets}, and it exists for one question RUL-01 has to answer with
  * evidence: after an Owner confirms deleting a ruleset a table was playing from, **is that table
- * still there?** There is no `findGameSession` in the repository — GAM-01 writes the reads it
- * needs — so the harness hands the rows over rather than a route-facing function being invented for
- * a test to call.
+ * still there?**
+ *
+ * **It is about the whole table rather than one row**, which is why it stayed after TICKET-GAM-01
+ * added `findGameSession` beside it. This docblock used to explain the absence of that function;
+ * the reason it is still here is different and better — *how many sessions exist* is not a question
+ * any route asks, so there is no route-facing read to borrow.
  */
 export function allGameSessions(database: Database): GameSessionRow[] {
   return database.db.select().from(gameSession).all();

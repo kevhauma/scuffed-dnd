@@ -33,6 +33,13 @@ import {
   renameRuleset,
   saveRuleset,
 } from '../routes/rulesets';
+import {
+  archiveSession,
+  createSession,
+  listSessions,
+  readSession,
+  refreshSnapshot,
+} from '../routes/sessions';
 import { uploadPrompt } from '../routes/uploadPrompt';
 import { methodNotAllowed, notFound } from './appError';
 import { defineHandler } from './pipeline';
@@ -62,6 +69,8 @@ export const ROUTES: Record<string, (request: Request) => Promise<Response>> = {
   // this cannot be shadowed by a ruleset that happens to be called `import` (TICKET-IO-04)
   'POST /api/rulesets/import': importRuleset,
   'POST /api/account/upload-prompt': uploadPrompt,
+  'GET /api/sessions': listSessions,
+  'POST /api/sessions': createSession,
 };
 
 /**
@@ -77,6 +86,9 @@ export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Respon
   'PATCH /api/rulesets/:id': renameRuleset,
   'DELETE /api/rulesets/:id': deleteRuleset,
   'POST /api/rulesets/:id/copy': copyRuleset,
+  'GET /api/sessions/:id': readSession,
+  'POST /api/sessions/:id/archive': archiveSession,
+  'POST /api/sessions/:id/snapshot': refreshSnapshot,
 };
 
 /** The path half of a `METHOD /path` key */

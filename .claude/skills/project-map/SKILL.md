@@ -495,6 +495,20 @@ each later ticket adds.
 - `routes/uploadPrompt.ts` (TICKET-IO-04) — `POST /api/account/upload-prompt`. The one unprompted
   offer to upload, **claimed rather than read**: an `INSERT … ON CONFLICT DO NOTHING` whose answer is
   whether it inserted, so two tabs restoring one session cannot both be told yes (v3 Req 36.6).
+- `routes/sessions/` (TICKET-GAM-01) — `/api/sessions`, the **second owned resource** and the room
+  everything after it is scoped to: `createSession` (POST — copies the Ruleset into a **Snapshot**,
+  which is D7, and seats the creator as DM in the same transaction), `listSessions` (GET, joined on
+  membership and carrying no Snapshot), `readSession` (GET one — **named `readSession`, not
+  `getSession`**, because `pipeline.test.ts` asserts exactly one module names that word and it is
+  `auth/currentAccount.ts`), `archiveSession` and `refreshSnapshot`. `sessionPayloads.ts` holds the
+  shared translation plus **`requireActive`**, which is the whole of *an archived session accepts no
+  writes* — a **409**, called by every write and by none of the reads. `snapshotConflicts.ts` is the
+  ticket's real content: which characters a refresh would invalidate, decided by
+  `validateStatAllocation` rather than by a second notion of validity, and named from the **old**
+  Snapshot because a removed stat has no name in the new one.
+- `routes/entityName.ts` (TICKET-GAM-01) — `requiredName(body, subject)`. The name rule every
+  aggregate's `nameFrom` wraps; extracted at the **second** caller because `fallow` measured the
+  ruleset and session copies as a 25-line clone.
 - `auth/` (TICKET-AUTH-01, TICKET-AUTH-02) — identity, and **only** identity; authorization is
   AUTH-03's and lives outside it. `authServer.ts` configures Better Auth (what is switched off and
   why is in its header); `authRoutes.ts` delegates the `/api/auth` subtree and adds the per-address
@@ -536,6 +550,12 @@ each later ticket adds.
   session side, which is the whole of Req 33.7's delete guard.
   **IO-04 added `insertUnseatedCharacter`** (a character owned by an Account and at **no** table —
   `session_id` became nullable in migration 0003) and `accountPromptRepository.claimUploadPrompt`.
+  **GAM-01 filled out `gameSessionRepository`**, which had held one read since AUTH-03:
+  `insertGameSession` (the session and its DM's `session_member` row in **one transaction** — a
+  session whose membership row failed is a table its own DM is locked out of, because `requireDM`
+  reads that table and not `dm_account_id`), `findGameSession`, `listSessionsForAccount` (joined on
+  membership, `snapshot` deliberately unselected), `updateSessionSnapshot`, `archiveGameSession` and
+  `charactersInSession`.
   **Every function takes its connection as a defaulted *last* parameter** — `findRuleset(id)` in
   production, `findRuleset(id, database)` in a test. That is not style: the same rule that keeps
   queries here forbids a handler from importing `db/client`, so a connection-first signature is one

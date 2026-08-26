@@ -159,6 +159,28 @@ describe('handleApiRequest', () => {
       expect((await answer('/api/account/upload-prompt', 'GET')).status).toBe(405);
     }));
 
+  describe('the session routes (TICKET-GAM-01)', () => {
+    // That the handlers behind these refuse a non-member is proven in `routes/sessions/`; what
+    // these assert is that the request **reaches** one, which a 401 from the pipeline shows and a
+    // 404 from the router would not
+    it('reaches the collection and the resource alike', () =>
+      withTestDatabase(async () => {
+        expect((await answer('/api/sessions', 'GET')).status).toBe(401);
+        expect((await answer('/api/sessions', 'POST')).status).toBe(401);
+        expect((await answer('/api/sessions/abc', 'GET')).status).toBe(401);
+        expect((await answer('/api/sessions/abc/archive', 'POST')).status).toBe(401);
+        expect((await answer('/api/sessions/abc/snapshot', 'POST')).status).toBe(401);
+      }));
+
+    it('keeps the two action segments distinct rather than swallowing either', async () => {
+      // `:id/archive` and `:id/snapshot` are two three-segment patterns under one collection — the
+      // first time this router has had a pair. A matcher that compared segment counts and stopped
+      // would answer both with whichever came first.
+      expect((await answer('/api/sessions/abc/archive', 'GET')).status).toBe(405);
+      expect((await answer('/api/sessions/abc/nonsense', 'POST')).status).toBe(404);
+    });
+  });
+
   it('keeps the auth subtree inside the API prefix (TICKET-AUTH-01)', () => {
     // `AUTH_PREFIX` cannot import `API_PREFIX` — the router imports the auth routes, so the other
     // direction would be a cycle. This is the guarantee by a route that does not create one.

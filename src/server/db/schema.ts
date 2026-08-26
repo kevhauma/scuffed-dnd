@@ -35,6 +35,12 @@
 
 import { sql } from 'drizzle-orm';
 import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  MEMBER_ROLE,
+  type MemberRole,
+  SESSION_STATUS,
+  type SessionStatus,
+} from '#shared/types/api';
 
 /** Better Auth's four tables, which share this database file (TICKET-AUTH-01) */
 export * from './authSchema';
@@ -86,13 +92,21 @@ export const ruleset = sqliteTable(
   (table) => [index('ruleset_owner_idx').on(table.ownerAccountId)]
 );
 
-/** What a game session currently is */
-export const SESSION_STATUS = {
-  ACTIVE: 'active',
-  ARCHIVED: 'archived',
-} as const;
-
-export type SessionStatus = (typeof SESSION_STATUS)[keyof typeof SESSION_STATUS];
+/**
+ * What a game session currently is, and what an Account may do at one
+ *
+ * **Taken from the Kernel rather than declared here** (TICKET-GAM-01's review). Both sets crossed
+ * into `#shared/types/api` when the client gained a wire contract that branches on them, and two
+ * declarations of one closed set is exactly what CLAUDE.md's *a rule both sides need lives in
+ * `shared/`* rules out. It matters more here than in most places: the SQLite enum arrays below and
+ * the partial unique index's SQL are generated from **this** list, so a value added on the shared
+ * side and not here would reach the wire and never reach the column.
+ *
+ * Re-exported because the server reads them as `db/schema`'s — `auth/guards.ts` and the repositories
+ * were written that way before the shared copy existed, and rewriting those imports would be churn
+ * to record that a declaration moved house.
+ */
+export { MEMBER_ROLE, type MemberRole, SESSION_STATUS, type SessionStatus };
 
 /**
  * A table playing against a **pinned** Snapshot (v3 Req 37, D7)
@@ -138,14 +152,6 @@ export const gameSession = sqliteTable(
     index('game_session_ruleset_idx').on(table.rulesetId),
   ]
 );
-
-/** What an Account may do inside a session (v3 Req 39) */
-export const MEMBER_ROLE = {
-  DM: 'dm',
-  PLAYER: 'player',
-} as const;
-
-export type MemberRole = (typeof MEMBER_ROLE)[keyof typeof MEMBER_ROLE];
 
 /**
  * Who is at the table (v3 Req 39)

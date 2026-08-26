@@ -20,11 +20,12 @@ import type { RulesetSummary } from '#shared/types/api';
 import { requireAccount } from '../../auth/guards';
 import { defineHandler } from '../../http/pipeline';
 import { insertRuleset } from '../../repositories/rulesetRepository';
-import { nameFrom, toSummary } from './rulesetPayloads';
+import { requiredName } from '../entityName';
+import { RULESET_SUBJECT, toSummary } from './rulesetPayloads';
 
 export const createRuleset = defineHandler(async (context): Promise<RulesetSummary> => {
   const account = requireAccount(context);
-  const name = nameFrom(await context.json());
+  const name = requiredName(await context.json(), RULESET_SUBJECT);
 
   const config = createFreshConfiguration(name);
 

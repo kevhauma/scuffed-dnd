@@ -101,7 +101,7 @@ function uploadedCharacters(submitted: unknown): Character[] {
 /**
  * The longest a name coming out of a *document* may be
  *
- * The same bound `nameFrom` puts on a request body's `name`, applied differently on purpose. A body
+ * The same bound `requiredName` puts on a request body's `name`, applied differently on purpose. A body
  * saying `name` is a **request**, and a request the server cannot honour is refused; a document's
  * name is *data the User already has*, and refusing a file at the last gate over a long title —
  * after the version, the shape and every field have passed — would be the app rejecting something
