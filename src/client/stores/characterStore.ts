@@ -94,6 +94,14 @@ export interface CharacterState {
    */
   tableCharacter: Character | null;
   /**
+   * Which table {@link CharacterState.tableCharacter} plays at (TICKET-ROLL-07)
+   *
+   * **Deleted in PLY-01 and back with a reader**, which is the honest order: it was written and read
+   * by nothing, so it went; the roll log is session-scoped — `GET /api/sessions/:id/rolls` — and the
+   * sheet has no other way to know which session to ask.
+   */
+  tableSessionId: string | null;
+  /**
    * True while a player action is on the wire, and **a second one is refused while it is**
    *
    * Not a spinner: it is what keeps one write in flight per character, which `rulesetSync` does for
@@ -566,6 +574,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   characters: [],
   isLoaded: false,
   tableCharacter: null,
+  tableSessionId: null,
   isActing: false,
   actionError: null,
 
@@ -671,7 +680,11 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
         return null;
       }
 
-      set({ tableCharacter: document.character, isActing: false });
+      set({
+        tableCharacter: document.character,
+        tableSessionId: document.sessionId,
+        isActing: false,
+      });
 
       return document.sessionId;
     } catch {
@@ -688,7 +701,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   },
 
   closeTableCharacter: () => {
-    set({ tableCharacter: null, actionError: null, isActing: false });
+    set({ tableCharacter: null, tableSessionId: null, actionError: null, isActing: false });
   },
 
   dismissActionError: () => {

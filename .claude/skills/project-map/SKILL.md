@@ -136,7 +136,7 @@ change also exists (v3 Req 33.8).
 |---|---|---|
 | `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), skills, roll definitions, dice ladders, materials + categories, items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
-| `useCharacterStore` (cont.) | `tableCharacter` + `tableSessionId` + `isActing` + `actionError`, and `openTableCharacter` / `closeTableCharacter` / `dismissActionError` (TICKET-PLY-01) — **the one character open at a game session**, held apart from `characters` because that list is LocalStorage's and a session character must never land in it (v3 Req 36.2). Every existing write action keeps its signature and gains one line: `toTable(...)` sends the named intent to the server when the id is this one's, otherwise the Kernel rule runs locally. `selectCharacter(state, id)` is the exported reader both the sheet and the inventory panel use | server, via `services/characterSync.ts` |
+| `useCharacterStore` (cont.) | `tableCharacter` + `tableSessionId` + `isActing` + `actionError`, and `openTableCharacter` / `closeTableCharacter` / `dismissActionError` (TICKET-PLY-01; `tableSessionId` is ROLL-07's, which is what the session-scoped roll log is read by) — **the one character open at a game session**, held apart from `characters` because that list is LocalStorage's and a session character must never land in it (v3 Req 36.2). Every existing write action keeps its signature and gains one line: `toTable(...)` sends the named intent to the server when the id is this one's, otherwise the Kernel rule runs locally. `selectCharacter(state, id)` is the exported reader both the sheet and the inventory panel use | server, via `services/characterSync.ts` |
 | `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience`, and `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02). `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
 | `useConfigStore` (cont.) | `source` + `openAccountRuleset(id)` / `openLocalRuleset()` (TICKET-RUL-02) — which home is open, and the two ways to change it. Opening one home reads nothing from the other | via `services/rulesetSync.ts` |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history, `storageFailure` and `saveConflict` (TICKET-RUL-02 — a *server* refusal, with the edit still on screen) | not persisted |
@@ -560,6 +560,16 @@ each later ticket adds.
   **PLY-01 added `readCharacter`** — `GET /api/characters/:id`, which is what makes a session
   character's sheet a page rather than a moment: the document carries its `sessionId`, so a reload or
   a pasted link can open the right Snapshot before calculating anything.
+- `routes/rolls/` (TICKET-ROLL-07) — **the dice move to the server**: `POST /api/characters/:id/roll`
+  recomputes the character against the Snapshot, calls the Kernel's own `rollRollDefinition` with the
+  server's RNG, appends the whole `RollOutcome` as an Event and answers with it — and
+  `GET /api/sessions/:id/rolls` reads the table's log back, every Member's to see. A body carrying
+  `total`, `dice` or `input` is refused **by name**: a stat value a client invents is a claim anybody
+  can redo, and a die a client invents is a claim nobody can check. The RNG seam is a **factory**
+  (`rollDiceHandler(rng)`), so no test spies on `Math.random`. **Beside `routes/play/` rather than
+  inside it**, because a roll's rule is the dice engine and that folder's scan forbids reaching one.
+  The log is the first read of the `event` table, keyed `(session, seq)` — the index LIVE-03 replays
+  from, so that ticket adds no schema.
 - `routes/play/` (TICKET-PLY-01) — **the writes a Player makes at a table**, eleven of them, one
   module each, all `POST /api/characters/:id/<action>` where `<action>` **is** the `PLAYER_ACTION`
   value. That one string is the path, the Event's `type` and the client's call, which is what keeps
@@ -798,10 +808,17 @@ dice are derived from the character.
 `inventory/` holds `InventoryPanel` (mounted by the sheet, taking only a `characterId`) with
 `EquipmentSlotRow`, `MiscItemRow` and `useInventoryManager`. Equipping needs no recalculation call:
 `calculateCharacter` reads `inventory.equippedItems` at render time.
-`rolls/` holds `useRoller` (the one caller of `rollRollDefinition`, taking the sheet's
-`CalculatedCharacter` so the roll is not calculated twice), `RollBreakdown` and `RollHistoryPanel`.
+`rolls/` holds `useRoller`, `RollBreakdown` and `RollHistoryPanel`.
 The roll button and the last result live in `RollsSection`; the history is its own panel.
-Randomness is injectable via `useRoller(id, calculated, { rng })` — never spy on `Math.random`.
+**`useRoller` branches on where the character lives** (TICKET-ROLL-07). A **local** character rolls
+in the browser through `rollRollDefinition`, with randomness injectable via
+`useRoller(id, calculated, { rng })` — never spy on `Math.random` — and its history in `useUIStore`,
+in memory, gone on reload by design (D6: solo play needs no account and no server). A character **at
+a table** does not roll at all: it posts `{ rollId }` and adopts the server's `RollOutcome`, with no
+preview, because a previewed roll that differed from the recorded one is the exact failure v3 Req
+45.2 prevents. Its history is a projection of the session's Event log, so it survives a reload — and
+`RollHistoryPanel`'s `onClear` is **withheld** there, because an Event log is append-only and a
+*Clear* button would be one that lies. That same absence is what picks the empty state's wording.
 
 **`shared/`** — cross-mode components and hooks, barrelled by `shared/index.ts`:
 `AppShell.tsx` (the medieval frame + mode switcher + per-mode nav), `useAppMode.ts` (route↔mode

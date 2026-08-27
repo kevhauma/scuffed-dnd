@@ -152,6 +152,26 @@ describe('handleApiRequest', () => {
       }));
   });
 
+  describe('the roll routes (TICKET-ROLL-07)', () => {
+    // A roll sits on both collections: the *act* is a Player's, so it hangs off the character, and
+    // the *log* is the table's, so it hangs off the session. Neither introduces a new matching
+    // shape — both are a literal segment after a parameter, like PLY-01's eleven — and these assert
+    // the request reaches a handler, which a 401 shows and a 404 from the router would not.
+    it('reaches the roll and the log alike', () =>
+      withTestDatabase(async () => {
+        expect((await answer('/api/characters/abc/roll', 'POST')).status).toBe(401);
+        expect((await answer('/api/sessions/abc/rolls', 'GET')).status).toBe(401);
+      }));
+
+    it('keeps the roll distinct from the player actions at the same shape of path', async () => {
+      // `roll` and `take-item` are two literal segments under one parameter, and the router matches
+      // by segment rather than by prefix — so neither can swallow the other, and a verb no route
+      // answers is a 405 at both
+      expect((await answer('/api/characters/abc/roll', 'GET')).status).toBe(405);
+      expect((await answer('/api/characters/abc/rolls', 'POST')).status).toBe(404);
+    });
+  });
+
   it('reaches the once-per-Account upload prompt (TICKET-IO-04)', () =>
     withTestDatabase(async () => {
       expect((await answer('/api/account/upload-prompt', 'POST')).status).toBe(401);

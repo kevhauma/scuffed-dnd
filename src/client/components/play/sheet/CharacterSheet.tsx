@@ -260,7 +260,12 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
             />
           )}
 
-          <RollHistoryPanel history={rollHistory} onClear={handleClearHistory} />
+          {/* No *Clear* at a table: that log is the session's Event log, which is append-only
+              (TICKET-ROLL-07) */}
+          <RollHistoryPanel
+            history={rollHistory}
+            onClear={atTable ? undefined : handleClearHistory}
+          />
         </div>
       </div>
 

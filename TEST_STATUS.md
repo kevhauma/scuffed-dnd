@@ -1,8 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-27 (`npx vitest run`), after **TICKET-PLY-01 — player actions go through the
-server**.
-The checkpoints before it were **TICKET-CHAR-04 — characters are created per session** at 2827,
+_Last verified: 2026-08-27 (`npx vitest run`), after **TICKET-ROLL-07 — server-resolved rolls and
+the session roll log**.
+The checkpoints before it were **TICKET-PLY-01 — player actions go through the server** at 2904,
+**TICKET-CHAR-04 — characters are created per session** at 2827,
 **TICKET-GAM-04 — membership, roles and the session lobby** at 2754,
 **TICKET-GAM-03 — invite by email** at 2707,
 **TICKET-GAM-02 — invite codes and joining a table** at 2625,
@@ -26,12 +27,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 2904
-- **Passing**: 2904 (100%)
+- **Total tests**: 2932
+- **Passing**: 2932 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **181 files**: `server` in node, everything else in happy-dom.
+Split across **184 files**: `server` in node, everything else in happy-dom.
 
 > **CHAR-04's recorded count was 26 low, and PLY-01 measured it rather than inheriting it.** This
 > file said 2801 across 174 files; `git stash` + a full run on `main` says **2827 across 176**. The
@@ -55,6 +56,57 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-ROLL-07 — the dice move, and one sentence stops being true
+
+The **+28 over PLY-01** is TICKET-ROLL-07: 13 in `server/routes/rolls/rolls.test.ts`, 8 in
+`client/components/play/rolls/useRoller.table.test.tsx`, 5 in a new `RollHistoryPanel.test.tsx` and
+2 in `apiRouter.test.ts`. **`useRoller.test.tsx` is untouched and its 9 cases pass**, which is the
+ticket's own asked-for proof that a solo Player's dice did not move.
+
+**The load-bearing case is the one that does not trust the route's own answer.** *"Rolls the pool
+the sheet's button showed, not a pool of its own"* derives the label itself — `rollPool`, against
+the same Snapshot — and compares both the input and the notation with what the server threw. That is
+TICKET-ROLL-06's guarantee carried across the wire, and it is the one case a server that
+re-evaluated the input, or decomposed down a different ladder, would fail while passing every other
+case in the file.
+
+**The RNG seam is a factory rather than a global.** `rollDiceHandler(rng)` builds the route and the
+router holds `rollDiceHandler()`; a test builds its own with a predictable source, so the existing
+"no test spies on `Math.random`" rule survives the randomness moving to the server. *"Uses the
+randomness it is given"* drives the same pool from both ends of every die.
+
+**Two cases exist because the fixture nearly made them vacuous.** A raceless character's stats are
+all zero, so every roll's input is zero and the ladder decomposes it into *no dice at all* — the
+first draft's randomness assertion was comparing `0` with `0` and agreeing. The fixture takes the
+corpus's first race, and says why in a comment. The same shape as GAM-01's "a two-stat ruleset
+cannot tell whether a resource was seeded from the right formula".
+
+**A `type` filter that quietly matched everything would be invisible**, since PLY-01's eleven write
+Events to the same table, so *"carries no player action into the roll log"* spends a
+`invest-stat-points` and a roll and asserts the log has one entry and the table has two.
+
+### The review found a cap and a filter that disagreed
+
+The route capped at the **table's** hundred most recent rolls and the sheet then filtered that
+window down to one character — so on an active table a Player's own rolls would fall off their own
+sheet while still being in the log, with nothing saying so. A history that silently omits your rolls
+is the failure this ticket set out to remove. `?rolledBy=` narrows it **in the query**, before the
+cap, and *"narrows the log to one Player before the cap, not after it"* seats two Players at one
+table and asserts the two answers differ.
+
+The same pass found the client re-reading the whole log after every roll for the one row it had just
+created. The route answers with the **logged entry** now — the outcome plus its `seq`, its Event id
+and who rolled it — so the hook prepends what came back. One round trip instead of two, and no
+window in which the result beside the button is a roll the history does not have.
+
+### The browser found a sentence that had stopped being true
+
+`RollHistoryPanel`'s empty state said *"Rolls are not saved between visits"*. True in local mode,
+and the exact opposite of what this ticket makes true at a table — where the log is the Event log
+and outlives the tab, the browser and the day. It now picks its wording from the same signal that
+withholds *Clear*: a panel with no `onClear` is looking at a log that is neither its to clear nor
+its to lose.
 
 ## TICKET-PLY-01 — two defects a green suite could not see
 
@@ -1137,6 +1189,7 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/client/components/sessions/SessionList.test.tsx` | 12.9 | TICKET-CHAR-04's run | 4 commits, 213 churn | ▲ **Accelerating — TICKET-PLY-01** (was 10.4 at CHAR-04) |
 | `src/client/components/sessions/SessionList.tsx` | 6.4 | TICKET-CHAR-04's run | 4 commits, 374 churn | ▲ **Accelerating — TICKET-PLY-01** (was 4.2 at CHAR-04) |
 | `src/server/repositories/characterRepository.ts` | 2.9 | TICKET-PLY-01's run | 3 commits, 200 churn | ▲ **Accelerating — TICKET-PLY-01** (crossed the three-commit floor with `recordPlayerAction`) |
+| `src/client/stores/characterStore.ts` | 11.6 | TICKET-ROLL-07's run | 3 commits, 1384 churn, 0.13 density, 25 fan-in | ▲ **Accelerating — TICKET-ROLL-07** (PLY-01 gave it the table slice, ROLL-07 gave `tableSessionId` a reader; the fan-in is what makes it worth watching — 25 modules read this store) |
 | `src/client/components/sessions/SessionsPanel.tsx` | 3.1 | TICKET-CHAR-04's run | 3 commits, 75 churn, 0.03 density | ▲ **Accelerating — TICKET-CHAR-04** |
 
 **Both Accelerating rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they

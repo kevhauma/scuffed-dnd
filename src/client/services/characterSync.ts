@@ -3,8 +3,15 @@
  *
  * `rulesetSync.ts`'s counterpart for the other thing that has two homes, and it is deliberately the
  * **only** module that branches on `RulesetSource` for a character — the rule CLAUDE.md states as
- * *the action owns the decision to persist*, applied one aggregate over. A component never reaches
- * either destination; `characterStore.createCharacterHere` calls this, and this decides.
+ * *the action owns the decision to persist*, applied one aggregate over. Nothing reaches either
+ * destination for a character *document*: `characterStore.createCharacterHere` calls this, and this
+ * decides.
+ *
+ * **The roll pair is the one thing here a hook calls directly**, and it is not an exception to that
+ * rule so much as outside it (TICKET-ROLL-07): a roll persists no character state, so there is no
+ * store action for it to belong to, and `useRoller` reads {@link sendRoll} and
+ * {@link fetchSessionRolls} the way a dozen other hooks read `apiRequest`. What it must never do is
+ * write `dnd_builder_characters`, and it cannot — nothing here can.
  *
  * ## Creation, and then every write after it (TICKET-PLY-01)
  *
@@ -30,7 +37,14 @@
  * **Validates: v3 Req 40.5, 40.6**
  */
 
-import type { CharacterCreateRequest, CharacterDocument, PlayerAction } from '#shared/types/api';
+import type {
+  CharacterCreateRequest,
+  CharacterDocument,
+  PlayerAction,
+  RollRequest,
+  SessionRoll,
+  SessionRollListing,
+} from '#shared/types/api';
 import type { Character, CharacterCreationData } from '#shared/types/character';
 import { ApiError, apiRequest, apiSend } from './api';
 
@@ -39,6 +53,84 @@ const SESSIONS_PATH = '/api/sessions';
 
 /** Where a character's own routes live */
 const CHARACTERS_PATH = '/api/characters';
+
+/**
+ * How a roll ended (TICKET-ROLL-07)
+ *
+ * Tagged, like {@link CREATION_OUTCOME} and {@link ACTION_OUTCOME} beside it, rather than left as an
+ * untagged `{ rolled } | { message }` narrowed by `'message' in answer` — which the review pointed
+ * out is a third spelling in one file and one that breaks silently the day a wire shape grows a
+ * `message` of its own.
+ */
+export const ROLL_OUTCOME = {
+  ROLLED: 'rolled',
+  /** The server refused it — a roll this game does not define, an archived table, a broken ladder */
+  REFUSED: 'refused',
+} as const;
+
+/** What happened, and either the logged roll or the reason there is none */
+export type RollAttempt =
+  | { outcome: typeof ROLL_OUTCOME.ROLLED; rolled: SessionRoll }
+  | { outcome: typeof ROLL_OUTCOME.REFUSED; message: string };
+
+/**
+ * Roll one of a character's rolls at a table (v3 Req 41.6, TICKET-ROLL-07)
+ *
+ * **Which roll, and nothing else.** The dice are the server's — it recomputes the character against
+ * the Snapshot, throws them, appends the outcome as an Event and hands the whole chain back. A body
+ * carrying a total or a die is refused by name, which is what makes *the client cannot report its
+ * own result* a fact rather than a convention.
+ *
+ * There is deliberately **no preview**: a previewed roll that differed from the recorded one is the
+ * exact failure this replaces. The button keeps showing the *pool*, which is derived rather than
+ * random, and that is the whole label.
+ *
+ * **The answer is the log entry, not the bare outcome**, so the caller can put it straight at the
+ * top of the history rather than re-reading the whole log for the one row it just made.
+ *
+ * @param characterId Whose roll
+ * @param rollId Which roll
+ * @returns What the dice did, or the reason there are none
+ */
+export async function sendRoll(characterId: string, rollId: string): Promise<RollAttempt> {
+  try {
+    const rolled = await apiSend<SessionRoll>(`${CHARACTERS_PATH}/${characterId}/roll`, 'POST', {
+      rollId,
+    } satisfies RollRequest);
+
+    return { outcome: ROLL_OUTCOME.ROLLED, rolled };
+  } catch (error) {
+    return {
+      outcome: ROLL_OUTCOME.REFUSED,
+      message:
+        error instanceof ApiError
+          ? error.message
+          : 'Could not make that roll. Check your connection and try again.',
+    };
+  }
+}
+
+/**
+ * Read a table's roll log (v3 Req 41.6)
+ *
+ * Every Member's when nobody is named, which is what the route answers and what DM-04's roster will
+ * render. **`rolledBy` narrows it in the query rather than in the browser**, because the log is
+ * capped: filtering a table-wide window afterwards is how a Player's own rolls fall off their own
+ * sheet on a busy table.
+ *
+ * @param sessionId Which table
+ * @param rolledBy Whose rolls, or nothing for the table's
+ * @returns The log, newest first
+ * @throws {ApiError} As `apiRequest` does
+ */
+export function fetchSessionRolls(
+  sessionId: string,
+  rolledBy?: string
+): Promise<SessionRollListing> {
+  const query = rolledBy ? `?rolledBy=${encodeURIComponent(rolledBy)}` : '';
+
+  return apiRequest<SessionRollListing>(`${SESSIONS_PATH}/${sessionId}/rolls${query}`);
+}
 
 /** How creating a character at a table ended */
 export const CREATION_OUTCOME = {

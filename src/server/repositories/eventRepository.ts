@@ -112,6 +112,59 @@ export function appendEventWithin(tx: EventWriter, input: NewEvent): EventRow {
 }
 
 /**
+ * The events of one kind in a session, newest first (TICKET-ROLL-07)
+ *
+ * **The first read of this table, and it is deliberately keyed the way LIVE-03's replay will be**:
+ * `(session_id, seq)` is the unique index the schema already carries, so filtering by session and
+ * ordering by `seq` costs nothing extra and adds no schema to that ticket. `type` narrows it in
+ * memory-cheap fashion after that — a session has one kind of event in quantity and the index is
+ * doing the work that matters.
+ *
+ * **Newest first and capped**, unlike {@link eventsSince}: this answers *what has been happening*
+ * for a person reading a log, where the top of the list is what they want; that one answers *what
+ * have I missed*, where the order has to be forward and nothing may be dropped.
+ *
+ * **The actor narrows it *before* the cap**, which the review found mattering: capping at the
+ * table's hundred most recent and letting the caller filter afterwards is how one Player's events
+ * fall out of their own view on a busy session, with nothing saying they were dropped. `null` asks
+ * for the table's.
+ *
+ * It is `actor_account_id` rather than anything inside the payload because the column is queryable
+ * and the JSON is not (D4).
+ *
+ * @param sessionId Which session
+ * @param type Which kind of event
+ * @param actorAccountId Whose, or `null` for everybody's
+ * @param limit How many at most
+ * @param database The connection; defaults to the process's
+ * @returns The events, newest first
+ */
+export function latestEventsOfType(
+  sessionId: string,
+  type: string,
+  actorAccountId: string | null,
+  limit: number,
+  database: Database = getDatabase()
+): EventRow[] {
+  return database.db
+    .select()
+    .from(event)
+    .where(
+      and(
+        eq(event.sessionId, sessionId),
+        eq(event.type, type),
+        // One function rather than two that differ by a line: `fallow` measured the pair as an
+        // eleven-line clone, and they differ in *data* rather than in behaviour — the case the
+        // conventions say to share
+        ...(actorAccountId === null ? [] : [eq(event.actorAccountId, actorAccountId)])
+      )
+    )
+    .orderBy(desc(event.seq))
+    .limit(limit)
+    .all();
+}
+
+/**
  * Everything that happened in a session after a given sequence number
  *
  * What a client reconnecting asks for (LIVE-03): "I saw up to 41, what have I missed?"

@@ -142,6 +142,10 @@ describe('opening a character that lives at a table', () => {
 
     expect(sessionId).toBe('session-1');
     expect(useCharacterStore.getState().tableCharacter?.id).toBe('character-1');
+    // Held, not just returned: the roll log is session-scoped, and the sheet has no other way to
+    // know which table to ask (TICKET-ROLL-07). It was deleted as dead in PLY-01 and came back with
+    // this reader — an assertion here is what stops it going a second time.
+    expect(useCharacterStore.getState().tableSessionId).toBe('session-1');
     // The browser's own roster is untouched, which is what makes the two homes two homes (D6)
     expect(useCharacterStore.getState().characters).toEqual([]);
     expect(storage.saveCharacters).not.toHaveBeenCalled();
@@ -375,6 +379,7 @@ describe('a write to the character open at a table', () => {
     useCharacterStore.getState().closeTableCharacter();
 
     expect(useCharacterStore.getState().tableCharacter).toBeNull();
+    expect(useCharacterStore.getState().tableSessionId).toBeNull();
     expect(useCharacterStore.getState().actionError).toBeNull();
   });
 });

@@ -44,6 +44,7 @@ import {
   unequipItem,
   wearItem,
 } from '../routes/play';
+import { listRolls, rollDice } from '../routes/rolls';
 import {
   copyRuleset,
   createRuleset,
@@ -162,6 +163,13 @@ export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Respon
   'POST /api/characters/:id/wear-item': wearItem,
   'POST /api/characters/:id/take-item': takeItem,
   'POST /api/characters/:id/drop-item': dropItem,
+  // The dice are the server's (TICKET-ROLL-07). Beside the eleven above because it is the same kind
+  // of request — a Player acting on their own character — even though it writes an Event and not
+  // the sheet. The path names the **character**, not the session, so a request cannot disagree with
+  // itself about which table it is at; the row already says.
+  'POST /api/characters/:id/roll': rollDice,
+  // …and the log is the table's, so that half is session-scoped and every Member reads it
+  'GET /api/sessions/:id/rolls': listRolls,
   // …and the invitee's half, addressed by the invitation's own id
   'POST /api/invitations/:id/accept': acceptInvitation,
   'POST /api/invitations/:id/decline': declineInvitation,

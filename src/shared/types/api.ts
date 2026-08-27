@@ -17,6 +17,7 @@
 
 import type { Character } from './character';
 import type { Configuration } from './config';
+import type { RollOutcome } from './formula';
 import type { ValidationReport } from './validation';
 
 /**
@@ -633,6 +634,50 @@ export interface PlayerActionEvent {
  * exists to prevent.
  */
 export type ActionValue = number | string | null;
+
+/**
+ * The Event a resolved roll appends (v3 Req 41.6, TICKET-ROLL-07)
+ *
+ * **Not a `PLAYER_ACTION`**, and the distinction is real rather than filing: every value there is a
+ * write to the character's own sheet, with a before and an after. A roll changes nothing — it
+ * *happened*, and what it produced is the whole `RollOutcome`. Sharing the constant would have meant
+ * an `ActionValue` before/after pair that a roll has nothing to put in.
+ */
+export const ROLL_EVENT = 'roll';
+
+/**
+ * What a client sends to roll (v3 Req 41.6, 45.2)
+ *
+ * **Which roll, and nothing else.** The dice are the server's — a body carrying `total`, `results`
+ * or `pool` is refused by name, because a client that could report its own result is a client that
+ * could report any result, and that is the whole of what this ticket moves.
+ */
+export interface RollRequest {
+  rollId: string;
+}
+
+/**
+ * One roll as the table reads it (v3 Req 41.6)
+ *
+ * The `RollOutcome` the engine produced, plus the three things a *shared* log needs that a private
+ * one did not: which character rolled, who was driving them, and where the roll sits in the
+ * session's order. `seq` is the Event's own — the same `(session, seq)` key LIVE-03 replays from,
+ * which is why the log is read that way here rather than by timestamp.
+ */
+export interface SessionRoll extends RollOutcome {
+  /** The Event's id, so a list can key on something the server minted */
+  id: string;
+  seq: number;
+  characterId: string;
+  characterName: string;
+  /** The Account that rolled, by the name it signed up with — `null` if that profile has gone */
+  rolledBy: string | null;
+}
+
+/** What `GET /api/sessions/:id/rolls` answers — the table's log, newest first */
+export interface SessionRollListing {
+  rolls: SessionRoll[];
+}
 
 /**
  * Why a Snapshot refresh was refused (v3 Req 37.6)

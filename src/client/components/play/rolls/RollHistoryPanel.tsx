@@ -1,11 +1,16 @@
 /**
  * Roll History Panel
  *
- * This character's rolls for the current session, newest first (Requirement 15.5). The history is
- * session-only — it lives in `useUIStore` and is never written to storage, so it is gone on
- * reload by design.
+ * This character's rolls, newest first (Requirement 15.5).
  *
- * **Validates: Requirements 15.5, 21.1-21.5**
+ * **Where they come from depends on where the character lives** (TICKET-ROLL-07). A local
+ * character's are `useUIStore`'s in-memory list — session-only, never written to storage, gone on
+ * reload by design. A character at a table reads a projection of the session's **Event log**, which
+ * survives a reload and which nothing can clear, because an event is what happened and editing it
+ * is editing the past. That is why `onClear` is optional: absent means *this log is not yours to
+ * clear*, and a disabled button would say *not now* where the truth is *not ever*.
+ *
+ * **Validates: Requirements 15.5, 21.1-21.5; v3 Req 41.6**
  */
 
 import type { RollResult } from '../../../stores/uiStore';
@@ -15,7 +20,8 @@ import { Text } from '../../ui/Text/Text';
 
 export interface RollHistoryPanelProps {
   history: RollResult[];
-  onClear: () => void;
+  /** Absent for a table's log, which is the Event log and cannot be cleared — see the module note */
+  onClear?: () => void;
 }
 
 export function RollHistoryPanel({ history, onClear }: RollHistoryPanelProps) {
@@ -25,7 +31,7 @@ export function RollHistoryPanel({ history, onClear }: RollHistoryPanelProps) {
         <Text variant="h4" as="h2">
           Roll History
         </Text>
-        {history.length > 0 && (
+        {history.length > 0 && onClear && (
           <Button variant="secondary" size="sm" onClick={onClear}>
             Clear History
           </Button>
@@ -33,8 +39,13 @@ export function RollHistoryPanel({ history, onClear }: RollHistoryPanelProps) {
       </div>
 
       {history.length === 0 ? (
+        // The second sentence stopped being true for half the callers in TICKET-ROLL-07 — a table's
+        // rolls are Events and outlive the tab — and an empty state that promises the wrong thing
+        // is worse than none. The same signal that withholds *Clear* says which is which.
         <Text variant="body-small-secondary">
-          No rolls this session. Rolls are not saved between visits.
+          {onClear
+            ? 'No rolls this session. Rolls are not saved between visits.'
+            : 'No rolls at this table yet. Every roll here is kept for the whole game.'}
         </Text>
       ) : (
         history.map((roll) => (

@@ -53,11 +53,15 @@ import { requireActive, snapshotOf } from '../sessions/sessionPayloads';
 /**
  * The rules one character is played by, and the table they are played at
  *
+ * **Exported for TICKET-ROLL-07**, which is a second kind of act at the same table — the two states
+ * a sheet takes no writes in are the same two a roll cannot happen in, and answering that question
+ * twice is how they would come to differ.
+ *
  * @param row The character being written to
  * @returns Its table's id and the Snapshot that table plays against
  * @throws {AppError} 409 when the character sits at no table or its table has been archived
  */
-function playedAt(row: CharacterRow): { sessionId: string; rules: Configuration } {
+export function playedAt(row: CharacterRow): { sessionId: string; rules: Configuration } {
   if (row.sessionId === null) {
     throw conflict(
       'This character is not at a table, so it cannot be played. Characters uploaded from a ' +
@@ -82,7 +86,7 @@ function playedAt(row: CharacterRow): { sessionId: string; rules: Configuration 
  * own storage rather than a claim about untrusted input — `toCharacterDocument`'s reasoning, at the
  * other end of the same boundary.
  */
-function playerStateOf(row: CharacterRow): Character {
+export function playerStateOf(row: CharacterRow): Character {
   return JSON.parse(row.data) as Character;
 }
 
