@@ -1,8 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-26 (`npx vitest run`), after **TICKET-CHAR-04 — characters are created per
-session**.
-The checkpoints before it were **TICKET-GAM-04 — membership, roles and the session lobby** at 2754,
+_Last verified: 2026-08-27 (`npx vitest run`), after **TICKET-PLY-01 — player actions go through the
+server**.
+The checkpoints before it were **TICKET-CHAR-04 — characters are created per session** at 2827,
+**TICKET-GAM-04 — membership, roles and the session lobby** at 2754,
 **TICKET-GAM-03 — invite by email** at 2707,
 **TICKET-GAM-02 — invite codes and joining a table** at 2625,
 **TICKET-GAM-01 — game sessions and pinned Snapshots** at 2526,
@@ -25,12 +26,18 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 2801
-- **Passing**: 2801 (100%)
+- **Total tests**: 2904
+- **Passing**: 2904 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **174 files**: `server` in node, everything else in happy-dom.
+Split across **181 files**: `server` in node, everything else in happy-dom.
+
+> **CHAR-04's recorded count was 26 low, and PLY-01 measured it rather than inheriting it.** This
+> file said 2801 across 174 files; `git stash` + a full run on `main` says **2827 across 176**. The
+> gap is not a regression — nothing was failing at either number — it is a checkpoint that was
+> written from a partial run. PLY-01's delta is stated against the measured 2827, and the rule this
+> corrects is worth writing down: **re-measure the baseline, don't quote the last row.**
 
 ## The suite now runs in two environments
 
@@ -48,6 +55,75 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-PLY-01 — two defects a green suite could not see
+
+The **+77 over CHAR-04's measured 2827** is TICKET-PLY-01: 22 in `server/routes/play/play.test.ts`,
+19 in `shared/services/playerActions.test.ts`, 22 in `client/stores/characterStore.table.test.ts`,
+7 in `client/components/play/sheet/useOpenTableCharacter.test.ts`, 5 in `CharacterSheet.test.tsx`,
+4 in `server/routes/play/playerRules.test.ts` and 1 in `SessionCharacters.test.tsx` — **minus the
+three** deleted with `updateCurrentStatValues` (see below).
+
+**The rules moved to the Kernel rather than being copied there**, which is the whole ticket in one
+sentence. `equipToSlot`, `investInStat`, `setResourceValue` and eight more lived in
+`client/stores/characterStore.ts` — a place `src/server/` cannot reach — so a route enforcing them
+would have been a second implementation of every one. `playerRules.test.ts` is what makes that a
+fact rather than an intention: every handler under `routes/play/` imports
+`#shared/services/playerActions`, **none** imports `#shared/engine/` directly, and the module count
+is asserted against `PLAYER_ACTION` so the scan cannot pass by finding nothing.
+
+### A lost update the tests could not have caught, and the ordering that closes it
+
+The `conventions-reviewer` pass found it and no test in the suite was positioned to: every route
+read the character row in its guard and then `await context.json()` — a **real suspension point** —
+before applying the intent and writing. Two overlapping requests from the same Player both read the
+pool at 30, both applied `-5`, and both wrote 25. One action silently lost, and two Events in the
+log claiming the identical before and after, which is exactly the audit trail DM-01 and LIVE-02 are
+built to read.
+
+Every route now reads its body **first** and guards **second**, so nothing suspends between the row
+read and the write and `better-sqlite3`'s synchronous driver serialises the pair. `requireAccount`
+stays above the body, so an anonymous caller still meets a 401 rather than a 400 about their JSON —
+GAM-01's rule, for GAM-01's reason.
+
+*"Loses neither of two actions that overlap"* fires both with `Promise.all` and asserts the pool
+moved by 10 **and** that the two Events carry `-5` and `-10` rather than `-5` twice. It was checked
+against the defect before the fix landed: with the old ordering it fails `expected -5 to be -10`.
+The client half is `characterStore.table.test.ts`'s *"keeps one write in flight"* — `isActing` was
+documented as a double-submit gate and gated nothing, which is what made the race reachable from a
+sheet at all.
+
+### A sheet that never stopped loading, found only in the browser
+
+`useOpenTableCharacter` reads the character, then the table's Snapshot, and holds a flag across
+both so the sheet does not render *Different Ruleset Loaded* in the gap. The first draft cleaned up
+with the ordinary `cancelled = true` idiom — and deadlocked: succeeding sets `tableCharacter`, that
+flips `isOpen`, `isOpen` is a dependency, so the effect re-runs and its cleanup cancels the very
+settle its own success had just earned. The page sat on *Opening this character…* with two
+successful 200s behind it and nothing in the console.
+
+The guard is now a **ref recording which character has been attempted**, which makes the effect
+idempotent against both the re-run and React's development double-invoke and lets the settle be
+unconditional. *"Settles even though its own success re-runs the effect"* reproduces it by having
+the mocked store flip mid-promise, exactly as the real one does.
+
+### Three things deleted rather than deprecated
+
+`updateCurrentStatValues` (the batch write) had exactly one caller — the single-stat action
+delegating *to* it. PLY-01 reversed that, because a table needs a named intent per stat, which left
+the batch with nothing but its own three tests calling it. Action, interface member and tests all
+went; `characterStore.test.ts` keeps a block explaining where the two properties they asserted now
+live. `tableSessionId` was written, cleared and read by nothing. Both were invisible to
+`fallow dead-code`, which counts a store member as live and a test file as a consumer.
+
+### The rule that was held by a JSX conditional
+
+`setWalletAmount`, `awardExperience` and `deductExperience` have no player route — experience and
+the purse are the DM's at a table (D9) — and the sheet does not draw their controls. But the *store*
+had no branch, so for a table character they fell through to `characters.find(...)`, matched nothing
+and no-opped in silence. `refuseAtTable` makes it an explicit refusal with a sentence, which is
+where the house rule says the invariant belongs: one JSX conditional away from a second surface
+inheriting the bug instead of the rule.
 
 ## TICKET-CHAR-04 — a rule with two callers, and a migration `drizzle-kit` got wrong
 
@@ -1055,11 +1131,12 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/client/components/auth/AuthForm.tsx` | 6.2 | TICKET-GAM-02's run | 3 commits, 0.07 density | ▲ **Accelerating** |
 | `src/client/routes/signin.tsx` | 7.2 | TICKET-GAM-02's run | 3 commits, 0.07 density | ▲ **Accelerating** |
 | `src/client/routeTree.gen.ts` | 5.5 | TICKET-GAM-02's run | 4 commits, 0.03 density | ▲ **Accelerating** — generated |
-| `src/server/auth/guards.ts` | 8.3 | TICKET-GAM-04's run | 3 commits, 252 churn, 0.08 density | ▲ **Accelerating — TICKET-GAM-04** |
+| `src/server/auth/guards.ts` | 10.3 | TICKET-GAM-04's run | 4 commits, 288 churn | ▲ **Accelerating — TICKET-PLY-01** (was 8.3 at GAM-04; `requireCharacterPlayer` is the fourth commit) |
 | `src/client/stores/configStore.ts` | 18.5 | TICKET-CHAR-04's run | 3 commits, 1900 churn, 0.18 density | ▲ **Accelerating — TICKET-CHAR-04** |
 | `src/client/components/sessions/useSessionsManager.ts` | 12.5 | TICKET-CHAR-04's run | 3 commits, 165 churn, 0.12 density | ▲ **Accelerating — TICKET-CHAR-04** |
-| `src/client/components/sessions/SessionList.test.tsx` | 10.4 | TICKET-CHAR-04's run | 3 commits, 213 churn, 0.10 density | ▲ **Accelerating — TICKET-CHAR-04** |
-| `src/client/components/sessions/SessionList.tsx` | 4.2 | TICKET-CHAR-04's run | 3 commits, 334 churn, 0.04 density | ▲ **Accelerating — TICKET-CHAR-04** |
+| `src/client/components/sessions/SessionList.test.tsx` | 12.9 | TICKET-CHAR-04's run | 4 commits, 213 churn | ▲ **Accelerating — TICKET-PLY-01** (was 10.4 at CHAR-04) |
+| `src/client/components/sessions/SessionList.tsx` | 6.4 | TICKET-CHAR-04's run | 4 commits, 374 churn | ▲ **Accelerating — TICKET-PLY-01** (was 4.2 at CHAR-04) |
+| `src/server/repositories/characterRepository.ts` | 2.9 | TICKET-PLY-01's run | 3 commits, 200 churn | ▲ **Accelerating — TICKET-PLY-01** (crossed the three-commit floor with `recordPlayerAction`) |
 | `src/client/components/sessions/SessionsPanel.tsx` | 3.1 | TICKET-CHAR-04's run | 3 commits, 75 churn, 0.03 density | ▲ **Accelerating — TICKET-CHAR-04** |
 
 **Both Accelerating rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they

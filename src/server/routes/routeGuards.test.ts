@@ -75,12 +75,16 @@ const OWNED_PARAMETERS = [
  * `requireInvitee` joined the list with TICKET-GAM-03. It is the odd one — an invitee owns nothing
  * and sits at no table — but it answers the same question about the same kind of identifier: *may
  * this caller act on the row this id names?*
+ *
+ * `requireCharacterPlayer` joined with TICKET-PLY-01. It is `requireCharacterWriter` minus the DM,
+ * which the player-action routes need and every other character route does not.
  */
 const RESOURCE_GUARDS = [
   'requireOwner',
   'requireMember',
   'requireDM',
   'requireCharacterWriter',
+  'requireCharacterPlayer',
   'requireInvitee',
 ];
 

@@ -12,7 +12,7 @@
  */
 
 import type { EquipmentSlotPlacement, Item } from '#shared/types/config';
-import { useCharacterStore } from '../../../stores/characterStore';
+import { selectCharacter, useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
 
 /**
@@ -47,14 +47,14 @@ export interface MiscItemEntry {
 
 export function useInventoryManager(characterId: string) {
   const config = useConfigStore((state) => state.config);
-  const characters = useCharacterStore((state) => state.characters);
+  // Wherever it lives (TICKET-PLY-01) — a character at a table is not in the browser's own list,
+  // and the pack is one of the things a Player moves things in and out of at one
+  const character = useCharacterStore((state) => selectCharacter(state, characterId));
 
   const moveItemToMisc = useCharacterStore((state) => state.moveItemToMisc);
   const moveItemToEquipment = useCharacterStore((state) => state.moveItemToEquipment);
   const addMiscItem = useCharacterStore((state) => state.addMiscItem);
   const removeMiscItem = useCharacterStore((state) => state.removeMiscItem);
-
-  const character = characters.find((candidate) => candidate.id === characterId) ?? null;
 
   const items = config?.items ?? [];
   const findItem = (itemId: string): Item | null =>

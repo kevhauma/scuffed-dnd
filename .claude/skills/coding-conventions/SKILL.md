@@ -194,6 +194,15 @@ Two families of judgement, both concrete here rather than generic.
   unrelated changes.
 - **Persistence belongs to the store action**: patch state, then call the storage service in the
   same action. Components never call `saveConfiguration`/`saveCharacters`/`localStorage`.
+- **A store action with two destinations branches once, and the rule it applies is the Kernel's.**
+  `rulesetSync.ts` and `characterSync.ts` are the two modules that know how the server is reached;
+  `playerActions.ts` holds the rules both roots run. An action is then a line deciding *where* and a
+  line saying *what* — see `characterStore.setInvestedStatPoints` (TICKET-PLY-01). A rule written in
+  a store is a rule the server cannot call, which is how two implementations start.
+- **Name a Kernel rule for what it does to the document, and the action for what the person did.**
+  `equipToSlot` is the rule, `equip-item` is the `PLAYER_ACTION` the route and the Event log spell.
+  Sharing one spelling across the two makes a duplicate export `fallow` will report and an
+  `export *` can resolve ambiguously.
 - **Derived values are computed, never stored.** Anything downstream of a formula comes from
   `calculateCharacter()` (the one composed entry point) at read time — see the **data-model**
   skill for why `currentStatValues` is the one exception.

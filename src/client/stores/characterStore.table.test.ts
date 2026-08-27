@@ -1,0 +1,401 @@
+/**
+ * A character that lives at a table, driven through the store (TICKET-PLY-01)
+ *
+ * **A second file rather than more cases in `characterStore.test.ts`**, and that is the milestone's
+ * fifth Definition-of-Done rule showing through: local mode's suite has to pass *unchanged*, so the
+ * cheapest way to keep that true is not to touch it. Everything here is about the other home.
+ *
+ * Three things it holds:
+ *
+ * 1. **The branch is on where the character lives, not on what the action is.** Every one of the
+ *    store's writes reaches the table when the id is the open table character's, and the request
+ *    carries the intent's own name.
+ * 2. **A refusal changes nothing.** The character stays exactly as it was and the server's sentence
+ *    lands in `actionError` — v3 Req 41.5's *the surface never shows an action that did not land*,
+ *    which is a claim about store state and is asserted as one.
+ * 3. **A local character asks the network nothing.** `fetch` is stubbed to **throw** rather than
+ *    counted, because a path that fetched and ignored the answer satisfies a call count and has
+ *    still broken D6.
+ *
+ * **Validates: v3 Req 36.2, 41.1, 41.5, 45.1**
+ */
+
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PLAYER_ACTION } from '#shared/types/api';
+import type { Character } from '#shared/types/character';
+import type { Configuration } from '#shared/types/config';
+
+vi.mock('../services/storage', () => ({
+  loadCharacters: vi.fn(() => []),
+  saveCharacters: vi.fn(),
+}));
+
+import * as storage from '../services/storage';
+import { useCharacterStore } from './characterStore';
+
+/** The smallest ruleset the actions under test need */
+const RULES = {
+  id: 'config-1',
+  name: 'Test',
+  version: '1.0',
+  schemaVersion: 9,
+  stats: [
+    {
+      id: 'stat-health',
+      name: 'Health',
+      abbreviation: 'HP',
+      description: '',
+      order: 0,
+      countsTowardTotal: false,
+      isResource: true,
+      rounding: 'none',
+    },
+  ],
+  skills: [],
+  materials: [],
+  materialCategories: [],
+  items: [],
+  equipmentSlots: [],
+  races: [],
+  currencyTiers: [],
+  createdAt: '2024-01-01',
+  updatedAt: '2024-01-01',
+} as unknown as Configuration;
+
+function aCharacter(overrides: Partial<Character> = {}): Character {
+  return {
+    id: 'character-1',
+    name: 'Quackers',
+    configurationId: 'config-1',
+    raceIds: [],
+    investedStatPoints: {},
+    investedSkillPoints: {},
+    currentResourceValues: { 'stat-health': 30 },
+    experience: 0,
+    inventory: { equippedItems: {}, miscItems: [] },
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+/** What the last `fetch` was asked for */
+function lastRequest(): { url: string; method: string; body: unknown } {
+  const stub = vi.mocked(globalThis.fetch);
+  const [url, init] = stub.mock.calls[stub.mock.calls.length - 1] as [string, RequestInit];
+
+  return {
+    url,
+    method: init.method ?? 'GET',
+    body: init.body === undefined ? undefined : JSON.parse(init.body as string),
+  };
+}
+
+/** `fetch` answering every call with one JSON body */
+function respondWith(status: number, body: unknown) {
+  globalThis.fetch = vi.fn(async () =>
+    Promise.resolve(
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+  ) as unknown as typeof fetch;
+}
+
+/** `fetch` that fails the case if anything calls it */
+function refuseToFetch() {
+  globalThis.fetch = vi.fn(() => {
+    throw new Error('local mode must not reach the network');
+  }) as unknown as typeof fetch;
+}
+
+const original = globalThis.fetch;
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  globalThis.fetch = original;
+  useCharacterStore.setState({
+    characters: [],
+    isLoaded: true,
+    tableCharacter: null,
+    isActing: false,
+    actionError: null,
+  });
+});
+
+describe('opening a character that lives at a table', () => {
+  it('holds it open and reports which table it plays at', async () => {
+    respondWith(200, {
+      id: 'character-1',
+      sessionId: 'session-1',
+      rulesetId: null,
+      ownerAccountId: 'account-1',
+      name: 'Quackers',
+      revision: 1,
+      createdAt: 0,
+      updatedAt: 0,
+      character: aCharacter(),
+    });
+
+    const sessionId = await useCharacterStore.getState().openTableCharacter('character-1');
+
+    expect(sessionId).toBe('session-1');
+    expect(useCharacterStore.getState().tableCharacter?.id).toBe('character-1');
+    // The browser's own roster is untouched, which is what makes the two homes two homes (D6)
+    expect(useCharacterStore.getState().characters).toEqual([]);
+    expect(storage.saveCharacters).not.toHaveBeenCalled();
+  });
+
+  it('refuses to hold a character that sits at no table', async () => {
+    // `GET /api/characters/:id` answers an IO-04 upload to its owner quite correctly. Holding one
+    // here would be a sheet read against the *browser's* ruleset, with the purse and experience
+    // hidden as though a DM owned them, and every write meeting the routes' 409.
+    respondWith(200, {
+      id: 'character-1',
+      sessionId: null,
+      rulesetId: 'ruleset-1',
+      ownerAccountId: 'account-1',
+      name: 'Quackers',
+      revision: 1,
+      createdAt: 0,
+      updatedAt: 0,
+      character: aCharacter(),
+    });
+
+    const sessionId = await useCharacterStore.getState().openTableCharacter('character-1');
+
+    expect(sessionId).toBeNull();
+    expect(useCharacterStore.getState().tableCharacter).toBeNull();
+  });
+
+  it('says so rather than throwing when it cannot be read', async () => {
+    respondWith(404, { error: { code: 'not_found', message: 'Not found' } });
+
+    const sessionId = await useCharacterStore.getState().openTableCharacter('character-1');
+
+    expect(sessionId).toBeNull();
+    expect(useCharacterStore.getState().tableCharacter).toBeNull();
+    expect(useCharacterStore.getState().actionError).toContain('could not be opened');
+  });
+});
+
+describe('a write to the character open at a table', () => {
+  beforeEach(() => {
+    useCharacterStore.setState({ tableCharacter: aCharacter() });
+  });
+
+  it('posts the intent by name and adopts the character the server sends back', async () => {
+    const moved = aCharacter({ currentResourceValues: { 'stat-health': 23 } });
+    respondWith(200, {
+      id: 'character-1',
+      sessionId: 'session-1',
+      rulesetId: null,
+      ownerAccountId: 'account-1',
+      name: 'Quackers',
+      revision: 2,
+      createdAt: 0,
+      updatedAt: 0,
+      character: moved,
+    });
+
+    useCharacterStore.getState().adjustCurrentStatValue('character-1', 'stat-health', -7, RULES);
+    await vi.waitFor(() => expect(useCharacterStore.getState().isActing).toBe(false));
+
+    expect(lastRequest().url).toBe(`/api/characters/character-1/${PLAYER_ACTION.ADJUST_RESOURCE}`);
+    expect(lastRequest().method).toBe('POST');
+    expect(lastRequest().body).toEqual({ statId: 'stat-health', delta: -7 });
+
+    expect(useCharacterStore.getState().tableCharacter?.currentResourceValues['stat-health']).toBe(
+      23
+    );
+    // Nothing about a table character is ever written to LocalStorage (v3 Req 36.2)
+    expect(storage.saveCharacters).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      PLAYER_ACTION.INVEST_STAT_POINTS,
+      () => useCharacterStore.getState().setInvestedStatPoints('character-1', 'stat-x', 2, RULES),
+      { statId: 'stat-x', points: 2 },
+    ],
+    [
+      PLAYER_ACTION.INVEST_SKILL_POINTS,
+      () => useCharacterStore.getState().setInvestedSkillPoints('character-1', 'skill-x', 4),
+      { skillId: 'skill-x', points: 4 },
+    ],
+    [
+      PLAYER_ACTION.SET_RESOURCE,
+      () =>
+        useCharacterStore.getState().updateCurrentStatValue('character-1', 'stat-health', 5, RULES),
+      { statId: 'stat-health', value: 5 },
+    ],
+    [
+      PLAYER_ACTION.RESET_RESOURCE,
+      () =>
+        useCharacterStore
+          .getState()
+          .resetCurrentStatValueToMax('character-1', 'stat-health', RULES),
+      { statId: 'stat-health' },
+    ],
+    [
+      PLAYER_ACTION.EQUIP_ITEM,
+      () => useCharacterStore.getState().equipItem('character-1', 'head', 'item-1', RULES),
+      { equipmentSlotType: 'head', itemId: 'item-1' },
+    ],
+    [
+      PLAYER_ACTION.UNEQUIP_ITEM,
+      () => useCharacterStore.getState().unequipItem('character-1', 'head'),
+      { equipmentSlotType: 'head' },
+    ],
+    [
+      PLAYER_ACTION.STOW_ITEM,
+      () => useCharacterStore.getState().moveItemToMisc('character-1', 'head'),
+      { equipmentSlotType: 'head' },
+    ],
+    [
+      PLAYER_ACTION.WEAR_ITEM,
+      () =>
+        useCharacterStore.getState().moveItemToEquipment('character-1', 'item-1', 'head', RULES),
+      { equipmentSlotType: 'head', itemId: 'item-1' },
+    ],
+    [
+      PLAYER_ACTION.TAKE_ITEM,
+      () => useCharacterStore.getState().addMiscItem('character-1', 'item-1'),
+      { itemId: 'item-1' },
+    ],
+    [
+      PLAYER_ACTION.DROP_ITEM,
+      () => useCharacterStore.getState().removeMiscItem('character-1', 'item-1'),
+      { itemId: 'item-1' },
+    ],
+  ])('sends %s with the fields that action needs', async (action, run, body) => {
+    respondWith(200, {
+      id: 'character-1',
+      sessionId: 'session-1',
+      rulesetId: null,
+      ownerAccountId: 'account-1',
+      name: 'Quackers',
+      revision: 2,
+      createdAt: 0,
+      updatedAt: 0,
+      character: aCharacter(),
+    });
+
+    run();
+    await vi.waitFor(() => expect(useCharacterStore.getState().isActing).toBe(false));
+
+    expect(lastRequest().url).toBe(`/api/characters/character-1/${action}`);
+    expect(lastRequest().body).toEqual(body);
+  });
+
+  it('leaves the character exactly as it was when the server refuses, and says why', async () => {
+    respondWith(400, {
+      error: {
+        code: 'bad_request',
+        message: 'That spend is more than the points this character has.',
+      },
+    });
+
+    useCharacterStore.getState().setInvestedStatPoints('character-1', 'stat-x', 99, RULES);
+    await vi.waitFor(() => expect(useCharacterStore.getState().isActing).toBe(false));
+
+    const { tableCharacter, actionError } = useCharacterStore.getState();
+
+    expect(tableCharacter).toEqual(aCharacter());
+    expect(actionError).toBe('That spend is more than the points this character has.');
+  });
+
+  it('clears the last refusal when the next action is accepted', async () => {
+    useCharacterStore.setState({ actionError: 'something earlier went wrong' });
+    respondWith(200, {
+      id: 'character-1',
+      sessionId: 'session-1',
+      rulesetId: null,
+      ownerAccountId: 'account-1',
+      name: 'Quackers',
+      revision: 2,
+      createdAt: 0,
+      updatedAt: 0,
+      character: aCharacter(),
+    });
+
+    useCharacterStore.getState().updateCurrentStatValue('character-1', 'stat-health', 5, RULES);
+    await vi.waitFor(() => expect(useCharacterStore.getState().isActing).toBe(false));
+
+    expect(useCharacterStore.getState().actionError).toBeNull();
+  });
+
+  it('keeps one write in flight, so a second tap cannot lose the first', async () => {
+    // Both would be applied to the row the server found, and the later answer would replace the
+    // earlier one — the client half of the race the routes close by reading the body first
+    respondWith(200, {
+      id: 'character-1',
+      sessionId: 'session-1',
+      rulesetId: null,
+      ownerAccountId: 'account-1',
+      name: 'Quackers',
+      revision: 2,
+      createdAt: 0,
+      updatedAt: 0,
+      character: aCharacter(),
+    });
+
+    useCharacterStore.getState().adjustCurrentStatValue('character-1', 'stat-health', -5, RULES);
+    useCharacterStore.getState().adjustCurrentStatValue('character-1', 'stat-health', -5, RULES);
+
+    await vi.waitFor(() => expect(useCharacterStore.getState().isActing).toBe(false));
+
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['experience', () => useCharacterStore.getState().awardExperience('character-1', 100)],
+    ['experience deducted', () => useCharacterStore.getState().deductExperience('character-1', 10)],
+    ['a purse', () => useCharacterStore.getState().setWalletAmount('character-1', 'tier-1', 5)],
+  ])('refuses %s at a table, because it is the DM’s', (_name, run) => {
+    // The sheet does not draw these controls, but the rule belongs to the store: falling through to
+    // `characters.find(...)` would find nothing and no-op in silence, and the next surface to reach
+    // for the action would inherit that rather than the refusal
+    refuseToFetch();
+
+    run();
+
+    expect(useCharacterStore.getState().actionError).toContain('Dungeon Master');
+    expect(storage.saveCharacters).not.toHaveBeenCalled();
+  });
+
+  it('is dismissible, and closing the character forgets it', () => {
+    useCharacterStore.setState({ actionError: 'a refusal' });
+    useCharacterStore.getState().dismissActionError();
+
+    expect(useCharacterStore.getState().actionError).toBeNull();
+
+    useCharacterStore.setState({ actionError: 'another refusal' });
+    useCharacterStore.getState().closeTableCharacter();
+
+    expect(useCharacterStore.getState().tableCharacter).toBeNull();
+    expect(useCharacterStore.getState().actionError).toBeNull();
+  });
+});
+
+describe('a write to a character in this browser', () => {
+  it('asks the network nothing, even while another character is open at a table', () => {
+    // The branch is on *which character*, so the dangerous case is the one where both homes are in
+    // play at once — a store that branched on "is any table character open" would fail this
+    useCharacterStore.setState({
+      characters: [aCharacter({ id: 'local-1' })],
+      tableCharacter: aCharacter({ id: 'character-1' }),
+    });
+    refuseToFetch();
+
+    // Negative, so the Kernel's one-sided clamp passes it straight through and the assertion is
+    // about the *write* rather than about what this fixture's maximum happens to be
+    useCharacterStore.getState().updateCurrentStatValue('local-1', 'stat-health', -3, RULES);
+
+    expect(useCharacterStore.getState().characters[0].currentResourceValues['stat-health']).toBe(
+      -3
+    );
+    expect(storage.saveCharacters).toHaveBeenCalled();
+  });
+});

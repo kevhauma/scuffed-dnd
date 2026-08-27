@@ -49,6 +49,7 @@ function document(overrides: Partial<CharacterDocument> = {}): CharacterDocument
 /** The panel with everything defaulted to "one character, and it is yours" */
 function renderPanel(props: Partial<React.ComponentProps<typeof SessionCharacters>> = {}) {
   const onCreate = vi.fn();
+  const onOpen = vi.fn();
 
   render(
     <SessionCharacters
@@ -59,11 +60,12 @@ function renderPanel(props: Partial<React.ComponentProps<typeof SessionCharacter
       isOpening={false}
       error={null}
       onCreate={onCreate}
+      onOpen={onOpen}
       {...props}
     />
   );
 
-  return { onCreate };
+  return { onCreate, onOpen };
 }
 
 describe('SessionCharacters', () => {
@@ -96,6 +98,27 @@ describe('SessionCharacters', () => {
     });
 
     expect(screen.getAllByText('Yours')).toHaveLength(1);
+  });
+
+  it('offers a sheet on your own character and on nobody else’s', () => {
+    // The server refuses a write to somebody else's character (`requireCharacterPlayer`), so a
+    // sheet on one would be a page of controls that could not save (TICKET-PLY-01)
+    const { onOpen } = renderPanel({
+      characters: [
+        document(),
+        document({
+          id: 'character-2',
+          ownerAccountId: 'account-2',
+          character: { ...document().character, id: 'character-2', name: 'Feathers' },
+        }),
+      ],
+    });
+
+    const buttons = screen.getAllByRole('button', { name: 'Open sheet' });
+    expect(buttons).toHaveLength(1);
+
+    fireEvent.click(buttons[0]);
+    expect(onOpen).toHaveBeenCalledWith('character-1');
   });
 
   it('says nothing is here rather than showing an empty list', () => {

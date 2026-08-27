@@ -6,14 +6,18 @@
  * *the action owns the decision to persist*, applied one aggregate over. A component never reaches
  * either destination; `characterStore.createCharacterHere` calls this, and this decides.
  *
- * ## Why it is only creation
+ * ## Creation, and then every write after it (TICKET-PLY-01)
  *
  * A local character is edited through `characterStore`'s actions, which write LocalStorage. A
  * **session** character's edits — spending points, moving a resource, picking up an item — go
- * through the server with a revision guard, and that is TICKET-PLY-01's, not this ticket's. So
- * there is exactly one write here, and no `saveCharacter` beside it pretending otherwise: an
- * unfinished half of a pair is worse than an obviously absent one, because the first thing a reader
- * does with it is call it.
+ * through the server, and PLY-01 is what put them here beside the creation this module started as.
+ *
+ * Each of those is a **named intent** rather than a patch: {@link sendPlayerAction} posts to
+ * `/api/characters/:id/<action>`, where the action segment is the `PLAYER_ACTION` value the store
+ * asked for. Nothing derived is ever in the body — the server recomputes every number against the
+ * table's Snapshot and rejects a body that claims one (the milestone's third Definition-of-Done
+ * rule) — and the answer is adopted whole, because the server is authoritative and the browser's
+ * arithmetic is a prediction (D5).
  *
  * ## Why the local path is not routed through here at all
  *
@@ -26,12 +30,15 @@
  * **Validates: v3 Req 40.5, 40.6**
  */
 
-import type { CharacterCreateRequest, CharacterDocument } from '#shared/types/api';
+import type { CharacterCreateRequest, CharacterDocument, PlayerAction } from '#shared/types/api';
 import type { Character, CharacterCreationData } from '#shared/types/character';
-import { ApiError, apiSend } from './api';
+import { ApiError, apiRequest, apiSend } from './api';
 
 /** Where a session's own routes live — a relative path, because there is one origin (D1) */
 const SESSIONS_PATH = '/api/sessions';
+
+/** Where a character's own routes live */
+const CHARACTERS_PATH = '/api/characters';
 
 /** How creating a character at a table ended */
 export const CREATION_OUTCOME = {
@@ -88,6 +95,73 @@ export async function createSessionCharacter(
         error instanceof ApiError
           ? error.message
           : 'Could not create that character. Check your connection and try again.',
+    };
+  }
+}
+
+/** How a player action ended (TICKET-PLY-01) */
+export const ACTION_OUTCOME = {
+  APPLIED: 'applied',
+  /** The server refused it — the sentence is the server's, and names the rule */
+  REFUSED: 'refused',
+} as const;
+
+/** What happened, and either the character as it now is or the reason it is unchanged */
+export type ActionOutcome =
+  | { outcome: typeof ACTION_OUTCOME.APPLIED; character: Character }
+  | { outcome: typeof ACTION_OUTCOME.REFUSED; message: string };
+
+/**
+ * Read one character from the server (TICKET-PLY-01)
+ *
+ * What makes a session character's sheet reachable by URL: the document carries the `sessionId`, so
+ * a caller can open the right Snapshot before calculating anything against it.
+ *
+ * @param characterId Which one
+ * @returns The document
+ * @throws {ApiError} As `apiRequest` does — a refusal, or an unreachable server
+ */
+export function fetchCharacter(characterId: string): Promise<CharacterDocument> {
+  return apiRequest<CharacterDocument>(`${CHARACTERS_PATH}/${characterId}`);
+}
+
+/**
+ * Perform one player action at a table (v3 Req 41.1)
+ *
+ * **Send, wait, adopt.** Optimistic updates are deliberately out of scope
+ * ([the ticket's own note](../../../docs/v3.0_backend/tickets/TICKET-PLY-01-player-actions-through-the-server.md)):
+ * an action is one per human decision rather than one per keystroke, and a spend that appears and
+ * then un-appears is worse than one that takes eighty milliseconds.
+ *
+ * **A refusal carries the server's own sentence, never a summary.** The engine knows which rule was
+ * broken — the budget, the fit of an item, a pool that cannot be priced — and a client that
+ * flattened those into *that did not work* would be inventing a message nobody decided on.
+ *
+ * @param characterId Whose sheet
+ * @param action Which named intent — also the last segment of the path it posts to
+ * @param body What the action needs to be told
+ * @returns What happened
+ */
+export async function sendPlayerAction(
+  characterId: string,
+  action: PlayerAction,
+  body: unknown
+): Promise<ActionOutcome> {
+  try {
+    const updated = await apiSend<CharacterDocument>(
+      `${CHARACTERS_PATH}/${characterId}/${action}`,
+      'POST',
+      body
+    );
+
+    return { outcome: ACTION_OUTCOME.APPLIED, character: updated.character };
+  } catch (error) {
+    return {
+      outcome: ACTION_OUTCOME.REFUSED,
+      message:
+        error instanceof ApiError
+          ? error.message
+          : 'Could not save that change. Check your connection and try again.',
     };
   }
 }

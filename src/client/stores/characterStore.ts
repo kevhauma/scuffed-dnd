@@ -9,15 +9,36 @@
  */
 
 import { create } from 'zustand';
-import { calculateCharacter } from '#shared/engine/calculator';
 import { MAX_RACE_COUNT } from '#shared/engine/calculators/statCalculator';
-import { asNumber } from '#shared/engine/formula/errors';
 import { validateStatAllocation } from '#shared/engine/skillAllocation';
 import { buildCharacter } from '#shared/services/characterCreation';
+// `addToPack` and `removeFromPack` are deliberately absent: the browser's pack has never had a rule
+// to share — its picker is built from the ruleset's item list — and the *server* is the side that
+// has to check, because a request is not a picker. See `addMiscItem` below.
+import {
+  adjustResourceValue,
+  emptySlot,
+  equipToSlot,
+  investInSkill,
+  investInStat,
+  isRefusal,
+  moveItemToEquipment,
+  moveItemToMisc,
+  type PlayerActionResult,
+  resetResourceToMax,
+  setResourceValue,
+} from '#shared/services/playerActions';
+import type { PlayerAction } from '#shared/types/api';
+import { PLAYER_ACTION } from '#shared/types/api';
 import type { Character, CharacterCreationData, Inventory } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
-import type { FormulaResult } from '#shared/types/formula';
-import { CREATION_OUTCOME, createSessionCharacter } from '../services/characterSync';
+import {
+  ACTION_OUTCOME,
+  CREATION_OUTCOME,
+  createSessionCharacter,
+  fetchCharacter,
+  sendPlayerAction,
+} from '../services/characterSync';
 import { RULESET_HOME, type RulesetSource } from '../services/rulesetSync';
 import { loadCharacters, saveCharacters } from '../services/storage';
 import { useUIStore } from './uiStore';
@@ -51,9 +72,44 @@ type CharacterPatch = Partial<Pick<Character, 'name' | 'raceIds' | 'archetypeId'
  */
 type CharacterCreation = { created: Character } | { created: null; message: string };
 
-interface CharacterState {
+export interface CharacterState {
+  /**
+   * The characters this browser holds, in LocalStorage
+   *
+   * **Local mode's own list, and nothing else is ever in it** (D6). A character that plays at a
+   * table lives on the server and is held in {@link CharacterState.tableCharacter}; putting one here
+   * would put it in `dnd_builder_characters` on the next write, which is the one thing signing in is
+   * promised never to do (v3 Req 36.2).
+   */
   characters: Character[];
   isLoaded: boolean;
+
+  /**
+   * The character open at a table, if one is (TICKET-PLY-01)
+   *
+   * **One at a time, because a sheet is one page.** Every write to it goes through the server and
+   * what comes back replaces this whole object — the server is authoritative, and adopting its
+   * answer rather than patching our own is what keeps a client from believing an action landed
+   * differently than it did (D5).
+   */
+  tableCharacter: Character | null;
+  /**
+   * True while a player action is on the wire, and **a second one is refused while it is**
+   *
+   * Not a spinner: it is what keeps one write in flight per character, which `rulesetSync` does for
+   * a ruleset and for the same reason. Two overlapping actions would both be applied to the row as
+   * the server found it and the later answer would replace the earlier one — a Player tapping
+   * *damage 5* twice would lose one of them. The review found this documented and unenforced.
+   */
+  isActing: boolean;
+  /**
+   * Why the last action at a table was refused, **in the server's own words**
+   *
+   * The sheet renders this and keeps showing the state as it was: the engine knows which rule was
+   * broken — the budget, the fit of an item, a pool nothing can price — and a client that flattened
+   * those into *that did not work* would be inventing a message nobody decided on (v3 Req 41.5).
+   */
+  actionError: string | null;
 
   // Initialization
   loadCharacters: () => void;
@@ -119,6 +175,23 @@ interface CharacterState {
   deleteCharacter: (id: string) => void;
   getCharacter: (id: string) => Character | undefined;
 
+  /**
+   * Read a character that lives on the server and hold it open (TICKET-PLY-01)
+   *
+   * **It does not open the rules**, and that absence is deliberate: `configStore` already imports
+   * this module, so reaching back for `openSessionSnapshot` here would be the cycle `no-circular`
+   * refuses. The session id comes back so the caller can do it — the same shape
+   * `createCharacterHere` uses for the same reason.
+   *
+   * @param characterId Which character
+   * @returns The table it plays at, or `null` when it could not be read
+   */
+  openTableCharacter: (characterId: string) => Promise<string | null>;
+  /** Let go of the character open at a table, and of whatever it last said */
+  closeTableCharacter: () => void;
+  /** Dismiss the last refusal — the state it refused to change is already on screen */
+  dismissActionError: () => void;
+
   // Inventory Management
   equipItem: (
     characterId: string,
@@ -144,11 +217,9 @@ interface CharacterState {
     value: number,
     config: Configuration
   ) => void;
-  updateCurrentStatValues: (
-    characterId: string,
-    values: Record<string, number>,
-    config: Configuration
-  ) => void;
+  // `updateCurrentStatValues`, the batch write, went with TICKET-PLY-01. Its only caller was the
+  // single-stat action delegating *to* it; the table path needs a named intent per stat, so the
+  // delegation reversed and the batch was left with nothing but its own tests calling it.
 
   /**
    * Put points into one invested stat, refusing anything the derived budget cannot pay for
@@ -230,58 +301,21 @@ interface CharacterState {
 }
 
 /**
- * Clamp requested current stat values to their calculated maxima
+ * The character with this id, wherever it lives (TICKET-PLY-01)
  *
- * Requirement 14.3 caps a current value at its maximum and Requirement 14.4 allows it to go
- * negative, so this is a one-sided clamp. It lives in the store rather than in the stat editor so
- * no caller can write an out-of-range value, and it takes the `Configuration` because the maxima
- * are derived from the stat formulas — they are never stored on the character.
+ * **Exported because two hooks need it** — the sheet and the inventory panel both used to reach for
+ * `characters.find(...)`, which since this ticket is only half the answer: a character at a table is
+ * not in that list and never will be. A third caller would be a signal, not a surprise.
  *
- * A stat with no calculated maximum (an unknown id, or a ruleset whose formulas do not evaluate)
- * is written through unclamped: refusing the edit would leave a Player unable to track anything on
- * a broken ruleset, and the sheet surfaces the formula error separately.
+ * @param state The store as it stands
+ * @param characterId Which character
+ * @returns The character, or `null` when neither home has one
  */
-function clampToMaxStatValues(
-  character: Character,
-  values: Record<string, number>,
-  config: Configuration
-): Record<string, number> {
-  let statValues: Record<string, FormulaResult>;
-  try {
-    statValues = calculateCharacter(character, config).statValues;
-  } catch {
-    return values;
-  }
+export function selectCharacter(state: CharacterState, characterId: string): Character | null {
+  const local = state.characters.find((candidate) => candidate.id === characterId);
+  if (local) return local;
 
-  const clamped: Record<string, number> = {};
-  for (const [statId, value] of Object.entries(values)) {
-    // `asNumber` is undefined both when the stat has no maximum and when its formula is broken;
-    // either way there is no ceiling to clamp against, so the Player's value goes through.
-    const max = asNumber(statValues[statId]);
-    clamped[statId] = max === undefined ? value : Math.min(value, max);
-  }
-
-  return clamped;
-}
-
-/**
- * One stat's calculated maximum, or undefined when there isn't one
- *
- * The same reading `clampToMaxStatValues` does, for the one action that needs a single stat's
- * ceiling rather than a batch of them: `undefined` covers an unknown id, a ruleset whose formulas
- * do not evaluate, and an engine that threw — three ways of having no ceiling, all of which mean
- * the same thing to a caller.
- */
-function maxStatValue(
-  character: Character,
-  statId: string,
-  config: Configuration
-): number | undefined {
-  try {
-    return asNumber(calculateCharacter(character, config).statValues[statId]);
-  } catch {
-    return undefined;
-  }
+  return state.tableCharacter?.id === characterId ? state.tableCharacter : null;
 }
 
 /**
@@ -297,33 +331,6 @@ function maxStatValue(
  */
 function hasBlendableRaces(raceIds: string[]): boolean {
   return raceIds.length <= MAX_RACE_COUNT;
-}
-
-/**
- * Decide whether an item may occupy an equipment slot
- *
- * Requirement 12.3: an item goes in the slot type it declares, and only that one. An item the
- * configuration does not define, or one with no `equipmentSlotType` at all, fits nowhere — a
- * strict equality against the declared type covers all three cases at once.
- *
- * This lives in the store so the rule holds for every caller, not only for a panel that happens to
- * offer the right options.
- */
-function fitsSlot(itemId: string, equipmentSlotType: string, config: Configuration): boolean {
-  const item = config.items.find((candidate) => candidate.id === itemId);
-  return item?.equipmentSlotType === equipmentSlotType;
-}
-
-/**
- * An equipped-items map with one slot emptied
- */
-function withoutSlot(
-  equippedItems: Inventory['equippedItems'],
-  equipmentSlotType: string
-): Inventory['equippedItems'] {
-  return Object.fromEntries(
-    Object.entries(equippedItems).filter(([slotType]) => slotType !== equipmentSlotType)
-  );
 }
 
 /**
@@ -353,6 +360,124 @@ function patchInventory(
   );
 
   set({ characters: updated });
+}
+
+/** Zustand's partial setter, as every helper here takes it */
+type SetState = (partial: Partial<CharacterState>) => void;
+
+/**
+ * Run one Kernel rule against a character in **this browser**, persisting what it accepted
+ *
+ * The local half of every player action, and the reason each one is now three lines: the rules moved
+ * to [`playerActions.ts`](../../shared/services/playerActions.ts) in TICKET-PLY-01 so the server
+ * could run the same ones (D5), and what is left here is finding the character, stamping it and
+ * writing LocalStorage — which is what this store has always been for.
+ *
+ * **A refusal is silent**, as it has always been on this path. The browser has a wizard and a set of
+ * disabled controls in front of these, so a refusal here means something else is already wrong;
+ * the *server* path reports the Kernel's sentence, because it has nothing standing in front of it.
+ */
+function applyLocally(
+  set: SetState,
+  get: () => CharacterState,
+  characterId: string,
+  rule: (character: Character) => PlayerActionResult
+): void {
+  const { characters } = get();
+  const character = characters.find((candidate) => candidate.id === characterId);
+  if (!character) return;
+
+  const result = rule(character);
+  if (isRefusal(result)) return;
+
+  const updated = autoSave(
+    characters.map((candidate) =>
+      candidate.id === characterId ? updateTimestamp(result.character) : candidate
+    )
+  );
+
+  set({ characters: updated });
+}
+
+/**
+ * Send one player action to the table, and adopt whatever comes back
+ *
+ * **Send, wait, adopt** — optimistic updates are out of scope for TICKET-PLY-01, so nothing is
+ * changed on the way out and the character is replaced wholesale on the way in. A refusal leaves the
+ * character exactly as it was and puts the server's sentence in `actionError`, which is v3 Req 41.5:
+ * the surface never shows an action that did not land.
+ */
+async function sendToTable(
+  set: SetState,
+  characterId: string,
+  action: PlayerAction,
+  body: unknown
+): Promise<void> {
+  set({ isActing: true, actionError: null });
+
+  const outcome = await sendPlayerAction(characterId, action, body);
+
+  set(
+    outcome.outcome === ACTION_OUTCOME.APPLIED
+      ? { tableCharacter: outcome.character, isActing: false }
+      : { actionError: outcome.message, isActing: false }
+  );
+}
+
+/**
+ * Route a write to the table when that is where the character lives (TICKET-PLY-01)
+ *
+ * **The one branch, and every action's first line.** RUL-02 put the same decision for a ruleset in
+ * `rulesetSync.ts`; a character's is here because the store is what knows which of its two lists an
+ * id belongs to, and the module that knows *how* to reach the server is still `characterSync.ts`.
+ *
+ * @returns True when the write was sent to the table and the caller should stop
+ */
+function toTable(
+  set: SetState,
+  get: () => CharacterState,
+  characterId: string,
+  action: PlayerAction,
+  body: unknown
+): boolean {
+  if (get().tableCharacter?.id !== characterId) return false;
+
+  // **One write in flight per character**, which is `rulesetSync`'s rule one aggregate over. Two
+  // overlapping actions are each applied to the row the server found, so the second answer replaces
+  // the first and one of them is silently lost. Swallowed rather than queued: these are one action
+  // per human decision, and a second tap is the same decision made twice.
+  if (get().isActing) return true;
+
+  void sendToTable(set, characterId, action, body);
+  return true;
+}
+
+/**
+ * Refuse a write that belongs to the DM once the character is at a table (TICKET-PLY-01)
+ *
+ * Experience and the purse are the DM's at a game session
+ * ([D9](../../../docs/v3.0_backend/overview.md#d9--level-stays-derived-points-to-spend-becomes-a-grant),
+ * v3 Req 42), so there is no player route for either and these actions have nothing to send. The
+ * sheet does not draw the controls — but **the rule belongs here, not to a JSX conditional**: the
+ * review found that a table character simply fell through to `characters.find(...)`, matched
+ * nothing and no-opped in silence, so a second surface reaching for the same action would have
+ * inherited the bug rather than the refusal.
+ *
+ * @returns True when the write was refused and the caller should stop
+ */
+function refuseAtTable(
+  set: SetState,
+  get: () => CharacterState,
+  characterId: string,
+  subject: string
+): boolean {
+  if (get().tableCharacter?.id !== characterId) return false;
+
+  set({
+    actionError: `${subject} is the Dungeon Master's to change at a table, so it cannot be edited here.`,
+  });
+
+  return true;
 }
 
 /**
@@ -440,6 +565,9 @@ function updateTimestamp(character: Character): Character {
 export const useCharacterStore = create<CharacterState>((set, get) => ({
   characters: [],
   isLoaded: false,
+  tableCharacter: null,
+  isActing: false,
+  actionError: null,
 
   // Load characters from LocalStorage
   loadCharacters: () => {
@@ -524,10 +652,47 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     set({ characters: updated });
   },
 
-  // Get character by ID
-  getCharacter: (id: string) => {
-    const { characters } = get();
-    return characters.find((char) => char.id === id);
+  // Get character by ID — wherever it lives, since TICKET-PLY-01
+  getCharacter: (id: string) => selectCharacter(get(), id) ?? undefined,
+
+  openTableCharacter: async (characterId: string) => {
+    set({ isActing: true, actionError: null });
+
+    try {
+      const document = await fetchCharacter(characterId);
+
+      // **A character at no table is not one this can open** (v3 Req 36.5). `GET /api/characters/:id`
+      // answers an IO-04 upload to its owner quite correctly, and holding one here would be a sheet
+      // whose rules are the browser's, whose purse and experience are hidden as though a DM owned
+      // them, and whose every write meets the routes' 409. It is *not found* as far as a table is
+      // concerned, and the sheet's own notice says that better than a banner would.
+      if (document.sessionId === null) {
+        set({ isActing: false });
+        return null;
+      }
+
+      set({ tableCharacter: document.character, isActing: false });
+
+      return document.sessionId;
+    } catch {
+      // The message is deliberately ours rather than the server's: every refusal this can meet is
+      // the same indistinguishable 404 (v3 Req 32.5), and repeating *Not found* would tell a Player
+      // nothing about what to do next
+      set({
+        isActing: false,
+        actionError: 'That character could not be opened. It may have been removed from the table.',
+      });
+
+      return null;
+    }
+  },
+
+  closeTableCharacter: () => {
+    set({ tableCharacter: null, actionError: null, isActing: false });
+  },
+
+  dismissActionError: () => {
+    set({ actionError: null });
   },
 
   // Equip item to equipment slot
@@ -537,24 +702,30 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     itemId: string,
     config: Configuration
   ) => {
-    if (!fitsSlot(itemId, equipmentSlotType, config)) return;
+    const body = { equipmentSlotType, itemId };
+    if (toTable(set, get, characterId, PLAYER_ACTION.EQUIP_ITEM, body)) return;
 
-    patchInventory(set, get, characterId, (inventory) => ({
-      ...inventory,
-      equippedItems: { ...inventory.equippedItems, [equipmentSlotType]: itemId },
-    }));
+    applyLocally(set, get, characterId, (character) =>
+      equipToSlot(character, config, equipmentSlotType, itemId)
+    );
   },
 
   // Unequip item from equipment slot
   unequipItem: (characterId: string, equipmentSlotType: string) => {
-    patchInventory(set, get, characterId, (inventory) => ({
-      ...inventory,
-      equippedItems: withoutSlot(inventory.equippedItems, equipmentSlotType),
-    }));
+    const body = { equipmentSlotType };
+    if (toTable(set, get, characterId, PLAYER_ACTION.UNEQUIP_ITEM, body)) return;
+
+    applyLocally(set, get, characterId, (character) => emptySlot(character, equipmentSlotType));
   },
 
   // Add item to miscellaneous inventory
   addMiscItem: (characterId: string, itemId: string) => {
+    if (toTable(set, get, characterId, PLAYER_ACTION.TAKE_ITEM, { itemId })) return;
+
+    // **No Kernel call, because there is no shared rule to share.** The browser's picker is built
+    // from the ruleset's item list, so this has never checked anything; the *server* does check,
+    // because a request is not a picker (`playerActions.takeItem`). A server that is stricter than
+    // its client is the right direction for the two to differ in.
     patchInventory(set, get, characterId, (inventory) => ({
       ...inventory,
       miscItems: [...inventory.miscItems, itemId],
@@ -563,6 +734,8 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
 
   // Remove item from miscellaneous inventory
   removeMiscItem: (characterId: string, itemId: string) => {
+    if (toTable(set, get, characterId, PLAYER_ACTION.DROP_ITEM, { itemId })) return;
+
     patchInventory(set, get, characterId, (inventory) => ({
       ...inventory,
       miscItems: inventory.miscItems.filter((id) => id !== itemId),
@@ -571,15 +744,12 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
 
   // Move equipped item to miscellaneous inventory
   moveItemToMisc: (characterId: string, equipmentSlotType: string) => {
-    patchInventory(set, get, characterId, (inventory) => {
-      const itemId = inventory.equippedItems[equipmentSlotType];
-      if (!itemId) return inventory;
+    const body = { equipmentSlotType };
+    if (toTable(set, get, characterId, PLAYER_ACTION.STOW_ITEM, body)) return;
 
-      return {
-        equippedItems: withoutSlot(inventory.equippedItems, equipmentSlotType),
-        miscItems: [...inventory.miscItems, itemId],
-      };
-    });
+    applyLocally(set, get, characterId, (character) =>
+      moveItemToMisc(character, equipmentSlotType)
+    );
   },
 
   // Move miscellaneous item to equipment slot
@@ -589,18 +759,12 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     equipmentSlotType: string,
     config: Configuration
   ) => {
-    if (!fitsSlot(itemId, equipmentSlotType, config)) return;
+    const body = { equipmentSlotType, itemId };
+    if (toTable(set, get, characterId, PLAYER_ACTION.WEAR_ITEM, body)) return;
 
-    patchInventory(set, get, characterId, (inventory) => {
-      // A slot holds one item, so whatever was in it swaps back to misc rather than vanishing
-      const displaced = inventory.equippedItems[equipmentSlotType];
-      const miscItems = inventory.miscItems.filter((id) => id !== itemId);
-
-      return {
-        equippedItems: { ...inventory.equippedItems, [equipmentSlotType]: itemId },
-        miscItems: displaced ? [...miscItems, displaced] : miscItems,
-      };
-    });
+    applyLocally(set, get, characterId, (character) =>
+      moveItemToEquipment(character, config, itemId, equipmentSlotType)
+    );
   },
 
   // Update single current stat value
@@ -610,39 +774,12 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     value: number,
     config: Configuration
   ) => {
-    get().updateCurrentStatValues(characterId, { [statId]: value }, config);
-  },
+    const body = { statId, value };
+    if (toTable(set, get, characterId, PLAYER_ACTION.SET_RESOURCE, body)) return;
 
-  // Update multiple current stat values
-  updateCurrentStatValues: (
-    characterId: string,
-    values: Record<string, number>,
-    config: Configuration
-  ) => {
-    const { characters } = get();
-    const updated = autoSave(
-      characters.map((char) => {
-        if (char.id !== characterId) return char;
-
-        // Only a resource has a current value distinct from its composed one, so ids for
-        // anything else are dropped here rather than trusted from the caller (TICKET-STAT-01)
-        const resourceIds = new Set(
-          config.stats.filter((stat) => stat.isResource).map((stat) => stat.id)
-        );
-        const resourceValues = Object.fromEntries(
-          Object.entries(values).filter(([statId]) => resourceIds.has(statId))
-        );
-
-        return updateTimestamp({
-          ...char,
-          currentResourceValues: {
-            ...char.currentResourceValues,
-            ...clampToMaxStatValues(char, resourceValues, config),
-          },
-        });
-      })
+    applyLocally(set, get, characterId, (character) =>
+      setResourceValue(character, config, statId, value)
     );
-    set({ characters: updated });
   },
 
   adjustCurrentStatValue: (
@@ -651,25 +788,21 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     delta: number,
     config: Configuration
   ) => {
-    const character = get().characters.find((candidate) => candidate.id === characterId);
-    if (!character || !Number.isFinite(delta)) return;
+    const body = { statId, delta };
+    if (toTable(set, get, characterId, PLAYER_ACTION.ADJUST_RESOURCE, body)) return;
 
-    // Read from the stored value, not from anything a component is showing — a pool left above a
-    // shrunken maximum (TICKET-RES-03's kept-and-flagged rule) must lose exactly what was asked for
-    const current = character.currentResourceValues[statId] ?? 0;
-    get().updateCurrentStatValue(characterId, statId, current + delta, config);
+    applyLocally(set, get, characterId, (character) =>
+      adjustResourceValue(character, config, statId, delta)
+    );
   },
 
   resetCurrentStatValueToMax: (characterId: string, statId: string, config: Configuration) => {
-    const character = get().characters.find((candidate) => candidate.id === characterId);
-    if (!character) return;
+    const body = { statId };
+    if (toTable(set, get, characterId, PLAYER_ACTION.RESET_RESOURCE, body)) return;
 
-    const max = maxStatValue(character, statId, config);
-    // No maximum means nothing to fill to. Writing 0 would be the one case where "reset" empties a
-    // pool instead of filling it, which is the opposite of what the control says it does.
-    if (max === undefined) return;
-
-    get().updateCurrentStatValue(characterId, statId, max, config);
+    applyLocally(set, get, characterId, (character) =>
+      resetResourceToMax(character, config, statId)
+    );
   },
 
   setInvestedStatPoints: (
@@ -678,52 +811,28 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     points: number,
     config: Configuration
   ) => {
-    const { characters } = get();
-    const character = characters.find((candidate) => candidate.id === characterId);
-    if (!character) return;
+    const body = { statId, points };
+    if (toTable(set, get, characterId, PLAYER_ACTION.INVEST_STAT_POINTS, body)) return;
 
-    if (!Number.isInteger(points) || points < 0) return;
-
-    const proposed: Character = {
-      ...character,
-      investedStatPoints: { ...character.investedStatPoints, [statId]: points },
-    };
-
-    // The engine decides, so the sheet and the wizard cannot disagree about what is affordable.
-    // An unavailable budget lands here as `isValid: false`, which is the right answer: a ruleset
-    // that cannot say how many points exist cannot say this spend is allowed either.
-    if (!validateStatAllocation(proposed, config).isValid) return;
-
-    const updated = autoSave(
-      characters.map((candidate) =>
-        candidate.id === characterId ? updateTimestamp(proposed) : candidate
-      )
+    // The engine decides, so the sheet and the wizard cannot disagree about what is affordable —
+    // and since TICKET-PLY-01 the *server* asks the same engine the same question, because the
+    // rule moved to the Kernel rather than being copied there.
+    applyLocally(set, get, characterId, (character) =>
+      investInStat(character, config, statId, points)
     );
-    set({ characters: updated });
   },
 
   setInvestedSkillPoints: (characterId: string, skillId: string, points: number) => {
-    const { characters } = get();
-    const character = characters.find((candidate) => candidate.id === characterId);
-    if (!character) return;
+    const body = { skillId, points };
+    if (toTable(set, get, characterId, PLAYER_ACTION.INVEST_SKILL_POINTS, body)) return;
 
     // No budget check — see the note on the action's declaration. The whole rule is the shape.
-    if (!Number.isInteger(points) || points < 0) return;
-
-    const updated = autoSave(
-      characters.map((candidate) =>
-        candidate.id === characterId
-          ? updateTimestamp({
-              ...candidate,
-              investedSkillPoints: { ...candidate.investedSkillPoints, [skillId]: points },
-            })
-          : candidate
-      )
-    );
-    set({ characters: updated });
+    applyLocally(set, get, characterId, (character) => investInSkill(character, skillId, points));
   },
 
   setWalletAmount: (characterId: string, tierId: string, amount: number) => {
+    if (refuseAtTable(set, get, characterId, 'A purse')) return;
+
     const { characters } = get();
     const character = characters.find((candidate) => candidate.id === characterId);
     if (!character) return;
@@ -744,12 +853,16 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   },
 
   awardExperience: (characterId: string, amount: number) => {
+    if (refuseAtTable(set, get, characterId, 'Experience')) return;
+
     applyExperienceChange(set, get, characterId, (experience) =>
       isAwardableAmount(amount) ? experience + amount : undefined
     );
   },
 
   deductExperience: (characterId: string, amount: number) => {
+    if (refuseAtTable(set, get, characterId, 'Experience')) return;
+
     applyExperienceChange(set, get, characterId, (experience) => {
       if (!isAwardableAmount(amount)) return undefined;
       // Refused rather than clamped: a partial deduction would read as a penalty that landed

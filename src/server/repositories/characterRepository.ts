@@ -21,9 +21,10 @@
  * **Validates: v3 Req 32.4**
  */
 
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { type Database, getDatabase } from '../db/client';
 import { character } from '../db/schema';
+import { appendEventWithin, type NewEvent } from './eventRepository';
 
 /** A character row — `data` is still JSON text (D4) */
 export type CharacterRow = typeof character.$inferSelect;
@@ -169,6 +170,55 @@ export function listUnseatedCharacters(
     .where(and(eq(character.ownerAccountId, accountId), isNull(character.sessionId)))
     .orderBy(desc(character.createdAt))
     .all();
+}
+
+/** What recording one accepted player action needs to be told (TICKET-PLY-01) */
+export interface PlayerActionWrite {
+  characterId: string;
+  /** The player state as JSON text — serialised by the caller, never by this layer (D4) */
+  data: string;
+  /** Epoch milliseconds */
+  now: number;
+  /** The Event to append beside it, minus the id the caller has already minted */
+  event: NewEvent;
+}
+
+/**
+ * Write a character's new player state and its Event, together or not at all (v3 Req 41.7)
+ *
+ * **One transaction, and that is the whole reason this function exists** rather than a route calling
+ * an update and then `appendEvent`. GAM-01's review found the Snapshot write and its Event split
+ * across two, and the failure it leaves behind is the worst kind: a character that changed with
+ * nothing in the log saying so, which LIVE-02 fans out as silence and DM-01's audit cannot explain.
+ *
+ * **There is no revision guard here, deliberately.** A ruleset save states the base revision it is
+ * replacing because it carries a whole document; a player action carries an *intent* which the route
+ * has already applied to the row as it stands, so there is nothing a stale client could overwrite.
+ * `revision` is incremented so a reader can tell whether what it holds is current.
+ *
+ * @param input The new state and the Event that explains it
+ * @param database The connection; defaults to the process's
+ * @returns The stored row, at its new revision
+ */
+export function recordPlayerAction(
+  input: PlayerActionWrite,
+  database: Database = getDatabase()
+): CharacterRow {
+  return database.db.transaction(
+    (tx) => {
+      const row = tx
+        .update(character)
+        .set({ data: input.data, revision: sql`${character.revision} + 1`, updatedAt: input.now })
+        .where(eq(character.id, input.characterId))
+        .returning()
+        .get();
+
+      appendEventWithin(tx, input.event);
+
+      return row;
+    },
+    { behavior: 'immediate' }
+  );
 }
 
 /**

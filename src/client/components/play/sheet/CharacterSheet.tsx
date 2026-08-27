@@ -21,6 +21,7 @@ import { SheetHeader } from './SheetHeader';
 import { SkillsSection } from './SkillsSection';
 import { StatsSection } from './StatsSection';
 import { useCharacterSheet } from './useCharacterSheet';
+import { useOpenTableCharacter } from './useOpenTableCharacter';
 import { WalletSection } from './WalletSection';
 
 export interface CharacterSheetProps {
@@ -57,6 +58,10 @@ function SheetNotice({
 }
 
 export function CharacterSheet({ characterId }: CharacterSheetProps) {
+  // A sheet reached by URL may be a character that lives on the server (TICKET-PLY-01) — this reads
+  // it and its table's rules before anything below is asked to interpret it
+  const isOpening = useOpenTableCharacter(characterId);
+
   const {
     status,
     character,
@@ -72,6 +77,9 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     statTotal,
     budget,
     rollGroups,
+    atTable,
+    actionError,
+    dismissActionError,
     handleChangeStatValue,
     handleAdjustStatValue,
     handleResetStatValueToMax,
@@ -94,6 +102,18 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     handleClearHistory,
   } = useRoller(characterId, calculated);
 
+  // Before any dead-end notice: mid-read the character and the ruleset genuinely disagree, and
+  // every one of those notices would be a confident wrong answer to a question still being asked
+  if (isOpening) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <Card className="p-8 text-center">
+          <Text variant="body-secondary">Opening this character…</Text>
+        </Card>
+      </div>
+    );
+  }
+
   if (status === 'no-configuration') {
     return (
       <SheetNotice title="No Ruleset Yet" onBack={handleBack}>
@@ -108,9 +128,11 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
   if (status === 'not-found' || !character) {
     return (
       <SheetNotice title="Character Not Found" onBack={handleBack}>
+        {/* The banner below only renders on a drawable sheet, so a failed *open* would otherwise set
+            a message nothing could show — the review found the sentence unreachable */}
         <Text variant="body-secondary">
-          No saved character has the id {characterId}. It may have been deleted, or this link may be
-          from another browser.
+          {actionError ??
+            `No saved character has the id ${characterId}. It may have been deleted, or this link may be from another browser.`}
         </Text>
       </SheetNotice>
     );
@@ -160,6 +182,22 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
    */
   return (
     <div className="space-y-4 p-4 sm:p-6">
+      {/* The server's own sentence, kept beside the state it refused to change (v3 Req 41.5,
+          TICKET-PLY-01). Nothing on the sheet has moved — a refused action is a request that landed
+          nowhere — so this is the only sign of it, and it is dismissible rather than timed. */}
+      {actionError && (
+        <Card className="border-crimson p-4">
+          <div role="alert" className="flex items-start justify-between gap-4">
+            <Text variant="error" as="p">
+              {actionError}
+            </Text>
+            <Button variant="secondary" size="sm" onClick={dismissActionError}>
+              Dismiss
+            </Button>
+          </div>
+        </Card>
+      )}
+
       <SheetHeader
         name={character.name}
         budget={budget}
@@ -168,8 +206,10 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
         experience={experience}
         archetypeName={archetypeName}
         onBack={handleBack}
-        onAwardExperience={handleAwardExperience}
-        onDeductExperience={handleDeductExperience}
+        // At a table experience and coin are the DM's (D9, v3 Req 42), so the Player's own sheet
+        // draws neither control — TICKET-DM-01 and TICKET-DM-02 bring them back on the DM's side
+        onAwardExperience={atTable ? undefined : handleAwardExperience}
+        onDeductExperience={atTable ? undefined : handleDeductExperience}
       />
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
@@ -210,12 +250,15 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
           <InventoryPanel characterId={characterId} />
 
           {/* Coin sits beside the equipment, as it does on the sheet (`Q18:S23`, right of the
-              `M3:O15` boxes) — what you are carrying, in one column */}
-          <WalletSection
-            tiers={currencyTiers}
-            wallet={wallet}
-            onChangeAmount={handleChangeWalletAmount}
-          />
+              `M3:O15` boxes) — what you are carrying, in one column. Not at a table: a purse there
+              is TICKET-CUR-02's shape and TICKET-DM-02's control. */}
+          {!atTable && (
+            <WalletSection
+              tiers={currencyTiers}
+              wallet={wallet}
+              onChangeAmount={handleChangeWalletAmount}
+            />
+          )}
 
           <RollHistoryPanel history={rollHistory} onClear={handleClearHistory} />
         </div>

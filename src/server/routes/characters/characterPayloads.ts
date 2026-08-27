@@ -33,7 +33,11 @@ const CHARACTERS_PREFIX = '/api/characters/';
  * Which character a path named
  *
  * `rulesetIdFrom`'s shape a third time — a small function per collection rather than one
- * parameterised by prefix, for the reason that one gives. Only `/api/characters/:id` is real.
+ * parameterised by prefix, for the reason that one gives.
+ *
+ * **Two shapes are real**: `/api/characters/:id`, and — since TICKET-PLY-01 — `/api/characters/:id/
+ * <action>`, where the action segment is one of `PLAYER_ACTION`'s values. Anything deeper is not a
+ * route, and comes back as an empty string that the handler refuses like any other unknown id.
  *
  * @param url The request URL
  * @returns The id segment, or an empty string when the path has none
@@ -43,7 +47,7 @@ export function characterIdFrom(url: URL): string {
 
   const [id, ...rest] = url.pathname.slice(CHARACTERS_PREFIX.length).split('/');
 
-  return rest.length === 0 ? id : '';
+  return rest.length <= 1 ? id : '';
 }
 
 /**

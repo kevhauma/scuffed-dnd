@@ -274,3 +274,33 @@ export function requireCharacterWriter(asking: Asking, characterId: string): Cha
 
   return row;
 }
+
+/**
+ * A character the asking Account **plays** (v3 Req 41.1, TICKET-PLY-01)
+ *
+ * **Narrower than {@link requireCharacterWriter} by exactly one Account: the DM.** That guard answers
+ * *may this Account write to this sheet*, and a DM may — which is what TICKET-DM-01's controls are
+ * built on. A **player action** is a different question: it is what the person at the table does to
+ * their *own* character, and a DM reaching one of these routes would be taking a power that has its
+ * own tickets, its own audit trail and its own Event types. So the routes under
+ * `routes/play/` ask this instead, and the DM's equivalent does not leak in through them.
+ *
+ * **It is layered on top rather than written beside**, so the retention rule and the at-no-table rule
+ * are enforced once. A second guard restating them is a second guard that can be updated alone.
+ *
+ * @param asking Who is asking
+ * @param characterId Which character
+ * @returns The character row, now known to be the caller's own
+ * @throws {AppError} 401 for nobody, 404 for everything else — somebody else's character, the DM's
+ *   view of a player's, a missing id, and one whose owner has left the table
+ */
+export function requireCharacterPlayer(asking: Asking, characterId: string): CharacterRow {
+  const account = requireAccount(asking);
+  const row = requireCharacterWriter(asking, characterId);
+
+  if (row.ownerAccountId !== account.id) {
+    throw refuse(`account ${account.id} does not play character ${characterId}`);
+  }
+
+  return row;
+}

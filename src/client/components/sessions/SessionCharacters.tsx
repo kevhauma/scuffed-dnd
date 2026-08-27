@@ -12,13 +12,12 @@
  * there is priced by the table's rules, which stopped following the DM's ruleset when the game began
  * ([D7](../../../../docs/v3.0_backend/overview.md#d7--a-game-session-plays-against-a-pinned-snapshot)).
  *
- * **A character's sheet does not open from here, deliberately.** Nothing can write to a session
- * character yet — spending points and moving a resource go through the server with a revision
- * guard, which is TICKET-PLY-01's — so a sheet reached from here would be a page whose every
- * control quietly lost what it changed. The list says what is at the table; the sheet arrives with
- * the ticket that can save one.
+ * **Your own character opens its sheet; somebody else's does not** (TICKET-PLY-01). The server
+ * refuses a write to a character the Account does not own — `requireCharacterPlayer`, which is
+ * narrower than the DM's writer guard on purpose — so a sheet full of controls that could not save
+ * is not a page worth opening. Reading another player's is TICKET-DM-04's roster.
  *
- * **Validates: v3 Req 37.2, 40.4, 40.6**
+ * **Validates: v3 Req 37.2, 40.4, 40.6, 41.1**
  */
 
 import type { CharacterDocument } from '#shared/types/api';
@@ -38,10 +37,20 @@ export interface SessionCharactersProps {
   isOpening: boolean;
   error: string | null;
   onCreate: () => void;
+  /** Open one of the reader's own characters — see the module note on why only their own */
+  onOpen: (characterId: string) => void;
 }
 
 /** One character, named and attributed */
-function CharacterRow({ document, isMine }: { document: CharacterDocument; isMine: boolean }) {
+function CharacterRow({
+  document,
+  isMine,
+  onOpen,
+}: {
+  document: CharacterDocument;
+  isMine: boolean;
+  onOpen: (characterId: string) => void;
+}) {
   return (
     <div className={sessionRowStyles}>
       <div className="flex flex-col">
@@ -50,6 +59,12 @@ function CharacterRow({ document, isMine }: { document: CharacterDocument; isMin
           {document.character.name}
         </Text>
       </div>
+
+      {isMine && (
+        <Button variant="secondary" size="sm" onClick={() => onOpen(document.id)}>
+          Open sheet
+        </Button>
+      )}
     </div>
   );
 }
@@ -62,6 +77,7 @@ export function SessionCharacters({
   isOpening,
   error,
   onCreate,
+  onOpen,
 }: SessionCharactersProps) {
   return (
     <Card className="p-6">
@@ -92,6 +108,7 @@ export function SessionCharacters({
               key={document.id}
               document={document}
               isMine={document.ownerAccountId === accountId}
+              onOpen={onOpen}
             />
           ))
         )}

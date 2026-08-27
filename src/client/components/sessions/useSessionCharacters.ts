@@ -6,14 +6,15 @@
  * the 404-means-you-cannot-see-this rule and the busy flag are the ones GAM-04 extracted rather
  * than a fourth copy of them.
  *
- * **There is no write here, and the absence is the ticket's own decision.** Creating a character
- * goes through the wizard, which runs against whichever ruleset is open and submits through
- * `characterStore.createCharacterHere` — persistence belongs to the store action, and a second
- * creation path on a listing hook would be a second place for the rule to live. Everything *else*
- * a character does — spending points, moving a resource, picking up an item — is TICKET-PLY-01's,
- * and offering half of it here would be offering a control that silently loses what it changes.
+ * **There is still no write here.** Creating a character goes through the wizard, which runs against
+ * whichever ruleset is open and submits through `characterStore.createCharacterHere` — persistence
+ * belongs to the store action, and a second creation path on a listing hook would be a second place
+ * for the rule to live. Everything *else* a character does is TICKET-PLY-01's, and this hook's part
+ * in it is one `navigate`: the sheet reads its own character and its own rules
+ * ([`useOpenTableCharacter`](../play/sheet/useOpenTableCharacter.ts)), so a link is all a listing
+ * owes it.
  *
- * **Validates: v3 Req 40.4**
+ * **Validates: v3 Req 40.4, 41.1**
  */
 
 import { useNavigate } from '@tanstack/react-router';
@@ -40,6 +41,14 @@ export interface SessionCharactersState {
    * navigation, and this was the piece with somewhere better to live.
    */
   makeCharacterHere: () => void;
+  /**
+   * Open one character's sheet (TICKET-PLY-01)
+   *
+   * Only offered for the reader's **own** characters, which is the server's rule showing through:
+   * `requireCharacterPlayer` refuses everybody else's writes, so a sheet full of controls nothing
+   * could save is not a page worth opening. Reading somebody else's is the roster's job (DM-04).
+   */
+  openCharacter: (characterId: string) => void;
 }
 
 /**
@@ -78,5 +87,12 @@ export function useSessionCharacters(sessionId: string | null): SessionCharacter
         })
         .finally(() => setIsOpeningRules(false));
     }, [sessionId, isOpeningRules, openSessionSnapshot, navigate]),
+
+    openCharacter: useCallback(
+      (characterId: string) => {
+        navigate({ to: '/play/character/$id', params: { id: characterId } });
+      },
+      [navigate]
+    ),
   };
 }

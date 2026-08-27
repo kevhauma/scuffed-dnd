@@ -11,7 +11,6 @@
  * **Validates: Requirements 8.5, 13.4, 14.1, 14.2, 14.5, 16.6, 21.1-21.5**
  */
 
-import { useNavigate } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { calculateCharacter } from '#shared/engine/calculator';
 import { indexStatModifiers } from '#shared/engine/calculators/equipmentBonusCalculator';
@@ -28,11 +27,12 @@ import { describeFormulaError, isFormulaError } from '#shared/engine/formula/err
 import { validateStatAllocation } from '#shared/engine/skillAllocation';
 import type { CalculatedCharacter, Character } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
-import { useCharacterStore } from '../../../stores/characterStore';
+import { selectCharacter, useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
 import type { DerivedValue } from '../shared/derivedValue';
 import { toDerivedValue } from '../shared/derivedValue';
 import { toPointBudgetView } from '../shared/pointBudgetView';
+import { useSheetActions } from './useSheetActions';
 
 /**
  * Why the sheet cannot be drawn, or `ready` when it can
@@ -373,20 +373,16 @@ function buildView(
 }
 
 export function useCharacterSheet(characterId: string) {
-  const navigate = useNavigate();
-
   const config = useConfigStore((state) => state.config);
-  const characters = useCharacterStore((state) => state.characters);
-  const updateCurrentStatValue = useCharacterStore((state) => state.updateCurrentStatValue);
-  const adjustCurrentStatValue = useCharacterStore((state) => state.adjustCurrentStatValue);
-  const resetCurrentStatValueToMax = useCharacterStore((state) => state.resetCurrentStatValueToMax);
-  const setInvestedStatPoints = useCharacterStore((state) => state.setInvestedStatPoints);
-  const setInvestedSkillPoints = useCharacterStore((state) => state.setInvestedSkillPoints);
-  const setWalletAmount = useCharacterStore((state) => state.setWalletAmount);
-  const awardExperience = useCharacterStore((state) => state.awardExperience);
-  const deductExperience = useCharacterStore((state) => state.deductExperience);
+  // Wherever it lives (TICKET-PLY-01) — the browser's list, or the one character open at a table
+  const character = useCharacterStore((state) => selectCharacter(state, characterId));
+  const atTable = useCharacterStore((state) => state.tableCharacter?.id === characterId);
+  const actionError = useCharacterStore((state) => state.actionError);
+  const isActing = useCharacterStore((state) => state.isActing);
+  const dismissActionError = useCharacterStore((state) => state.dismissActionError);
 
-  const character = characters.find((candidate) => candidate.id === characterId) ?? null;
+  // What the Player can *do* to this sheet is its own hook (TICKET-PLY-01) — see `useSheetActions`
+  const actions = useSheetActions(character, config, atTable);
 
   const { calculated, error } = useMemo(() => calculate(character, config), [character, config]);
 
@@ -408,67 +404,22 @@ export function useCharacterSheet(characterId: string) {
     character && config ? validateStatAllocation(character, config) : null
   );
 
-  const handleChangeStatValue = (statId: string, value: number) => {
-    if (!character || !config) return;
-
-    // Persistence — and the max-value clamp — belong to the store action, not to this hook
-    updateCurrentStatValue(character.id, statId, value, config);
-  };
-
-  // Concept 20's quick entry and "regain to full" (TICKET-RES-03). The delta is applied and the
-  // maximum is read inside the store, so nothing here does arithmetic on a pool.
-  const handleAdjustStatValue = (statId: string, delta: number) => {
-    if (!character || !config) return;
-
-    adjustCurrentStatValue(character.id, statId, delta, config);
-  };
-
-  const handleResetStatValueToMax = (statId: string) => {
-    if (!character || !config) return;
-
-    resetCurrentStatValueToMax(character.id, statId, config);
-  };
-
-  // Spending is the level-up mechanic (TICKET-RES-02). The store refuses anything the derived
-  // budget cannot pay for, so the sheet asks and renders whatever came back.
-  const handleChangeInvestedPoints = (statId: string, points: number) => {
-    if (!character || !config) return;
-
-    setInvestedStatPoints(character.id, statId, points, config);
-  };
-
-  // No budget to check against: the ruleset prices stat points and says nothing about skill
-  // points, so the store's only rule is the shape. See `setInvestedSkillPoints`.
-  const handleChangeInvestedSkillPoints = (skillId: string, points: number) => {
-    if (!character) return;
-
-    setInvestedSkillPoints(character.id, skillId, points);
-  };
-
-  const handleChangeWalletAmount = (tierId: string, amount: number) => {
-    if (!character) return;
-
-    setWalletAmount(character.id, tierId, amount);
-  };
-
-  // One action per click, mirroring the sheet's `exp.gs` — the store decides what is allowed
-  const handleAwardExperience = (amount: number) => {
-    if (!character) return;
-    awardExperience(character.id, amount);
-  };
-
-  const handleDeductExperience = (amount: number) => {
-    if (!character) return;
-    deductExperience(character.id, amount);
-  };
-
-  const handleBack = () => {
-    navigate({ to: '/play' });
-  };
-
   return {
     status,
     character,
+    /**
+     * Whether this sheet is a character at a table (TICKET-PLY-01)
+     *
+     * What the sheet does with it is hide the controls whose writes have no route yet — experience
+     * is TICKET-DM-01's and the purse is DM-02's, and at a table both are the DM's to change (D9).
+     * A control that quietly lost what it changed would be worse than an absent one.
+     */
+    atTable,
+    /** Why the last action at a table was refused, in the server's own words — null after a success */
+    actionError,
+    /** True while an action is on the wire */
+    isActing,
+    dismissActionError,
     /** The engine result, for callers that need more than the rendered breakdowns (the roller) */
     calculated,
     formulaError: error,
@@ -480,18 +431,10 @@ export function useCharacterSheet(characterId: string) {
     /** Spent, available and remaining at this level — null when there is no sheet to draw */
     budget,
     ...view,
-    handleChangeStatValue,
-    handleAdjustStatValue,
-    handleResetStatValueToMax,
     // The ruleset's tiers and what this character holds in them — the sheet's purse
     // (`Charactersheet!Q18:S23`), which the app had no field for until now
     currencyTiers: config?.currencyTiers ?? [],
     wallet: character?.wallet ?? {},
-    handleChangeInvestedPoints,
-    handleChangeInvestedSkillPoints,
-    handleChangeWalletAmount,
-    handleAwardExperience,
-    handleDeductExperience,
-    handleBack,
+    ...actions,
   };
 }

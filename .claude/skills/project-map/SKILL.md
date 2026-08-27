@@ -78,7 +78,7 @@ rather than a read-only config UI).
 | `/config/curves` | `routes/config/curves.tsx` | `CurvesConfigPanel` — progressions as editable tables (`curve.*(x)`), with per-cell override highlighting and a regenerate action (TICKET-CRV-03) |
 | `/play` | `routes/play/index.tsx` | `CharacterList` — the play-mode entry point |
 | `/play/create` | `routes/play/create.tsx` | `CharacterCreationWizard` — the four-step wizard |
-| `/play/character/$id` | `routes/play/character.$id.tsx` | `CharacterSheet` — takes the route param as `characterId` |
+| `/play/character/$id` | `routes/play/character.$id.tsx` | `CharacterSheet` — takes the route param as `characterId`. **Serves both homes since TICKET-PLY-01**: a character in this browser, or one at a game session, which `useOpenTableCharacter` reads from the server along with its table's Snapshot. Deliberately **not** protected — the local half is play mode, and the server refuses the read anyway |
 | `/signin` | `routes/signin.tsx` | `AuthForm` in sign-in mode (TICKET-AUTH-01). A page rather than a dialog because TICKET-AUTH-03 sends an unauthenticated visitor here and returns them |
 | `/signup` | `routes/signup.tsx` | `AuthForm` in sign-up mode — carries the "there is no password reset" warning (v3 Req 30.10). **Honours `?redirect=` since TICKET-GAM-02**, which it never did: an invitee without an account is the common case for an invitation, and they used to create one and land on the home page with the invitation gone |
 | `/account` | `routes/account.tsx` | `LinkedIdentities` (TICKET-AUTH-02) + `ActiveSessions` (AUTH-04) — how to get back into this Account, and who else is already in it. **The milestone's first protected route** (AUTH-03): it composes `RequireAccount` |
@@ -136,6 +136,7 @@ change also exists (v3 Req 33.8).
 |---|---|---|
 | `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), skills, roll definitions, dice ladders, materials + categories, items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
+| `useCharacterStore` (cont.) | `tableCharacter` + `tableSessionId` + `isActing` + `actionError`, and `openTableCharacter` / `closeTableCharacter` / `dismissActionError` (TICKET-PLY-01) — **the one character open at a game session**, held apart from `characters` because that list is LocalStorage's and a session character must never land in it (v3 Req 36.2). Every existing write action keeps its signature and gains one line: `toTable(...)` sends the named intent to the server when the id is this one's, otherwise the Kernel rule runs locally. `selectCharacter(state, id)` is the exported reader both the sheet and the inventory panel use | server, via `services/characterSync.ts` |
 | `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience`, and `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02). `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
 | `useConfigStore` (cont.) | `source` + `openAccountRuleset(id)` / `openLocalRuleset()` (TICKET-RUL-02) — which home is open, and the two ways to change it. Opening one home reads nothing from the other | via `services/rulesetSync.ts` |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history, `storageFailure` and `saveConflict` (TICKET-RUL-02 — a *server* refusal, with the edit still on screen) | not persisted |
@@ -395,6 +396,16 @@ between the roots is exactly *"does this touch a browser API"*.
   own. Entity ids are **kept** — they only have to be unique within a document, and regenerating
   them would mean re-implementing `references.ts`; what is replaced is the ruleset's own id, which
   is the one identity that leaves the document.
+- `playerActions.ts` — **every rule behind a write a Player makes to their own sheet**
+  (TICKET-PLY-01): `investInStat`, `investInSkill`, `setResourceValue`, `adjustResourceValue`,
+  `resetResourceToMax`, `equipToSlot`, `emptySlot`, `moveItemToMisc`, `moveItemToEquipment`,
+  `addToPack`, `removeFromPack`. Each takes a `Character` (and the ruleset where the rule needs
+  one) and answers `PlayerActionResult` — either the new character **plus what the value was and
+  became**, or a `refusal` sentence. Moved out of `characterStore` so the server could call the same
+  rules rather than a second copy (D5); the store's actions are now three lines each. **The names
+  here describe the document and `PLAYER_ACTION`'s describe the act** — `equipToSlot` is the rule,
+  `equip-item` is the route, and keeping them apart is what stopped `fallow` reporting six duplicate
+  exports. Before/after is produced here because only this module knows what each action moved.
 - `freshConfiguration.ts` — `createFreshConfiguration(name)` (TICKET-RUL-01). What a brand-new
   ruleset arrives holding: Concept 05's seed constants, Concept 06's seed curves and Concept 07/08's
   ladder and four rolls. **Moved here from `configStore` rather than copied**, because v3 Req 33.3
@@ -546,6 +557,21 @@ each later ticket adds.
   is the ones that sit at **no table** (IO-04's uploads, which had no surface at all until now) and
   `DELETE /api/characters/:id` removes one. A character *at* a table is refused with a 409 — GAM-04
   settled that a departing player's are retained, so deleting one is its own ticket.
+  **PLY-01 added `readCharacter`** — `GET /api/characters/:id`, which is what makes a session
+  character's sheet a page rather than a moment: the document carries its `sessionId`, so a reload or
+  a pasted link can open the right Snapshot before calculating anything.
+- `routes/play/` (TICKET-PLY-01) — **the writes a Player makes at a table**, eleven of them, one
+  module each, all `POST /api/characters/:id/<action>` where `<action>` **is** the `PLAYER_ACTION`
+  value. That one string is the path, the Event's `type` and the client's call, which is what keeps
+  a route, a log entry and a store action from drifting into three names for one act. Each module is
+  a guard, a body read and one Kernel call; everything they share is `playPayloads.ts` —
+  `applyPlayerAction`, which reads the rules from the session's **Snapshot** (never a Ruleset),
+  refuses a character at no table and an archived one with a **409**, and on acceptance writes the
+  character and its Event in **one transaction** (`characterRepository.recordPlayerAction`). The
+  guard is **`requireCharacterPlayer`**, not `requireCharacterWriter`: a DM editing a player's sheet
+  is TICKET-DM-01's, with its own Event types. `playerRules.test.ts` is the provenance check — every
+  handler here imports the Kernel's rules and **none** imports `#shared/engine/` directly, because
+  that is where a second implementation starts.
 - `routes/invitations/` (TICKET-GAM-03) — the **addressed** invitation, and the first collection in
   the app scoped to an **Account** rather than to a ruleset or a session: an invitee is not a Member
   of the table that wrote to them, so there is no session id they could put in the path.
@@ -747,7 +773,16 @@ are pure props — all state, validation and the submit live in `useCharacterCre
 multi-step pattern to copy. `SkillAllocationStep` takes points for the **invested** stats only and
 previews the derived ones read-only off the same `calculateCharacter` result the review step uses.
 `sheet/` holds the character sheet: `CharacterSheet` (composition + the four dead-end notices) and
-`useCharacterSheet` (status resolution, the one `calculateCharacter` call, and the stat handler),
+`useCharacterSheet` (status resolution and the one `calculateCharacter` call), with two hooks beside
+it since **PLY-01**: **`useSheetActions`** — every handler the sheet's controls call, split out
+because *what the sheet shows* and *what a Player can do to it* are two subjects (the
+`useCharacterSubmit` precedent, and the split that took the hook back under the complexity
+threshold) — and **`useOpenTableCharacter`**, which reads a character that lives on the server and
+then its table's Snapshot, in that order, reporting while it does so the sheet waits rather than
+rendering *Different Ruleset Loaded* in between. **It asks the server nothing while nobody is signed
+in** (D6). The sheet renders a dismissible refusal banner from `actionError`, and at a table it draws
+**neither** the experience controls nor the purse — those are the DM's (D9), and an absent control
+says *not yours* where a disabled one says *not now*.
 with `SheetHeader`, `RaceStatBlockSection` (the races' combined block, stated in absolutes —
 TICKET-RACE-01), `StatsSection` (one `SkillBreakdownRow` per stat in
 `order`, **plus** a `StatEditor` for each `isResource` stat and an `InvestedPointsEditor` for each
@@ -854,15 +889,19 @@ flattened them would be inventing a fifth nobody decided on.
 
 **CHAR-04 gave a character a second home, and the branch is one line in one place.**
 `services/characterSync.ts` is to a character what `rulesetSync.ts` is to a ruleset — the only module
-that decides where a new one goes — and `characterStore.createCharacterHere(source, data, config)` is
-what the wizard calls. **The source is passed in rather than read**, because `configStore` already
+that decides where a new one goes, and since **PLY-01** the only module that knows how a *write*
+reaches one: `sendPlayerAction(characterId, action, body)` posts a named intent and `fetchCharacter`
+reads one back. Send, wait, adopt — optimistic updates are deliberately out of scope, and a refusal
+carries the **server's own sentence** rather than a summary.
+`characterStore.createCharacterHere(source, data, config)` is what the wizard calls. **The source is passed in rather than read**, because `configStore` already
 imports `characterStore` and reaching back would be a cycle `no-circular` refuses. `RULESET_HOME`
 grew a third value, `SESSION`: a game's pinned Snapshot, which `persistRuleset` **refuses** to write
 to, so a configuration panel opened against one cannot edit a game in progress. `SessionCharacters`
 (driven by `useSessionCharacters`) sits under the lobby in an expanded row and its button opens that
-Snapshot before sending the Player to the same four creation steps they get signed out. **It opens no
-sheet**: nothing can write to a session character until TICKET-PLY-01, and a sheet whose controls
-silently lost what they changed would be worse than none.
+Snapshot before sending the Player to the same four creation steps they get signed out. **Since
+PLY-01 it also opens a sheet — but only on your own character**, because `requireCharacterPlayer`
+refuses a write to anybody else's and a page of controls that could not save is not worth opening.
+Reading another player's is TICKET-DM-04's roster.
 
 **GAM-04 added `SessionLobby`, and it is the first surface in the app that shows other people.** It
 sits at the top of an expanded row — **every** row now, not just a DM's, because a table is other

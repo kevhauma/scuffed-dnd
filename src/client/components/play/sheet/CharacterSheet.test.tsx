@@ -17,6 +17,13 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigate,
 }));
 
+// Signed out throughout, which is the point rather than convenience: every case here is local mode,
+// and `useOpenTableCharacter` must make no request in it (TICKET-PLY-01, D6). Unmocked, Better
+// Auth's `useSession` would also fire a real request at localhost from a unit test.
+vi.mock('../../auth/useAuth', () => ({
+  useAuth: () => ({ accountId: null, email: null, isPending: false, isSignedIn: false }),
+}));
+
 vi.mock('../../../services/storage', () => ({
   loadConfiguration: vi.fn(() => null),
   saveConfiguration: vi.fn(),
@@ -1045,6 +1052,73 @@ describe('CharacterSheet', () => {
 
       expect(screen.getByRole('heading', { name: 'Different Ruleset Loaded' })).toBeDefined();
       expect(screen.queryByRole('heading', { name: 'Stats' })).toBeNull();
+    });
+
+    it('should say why a character could not be opened rather than blaming the link', () => {
+      // The refusal banner below only renders on a drawable sheet, so a failed *open* would set a
+      // sentence nothing could show — the review found it unreachable (TICKET-PLY-01)
+      useCharacterStore.setState({ actionError: 'That character could not be opened.' });
+
+      render(<CharacterSheet characterId="missing" />);
+
+      expect(screen.getByRole('heading', { name: 'Character Not Found' })).toBeDefined();
+      expect(screen.getByText('That character could not be opened.')).toBeDefined();
+    });
+  });
+
+  /**
+   * A character that lives at a table (TICKET-PLY-01)
+   *
+   * The store holds it apart from `characters` — that list is LocalStorage's — so `tableCharacter`
+   * is what these set. Three things the sheet does differently for one, all of them consequences of
+   * what the server will and will not accept.
+   */
+  describe('a character at a table', () => {
+    beforeEach(() => {
+      useCharacterStore.setState({
+        characters: [],
+        tableCharacter: createCharacter(),
+        isLoaded: true,
+      });
+    });
+
+    it('should render the sheet from the character the table holds', () => {
+      render(<CharacterSheet characterId="char1" />);
+
+      expect(screen.getByRole('heading', { name: 'Stats' })).toBeDefined();
+    });
+
+    it('should draw neither the experience controls nor the purse, because both are the DM’s', () => {
+      // D9 and v3 Req 42: there is no player route for either, so the control is **absent** rather
+      // than disabled — a greyed control says *not now*, and this is *not yours*
+      render(<CharacterSheet characterId="char1" />);
+
+      expect(screen.queryByRole('button', { name: 'Award' })).toBeNull();
+      expect(screen.queryByRole('heading', { name: 'Purse' })).toBeNull();
+    });
+
+    it('should show the server’s refusal, and let it be dismissed', () => {
+      useCharacterStore.setState({ actionError: 'That spend is more than the points you have.' });
+
+      render(<CharacterSheet characterId="char1" />);
+
+      const alert = screen.getByRole('alert');
+      expect(alert.textContent).toContain('That spend is more than the points you have.');
+
+      fireEvent.click(within(alert).getByRole('button', { name: 'Dismiss' }));
+
+      expect(useCharacterStore.getState().actionError).toBeNull();
+    });
+
+    it('should go back to the games list and put the browser’s ruleset back', () => {
+      // The Snapshot was opened *for this sheet*; leaving it open would send the Player to /config
+      // looking at a game's copy of the rules with nothing saying so (v3 Req 36.8)
+      render(<CharacterSheet characterId="char1" />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Back to Characters' }));
+
+      expect(navigate).toHaveBeenCalledWith({ to: '/sessions' });
+      expect(useCharacterStore.getState().tableCharacter).toBeNull();
     });
   });
 

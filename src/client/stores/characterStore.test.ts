@@ -870,41 +870,16 @@ describe('CharacterStore', () => {
       });
     });
 
-    describe('updateCurrentStatValues', () => {
-      it('should update multiple stat values', () => {
-        useCharacterStore.getState().updateCurrentStatValues(
-          'char-1',
-          {
-            health: 90,
-            mana: 40,
-          },
-          statConfig
-        );
-
-        const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentResourceValues.health).toBe(90);
-        expect(updated.currentResourceValues.mana).toBe(40);
-        expect(storage.saveCharacters).toHaveBeenCalled();
-      });
-
-      it('should merge with existing values', () => {
-        useCharacterStore.getState().updateCurrentStatValues('char-1', { mana: 30 }, statConfig);
-
-        const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentResourceValues.health).toBe(100);
-        expect(updated.currentResourceValues.mana).toBe(30);
-      });
-
-      it('should clamp each value independently', () => {
-        useCharacterStore
-          .getState()
-          .updateCurrentStatValues('char-1', { health: 500, mana: -5 }, statConfig);
-
-        const updated = useCharacterStore.getState().characters[0];
-        expect(updated.currentResourceValues.health).toBe(100);
-        expect(updated.currentResourceValues.mana).toBe(-5);
-      });
-    });
+    /**
+     * `updateCurrentStatValues` is gone (TICKET-PLY-01)
+     *
+     * The batch write existed because `updateCurrentStatValue` delegated to it. PLY-01 reversed
+     * that — a table needs a named intent per stat, not a batch — which left the batch with no
+     * caller but these three cases, so it went and they went with it. What they asserted has not
+     * been lost: *merges with existing values* and *clamps each value independently* are both
+     * properties of the single-stat write, which the cases above and
+     * `shared/services/playerActions.test.ts` hold.
+     */
 
     /** Concept 20's quick entry (TICKET-RES-03) */
     describe('adjustCurrentStatValue', () => {

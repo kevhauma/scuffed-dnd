@@ -154,6 +154,7 @@ function SessionRow({
             isOpening={characters.isOpeningRules}
             error={characters.error}
             onCreate={characters.makeCharacterHere}
+            onOpen={characters.openCharacter}
           />
 
           {isDm && (

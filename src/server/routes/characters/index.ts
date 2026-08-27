@@ -13,3 +13,4 @@
 export * from './characterPayloads';
 export * from './deleteCharacter';
 export * from './listMyCharacters';
+export * from './readCharacter';

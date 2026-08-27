@@ -98,6 +98,7 @@ function renderList(props: Partial<React.ComponentProps<typeof SessionList>> = {
         error: null,
         isOpeningRules: false,
         makeCharacterHere: vi.fn(),
+        openCharacter: vi.fn(),
       }}
       accountId="account-1"
       onRemoveMember={vi.fn()}

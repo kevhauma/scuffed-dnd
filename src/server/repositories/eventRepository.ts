@@ -58,32 +58,57 @@ export interface NewEvent {
  * @returns The stored row, with the sequence number it was given
  */
 export function appendEvent(input: NewEvent, database: Database = getDatabase()): EventRow {
-  return database.db.transaction(
-    (tx) => {
-      const latest = tx
-        .select({ seq: event.seq })
-        .from(event)
-        .where(eq(event.sessionId, input.sessionId))
-        .orderBy(desc(event.seq))
-        .limit(1)
-        .get();
+  return database.db.transaction((tx) => appendEventWithin(tx, input), { behavior: 'immediate' });
+}
 
-      return tx
-        .insert(event)
-        .values({
-          id: input.id,
-          sessionId: input.sessionId,
-          seq: (latest?.seq ?? 0) + 1,
-          actorAccountId: input.actorAccountId,
-          type: input.type,
-          payload: input.payload,
-          createdAt: input.now,
-        })
-        .returning()
-        .get();
-    },
-    { behavior: 'immediate' }
-  );
+/**
+ * A connection, or a transaction already open on one
+ *
+ * Derived from the callback `transaction` hands out rather than restated, so an upgrade of
+ * `drizzle-orm` that changes the shape is a compile error here rather than a second definition
+ * quietly disagreeing with the first.
+ */
+export type EventWriter = Parameters<Parameters<Database['db']['transaction']>[0]>[0];
+
+/**
+ * Append one event **inside a transaction the caller already opened** (TICKET-PLY-01)
+ *
+ * The reason this is separate from {@link appendEvent} rather than being its whole body: a player
+ * action writes the character *and* its Event, and the two have to land together or not at all —
+ * GAM-01's review found exactly that pair split across two transactions on the Snapshot path. So
+ * `characterRepository.recordPlayerAction` opens one transaction and calls this inside it, and
+ * `appendEvent` stays what a caller with nothing else to write reaches for.
+ *
+ * **The sequence read and the insert are still one atomic unit**, because the caller's transaction
+ * is the unit. `appendEvent` opens its own with `immediate` for the reason its docblock gives; a
+ * caller composing this is responsible for doing the same.
+ *
+ * @param tx The open transaction
+ * @param input The event
+ * @returns The stored row, with the sequence number it was given
+ */
+export function appendEventWithin(tx: EventWriter, input: NewEvent): EventRow {
+  const latest = tx
+    .select({ seq: event.seq })
+    .from(event)
+    .where(eq(event.sessionId, input.sessionId))
+    .orderBy(desc(event.seq))
+    .limit(1)
+    .get();
+
+  return tx
+    .insert(event)
+    .values({
+      id: input.id,
+      sessionId: input.sessionId,
+      seq: (latest?.seq ?? 0) + 1,
+      actorAccountId: input.actorAccountId,
+      type: input.type,
+      payload: input.payload,
+      createdAt: input.now,
+    })
+    .returning()
+    .get();
 }
 
 /**

@@ -489,8 +489,12 @@ export interface CharacterCreateRequest {
  * the ruleset it belongs to, which is the session's Snapshot or, for an uploaded one, the Ruleset
  * `rulesetId` names.
  *
- * `revision` rides along for TICKET-PLY-01's write guard, which is the same shape RUL-02's save
- * uses; nothing writes a character yet.
+ * **`revision` counts writes; it does not guard them** (TICKET-PLY-01). A ruleset save states the
+ * base revision it is replacing because it carries a whole document, and two Owners editing one
+ * ruleset have to be told about each other. A player action carries an **intent** — spend 3 points,
+ * take 7 off this pool — which the server applies to the row as it stands, so there is nothing for a
+ * stale client to overwrite and a conflict would be a refusal nobody could act on. The number is
+ * bumped on every accepted action so LIVE-02 can tell a client whether what it holds is current.
  */
 export interface CharacterDocument {
   id: string;
@@ -512,6 +516,123 @@ export interface CharacterDocument {
 export interface CharacterListing {
   characters: CharacterDocument[];
 }
+
+/**
+ * The writes a Player makes to their own sheet (v3 Req 41, TICKET-PLY-01)
+ *
+ * **One value per named intent, and it is three things at once**: the last segment of the route's
+ * path, the `type` of the Event the accepted action appends, and the tag the client's store sends.
+ * That is deliberate — the ticket's own note asks that the log say *what happened* rather than that
+ * something did, and a generic *patch character* route could not. Keeping the three spellings as one
+ * constant is what stops a route, an event type and a client call drifting into three names for one
+ * act.
+ *
+ * `experience`, the purse and everything else a **DM** changes are deliberately absent: those are
+ * TICKET-DM-01 and TICKET-DM-02, and a Player granting themselves experience is the exact thing v3
+ * Req 41 exists to prevent.
+ */
+export const PLAYER_ACTION = {
+  /** Put points into one invested stat — refused when the derived budget cannot pay for it */
+  INVEST_STAT_POINTS: 'invest-stat-points',
+  /** Put points into one skill — no budget exists to refuse it, only the shape of the number */
+  INVEST_SKILL_POINTS: 'invest-skill-points',
+  /** Write where a resource pool stands */
+  SET_RESOURCE: 'set-resource',
+  /** Move a resource pool by a delta — Concept 20's quick entry */
+  ADJUST_RESOURCE: 'adjust-resource',
+  /** Fill a resource pool to its derived maximum */
+  RESET_RESOURCE: 'reset-resource',
+  /** Put an item in an equipment slot */
+  EQUIP_ITEM: 'equip-item',
+  /** Take whatever is in a slot off, dropping it */
+  UNEQUIP_ITEM: 'unequip-item',
+  /** Take what is in a slot off and put it in the pack */
+  STOW_ITEM: 'stow-item',
+  /** Take an item out of the pack and put it on */
+  WEAR_ITEM: 'wear-item',
+  /** Put an item in the pack */
+  TAKE_ITEM: 'take-item',
+  /** Take an item out of the pack */
+  DROP_ITEM: 'drop-item',
+} as const;
+
+export type PlayerAction = (typeof PLAYER_ACTION)[keyof typeof PLAYER_ACTION];
+
+/** What a client sends to spend points on a stat — the new total, never a delta */
+export interface StatPointsRequest {
+  statId: string;
+  points: number;
+}
+
+/** What a client sends to spend points on a skill */
+export interface SkillPointsRequest {
+  skillId: string;
+  points: number;
+}
+
+/** What a client sends to write where a pool stands */
+export interface ResourceValueRequest {
+  statId: string;
+  value: number;
+}
+
+/** What a client sends to move a pool by a delta */
+export interface ResourceDeltaRequest {
+  statId: string;
+  delta: number;
+}
+
+/** What a client sends to fill a pool, or to name one with nothing else to say */
+export interface ResourceRequest {
+  statId: string;
+}
+
+/** What a client sends to put an item somewhere it has to fit */
+export interface ItemPlacementRequest {
+  equipmentSlotType: string;
+  itemId: string;
+}
+
+/** What a client sends to act on a slot's current occupant */
+export interface EquipmentSlotRequest {
+  equipmentSlotType: string;
+}
+
+/** What a client sends to pick an item up or put it down */
+export interface ItemRequest {
+  itemId: string;
+}
+
+/**
+ * What an accepted player action wrote to the Event log (v3 Req 41.7, 44.4)
+ *
+ * **Before and after are recorded even where they feel redundant**, which is the ticket's own note
+ * and the reason this shape exists at all: DM-01's audit and LIVE-02's reconciliation both have to
+ * say *what changed* without re-reading the whole character, and a payload naming only the action
+ * cannot.
+ *
+ * The actor is the row's `actor_account_id` column rather than a field here — it is what the log is
+ * queried by, and a copy inside the JSON is a second answer to the same question.
+ */
+export interface PlayerActionEvent {
+  characterId: string;
+  action: PlayerAction;
+  /** Which stat, skill, equipment slot or item the action moved */
+  target: string;
+  before: ActionValue;
+  after: ActionValue;
+}
+
+/**
+ * What one player action moved, in the only three forms any of them take
+ *
+ * A number for points and pools, an item id for a slot that gained one, `null` for a slot empty on
+ * one side of the change. **Declared here rather than in `shared/services/playerActions.ts`**, which
+ * is where it started: `types/` is the bottom layer and may not import a service, so the wire shape
+ * would have had to restate the union — two spellings of one set, which is exactly what this module
+ * exists to prevent.
+ */
+export type ActionValue = number | string | null;
 
 /**
  * Why a Snapshot refresh was refused (v3 Req 37.6)

@@ -22,7 +22,7 @@
 
 import { AUTH_PREFIX, handleAuthRequest } from '../auth/authRoutes';
 import { authProviders } from '../routes/authProviders';
-import { deleteCharacter, listMyCharacters } from '../routes/characters';
+import { deleteCharacter, listMyCharacters, readCharacter } from '../routes/characters';
 import { health } from '../routes/health';
 import {
   acceptInvitation,
@@ -31,6 +31,19 @@ import {
   revokeInvitation,
 } from '../routes/invitations';
 import { previewInvite, redeemInvite } from '../routes/invites';
+import {
+  adjustResource,
+  dropItem,
+  equipItem,
+  investSkillPoints,
+  investStatPoints,
+  resetResource,
+  setResource,
+  stowItem,
+  takeItem,
+  unequipItem,
+  wearItem,
+} from '../routes/play';
 import {
   copyRuleset,
   createRuleset,
@@ -131,7 +144,24 @@ export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Respon
   // the same collection: it removes an **uploaded** character, which is at no table at all
   'POST /api/sessions/:id/characters': createCharacter,
   'GET /api/sessions/:id/characters': listCharacters,
+  'GET /api/characters/:id': readCharacter,
   'DELETE /api/characters/:id': deleteCharacter,
+  // The player's own writes (TICKET-PLY-01). Each path's last segment **is** the `PLAYER_ACTION`
+  // value it performs, so a route, the Event type it appends and the client call that reaches it are
+  // one spelling rather than three that have to be kept in step. Deliberately not one
+  // `PATCH /api/characters/:id` taking a patch: a named intent is what makes the Event log readable,
+  // and what stops a client sending a field the engine owns.
+  'POST /api/characters/:id/invest-stat-points': investStatPoints,
+  'POST /api/characters/:id/invest-skill-points': investSkillPoints,
+  'POST /api/characters/:id/set-resource': setResource,
+  'POST /api/characters/:id/adjust-resource': adjustResource,
+  'POST /api/characters/:id/reset-resource': resetResource,
+  'POST /api/characters/:id/equip-item': equipItem,
+  'POST /api/characters/:id/unequip-item': unequipItem,
+  'POST /api/characters/:id/stow-item': stowItem,
+  'POST /api/characters/:id/wear-item': wearItem,
+  'POST /api/characters/:id/take-item': takeItem,
+  'POST /api/characters/:id/drop-item': dropItem,
   // …and the invitee's half, addressed by the invitation's own id
   'POST /api/invitations/:id/accept': acceptInvitation,
   'POST /api/invitations/:id/decline': declineInvitation,

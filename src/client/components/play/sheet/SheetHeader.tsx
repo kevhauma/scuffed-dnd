@@ -37,8 +37,15 @@ export interface SheetHeaderProps {
   /** The character's archetype, by name — what replaced the focus stat (TICKET-ARC-03) */
   archetypeName?: string;
   onBack: () => void;
-  onAwardExperience: (amount: number) => void;
-  onDeductExperience: (amount: number) => void;
+  /**
+   * How experience is changed, or **absent at a table** (TICKET-PLY-01)
+   *
+   * At a game session experience is the DM's to award (D9, v3 Req 42.1), so the Player's own sheet
+   * has no route to write it and the control is not drawn at all. Absent rather than disabled: a
+   * greyed-out control says *not now*, and this is *not yours*. TICKET-DM-01 brings the DM's.
+   */
+  onAwardExperience?: (amount: number) => void;
+  onDeductExperience?: (amount: number) => void;
 }
 
 export function SheetHeader({
@@ -96,7 +103,9 @@ export function SheetHeader({
         )}
       </div>
 
-      <ExperienceControl onAward={onAwardExperience} onDeduct={onDeductExperience} />
+      {onAwardExperience && onDeductExperience && (
+        <ExperienceControl onAward={onAwardExperience} onDeduct={onDeductExperience} />
+      )}
     </Card>
   );
 }
