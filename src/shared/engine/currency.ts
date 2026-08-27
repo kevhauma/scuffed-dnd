@@ -116,6 +116,43 @@ export function normalizeCurrency(value: CurrencyValue, tiers: CurrencyTier[]): 
 }
 
 /**
+ * The tier a purse is measured in (TICKET-CUR-02)
+ *
+ * The **lowest** — `order: 0` is the least valuable, and it is the only tier every amount can be
+ * expressed in without a fraction the ruleset never authored. A `Character.purse` is one number in
+ * this tier and nothing else; what a Player is *shown* is {@link formatPurse}'s answer, which is a
+ * display choice and re-asked every render.
+ *
+ * @param tiers Every configured tier
+ * @returns The base tier, or `null` for a ruleset that defines no currency
+ */
+export function baseTier(tiers: CurrencyTier[]): CurrencyTier | null {
+  return byOrder(tiers)[0] ?? null;
+}
+
+/**
+ * A purse as text, in the tier it reads most naturally in (v3 Req 43.2)
+ *
+ * **The stored number never changes when the ruleset's rates do** — this is the whole reason a
+ * purse is one amount in the base tier: retuning gold-to-silver re-renders every purse in the game
+ * and rewrites none of them.
+ *
+ * A ruleset that defines **no currency at all** gets the bare number. That is deliberate rather
+ * than a fallback: a ruleset may define no currency as it may define no races, and refusing to show
+ * a Player their own money because the ruleset has no name for it would be the wrong way round.
+ *
+ * @param purse What the character carries, in the base tier
+ * @param tiers Every configured tier
+ * @returns e.g. `"1.4 Gold"`, or the amount alone when there are no tiers
+ */
+export function formatPurse(purse: number, tiers: CurrencyTier[]): string {
+  const base = baseTier(tiers);
+  if (!base) return String(Number(purse.toFixed(2)));
+
+  return formatCurrency(normalizeCurrency({ tierId: base.id, amount: purse }, tiers), tiers);
+}
+
+/**
  * Render a value as text, in the tier it is given in
  *
  * Trailing zeros are dropped so a whole number reads as `5 Gold`, not `5.00 Gold`.

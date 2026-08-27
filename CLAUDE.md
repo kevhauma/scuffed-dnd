@@ -108,9 +108,12 @@ acceptance criteria.
 - **Derived values are computed, never stored.** Composed stat values, the stat total, skill levels
   and bonuses, combat bonuses, equipment bonuses, and **the character's level** come from
   `engine/calculator.ts` / `engine/calculators/*` / `engine/characterSummary.ts` at read time.
-  There are exactly two sanctioned exceptions, both genuine player state rather than derivations:
-  `Character.currentResourceValues` (where a resource pool currently stands) and
-  `Character.experience` (TICKET-RES-01 — XP is awarded at the table, and level derives *from* it).
+  There are exactly three sanctioned exceptions, all genuine player state rather than derivations:
+  `Character.currentResourceValues` (where a resource pool currently stands),
+  `Character.experience` (TICKET-RES-01 — XP is awarded at the table, and level derives *from* it),
+  and `Character.purse` (TICKET-CUR-02 — **one** amount in the ruleset's base tier; money is spent at
+  the table and computed from nothing, and *which tier to show it in* is `formatPurse`'s answer,
+  re-derived every render). TICKET-DM-01's `grantedStatPoints` will be the fourth.
 - **All user-authored math goes through the formula engine** (`parseFormula` → `validateFormula` →
   `evaluateFormula`). No `eval`, no `new Function`, no hand-rolled arithmetic parsing.
 - **Base components (`components/ui/`) carry intrinsic styling only** — no margin, flex/grid,

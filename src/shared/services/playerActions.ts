@@ -158,6 +158,56 @@ export function investInSkill(
 }
 
 /**
+ * Set what a character is carrying, in the ruleset's base tier (v3 Req 43.1, 43.4, TICKET-CUR-02)
+ *
+ * **Below zero is a refusal that names the shortfall, not a clamp to nothing.** That is
+ * `deductExperience`'s precedent and it is the same reasoning: a purchase that quietly took a
+ * character to 0 instead of refusing would leave a table believing it had been paid for. Owing money
+ * may well be a mechanic a ruleset wants, but inventing it here silently is worse than not having
+ * it.
+ *
+ * **Fractions pass.** A tier rate may be fractional, so half a gold is an ordinary amount to hold
+ * and rounding here would lose money the ruleset had authored.
+ *
+ * @param character Whose purse
+ * @param amount The new balance, in the base tier
+ * @returns The character carrying it, or the reason it was refused
+ */
+export function setPurseAmount(character: Character, amount: number): PlayerActionResult {
+  if (!Number.isFinite(amount)) return { refusal: 'That is not an amount of money.' };
+
+  const before = character.purse ?? 0;
+
+  if (amount < 0) {
+    return {
+      refusal: `That would leave the purse ${short(amount)} short. Nothing was taken.`,
+    };
+  }
+
+  return { character: { ...character, purse: amount }, before, after: amount };
+}
+
+/**
+ * Move a purse by a delta rather than setting it (Concept 20's quick entry)
+ *
+ * `-7` off a purse of 30 leaves 23, and `-40` is refused rather than emptying it.
+ *
+ * @param character Whose purse
+ * @param delta How much to add or take
+ * @returns The character with the money moved, or the reason it was refused
+ */
+export function adjustPurseBy(character: Character, delta: number): PlayerActionResult {
+  if (!Number.isFinite(delta)) return { refusal: 'That is not an amount of money.' };
+
+  return setPurseAmount(character, (character.purse ?? 0) + delta);
+}
+
+/** How far past zero an amount went, rounded for reading rather than for arithmetic */
+function short(amount: number): number {
+  return Number(Math.abs(amount).toFixed(2));
+}
+
+/**
  * One stat's calculated maximum, or `undefined` when there isn't one
  *
  * `undefined` covers an unknown id, a ruleset whose formulas do not evaluate, and an engine that

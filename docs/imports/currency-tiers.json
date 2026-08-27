@@ -2,7 +2,8 @@
   "feature": "currency-tiers",
   "title": "Currency",
   "tickets": [
-    "TICKET-CUR (v1.0)"
+    "TICKET-CUR (v1.0)",
+    "TICKET-CUR-02 (v3.0)"
   ],
   "concept": "16 · Currency",
   "source": {
@@ -16,7 +17,9 @@
   "notes": [
     "The five denominations of the Charactersheet coin pouch, in pouch order.",
     "conversionToNext is 0 on every tier, meaning **unknown**. The sheet has no exchange rate anywhere — conversion is mental arithmetic at the table (Concept 16 open question). The engine treats a non-positive rate as 1, so money imports intact and simply does not convert until the User fills these in.",
-    "Copper is used as the base for every material and item value in the other fragments, on Concept 16's reasoning that item prices are large integers. That is inferred, not confirmed."
+    "Copper is used as the base for every material and item value in the other fragments, on Concept 16's reasoning that item prices are large integers. That is inferred, not confirmed.",
+    "TICKET-CUR-02 gave a character somewhere to hold money, and it holds **one amount in the base tier** — Copper here, being order 0. The sheet's Q18:S23 is a five-row pouch, so the app deliberately stores less shape than the sheet shows: 1 gold and 100 copper are the same money, and keeping them apart makes every payment a change-making problem. What a Player is *shown* is normalizeCurrency's answer and is re-derived every render, so this fragment's own note about the rates being unknown is what decides the display — with every conversionToNext at 0 the engine converts nothing and a purse simply reads in Copper.",
+    "There is no character data in this fragment and there is not meant to be: docs/imports/ carries the ruleset the sheet describes, and a purse is player state that no exported ruleset contains."
   ],
   "data": {
     "currencyTiers": [

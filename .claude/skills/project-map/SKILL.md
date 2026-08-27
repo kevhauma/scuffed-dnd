@@ -285,8 +285,10 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   and `rows[].overridden` are three arrays on one index; splicing one alone moves every override
   flag onto the wrong cell. The store's column and row actions are the only callers.
 - `currency.ts` — `convertCurrency(value, toTierId, tiers)`, `normalizeCurrency(value, tiers)` (the
-  highest tier where the amount is still ≥ 1 — what Req 10.4's "appropriate tier" means here) and
-  `formatCurrency(value, tiers)`. Conversion is arithmetic over a configured rate, **not** a
+  highest tier where the amount is still ≥ 1 — what Req 10.4's "appropriate tier" means here),
+  `formatCurrency(value, tiers)`, and TICKET-CUR-02's pair: `baseTier(tiers)` (the least valuable —
+  what a `Character.purse` is measured in) and `formatPurse(purse, tiers)`, which is base →
+  normalize → format and falls back to a bare number for a ruleset with no currency at all. Conversion is arithmetic over a configured rate, **not** a
   user-authored expression, so it does not go through the formula engine. Unknown tiers and
   non-positive rates degrade rather than producing `NaN`/`Infinity`.
 - `characterSummary.ts` — `calculateCharacterLevel(character, config)` and
@@ -805,6 +807,14 @@ the points invested) and `RollsSection` as pure props. **`RollsSection`** (TICKE
 by `category` and labels each button with the **pool** rather than a bonus — `Roll 1D20 + 1D12 +
 1D6 + 1` — which is the whole ticket in one line: raise a stat and the label changes, because the
 dice are derived from the character.
+**`PurseSection`** (TICKET-CUR-02) sits in the same rail as the inventory, as the source sheet's
+`Q18:S23` does. One box editing **one** stored amount in the base tier, with `formatPurse`'s reading
+above it — so retuning the ruleset's rates relabels it and rewrites nothing. It replaced a per-tier
+`WalletSection`/`CoinRow` pair, and that replacement is the ticket's whole argument. Relative entry
+through `useNumericDraft`'s `allowRelative`, so `+340` earns and `-12` spends; below zero is the
+store's refusal, never a clamp. **Not drawn at a table** — a purse there is the DM's (D9), and
+TICKET-DM-02 is what gives them the control.
+
 `inventory/` holds `InventoryPanel` (mounted by the sheet, taking only a `characterId`) with
 `EquipmentSlotRow`, `MiscItemRow` and `useInventoryManager`. Equipping needs no recalculation call:
 `calculateCharacter` reads `inventory.equippedItems` at render time.

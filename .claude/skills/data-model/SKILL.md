@@ -122,8 +122,15 @@ Two consequences worth holding on to before changing a persisted shape:
 
 - **A document change is not a migration.** Adding `grantedStatPoints` (DM-01) or `purse` (CUR-02)
   changes what is *inside* `character.data` and `ruleset.data`, which are `TEXT` columns. The rules
-  in *Changing a persisted shape* below are the ones that apply, plus a `SUPPORTED_SCHEMA_VERSION`
-  bump — not a SQL file.
+  in *Changing a persisted shape* below are the ones that apply — not a SQL file.
+
+  **Whether it also needs a `SUPPORTED_SCHEMA_VERSION` bump is a separate question, and CUR-02 is
+  the worked example of answering it *no*.** The version gates the **`Configuration`**: a bump makes
+  `loadConfiguration` refuse a ruleset that did not change, so `IncompatibleDataNotice` replaces the
+  routes and `loadCharacters` never runs. That is right when a build would otherwise *crash on a
+  field that moved* — and wrong when the change ships a conversion, because the bump refuses to read
+  the very data the conversion exists to keep. Bump **or** migrate; a change cannot do both. Say
+  which, and why, in the ticket.
 - **A schema change is forward-only and ships a test.** `src/server/db/schema.ts` describes the
   normalised half — ownership, membership, invites, events. Edit it, run `yarn run db:generate`,
   and land the generated SQL with a test that applies it to the previous schema
@@ -481,7 +488,7 @@ derived too** — TICKET-SKL-03 added `skillContributions`, one already-multipli
 redoing the arithmetic. When a surface needs to show how a number was reached, widen the calculator's
 return rather than recomputing the terms at the render site. If you find yourself wanting to store a
 computed number on `Character`, the answer is a recalculation call at read time instead. There are
-exactly **two** deliberate exceptions. `currentResourceValues` — the player's *current* HP/mana,
+exactly **three** deliberate exceptions. `currentResourceValues` — the player's *current* HP/mana,
 which is state, not derivation (its maximum is derived; its current value is not). **Only `isResource` stats appear
 there**, and the store action enforces it: a stat you cannot spend has no current distinct from
 its value, which is what v1 got wrong by giving every stat one.
@@ -494,6 +501,28 @@ every screen reads. This inverts v1.0, where level was the sum of points spent; 
 `FormulaResult`, because the curve is User data that can be deleted or set to refuse out-of-range
 input — a level that cannot be read chips rather than showing a confident 1. Only
 `awardExperience`/`deductExperience` write it; a deduction below 0 is **refused**, not clamped.
+
+And **`purse`** (TICKET-CUR-02) — **one amount, in the ruleset's base tier** (`order: 0`, the least
+valuable), optional and absent-means-none. Money is spent at the table and derived from nothing, so
+it is the third exception rather than a computed number stored.
+
+- **Not a per-tier breakdown, and that is the decision to defend.** It replaced an untickted
+  `wallet?: Record<tierId, number>`: a per-tier purse makes every payment a change-making problem,
+  makes *"do I have 3 gold"* a conversion, and lets one amount of wealth have two representations.
+  `engine/currency.ts`'s `formatPurse` answers the only question worth asking — *which tier should I
+  show this in* — from `baseTier` → `normalizeCurrency` → `formatCurrency`, every render. So
+  retuning the ruleset's rates relabels every purse in the game and rewrites none of them, and a
+  ruleset with **no** tiers shows a bare number rather than hiding a Player's money.
+- **Below zero is refused with the shortfall named**, not clamped — `deductExperience`'s precedent,
+  in `shared/services/playerActions.ts`'s `setPurse` / `adjustPurse`. Fractions pass: a tier rate may
+  be fractional, so rounding on write would lose money. Round for display only.
+- **A stored `wallet` is converted, not dropped.** `characterStore.adoptStoredWallets(tiers)` sums
+  each holding down to the base tier through `convertCurrency` and removes the retired key, called
+  once from `useAppHydration` because it needs the ruleset's rates. `isReadableCharacter` therefore
+  still **accepts** a character carrying `wallet` — refusing one would mean the migration could never
+  run. **No `SUPPORTED_SCHEMA_VERSION` bump**: `purse` is additive-optional, nothing reads `wallet`,
+  and a bump would make every stored roster unreadable behind `IncompatibleDataNotice` — destroying
+  the very data the conversion exists to keep. A bump and a migration are mutually exclusive.
 
 **The point budget closes that chain** (TICKET-RES-02): `validateStatAllocation(character, config)`
 in [skillAllocation.ts](../../../src/shared/engine/skillAllocation.ts) prices the pool as

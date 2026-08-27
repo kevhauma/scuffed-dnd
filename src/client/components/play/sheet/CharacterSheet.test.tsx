@@ -1026,6 +1026,18 @@ describe('CharacterSheet', () => {
     expect(navigate).toHaveBeenCalledWith({ to: '/play' });
   });
 
+  it('should draw the purse off a table, with what the character is carrying (TICKET-CUR-02)', () => {
+    // The counterpart of the table case below, which was vacuously true before this ticket — the
+    // heading used to read *Wallet*, so *no Purse heading* passed for the wrong reason
+    useCharacterStore.setState({ characters: [createCharacter({ purse: 340 })] });
+
+    render(<CharacterSheet characterId="char1" />);
+
+    expect(screen.getByRole('heading', { name: 'Purse' })).toBeDefined();
+    // No currency tiers in this fixture, so the bare number is the whole reading
+    expect(screen.getByText('340')).toBeDefined();
+  });
+
   describe('states without a sheet', () => {
     it('should explain that no ruleset is loaded', () => {
       useConfigStore.setState({ config: null, isLoaded: true });
@@ -1089,8 +1101,8 @@ describe('CharacterSheet', () => {
     });
 
     it('should draw neither the experience controls nor the purse, because both are the DM’s', () => {
-      // D9 and v3 Req 42: there is no player route for either, so the control is **absent** rather
-      // than disabled — a greyed control says *not now*, and this is *not yours*
+      // D9 and v3 Req 42.5: there is no player route for either, so the control is **absent**
+      // rather than disabled — a greyed control says *not now*, and this is *not yours*
       render(<CharacterSheet characterId="char1" />);
 
       expect(screen.queryByRole('button', { name: 'Award' })).toBeNull();

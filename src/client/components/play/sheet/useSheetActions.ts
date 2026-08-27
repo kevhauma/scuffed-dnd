@@ -27,7 +27,8 @@ export interface SheetActions {
   handleResetStatValueToMax: (statId: string) => void;
   handleChangeInvestedPoints: (statId: string, points: number) => void;
   handleChangeInvestedSkillPoints: (skillId: string, points: number) => void;
-  handleChangeWalletAmount: (tierId: string, amount: number) => void;
+  handleSetPurse: (amount: number) => void;
+  handleAdjustPurse: (delta: number) => void;
   handleAwardExperience: (amount: number) => void;
   handleDeductExperience: (amount: number) => void;
   handleBack: () => void;
@@ -53,7 +54,8 @@ export function useSheetActions(
   const resetCurrentStatValueToMax = useCharacterStore((state) => state.resetCurrentStatValueToMax);
   const setInvestedStatPoints = useCharacterStore((state) => state.setInvestedStatPoints);
   const setInvestedSkillPoints = useCharacterStore((state) => state.setInvestedSkillPoints);
-  const setWalletAmount = useCharacterStore((state) => state.setWalletAmount);
+  const setPurse = useCharacterStore((state) => state.setPurse);
+  const adjustPurse = useCharacterStore((state) => state.adjustPurse);
   const awardExperience = useCharacterStore((state) => state.awardExperience);
   const deductExperience = useCharacterStore((state) => state.deductExperience);
   const closeTableCharacter = useCharacterStore((state) => state.closeTableCharacter);
@@ -97,10 +99,18 @@ export function useSheetActions(
       setInvestedSkillPoints(character.id, skillId, points);
     },
 
-    handleChangeWalletAmount: (tierId: string, amount: number) => {
+    // Set and adjust are two intents rather than one plus arithmetic here: `-12` against a purse
+    // means *spend twelve*, and the store is where "and refuse if that goes below zero" lives
+    handleSetPurse: (amount: number) => {
       if (!character) return;
 
-      setWalletAmount(character.id, tierId, amount);
+      setPurse(character.id, amount);
+    },
+
+    handleAdjustPurse: (delta: number) => {
+      if (!character) return;
+
+      adjustPurse(character.id, delta);
     },
 
     // One action per click, mirroring the sheet's `exp.gs` — the store decides what is allowed

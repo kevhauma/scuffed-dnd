@@ -356,8 +356,8 @@ describe('a write to the character open at a table', () => {
   it.each([
     ['experience', () => useCharacterStore.getState().awardExperience('character-1', 100)],
     ['experience deducted', () => useCharacterStore.getState().deductExperience('character-1', 10)],
-    ['a purse', () => useCharacterStore.getState().setWalletAmount('character-1', 'tier-1', 5)],
-  ])('refuses %s at a table, because it is the DM’s', (_name, run) => {
+    ['a purse', () => useCharacterStore.getState().setPurse('character-1', 5)],
+  ])('refuses %s at a table, because it is the DM’s', (_name: string, run: () => void) => {
     // The sheet does not draw these controls, but the rule belongs to the store: falling through to
     // `characters.find(...)` would find nothing and no-op in silence, and the next surface to reach
     // for the action would inherit that rather than the refusal

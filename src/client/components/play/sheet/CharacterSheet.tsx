@@ -14,6 +14,7 @@ import { Text } from '../../ui/Text/Text';
 import { InventoryPanel } from '../inventory/InventoryPanel';
 import { RollHistoryPanel } from '../rolls/RollHistoryPanel';
 import { useRoller } from '../rolls/useRoller';
+import { PurseSection } from './PurseSection';
 import { RaceStatBlockSection } from './RaceStatBlockSection';
 import { ResourcesSection } from './ResourcesSection';
 import { RollsSection } from './RollsSection';
@@ -22,7 +23,6 @@ import { SkillsSection } from './SkillsSection';
 import { StatsSection } from './StatsSection';
 import { useCharacterSheet } from './useCharacterSheet';
 import { useOpenTableCharacter } from './useOpenTableCharacter';
-import { WalletSection } from './WalletSection';
 
 export interface CharacterSheetProps {
   /**
@@ -84,10 +84,11 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     handleAdjustStatValue,
     handleResetStatValueToMax,
     currencyTiers,
-    wallet,
+    purse,
     handleChangeInvestedPoints,
     handleChangeInvestedSkillPoints,
-    handleChangeWalletAmount,
+    handleSetPurse,
+    handleAdjustPurse,
     handleAwardExperience,
     handleDeductExperience,
     handleBack,
@@ -206,7 +207,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
         experience={experience}
         archetypeName={archetypeName}
         onBack={handleBack}
-        // At a table experience and coin are the DM's (D9, v3 Req 42), so the Player's own sheet
+        // At a table experience and coin are the DM's (D9, v3 Req 42.5), so the Player's own sheet
         // draws neither control — TICKET-DM-01 and TICKET-DM-02 bring them back on the DM's side
         onAwardExperience={atTable ? undefined : handleAwardExperience}
         onDeductExperience={atTable ? undefined : handleDeductExperience}
@@ -251,12 +252,14 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
 
           {/* Coin sits beside the equipment, as it does on the sheet (`Q18:S23`, right of the
               `M3:O15` boxes) — what you are carrying, in one column. Not at a table: a purse there
-              is TICKET-CUR-02's shape and TICKET-DM-02's control. */}
+              is the DM's to change (D9, v3 Req 42.5), and TICKET-DM-02 is what gives them the
+              control. */}
           {!atTable && (
-            <WalletSection
+            <PurseSection
               tiers={currencyTiers}
-              wallet={wallet}
-              onChangeAmount={handleChangeWalletAmount}
+              purse={purse}
+              onSet={handleSetPurse}
+              onAdjust={handleAdjustPurse}
             />
           )}
 

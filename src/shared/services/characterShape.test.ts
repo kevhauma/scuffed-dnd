@@ -56,10 +56,18 @@ describe('isReadableCharacter', () => {
     expect(isReadableCharacter(undefined)).toBe(false);
   });
 
-  it('accepts one with no wallet, which is a field that did not always exist', () => {
+  it('accepts one with no purse, which is a field that did not always exist', () => {
     // TICKET-CUR-02's purse is deliberately optional: a purse nobody has touched is not the same as
     // an empty one, and requiring it would make a stored roster unreadable for want of a new field
-    expect(isReadableCharacter(stored({ wallet: undefined }))).toBe(true);
+    expect(isReadableCharacter(stored({ purse: undefined }))).toBe(true);
+  });
+
+  it('accepts one still carrying the retired per-tier wallet', () => {
+    // TICKET-CUR-02 replaced `wallet` with `purse` and converts the old shape on load — so a stored
+    // roster that still has one has to be *readable* for the migration to ever run. Refusing it here
+    // would turn a shape change into an IncompatibleDataNotice and lose the money it was meant to
+    // keep.
+    expect(isReadableCharacter({ ...stored(), wallet: { gold: 3 } } as Character)).toBe(true);
   });
 });
 

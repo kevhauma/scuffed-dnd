@@ -434,7 +434,8 @@ export function useCharacterSheet(characterId: string) {
     // The ruleset's tiers and what this character holds in them — the sheet's purse
     // (`Charactersheet!Q18:S23`), which the app had no field for until now
     currencyTiers: config?.currencyTiers ?? [],
-    wallet: character?.wallet ?? {},
+    // Absent means none, so the sheet renders 0 without the character growing a field it never had
+    purse: character?.purse ?? 0,
     ...actions,
   };
 }

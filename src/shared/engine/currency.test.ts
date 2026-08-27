@@ -7,7 +7,13 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import type { CurrencyTier } from '../types/config';
-import { convertCurrency, formatCurrency, normalizeCurrency } from './currency';
+import {
+  baseTier,
+  convertCurrency,
+  formatCurrency,
+  formatPurse,
+  normalizeCurrency,
+} from './currency';
 
 /** 100 copper = 1 silver, 10 silver = 1 gold */
 const tiers: CurrencyTier[] = [
@@ -166,5 +172,54 @@ describe('formatCurrency', () => {
 
   it('should fall back to the bare amount for an unknown tier', () => {
     expect(formatCurrency({ tierId: 'shells', amount: 3 }, tiers)).toBe('3');
+  });
+});
+
+/** What a character's purse is measured in, and how it is read back (TICKET-CUR-02) */
+describe('baseTier', () => {
+  it('should be the least valuable tier, whatever order the array happens to be in', () => {
+    expect(baseTier(tiers)?.id).toBe('copper');
+    expect(baseTier([...tiers].reverse())?.id).toBe('copper');
+  });
+
+  it('should be null for a ruleset that defines no currency', () => {
+    // A ruleset may define no currency as it may define no races
+    expect(baseTier([])).toBeNull();
+  });
+});
+
+describe('formatPurse', () => {
+  it('should read a purse in the tier it makes most sense in', () => {
+    // 2500 copper is 25 silver is 2.5 gold — the highest tier still worth at least one
+    expect(formatPurse(2500, tiers)).toBe('2.5 Gold');
+    expect(formatPurse(250, tiers)).toBe('2.5 Silver');
+    expect(formatPurse(40, tiers)).toBe('40 Copper');
+  });
+
+  it('should follow the ruleset rather than the stored number', () => {
+    /*
+     * The whole reason a purse is one amount in the base tier: **the same stored number** reads
+     * differently once the rates change, and nothing was rewritten to make that happen. A per-tier
+     * wallet could not do this — its numbers *are* the denominations.
+     */
+    const cheaperGold: CurrencyTier[] = [
+      { id: 'copper', name: 'Copper', order: 0, conversionToNext: 10 },
+      { id: 'silver', name: 'Silver', order: 1, conversionToNext: 10 },
+      { id: 'gold', name: 'Gold', order: 2, conversionToNext: 1 },
+    ];
+
+    expect(formatPurse(2500, tiers)).toBe('2.5 Gold');
+    expect(formatPurse(2500, cheaperGold)).toBe('25 Gold');
+  });
+
+  it('should show a bare number when the ruleset defines no currency', () => {
+    // Refusing to show a Player their own money because the ruleset has no name for it would be
+    // the wrong way round (TICKET-CUR-02's fifth criterion)
+    expect(formatPurse(340, [])).toBe('340');
+    expect(formatPurse(0, [])).toBe('0');
+  });
+
+  it('should round for display without pretending the stored amount changed', () => {
+    expect(formatPurse(1 / 3, [])).toBe('0.33');
   });
 });

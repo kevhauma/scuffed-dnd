@@ -38,6 +38,7 @@ import {
   loadCharacters,
   loadConfiguration,
   StorageSchemaError,
+  saveCharacters,
   saveConfiguration,
 } from '../../services/storage';
 import { useCharacterStore } from '../../stores/characterStore';
@@ -110,6 +111,63 @@ describe('useAppHydration', () => {
     // The stores' isLoaded guards mean the second mount reads nothing
     expect(loadConfiguration).toHaveBeenCalledTimes(1);
     expect(loadCharacters).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * The wallet conversion is wired here and nowhere else (TICKET-CUR-02)
+   *
+   * The store action is tested in isolation; what these hold is the **wiring**, which the review
+   * found untested — that the ruleset is read *before* the tiers are needed, that a refused load
+   * never triggers a write, and that a second mount does not run it again.
+   */
+  describe('the wallet conversion (TICKET-CUR-02)', () => {
+    /** copper → silver → gold, at 10 apiece */
+    const tiers = [
+      { id: 'copper', name: 'Copper', order: 0, conversionToNext: 10 },
+      { id: 'silver', name: 'Silver', order: 1, conversionToNext: 10 },
+      { id: 'gold', name: 'Gold', order: 2, conversionToNext: 10 },
+    ];
+
+    it('converts a stored wallet against the ruleset that has just been read', async () => {
+      // The ordering is the point: the tiers come from the configuration, so a conversion that ran
+      // before `loadConfig` would have nothing to convert by and would silently do nothing
+      vi.mocked(loadConfiguration).mockReturnValue({ ...storedConfig, currencyTiers: tiers });
+      vi.mocked(loadCharacters).mockReturnValue([
+        { ...storedCharacter, wallet: { gold: 3, copper: 40 } } as Character,
+      ]);
+
+      const { result } = renderHook(() => useAppHydration());
+      await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+      // 3 gold = 300 copper at these rates, plus the 40 already in copper
+      const [character] = useCharacterStore.getState().characters;
+      expect(character.purse).toBe(340);
+      expect('wallet' in character).toBe(false);
+      expect(saveCharacters).toHaveBeenCalled();
+    });
+
+    it('writes nothing when no character has a wallet', async () => {
+      vi.mocked(loadConfiguration).mockReturnValue({ ...storedConfig, currencyTiers: tiers });
+
+      const { result } = renderHook(() => useAppHydration());
+      await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+      expect(useCharacterStore.getState().characters[0].purse).toBeUndefined();
+      expect(saveCharacters).not.toHaveBeenCalled();
+    });
+
+    it('does not convert when the load was refused', async () => {
+      // Nothing was loaded and nothing was deleted — the keys are still the User's to decide about,
+      // and a conversion against a half-restored store is how a refusal turns into a write
+      vi.mocked(loadConfiguration).mockImplementation(() => {
+        throw new StorageSchemaError('Saved data is from an older version');
+      });
+
+      const { result } = renderHook(() => useAppHydration());
+      await waitFor(() => expect(result.current.incompatibleData).not.toBeNull());
+
+      expect(saveCharacters).not.toHaveBeenCalled();
+    });
   });
 
   it('should report unavailable storage instead of reading from it', async () => {

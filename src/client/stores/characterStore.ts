@@ -12,10 +12,12 @@ import { create } from 'zustand';
 import { MAX_RACE_COUNT } from '#shared/engine/calculators/statCalculator';
 import { validateStatAllocation } from '#shared/engine/skillAllocation';
 import { buildCharacter } from '#shared/services/characterCreation';
+import { purseFromStoredWallet } from '#shared/services/characterShape';
 // `addToPack` and `removeFromPack` are deliberately absent: the browser's pack has never had a rule
 // to share — its picker is built from the ruleset's item list — and the *server* is the side that
 // has to check, because a request is not a picker. See `addMiscItem` below.
 import {
+  adjustPurseBy,
   adjustResourceValue,
   emptySlot,
   equipToSlot,
@@ -26,12 +28,13 @@ import {
   moveItemToMisc,
   type PlayerActionResult,
   resetResourceToMax,
+  setPurseAmount,
   setResourceValue,
 } from '#shared/services/playerActions';
 import type { PlayerAction } from '#shared/types/api';
 import { PLAYER_ACTION } from '#shared/types/api';
 import type { Character, CharacterCreationData, Inventory } from '#shared/types/character';
-import type { Configuration } from '#shared/types/config';
+import type { Configuration, CurrencyTier } from '#shared/types/config';
 import {
   ACTION_OUTCOME,
   CREATION_OUTCOME,
@@ -260,19 +263,34 @@ export interface CharacterState {
   setInvestedSkillPoints: (characterId: string, skillId: string, points: number) => void;
 
   /**
-   * Set what the character is carrying in one currency tier (Concept 16)
+   * Set what the character is carrying, in the ruleset's base tier (Concept 16, TICKET-CUR-02)
    *
-   * Stored per tier, exactly as entered: 15 silver stays 15 silver rather than being rolled up
-   * into 1 gold 5 silver on write. Normalising is a *display* choice and belongs where the total
-   * is rendered — a purse that reorganises itself the moment you look away is a purse a Player
-   * cannot reconcile against the table.
+   * **One number, not a tier-by-tier breakdown** — see `Character.purse` for why. Which tier a
+   * Player is *shown* is `formatPurse`'s answer and is re-asked every render, so retuning the
+   * ruleset's rates changes every display and rewrites nothing.
    *
-   * Negative is refused rather than clamped, on the same reasoning as `deductExperience`: owing
-   * money is a thing a table may well want, but it is a mechanic, and inventing it here silently
-   * would be worse than not having it. Fractions are allowed — a rate of 10 makes half a gold an
-   * ordinary amount to hold.
+   * Below zero is **refused with the shortfall named** rather than clamped, which is
+   * `deductExperience`'s precedent: a purchase that quietly emptied a purse instead of refusing
+   * would leave a table believing it had been paid for.
    */
-  setWalletAmount: (characterId: string, tierId: string, amount: number) => void;
+  setPurse: (characterId: string, amount: number) => void;
+  /** Move the purse by a delta — Concept 20's quick entry, with the same refusal below zero */
+  adjustPurse: (characterId: string, delta: number) => void;
+  /**
+   * Convert any stored per-tier wallet into a base-tier purse (TICKET-CUR-02)
+   *
+   * **A one-way migration for a field that never had a ticket.** `wallet?: Record<tierId, number>`
+   * arrived outside the process and CUR-02 replaced it; this is what keeps the money. Each tier's
+   * holding is converted down to the base tier by `convertCurrency` and summed, so a purse of 3 gold
+   * and 40 copper becomes one amount worth exactly that.
+   *
+   * **The tiers are passed in rather than read**, for `createCharacterHere`'s reason: `configStore`
+   * imports this module, so reaching back would be the cycle `no-circular` refuses.
+   * `useAppHydration` has the ruleset by the time it restores the roster, and calls this once.
+   *
+   * A character with no wallet, or a ruleset with no tiers to convert by, is left exactly as it is.
+   */
+  adoptStoredWallets: (tiers: CurrencyTier[]) => void;
 
   /**
    * Move a resource pool by a delta rather than setting it (Concept 20's quick entry)
@@ -381,22 +399,33 @@ type SetState = (partial: Partial<CharacterState>) => void;
  * could run the same ones (D5), and what is left here is finding the character, stamping it and
  * writing LocalStorage — which is what this store has always been for.
  *
- * **A refusal is silent**, as it has always been on this path. The browser has a wizard and a set of
- * disabled controls in front of these, so a refusal here means something else is already wrong;
- * the *server* path reports the Kernel's sentence, because it has nothing standing in front of it.
+ * **A refusal is silent by default**, as it has always been on this path. The browser has a wizard
+ * and a set of disabled controls in front of most of these, so a refusal there means something else
+ * is already wrong; the *server* path reports the Kernel's sentence, because it has nothing standing
+ * in front of it. `reportRefusal` is for the surfaces on this side that are equally bare — see the
+ * branch below.
  */
 function applyLocally(
   set: SetState,
   get: () => CharacterState,
   characterId: string,
-  rule: (character: Character) => PlayerActionResult
+  rule: (character: Character) => PlayerActionResult,
+  options: { reportRefusal?: boolean } = {}
 ): void {
   const { characters } = get();
   const character = characters.find((candidate) => candidate.id === characterId);
   if (!character) return;
 
   const result = rule(character);
-  if (isRefusal(result)) return;
+
+  if (isRefusal(result)) {
+    // …unless the surface has nothing standing in front of it. The purse is a free-text box with
+    // relative entry, so `-40` against 5 is a thing a Player can genuinely type — and the review
+    // found it snapping the box back to 5 with the Kernel's *"7 short"* sentence built and thrown
+    // away (v3 Req 43.4). `actionError` renders on any drawable sheet, not only at a table.
+    if (options.reportRefusal) set({ actionError: result.refusal });
+    return;
+  }
 
   const updated = autoSave(
     characters.map((candidate) =>
@@ -843,26 +872,35 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     applyLocally(set, get, characterId, (character) => investInSkill(character, skillId, points));
   },
 
-  setWalletAmount: (characterId: string, tierId: string, amount: number) => {
+  setPurse: (characterId: string, amount: number) => {
+    // A purse at a table is the DM's until TICKET-DM-02 gives them the control (D9, v3 Req 42.5)
     if (refuseAtTable(set, get, characterId, 'A purse')) return;
 
+    applyLocally(set, get, characterId, (character) => setPurseAmount(character, amount), {
+      reportRefusal: true,
+    });
+  },
+
+  adjustPurse: (characterId: string, delta: number) => {
+    if (refuseAtTable(set, get, characterId, 'A purse')) return;
+
+    applyLocally(set, get, characterId, (character) => adjustPurseBy(character, delta), {
+      reportRefusal: true,
+    });
+  },
+
+  adoptStoredWallets: (tiers: CurrencyTier[]) => {
     const { characters } = get();
-    const character = characters.find((candidate) => candidate.id === characterId);
-    if (!character) return;
 
-    if (!Number.isFinite(amount) || amount < 0) return;
-
-    const updated = autoSave(
-      characters.map((candidate) =>
-        candidate.id === characterId
-          ? updateTimestamp({
-              ...candidate,
-              wallet: { ...(candidate.wallet ?? {}), [tierId]: amount },
-            })
-          : candidate
-      )
+    const converted = characters.map(
+      (character) => purseFromStoredWallet(character, tiers) ?? character
     );
-    set({ characters: updated });
+
+    // Nothing to convert is the overwhelmingly common case, and writing the whole roster back for
+    // it would be a save on every page load
+    if (converted.every((character, index) => character === characters[index])) return;
+
+    set({ characters: autoSave(converted) });
   },
 
   awardExperience: (characterId: string, amount: number) => {

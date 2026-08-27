@@ -1239,47 +1239,144 @@ describe('CharacterStore', () => {
       vi.clearAllMocks();
     });
 
+    const purse = () => useCharacterStore.getState().characters[0].purse;
+
     it('should open a purse on a character that has never had one', () => {
       // The field is optional and absent on every character saved before it existed
-      expect(useCharacterStore.getState().characters[0].wallet).toBeUndefined();
+      expect(purse()).toBeUndefined();
 
-      useCharacterStore.getState().setWalletAmount('char1', 'gold', 3);
+      useCharacterStore.getState().setPurse('char1', 3);
 
-      expect(useCharacterStore.getState().characters[0].wallet).toEqual({ gold: 3 });
+      expect(purse()).toBe(3);
       expect(storage.saveCharacters).toHaveBeenCalled();
     });
 
-    it('should hold each tier separately and never roll one into another', () => {
-      // 15 silver stays 15 silver. Normalising is a display choice, and a purse that reorganises
-      // itself the moment you look away is one a Player cannot reconcile against the table.
-      useCharacterStore.getState().setWalletAmount('char1', 'silver', 15);
-      useCharacterStore.getState().setWalletAmount('char1', 'copper', 40);
+    it('should hold one amount, in the base tier, rather than a tier-by-tier breakdown', () => {
+      // TICKET-CUR-02's decision: 1 gold and 100 copper are the same money, and two representations
+      // of one amount of wealth is what makes every payment a change-making problem. Which tier a
+      // Player is *shown* is `formatPurse`'s answer and is re-asked every render.
+      useCharacterStore.getState().setPurse('char1', 340);
 
-      expect(useCharacterStore.getState().characters[0].wallet).toEqual({
-        silver: 15,
-        copper: 40,
-      });
+      expect(purse()).toBe(340);
     });
 
-    it('should refuse a negative amount rather than clamping it', () => {
-      useCharacterStore.getState().setWalletAmount('char1', 'gold', 5);
-      useCharacterStore.getState().setWalletAmount('char1', 'gold', -1);
+    it('should adjust by a delta, which is what spending looks like', () => {
+      useCharacterStore.getState().setPurse('char1', 50);
+      useCharacterStore.getState().adjustPurse('char1', -12);
+
+      expect(purse()).toBe(38);
+    });
+
+    it('should refuse a change below zero rather than clamping it', () => {
+      useCharacterStore.getState().setPurse('char1', 5);
+      useCharacterStore.getState().setPurse('char1', -1);
+      useCharacterStore.getState().adjustPurse('char1', -40);
 
       // Owing money may well be a thing a table wants, but it is a mechanic, and inventing it
-      // here silently would be worse than not having it
-      expect(useCharacterStore.getState().characters[0].wallet).toEqual({ gold: 5 });
+      // here silently would be worse than not having it — a purchase that quietly emptied a purse
+      // would leave a table believing it had been paid for
+      expect(purse()).toBe(5);
     });
 
     it('should allow a fraction, because a rate of 10 makes half a gold ordinary', () => {
-      useCharacterStore.getState().setWalletAmount('char1', 'gold', 0.5);
+      useCharacterStore.getState().setPurse('char1', 0.5);
 
-      expect(useCharacterStore.getState().characters[0].wallet).toEqual({ gold: 0.5 });
+      expect(purse()).toBe(0.5);
+    });
+
+    it('should say why it refused, because nothing stands in front of the purse box', () => {
+      // Unlike a spend or an equip, this surface is a free-text field with relative entry — `-40`
+      // against 5 is a thing a Player can genuinely type, and the review found the Kernel's
+      // sentence being built and thrown away while the box snapped back in silence (v3 Req 43.4)
+      useCharacterStore.getState().setPurse('char1', 5);
+      useCharacterStore.getState().adjustPurse('char1', -12);
+
+      expect(useCharacterStore.getState().actionError).toContain('7 short');
+      expect(purse()).toBe(5);
     });
 
     it('should do nothing for a character that is not there', () => {
-      useCharacterStore.getState().setWalletAmount('nope', 'gold', 3);
+      useCharacterStore.getState().setPurse('nope', 3);
 
-      expect(useCharacterStore.getState().characters[0].wallet).toBeUndefined();
+      expect(purse()).toBeUndefined();
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * The one shape migration the app performs (TICKET-CUR-02)
+   *
+   * A `wallet?: Record<tierId, number>` arrived without a ticket and CUR-02 replaced it with one
+   * base-tier amount. This is what keeps the money: each holding is converted down by
+   * `convertCurrency` and summed, so a purse of 3 gold and 40 copper becomes exactly that worth.
+   */
+  describe('adopting a stored wallet', () => {
+    /** copper → silver → gold, at 10 apiece */
+    const tiers = [
+      { id: 'copper', name: 'Copper', order: 0, conversionToNext: 10 },
+      { id: 'silver', name: 'Silver', order: 1, conversionToNext: 10 },
+      { id: 'gold', name: 'Gold', order: 2, conversionToNext: 10 },
+    ];
+
+    function withWallet(wallet: Record<string, number> | undefined) {
+      useCharacterStore.setState({
+        characters: [
+          {
+            id: 'char1',
+            name: 'Test',
+            configurationId: 'config1',
+            raceIds: [],
+            investedStatPoints: {},
+            investedSkillPoints: {},
+            currentResourceValues: {},
+            experience: 0,
+            inventory: { equippedItems: {}, miscItems: [] },
+            createdAt: '2024-01-01',
+            updatedAt: '2024-01-01',
+            ...(wallet ? { wallet } : {}),
+          } as Character,
+        ],
+        isLoaded: true,
+      });
+      vi.clearAllMocks();
+    }
+
+    it('should convert every tier down to the base one and add them up', () => {
+      withWallet({ gold: 3, copper: 40 });
+
+      useCharacterStore.getState().adoptStoredWallets(tiers);
+
+      // 3 gold = 300 copper, plus 40
+      expect(useCharacterStore.getState().characters[0].purse).toBe(340);
+      expect(storage.saveCharacters).toHaveBeenCalled();
+    });
+
+    it('should drop the retired key, so the migration runs at most once', () => {
+      withWallet({ gold: 1 });
+
+      useCharacterStore.getState().adoptStoredWallets(tiers);
+
+      expect('wallet' in useCharacterStore.getState().characters[0]).toBe(false);
+    });
+
+    it('should write nothing at all when there is nothing to convert', () => {
+      // The overwhelmingly common case, and writing the whole roster back for it would be a save
+      // on every page load
+      withWallet(undefined);
+
+      useCharacterStore.getState().adoptStoredWallets(tiers);
+
+      expect(useCharacterStore.getState().characters[0].purse).toBeUndefined();
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+
+    it('should leave a wallet alone when the ruleset has no tiers to convert by', () => {
+      // Nothing can be converted without rates, and guessing would invent money
+      withWallet({ gold: 3 });
+
+      useCharacterStore.getState().adoptStoredWallets([]);
+
+      expect(useCharacterStore.getState().characters[0].purse).toBeUndefined();
       expect(storage.saveCharacters).not.toHaveBeenCalled();
     });
   });

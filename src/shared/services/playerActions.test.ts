@@ -20,6 +20,7 @@ import type { Character } from '../types/character';
 import type { Configuration } from '../types/config';
 import {
   addToPack,
+  adjustPurseBy,
   adjustResourceValue,
   emptySlot,
   equipToSlot,
@@ -32,6 +33,7 @@ import {
   type PlayerActionResult,
   removeFromPack,
   resetResourceToMax,
+  setPurseAmount,
   setResourceValue,
 } from './playerActions';
 
@@ -178,6 +180,52 @@ describe('investing points', () => {
     investInStat(character, RULES, 'stat-str', 1);
 
     expect(character.investedStatPoints['stat-str']).toBe(3);
+  });
+});
+
+describe('the purse (TICKET-CUR-02)', () => {
+  it('reports what was carried before and what is carried now', () => {
+    const change = accepted(setPurseAmount(aCharacter({ purse: 40 }), 55));
+
+    expect(change.before).toBe(40);
+    expect(change.after).toBe(55);
+    expect(change.character.purse).toBe(55);
+  });
+
+  it('treats a character who never had one as carrying nothing', () => {
+    const change = accepted(setPurseAmount(aCharacter(), 12));
+
+    expect(change.before).toBe(0);
+  });
+
+  it('spends by a delta, which is what buying something looks like', () => {
+    expect(accepted(adjustPurseBy(aCharacter({ purse: 50 }), -12)).after).toBe(38);
+    expect(accepted(adjustPurseBy(aCharacter({ purse: 50 }), 340)).after).toBe(390);
+  });
+
+  it('refuses to go below zero and names the shortfall', () => {
+    // `deductExperience`'s precedent: a purchase that quietly emptied a purse instead of refusing
+    // would leave a table believing it had been paid for
+    expect(refusal(adjustPurseBy(aCharacter({ purse: 5 }), -12))).toContain('7 short');
+    expect(refusal(setPurseAmount(aCharacter({ purse: 5 }), -1))).toContain('1 short');
+  });
+
+  it('leaves the purse alone when it refuses', () => {
+    const character = aCharacter({ purse: 5 });
+    adjustPurseBy(character, -12);
+
+    expect(character.purse).toBe(5);
+  });
+
+  it('allows a fraction, because a tier rate may be one', () => {
+    expect(accepted(setPurseAmount(aCharacter(), 0.5)).after).toBe(0.5);
+  });
+
+  it('refuses something that is not a number at all', () => {
+    expect(refusal(setPurseAmount(aCharacter(), Number.NaN))).toContain('not an amount');
+    expect(refusal(adjustPurseBy(aCharacter(), Number.POSITIVE_INFINITY))).toContain(
+      'not an amount'
+    );
   });
 });
 

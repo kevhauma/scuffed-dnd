@@ -380,8 +380,21 @@ ruleset defines has somewhere to land.
 3. THE Application SHALL treat an absent purse as zero, and SHALL NOT grow the field on a Character
    that has none
 4. THE Application SHALL refuse a purse change that would make the balance negative
-5. THE Application SHALL add the purse to the persisted `Character` shape with a `schemaVersion`
-   bump and a matching `docs/imports/` fragment update
+5. THE Application SHALL add the purse to the persisted `Character` shape **without** a
+   `SUPPORTED_SCHEMA_VERSION` bump, and SHALL land a matching `docs/imports/` fragment update
+
+   > **Amended by TICKET-CUR-02 (2026-08-27), which found the two halves incompatible.** The version
+   > gates the **`Configuration`**, not the Character: bumping it makes `loadConfiguration` throw
+   > `StorageSchemaError` for a ruleset that did not change, so `RootLayout` renders
+   > `IncompatibleDataNotice` and `loadCharacters` never runs. The ticket also has to *convert* a
+   > per-tier `wallet` that shipped without one — so a bump would refuse to read the data the
+   > conversion exists to keep. Bump and migrate are mutually exclusive, and the rule the bump
+   > enforces (*a build must not crash on a field that moved*) is not engaged here: `purse` is
+   > additive-optional and nothing reads `wallet`. A requirement change outranks a ticket, so this is
+   > amended in place rather than quietly outgrown.
+
+6. THE Application SHALL keep reading a stored Character that still carries the retired per-tier
+   `wallet`, and SHALL convert it to a base-tier purse rather than discarding it
 
 ### Requirement 44: Live Updates
 

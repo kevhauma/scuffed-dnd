@@ -1,8 +1,8 @@
 # Test Status
 
-_Last verified: 2026-08-27 (`npx vitest run`), after **TICKET-ROLL-07 — server-resolved rolls and
-the session roll log**.
-The checkpoints before it were **TICKET-PLY-01 — player actions go through the server** at 2904,
+_Last verified: 2026-08-27 (`npx vitest run`), after **TICKET-CUR-02 — a character carries a purse**.
+The checkpoints before it were **TICKET-ROLL-07 — server-resolved rolls** at 2932,
+**TICKET-PLY-01 — player actions go through the server** at 2904,
 **TICKET-CHAR-04 — characters are created per session** at 2827,
 **TICKET-GAM-04 — membership, roles and the session lobby** at 2754,
 **TICKET-GAM-03 — invite by email** at 2707,
@@ -27,8 +27,8 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 2932
-- **Passing**: 2932 (100%)
+- **Total tests**: 2955
+- **Passing**: 2955 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
@@ -56,6 +56,33 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-CUR-02 — a ticket that had to argue with the code
+
+The **+18 over ROLL-07** is TICKET-CUR-02: 7 in a new `PurseSection.test.tsx`, 8 in
+`shared/engine/currency.test.ts` and `shared/services/playerActions.test.ts`, and a net +3 in
+`characterStore.test.ts`, whose five wallet cases became six purse cases and four migration ones.
+
+**The ticket's as-is was wrong and the ticket was still right.** It says *"`Character` holds no
+money"*; a per-tier `wallet` had arrived in an unrelated commit, named in no ticket, contradicting
+D9. Taken to the User, who chose to replace it — so this is a removal as well as an addition, and
+`wallet`, `WalletSection` and `CoinRow` all went.
+
+**The load-bearing case is the one that renders one number twice.** *"Should follow the ruleset
+rather than the stored number"* formats the same stored `2500` under two rate tables and gets
+`2.5 Gold` and `25 Gold`. That is the whole argument for a single base-tier amount in one assertion:
+a per-tier wallet cannot do it, because there the numbers *are* the denominations, and retuning the
+rates would either rewrite everybody's savings or leave them meaning something else.
+
+**No money is lost and no schema version is bumped**, and the two are the same decision.
+`adoptStoredWallets` converts a stored wallet down to the base tier and drops the retired key; a
+`SUPPORTED_SCHEMA_VERSION` bump would have made every stored roster unreadable behind
+`IncompatibleDataNotice` and destroyed exactly the data the conversion exists to keep. So
+`isReadableCharacter` deliberately still **accepts** a character carrying `wallet` — with a test
+saying why, because a later reader would otherwise tidy it away and silently break the migration.
+
+**The browser check ran the conversion for real**: a seeded `wallet: {gold: 3, copper: 40}` came
+back on the next load as `purse: 3040`, reading *3.04 Gold*, with the retired key gone.
 
 ## TICKET-ROLL-07 — the dice move, and one sentence stops being true
 
@@ -1189,7 +1216,8 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/client/components/sessions/SessionList.test.tsx` | 12.9 | TICKET-CHAR-04's run | 4 commits, 213 churn | ▲ **Accelerating — TICKET-PLY-01** (was 10.4 at CHAR-04) |
 | `src/client/components/sessions/SessionList.tsx` | 6.4 | TICKET-CHAR-04's run | 4 commits, 374 churn | ▲ **Accelerating — TICKET-PLY-01** (was 4.2 at CHAR-04) |
 | `src/server/repositories/characterRepository.ts` | 2.9 | TICKET-PLY-01's run | 3 commits, 200 churn | ▲ **Accelerating — TICKET-PLY-01** (crossed the three-commit floor with `recordPlayerAction`) |
-| `src/client/stores/characterStore.ts` | 11.6 | TICKET-ROLL-07's run | 3 commits, 1384 churn, 0.13 density, 25 fan-in | ▲ **Accelerating — TICKET-ROLL-07** (PLY-01 gave it the table slice, ROLL-07 gave `tableSessionId` a reader; the fan-in is what makes it worth watching — 25 modules read this store) |
+| `src/client/stores/characterStore.ts` | 13.4 | TICKET-CUR-02's run | 4 commits, 1401 churn, 0.12 density, 25 fan-in | ▲ **Accelerating — TICKET-CUR-02** (11.6 at ROLL-07, 13.4 now; PLY-01 gave it the table slice, ROLL-07 gave `tableSessionId` a reader, CUR-02 swapped the wallet for the purse. The fan-in is what makes it worth watching — 25 modules read this store — and CUR-02 moved one rule *out* of it into `characterShape.ts`, which is the direction to keep pushing) |
+| `src/client/components/play/sheet/CharacterSheet.tsx` | 5.0 | TICKET-CUR-02's run | 3 commits, 297 churn, 0.06 density | ▲ **Accelerating — TICKET-CUR-02** (crossed the three-commit floor across PLY-01's banner, ROLL-07's withheld *Clear* and CUR-02's purse; a 209-line component that three tickets in a row have each added a conditional to) |
 | `src/client/components/sessions/SessionsPanel.tsx` | 3.1 | TICKET-CHAR-04's run | 3 commits, 75 churn, 0.03 density | ▲ **Accelerating — TICKET-CHAR-04** |
 
 **Both Accelerating rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they

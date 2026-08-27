@@ -96,23 +96,38 @@ export interface Character {
   experience: number;
   inventory: Inventory;
   /**
-   * What the character is carrying in coin, keyed by **currency tier id** (Concept 16).
+   * What the character is carrying in coin — **one amount, in the ruleset's base tier**
+   * (Concept 16, TICKET-CUR-02, v3 Req 43).
    *
-   * The sheet has a purse — `Charactersheet!Q18:S23`, one row per tier beside the equipment
-   * boxes — and the app had nowhere to put it, so a ruleset could define gold and silver and a
-   * Player could never hold any.
+   * The sheet has a purse (`Charactersheet!Q18:S23`) and the app had nowhere to put it, so a
+   * ruleset could define gold and silver and a Player could never hold any.
    *
-   * Keyed by id, like every other allocation on a character, so renaming a tier cannot orphan
-   * someone's money. **Optional**, and absent on every character saved before it existed: a purse
-   * nobody has touched is not the same as a purse with nothing in it, and `isReadableCharacter`
-   * deliberately does not require it, so no stored roster becomes unreadable for want of a field
-   * that did not exist when it was written.
+   * ## Why one number and not a tier-by-tier breakdown
    *
-   * Amounts are per-tier and stored as entered — never normalised on write. 15 silver stays 15
-   * silver rather than becoming 1 gold 5 silver behind the Player's back; `normalizeCurrency` is
-   * a *display* choice, and the totals line is where it belongs.
+   * This replaced a `wallet?: Record<tierId, number>` that arrived without a ticket and which
+   * TICKET-CUR-02 exists to argue against. A per-tier purse makes every payment a change-making
+   * problem, makes *"do I have 3 gold"* a conversion, and makes two representations of the same
+   * wealth possible — 1 gold and 100 copper are the same money and would be different objects.
+   * `normalizeCurrency` already answers *which tier should I show this in*, and that display
+   * question is the only one worth asking: what the Player is **shown** follows the ruleset's rates
+   * and is re-derived every render, so retuning gold-to-silver rewrites nobody's savings.
+   *
+   * The **base** tier (`order: 0`, the least valuable) because it is the only one every amount can
+   * be written in without inventing a fraction — see `engine/currency.ts`'s `baseTier`.
+   *
+   * **Optional, and absent means none.** A purse nobody has touched is not the same as a purse with
+   * nothing in it, so `isReadableCharacter` does not require it and a stored roster from before
+   * this field round-trips without growing one — the `constants?` pattern.
+   *
+   * **Player state, not a derivation** — money is spent at the table and computed from nothing. It
+   * is the fourth sanctioned exception to *derived values are never stored*, beside
+   * `currentResourceValues`, `experience` and DM-01's `grantedStatPoints`
+   * ([D9](../../../docs/v3.0_backend/overview.md#d9--level-stays-derived-points-to-spend-becomes-a-grant)).
+   *
+   * Fractional amounts are allowed: a tier rate may be fractional, so rounding here would quietly
+   * lose money. Round for display only.
    */
-  wallet?: Record<string, number>; // currencyTierId -> amount
+  purse?: number;
   createdAt: string;
   updatedAt: string;
 }
