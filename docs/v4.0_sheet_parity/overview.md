@@ -146,82 +146,38 @@ and the missing XP table, both carried over from v2.0 and both still the User's 
 
 ## Build order
 
-No tickets exist yet. Each line below is a **plan line** — expand it with the `story-ticket` skill
-before building (a ticket carries at most three to-be items, so several lines will split). The
-detail behind every line lives in its linked system document.
+Every plan line is ticketed (2026-08-29). Several lines split under the three-to-be-items limit:
+§4 into RACE-03/04, §5 into SKL-04/05, §9 into ITEM-01/02, §10 into INV-05/06, §11 into
+SPL-01/02, and §14 into RES-04 (Dream level, pulled forward) and RES-05 (the point pool). The
+detail behind every ticket lives in its linked system document.
 
-- [ ] *(plan §1)* **Combat scalers and roll inputs** — the sheet finally shows evasion and
-  endurance whole: three new constants and two corrected roll formulas close v2.0's oldest open
-  question. → [systems/07-combat-rolls.md](./systems/07-combat-rolls.md)
-- [ ] *(plan §2)* **Archetype refresh with a proven affinity matrix** — six renamed archetypes
-  with new taglines; the sub/non tagging v2.0 could not prove is now read from formulas, and the
-  `point_buy` curve turns out to be **unchanged** (the "new integer table" was display rounding).
-  Dream level joins the gain formula (see §14).
-  → [systems/05-archetypes-and-point-buy.md](./systems/05-archetypes-and-point-buy.md)
-- [ ] *(plan §3)* **Stat identity pass** — APT becomes **ATP** ("Actions per turn"), stats gain the
-  sheet's flavour descriptions and Physical/Mental/Vitals grouping. The Temp column is not built
-  and Speed stays a plain stat (rulings above).
-  → [systems/03-stats-and-vitals.md](./systems/03-stats-and-vitals.md)
-- [ ] *(plan §4)* **Races ×25, `Empty` deleted, two races required** — the picker grows from 10 to
-  25 real races, each carrying creature type, size and challenge rate; a character now has
-  **exactly two** (a single race is that race picked twice), and the blend gains the sheet's
-  `MAX(1, …)` floor. → [systems/04-races.md](./systems/04-races.md)
-- [ ] *(plan §5)* **Skills re-scaled, focus skills return** — every skill gets a primary (0.35 or
-  0.2) and optional secondary (0.1) stat; three chosen **focus skills** multiply growth (chosen 1.5
-  / others 0.3, stacking); the skill list itself shifts (−sewing, −duplicate Skinning, +Summening,
-  +woodcrafting). Builds the table's **intent**, so the sheet's two formula bugs are fixed rather
-  than reproduced. → [systems/06-skills-and-focus.md](./systems/06-skills-and-focus.md)
-- [ ] *(plan §6)* **Equipment slots become the six-slot body** — Head/Upperbody/Lowerbody/Foot
-  gear plus right and Left hand; the accessory box is gone and the slot keys are rewritten
-  outright (D6). → [systems/08-equipment-slots.md](./systems/08-equipment-slots.md)
-- [ ] *(plan §7)* **Materials catalog replaced** — 24 families × 10 hand-authored tiers across
-  three groups, harvested creature parts included.
-  → [systems/09-materials.md](./systems/09-materials.md)
-- [ ] *(plan §8)* **Inlays** — a new entity: 25 gem families × 10 tiers of stat grants (linear in
-  tier for 23 of them), socketed into items. → [systems/10-inlays.md](./systems/10-inlays.md)
-- [ ] *(plan §9)* **Item templates target skills, and shops arrive** — an item template is a
-  per-skill bonus vector over all 48 skills, grouped into 40 shop categories.
-  → [systems/11-items-and-shops.md](./systems/11-items-and-shops.md)
-- [ ] *(plan §10)* **Item composition** — a carried thing is *material tier + template + inlay
-  tier* ("Iron Ore 10 Battleaxe with Diamond 4 inlay"), and it lives in the **Player's inventory**
-  as a record linking those three; its stat side is the material's vector plus the inlay's, its
-  skill side is the template's — arithmetic confirmed against the sample character. `Item`'s v1
-  fused `materialId`/`materialLevel` fields retire here.
-  → [systems/12-item-composition-and-backpack.md](./systems/12-item-composition-and-backpack.md)
-- [ ] *(plan §11)* **Spells: entity and compendium** — 418 spells with mana cost, range/time and
-  effect text; learned-per-character tracking (unlocked **manually**, a hand-set flag) and the
-  sheet's own Spellbook view; casting spends the existing Mana pool.
-  → [systems/13-spells.md](./systems/13-spells.md)
-- [ ] *(plan §12)* **Spell effect templating** — the D4 attachment point: placeholders in effect
-  text evaluated per caster, previewed like every other formula field.
-  → [systems/13-spells.md](./systems/13-spells.md)
-- [ ] *(plan §13)* **Passive abilities catalog** — 26 passives (resistances, immunities, senses)
-  as a reference entity; nothing grants them yet, by the sheet's own admission.
-  → [systems/14-passives-and-reference-tables.md](./systems/14-passives-and-reference-tables.md)
-- [ ] *(plan §14)* **Progression additions** — Dream level as new player state **that amplifies
-  archetype gains** (main × dream, sub + dream, the latter even at zero points), raised by the
-  **DM as an action** beside experience and level; plus one shared point pool (level × 3) covering
-  stat *and* skill investment, and the Points to Use / Points Spend readout.
-  → [systems/02-progression-and-identity.md](./systems/02-progression-and-identity.md)
-- [ ] *(plan §15)* **Sheet corpus v4 and golden fixtures** — every touched fragment re-sourced to
-  the new workbook, and a golden suite pinned on the sample character *Thomas the test more*, whose
-  gear, stat and roll arithmetic the capture verified end to end.
-  → [systems/01-sheet-source-and-capture.md](./systems/01-sheet-source-and-capture.md)
+- [ ] [TICKET-ROLL-08](./tickets/TICKET-ROLL-08-combat-scalers-evasion-endurance.md) — Combat scalers: evasion and Endurance made whole (systems/07) — **first**: constants and formula-text revisions that unblock fragment work; closes v2.0's oldest open question
+- [ ] [TICKET-STAT-04](./tickets/TICKET-STAT-04-atp-rename-groups-and-flavour.md) — Stat identity: ATP, three groups, and the tomato ladder (systems/03, 02) — the Temp column is not built and Speed stays a plain stat (rulings above)
+- [ ] [TICKET-RES-04](./tickets/TICKET-RES-04-dream-level-state-and-dm-action.md) — Dream level: player state, raised by the DM (systems/02) — **before ARC-04**, whose gain formula reads the field; the split that answers the first dependency the rulings introduced
+- [ ] [TICKET-ARC-04](./tickets/TICKET-ARC-04-renames-affinity-matrix-dream-gains.md) — Archetype refresh: renames, the proven matrix, dream-amplified gains (systems/05) — needs RES-04. The `point_buy` curve is untouched (the "new integer table" was display rounding)
+- [ ] [TICKET-RES-05](./tickets/TICKET-RES-05-shared-point-pool-and-readout.md) — One point pool for stats and skills, with the readout (systems/02) — independent of ARC-04; behavioural: skill investment stops being free
+- [ ] [TICKET-RACE-03](./tickets/TICKET-RACE-03-race-catalog-25-and-identity.md) — Races ×25, creature identity, and the blend floor (systems/04, 14) — the catalog half: data plus one engine term
+- [ ] [TICKET-RACE-04](./tickets/TICKET-RACE-04-exactly-two-races.md) — Exactly two races: `Empty` is deleted (systems/04) — needs RACE-03; the reshape half, touching creation and allocation ("§4 is no longer a data-only line")
+- [ ] [TICKET-SKL-04](./tickets/TICKET-SKL-04-reweighted-skills-and-ceil-rounding.md) — Skills re-scaled: the new list, primary/secondary weights, ceil rounding (systems/06) — builds the reference table's **intent**; the sheet's two formula bugs are fixed, not reproduced (ruling above). Reworks the skill engine before anything that grants skill bonuses exists
+- [ ] [TICKET-SKL-05](./tickets/TICKET-SKL-05-focus-skills.md) — Focus skills multiply growth (systems/06) — needs SKL-04; chosen 1.5 / others 0.3, duplicates stack
+- [ ] [TICKET-INV-04](./tickets/TICKET-INV-04-six-slot-body.md) — Equipment slots become the six-slot body (systems/08) — before INV-05: composed items hang off the six slots. Slot keys rewritten outright (D6)
+- [ ] [TICKET-MAT-03](./tickets/TICKET-MAT-03-materials-catalog-v4.md) — Materials catalog replaced (systems/09) — data only; an ingredient of INV-05's composition
+- [ ] [TICKET-INL-01](./tickets/TICKET-INL-01-inlay-entity-panel-catalog.md) — Inlays: entity, panel, and the gem catalog (systems/10) — the new entity; the other ingredient
+- [ ] [TICKET-ITEM-01](./tickets/TICKET-ITEM-01-skill-bonus-templates-and-shops.md) — Item templates target skills, grouped into shops (systems/11) — needs SKL-04; the shape and the engine term, seeded with sample-confirmed vectors only
+- [ ] [TICKET-ITEM-02](./tickets/TICKET-ITEM-02-item-catalog-fragment.md) — The v4 item catalog: 40 categories, ~700 templates (systems/11) — needs ITEM-01; the milestone's biggest pure-data lift, scripted against the checked-in xlsx
+- [ ] [TICKET-INV-05](./tickets/TICKET-INV-05-composed-items-record-and-engine.md) — Composed items: the record and the engine (systems/12) — needs INV-04, MAT-03, INL-01, ITEM-01; `Item`'s fused `materialId`/`materialLevel` fields retire here
+- [ ] [TICKET-INV-06](./tickets/TICKET-INV-06-item-builder-and-backpack.md) — The item builder and the Backpack (systems/12) — needs INV-05; the sheet's Item selecter as a player action, and "in the bag" derived as built-but-not-worn
+- [ ] [TICKET-SPL-01](./tickets/TICKET-SPL-01-spell-entity-panel-fragment.md) — Spells: entity, panel, and the 418-spell fragment (systems/13) — casting needs only Mana, already a resource; effect text lands raw here, templating waits for SPL-03
+- [ ] [TICKET-SPL-02](./tickets/TICKET-SPL-02-learned-spells-spellbook-casting.md) — Learned spells, the Spellbook, and casting (systems/13) — needs SPL-01; spells unlock **manually** and "Chosen abiltie" is built into nothing (rulings above)
+- [ ] [TICKET-SPL-03](./tickets/TICKET-SPL-03-spell-effect-templating.md) — Spell effect templating (systems/13, D4) — needs SPL-01/02; the `spell-effect` attachment point and the 326-formula transcription
+- [ ] [TICKET-PAS-01](./tickets/TICKET-PAS-01-passives-catalog.md) — Passive abilities: the catalog (systems/14) — needs SPL-03's attachment point (two passives template like spells); nothing grants a passive yet, by the sheet's own admission
+- [ ] [TICKET-DX-09](./tickets/TICKET-DX-09-sheet-corpus-v4-and-goldens.md) — Sheet corpus v4 and the golden fixtures (systems/01) — **last**: every touched fragment confirmed re-sourced, the golden suite pinned on *Thomas the test more*, and the D6 break proven complete. Closes the milestone the way DX-04 closed v2.0
 
-Ordering reasons: §1 and §3 are data and constant revisions that unblock fragment work. §5 reworks
-the skill engine before anything that grants skill bonuses exists (§9–§10 target skills). §6 must
-land before §10 because composed items hang off the six slots. §7–§8 are the ingredients of §10's
-composition. §11–§12 need Mana (already a resource) and the §5 skill list. §13 is additive and
-independent. §15 closes the milestone the way DX-04 closed v2.0.
+The 2026-08-29 rulings' two cross-line dependencies are answered in the ordering above: RES-04
+lands the `dreamLevel` field before ARC-04's gain formula reads it, and RACE-04 gives the
+`Empty`-deletion reshape its own room instead of riding the catalog ticket.
 
-Two dependencies the 2026-08-29 rulings introduced, worth catching before the tickets are written:
-
-- **§14's `dreamLevel` field is a prerequisite of §2's gain formula**, which reads it. Either
-  split §14 so the field and its DM action land first, or let §2 carry the field — but they cannot
-  be planned as independent lines.
-- **§4 is no longer a data-only line.** Deleting `Empty` makes `raceIds` exactly two, which
-  touches character creation and the allocation path, so it needs the room a reshape deserves.
-
-New ticket prefixes this version expects to mint: **`SPL`** (spells and casting), **`INL`**
-(inlays), **`PAS`** (passive abilities). Everything else reuses existing prefixes (`STAT`, `RACE`,
-`ARC`, `SKL`, `ROLL`, `INV`, `MAT`, `ITEM`, `CHAR`, `IO`).
+Prefixes minted by this version, as expected: **`SPL`** (spells and casting), **`INL`** (inlays),
+**`PAS`** (passive abilities) — plus **`ITEM`**'s first numbered tickets (the area existed, but
+no `TICKET-ITEM-*` had ever been cut). Everything else reuses existing prefixes (`STAT`, `RACE`,
+`ARC`, `SKL`, `ROLL`, `INV`, `MAT`, `RES`, `DX`).
