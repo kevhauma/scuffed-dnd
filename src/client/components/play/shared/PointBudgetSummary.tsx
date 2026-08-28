@@ -4,9 +4,10 @@
  * A character's stat point pool as a tally — `0/3 Points spent`.
  *
  * Shared by the creation wizard and the character sheet, because since TICKET-RES-02 the two ask
- * exactly the same question — the pool is `level × const.points_per_level` at creation and at the
- * table alike, so a Player who spends at level 1 and a Player who spends at level 7 read the same
- * sentence.
+ * exactly the same question — the pool is `level × const.points_per_level + grants` at creation and
+ * at the table alike, so a Player who spends at level 1 and a Player who spends at level 7 read the
+ * same sentence. The `grants` term arrived with TICKET-DM-01 and is stated beside the tally when it
+ * is not zero, because it is the one term in the pool no ruleset rule accounts for.
  *
  * The budget can fail: the level it derives from is read out of a User curve (TICKET-RES-01), so
  * both numbers arrive as `DerivedValue` and an unavailable pool chips rather than reading as zero.
@@ -24,6 +25,7 @@ export interface PointBudgetSummaryProps extends PointBudgetView {
 
 export function PointBudgetSummary({
   pointsSpent,
+  grantedPoints,
   pointBudget,
   pointsRemaining,
   isOverBudget,
@@ -70,6 +72,15 @@ export function PointBudgetSummary({
       <span className="font-heading text-xs uppercase tracking-wider text-ink-700">
         Points spent
       </span>
+      {/* Where the extra came from (TICKET-DM-01, v3 Req 42.3). A pool that grew by three between
+          sessions is otherwise a number a Player has nothing to read against — and the grant is the
+          one term in it that no ruleset rule explains. Silent at zero, which is every character
+          nobody has handed anything. */}
+      {grantedPoints > 0 && (
+        <span className="font-heading text-xs uppercase tracking-wider text-amber-dark">
+          {`incl. ${grantedPoints} granted`}
+        </span>
+      )}
     </p>
   );
 }

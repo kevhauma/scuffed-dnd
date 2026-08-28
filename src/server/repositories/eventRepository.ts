@@ -14,7 +14,7 @@
  * **Validates: v3 Req 46.5, 44.5, 44.6**
  */
 
-import { and, desc, eq, gt } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, sql } from 'drizzle-orm';
 import { type Database, getDatabase } from '../db/client';
 import { event } from '../db/schema';
 
@@ -157,6 +157,57 @@ export function latestEventsOfType(
         // eleven-line clone, and they differ in *data* rather than in behaviour — the case the
         // conventions say to share
         ...(actorAccountId === null ? [] : [eq(event.actorAccountId, actorAccountId)])
+      )
+    )
+    .orderBy(desc(event.seq))
+    .limit(limit)
+    .all();
+}
+
+/**
+ * The events of any of several kinds that name one character, newest first (TICKET-DM-01)
+ *
+ * What a Player's own adjustment history is read from (v3 Req 42.7), and the DM's view of the same
+ * sheet.
+ *
+ * ## Why this narrows on the payload, when `latestEventsOfType` deliberately does not
+ *
+ * That function's docblock states the rule — *`actor_account_id` rather than anything inside the
+ * payload, because the column is queryable and the JSON is not* — and this is the case that rule
+ * cannot serve. There is no `character_id` column: an Event belongs to a **session**, and which
+ * character it moved is a field of `PlayerActionEvent`. The alternative was to cap at the table's
+ * hundred most recent adjustments and filter in the handler, which is precisely the bug the
+ * `listRolls` review found — on a busy table one character's history falls out of their own view
+ * with nothing saying it was dropped. So the narrowing happens **before** the cap, and the only
+ * place it can happen before the cap is in the query.
+ *
+ * `json_extract` is SQLite's own, compiled into `better-sqlite3`, and it reads the same JSON text
+ * `JSON.parse` does at the other end. This is not the start of a normalised event schema — nothing
+ * joins on it and nothing indexes it — and a second use of it would be the moment to ask whether the
+ * column should exist instead.
+ *
+ * @param sessionId Which session's log
+ * @param characterId Whose adjustments — matched against the payload's `characterId`
+ * @param types Which kinds of event count as an adjustment
+ * @param limit How many at most
+ * @param database The connection; defaults to the process's
+ * @returns The events, newest first
+ */
+export function latestCharacterEvents(
+  sessionId: string,
+  characterId: string,
+  types: string[],
+  limit: number,
+  database: Database = getDatabase()
+): EventRow[] {
+  return database.db
+    .select()
+    .from(event)
+    .where(
+      and(
+        eq(event.sessionId, sessionId),
+        inArray(event.type, types),
+        sql`json_extract(${event.payload}, '$.characterId') = ${characterId}`
       )
     )
     .orderBy(desc(event.seq))

@@ -78,6 +78,8 @@ const OWNED_PARAMETERS = [
  *
  * `requireCharacterPlayer` joined with TICKET-PLY-01. It is `requireCharacterWriter` minus the DM,
  * which the player-action routes need and every other character route does not.
+ *
+ * `requireCharacterDM` joined with TICKET-DM-01, and is the same guard minus the *owner* instead.
  */
 const RESOURCE_GUARDS = [
   'requireOwner',
@@ -85,6 +87,7 @@ const RESOURCE_GUARDS = [
   'requireDM',
   'requireCharacterWriter',
   'requireCharacterPlayer',
+  'requireCharacterDM',
   'requireInvitee',
 ];
 

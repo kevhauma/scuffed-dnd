@@ -19,10 +19,10 @@
  */
 
 import type { PendingInvitation } from '#shared/types/api';
+import { readableMoment } from '../shared/readableMoment';
 import { Button } from '../ui/Button/Button';
 import { Card } from '../ui/Card/Card';
 import { Text } from '../ui/Text/Text';
-import { readableMoment } from './sessionMoment';
 import { alertStyles, sectionStyles, sessionRowStyles } from './sessions.style';
 
 export interface PendingInvitationsProps {

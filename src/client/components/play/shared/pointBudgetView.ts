@@ -17,7 +17,14 @@ import { toDerivedValue } from './derivedValue';
 
 export interface PointBudgetView {
   pointsSpent: number;
-  /** `level × const.points_per_level` */
+  /**
+   * What the DM handed out on top of the derived pool, 0 for none (TICKET-DM-01)
+   *
+   * Carried so the tally can say where an unexpected number came from — a Player whose pool jumped
+   * by three between sessions has otherwise nothing to read it against.
+   */
+  grantedPoints: number;
+  /** `level × const.points_per_level + granted` */
   pointBudget: DerivedValue;
   pointsRemaining: DerivedValue;
   isOverBudget: boolean;
@@ -34,6 +41,7 @@ export function toPointBudgetView(allocation: StatAllocationResult | null): Poin
 
   return {
     pointsSpent: allocation.pointsSpent,
+    grantedPoints: allocation.grantedPoints,
     pointBudget: toDerivedValue(allocation.pointBudget),
     pointsRemaining: toDerivedValue(allocation.pointsRemaining),
     isOverBudget: allocation.isOverBudget,

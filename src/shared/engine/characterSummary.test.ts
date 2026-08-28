@@ -11,7 +11,11 @@
 import { describe, expect, it } from 'vitest';
 import type { Character } from '../types/character';
 import type { Configuration, Curve } from '../types/config';
-import { calculateCharacterLevel, toCharacterSummary } from './characterSummary';
+import {
+  calculateCharacterLevel,
+  experienceForLevel,
+  toCharacterSummary,
+} from './characterSummary';
 
 function createCharacter(overrides: Partial<Character> = {}): Character {
   return {
@@ -158,5 +162,56 @@ describe('toCharacterSummary', () => {
       level: 3,
       createdAt: '2024-01-01',
     });
+  });
+});
+
+describe('experienceForLevel (TICKET-DM-01)', () => {
+  it('should read the same table forwards — what a level costs', () => {
+    expect(experienceForLevel(createCharacter(), createConfig(), 3)).toBe(900);
+    expect(experienceForLevel(createCharacter(), createConfig(), 1)).toBe(0);
+  });
+
+  it('should round-trip: the experience it answers reads back as the level asked for', () => {
+    const character = createCharacter();
+
+    for (const level of [1, 2, 3, 4]) {
+      const experience = experienceForLevel(character, createConfig(), level);
+
+      expect(
+        calculateCharacterLevel({ ...character, experience: experience as number }, createConfig())
+      ).toBe(level);
+    }
+  });
+
+  it('should refuse a level the curve cannot price rather than guessing at one', () => {
+    // A single-row table happily extrapolates *nothing*, answering 0 XP for every level — which
+    // would leave a character at level 1 with the DM told it worked
+    const oneRung = createConfig([xpCurve({ rows: [{ key: 1, values: [0] }] })]);
+
+    expect(experienceForLevel(createCharacter(), oneRung, 5)).toMatchObject({
+      kind: 'out-of-range',
+    });
+  });
+
+  it('should refuse when the curve refuses, carrying its own message', () => {
+    const strict = createConfig([xpCurve({ outOfRange: 'error' })]);
+
+    expect(experienceForLevel(createCharacter(), strict, 9)).toMatchObject({
+      kind: 'out-of-range',
+    });
+  });
+
+  it('should report a ruleset with no xp_thresholds curve the same way a level read does', () => {
+    expect(experienceForLevel(createCharacter(), createConfig([]), 2)).toMatchObject({
+      kind: 'undefined-variable',
+    });
+  });
+
+  it('should extrapolate past the table when the curve says to, and still round-trip', () => {
+    const answer = experienceForLevel(createCharacter(), createConfig(), 5);
+
+    // `extrapolate` on a `step` curve keeps the last rung's spacing: 2700 + (2700 − 900)
+    expect(answer).toBe(4500);
+    expect(calculateCharacterLevel(createCharacter({ experience: 4500 }), createConfig())).toBe(5);
   });
 });

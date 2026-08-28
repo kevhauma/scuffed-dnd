@@ -136,8 +136,8 @@ change also exists (v3 Req 33.8).
 |---|---|---|
 | `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), skills, roll definitions, dice ladders, materials + categories, items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
-| `useCharacterStore` (cont.) | `tableCharacter` + `tableSessionId` + `isActing` + `actionError`, and `openTableCharacter` / `closeTableCharacter` / `dismissActionError` (TICKET-PLY-01; `tableSessionId` is ROLL-07's, which is what the session-scoped roll log is read by) — **the one character open at a game session**, held apart from `characters` because that list is LocalStorage's and a session character must never land in it (v3 Req 36.2). Every existing write action keeps its signature and gains one line: `toTable(...)` sends the named intent to the server when the id is this one's, otherwise the Kernel rule runs locally. `selectCharacter(state, id)` is the exported reader both the sheet and the inventory panel use | server, via `services/characterSync.ts` |
-| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience`, and `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02). `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
+| `useCharacterStore` (cont.) | `tableCharacter` + `tableSessionId` + `tableCharacterOwnerId` + `isActing` + `actionError`, and `openTableCharacter` / `closeTableCharacter` / `dismissActionError` (TICKET-PLY-01; `tableSessionId` is ROLL-07's, read by the session-scoped roll log; `tableCharacterOwnerId` is DM-01's, and is how the sheet tells the DM's view from the Player's without a second request) — **the one character open at a game session**, held apart from `characters` because that list is LocalStorage's and a session character must never land in it (v3 Req 36.2). Every existing write action keeps its signature and gains one line: `toTable(...)` sends the named intent to the server when the id is this one's, otherwise the Kernel rule runs locally. `selectCharacter(state, id)` is the exported reader both the sheet and the inventory panel use | server, via `services/characterSync.ts` |
+| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience` (the rule is the Kernel's `dmActions.ts` since TICKET-DM-01, not this store's), `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) — and the DM's five, `dmAwardExperience` / `dmDeductExperience` / `dmSetLevel` / `dmSetGrantedPoints` / `dmSetResource` (TICKET-DM-01), which are **table-only** and named apart from the Player's own so no call site has to decide which act it is. `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
 | `useConfigStore` (cont.) | `source` + `openAccountRuleset(id)` / `openLocalRuleset()` (TICKET-RUL-02) — which home is open, and the two ways to change it. Opening one home reads nothing from the other | via `services/rulesetSync.ts` |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history, `storageFailure` and `saveConflict` (TICKET-RUL-02 — a *server* refusal, with the edit still on screen) | not persisted |
 
@@ -408,6 +408,15 @@ between the roots is exactly *"does this touch a browser API"*.
   here describe the document and `PLAYER_ACTION`'s describe the act** — `equipToSlot` is the rule,
   `equip-item` is the route, and keeping them apart is what stopped `fallow` reporting six duplicate
   exports. Before/after is produced here because only this module knows what each action moved.
+- `dmActions.ts` — **every rule behind a write the *Dungeon Master* makes to a character**
+  (TICKET-DM-01): `addExperience`, `removeExperience`, `setLevelExperience`, `setGrantedPoints`.
+  `playerActions.ts`'s counterpart, with the same `PlayerActionResult` shape and the same
+  names-describe-the-document rule (`DM_ACTION`'s values describe the act). **The local sheet calls
+  it too** — signed out there is no DM, and the person awarding their own experience is the same act
+  with one person playing both parts, so `characterStore.awardExperience` runs
+  `addExperience` rather than the arithmetic it used to own. A DM *setting a pool* is deliberately
+  **not** here: that obeys the Player's own rule, so `routes/dm/dmSetResource.ts` imports
+  `setResourceValue` from `playerActions.ts` unchanged.
 - `freshConfiguration.ts` — `createFreshConfiguration(name)` (TICKET-RUL-01). What a brand-new
   ruleset arrives holding: Concept 05's seed constants, Concept 06's seed curves and Concept 07/08's
   ladder and four rolls. **Moved here from `configStore` rather than copied**, because v3 Req 33.3
@@ -581,9 +590,24 @@ each later ticket adds.
   refuses a character at no table and an archived one with a **409**, and on acceptance writes the
   character and its Event in **one transaction** (`characterRepository.recordPlayerAction`). The
   guard is **`requireCharacterPlayer`**, not `requireCharacterWriter`: a DM editing a player's sheet
-  is TICKET-DM-01's, with its own Event types. `playerRules.test.ts` is the provenance check — every
+  is `routes/dm/`'s, with its own Event types. `playerRules.test.ts` is the provenance check — every
   handler here imports the Kernel's rules and **none** imports `#shared/engine/` directly, because
   that is where a second implementation starts.
+- `routes/dm/` (TICKET-DM-01) — **what the DM does to a character they do not own**, five writes and
+  one read. Same shape as `routes/play/` with a different guard: `POST /api/characters/:id/<action>`
+  where `<action>` is a `DM_ACTION` value — `dm-award-experience`, `dm-deduct-experience`,
+  `dm-set-level`, `dm-grant-points`, `dm-set-resource`. The **`dm-` prefix is load-bearing**: both
+  kinds of Event share the `type` column, so a DM's *set-resource* and a Player's have to be tellable
+  apart by a reader six months later. They reuse `playPayloads.applyPlayerAction` whole rather than
+  growing a second pipeline — it is the same operation, and the guard is the difference. The guard is
+  **`requireCharacterDM`**, which is `requireCharacterWriter` minus the *owner* exactly as
+  `requireCharacterPlayer` is that guard minus the DM. `dm-set-level` is the one route whose body
+  names a level and it stores **none**: the server prices it off the Snapshot's `xp_thresholds` curve
+  and writes *experience* (D9). `GET /api/characters/:id/adjustments` reads the history back for the
+  owner and the DM alike (v3 Req 42.7), narrowed to that character **in the query** so a busy table
+  cannot drop somebody's own log off the cap. `dmRules.test.ts` is the provenance check, plus the one
+  `routeGuards.test.ts` cannot make: that every write is behind the *DM* guard rather than the writer
+  guard a Player also passes.
 - `routes/invitations/` (TICKET-GAM-03) — the **addressed** invitation, and the first collection in
   the app scoped to an **Account** rather than to a ruleset or a session: an invitee is not a Member
   of the table that wrote to them, so there is no session id they could put in the path.
@@ -749,6 +773,12 @@ affinity, most favoured first, with the words each group is listed under. Both s
 archetype render it (the config card and the wizard step), and it calls the engine's `affinityFor`
 rather than re-deriving "absent means `non`".
 
+**…and `readableMoment.ts`** (TICKET-GAM-03, moved here by DM-01) — the **only** way this app writes
+a moment down: epoch milliseconds in, the reader's own locale out. It lived in `sessions/` while
+every caller was a session surface; the adjustment log is the first one that is not, and a shared
+rule parked in a folder its callers should not import from is a rule the next component quietly
+re-implements — which is exactly what the DM-01 review caught. Six callers.
+
 **`config/shared/` also holds `StatRowsField`** (TICKET-ARC-01) — a titled "one row per configured
 stat" block with the no-stats empty state, taking the row's control as a render prop. Both the race
 stat block and the archetype affinity table are that shape, because the ruleset's stats decide what
@@ -784,7 +814,10 @@ point buys)
 are pure props — all state, validation and the submit live in `useCharacterCreation`. That is the
 multi-step pattern to copy. `SkillAllocationStep` takes points for the **invested** stats only and
 previews the derived ones read-only off the same `calculateCharacter` result the review step uses.
-`sheet/` holds the character sheet: `CharacterSheet` (composition + the four dead-end notices) and
+`sheet/` holds the character sheet: `CharacterSheet` (composition only since **DM-01**, which moved
+the six dead-end notices to **`SheetStatusNotice`** and the refusal banner to
+**`SheetRefusalBanner`** — `fallow` measured the DM panel and the adjustment log pushing that
+component past the complexity threshold, and neither of those subjects is laying a sheet out) and
 `useCharacterSheet` (status resolution and the one `calculateCharacter` call), with two hooks beside
 it since **PLY-01**: **`useSheetActions`** — every handler the sheet's controls call, split out
 because *what the sheet shows* and *what a Player can do to it* are two subjects (the
@@ -814,6 +847,19 @@ above it — so retuning the ruleset's rates relabels it and rewrites nothing. I
 through `useNumericDraft`'s `allowRelative`, so `+340` earns and `-12` spends; below zero is the
 store's refusal, never a clamp. **Not drawn at a table** — a purse there is the DM's (D9), and
 TICKET-DM-02 is what gives them the control.
+
+`dm/` (TICKET-DM-01) holds the DM's half of a sheet, in its own folder because it is read by a
+different person: **`DmControlsPanel`** — experience, *set level to N*, the point grant and each
+resource pool, composed from **`AdjustmentField`** (one number and one button, three callers) and
+the Player's own `ExperienceControl`, which is the same act with a different store action behind it.
+**`useDmControls`** answers *is this reader the DM* with a **comparison, not a request**: the server
+opens a character only to its owner or to its table's DM, so *at a table and not mine* has exactly
+one meaning, and `characterStore.tableCharacterOwnerId` is what it reads. **`AdjustmentLog`** is
+what v3 Req 42.7's second half asks for — the Events that changed this sheet, read by the Player
+*and* the DM, fetched by **`useCharacterAdjustments(character, atTable)`** (keyed on the character's
+id *and* its `updatedAt`, so an adjustment appears under the number it moved, and so a *pre*-
+adjustment answer landing last is dropped rather than showing a log an entry short) and spelled by **`describeAdjustment`**, where a
+`dm-set-level` reads as the **experience** it wrote and never as a level.
 
 `inventory/` holds `InventoryPanel` (mounted by the sheet, taking only a `characterId`) with
 `EquipmentSlotRow`, `MiscItemRow` and `useInventoryManager`. Equipping needs no recalculation call:
@@ -919,16 +965,20 @@ flattened them would be inventing a fifth nobody decided on.
 that decides where a new one goes, and since **PLY-01** the only module that knows how a *write*
 reaches one: `sendPlayerAction(characterId, action, body)` posts a named intent and `fetchCharacter`
 reads one back. Send, wait, adopt — optimistic updates are deliberately out of scope, and a refusal
-carries the **server's own sentence** rather than a summary.
+carries the **server's own sentence** rather than a summary. **DM-01 widened `action` to
+`SheetAction` and added nothing else**: a DM's adjustment is the same request with a different guard
+on the far end, and a second function would have been a second copy of the error handling.
+`fetchCharacterAdjustments(characterId)` is the one read it added.
 `characterStore.createCharacterHere(source, data, config)` is what the wizard calls. **The source is passed in rather than read**, because `configStore` already
 imports `characterStore` and reaching back would be a cycle `no-circular` refuses. `RULESET_HOME`
 grew a third value, `SESSION`: a game's pinned Snapshot, which `persistRuleset` **refuses** to write
 to, so a configuration panel opened against one cannot edit a game in progress. `SessionCharacters`
 (driven by `useSessionCharacters`) sits under the lobby in an expanded row and its button opens that
 Snapshot before sending the Player to the same four creation steps they get signed out. **Since
-PLY-01 it also opens a sheet — but only on your own character**, because `requireCharacterPlayer`
-refuses a write to anybody else's and a page of controls that could not save is not worth opening.
-Reading another player's is TICKET-DM-04's roster.
+PLY-01 it also opens a sheet — your own, and since **DM-01** anybody's if you are the DM**, whose
+controls live on that sheet. A *Player* still cannot open somebody else's: `requireCharacterPlayer`
+refuses their writes, and a page of controls that could not save is not worth opening. A roster that
+acts on characters without opening them is still TICKET-DM-04's.
 
 **GAM-04 added `SessionLobby`, and it is the first surface in the app that shows other people.** It
 sits at the top of an expanded row — **every** row now, not just a DM's, because a table is other

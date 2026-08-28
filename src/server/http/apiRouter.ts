@@ -23,6 +23,14 @@
 import { AUTH_PREFIX, handleAuthRequest } from '../auth/authRoutes';
 import { authProviders } from '../routes/authProviders';
 import { deleteCharacter, listMyCharacters, readCharacter } from '../routes/characters';
+import {
+  dmAwardExperience,
+  dmDeductExperience,
+  dmGrantPoints,
+  dmSetLevel,
+  dmSetResource,
+  listAdjustments,
+} from '../routes/dm';
 import { health } from '../routes/health';
 import {
   acceptInvitation,
@@ -167,6 +175,19 @@ export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Respon
   // of request — a Player acting on their own character — even though it writes an Event and not
   // the sheet. The path names the **character**, not the session, so a request cannot disagree with
   // itself about which table it is at; the row already says.
+  // The DM's writes to somebody else's sheet (TICKET-DM-01). Same collection as the eleven above,
+  // and the `dm-` prefix is not decoration: the Event log holds both kinds in one `type` column, so
+  // a DM's *set-resource* and a Player's have to be tellable apart by a reader six months later —
+  // and the path, the Event type and the client call stay one spelling, as PLY-01 established.
+  'POST /api/characters/:id/dm-award-experience': dmAwardExperience,
+  'POST /api/characters/:id/dm-deduct-experience': dmDeductExperience,
+  // The body names a level and the server stores **experience** — see the route's own note
+  'POST /api/characters/:id/dm-set-level': dmSetLevel,
+  'POST /api/characters/:id/dm-grant-points': dmGrantPoints,
+  'POST /api/characters/:id/dm-set-resource': dmSetResource,
+  // …and what a Player reads back about their own sheet (v3 Req 42.7). A *read* rather than an
+  // action, so it is a `GET` and its noun is what happened rather than what to do
+  'GET /api/characters/:id/adjustments': listAdjustments,
   'POST /api/characters/:id/roll': rollDice,
   // …and the log is the table's, so that half is session-scoped and every Member reads it
   'GET /api/sessions/:id/rolls': listRolls,

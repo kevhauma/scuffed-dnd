@@ -17,6 +17,7 @@
 
 import type { GameSessionSummary, MemberRole } from '#shared/types/api';
 import { MEMBER_ROLE, SESSION_STATUS } from '#shared/types/api';
+import { readableMoment } from '../shared/readableMoment';
 import { Button } from '../ui/Button/Button';
 import { Card } from '../ui/Card/Card';
 import { Text } from '../ui/Text/Text';
@@ -24,7 +25,6 @@ import { AddressedInvitePanel } from './AddressedInvitePanel';
 import { InviteCodePanel } from './InviteCodePanel';
 import { SessionCharacters } from './SessionCharacters';
 import { SessionLobby } from './SessionLobby';
-import { readableMoment } from './sessionMoment';
 import {
   archivedBadgeStyles,
   dmBadgeStyles,
@@ -149,6 +149,8 @@ function SessionRow({
           <SessionCharacters
             characters={characters.characters}
             accountId={accountId}
+            // The DM opens anybody's sheet, because that is where their controls are (TICKET-DM-01)
+            isDm={isDm}
             canCreate={isActive}
             isPending={characters.isPending}
             isOpening={characters.isOpeningRules}

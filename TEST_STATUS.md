@@ -1,7 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-27 (`npx vitest run`), after **TICKET-CUR-02 — a character carries a purse**.
-The checkpoints before it were **TICKET-ROLL-07 — server-resolved rolls** at 2932,
+_Last verified: 2026-08-27 (`npx vitest run`), after **TICKET-DM-01 — DM controls: experience,
+grants, resources**.
+The checkpoints before it were **TICKET-CUR-02 — a character carries a purse** at 2955,
+**TICKET-ROLL-07 — server-resolved rolls** at 2932,
 **TICKET-PLY-01 — player actions go through the server** at 2904,
 **TICKET-CHAR-04 — characters are created per session** at 2827,
 **TICKET-GAM-04 — membership, roles and the session lobby** at 2754,
@@ -27,12 +29,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 2955
-- **Passing**: 2955 (100%)
+- **Total tests**: 3037
+- **Passing**: 3037 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **184 files**: `server` in node, everything else in happy-dom.
+Split across **190 files**: `server` in node, everything else in happy-dom.
 
 > **CHAR-04's recorded count was 26 low, and PLY-01 measured it rather than inheriting it.** This
 > file said 2801 across 174 files; `git stash` + a full run on `main` says **2827 across 176**. The
@@ -56,6 +58,53 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-DM-01 — the ticket where a level had to stay underivable
+
+The **+82 over CUR-02** is TICKET-DM-01, across six new files and five existing ones: 19 in
+`server/routes/dm/dm.test.ts`, 17 in `shared/services/dmActions.test.ts`, 16 in
+`client/components/play/dm/` (10 for the panel and its gate, 6 for the log's sentences), 7 in
+`client/stores/characterStore.table.test.ts`, 6 in `shared/engine/characterSummary.test.ts`, 6 in
+`shared/engine/skillAllocation.test.ts`, 4 in `dmRules.test.ts`, 4 in
+`useCharacterAdjustments.test.ts`, 2 in `CharacterSheet.test.tsx` and 1 in `pointBudgetView.test.ts`.
+Every one of those is a **measured** before/after on `main` rather than a count of `it` blocks — the
+CHAR-04 callout above is what that rule came from.
+
+**The assertion worth reading is the round trip in `experienceForLevel`.** "Set level to 7" asks the
+`xp_thresholds` curve, read *forwards*, what level 7 costs — and the corpus's own placeholder ladder
+has **one row**, so with `outOfRange: 'extrapolate'` it answers a perfectly confident **0 XP**. That
+would leave the character at level 1 with the DM told it worked, which is Concept 00 §7's
+silently-wrong number in its purest form. So the engine feeds its own answer back through
+`calculateCharacterLevel` and refuses anything that does not read back as the level asked for. Two
+fixtures fall out of that: a real four-rung ladder pinned onto the Snapshot for the cases about
+*pricing*, and the corpus's placeholder left alone for the case about *refusing*.
+
+**Three assertions are about what is on disk rather than what a route answered.** *"there is no
+writable level field"* greps the persisted document for the word; the grant case reads the budget
+back through `validateStatAllocation` and then has the **Player** spend it through PLY-01's
+untouched route; and the *player Member* case asserts that the refusal a character's own owner gets
+from a DM route is byte-identical to the one an id nobody minted gets.
+
+**`dmRules.test.ts` makes a claim `routeGuards.test.ts` cannot.** That scan proves a guard is
+*called*; this one proves it is the **right** guard — `requireCharacterWriter` would satisfy the
+first and would hand the DM's controls to every Player at the table.
+
+**The `conventions-reviewer` pass added the fourth new file and moved a fifth.**
+`useCharacterAdjustments.test.ts` proves the out-of-order guard the hook's docblock describes — the
+*pre*-adjustment answer landing after the post-adjustment one, which is the ordering every accepted
+adjustment produces and which would leave the log an entry short of the number beside it. And
+`readableMoment` moved out of `components/sessions/` to `components/shared/`: its docblock claims
+*"there is exactly one way this app writes a moment down"*, and the adjustment log had quietly
+written a second one, which is what happens when the only copy lives in a folder the caller has no
+business importing from. The ticket records the rest of that pass.
+
+**Two `fallow` findings were acted on rather than recorded.** `CharacterSheet` crossed the
+complexity threshold (13 → 18 cyclomatic) the moment the DM panel and the adjustment log landed on
+it, so its six dead-end notices became `SheetStatusNotice` and its refusal banner became
+`SheetRefusalBanner` — 14 → 0 findings for that file, and 256 → 168 lines. What was **not** acted on
+is the 13-line clone between `dmAwardExperience` and `dmDeductExperience`: one module per route is
+what makes `routeGuards.test.ts` able to scan for a guard call at all, so merging them would trade a
+real check for eleven lines. PLY-01 accepted the same shape eleven times over.
 
 ## TICKET-CUR-02 — a ticket that had to argue with the code
 
@@ -1210,14 +1259,19 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/client/components/auth/AuthForm.tsx` | 6.2 | TICKET-GAM-02's run | 3 commits, 0.07 density | ▲ **Accelerating** |
 | `src/client/routes/signin.tsx` | 7.2 | TICKET-GAM-02's run | 3 commits, 0.07 density | ▲ **Accelerating** |
 | `src/client/routeTree.gen.ts` | 5.5 | TICKET-GAM-02's run | 4 commits, 0.03 density | ▲ **Accelerating** — generated |
-| `src/server/auth/guards.ts` | 10.3 | TICKET-GAM-04's run | 4 commits, 288 churn | ▲ **Accelerating — TICKET-PLY-01** (was 8.3 at GAM-04; `requireCharacterPlayer` is the fourth commit) |
+| `src/server/auth/guards.ts` | 11.2 | TICKET-GAM-04's run | 5 commits, 318 churn, 54 fan-in | ─ Stable — **cooled by TICKET-DM-01** (8.3 at GAM-04, 10.3 at PLY-01). `requireCharacterDM` is four lines layered on `requireCharacterWriter` rather than a sixth rule written beside it, which is why a fifth commit lowered the score |
 | `src/client/stores/configStore.ts` | 18.5 | TICKET-CHAR-04's run | 3 commits, 1900 churn, 0.18 density | ▲ **Accelerating — TICKET-CHAR-04** |
 | `src/client/components/sessions/useSessionsManager.ts` | 12.5 | TICKET-CHAR-04's run | 3 commits, 165 churn, 0.12 density | ▲ **Accelerating — TICKET-CHAR-04** |
 | `src/client/components/sessions/SessionList.test.tsx` | 12.9 | TICKET-CHAR-04's run | 4 commits, 213 churn | ▲ **Accelerating — TICKET-PLY-01** (was 10.4 at CHAR-04) |
-| `src/client/components/sessions/SessionList.tsx` | 6.4 | TICKET-CHAR-04's run | 4 commits, 374 churn | ▲ **Accelerating — TICKET-PLY-01** (was 4.2 at CHAR-04) |
-| `src/server/repositories/characterRepository.ts` | 2.9 | TICKET-PLY-01's run | 3 commits, 200 churn | ▲ **Accelerating — TICKET-PLY-01** (crossed the three-commit floor with `recordPlayerAction`) |
-| `src/client/stores/characterStore.ts` | 13.4 | TICKET-CUR-02's run | 4 commits, 1401 churn, 0.12 density, 25 fan-in | ▲ **Accelerating — TICKET-CUR-02** (11.6 at ROLL-07, 13.4 now; PLY-01 gave it the table slice, ROLL-07 gave `tableSessionId` a reader, CUR-02 swapped the wallet for the purse. The fan-in is what makes it worth watching — 25 modules read this store — and CUR-02 moved one rule *out* of it into `characterShape.ts`, which is the direction to keep pushing) |
-| `src/client/components/play/sheet/CharacterSheet.tsx` | 5.0 | TICKET-CUR-02's run | 3 commits, 297 churn, 0.06 density | ▲ **Accelerating — TICKET-CUR-02** (crossed the three-commit floor across PLY-01's banner, ROLL-07's withheld *Clear* and CUR-02's purse; a 209-line component that three tickets in a row have each added a conditional to) |
+| `src/client/components/sessions/SessionList.tsx` | 5.6 | TICKET-CHAR-04's run | 5 commits, 375 churn | ▼ Cooling — **cooled by TICKET-DM-01** (4.2 at CHAR-04, 6.4 at PLY-01; DM-01 passed one prop through) |
+| `src/server/repositories/characterRepository.ts` | 3.3 | TICKET-PLY-01's run | 4 commits, 252 churn | ─ Stable — **cooled by TICKET-DM-01**, which added no query at all: the DM's five writes reuse `recordPlayerAction` whole |
+| `src/client/stores/characterStore.ts` | 15.4 | TICKET-CUR-02's run | 5 commits, 1501 churn, 0.11 density, 27 fan-in | ▲ **Accelerating — TICKET-DM-01** (11.6 at ROLL-07, 13.4 at CUR-02, 15.4 now. Five consecutive tickets have added to it, and DM-01 added five actions — but it also moved the *experience* rules out into `shared/services/dmActions.ts`, so the density fell (0.12 → 0.11) while the churn rose. That is the direction to keep pushing: the store is a router with two destinations, and every rule still living in it is a rule the server cannot call) |
+| `src/client/components/play/sheet/CharacterSheet.tsx` | 7.8 | TICKET-CUR-02's run | 4 commits, 316 churn, 0.07 density | ▲ **Accelerating — TICKET-DM-01** (5.0 at CUR-02. Four tickets in a row have each added a conditional, and DM-01's two took it *over* `fallow`'s complexity threshold — 13 → 18 cyclomatic — so the same ticket split `SheetStatusNotice` and `SheetRefusalBanner` out and brought it back off the list. 256 → 168 lines. The next ticket to add a section here should extract before it adds: TICKET-DM-03's sidebar is the obvious place) |
+| `src/client/components/play/sheet/useCharacterSheet.ts` | 11.7 | TICKET-DM-01's run | 3 commits, 607 churn, 0.14 density, 11 fan-in | ▲ **Accelerating** — DM-01 touched it only to export `CharacterSheetStatus` (and, after review, to make it a const object), so the tag is inherited rather than earned. It is on the list because it is the sheet's real decision surface — 15 cyclomatic, above the threshold since before this ticket — and because 11 modules read it |
+| `src/client/services/characterSync.ts` | 4.2 | TICKET-DM-01's run | 3 commits, 279 churn, 0.05 density, 3 fan-in | ▲ **Accelerating — TICKET-DM-01** (crossed the three-commit floor across CHAR-04's creation, PLY-01's actions and DM-01's `fetchCharacterAdjustments`). The **shape** is what keeps it low: DM-01 widened `sendPlayerAction`'s action type rather than adding a second sender, so the module grew one read and no branches. The next ticket to add a destination here should ask whether it is widening or duplicating |
+| `src/server/routes/routeGuards.test.ts` | 10.9 | TICKET-DM-01's run | 3 commits, 209 churn | ▲ **Accelerating** — one line per new guard (GAM-03's `requireInvitee`, PLY-01's `requireCharacterPlayer`, DM-01's `requireCharacterDM`). That is the design working: the scan's corpus is every module defining a handler, so a new guard costs a name in a list. Worth watching only if a fourth ticket changes the *detector* rather than the list |
+| `src/client/stores/characterStore.table.test.ts` | 10.1 | TICKET-DM-01's run | 3 commits, 410 churn | ▲ **Accelerating** — PLY-01 created it, ROLL-07 and DM-01 each added a `describe`. It exists so `characterStore.test.ts` never has to change (the milestone's fifth Definition-of-Done rule), so growth here is the rule being honoured rather than a smell |
+| `src/client/components/play/sheet/CharacterSheet.test.tsx` | 7.5 | TICKET-DM-01's run | 3 commits, 1380 churn | ▲ **Accelerating** — 1,380 churn over three commits on a 1,400-line file is the number to notice. DM-01 added two cases and a `fetch` stub; what made the churn is that PLY-01 and CUR-02 each reshaped the fixtures. If a fourth ticket has to touch the fixtures again rather than add a case, split the local-mode cases from the at-a-table ones |
 | `src/client/components/sessions/SessionsPanel.tsx` | 3.1 | TICKET-CHAR-04's run | 3 commits, 75 churn, 0.03 density | ▲ **Accelerating — TICKET-CHAR-04** |
 
 **Both Accelerating rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they

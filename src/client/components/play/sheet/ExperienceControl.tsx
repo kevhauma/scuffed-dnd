@@ -20,16 +20,29 @@ import { Label } from '../../ui/Label/Label';
 export interface ExperienceControlProps {
   onAward: (amount: number) => void;
   onDeduct: (amount: number) => void;
+  /**
+   * True while a write is on the wire, so nothing can be sent twice (TICKET-DM-01)
+   *
+   * **This matters more here than on any other control on the sheet**, and the review found why. A
+   * store action refuses a second write while one is in flight and does so *silently* — which is
+   * right for a spend, where the intent is *set this to N* and the second tap is the same decision
+   * made twice. An award is a **delta**: two taps mean 600, and swallowing one loses 300 while this
+   * control clears its box as though it had landed. So the second tap is not offered at all.
+   *
+   * Optional because local mode has nothing in flight — `SheetHeader` draws this for a character in
+   * this browser, where the write is synchronous.
+   */
+  isBusy?: boolean;
 }
 
-export function ExperienceControl({ onAward, onDeduct }: ExperienceControlProps) {
+export function ExperienceControl({ onAward, onDeduct, isBusy = false }: ExperienceControlProps) {
   const [amount, setAmount] = useState('');
   const amountId = useId();
 
   const parsed = Number(amount);
   // The buttons are disabled on anything the store would refuse anyway, so a click always does
   // something — the refusal stays in the store as the rule, this is just not offering a dead button
-  const isActionable = amount.trim() !== '' && Number.isFinite(parsed) && parsed > 0;
+  const isActionable = amount.trim() !== '' && Number.isFinite(parsed) && parsed > 0 && !isBusy;
 
   const apply = (action: (value: number) => void) => {
     if (!isActionable) return;

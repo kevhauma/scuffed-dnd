@@ -8,9 +8,10 @@
  * **Validates: Requirements 8.5, 13.4, 14.1, 14.2, 14.5, 21.1-21.5, 22.1-22.6**
  */
 
-import { Button } from '../../ui/Button/Button';
-import { Card } from '../../ui/Card/Card';
-import { Text } from '../../ui/Text/Text';
+import { AdjustmentLog } from '../dm/AdjustmentLog';
+import { DmControlsPanel } from '../dm/DmControlsPanel';
+import { useCharacterAdjustments } from '../dm/useCharacterAdjustments';
+import { useDmControls } from '../dm/useDmControls';
 import { InventoryPanel } from '../inventory/InventoryPanel';
 import { RollHistoryPanel } from '../rolls/RollHistoryPanel';
 import { useRoller } from '../rolls/useRoller';
@@ -19,9 +20,11 @@ import { RaceStatBlockSection } from './RaceStatBlockSection';
 import { ResourcesSection } from './ResourcesSection';
 import { RollsSection } from './RollsSection';
 import { SheetHeader } from './SheetHeader';
+import { SheetRefusalBanner } from './SheetRefusalBanner';
+import { SheetStatusNotice } from './SheetStatusNotice';
 import { SkillsSection } from './SkillsSection';
 import { StatsSection } from './StatsSection';
-import { useCharacterSheet } from './useCharacterSheet';
+import { CHARACTER_SHEET_STATUS, useCharacterSheet } from './useCharacterSheet';
 import { useOpenTableCharacter } from './useOpenTableCharacter';
 
 export interface CharacterSheetProps {
@@ -30,31 +33,6 @@ export interface CharacterSheetProps {
    * domain identifier, not a DOM `id` — matching the character store's own parameter naming.
    */
   characterId: string;
-}
-
-/** A dead-end state: why there is no sheet, and the way back */
-function SheetNotice({
-  title,
-  children,
-  onBack,
-}: {
-  title: string;
-  children: React.ReactNode;
-  onBack: () => void;
-}) {
-  return (
-    <div className="max-w-4xl mx-auto p-6">
-      <Card className="p-8 text-center">
-        <Text variant="h4" as="h1" className="mb-2">
-          {title}
-        </Text>
-        <div className="mb-6">{children}</div>
-        <Button variant="primary" onClick={onBack}>
-          Back to Characters
-        </Button>
-      </Card>
-    </div>
-  );
 }
 
 export function CharacterSheet({ characterId }: CharacterSheetProps) {
@@ -103,64 +81,27 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     handleClearHistory,
   } = useRoller(characterId, calculated);
 
-  // Before any dead-end notice: mid-read the character and the ruleset genuinely disagree, and
-  // every one of those notices would be a confident wrong answer to a question still being asked
-  if (isOpening) {
-    return (
-      <div className="max-w-4xl mx-auto p-6">
-        <Card className="p-8 text-center">
-          <Text variant="body-secondary">Opening this character…</Text>
-        </Card>
-      </div>
-    );
-  }
+  // The DM's half (TICKET-DM-01). `isDungeonMaster` is false on every local sheet and on the
+  // Player's own, so signed out this is a hook that answers *no* and renders nothing (D6).
+  const dm = useDmControls(characterId);
 
-  if (status === 'no-configuration') {
-    return (
-      <SheetNotice title="No Ruleset Yet" onBack={handleBack}>
-        <Text variant="body-secondary">
-          A character can only be read against the ruleset it was built on. Set one up in
-          configuration mode, or import one, then come back.
-        </Text>
-      </SheetNotice>
-    );
-  }
+  // Re-read whenever the sheet changes, which is what makes an adjustment appear under the number
+  // it moved rather than on the next page load
+  const adjustments = useCharacterAdjustments(character, atTable);
 
-  if (status === 'not-found' || !character) {
+  // Every reason there is no sheet, in one component (TICKET-DM-01): six of them, each a different
+  // thing to tell the Player, and none of them anything to do with laying a sheet out
+  if (isOpening || status !== CHARACTER_SHEET_STATUS.READY || !character) {
     return (
-      <SheetNotice title="Character Not Found" onBack={handleBack}>
-        {/* The banner below only renders on a drawable sheet, so a failed *open* would otherwise set
-            a message nothing could show — the review found the sentence unreachable */}
-        <Text variant="body-secondary">
-          {actionError ??
-            `No saved character has the id ${characterId}. It may have been deleted, or this link may be from another browser.`}
-        </Text>
-      </SheetNotice>
-    );
-  }
-
-  if (status === 'configuration-mismatch') {
-    return (
-      <SheetNotice title="Different Ruleset Loaded" onBack={handleBack}>
-        <Text variant="body-secondary">
-          {character.name} was built on another ruleset, so the loaded one cannot interpret their
-          skills or stats. Import the ruleset this character belongs to, then reopen the sheet.
-        </Text>
-      </SheetNotice>
-    );
-  }
-
-  if (status === 'formula-error') {
-    return (
-      <SheetNotice title="Ruleset Formula Error" onBack={handleBack}>
-        <Text variant="body-secondary" className="mb-2">
-          {character.name}'s derived values cannot be calculated — this ruleset has a formula that
-          does not evaluate. Fix it in configuration mode and the sheet will come back.
-        </Text>
-        <Text variant="error" as="p">
-          {formulaError}
-        </Text>
-      </SheetNotice>
+      <SheetStatusNotice
+        isOpening={isOpening}
+        status={status}
+        characterName={character?.name ?? null}
+        characterId={characterId}
+        formulaError={formulaError}
+        actionError={actionError}
+        onBack={handleBack}
+      />
     );
   }
 
@@ -168,6 +109,10 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
   // different readings of one list, and which side a stat falls on is the sheet's decision
   const resources = stats.filter((stat) => stat.isResource);
   const plainStats = stats.filter((stat) => !stat.isResource);
+
+  // How the log spells a stat it names. Built from the same list the sections render, so an
+  // adjustment and the row it moved cannot disagree about what the stat is called.
+  const statNames = Object.fromEntries(stats.map((stat) => [stat.id, stat.name]));
 
   /*
    * The sheet is laid out the way the source spreadsheet's `Charactersheet` tab is: the
@@ -183,21 +128,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
    */
   return (
     <div className="space-y-4 p-4 sm:p-6">
-      {/* The server's own sentence, kept beside the state it refused to change (v3 Req 41.5,
-          TICKET-PLY-01). Nothing on the sheet has moved — a refused action is a request that landed
-          nowhere — so this is the only sign of it, and it is dismissible rather than timed. */}
-      {actionError && (
-        <Card className="border-crimson p-4">
-          <div role="alert" className="flex items-start justify-between gap-4">
-            <Text variant="error" as="p">
-              {actionError}
-            </Text>
-            <Button variant="secondary" size="sm" onClick={dismissActionError}>
-              Dismiss
-            </Button>
-          </div>
-        </Card>
-      )}
+      <SheetRefusalBanner message={actionError} onDismiss={dismissActionError} />
 
       <SheetHeader
         name={character.name}
@@ -212,6 +143,24 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
         onAwardExperience={atTable ? undefined : handleAwardExperience}
         onDeductExperience={atTable ? undefined : handleDeductExperience}
       />
+
+      {/* Above the sheet rather than in the rail: it is the reason this reader has the page open,
+          and a DM scanning for the damage box should not have to find it among the Player's own
+          controls (v3 Req 42.7). TICKET-DM-03 is the ticket that decides where it finally sits. */}
+      {dm.isDungeonMaster && (
+        <DmControlsPanel
+          characterName={character.name}
+          experience={experience}
+          budget={budget}
+          resources={resources}
+          isBusy={dm.isBusy}
+          onAwardExperience={dm.handleAwardExperience}
+          onDeductExperience={dm.handleDeductExperience}
+          onSetLevel={dm.handleSetLevel}
+          onSetGrantedPoints={dm.handleSetGrantedPoints}
+          onSetResource={dm.handleSetResource}
+        />
+      )}
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <div className="space-y-4">
@@ -269,6 +218,10 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
             history={rollHistory}
             onClear={atTable ? undefined : handleClearHistory}
           />
+
+          {/* v3 Req 42.7's second half: a Player reads the Events that changed their own sheet.
+              At a table only — a local character has no DM and no Event log to project. */}
+          {atTable && <AdjustmentLog adjustments={adjustments} statNames={statNames} />}
         </div>
       </div>
 

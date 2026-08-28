@@ -13,6 +13,7 @@ function result(overrides: Partial<StatAllocationResult> = {}): StatAllocationRe
   return {
     isValid: true,
     pointsSpent: 4,
+    grantedPoints: 0,
     pointBudget: 15,
     pointsRemaining: 11,
     isOverBudget: false,
@@ -31,10 +32,15 @@ describe('toPointBudgetView', () => {
   it('should carry the numbers through unchanged', () => {
     expect(toPointBudgetView(result())).toEqual({
       pointsSpent: 4,
+      grantedPoints: 0,
       pointBudget: { value: 15, error: null },
       pointsRemaining: { value: 11, error: null },
       isOverBudget: false,
     });
+  });
+
+  it("should carry the DM's grant through, so the tally can say where the pool came from", () => {
+    expect(toPointBudgetView(result({ grantedPoints: 3 }))?.grantedPoints).toBe(3);
   });
 
   it('should describe an unavailable budget rather than reading it as zero', () => {

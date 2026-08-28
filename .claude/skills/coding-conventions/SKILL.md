@@ -203,6 +203,12 @@ Two families of judgement, both concrete here rather than generic.
   `equipToSlot` is the rule, `equip-item` is the `PLAYER_ACTION` the route and the Event log spell.
   Sharing one spelling across the two makes a duplicate export `fallow` will report and an
   `export *` can resolve ambiguously.
+- **Named intents share one flat namespace, so who did something is part of the name.**
+  `PLAYER_ACTION` and `DM_ACTION` (TICKET-DM-01) both supply the `event.type` column and the last
+  segment of a route's path, so the DM's values carry a `dm-` prefix — `dm-set-resource` beside
+  `set-resource`. Two identical spellings in one log is a reader six months later unable to tell a
+  Player's own write from the DM's. The **pipeline** is shared for the same reason the names are not:
+  `applyPlayerAction` runs either, and the guard above it is the whole difference.
 - **Derived values are computed, never stored.** Anything downstream of a formula comes from
   `calculateCharacter()` (the one composed entry point) at read time — see the **data-model**
   skill for why `currentStatValues` is the one exception.

@@ -15,7 +15,6 @@ export * from './SessionList';
 export * from './SessionLobby';
 export * from './SessionsPanel';
 export * from './StartSessionForm';
-export * from './sessionMoment';
 export * from './useInvitations';
 export * from './useJoinSession';
 export * from './useSessionCharacters';

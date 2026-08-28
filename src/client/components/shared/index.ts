@@ -8,6 +8,7 @@ export * from './AppShell';
 export * from './affinityGroups';
 export * from './equipmentGrid';
 export * from './IncompatibleDataNotice';
+export * from './readableMoment';
 export * from './SaveConflictBanner';
 export * from './StatModifierBadges';
 export * from './StorageFailureBanner';

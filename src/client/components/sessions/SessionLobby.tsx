@@ -28,11 +28,11 @@
 import { useState } from 'react';
 import type { MemberRole, SessionCharacterSummary, SessionMemberSummary } from '#shared/types/api';
 import { MEMBER_ROLE } from '#shared/types/api';
+import { readableMoment } from '../shared/readableMoment';
 import { Button } from '../ui/Button/Button';
 import { Card } from '../ui/Card/Card';
 import { Dialog } from '../ui/Dialog/Dialog';
 import { Text } from '../ui/Text/Text';
-import { readableMoment } from './sessionMoment';
 import {
   alertStyles,
   dmBadgeStyles,

@@ -38,12 +38,13 @@
  */
 
 import type {
+  CharacterAdjustmentListing,
   CharacterCreateRequest,
   CharacterDocument,
-  PlayerAction,
   RollRequest,
   SessionRoll,
   SessionRollListing,
+  SheetAction,
 } from '#shared/types/api';
 import type { Character, CharacterCreationData } from '#shared/types/character';
 import { ApiError, apiRequest, apiSend } from './api';
@@ -218,6 +219,24 @@ export function fetchCharacter(characterId: string): Promise<CharacterDocument> 
 }
 
 /**
+ * Read what the DM has changed on one sheet (v3 Req 42.7, TICKET-DM-01)
+ *
+ * The half of the requirement that faces the *Player*: controls only the DM sees, and a history
+ * anybody whose sheet it is can read. A projection of the session's Event log, narrowed to this
+ * character by the server — never by the browser, because the log is capped and filtering a
+ * table-wide window here is how somebody's own history falls off their own sheet.
+ *
+ * @param characterId Whose sheet
+ * @returns The adjustments, newest first — empty for a character at no table
+ * @throws {ApiError} As `apiRequest` does
+ */
+export function fetchCharacterAdjustments(
+  characterId: string
+): Promise<CharacterAdjustmentListing> {
+  return apiRequest<CharacterAdjustmentListing>(`${CHARACTERS_PATH}/${characterId}/adjustments`);
+}
+
+/**
  * Perform one player action at a table (v3 Req 41.1)
  *
  * **Send, wait, adopt.** Optimistic updates are deliberately out of scope
@@ -229,6 +248,12 @@ export function fetchCharacter(characterId: string): Promise<CharacterDocument> 
  * broken — the budget, the fit of an item, a pool that cannot be priced — and a client that
  * flattened those into *that did not work* would be inventing a message nobody decided on.
  *
+ * **TICKET-DM-01 widened `action` to `SheetAction`, and nothing else here changed.** A DM's
+ * adjustment posts to `/api/characters/:id/dm-<action>` with the same send-wait-adopt shape and the
+ * same *the server's sentence, never a summary* rule; what differs is the guard on the other end,
+ * which is not this module's business. Two functions would have been two copies of the error
+ * handling below.
+ *
  * @param characterId Whose sheet
  * @param action Which named intent — also the last segment of the path it posts to
  * @param body What the action needs to be told
@@ -236,7 +261,7 @@ export function fetchCharacter(characterId: string): Promise<CharacterDocument> 
  */
 export async function sendPlayerAction(
   characterId: string,
-  action: PlayerAction,
+  action: SheetAction,
   body: unknown
 ): Promise<ActionOutcome> {
   try {

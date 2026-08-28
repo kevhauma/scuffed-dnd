@@ -304,3 +304,45 @@ export function requireCharacterPlayer(asking: Asking, characterId: string): Cha
 
   return row;
 }
+
+/**
+ * A character the asking Account **runs the table for** (v3 Req 42, TICKET-DM-01)
+ *
+ * {@link requireCharacterPlayer}'s mirror image: that one is the writer rule minus the DM, this one
+ * is the writer rule minus the *owner*. Between them the two halves of `requireCharacterWriter` are
+ * each addressable, and no route has to restate either.
+ *
+ * **The DM's own character gets no special path**, which is the criterion said as code: the DM owns
+ * it, so `requireCharacterWriter` lets them through as owner — and then `requireDM` asks the only
+ * question that matters here, which is about the *table*, not about the character. A DM adjusting
+ * their own experience is a DM adjustment, logged as one.
+ *
+ * **A `player` Member is refused with the same 404 as a stranger**, because `requireDM` refuses that
+ * way (v3 Req 32.5). They already know the character exists — they may be looking at it — but which
+ * refusal they get should not depend on how much they know.
+ *
+ * **A character at no table has no DM at all**, and that is a refusal rather than an oversight: an
+ * uploaded character (`session_id IS NULL`, TICKET-IO-04) belongs to an Account and to no game, so
+ * there is nobody the DM powers could belong to. Its owner edits it through the player routes.
+ *
+ * **Layered on {@link requireCharacterWriter} rather than written beside it**, so the retention rule
+ * — a character whose owner has left the table is writable by nobody, the DM included (v3 Req 39.5)
+ * — is enforced once.
+ *
+ * @param asking Who is asking
+ * @param characterId Which character
+ * @returns The character row, now known to be one the caller is DM for
+ * @throws {AppError} 401 for nobody, 404 for a player, a non-member, a missing id, a character at
+ *   no table, and one whose owner has left the table
+ */
+export function requireCharacterDM(asking: Asking, characterId: string): CharacterRow {
+  const row = requireCharacterWriter(asking, characterId);
+
+  if (row.sessionId === null) {
+    throw refuse(`character ${characterId} is at no table, so it has no Dungeon Master`);
+  }
+
+  requireDM(asking, row.sessionId);
+
+  return row;
+}

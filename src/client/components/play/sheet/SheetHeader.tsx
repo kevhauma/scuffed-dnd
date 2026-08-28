@@ -93,14 +93,8 @@ export function SheetHeader({
           </div>
         </div>
 
-        {budget && (
-          <PointBudgetSummary
-            pointsSpent={budget.pointsSpent}
-            pointBudget={budget.pointBudget}
-            pointsRemaining={budget.pointsRemaining}
-            isOverBudget={budget.isOverBudget}
-          />
-        )}
+        {/* The view is the props — see the note at the other call site */}
+        {budget && <PointBudgetSummary {...budget} />}
       </div>
 
       {onAwardExperience && onDeductExperience && (

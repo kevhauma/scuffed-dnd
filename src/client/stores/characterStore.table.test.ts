@@ -21,7 +21,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PLAYER_ACTION } from '#shared/types/api';
+import { DM_ACTION, PLAYER_ACTION } from '#shared/types/api';
 import type { Character } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
 
@@ -402,5 +402,91 @@ describe('a write to a character in this browser', () => {
       -3
     );
     expect(storage.saveCharacters).toHaveBeenCalled();
+  });
+});
+
+describe("the DM's adjustments (TICKET-DM-01)", () => {
+  beforeEach(() => {
+    useCharacterStore.setState({ tableCharacter: aCharacter() });
+  });
+
+  /** The document the server answers an accepted adjustment with */
+  function accepted(character: Character) {
+    respondWith(200, {
+      id: 'character-1',
+      sessionId: 'session-1',
+      rulesetId: null,
+      ownerAccountId: 'account-2',
+      name: 'Quackers',
+      revision: 2,
+      createdAt: 0,
+      updatedAt: 0,
+      character,
+    });
+  }
+
+  it.each([
+    [
+      DM_ACTION.AWARD_EXPERIENCE,
+      () => useCharacterStore.getState().dmAwardExperience('character-1', 300),
+      { amount: 300 },
+    ],
+    [
+      DM_ACTION.DEDUCT_EXPERIENCE,
+      () => useCharacterStore.getState().dmDeductExperience('character-1', 50),
+      { amount: 50 },
+    ],
+    [
+      DM_ACTION.SET_LEVEL,
+      () => useCharacterStore.getState().dmSetLevel('character-1', 4),
+      { level: 4 },
+    ],
+    [
+      DM_ACTION.GRANT_POINTS,
+      () => useCharacterStore.getState().dmSetGrantedPoints('character-1', 3),
+      { points: 3 },
+    ],
+    [
+      DM_ACTION.SET_RESOURCE,
+      () => useCharacterStore.getState().dmSetResource('character-1', 'stat-health', 12),
+      { statId: 'stat-health', value: 12 },
+    ],
+  ])('posts %s by name, with only what the server needs to be told', async (action, run, body) => {
+    accepted(aCharacter({ experience: 300 }));
+
+    run();
+    await vi.waitFor(() => expect(useCharacterStore.getState().isActing).toBe(false));
+
+    // Nothing derived crosses the wire: no level, no budget, no stat value — the milestone's third
+    // Definition-of-Done rule, asserted at the one place a client could break it
+    expect(lastRequest()).toEqual({
+      url: `/api/characters/character-1/${action}`,
+      method: 'POST',
+      body,
+    });
+    expect(useCharacterStore.getState().tableCharacter?.experience).toBe(300);
+    expect(storage.saveCharacters).not.toHaveBeenCalled();
+  });
+
+  it('leaves the character exactly as it was when the server refuses, and says why', async () => {
+    respondWith(400, {
+      error: { code: 'bad_request', message: 'This ruleset cannot price level 7' },
+    });
+
+    useCharacterStore.getState().dmSetLevel('character-1', 7);
+    await vi.waitFor(() => expect(useCharacterStore.getState().isActing).toBe(false));
+
+    expect(useCharacterStore.getState().tableCharacter?.experience).toBe(0);
+    expect(useCharacterStore.getState().actionError).toBe('This ruleset cannot price level 7');
+  });
+
+  it('asks the network nothing for a character that is not the open table one', () => {
+    // A DM adjustment has no local home at all — signed out there is no DM — so this is a
+    // precondition rather than a branch, and it says so rather than no-opping in silence
+    refuseToFetch();
+
+    useCharacterStore.getState().dmAwardExperience('some-other-character', 10);
+
+    expect(useCharacterStore.getState().actionError).toContain('not at a table');
   });
 });

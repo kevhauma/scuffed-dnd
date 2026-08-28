@@ -617,7 +617,14 @@ export interface ItemRequest {
  */
 export interface PlayerActionEvent {
   characterId: string;
-  action: PlayerAction;
+  /**
+   * Which named intent this was
+   *
+   * Widened to {@link SheetAction} by TICKET-DM-01: a DM adjustment is logged through the same
+   * pipeline and has the same three fields to record, so it writes this payload rather than a
+   * near-identical second one.
+   */
+  action: SheetAction;
   /** Which stat, skill, equipment slot or item the action moved */
   target: string;
   before: ActionValue;
@@ -634,6 +641,96 @@ export interface PlayerActionEvent {
  * exists to prevent.
  */
 export type ActionValue = number | string | null;
+
+/**
+ * The writes a DM makes to a Character in their session (v3 Req 42, TICKET-DM-01)
+ *
+ * {@link PLAYER_ACTION}'s counterpart, and the same three-things-at-once: the last segment of the
+ * route's path, the `type` of the Event it appends, and the tag the client's store sends. **One flat
+ * namespace with the player's**, hence the `dm-` prefix on every value — the Event log holds both
+ * kinds in one `type` column, and a DM's *set-resource* and a Player's have to be tellable apart by
+ * a reader six months later. It also keeps a route's path and its Event type one spelling, which is
+ * what makes `apiRouter`'s table readable.
+ *
+ * **There is no `dm-set-level`-shaped lie in here**: `DM_SET_LEVEL` writes *experience*, and the
+ * Event's before/after are experience totals. The level derives from them
+ * ([D9](../../../docs/v3.0_backend/overview.md#d9--level-stays-derived-points-to-spend-becomes-a-grant)).
+ *
+ * Inventory and the purse are deliberately absent — they are TICKET-DM-02's.
+ */
+export const DM_ACTION = {
+  /** Add to a Character's accumulated experience */
+  AWARD_EXPERIENCE: 'dm-award-experience',
+  /** Take experience away — refused below zero rather than clamped */
+  DEDUCT_EXPERIENCE: 'dm-deduct-experience',
+  /** Put a Character at a level by writing what that level costs on the `xp_thresholds` curve */
+  SET_LEVEL: 'dm-set-level',
+  /** Set the extra spendable stat points the DM has handed out — a total, not a delta */
+  GRANT_POINTS: 'dm-grant-points',
+  /** Write where one of a Character's resource pools stands */
+  SET_RESOURCE: 'dm-set-resource',
+} as const;
+
+export type DmAction = (typeof DM_ACTION)[keyof typeof DM_ACTION];
+
+/**
+ * Anything a named intent can be, whoever performed it
+ *
+ * The union exists because one pipeline serves both: `applyPlayerAction` writes the character and
+ * appends the Event for a Player's action and a DM's alike, and `sendPlayerAction` posts either.
+ * Splitting them would have been two copies of *apply the Kernel's answer, then log what moved*,
+ * which is the one thing v3 Req 42.6 needs to happen exactly once.
+ */
+export type SheetAction = PlayerAction | DmAction;
+
+/** What a client sends to award or deduct experience — a positive amount, direction in the route */
+export interface ExperienceRequest {
+  amount: number;
+}
+
+/**
+ * What a client sends to put a Character at a level (v3 Req 42.2)
+ *
+ * **The level is an instruction, not a stored value.** The server answers it by writing the
+ * experience the ruleset's curve prices that level at, and refuses when the curve cannot.
+ */
+export interface LevelRequest {
+  level: number;
+}
+
+/** What a client sends to set the DM's point grant — the new total, never a delta */
+export interface GrantRequest {
+  points: number;
+}
+
+/**
+ * One DM adjustment as a Player reads it back (v3 Req 42.6, 42.7)
+ *
+ * A projection of the Event log, like {@link SessionRoll} — the same shape of answer for the same
+ * reason: the log is the record, and a second store of what changed would be a second truth.
+ *
+ * `target` is the stat a resource adjustment names, and empty for the ones that name nothing but the
+ * character. Names are resolved at read time so a renamed Account does not leave the history calling
+ * somebody by a name they no longer have.
+ */
+export interface CharacterAdjustment {
+  /** The Event's id, so a list can key on something the server minted */
+  id: string;
+  seq: number;
+  action: DmAction;
+  target: string;
+  before: ActionValue;
+  after: ActionValue;
+  /** Epoch milliseconds */
+  at: number;
+  /** The Account that made the adjustment, by name — `null` if that profile has gone */
+  by: string | null;
+}
+
+/** What `GET /api/characters/:id/adjustments` answers — newest first */
+export interface CharacterAdjustmentListing {
+  adjustments: CharacterAdjustment[];
+}
 
 /**
  * The Event a resolved roll appends (v3 Req 41.6, TICKET-ROLL-07)

@@ -74,10 +74,10 @@ export function SkillAllocationStep({
           </Text>
           {budget && (
             <PointBudgetSummary
-              pointsSpent={budget.pointsSpent}
-              pointBudget={budget.pointBudget}
-              pointsRemaining={budget.pointsRemaining}
-              isOverBudget={budget.isOverBudget}
+              // The view **is** the props (TICKET-DM-01): spelling the fields out one by one meant
+              // every new term in the budget — `grantedPoints` was the first — was a compile error
+              // at two call sites that had nothing to decide
+              {...budget}
             />
           )}
         </div>

@@ -12,12 +12,14 @@
  * there is priced by the table's rules, which stopped following the DM's ruleset when the game began
  * ([D7](../../../../docs/v3.0_backend/overview.md#d7--a-game-session-plays-against-a-pinned-snapshot)).
  *
- * **Your own character opens its sheet; somebody else's does not** (TICKET-PLY-01). The server
- * refuses a write to a character the Account does not own — `requireCharacterPlayer`, which is
- * narrower than the DM's writer guard on purpose — so a sheet full of controls that could not save
- * is not a page worth opening. Reading another player's is TICKET-DM-04's roster.
+ * **Your own character opens its sheet, and so does anybody's if you are the DM** (TICKET-PLY-01,
+ * TICKET-DM-01). A Player opening somebody else's would meet a page of controls that could not save
+ * — the server refuses their writes with `requireCharacterPlayer`, narrower than the writer guard on
+ * purpose. The **DM** opening one is the opposite case: the sheet is where their controls are
+ * (v3 Req 42), and the server opens it to them for exactly that reason. A roster that acts on
+ * characters without opening them is still TICKET-DM-04's.
  *
- * **Validates: v3 Req 37.2, 40.4, 40.6, 41.1**
+ * **Validates: v3 Req 37.2, 40.4, 40.6, 41.1, 42.7**
  */
 
 import type { CharacterDocument } from '#shared/types/api';
@@ -30,6 +32,8 @@ export interface SessionCharactersProps {
   characters: CharacterDocument[];
   /** Which Account is reading, so its own characters can be told apart */
   accountId: string | null;
+  /** True when the reader runs this table — they open every sheet, not only their own */
+  isDm: boolean;
   /** False for an archived table, where the server refuses to create one */
   canCreate: boolean;
   isPending: boolean;
@@ -45,10 +49,13 @@ export interface SessionCharactersProps {
 function CharacterRow({
   document,
   isMine,
+  canOpen,
   onOpen,
 }: {
   document: CharacterDocument;
   isMine: boolean;
+  /** Whether this reader may open *this* sheet — their own, or anybody's if they are the DM */
+  canOpen: boolean;
   onOpen: (characterId: string) => void;
 }) {
   return (
@@ -60,9 +67,11 @@ function CharacterRow({
         </Text>
       </div>
 
-      {isMine && (
+      {canOpen && (
         <Button variant="secondary" size="sm" onClick={() => onOpen(document.id)}>
-          Open sheet
+          {/* Said plainly, because the two pages differ: the DM gets a sheet with their own
+              controls on it, and nothing of the Player's is theirs to press */}
+          {isMine ? 'Open sheet' : 'Adjust as DM'}
         </Button>
       )}
     </div>
@@ -72,6 +81,7 @@ function CharacterRow({
 export function SessionCharacters({
   characters,
   accountId,
+  isDm,
   canCreate,
   isPending,
   isOpening,
@@ -108,6 +118,7 @@ export function SessionCharacters({
               key={document.id}
               document={document}
               isMine={document.ownerAccountId === accountId}
+              canOpen={isDm || document.ownerAccountId === accountId}
               onOpen={onOpen}
             />
           ))

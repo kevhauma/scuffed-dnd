@@ -13,6 +13,9 @@ import { MAX_RACE_COUNT } from '#shared/engine/calculators/statCalculator';
 import { validateStatAllocation } from '#shared/engine/skillAllocation';
 import { buildCharacter } from '#shared/services/characterCreation';
 import { purseFromStoredWallet } from '#shared/services/characterShape';
+// The experience rules **moved** here from this module with TICKET-DM-01, rather than being copied
+// into a DM route — the same thing PLY-01 did to the sheet's other writes, and for the same reason
+import { addExperience, removeExperience } from '#shared/services/dmActions';
 // `addToPack` and `removeFromPack` are deliberately absent: the browser's pack has never had a rule
 // to share — its picker is built from the ruleset's item list — and the *server* is the side that
 // has to check, because a request is not a picker. See `addMiscItem` below.
@@ -31,8 +34,16 @@ import {
   setPurseAmount,
   setResourceValue,
 } from '#shared/services/playerActions';
-import type { PlayerAction } from '#shared/types/api';
-import { PLAYER_ACTION } from '#shared/types/api';
+import type {
+  DmAction,
+  ExperienceRequest,
+  GrantRequest,
+  LevelRequest,
+  PlayerAction,
+  ResourceValueRequest,
+  SheetAction,
+} from '#shared/types/api';
+import { DM_ACTION, PLAYER_ACTION } from '#shared/types/api';
 import type { Character, CharacterCreationData, Inventory } from '#shared/types/character';
 import type { Configuration, CurrencyTier } from '#shared/types/config';
 import {
@@ -104,6 +115,16 @@ export interface CharacterState {
    * sheet has no other way to know which session to ask.
    */
   tableSessionId: string | null;
+  /**
+   * Whose {@link CharacterState.tableCharacter} is (TICKET-DM-01)
+   *
+   * **What tells a DM's view of a sheet from a Player's, and it needs no second request to do it.**
+   * The server only opens a character to its owner or to the DM of its table
+   * (`requireCharacterWriter`), so *this is at a table and it is not mine* has exactly one meaning:
+   * I am the DM here. Asking `GET /api/sessions/:id/members` to learn the same thing would be a
+   * round trip to re-derive what the document already said.
+   */
+  tableCharacterOwnerId: string | null;
   /**
    * True while a player action is on the wire, and **a second one is refused while it is**
    *
@@ -324,6 +345,31 @@ export interface CharacterState {
    * amount is more than the character has.
    */
   deductExperience: (characterId: string, amount: number) => void;
+
+  /*
+   * The Dungeon Master's controls (TICKET-DM-01, v3 Req 42.1-42.4)
+   *
+   * **Table-only, and named apart from the Player's own actions rather than sharing them.** The two
+   * award experience to the same field, and they are still different acts: one is somebody moving a
+   * number on their own sheet with nobody to answer to, the other is the DM moving somebody else's
+   * and is logged as such. Sharing an action would have meant one call site deciding which, which is
+   * the branch v3 Req 42 exists to keep on the server.
+   */
+  /** Award experience to a character at the caller's table — the level follows on its own */
+  dmAwardExperience: (characterId: string, amount: number) => void;
+  /** Take experience away, refused below zero rather than clamped */
+  dmDeductExperience: (characterId: string, amount: number) => void;
+  /**
+   * Put a character at a level by writing what the ruleset prices that level at
+   *
+   * The level is an **instruction**, never a stored value (D9): the server reads the `xp_thresholds`
+   * curve, writes the experience, and refuses when the curve cannot price the level asked for.
+   */
+  dmSetLevel: (characterId: string, level: number) => void;
+  /** Set the extra spendable stat points the DM has handed out — a total, not a delta */
+  dmSetGrantedPoints: (characterId: string, points: number) => void;
+  /** Write where one of a character's resource pools stands, under the Player's own Kernel rule */
+  dmSetResource: (characterId: string, statId: string, value: number) => void;
 }
 
 /**
@@ -447,7 +493,7 @@ function applyLocally(
 async function sendToTable(
   set: SetState,
   characterId: string,
-  action: PlayerAction,
+  action: SheetAction,
   body: unknown
 ): Promise<void> {
   set({ isActing: true, actionError: null });
@@ -518,51 +564,36 @@ function refuseAtTable(
 }
 
 /**
- * Whether an amount is a real, positive quantity of experience
+ * Send one DM adjustment to the table, and adopt whatever comes back (TICKET-DM-01)
  *
- * Award and deduct each state their own direction, so a negative amount is a caller mistake rather
- * than a way to reverse the operation — accepting it would let `awardExperience(-100)` take XP away
- * without passing the below-zero refusal.
- */
-function isAwardableAmount(amount: number): boolean {
-  return Number.isFinite(amount) && amount > 0;
-}
-
-/**
- * Apply one experience change, then stamp and persist
+ * `toTable`'s counterpart for the other actor, and it exists rather than reusing that one because
+ * the two ask different questions. `toTable` decides *which home does this character live in*, and
+ * every player action calls it first. A DM adjustment has no local home at all — signed out there is
+ * no DM, and the person on their own sheet awards their own experience through the ordinary
+ * `awardExperience` — so *is this at a table* is a precondition here rather than a branch.
  *
- * The counterpart to `updateCharacterInventory`, and takes its arguments in the same order:
- * `change` returns the new total, or `undefined` to refuse — in which case nothing is written,
- * nothing is stamped, and the array identity is unchanged so no subscriber re-renders over a no-op.
+ * @returns Nothing; the sheet reads `tableCharacter` and `actionError`
  */
-function applyExperienceChange(
-  set: (partial: Partial<CharacterState>) => void,
+function adjustAtTable(
+  set: SetState,
   get: () => CharacterState,
   characterId: string,
-  change: (experience: number) => number | undefined
+  action: DmAction,
+  body: unknown
 ): void {
-  const { characters } = get();
+  // Unreachable from the sheet, which only draws the DM panel for an open table character — and a
+  // silent no-op is what the review found happening the last time a surface reached a store action
+  // in a state it had not thought about (`refuseAtTable`)
+  if (get().tableCharacter?.id !== characterId) {
+    set({ actionError: 'That character is not at a table, so there is nothing to adjust.' });
+    return;
+  }
 
-  let changed = false;
-  const next = characters.map((char) => {
-    if (char.id !== characterId) return char;
+  // One write in flight per character, exactly as a player action has: two overlapping adjustments
+  // are each applied to the row the server found, so the second answer replaces the first
+  if (get().isActing) return;
 
-    // Belt and braces with `loadCharacters`' filter: a character whose stored total is not a
-    // number would compute `undefined + amount` and persist `NaN`, which reads as level 1 forever
-    // and cannot be undone from the UI. Refused rather than repaired — inventing a total is the
-    // same mistake as inventing a level.
-    if (!Number.isFinite(char.experience)) return char;
-
-    const experience = change(char.experience);
-    if (experience === undefined) return char;
-
-    changed = true;
-    return updateTimestamp({ ...char, experience });
-  });
-
-  if (!changed) return;
-
-  set({ characters: autoSave(next) });
+  void sendToTable(set, characterId, action, body);
 }
 
 /**
@@ -604,6 +635,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   isLoaded: false,
   tableCharacter: null,
   tableSessionId: null,
+  tableCharacterOwnerId: null,
   isActing: false,
   actionError: null,
 
@@ -712,6 +744,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
       set({
         tableCharacter: document.character,
         tableSessionId: document.sessionId,
+        tableCharacterOwnerId: document.ownerAccountId,
         isActing: false,
       });
 
@@ -730,7 +763,13 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   },
 
   closeTableCharacter: () => {
-    set({ tableCharacter: null, tableSessionId: null, actionError: null, isActing: false });
+    set({
+      tableCharacter: null,
+      tableSessionId: null,
+      tableCharacterOwnerId: null,
+      actionError: null,
+      isActing: false,
+    });
   },
 
   dismissActionError: () => {
@@ -903,21 +942,45 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     set({ characters: autoSave(converted) });
   },
 
+  // The rule moved to the Kernel with TICKET-DM-01 rather than being copied into a DM route: the
+  // shape of the amount, the unreadable-total guard and the refuse-don't-clamp deduction are one
+  // implementation now, which is what makes the DM's `dm-award-experience` and this the same rule
   awardExperience: (characterId: string, amount: number) => {
     if (refuseAtTable(set, get, characterId, 'Experience')) return;
 
-    applyExperienceChange(set, get, characterId, (experience) =>
-      isAwardableAmount(amount) ? experience + amount : undefined
-    );
+    applyLocally(set, get, characterId, (character) => addExperience(character, amount));
   },
 
   deductExperience: (characterId: string, amount: number) => {
     if (refuseAtTable(set, get, characterId, 'Experience')) return;
 
-    applyExperienceChange(set, get, characterId, (experience) => {
-      if (!isAwardableAmount(amount)) return undefined;
-      // Refused rather than clamped: a partial deduction would read as a penalty that landed
-      return amount > experience ? undefined : experience - amount;
-    });
+    applyLocally(set, get, characterId, (character) => removeExperience(character, amount));
+  },
+
+  dmAwardExperience: (characterId: string, amount: number) => {
+    adjustAtTable(set, get, characterId, DM_ACTION.AWARD_EXPERIENCE, {
+      amount,
+    } satisfies ExperienceRequest);
+  },
+
+  dmDeductExperience: (characterId: string, amount: number) => {
+    adjustAtTable(set, get, characterId, DM_ACTION.DEDUCT_EXPERIENCE, {
+      amount,
+    } satisfies ExperienceRequest);
+  },
+
+  dmSetLevel: (characterId: string, level: number) => {
+    adjustAtTable(set, get, characterId, DM_ACTION.SET_LEVEL, { level } satisfies LevelRequest);
+  },
+
+  dmSetGrantedPoints: (characterId: string, points: number) => {
+    adjustAtTable(set, get, characterId, DM_ACTION.GRANT_POINTS, { points } satisfies GrantRequest);
+  },
+
+  dmSetResource: (characterId: string, statId: string, value: number) => {
+    adjustAtTable(set, get, characterId, DM_ACTION.SET_RESOURCE, {
+      statId,
+      value,
+    } satisfies ResourceValueRequest);
   },
 }));

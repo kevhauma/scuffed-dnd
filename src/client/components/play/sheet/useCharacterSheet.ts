@@ -39,15 +39,20 @@ import { useSheetActions } from './useSheetActions';
  *
  * Each state is a different thing to tell the Player, so they are distinguished rather than
  * collapsed into one "unavailable".
+ *
+ * **A const object since TICKET-DM-01**, which is when this stopped being module-local: exporting
+ * it so `SheetStatusNotice` could take one put the same six literals in three modules, and the
+ * house rule is that a closed set of strings named by a second module is a frozen object with the
+ * type derived from it. It was a bare union while nothing outside this file could spell one.
  */
-type CharacterSheetStatus =
-  | 'ready'
+export const CHARACTER_SHEET_STATUS = {
+  READY: 'ready',
   /** No ruleset is loaded, so nothing about the character can be interpreted */
-  | 'no-configuration'
+  NO_CONFIGURATION: 'no-configuration',
   /** No saved character has this id — a stale link or a deleted character */
-  | 'not-found'
+  NOT_FOUND: 'not-found',
   /** The character was built on a different ruleset than the one loaded */
-  | 'configuration-mismatch'
+  CONFIGURATION_MISMATCH: 'configuration-mismatch',
   /**
    * The engine itself failed — a bug, not a ruleset mistake.
    *
@@ -55,7 +60,11 @@ type CharacterSheetStatus =
    * value it broke, and the rest of the sheet stays usable. Only an actual throw from
    * `calculateCharacter` reaches this state now.
    */
-  | 'formula-error';
+  FORMULA_ERROR: 'formula-error',
+} as const;
+
+export type CharacterSheetStatus =
+  (typeof CHARACTER_SHEET_STATUS)[keyof typeof CHARACTER_SHEET_STATUS];
 
 /**
  * A speciality skill's contributions, kept apart rather than pre-summed (Requirement 13.4)
@@ -278,11 +287,11 @@ function resolveStatus(
   config: Configuration | null,
   error: string | null
 ): CharacterSheetStatus {
-  if (!config) return 'no-configuration';
-  if (!character) return 'not-found';
-  if (character.configurationId !== config.id) return 'configuration-mismatch';
-  if (error) return 'formula-error';
-  return 'ready';
+  if (!config) return CHARACTER_SHEET_STATUS.NO_CONFIGURATION;
+  if (!character) return CHARACTER_SHEET_STATUS.NOT_FOUND;
+  if (character.configurationId !== config.id) return CHARACTER_SHEET_STATUS.CONFIGURATION_MISMATCH;
+  if (error) return CHARACTER_SHEET_STATUS.FORMULA_ERROR;
+  return CHARACTER_SHEET_STATUS.READY;
 }
 
 /**
@@ -389,7 +398,7 @@ export function useCharacterSheet(characterId: string) {
   const status = resolveStatus(character, config, error);
 
   const view =
-    status === 'ready' && character && config && calculated
+    status === CHARACTER_SHEET_STATUS.READY && character && config && calculated
       ? buildView(character, config, calculated)
       : EMPTY_VIEW;
 

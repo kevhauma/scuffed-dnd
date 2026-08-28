@@ -193,6 +193,59 @@ describe('validateStatAllocation', () => {
     });
   });
 
+  describe("the DM's grant (TICKET-DM-01)", () => {
+    it('should add to the derived pool rather than replacing it', () => {
+      const granted = createCharacter({ grantedStatPoints: 4 });
+
+      expect(validateStatAllocation(granted, createConfig()).pointBudget).toBe(19);
+      expect(validateStatAllocation(granted, createConfig()).grantedPoints).toBe(4);
+    });
+
+    it('should keep moving the pool with the level underneath the grant', () => {
+      // The whole reason a grant is not a stored budget: award experience and both terms still hold
+      const levelled = createCharacter({ experience: 900, grantedStatPoints: 4 });
+
+      expect(validateStatAllocation(levelled, createConfig()).pointBudget).toBe(19);
+    });
+
+    it('should read an absent grant as none', () => {
+      expect(validateStatAllocation(createCharacter(), createConfig()).grantedPoints).toBe(0);
+      expect(validateStatAllocation(createCharacter(), createConfig()).pointBudget).toBe(15);
+    });
+
+    it('should make a spend the derived pool could not cover affordable', () => {
+      const spent = { STR: 18 };
+
+      expect(
+        validateStatAllocation(createCharacter({ investedStatPoints: spent }), createConfig())
+          .isValid
+      ).toBe(false);
+      expect(
+        validateStatAllocation(
+          createCharacter({ investedStatPoints: spent, grantedStatPoints: 4 }),
+          createConfig()
+        ).isValid
+      ).toBe(true);
+    });
+
+    it('should ignore a stored grant that is not a usable number rather than poisoning the pool', () => {
+      // A `NaN` here would make the whole budget `NaN`, which is a `number` as far as
+      // `isFormulaError` is concerned — the silently-wrong value Concept 00 §7 forbids
+      const broken = createCharacter({ grantedStatPoints: Number.NaN });
+
+      expect(validateStatAllocation(broken, createConfig()).pointBudget).toBe(15);
+      expect(validateStatAllocation(broken, createConfig()).grantedPoints).toBe(0);
+    });
+
+    it('should not rescue a pool that cannot be derived at all', () => {
+      const noCurve = createConfig({ curves: [] });
+      const granted = createCharacter({ grantedStatPoints: 4 });
+
+      expect(isFormulaError(validateStatAllocation(granted, noCurve).pointBudget)).toBe(true);
+      expect(validateStatAllocation(granted, noCurve).isValid).toBe(false);
+    });
+  });
+
   describe('the boundaries, preserved from TICKET-SKL-01', () => {
     it('should accept an allocation exactly at the budget', () => {
       const result = allocate({ STR: 10, DEX: 5 });

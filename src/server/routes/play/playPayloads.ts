@@ -40,7 +40,7 @@
  */
 
 import { isRefusal, type PlayerActionResult } from '#shared/services/playerActions';
-import type { CharacterDocument, PlayerAction, PlayerActionEvent } from '#shared/types/api';
+import type { CharacterDocument, PlayerActionEvent, SheetAction } from '#shared/types/api';
 import type { Character } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
 import { badRequest, conflict, notFound } from '../../http/appError';
@@ -101,6 +101,13 @@ export function playerStateOf(row: CharacterRow): Character {
  * **A refusal writes nothing at all** — not the character, not the Event — because the write is the
  * last thing that happens and the throw is before it.
  *
+ * **TICKET-DM-01 widened `action` to {@link SheetAction} and nothing else changed**, which is what
+ * the `actor` parameter was already there for: a DM adjustment is the same operation — run a Kernel
+ * rule against the stored state, persist the answer, log what moved and who moved it — and v3 Req
+ * 42.6 asks for exactly the before/after pair this already records. The DM routes live in
+ * `routes/dm/` and call this; the guard above them is the difference between the two, and it belongs
+ * to the route rather than to the pipeline.
+ *
  * @param actor Whose action this is — the Account the Event is logged against
  * @param row The character, already guarded
  * @param action Which named intent this is — the Event's `type` and the route's last path segment
@@ -112,7 +119,7 @@ export function playerStateOf(row: CharacterRow): Character {
 export function applyPlayerAction(
   actor: string,
   row: CharacterRow,
-  action: PlayerAction,
+  action: SheetAction,
   target: string,
   apply: (character: Character, rules: Configuration) => PlayerActionResult
 ): CharacterDocument {

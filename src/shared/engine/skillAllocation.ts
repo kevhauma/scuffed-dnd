@@ -8,9 +8,15 @@
  * The rule is a **single global pool**, and since TICKET-RES-02 the pool is **derived**:
  *
  * ```
- * available = level × const.points_per_level
+ * available = level × const.points_per_level + granted
  * remaining = available − Σ invested points
  * ```
+ *
+ * The `granted` term arrived with TICKET-DM-01 and is the DM's handout
+ * ([D9](../../../docs/v3.0_backend/overview.md#d9--level-stays-derived-points-to-spend-becomes-a-grant)).
+ * It is added to the derived pool rather than replacing it, which is the whole reason
+ * `Character.grantedStatPoints` is a grant and not a writable budget: award experience and the
+ * level still moves the pool underneath it.
  *
  * matching the sheet's `Charactersheet!E17`. The flat `Configuration.mainSkillPointBudget` and its
  * "absent means unlimited" are gone: there is no longer any way to express an unlimited pool, which
@@ -90,6 +96,23 @@ function pointsPerLevel(config: Configuration): number {
 }
 
 /**
+ * The DM's grant on a character, as a number this can add (TICKET-DM-01)
+ *
+ * Absent means none, like `purse`. Anything that is not a **whole**, positive number is read as none
+ * rather than trusted: `setGrantedPoints` refuses every other shape, so a stored one came from an
+ * older build or a hand-edited file. `Number.isInteger` rather than `Number.isFinite`, because the
+ * two would otherwise disagree — the field's own docblock says whole, the write route enforces
+ * whole, and a stored `2.5` slipping through here would price a budget nothing could have granted.
+ * A `NaN` in particular would make the whole budget `NaN`, which is a number as far as
+ * `isFormulaError` is concerned — exactly the silently-wrong value Concept 00 §7 forbids.
+ */
+function grantedFrom(character: Character): number {
+  const granted = character.grantedStatPoints;
+
+  return typeof granted === 'number' && Number.isInteger(granted) && granted > 0 ? granted : 0;
+}
+
+/**
  * What one stat's spend bought (Concept 03, TICKET-ARC-02)
  *
  * Reported so the wizard and the sheet can render "7 points in Char → +9" from the engine rather
@@ -115,7 +138,15 @@ export interface StatAllocationResult {
   isValid: boolean;
   /** Total points allocated across the configuration's investable stats */
   pointsSpent: number;
-  /** `level × const.points_per_level`, or the error that stood in for the level */
+  /**
+   * What the DM handed out on top of the derived pool (TICKET-DM-01, v3 Req 42.3)
+   *
+   * Reported separately from {@link pointBudget} so a surface can say *12 (+3 granted)* rather than
+   * a 15 nobody can account for — and so the DM's revoke control can price a revocation against the
+   * number it is about to change.
+   */
+  grantedPoints: number;
+  /** `level × const.points_per_level + granted`, or the error that stood in for the level */
   pointBudget: FormulaResult;
   /** Budget minus spend, or the same error the budget carries */
   pointsRemaining: FormulaResult;
@@ -216,10 +247,15 @@ export function validateStatAllocation(
   const knownIds = new Set(config.stats.map((stat) => stat.id));
   const unknownStatIds = Object.keys(investedStatPoints).filter((id) => !knownIds.has(id));
 
-  // `level × points_per_level`, carrying the level's error forward rather than substituting a
-  // number for it — see the module header
+  // `level × points_per_level + granted`, carrying the level's error forward rather than
+  // substituting a number for it — see the module header. A grant does **not** rescue an
+  // underivable pool: a ruleset that cannot say how many points exist cannot say this spend is
+  // allowed either, and three granted points are three points on top of an unknown number.
   const level = calculateCharacterLevel(character, config);
-  const pointBudget: FormulaResult = isFormulaError(level) ? level : level * pointsPerLevel(config);
+  const grantedPoints = grantedFrom(character);
+  const pointBudget: FormulaResult = isFormulaError(level)
+    ? level
+    : level * pointsPerLevel(config) + grantedPoints;
   const pointsRemaining: FormulaResult = isFormulaError(pointBudget)
     ? pointBudget
     : pointBudget - pointsSpent;
@@ -234,6 +270,7 @@ export function validateStatAllocation(
       violations.length === 0 &&
       unknownStatIds.length === 0,
     pointsSpent,
+    grantedPoints,
     pointBudget,
     pointsRemaining,
     isOverBudget,

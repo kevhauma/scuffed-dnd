@@ -21,11 +21,11 @@
 import { useId, useState } from 'react';
 import type { AddressedInvite, InviteState } from '#shared/types/api';
 import { INVITE_STATE } from '#shared/types/api';
+import { readableMoment } from '../shared/readableMoment';
 import { Button } from '../ui/Button/Button';
 import { Card } from '../ui/Card/Card';
 import { FormField } from '../ui/FormField/FormField';
 import { Text } from '../ui/Text/Text';
-import { readableMoment } from './sessionMoment';
 import { alertStyles, badgeStyles, sectionStyles, sessionRowStyles } from './sessions.style';
 
 export interface AddressedInvitePanelProps {

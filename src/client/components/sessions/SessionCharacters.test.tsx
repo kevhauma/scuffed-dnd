@@ -55,6 +55,7 @@ function renderPanel(props: Partial<React.ComponentProps<typeof SessionCharacter
     <SessionCharacters
       characters={[document()]}
       accountId="account-1"
+      isDm={false}
       canCreate
       isPending={false}
       isOpening={false}

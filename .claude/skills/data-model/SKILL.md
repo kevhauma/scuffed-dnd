@@ -488,7 +488,7 @@ derived too** — TICKET-SKL-03 added `skillContributions`, one already-multipli
 redoing the arithmetic. When a surface needs to show how a number was reached, widen the calculator's
 return rather than recomputing the terms at the render site. If you find yourself wanting to store a
 computed number on `Character`, the answer is a recalculation call at read time instead. There are
-exactly **three** deliberate exceptions. `currentResourceValues` — the player's *current* HP/mana,
+exactly **four** deliberate exceptions. `currentResourceValues` — the player's *current* HP/mana,
 which is state, not derivation (its maximum is derived; its current value is not). **Only `isResource` stats appear
 there**, and the store action enforces it: a stat you cannot spend has no current distinct from
 its value, which is what v1 got wrong by giving every stat one.
@@ -499,8 +499,19 @@ in [characterSummary.ts](../../../src/shared/engine/characterSummary.ts), which 
 every screen reads. This inverts v1.0, where level was the sum of points spent; the chain now runs
 `XP → level → budget → spend`. `calculateCharacterLevel(character, config)` returns a
 `FormulaResult`, because the curve is User data that can be deleted or set to refuse out-of-range
-input — a level that cannot be read chips rather than showing a confident 1. Only
-`awardExperience`/`deductExperience` write it; a deduction below 0 is **refused**, not clamped.
+input — a level that cannot be read chips rather than showing a confident 1. Since TICKET-DM-01 the
+rules that write it live in [dmActions.ts](../../../src/shared/services/dmActions.ts) —
+`addExperience` / `removeExperience`, called by `characterStore` in local mode and by
+`routes/dm/` on the server — and a deduction below 0 is **refused**, not clamped, in one place for
+both.
+
+**"Set level to N" is a convenience over experience, never a stored level** (v3 Req 42.2, D9).
+`experienceForLevel(character, config, level)` reads the *same* `xp_thresholds` curve **forwards** —
+what does level N cost — and `setLevelExperience` writes that total to `experience`. It refuses,
+rather than guessing, when the curve cannot price the level: the answer is fed back through
+`calculateCharacterLevel` and anything that does not read back as N is reported as an error. A
+single-row placeholder curve happily extrapolates *0 XP* for level 7, which is exactly the
+plausible-but-wrong number that check exists to catch.
 
 And **`purse`** (TICKET-CUR-02) — **one amount, in the ruleset's base tier** (`order: 0`, the least
 valuable), optional and absent-means-none. Money is spent at the table and derived from nothing, so
@@ -524,13 +535,32 @@ it is the third exception rather than a computed number stored.
   and a bump would make every stored roster unreadable behind `IncompatibleDataNotice` — destroying
   the very data the conversion exists to keep. A bump and a migration are mutually exclusive.
 
-**The point budget closes that chain** (TICKET-RES-02): `validateStatAllocation(character, config)`
-in [skillAllocation.ts](../../../src/shared/engine/skillAllocation.ts) prices the pool as
-`level × const.points_per_level` — derived, never stored — and `Configuration.mainSkillPointBudget`
-is gone with its "absent means unlimited". Both money numbers are `FormulaResult`s, so a level that
-cannot be read makes the allocation *invalid* rather than unlimited. Spending post-creation goes
-through `characterStore.setInvestedStatPoints`, which **refuses** an unaffordable spend rather than
-clamping it — a partial investment would read as one that landed.
+And **`grantedStatPoints`** (TICKET-DM-01) — the extra spendable stat points the DM has handed out,
+optional and absent-means-none, whole and not negative. It is the fourth exception because nothing
+derives it: *"the DM gave you three points"* is new information, the same test that admitted
+`experience`.
+
+- **A grant, not a budget.** The pool stays `level × const.points_per_level + grants`, so awarding
+  experience still moves it underneath the grant. A stored *budget* would be a derived value with a
+  second writer, silently disagreeing with the level the moment XP changed.
+- **One number, not one per stat.** Points are fungible; what they *buy* per stat is the `point_buy`
+  curve's answer (TICKET-ARC-02), so a per-stat grant would be a second, contradictory exchange rate.
+- **Revoking below what has been spent is refused, naming the overspend** (v3 Req 42.4) — priced
+  through `validateStatAllocation`, never by arithmetic. Raising a grant is never refused.
+- **No `SUPPORTED_SCHEMA_VERSION` bump**, for `purse`'s reason: additive-optional, absent on every
+  stored roster, and `CHARACTER_FIELDS` in `characterShape.ts` deliberately does not require it.
+
+**The point budget closes that chain** (TICKET-RES-02, TICKET-DM-01):
+`validateStatAllocation(character, config)` in
+[skillAllocation.ts](../../../src/shared/engine/skillAllocation.ts) prices the pool as
+`level × const.points_per_level + grantedStatPoints` — derived, never stored — and
+`Configuration.mainSkillPointBudget` is gone with its "absent means unlimited". Both money numbers
+are `FormulaResult`s, so a level that cannot be read makes the allocation *invalid* rather than
+unlimited, and a grant does **not** rescue a pool that cannot be derived at all. The result reports
+`grantedPoints` separately so a surface can say *8 incl. 3 granted* rather than a number nobody can
+account for. Spending post-creation goes through `characterStore.setInvestedStatPoints`, which
+**refuses** an unaffordable spend rather than clamping it — a partial investment would read as one
+that landed.
 
 **Since TICKET-CALC-02, every *configured* stat has a value; absence is not a state.**
 `calculateStatValues` seeds every stat in `config.stats` before applying investment, racial

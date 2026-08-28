@@ -128,6 +128,35 @@ export interface Character {
    * lose money. Round for display only.
    */
   purse?: number;
+  /**
+   * Spendable stat points the DM has handed out on top of the derived pool
+   * (TICKET-DM-01, v3 Req 42.3,
+   * [D9](../../../docs/v3.0_backend/overview.md#d9--level-stays-derived-points-to-spend-becomes-a-grant)).
+   *
+   * ## Why a grant rather than a writable budget
+   *
+   * The User asked for a DM who can edit a player's *points to spend*, and that is not a field: the
+   * budget is `level × const.points_per_level` and the level is read out of `xp_thresholds`, so a
+   * stored budget would be a derived value with a second writer — award experience and the two
+   * disagree in silence. *"The DM gave you three points"* is not derivable from anything, so it is
+   * genuinely new information, and it is an **input** to the pool rather than a replacement for it:
+   * `validateStatAllocation` prices the budget as `derived pool + grants`.
+   *
+   * That makes it the **third** sanctioned exception to *derived values are never stored*, beside
+   * `currentResourceValues` and `experience`, with `purse` the fourth.
+   *
+   * ## One number, not one per stat
+   *
+   * Points are fungible in this system — the archetype decides what they *buy*, per stat, through
+   * the `point_buy` curve (TICKET-ARC-02) — so a per-stat grant would be a second exchange rate
+   * sitting beside the ruleset's own and contradicting it.
+   *
+   * **Optional, and absent means none**, for `purse`'s reason: a roster stored before this field
+   * round-trips without growing one, and `isReadableCharacter` does not require it. Whole and
+   * non-negative — a revocation that would leave the character overspent is refused rather than
+   * clamped (v3 Req 42.4).
+   */
+  grantedStatPoints?: number;
   createdAt: string;
   updatedAt: string;
 }

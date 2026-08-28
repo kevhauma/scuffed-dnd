@@ -15,17 +15,39 @@
  * a User formula, so there is nothing for `references.ts` to re-spell and renaming the curve breaks
  * the link rather than following it. That is reported rather than papered over — see below.
  *
- * **Validates: Concept 20; Concept 06; Requirement 11.5**
+ * TICKET-DM-01 adds the **forward** read of the same table — *what does level 7 cost?* — which is
+ * what a DM's "set level to N" writes. It is still one curve and one lookup; nothing stores a level.
+ *
+ * **Validates: Concept 20; Concept 06; Requirement 11.5; v3 Req 42.2**
  */
 
 import type { Character, CharacterSummary } from '../types/character';
-import type { Configuration } from '../types/config';
-import type { FormulaResult } from '../types/formula';
+import type { Configuration, Curve } from '../types/config';
+import type { FormulaError, FormulaResult } from '../types/formula';
 import { lookupCurve } from './formula/curves';
-import { formulaError } from './formula/errors';
+import { formulaError, isFormulaError } from './formula/errors';
 
 /** The curve a level is read out of, seeded by TICKET-CRV-03 */
 const XP_CURVE_NAME = 'xp_thresholds';
+
+/**
+ * The ruleset's XP curve, or the error that stands in for it
+ *
+ * Both directions of the same table go through here, so *this ruleset has no such curve* is one
+ * sentence rather than two that can drift.
+ */
+function experienceCurve(config: Configuration): Curve | FormulaError {
+  const curve = (config.curves ?? []).find((candidate) => candidate.name === XP_CURVE_NAME);
+
+  if (curve === undefined) {
+    return formulaError(
+      'undefined-variable',
+      `This ruleset has no "${XP_CURVE_NAME}" curve, so there is nothing to read a level out of`
+    );
+  }
+
+  return curve;
+}
 
 /**
  * The level a character's experience has reached
@@ -44,16 +66,59 @@ export function calculateCharacterLevel(
   character: Character,
   config: Configuration
 ): FormulaResult {
-  const curve = (config.curves ?? []).find((candidate) => candidate.name === XP_CURVE_NAME);
+  const curve = experienceCurve(config);
+  if (isFormulaError(curve)) return curve;
 
-  if (curve === undefined) {
+  return lookupCurve(curve, character.experience);
+}
+
+/**
+ * The experience a character needs to stand at a given level (TICKET-DM-01, v3 Req 42.2)
+ *
+ * **The same table, read the other way.** `xp_thresholds` is authored as *level → XP required* and
+ * read `reverse` — XP in, level out — which is what {@link calculateCharacterLevel} does. A DM
+ * saying *"set them to level 7"* is asking the forward question, so the curve is flipped rather
+ * than a second table being consulted or the thresholds being re-derived by hand. Every mode the
+ * User set — `step` or `linear`, clamped or extrapolated or refused — applies unchanged, because it
+ * is the same `lookupCurve`.
+ *
+ * **It is a convenience over experience, never a stored level** (D9). What this returns is written
+ * to `Character.experience`; the level is derived from it a moment later, by the function above.
+ *
+ * **The round trip is checked, and a mismatch is refused rather than guessed.** A curve with one
+ * row happily answers *level 7 costs 0 XP* by extrapolating from nothing, and writing that would
+ * leave the character at level 1 with the DM told it worked. So the answer is fed back through
+ * {@link calculateCharacterLevel}, and unless it comes back as the level that was asked for, this
+ * reports that the curve cannot price it — Concept 00 §7's rule that a value which cannot be
+ * computed is an error rather than a plausible number.
+ *
+ * @param character The character whose experience would be replaced
+ * @param config The ruleset holding the `xp_thresholds` curve
+ * @param level The level the DM asked for
+ * @returns The total experience that level costs, or why the curve cannot say
+ */
+export function experienceForLevel(
+  character: Character,
+  config: Configuration,
+  level: number
+): FormulaResult {
+  const curve = experienceCurve(config);
+  if (isFormulaError(curve)) return curve;
+
+  const experience = lookupCurve({ ...curve, lookupDirection: 'forward' }, level);
+  if (isFormulaError(experience)) return experience;
+
+  const reached = calculateCharacterLevel({ ...character, experience }, config);
+
+  if (isFormulaError(reached)) return reached;
+  if (reached !== level) {
     return formulaError(
-      'undefined-variable',
-      `This ruleset has no "${XP_CURVE_NAME}" curve, so there is nothing to read a level out of`
+      'out-of-range',
+      `curve.${XP_CURVE_NAME} cannot price level ${level} — ${experience} experience reads back as level ${reached}`
     );
   }
 
-  return lookupCurve(curve, character.experience);
+  return experience;
 }
 
 /**

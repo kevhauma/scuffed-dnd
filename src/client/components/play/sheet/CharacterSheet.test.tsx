@@ -8,7 +8,7 @@
  */
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Character } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
 
@@ -1086,12 +1086,31 @@ describe('CharacterSheet', () => {
    * what the server will and will not accept.
    */
   describe('a character at a table', () => {
+    const realFetch = globalThis.fetch;
+
     beforeEach(() => {
       useCharacterStore.setState({
         characters: [],
         tableCharacter: createCharacter(),
+        tableCharacterOwnerId: 'account-1',
         isLoaded: true,
       });
+
+      // The adjustment log reads the server as soon as a sheet is at a table (TICKET-DM-01).
+      // Stubbed rather than left to reach `localhost`, which is what these cases were doing to
+      // happy-dom's `fetch` the moment the panel landed.
+      globalThis.fetch = vi.fn(async () =>
+        Promise.resolve(
+          new Response(JSON.stringify({ adjustments: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
+      ) as unknown as typeof fetch;
+    });
+
+    afterEach(() => {
+      globalThis.fetch = realFetch;
     });
 
     it('should render the sheet from the character the table holds', () => {
@@ -1120,6 +1139,20 @@ describe('CharacterSheet', () => {
       fireEvent.click(within(alert).getByRole('button', { name: 'Dismiss' }));
 
       expect(useCharacterStore.getState().actionError).toBeNull();
+    });
+
+    it('should show what the DM has adjusted, which a local sheet has no log for (v3 Req 42.7)', () => {
+      render(<CharacterSheet characterId="char1" />);
+
+      expect(screen.getByRole('heading', { name: "Dungeon Master's adjustments" })).toBeDefined();
+    });
+
+    it('should not draw the DM controls on the reader’s own sheet', () => {
+      // Signed out throughout this file, so `useDmControls` answers *no* — which is also what it
+      // answers for a Player at a real table, and the case v3 Req 42.7's first half is about
+      render(<CharacterSheet characterId="char1" />);
+
+      expect(screen.queryByRole('heading', { name: 'Dungeon Master controls' })).toBeNull();
     });
 
     it('should go back to the games list and put the browser’s ruleset back', () => {

@@ -187,6 +187,16 @@ writable field, and making them one would break the rule the whole engine rests 
 `Character.purse` (TICKET-CUR-02) is a fourth, and it is player state for the same reason
 `currentResourceValues` is: money is spent at the table, not derived from anything.
 
+> **Settled by TICKET-DM-01, and the convenience needed one rule this decision did not anticipate.**
+> "Set level to N" computes the threshold XP off `xp_thresholds` read **forwards** — but a curve is
+> User data, and CRV-03's seeded placeholder has a single row, which under `outOfRange: 'extrapolate'`
+> answers *level 7 costs 0 XP* with complete confidence. Writing that would leave the character at
+> level 1 with the DM told it worked. So the affordance **refuses** rather than guessing: the
+> computed total is fed back through `calculateCharacterLevel`, and anything that does not read back
+> as the level asked for is reported as an error carrying the curve's own sentence. *A level the
+> ruleset cannot price is a level the DM cannot set* — which is the same shape as RES-02's "an
+> unpriceable pool is not a licence to spend".
+
 ### D10 — Tickets stay small
 
 v2.0's rule carries over: at most **three to-be items** per ticket. Server/UI splits follow the
@@ -321,7 +331,7 @@ Characters and play:
 - [x] [TICKET-PLY-01](./tickets/TICKET-PLY-01-player-actions-through-the-server.md) — Player actions go through the server (v3 Req 41) — spend, resources, inventory; the Kernel checks run server-side. Landed **eleven** named intents rather than the to-be's seven: the sheet has four more controls, and shipping a surface whose skill-points and pack silently lost what they changed would have been worse than one more route each. The rules **moved** to `shared/services/playerActions.ts` rather than being copied, which is what makes "one rule, two callers" checkable
 - [x] [TICKET-ROLL-07](./tickets/TICKET-ROLL-07-server-resolved-rolls.md) — Server-resolved rolls and the session roll log (v3 Req 41.6, 45.2) — the RNG moves; `useUIStore`'s history becomes a projection of Events. The roll's path names the **character** rather than the session, so a request cannot disagree with itself about which table it is at; the log stays session-scoped. `routes/rolls/` is its own folder because a roll's rule is the dice engine, which `routes/play/`'s scan forbids reaching
 - [x] [TICKET-CUR-02](./tickets/TICKET-CUR-02-character-purse.md) — A character carries a purse (v3 Req 43) — a persisted-shape change with a `docs/imports/` fragment; **before DM-02**, which edits it. It turned out to be a **replacement**: an untickted per-tier `wallet` had landed in an unrelated commit and contradicted D9, and the User chose `purse` — one amount in the base tier — with a conversion that keeps the money. **No `schemaVersion` bump**, against this line's own expectation: a bump would refuse every stored roster and destroy the data the conversion exists to keep, so the two are mutually exclusive. Reasoned on the ticket
-- [ ] [TICKET-DM-01](./tickets/TICKET-DM-01-dm-controls-progression.md) — DM controls: experience, grants, resources (v3 Req 42.1–42.4) — D9; `grantedStatPoints` is the third sanctioned stored value
+- [x] [TICKET-DM-01](./tickets/TICKET-DM-01-dm-controls-progression.md) — DM controls: experience, grants, resources (v3 Req 42.1–42.4) — D9; `grantedStatPoints` is the third sanctioned stored value. Landed **six** routes rather than the to-be's five: v3 Req 42.7 asks that a Player *read the Events that changed their own sheet*, and there was no surface for that without `GET /api/characters/:id/adjustments`. *"Set level to N"* refuses rather than guessing — the answer is fed back through `calculateCharacterLevel`, because a single-row placeholder curve will happily extrapolate a confident **0 XP** for level 7. The DM's view of a player's sheet is **not** read-only yet, and that gap is stated on the ticket: hiding the Player's own controls is placement, which is DM-03's
 - [ ] [TICKET-DM-02](./tickets/TICKET-DM-02-dm-controls-inventory-and-purse.md) — DM controls: inventory and purse (v3 Req 42.5–42.7) — needs CUR-02
 - [ ] [TICKET-DM-03](./tickets/TICKET-DM-03-quick-actions-and-sheet-sidebar.md) — Quick actions derived from the ruleset, and the sheet sidebar (v3 Req 49.1–49.7, 49.10) — mechanism before placement, the ROLL-01/ROLL-02 split. **The action set comes from the Snapshot's `isResource` stats**, so a ruleset naming its pools *Vigor* and *Focus* gets *Damage Vigor* and *Restore Focus* with no code change; every action is a shortcut to a DM-01/DM-02 route and adds no server surface
 
