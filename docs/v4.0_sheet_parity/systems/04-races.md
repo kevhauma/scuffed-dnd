@@ -61,15 +61,23 @@ exists on `Race`.
    unchanged — spot-checked human/elf/dwarf/Raccoon against races.json); **drop Demon, Demur,
    Monolith, Gods** from the *race* fragment (they were always Concept 04 bestiary rows the old
    picker happened to include; the new race tab draws the line for us); **add the twenty new
-   blocks** above. Whether `Empty` survives is an open question below.
-2. **Race identity fields** — optional `type?`, `size?`, `challengeRate?` on `Race`. Type and size
+   blocks** above.
+2. **`Empty` is deleted** (User ruling, 2026-08-29). A character has **two real races** — the
+   sheet's mother and father — and "pure Ducklets" is *Ducklets twice*, which is exactly what the
+   sample character does and what the blend formula rewards: `MAX(1, ROUNDUP(8+8)/2) = 8`, the
+   block intact. Consequences for the ticket:
+   - `Character.raceIds` becomes **exactly 2**, not "at most 2". `MAX_RACE_COUNT` stays the one
+     place the number lives; the wizard requires both picks and the creation rules refuse one.
+   - **Halving is no longer a way to express a single race.** Nothing else changes in
+     `calculateRaceStatBases` — the blend already reads two blocks.
+   - No conversion for stored characters holding `race-empty` or a single id (overview D6).
+3. **Race identity fields** — optional `type?`, `size?`, `challengeRate?` on `Race`. Type and size
    values come from the User's own reference lists (systems/14) — model them as free strings
    validated against those lists, not as hard-coded const objects: they are ruleset data, and the
-   sheet's spellings (`humaniod`, `guargantian`) are the User's to fix. Additive-optional → no
-   version bump.
-3. **The blend floor** — add the sheet's `MAX(1, …)` to `calculateRaceStatBases` (a one-term
+   sheet's spellings (`humaniod`, `guargantian`) are the User's to fix.
+4. **The blend floor** — add the sheet's `MAX(1, …)` to `calculateRaceStatBases` (a one-term
    engine change beside the existing divisor; only all-zero pairings move, from 0 to 1).
-4. **Fragment re-source** — races.json to the new tab/ranges, with the duplicate stat block rows
+5. **Fragment re-source** — races.json to the new tab/ranges, with the duplicate stat block rows
    (18–26) noted.
 
 ## Backend note
@@ -78,10 +86,8 @@ All inside `ruleset.data`. Nothing server-side.
 
 ## Open questions
 
-- **Does `Empty` survive?** The new sheet has no Empty column and its Setup defaults both race
-  slots to real races. But the app's single-race character *is* "race + Empty halved"
-  (TICKET-RACE-02's semantics). Dropping Empty changes what a one-race character's numbers mean —
-  this needs the User's call, and it may be the one place §4 touches engine behaviour rather than
-  data.
 - **Challenge rate is 0 for every race** — clearly a creature-facing field waiting for a bestiary.
   Store it (it is in the sheet) but build nothing on it.
+
+*(Settled: `Empty` is deleted and a character has exactly two races — User ruling, 2026-08-29,
+gap 2 above.)*

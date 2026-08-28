@@ -63,12 +63,16 @@ the wizard may caption the two race slots as parents, and there are exactly two.
    and the formula keeps reading `const.apt_value` unless the constant is renamed in the same
    sweep. Decide in the ticket whether `apt_value` becomes `atp_value` (a constant rename is also
    safe; the corpus and seeds move together).
-2. **`Character.dreamLevel?`** — new optional player state, absent-means-1 (the sheet's sample
-   and its multiplicative role both point at 1 as the neutral value). It is hand-set at the table,
-   the same class of state as `experience`, so it joins the sanctioned exceptions with the same
-   justification and gets a DM setter in the shared services. **It is an input to derivation, not
-   a derived value**: `statGain` reads it (systems/05). Additive-optional → no
-   `SUPPORTED_SCHEMA_VERSION` bump.
+2. **`Character.dreamLevel?`** — new optional player state, absent-means-1 (the sheet's sample and
+   its multiplicative role both point at 1 as the neutral value). **It is an input to derivation,
+   not a derived value**: `statGain` reads it (systems/05), so it joins the sanctioned stored
+   exceptions on the same test as `experience` — nothing derives it.
+   **The DM raises it as an action** (User ruling, 2026-08-29), on the surface that already awards
+   experience and sets level: a pair in
+   [`dmActions.ts`](../../../src/shared/services/dmActions.ts) beside `addExperience` /
+   `setLevelExperience`, called by `characterStore` in local mode and by `routes/dm/` on the
+   server, with the same refuse-rather-than-clamp discipline (below 1 is refused, naming the
+   floor). It earns a row in the DM's quick actions and the session roster, like a point grant.
 3. **One pool for stats and skills** — today `validateStatAllocation` budgets stat points only and
    skill investment is unbudgeted. Parity makes `level × points_per_level + grants` the budget for
    the *sum* of `investedStatPoints` and `investedSkillPoints`. The refusal discipline is
@@ -83,9 +87,8 @@ routes call. No schema, no route, no socket change.
 
 ## Open questions
 
-- **Who raises Dream level, and when?** Its mechanic is proven (systems/05) but nothing in the
-  workbook says what advances it — "Hoe ver je staat in je dream" implies story progress. Ship it
-  DM-set; ask the User whether players may see a rationale ladder.
-- **"Chosen abiltie"** — an empty box on Setup, `Chosen abiltie` on the final build, and exactly
-  one spell row marked `Learned` (Acid Splash). Whether *chosen ability* = first learned spell or
-  a separate signature pick is systems/13's open question.
+None.
+
+*(Settled by User ruling, 2026-08-29: the **DM raises Dream level as an action**, on the same
+surface as experience and level — gap 2 above; and **"Chosen abiltie" is nothing yet**, a
+placeholder box that gets no model — systems/13.)*

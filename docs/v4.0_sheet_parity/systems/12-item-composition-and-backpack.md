@@ -41,31 +41,52 @@ skill-side contribution.
 
 ## Parity gap
 
-1. **Add the socket**: `Item.inlayId?` + `Item.inlayLevel?` beside the existing
-   `materialId`/`materialLevel` — the composed-item pattern the shape already uses, extended one
-   axis. Additive-optional → no version bump.
+1. **A composed item is an inventory record that links its parts** (User ruling, 2026-08-29).
+   It lives on the **character**, not in the ruleset's catalog, and it stores *references* rather
+   than a copy of the numbers:
+
+   ```
+   { id, templateId, materialId, materialLevel, inlayId?, inlayLevel? }
+   ```
+
+   Three things follow, and each is the house rule rather than a new invention:
+
+   - **Nothing about its bonuses is stored.** Stats and skill vectors are re-read from the
+     template, material tier and inlay tier at calculation time — the derived-values rule, and the
+     reason retuning a material relabels every axe in the game instead of rewriting none of them.
+   - **`Inventory` grows a home for them.** `equippedItems` and `miscItems` hold ids today; the
+     ticket decides whether composed items live in a third collection keyed by id or whether those
+     two start naming composed records. Prefer the smaller change that keeps
+     `equippedItems: Record<slotType, id>` intact.
+   - **Guarded deletes reach further.** Deleting a material, item template or inlay a character
+     has built something out of must be refused by the existing walker
+     (`engine/dependencies.ts` already counts characters as references — this is a new edge in the
+     same graph, not a new mechanism).
+
+   The catalog side keeps its part: `Item` stays the **template** (name, category, skill vector),
+   and its old v1 `materialId`/`materialLevel` fields — the fused-instance experiment — are
+   **deleted**, since instances now live where they belong. Under D6 that costs no conversion.
 2. **Engine**: per equipped slot, stat bonuses = material row + inlay row (statCalculator gains
    one term); skill bonuses = template vector (skillCalculator gains the slot walk — systems/06
    gap 4). Confirmed numbers above become golden fixtures (plan §15).
-3. **The builder** — an "item selecter" flow in the app: pick template, material+tier,
-   inlay+tier → creates the composed `Item` and puts it in `miscItems`. This is the User-facing
-   answer to the sheet's three-column picker. Display-name convention follows the sheet:
-   `<Material N> <Template> with <Inlay N|empty> inlay`.
-4. **Naming note**: two different `Item` records may share a template ("Battleaxe") — the
-   template list (systems/11) is the catalog; a composed item is an instance record pointing at
-   material/inlay. That is v1.0's existing pattern, kept deliberately rather than a new
-   template/instance split — no new abstraction before its third caller.
+3. **The builder** — an "item selecter" flow in the app: pick template, material + tier, inlay +
+   tier → writes the composed record into the character's inventory. This is the User-facing
+   answer to the sheet's three-column picker, and it is a **player action**, so it goes through a
+   store action locally and the existing player-action route on the server.
+4. **Naming**: the display phrase is derived, never stored — `<Material N> <Template> with
+   <Inlay N|empty> inlay`, rebuilt from the links every render, so renaming a material relabels
+   every item made of it. Many composed items may share one template; that is the
+   template/instance split the ruling settles, and it is why the instance carries no name of its
+   own. The sheet's `with empty inlay` suffix is mirrored (its double space is not).
 
 ## Backend note
 
-Document and engine only. Composed items live inside `character.data`'s inventory and the ruleset's
-item list exactly as today.
+Document and engine only. Composed items live inside `character.data`'s inventory; the ruleset's
+item list holds templates. Both are JSON documents — no schema change (overview D2).
 
 ## Open questions
 
-- **Where do composed instances live** when a Player builds one — in the ruleset's `items` array
-  (today's home, but it is Configuration data a Player edits) or in a character-side list? Today
-  players already reference ruleset items; the sheet is one workbook per character so it cannot
-  say. This is the one real design decision in §10 — put it to the User in the ticket's plan.
-- **Inlay-less display** — the sheet spells it "with empty inlay"; mirror or drop the suffix.
-  Cosmetic; follow the sheet by default.
+None.
+
+*(Settled by User ruling, 2026-08-29: a composed item is a record in the Player's inventory
+carrying links to the template, material tier and inlay tier it is made of — gap 1 above.)*

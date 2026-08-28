@@ -34,15 +34,15 @@ Feet, accesory — laid out on a 3×4 board (TICKET-INV-03). `EquipmentSlot` is 
 1. **Rename five slots, drop one, keep the count at six** — head→Head gear, chest→Upperbody gear,
    legs→Lowerbody gear, feet→Foot gear, main_hand→right hand, off_hand→Left hand, and retire
    `accessory`.
-2. **The reshape risk lives in the key.** Slot `type` is the join key into every character's
-   `equippedItems`. Two honest paths, per the data-model rules (bump XOR migrate):
-   - keep the existing `type` values (`head`, `chest`, `main_hand`…) and change only display
-     `name`s — zero character impact, `accessory` type retired via `RETIRED_FIELDS`-style
-     validation and a conversion that moves an equipped accessory to `miscItems`;
-   - or rename types and ship a key-mapping conversion in the load path with a test feeding the
-     old shape.
-   The first is smaller and loses nothing the sheet shows (the sheet names are display). Recommend
-   it in the ticket; either way an accessory-wearing character must not lose the item.
+2. **The keys are rewritten, and nothing is carried across** (User ruling, 2026-08-29 → overview
+   D6). Slot `type` is the join key into every character's `equippedItems`, and the two-path fork
+   this document used to carry — keep the old keys, or rename them and ship a conversion — is
+   resolved by the clean break: **rename them to match the sheet** (`head_gear`, `upperbody_gear`,
+   `lowerbody_gear`, `foot_gear`, `right_hand`, `left_hand`), delete `accessory`, and write no
+   conversion. An old stored character does not lose its accessory quietly; it meets
+   `IncompatibleDataNotice` with a backup offer, along with everything else from the old shape.
+   `accessory` still earns a `RETIRED_FIELDS` entry — that is the sentence naming what replaced
+   it, not a compatibility path.
 3. **Board layout** — re-place six slots on the figure (the sheet draws a simple list; our board
    is our own presentation, TICKET-INV-03's `placement` is optional metadata).
 4. **Fragment update** — equipment-slots.json re-sourced with the new names and the retirement
@@ -50,12 +50,12 @@ Feet, accesory — laid out on a 3×4 board (TICKET-INV-03). `EquipmentSlot` is 
 
 ## Backend note
 
-Document-only. If the conversion path is chosen it is a client-load-path conversion with a test —
-still no server change (server-held characters flow through the same shared shape check).
+Document-only, and simpler under D6 than it looked: no conversion means no load-path code and no
+old-shape test. Server-held characters meet the same shared shape check.
 
 ## Open questions
 
-- **What may an accessory-era ruleset do?** A stored ruleset with seven slots keeps working — the
-  slot list is User data, and six-vs-seven is their edit. The parity change is to the *seed* and
-  the *corpus*; the ticket must not force-edit existing rulesets beyond the accessory retirement
-  decision above. Confirm with the User which of the two paths in gap 2 they want.
+None.
+
+*(Settled by User ruling, 2026-08-29: slot keys are rewritten to the sheet's six, `accessory` is
+deleted, and no backwards compatibility is built — overview D6.)*

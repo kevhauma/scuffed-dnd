@@ -52,11 +52,11 @@ The calculation tab (R2:AA11) assembles a final stat as
    shadow (only Vitals carry Temp). Model as an optional `Stat.group?: string` (User-named, not a
    closed set — it is their ruleset) or as sheet-layout metadata; the ticket decides, but the
    character sheet renders three columns either way. Additive-optional.
-2. **The Temp column is probably already built.** If it is the current-pool box (the likelier
-   reading above), `currentResourceValues` is it, and the parity work is the sheet *rendering*
-   Base and Temp side by side — plus deciding whether Speed becomes `isResource` so it gets a box.
-   Only if the User says it is a temporary-bonus box does a new `Character.tempStatValues?` field
-   exist. Ask before adding state the engine never reads.
+2. **The Temp column is not built at all** (User ruling, 2026-08-29: it means *nothing*). No
+   `tempStatValues`, no third box on the sheet, no rendering of the column. It stays in this
+   document as a record of what the workbook draws, and `currentResourceValues` remains the only
+   "current" the app has. **Speed does not become a resource** either (same ruling) — it keeps its
+   Temp box in the sheet and no pool in the app.
 3. **Refresh the stats fragment** — new descriptions (the tomato ladder), the ATP rename
    (systems/02), `group` values, re-sourced ranges.
 
@@ -67,13 +67,10 @@ server-side.
 
 ## Open questions
 
-- **What does the Temp box mean to the User** — current pool value, or temporary bonus? The
-  formulas cannot answer (nothing reads the cell); the ticket asks before modelling anything
-  beyond the existing `currentResourceValues`.
-- **Does Speed become a resource?** The sheet gives it a Temp box like Health and Mana. If yes,
-  it is one flag flip (`isResource`) in the stats fragment — but it also gives Speed a "current"
-  the DM/player can spend down, which is new table behaviour to confirm.
 - **May a fractional final stat reach the sheet?** The workbook allows it (no rounding on the
   final SUM); the app displays whatever the engine returns. Decide in the ticket whether to mirror
   exactly or surface the ruleset's `rounding` mode — mirroring exactly is the default (the sheet
-  wins).
+  wins). Live now that a sub-affinity stat gains `+dreamLevel` and `main(0)` is 0.75.
+
+*(Settled by User ruling, 2026-08-29: the Temp box means nothing and is not modelled; Speed does
+not become a resource.)*

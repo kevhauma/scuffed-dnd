@@ -201,7 +201,7 @@ Prefix to mint: **`SPL`**. This is at least three tickets' worth (ticket-size li
 2. **Learned spells + the Spellbook view** — `Character.learnedSpellIds?: string[]`
    (absent-means-none, the sheet's `locked` default) and a play-mode spellbook that mirrors the
    sheet's own `Spellbook` tab: the learned subset with name, mana, range and *resolved* effect.
-   The Setup tab's *Chosen abiltie* waits on its open question below.
+   The Setup tab's *Chosen abiltie* box is built into nothing (settled below).
 3. **Casting** — a cast spends `manaCost` against the Mana pool through the existing
    resource actions (refuse-below-zero is already `adjustCurrentStatValue`'s discipline; the
    ticket decides refuse-vs-allow for insufficient mana with the User).
@@ -221,15 +221,18 @@ shared resource actions. Server-resolved rolls are untouched (a spell cast is a 
 not a dice roll — unless the effect says "Roll 4D6", which stays a player-driven roll through the
 existing roll surface).
 
+## Settled
+
+- **Spells unlock manually** (User ruling, 2026-08-29) — a hand-set flag, exactly what the sheet
+  does. No rule derives it, nothing gates it on a skill level. One transcription note: the
+  Spellbook filter matches the flag **case-insensitively** (`"learned"` vs the `Learned` written
+  in the cells), so both spellings are the same state.
+- **"Chosen abiltie" is nothing yet** (same ruling) — a placeholder box, in the same class as
+  "Passive abilites: Coming soon" and the empty actives tab (overview D5). Build nothing; do not
+  wire it to `learnedSpellIds` or to a signature-spell concept. It is recorded here so the next
+  workbook revision has something to land against.
+- **Effect scaling** — the references are read from the formulas, above.
+
 ## Open questions
 
-- **What is "Chosen abiltie"?** One empty Setup box, one `Learned` spell, no visible link. First
-  learned spell, a signature pick, or the ability the character's *Dream* grants? Ask the User;
-  ship `learnedSpellIds` regardless.
-- **How do spells unlock?** The sheet flags `Learned` by hand (and its Spellbook filter matches
-  the flag case-insensitively — `"learned"` vs `Learned`, worth knowing when transcribing).
-  Presumably the DM unlocks them; nothing visible decides. Ship it as a hand-set flag (player/DM
-  action), which is what the sheet actually does.
-
-*(The former effect-scaling question is settled: the references are read from the formulas —
-see above.)*
+None.

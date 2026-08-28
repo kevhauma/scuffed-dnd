@@ -91,10 +91,14 @@ bonus = ROUNDUP( level / 5, 0 ) + Σ(gear skill bonuses across the six slots)
   row for Stealing (`B40`), so Summening scales off **Dex** instead of its listed Wis/Int — an
   off-by-one visible in the sample (Summening's primary term is 1.8 = Dex 9 × 0.2).
 
-Both go to the User as divergence questions before the fragment is written: the corpus records
-what the sheet *computes*, but building the app on an evident slip would freeze the bug into the
-ruleset. The likely intent — secondary stat actually used, Summening on its own row — is one
-answer away.
+**Ruled 2026-08-29: fix them.** The app builds the reference table's *intent* — the secondary stat
+is genuinely read, and Summening scales off its own Wis/Int row. So the weights table above is the
+spec, and the two bugs are recorded in the fragment's `notes` as a divergence between what the
+sheet computes and what it means. Two knock-on effects to expect when the golden fixtures are
+pinned (plan §15): **every duo skill's level changes** for the sample character (Athletics' second
+term becomes Strenght 26 × 0.1 = 2.6 rather than Dex 9 × 0.1 = 0.9), and Summening moves off Dex.
+The sample's captured levels are therefore *not* the app's expected output for duo skills — pin
+fixtures from the corrected arithmetic and cite this note.
 
 ## What the app has today
 
@@ -129,12 +133,9 @@ Engine and document changes only; the server re-derives skill levels through the
 
 ## Open questions
 
-- **The two sheet bugs above** — build the listed secondary stats and Summening's own row (the
-  evident intent), or mirror the computed behaviour? The User answers; the fragment records both
-  the table and the divergence either way.
 - **Do the focus constants belong per-ruleset?** They read like `const.focus_chosen` /
   `const.focus_other` beside `bonus_divider`. Assumed yes (they are the User's dials), decided in
   the ticket.
 
-*(The former rounding and invested-points questions are settled — the formulas above are read
-from the xlsx, not inferred.)*
+*(Settled: the rounding and invested-points questions, by the xlsx formulas; the two sheet bugs,
+by the User's 2026-08-29 ruling to fix them.)*

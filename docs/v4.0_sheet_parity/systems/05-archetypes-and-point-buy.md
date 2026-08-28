@@ -81,8 +81,9 @@ Data plus one shared-engine change (`statGain`); the server re-derives through i
 
 ## Open questions
 
-- **Should sub's `+dreamLevel` apply at zero points?** The formulas say yes (the sample shows it:
-  Wis/Mana +1 with nothing spent). It makes every archetype grant a small passive block that
-  grows with dream — plausibly intended, worth one confirmation with the User since it changes
-  every character's stats the moment dream rises.
 - The old anomalies (`4.642857…`, `12.0665…`) remain the User's decision, unchanged since v2.0.
+
+*(Settled by User ruling, 2026-08-29: sub-affinity stats **do** gain `+dreamLevel` at zero points,
+as the formulas have it. So every archetype grants a small passive block over its two sub stats
+that grows with Dream level, and a character's stats move the moment the DM raises it — pin that
+in the fixtures.)*
