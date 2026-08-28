@@ -1,9 +1,10 @@
 # Test Status
 
-_Last verified: 2026-08-28 (`npx vitest run`) at **TICKET-GAM-03**'s closeout, which re-measured the
-baseline and found it unmoved — the count itself was set by **TICKET-DM-01 — DM controls:
-experience, grants, resources**, the last ticket to change source.
-The checkpoints before it were **TICKET-CUR-02 — a character carries a purse** at 2955,
+_Last verified: 2026-08-29 (`npx vitest run`) at **TICKET-ROLL-08 — the dice ladder's fractional
+remainder**, the first ticket of v4.0's shape pass and the current count-setter at **3047**.
+The checkpoints before it were **TICKET-DM-01 — DM controls: experience, grants, resources** at
+3037 (re-measured unmoved at TICKET-GAM-03's closeout),
+**TICKET-CUR-02 — a character carries a purse** at 2955,
 **TICKET-ROLL-07 — server-resolved rolls** at 2932,
 **TICKET-PLY-01 — player actions go through the server** at 2904,
 **TICKET-CHAR-04 — characters are created per session** at 2827,
@@ -30,8 +31,8 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 3037
-- **Passing**: 3037 (100%)
+- **Total tests**: 3047
+- **Passing**: 3047 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
@@ -59,6 +60,49 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-ROLL-08 — ten tests in one file, and a rule that was wrong for four tickets
+
+The **+10 over DM-01** is TICKET-ROLL-08, all of it in `shared/engine/dice/diceLadder.test.ts`:
+4 for the v4 sheet's sample rolls, 5 for the rounding rule, and 1 for the `NaN`/infinity guard.
+**190 files, unchanged** — no other file in the tree needed a line, which is the ticket's own claim
+that this is additive engine behaviour.
+
+**One existing assertion was replaced rather than kept, and it is the whole ticket.**
+*should decompose a negative or fractional value to flat-only* pinned
+`decomposeValue(10.5) → 0D20 + 0D12 + 0D6 + 10.5` — every rung at zero, the fraction sitting in the
+flat. That was a defensible reading (a pool cannot express a fraction) and it is not what the sheet
+does: the v4 workbook's ladder is three `INT`s and one **`ROUND`**, so 22.4 is `1D20 + 2`. The case
+is split — the negative half unchanged, the fractional half moved into the new block — and the
+ticket carries the before/after table.
+
+**The consequence was reachable, not theoretical.** The v4 Endurance input is
+`(Str + Con) / 2.5 + Health / 5`; the sheet's own sample lands on **22.4**. The moment the data
+pass seeds that formula, every Endurance roll would have thrown *no dice at all* and printed a
+22.4 flat where the table throws `1D20 + 2` — a green suite the whole way, because nothing in it
+had ever handed the ladder a fraction.
+
+**The rounding is `roundHalfAwayFromZero`, not `Math.round`**, and reusing the formula library's
+export rather than writing `Math.round` in the ladder is the load-bearing choice: `Math.round(-2.5)`
+is `-2` and Excel's `ROUND` is `-3`, so a ladder rounding one way and a User formula spelling
+`round` rounding the other would have been two rules for one sheet function. The negative `.5`
+case is what tells them apart and it is pinned in both directions.
+
+**Two properties, one of which had to be replaced too.** The old *conserves its input* property is
+`fc.integer` and still holds; a fractional input conserves the **rounded** input instead, so the new
+property asserts that — `flat + Σ(size × count) === round(value)` — plus that no count and no flat
+is ever fractional. It generates from `0.5` up rather than from `0`, because fast-check's zero can
+arrive as `-0` and the assertion would have been about signed zero rather than about the ladder.
+
+**The one behaviour that looks like a bug and is the sheet's**: `5.6` decomposes to
+`0D20 + 0D12 + 0D6 + 6` — a flat that has grown to the size of the smallest die without becoming
+one. The sheet's three `INT`s and its one `ROUND` are four independent cells and nothing re-walks
+after the rounding, so the app does not either. It has its own test saying so, because the next
+reader's instinct will be to "fix" it.
+
+**`fallow` had nothing to report**: `audit --base main` passes with 0 introduced findings, and
+neither `diceLadder.ts` nor its test appears among `health --hotspots`' 63 files — so no row is
+owed in the hotspot table below.
 
 ## TICKET-DM-01 — the ticket where a level had to stay underivable
 

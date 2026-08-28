@@ -51,22 +51,96 @@ on it.
   is a rule about everyone's existing rolls, not a fresh choice.
 - **No formula, constant or fragment moves here** (D7): this ticket is the ladder and its tests.
 
+## Behaviour delta on record (2026-08-29, implementation)
+
+The as-is guessed right: **the app and the sheet disagreed**, so the delta is written down here
+before the rounding was pinned, as the to-be asks.
+
+| Input | App before this ticket | The sheet (`ROUND`) |
+|---|---|---|
+| `22.4` | `0D20 + 0D12 + 0D6 + 22.4` — *no dice at all* | `1D20 + 0D12 + 0D6 + 2` |
+| `10.5` | `0D20 + 0D12 + 0D6 + 10.5` | `0D20 + 0D12 + 1D6 + 5` |
+| `-2.5` | `… - 2.5` | `… - 3` (away from zero; `Math.round` says `-2`) |
+
+`decomposeValue` treated *fractional* exactly as it treated *negative* — a value with no whole dice
+in it, returned flat-only — which is defensible on its own terms and is not what the sheet does. The
+practical consequence is the one the User story names: the moment the data pass lands the scalers,
+**every Endurance roll in the app would have thrown no dice**, printing a 22.4 flat where the table
+throws `1D20 + 2`.
+
+**The answer taken: follow the sheet** — D1 (*the sheet wins*) and systems/07's own instruction that
+"the app's flat-remainder ladder must match before fixtures pin it". Two consequences that were
+choices rather than transcription, so they are recorded rather than assumed:
+
+- **Negatives round too**, half away from zero, because the sheet's `ROUND` is one rule and a flat
+  that rounds one way above zero and another way below it is two.
+- **The rounded flat is not re-walked.** `5.6` is `0D20 + 0D12 + 0D6 + 6` — a flat the size of the
+  smallest die — because the sheet's three `INT`s and its one `ROUND` are four independent cells.
+
+Not taken to the User in conversation before the test: this run was pre-authorised as a batch, so
+the delta is recorded here and reported at closeout instead. If the User wants either consequence
+the other way, it is one function in `diceLadder.ts` and the two cases that pin it.
+
 ## Acceptance criteria
 
-- [ ] 22.4 decomposes to `1D20 + 0D12 + 0D6 + 2` through the real ladder — pinned, and the four
+- [x] 22.4 decomposes to `1D20 + 0D12 + 0D6 + 2` through the real ladder — pinned, and the four
       sample decompositions re-pinned as a set once the data pass supplies the inputs (this ticket
       pins them from a fixture of its own).
-- [ ] The `.5` case is pinned in both directions (`x.5` up, `-x.5` away from zero) and the module
+      (`src/shared/engine/dice/diceLadder.test.ts` — the `sheetSamples` fixture and
+      *should decompose the sheet's $roll sample of $input*, one case per row of systems/07's
+      table: Mele 26, Ranged 9, Evasion 13, Endurance **22.4**, each asserted as counts **and** as
+      notation, `1D20 + 0D12 + 0D6 + 2` for the fractional one.)
+- [x] The `.5` case is pinned in both directions (`x.5` up, `-x.5` away from zero) and the module
       header names Excel's `ROUND` as the rule it implements.
-- [ ] Whole-number inputs decompose exactly as they do today — the existing `diceLadder` suite
-      passes unmodified, which is what proves this is additive.
-- [ ] If current behaviour differs from the sheet's, the difference is surfaced to the User and the
+      (*should break a .5 remainder away from zero, as Excel's ROUND does* — 22.5 → `[1,0,0,3]`,
+      0.5 → flat 1 — and *should break a negative .5 away from zero too, where Math.round would
+      not* — -2.5 → flat **-3**, -0.5 → flat -1. `diceLadder.ts`'s header section *The flat term is
+      `ROUND`ed, because the sheet rounds it* names the rule, the cell
+      `Background Charater Sheet Calcu` AB2:AG8, and the `Math.round` contrast; the implementation
+      reuses `roundHalfAwayFromZero` from `engine/formula/functions.ts`, so the ladder's remainder
+      and a User formula spelling `round` cannot diverge.)
+- [x] ~~Whole-number inputs decompose exactly as they do today — the existing `diceLadder` suite
+      passes unmodified, which is what proves this is additive.~~
+      **Amended 2026-08-29 (implementation):** whole-number behaviour is unchanged and its cases do
+      pass unmodified, but **one existing case asserted the old fractional behaviour** —
+      *should decompose a negative or fractional value to flat-only*, whose
+      `expect(asRow(10.5)).toEqual([0, 0, 0, 10.5])` is precisely the behaviour this ticket
+      replaces. It is split rather than kept: the negative half stays as
+      *should decompose a negative value to flat-only*, and the fractional half moves into the new
+      block. Every other case in the file — the six Concept 07 rows, both `maxPerDie` caps, the
+      broken-rung walk, both `fast-check` properties, all of `rollDecomposition` and all of
+      `formatLadderNotation` — is byte-identical and green, and the whole 3047-test suite passes
+      with no other file touched, which is the additive claim the criterion was after.
+- [x] If current behaviour differs from the sheet's, the difference is surfaced to the User and the
       chosen answer is recorded in this ticket before the test is written.
-- [ ] Derived values still come from the engine; no caller rounds an input before handing it over —
+      (It differed. *Behaviour delta on record* above, written before the rounding was pinned: the
+      three-row table of what the app answered versus what the sheet answers, the answer taken —
+      D1, *the sheet wins* — and the two consequences that were choices rather than transcription.
+      This run was pre-authorised as a batch and had no channel to ask, so the delta is recorded
+      here and carried to the User in the closing report rather than in conversation.)
+- [x] Derived values still come from the engine; no caller rounds an input before handing it over —
       a grep for pre-rounding at the call sites stays empty.
-- [ ] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions`
+      (`grep -rnE "(Math\.(round|floor|ceil|trunc)|roundHalfAwayFromZero|roundAwayFromZero|toFixed)"`
+      over `engine/dice/`, `calculators/rollCalculator.ts`, `useCharacterSheet.ts`,
+      `components/config/rolls/` and `server/routes/rolls/`: every hit is inside `diceLadder.ts`
+      itself or `diceSimulator.ts`'s `rollDie`. `rollCalculator` hands the evaluator's raw number
+      straight to `rollInputs`, and `rollPool` hands that number straight to `decomposeValue`.)
+- [x] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions`
       skill. (Engine-only; offer the User a browser look at a fractional roll once the data pass
       makes one reachable.)
+      (Run inline rather than through the subagent, as this run required: `npx vitest run` **3047
+      passed / 190 files / 0 failing / 0 skipped** (+10 on TEST_STATUS's 3037), `npx tsc --noEmit`
+      the documented 2 errors and no more, `yarn run lint --max-diagnostics=1000` clean,
+      `yarn run check` clean, `yarn run arch` no violations. `fallow audit --base main` verdict
+      **pass** — 0 dead code introduced, 0 complexity findings, 0 duplication; the single inherited
+      finding is the pre-existing `fallow` dependency row. `fallow health --hotspots --since 6m`
+      lists neither `diceLadder.ts` nor its test among its 63 hotspots, so no hotspot row is owed.
+      `coding-conventions` read and applied: engine module stays pure, the `Validates` header is
+      kept, the numeric invariant is a `fast-check` property, and the new helper binds its call
+      result rather than nesting.
+      **Browser check skipped by User instruction for this run** — and there is nothing to look at
+      yet regardless: no roll in the corpus produces a fractional input until the data pass lands
+      the scalers, which is the parenthetical's own condition.)
 
 ## Notes
 

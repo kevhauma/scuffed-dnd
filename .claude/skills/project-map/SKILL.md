@@ -320,9 +320,14 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 - `dice/diceLadder.ts` — `decomposeValue(value, ladder)` → `{ counts: [{ size, count }], flat }`
   (TICKET-ROLL-03): Concept 07's signature mechanic, turning one number into a dice pool by walking
   a configured `DiceLadder`'s `dieSizes` greedily, largest first, with the leftover flat —
-  `39` over `[20, 12, 6]` is `1D20 + 1D12 + 1D6 + 1`. **Total**, and it conserves the input: a
-  negative or fractional value, a rungless ladder and a nonsensical `maxPerDie` all come back
-  flat-only rather than throwing, with `engine/validator.ts` reporting the ruleset problem. Every
+  `39` over `[20, 12, 6]` is `1D20 + 1D12 + 1D6 + 1`. **Total**: a negative value, a `NaN` or an
+  infinity out of a broken formula, a rungless ladder and a nonsensical `maxPerDie` all come back
+  flat-only rather than throwing, with `engine/validator.ts` reporting the ruleset problem. A
+  **fractional** value walks like any other and its fraction lands in the flat, which is
+  `ROUND`ed the sheet's way — `roundHalfAwayFromZero`, so `.5` breaks away from zero on both sides
+  (TICKET-ROLL-08): `22.4 → 1D20 + 0D12 + 0D6 + 2`. Rounding is the last step and nothing re-walks
+  after it, so `5.6` is a flat `6` rather than a D6. `flat + Σ(size × count)` is therefore the input
+  for a whole value and the **rounded** input for a fractional one. Every
   rung is an entry even at zero — `showZeroTerms` is a *display* choice, so the walk never makes it.
   Also `rollDecomposition(decomposition, rng?)` and `formatLadderNotation(decomposition, ladder)`
   (TICKET-ROLL-04). The roller takes a **decomposition**, not a value and a ladder, so a roll cannot

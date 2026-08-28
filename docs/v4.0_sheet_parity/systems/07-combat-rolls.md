@@ -20,8 +20,9 @@ The *Combat scaler* block (`Background References Character` S3:U4) holds the th
 
 The ladder is the old one with its exact arithmetic now on record: `INT(value/20)` D20s, `INT`
 D12s, `INT` D6s, and the remainder **`ROUND(…, 0)`-ed** into the flat term — so Endurance's 22.4
-becomes `1D20 + 2` (2.4 rounds to 2; a `.5` remainder would round *up*, which the app's
-flat-remainder ladder must match before fixtures pin it). Zero terms are written out, as before.
+becomes `1D20 + 2` (2.4 rounds to 2; a `.5` remainder rounds *away from zero*). Zero terms are
+written out, as before. **The app matches this as of TICKET-ROLL-08** — it did not before, and the
+delta is recorded on that ticket.
 
 Glossary (Naming BA:BB): Mele "Mele damage", Ranged "Ranged damage", Evasion "hoe goed je dodged",
 **Endurance** "hoe goed je het tanked" — the roll the old sheet called `endure`.
@@ -56,11 +57,12 @@ the new formulas *may* also explain the old cells. Nice if true; not required.
 ## Backend note
 
 Dice are rolled on the server (TICKET-ROLL-07) *through the shared engine* — richer inputs change
-no route. Confirm the fractional-input behaviour (22.4) matches between `diceLadder.ts` and the
-sheet before pinning.
+no route, and the rounding landed in `shared/engine/dice/diceLadder.ts`, so the server inherited it
+with nothing under `src/server/` edited (D2).
 
 ## Open questions
 
 None — the formulas are read from the xlsx, so the two inputs graduate from v2.0's
-"honestly short" to **confirmed**. The one check left to the ticket is behavioural: the app's
-remainder handling versus the sheet's `ROUND` on a fractional input (above).
+"honestly short" to **confirmed**. The one behavioural check the ticket was left to make is closed:
+the app decomposed a fractional input to *no dice at all* and now `ROUND`s the remainder as the
+sheet does (TICKET-ROLL-08), negatives included.

@@ -5,12 +5,16 @@
  * cases the concept page does not show but a ruleset will hit, plus TICKET-ROLL-04's rolling and
  * notation over the same decompositions.
  *
+ * TICKET-ROLL-08 adds the v4 workbook's four sample rolls — one of them fractional — and the
+ * rounding rule the flat term follows once an input stops being whole.
+ *
  * **Validates: Concept 07**
  */
 
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import type { DiceLadder } from '../../types/config';
+import { roundHalfAwayFromZero } from '../formula/functions';
 import { decomposeValue, formatLadderNotation, rollDecomposition } from './diceLadder';
 
 /** The sheet's ladder, read from the Calculator's literal `20 | 12 | 6` row (Concept 07) */
@@ -105,9 +109,14 @@ describe('decomposeValue', () => {
     expect(asRow(100, capped)).toEqual([2, 2, 2, 24]);
   });
 
-  it('should decompose a negative or fractional value to flat-only', () => {
+  it('should decompose a negative value to flat-only', () => {
+    // A fractional value is no longer in this branch — TICKET-ROLL-08 walks it; see the block below
     expect(asRow(-7)).toEqual([0, 0, 0, -7]);
-    expect(asRow(10.5)).toEqual([0, 0, 0, 10.5]);
+  });
+
+  it('should decompose a value that is not a number to flat-only rather than poisoning the rungs', () => {
+    expect(asRow(Number.NaN)).toEqual([0, 0, 0, Number.NaN]);
+    expect(asRow(Number.POSITIVE_INFINITY)).toEqual([0, 0, 0, Number.POSITIVE_INFINITY]);
   });
 
   it('should decompose to flat-only when the ladder has no rungs', () => {
@@ -140,10 +149,78 @@ describe('decomposeValue', () => {
     );
   });
 
-  it('should leave a flat remainder smaller than the smallest die', () => {
+  it('should leave a flat remainder smaller than the smallest die for a whole input', () => {
     fc.assert(
       fc.property(fc.integer({ min: 0, max: 5000 }), (value) => {
         expect(decomposeValue(value, sheetLadder).flat).toBeLessThan(6);
+      })
+    );
+  });
+});
+
+/**
+ * The v4 workbook's four sample rolls (systems/07 · `Background Charater Sheet Calcu` AB2:AG8)
+ *
+ * A fixture of this ticket's own, by overview D7: the inputs and the formulas that produce them are
+ * the data pass's, so what is pinned here is the sheet's own sample *numbers* against the sheet's
+ * own sample *decompositions*, depending on nothing the corpus holds today. The set is re-pinned
+ * end to end — formula, input and pool — once the data pass lands the scalers.
+ */
+const sheetSamples = [
+  { roll: 'Mele', input: 26, row: [1, 0, 1, 0], notation: '1D20 + 0D12 + 1D6 + 0' },
+  { roll: 'Ranged', input: 9, row: [0, 0, 1, 3], notation: '0D20 + 0D12 + 1D6 + 3' },
+  { roll: 'Evasion', input: 13, row: [0, 1, 0, 1], notation: '0D20 + 1D12 + 0D6 + 1' },
+  { roll: 'Endurance', input: 22.4, row: [1, 0, 0, 2], notation: '1D20 + 0D12 + 0D6 + 2' },
+];
+
+describe('decomposeValue on a fractional input (TICKET-ROLL-08)', () => {
+  it.each(sheetSamples)('should decompose the sheet’s $roll sample of $input', (sample) => {
+    const decomposition = decomposeValue(sample.input, sheetLadder);
+
+    const notation = formatLadderNotation(decomposition, sheetLadder);
+
+    expect(asRow(sample.input)).toEqual(sample.row);
+    expect(notation).toBe(sample.notation);
+  });
+
+  it('should break a .5 remainder away from zero, as Excel’s ROUND does', () => {
+    // 22.5 is 1D20 with 2.5 left over, and the sheet's ROUND answers 3 rather than an even 2
+    expect(asRow(22.5)).toEqual([1, 0, 0, 3]);
+    expect(asRow(0.5)).toEqual([0, 0, 0, 1]);
+  });
+
+  it('should break a negative .5 away from zero too, where Math.round would not', () => {
+    // `Math.round(-2.5)` is -2 and `ROUND(-2.5, 0)` is -3; this is the case that tells them apart
+    expect(asRow(-2.5)).toEqual([0, 0, 0, -3]);
+    expect(asRow(-0.5)).toEqual([0, 0, 0, -1]);
+  });
+
+  it('should round a remainder below a half down, on either side of zero', () => {
+    expect(asRow(10.4)).toEqual([0, 0, 1, 4]);
+    expect(asRow(-7.4)).toEqual([0, 0, 0, -7]);
+  });
+
+  it('should leave the rounded flat where it lands rather than re-walking the ladder', () => {
+    // Three INTs and one ROUND, evaluated independently: the sheet does not turn the 6 back into a
+    // D6, so a flat may equal the smallest die without becoming one
+    expect(asRow(5.6)).toEqual([0, 0, 0, 6]);
+  });
+
+  it('should leave no fraction anywhere in the pool, and total the rounded input', () => {
+    fc.assert(
+      // From 0.5 up: fast-check's zero can arrive as `-0`, which would make the assertion about
+      // signed zero rather than about the ladder. Zero itself is pinned above
+      fc.property(fc.double({ min: 0.5, max: 5000, noNaN: true }), (value) => {
+        const { counts, flat } = decomposeValue(value, sheetLadder);
+        const fromDice = counts.reduce((sum, entry) => sum + entry.size * entry.count, 0);
+
+        expect(Number.isInteger(flat)).toBe(true);
+        for (const entry of counts) {
+          expect(Number.isInteger(entry.count)).toBe(true);
+        }
+        const expectedTotal = roundHalfAwayFromZero(value);
+
+        expect(fromDice + flat).toBe(expectedTotal);
       })
     );
   });

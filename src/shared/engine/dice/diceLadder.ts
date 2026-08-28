@@ -8,11 +8,21 @@
  * The decomposition is pure and total: every input produces one, including the inputs a ladder
  * cannot really express. Only the roll is non-deterministic, and its randomness is a parameter.
  *
+ * ## The flat term is `ROUND`ed, because the sheet rounds it (TICKET-ROLL-08)
+ *
+ * The v4 workbook spells the ladder out as three `INT`s and one `ROUND`
+ * (`Background Charater Sheet Calcu` AB2:AG8): `INT(value/20)` D20s, `INT` D12s, `INT` D6s, and
+ * `ROUND(remainder, 0)` into the flat. Excel's `ROUND` breaks a tie **away from zero** — which is
+ * `roundHalfAwayFromZero`, the same rule a User formula spelling `round` gets, and *not*
+ * `Math.round`, which answers `-2` where Excel answers `-3`. Endurance's 22.4 is what made this
+ * reachable: it decomposes to `1D20 + 0D12 + 0D6 + 2`.
+ *
  * **Validates: Concept 07**
  */
 
 import type { DiceLadder } from '../../types/config';
 import type { DieRollResult } from '../../types/formula';
+import { roundHalfAwayFromZero } from '../formula/functions';
 import { type RandomSource, rollDie } from './diceSimulator';
 
 /**
@@ -44,22 +54,32 @@ export interface LadderDecomposition {
  * `maxPerDie`, and what a cap refuses falls to the next rung down rather than being lost. The
  * sheet's `[20, 12, 6]` seed gives `10 → 0D20 + 0D12 + 1D6 + 4` and `39 → 1D20 + 1D12 + 1D6 + 1`.
  *
+ * **A fractional value walks like any other and its fraction lands in the flat**, which the module
+ * header's `ROUND` then settles: `22.4 → 1D20 + 0D12 + 0D6 + 2` (TICKET-ROLL-08). The rounding is
+ * the *last* step and nothing re-walks after it, exactly as the sheet's four independent cells
+ * behave — so a `5.6` under a `[20, 12, 6]` ladder is `0D20 + 0D12 + 0D6 + 6`, a flat that has
+ * grown to the size of the smallest die rather than becoming a die.
+ *
  * **A value the ladder cannot take apart becomes flat-only**: a negative value has no whole dice in
- * it and a fractional one cannot be spelled as a count, so both come back as every rung at zero
- * with the value intact in `flat`. That is the honest reading — the alternative is a pool whose
- * total silently disagrees with the number it came from — and it keeps the invariant every consumer
- * relies on: `flat + Σ(size × count)` is always the input.
+ * it, and neither has a `NaN` or an infinity out of a broken formula, so all three come back as
+ * every rung at zero with the rounded value in `flat`. That is the honest reading — the alternative
+ * is a pool that drops the value it could not walk.
+ *
+ * `flat + Σ(size × count)` is therefore the input for every integer value, and the input **rounded
+ * to the nearest whole** for a fractional one. A pool cannot express a fraction, and the sheet
+ * chooses the rounded pool over an unrollable one.
  *
  * @param value - The number to express as dice
  * @param ladder - The ladder to walk
- * @returns One count per rung, in ladder order, plus the leftover
+ * @returns One count per rung, in ladder order, plus the rounded leftover
  */
 export function decomposeValue(value: number, ladder: DiceLadder): LadderDecomposition {
   const counts: DieCount[] = ladder.dieSizes.map((size) => ({ size, count: 0 }));
 
-  // A value with no whole dice in it has nothing to walk
-  if (!Number.isInteger(value) || value < 0) {
-    return { counts, flat: value };
+  // A value with no whole dice in it has nothing to walk. `NaN` is here rather than left to the
+  // walk because `Math.max(0, NaN)` is `NaN`, which would poison every rung as well as the flat
+  if (!Number.isFinite(value) || value < 0) {
+    return { counts, flat: roundFlat(value) };
   }
 
   let remaining = value;
@@ -80,7 +100,24 @@ export function decomposeValue(value: number, ladder: DiceLadder): LadderDecompo
     remaining -= rung.count * rung.size;
   }
 
-  return { counts, flat: remaining };
+  return { counts, flat: roundFlat(remaining) };
+}
+
+/**
+ * The flat term as the sheet writes it — `ROUND(remainder, 0)` (TICKET-ROLL-08)
+ *
+ * `roundHalfAwayFromZero` is the shared spelling of Excel's `ROUND`, so the ladder's remainder and
+ * a User formula calling `round` break a `.5` the same way. The zero normalisation is not cosmetic:
+ * `roundHalfAwayFromZero` multiplies a `-1` sign by a rounded `0`, so a remainder like `-0.4` comes
+ * back as `-0`, and a decomposition holding `-0` would
+ * compare unequal to one holding `0` for every reader that uses `Object.is`, tests included.
+ *
+ * `NaN` and the infinities pass straight through, because a flat that is not a number has to stay
+ * visibly not a number rather than being rounded into a plausible one (Concept 00 §7).
+ */
+function roundFlat(remainder: number): number {
+  const rounded = roundHalfAwayFromZero(remainder);
+  return rounded === 0 ? 0 : rounded;
 }
 
 /**
