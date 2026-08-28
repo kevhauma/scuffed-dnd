@@ -66,8 +66,11 @@ exists on `Race`.
    sheet's mother and father — and "pure Ducklets" is *Ducklets twice*, which is exactly what the
    sample character does and what the blend formula rewards: `MAX(1, ROUNDUP(8+8)/2) = 8`, the
    block intact. Consequences for the ticket:
-   - `Character.raceIds` becomes **exactly 2**, not "at most 2". `MAX_RACE_COUNT` stays the one
-     place the number lives; the wizard requires both picks and the creation rules refuse one.
+   - `Character.raceIds` becomes **exactly the ruleset's race count**, not "at most 2" — and the
+     count itself becomes **per-Configuration data**, defaulting to the sheet's 2 (User ruling,
+     2026-08-29, ticket review). `MAX_RACE_COUNT` leaves the engine entirely; the wizard renders
+     one picker per slot and the creation rules refuse a short pick. Two is the sheet's answer, not
+     the app's rule.
    - **Halving is no longer a way to express a single race.** Nothing else changes in
      `calculateRaceStatBases` — the blend already reads two blocks.
    - No conversion for stored characters holding `race-empty` or a single id (overview D6).
@@ -89,5 +92,5 @@ All inside `ruleset.data`. Nothing server-side.
 - **Challenge rate is 0 for every race** — clearly a creature-facing field waiting for a bestiary.
   Store it (it is in the sheet) but build nothing on it.
 
-*(Settled: `Empty` is deleted and a character has exactly two races — User ruling, 2026-08-29,
-gap 2 above.)*
+*(Settled: `Empty` is deleted and a character has exactly as many races as the ruleset says,
+defaulting to two — User rulings, 2026-08-29 and the same day's ticket review, gap 2 above.)*

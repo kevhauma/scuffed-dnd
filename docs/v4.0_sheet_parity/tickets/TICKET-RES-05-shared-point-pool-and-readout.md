@@ -6,6 +6,11 @@
   (gaps 3–4); the xlsx's `Points to Use = level × 3 − Points Spend` summing stat *and* skill boxes
   (`Background Charater Sheet Calcu` AK3:AK4).
 
+> **Scope (overview [D7](../overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)):**
+> nothing seeded moves here — `points_per_level` is already 3 and the new sheet confirms it. The
+> data pass owes this ticket only the fragment `notes` entry recording the sheet's own double-count
+> quirk (its SUM lists `D10` twice), which is a note about the sheet, not a value.
+
 ## User story
 
 As a Player, I want my stat points and skill points paid from the one budget the sheet prices —
@@ -53,8 +58,6 @@ is summed, not the refusal discipline.
       0 to use, 3 spend), sourced from the allocation result — component test plus engine test.
 - [ ] DM grant round-trips still pass unchanged (`dm.test.ts`'s grant/revoke cases now priced over
       the summed spend).
-- [ ] The sheet's own double-count quirk (the SUM listing `D10` twice) is recorded in the
-      fragment's `notes` as a sheet bug surfaced, not copied.
 - [ ] Unit tests cover: sum priced across both spends, refusal naming, readout values, grant
       interaction.
 - [ ] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions`

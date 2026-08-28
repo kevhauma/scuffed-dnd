@@ -41,7 +41,8 @@ locally, the existing player-action route on the server.
   rebuilt from the links every render — renaming a material relabels every item made of it. The
   sheet's `with empty inlay` suffix is mirrored; its double-space quirk is not.
 - **The Backpack**: the inventory surface lists composed items *not currently equipped* (derived,
-  exactly the sheet's `FILTER`), and equip/unequip moves them between the six slots and the bag.
+  exactly the sheet's `FILTER`), and equip/unequip moves them between the ruleset's slots and the
+  bag.
 
 ## Acceptance criteria
 
@@ -52,8 +53,9 @@ locally, the existing player-action route on the server.
       move — component + engine tests; no `name` field on the record.
 - [ ] The Backpack shows built-but-not-worn only; equipping moves the row out, unequipping moves
       it back — pinned both ways.
-- [ ] Zircon tier 10 (the absent row) is not offered and a direct request is refused naming the
-      gap (TICKET-INL-01's absent-tier rule surfacing here).
+- [ ] A family's absent tier is not offered by the picker and a direct request for it is refused
+      naming the gap (TICKET-INL-01's absent-tier rule surfacing here; Zircon 10 is the row the
+      data pass will make real).
 - [ ] Feature components compose `components/ui` primitives; theme tokens only; persistence
       through store actions.
 - [ ] Unit tests cover: the build action's validation, the derived phrase (with and without

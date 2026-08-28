@@ -57,8 +57,10 @@ The calculation tab (R2:AA11) assembles a final stat as
    document as a record of what the workbook draws, and `currentResourceValues` remains the only
    "current" the app has. **Speed does not become a resource** either (same ruling) — it keeps its
    Temp box in the sheet and no pool in the app.
-3. **Refresh the stats fragment** — new descriptions (the tomato ladder), the ATP rename
-   (systems/02), `group` values, re-sourced ranges.
+3. **Refresh the stats fragment** — new descriptions (the tomato ladder), `group` values,
+   re-sourced ranges. **No rename**: APT keeps its name (systems/02, ticket-review ruling). The
+   fragment refresh itself is the data pass's work, not a ticket's
+   ([D7](../overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)).
 
 ## Backend note
 

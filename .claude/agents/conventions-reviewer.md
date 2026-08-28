@@ -1,6 +1,6 @@
 ---
 name: conventions-reviewer
-description: Reviews a diff or set of changed files against Custom DnD Builder's own conventions (layering, base-vs-feature components, store-owned persistence, engine-owned math, theme tokens, barrels, const-object string sets, SOLID and KISS) and folds in a fallow run for dead code, complexity, and accelerating hotspots. Use after implementing a ticket or before committing, when the user asks for a convention/consistency check.
+description: Reviews a diff or set of changed files against Custom DnD Builder's own conventions (layering, base-vs-feature components, store-owned persistence, engine-owned math, theme tokens, barrels, const-object string sets, no nested calls, SOLID and KISS) and folds in a fallow run for dead code, complexity, and accelerating hotspots. Use after implementing a ticket or before committing, when the user asks for a convention/consistency check.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -43,23 +43,30 @@ and verify, at minimum:
    non-string members or object shapes (`FormulaAST`), and a base component's own two-or-three
    member variant prop (`size?: 'sm' | 'md'`) whose values never leave its props. The ~12
    pre-existing bare unions are **not** findings either — only ones this diff added or reshaped.
-8. **SOLID** — one responsibility per module (panel / card / dialog / hook stay split, one store
+8. **No nested calls** — a call's result is never the argument of another call. `foo(bar(param))`
+   is a finding; the fix is `const x = bar(param); foo(x);` with a name that says what the value
+   is. Applies everywhere, tests included (`expect(compute(input)).toBe(…)` → bind the result
+   first). Two things are **not** findings: a method chain (`items.filter(…).map(…)`), and a
+   function passed by reference or as an inline callback (`items.map(toLabel)`,
+   `useMemo(() => …, [])`) — those are values, not calls. Only flag what this diff added or
+   reshaped; pre-existing nesting is drift, converted when touched.
+9. **SOLID** — one responsibility per module (panel / card / dialog / hook stay split, one store
    per concern); `ConfigPanelShell` extended via `headerExtra` or children rather than gaining a
    prop named after one caller; primitives forwarding native props and `className` so they stay
    substitutable for the element they wrap; props interfaces narrow (the three fields a card
    needs, not the whole `Configuration`); and the layering rule read as dependency inversion —
    engine code unaware of React, storage, and stores.
-9. **KISS** — an abstraction, option, prop, or config flag introduced for its *second* instance or
+10. **KISS** — an abstraction, option, prop, or config flag introduced for its *second* instance or
    with no caller at all; a hand-written sequence where a table plus a `map` would do (CR-22 is
    the precedent); a compatibility shim for a consumer that doesn't exist; a clever construction
    where a shorter one reads. When KISS and open/closed disagree, KISS wins until a third caller
    exists — don't flag a duplication that hasn't yet earned a shared abstraction.
-10. **Roots** — `src/` has three (`shared/`, `client/`, `server/`) and `client/` and `server/` may
+11. **Roots** — `src/` has three (`shared/`, `client/`, `server/`) and `client/` and `server/` may
     each import `shared/` and nothing of each other. Flag a crossing spelled `../../shared/…`
     rather than `#shared/…`, and a within-root import written as an alias. `yarn run check` runs
     dependency-cruiser, so a rule violation is already an error — what needs an eye is a *rule*
     that should have existed, and a pure module sitting in `client/` that `server/` will need.
-11. **Housekeeping** — new barrels use `export *`; `src/client/routeTree.gen.ts` untouched; modules
+12. **Housekeeping** — new barrels use `export *`; `src/client/routeTree.gen.ts` untouched; modules
     implementing a requirement carry the `**Validates: Requirements …**` JSDoc line; tests
     colocated and no new `.skip()`.
 

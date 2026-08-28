@@ -1,9 +1,16 @@
-# TICKET-INL-01 — Inlays: entity, panel, and the gem catalog
+# TICKET-INL-01 — Inlays: the entity and its panel
 
 - **Area:** Inlays configuration (new area)
 - **Type:** Feature (new entity)
 - **Traceability:** System [10 · Inlays](../systems/10-inlays.md); overview plan §8. First ticket
   of the minted **`INL`** prefix.
+
+> **Scope (overview [D7](../overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)):**
+> the gem catalog is the data pass's. It owes this ticket a new `inlays.json` — 25 families ×
+> 10 tiers from `Background Reference inlay: scaling` A1:J253, both group-header rows cited, with
+> **Zircon's blank tier-10 row kept absent** (a gap, not a zero) and the double-Obsidian noted (a
+> material family and a gem family share the name with different numbers; both kept) — plus its row
+> in [README.md](../../imports/README.md).
 
 ## User story
 
@@ -14,8 +21,8 @@ players can socket a gem into what they craft.
 
 A new entity the app has never had. An `Inlay` mirrors the `Material` family/tier shape over nine
 stat axes (all six core stats plus Health, Mana, Speed — Mana is the axis inlays dominate). This
-ticket is the entity, its config panel, and the fragment; the socket on the item and the engine
-term are TICKET-INV-05's.
+ticket is the entity and its config panel; the socket on the item and the engine term are
+TICKET-INV-05's, and the gems themselves are the data pass's.
 
 ## Current situation (as-is)
 
@@ -27,17 +34,14 @@ term are TICKET-INV-05's.
 
 ## Desired result (to-be)
 
-- **`Configuration.inlays?`** — optional array, absent-means-none: family + **ten stored tiers**
-  of `{statId, modifier}` rows, grouped Common/Precious. All ten rows per family are data —
-  linearity is a property the capture verified, not a generator to impose (Obsidian and Zircon
-  prove why).
+- **`Configuration.inlays?`** — optional array, absent-means-none: family + **stored tiers** of
+  `{statId, modifier}` rows, grouped Common/Precious. Every tier is stored; nothing generates one.
 - **A config panel** composed through
   [ConfigPanelShell](../../../src/client/components/config/shared/ConfigPanelShell.tsx), like
   every other entity panel — list, edit, guarded delete.
-- **`inlays.json`** — a new fragment: 25 families, with **Zircon's blank tier-10 row kept absent**
-  (a gap, not a zero — importable and selectable up to 9, the User's to fill) and the
-  double-Obsidian noted (a material family and a gem family share the name with different
-  numbers; both kept).
+- **A family may have a gap**: the shape tolerates a missing tier — Zircon's absent tier 10 is a
+  gap, not a zero, importable and selectable up to 9 and the User's to fill. Confirm `Material`
+  already does the same (systems/10's recommendation) rather than assuming it.
 
 ## Acceptance criteria
 
@@ -48,20 +52,17 @@ term are TICKET-INV-05's.
       the panel wires the existing guarded-delete surface).
 - [ ] Persistence through the store action; the panel composes `components/ui` primitives, no raw
       controls; theme tokens only.
-- [ ] The fragment's Zircon family imports with nine tiers and no invented tenth — pinned by an
-      import test; Obsidian's full hand-authored ladder round-trips.
-- [ ] `inlays.json` created with `source.ranges` cited
-      (`Background Reference inlay: scaling` A1:J253, both group-header rows), the Zircon gap and
-      double-Obsidian in `notes`, and an `exportedAt`; `yarn run sheet:import` regenerated;
-      [README.md](../../imports/README.md) gains the fragment's row.
-- [ ] Unit tests cover: absent default, tier CRUD through the store, the Zircon gap surviving a
+- [ ] A family with a missing tier imports, round-trips and renders with no invented value —
+      pinned against a fixture of the ticket's own (the shape the data pass's Zircon needs).
+- [ ] Unit tests cover: absent default, tier CRUD through the store, a gapped ladder surviving a
       round-trip, and validation of `{statId, modifier}` targets against real stats.
 - [ ] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions`
       skill, plus a live browser check of the panel (ask the User first).
 
 ## Notes
 
-- The shape deliberately tolerates families with missing tiers if `Material` already does —
-  confirm in the ticket, per systems/10's recommendation, rather than assuming.
+- **All ten rows per family are data** — linearity is a property the capture verified, not a
+  generator to impose (Obsidian and Zircon prove why). Nothing here generates a tier.
 - Every gem family also exists as purchasable *items* in the shop catalog (TICKET-ITEM-02) —
-  the crafting component and the catalog entry are two records sharing a name.
+  the crafting component and the catalog entry are two records sharing a name, and the data pass
+  lands both.

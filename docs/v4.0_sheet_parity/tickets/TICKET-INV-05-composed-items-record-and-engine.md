@@ -4,8 +4,14 @@
 - **Type:** Feature (new player state + engine, one deletion)
 - **Traceability:** System [12 · Item composition](../systems/12-item-composition-and-backpack.md)
   (gaps 1, 2); overview [Rulings 2026-08-29](../overview.md#rulings-user-2026-08-29) (composed
-  items live in the Player's inventory, as links). **Needs TICKET-INV-04** (the six slots),
-  **TICKET-MAT-03 / TICKET-INL-01 / TICKET-ITEM-01** (the three parts a record links).
+  items live in the Player's inventory, as links). **Needs TICKET-INV-04** (slots proven variable),
+  **TICKET-INL-01 / TICKET-ITEM-01** (two of the three shapes a record links; `Material` is the
+  third and already exists).
+
+> **Scope (overview [D7](../overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)):**
+> nothing seeded is this ticket's — it links shapes, and the shapes exist. The data pass owes it
+> only the corpus the sample case needs (an Iron Ore ladder, a Diamond ladder, a Battleaxe
+> template), at which point TICKET-DX-09's successor pins the end-to-end numbers.
 
 ## User story
 
@@ -50,9 +56,10 @@ deleted here.
 
 ## Acceptance criteria
 
-- [ ] The sample reproduces end to end: *Iron Ore 10 Battleaxe with Diamond 4 inlay* in
-      `right_hand` → stats Str 18 / Con 18 / Char 8 / Health 5 / Mana 4000, skills = the
-      Battleaxe vector — engine test through `calculateCharacter`, golden-fixture-ready.
+- [ ] The composition reproduces end to end on a fixture shaped like the sample — a material tier
+      plus an inlay tier plus a template vector in one hand slot → stats from material + inlay,
+      skills from the template — engine test through `calculateCharacter`. The sample's own numbers
+      (Str 18 / Con 18 / Char 8 / Health 5 / Mana 4000) pin once the data pass seeds the parts.
 - [ ] Retuning a material tier moves every composed item made of it on the next read — nothing
       stored, pinned by a test that edits the tier and re-derives.
 - [ ] A composed record with no inlay contributes the material row alone (`inlayId?` absent is

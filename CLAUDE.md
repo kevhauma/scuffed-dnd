@@ -145,6 +145,14 @@ acceptance criteria.
   type X = (typeof X)[keyof typeof X]`), and call sites reference `X.A` rather than re-typing
   `'a'`. Discriminated unions of object shapes and a base component's own variant prop are the
   exceptions; the ~12 pre-existing bare unions are converted when touched, not swept.
+- **Never call a function as the argument of another call.** A call's result is bound to a named
+  intermediate variable first, and that name is passed on: not `return foo(bar(param), baz());`
+  but `const bounded = bar(param); const fallback = baz(); return foo(bounded, fallback);`. The
+  name says what the value *is*, which is the point — a nested call makes the reader evaluate
+  inside-out to find out. Two things are not nesting and stay as they are: a method chain
+  (`items.filter(…).map(…)`), where each link reads left to right, and a function *passed by
+  reference or as an inline callback* (`items.map(toLabel)`, `useMemo(() => …, [])`), which is a
+  value rather than a call.
 - **SOLID and KISS are house rules**, spelled out concretely in the `coding-conventions` skill.
   The load-bearing pair: extend `ConfigPanelShell` through `headerExtra` and children rather than
   adding a prop named after one caller, and introduce no abstraction, option, or flag before its

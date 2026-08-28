@@ -1,11 +1,19 @@
-# TICKET-PAS-01 — Passive abilities: the catalog
+# TICKET-PAS-01 — Passive abilities: the entity and the handout
 
 - **Area:** Passive abilities (new area)
-- **Type:** Feature (new entity, catalog only)
+- **Type:** Feature (new entity)
 - **Traceability:** System [14 · Passives and reference tables](../systems/14-passives-and-reference-tables.md);
   overview [D5](../overview.md#d5--what-is-deliberately-not-parity) (nothing grants a passive
   yet). **Needs TICKET-SPL-03** (the templating attachment point two effects use). First ticket
   of the minted **`PAS`** prefix.
+
+> **Scope (overview [D7](../overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)):**
+> the 26 passives are the data pass's. It owes this ticket a new `passives.json` citing
+> `Background refernces abilities: passive` (typo intact) B1:D27, the doubled poison-resistance
+> ladder handled first-occurrence-wins with both row sets cited (the `skinning` precedent), the two
+> templated effects (Blindsight and darkvision, perception level × 10 / × 5 feet) written in
+> SPL-03's syntax, the empty actives tab noted, and its row in
+> [README.md](../../imports/README.md).
 
 ## User story
 
@@ -15,11 +23,11 @@ automates it.
 
 ## Description
 
-26 passives, name + effect text. Nothing grants them — Setup says "Passive abilites: Coming
-soon", races and items reference nothing — so v4.0 builds the *catalog only*: the entity, a
-config panel, the fragment, and a DM handout field. Wiring passives to races or items waits for
-the sheet to do it first. Two of the 26 effects are formulas (Blindsight and darkvision scale
-with perception), templating exactly like spells.
+Name + effect text, and nothing else. Nothing grants a passive — Setup says "Passive abilites:
+Coming soon", races and items reference nothing — so v4.0 builds the entity, a config panel, and a
+DM handout field, and stops there. Wiring passives to races or items waits for the sheet to do it
+first. Some effects are formulas (Blindsight and darkvision scale with perception), templating
+exactly like spells.
 
 ## Current situation (as-is)
 
@@ -39,27 +47,22 @@ with perception), templating exactly like spells.
 - **A config panel** through
   [ConfigPanelShell](../../../src/client/components/config/shared/ConfigPanelShell.tsx) — list,
   edit, guarded delete.
-- **`passives.json` + `Character.passiveIds?`** — the fragment carrying all 26 rows with the
-  doubled poison-resistance ladder handled first-occurrence-wins, both row sets cited (the
-  `skinning` precedent); and an optional character field so a DM can hand one out by name —
-  all the sheet's table can do today.
+- **`Character.passiveIds?`** — an optional character field, absent-means-none, so a DM can hand a
+  passive out by name and take it back. All the sheet's table can do today.
 
 ## Acceptance criteria
 
 - [ ] A ruleset with no `passives` behaves exactly as today; a character with no `passiveIds`
       likewise — both additive-optional, no version bump of their own.
-- [ ] Blindsight and darkvision resolve per character (perception level × 10 / × 5 feet) through
-      the one engine — no second evaluator; the other 24 render as plain text.
+- [ ] A templated effect resolves per character through the one engine — no second evaluator — and
+      a plain-text effect renders verbatim; both pinned against fixtures shaped like Blindsight
+      (perception level × 10 feet) and a resistance line.
 - [ ] The DM hands a passive out and takes it back through the DM action surface
       ([dmActions.ts](../../../src/shared/services/dmActions.ts)) with an Event, and the sheet
       lists the character's passives with resolved text; a Player cannot self-grant.
 - [ ] Deleting a passive a character holds is refused by the walker
       ([dependencies.ts](../../../src/shared/engine/dependencies.ts)) naming the holder.
-- [ ] `passives.json` created citing `Background refernces abilities: passive` (typo intact)
-      B1:D27, the duplicate ladder rows both cited with first-occurrence-wins recorded, and the
-      empty actives tab noted; `yarn run sheet:import` regenerated;
-      [README.md](../../imports/README.md) gains the fragment's row.
-- [ ] Unit tests cover: absent defaults, the two templated effects, grant/revoke with Events,
+- [ ] Unit tests cover: absent defaults, a templated and a plain effect, grant/revoke with Events,
       and the delete guard.
 - [ ] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions`
       skill, plus a live browser check of a handout appearing on the sheet (ask the User first).

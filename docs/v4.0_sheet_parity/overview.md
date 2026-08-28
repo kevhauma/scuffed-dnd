@@ -121,6 +121,29 @@ Three consequences worth stating outright, because they are the tempting excepti
 - **The corpus is the regression test.** If `docs/imports/` regenerates and imports clean at the
   new shape, the break is complete; that is what `sheetImport.test.ts` already asserts.
 
+### D7 — Seeded values and formula text are a separate issue (User, 2026-08-29)
+
+**No v4.0 ticket ships sheet data.** Every ticket below builds *shapes, panels, engine terms and
+behaviour*; the numbers themselves — the fragment rows in [`docs/imports/`](../imports/README.md),
+the seeded ruleset's values, and the formula text those seeds carry — land in **one later data
+pass**, cut as its own issue. What that means concretely:
+
+- **No ticket carries a "re-source the fragment / `yarn run sheet:import`" criterion**, and none is
+  closed on a seeded number being right. A ticket that needs data to test against builds its own
+  fixture or uses whatever the corpus already holds.
+- **This suspends [CLAUDE.md](../../CLAUDE.md)'s "Every feature ships its sheet data" rule for this
+  milestone only.** The rule exists so a shape never ships without data proving it; here the whole
+  corpus is being re-sourced at once, and honouring the rule per ticket would rewrite the same
+  fragments a dozen times over. The rule returns the moment the data pass closes.
+- **Two lines are pure data and move wholesale into that pass**: TICKET-MAT-03 (the materials
+  catalog) and TICKET-ITEM-02 (~700 item templates). Their files stay where they are as the
+  specification the data pass implements; they are not built in the shape pass.
+- **What each ticket owes the data pass is named in its own Scope line**, so the pass can be cut
+  from the tickets rather than re-read out of the workbook.
+
+D1 still governs *when* the data lands: the new workbook is the source, and the sheet still wins.
+This decision moves the work, not the standard.
+
 ## Rulings (User, 2026-08-29)
 
 Answers to the questions the system docs raised. Each is settled where it stands; the linked doc
@@ -144,6 +167,21 @@ system doc and is of one kind: choices a ticket makes as it plans (which fragmen
 rounding surface), plus the two the sheet itself has never answered — the `point_buy` anomalies
 and the missing XP table, both carried over from v2.0 and both still the User's to fill in.
 
+## Rulings (User, 2026-08-29 — ticket review)
+
+Three corrections made reading the cut tickets back. Each **overturns** a ruling or a gap statement
+above; where they disagree, these win.
+
+| Question | Ruling |
+|---|---|
+| Are the sheet's six body slots the app's slot set? ([08](./systems/08-equipment-slots.md)) | **No.** The equipment-slot builder (TICKET-INV-03) stays the one authority: a ruleset's slots are User-built and variable in count. The sheet's six are *seed data*, nothing the app fixes. |
+| How many races does a character have? ([04](./systems/04-races.md)) | **As many as the ruleset says.** The count is a per-Configuration setting, not a constant in the engine; two is the sheet's answer and the default, not the rule. Supersedes "exactly two". |
+| Does APT become ATP? ([02](./systems/02-progression-and-identity.md)) | **No — the app keeps `APT`.** The sheet writes ATP and the sheet is simply wrong there. This is the milestone's one deliberate exception to D1's *the sheet wins*, and it is an exception because it is a mistake rather than an anomaly. |
+
+The first two are the same shape of correction, and worth stating as a principle: **a number the
+sheet happens to have is a default, not a rule.** Where v4.0 was about to hard-code the workbook's
+count of something, the count becomes ruleset data and the workbook's value becomes the seed.
+
 ## Build order
 
 Every plan line is ticketed (2026-08-29). Several lines split under the three-to-be-items limit:
@@ -151,31 +189,44 @@ Every plan line is ticketed (2026-08-29). Several lines split under the three-to
 SPL-01/02, and §14 into RES-04 (Dream level, pulled forward) and RES-05 (the point pool). The
 detail behind every ticket lives in its linked system document.
 
-- [ ] [TICKET-ROLL-08](./tickets/TICKET-ROLL-08-combat-scalers-evasion-endurance.md) — Combat scalers: evasion and Endurance made whole (systems/07) — **first**: constants and formula-text revisions that unblock fragment work; closes v2.0's oldest open question
-- [ ] [TICKET-STAT-04](./tickets/TICKET-STAT-04-atp-rename-groups-and-flavour.md) — Stat identity: ATP, three groups, and the tomato ladder (systems/03, 02) — the Temp column is not built and Speed stays a plain stat (rulings above)
+**Every line below is a shape line.** Under [D7](#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)
+the sheet's own numbers — catalog rows, weights, taglines, constants, effect text — are not part of
+any of them; they land together in the data pass, and each ticket's Scope line says what it owes
+that pass.
+
+- [ ] [TICKET-ROLL-08](./tickets/TICKET-ROLL-08-ladder-fractional-remainder.md) — The dice ladder's fractional remainder (systems/07) — **first**: the scalers arrive fractional, and the ladder has never seen a fraction. The scalers themselves are the data pass's
+- [ ] [TICKET-STAT-04](./tickets/TICKET-STAT-04-stat-groups-and-flavour.md) — Stat groups on the character sheet (systems/03) — `Stat.group?` and the grouped columns; **APT is not renamed** (ticket-review ruling), the Temp column is not built and Speed stays a plain stat
 - [ ] [TICKET-RES-04](./tickets/TICKET-RES-04-dream-level-state-and-dm-action.md) — Dream level: player state, raised by the DM (systems/02) — **before ARC-04**, whose gain formula reads the field; the split that answers the first dependency the rulings introduced
-- [ ] [TICKET-ARC-04](./tickets/TICKET-ARC-04-renames-affinity-matrix-dream-gains.md) — Archetype refresh: renames, the proven matrix, dream-amplified gains (systems/05) — needs RES-04. The `point_buy` curve is untouched (the "new integer table" was display rounding)
+- [ ] [TICKET-ARC-04](./tickets/TICKET-ARC-04-dream-amplified-gains.md) — Dream-amplified archetype gains (systems/05) — needs RES-04; the dream term in the gain formula and the fractional `main(0)` it exposes. Renames, taglines and the affinity matrix are the data pass's; the `point_buy` curve is untouched
 - [ ] [TICKET-RES-05](./tickets/TICKET-RES-05-shared-point-pool-and-readout.md) — One point pool for stats and skills, with the readout (systems/02) — independent of ARC-04; behavioural: skill investment stops being free
-- [ ] [TICKET-RACE-03](./tickets/TICKET-RACE-03-race-catalog-25-and-identity.md) — Races ×25, creature identity, and the blend floor (systems/04, 14) — the catalog half: data plus one engine term
-- [ ] [TICKET-RACE-04](./tickets/TICKET-RACE-04-exactly-two-races.md) — Exactly two races: `Empty` is deleted (systems/04) — needs RACE-03; the reshape half, touching creation and allocation ("§4 is no longer a data-only line")
-- [ ] [TICKET-SKL-04](./tickets/TICKET-SKL-04-reweighted-skills-and-ceil-rounding.md) — Skills re-scaled: the new list, primary/secondary weights, ceil rounding (systems/06) — builds the reference table's **intent**; the sheet's two formula bugs are fixed, not reproduced (ruling above). Reworks the skill engine before anything that grants skill bonuses exists
+- [ ] [TICKET-RACE-03](./tickets/TICKET-RACE-03-race-identity-and-blend-floor.md) — Race identity fields and the blend floor (systems/04, 14) — `type`/`size`/`challengeRate` over two Configuration reference lists, plus the `MAX(1, …)` floor; the 25-race catalog is the data pass's
+- [ ] [TICKET-RACE-04](./tickets/TICKET-RACE-04-configurable-race-count.md) — The race count is ruleset data (systems/04) — needs RACE-03; `MAX_RACE_COUNT` becomes a per-ruleset dial defaulting to 2, and a character carries exactly that many (ticket-review ruling)
+- [ ] [TICKET-SKL-04](./tickets/TICKET-SKL-04-ceil-rounding.md) — Skill levels and bonuses round with ceil (systems/06) — the engine half, landed before the data pass re-weights 48 skills against the wrong rounding. The list and the weights (and with them the sheet's two formula bugs, fixed not reproduced) are the data pass's
 - [ ] [TICKET-SKL-05](./tickets/TICKET-SKL-05-focus-skills.md) — Focus skills multiply growth (systems/06) — needs SKL-04; chosen 1.5 / others 0.3, duplicates stack
-- [ ] [TICKET-INV-04](./tickets/TICKET-INV-04-six-slot-body.md) — Equipment slots become the six-slot body (systems/08) — before INV-05: composed items hang off the six slots. Slot keys rewritten outright (D6)
-- [ ] [TICKET-MAT-03](./tickets/TICKET-MAT-03-materials-catalog-v4.md) — Materials catalog replaced (systems/09) — data only; an ingredient of INV-05's composition
-- [ ] [TICKET-INL-01](./tickets/TICKET-INL-01-inlay-entity-panel-catalog.md) — Inlays: entity, panel, and the gem catalog (systems/10) — the new entity; the other ingredient
-- [ ] [TICKET-ITEM-01](./tickets/TICKET-ITEM-01-skill-bonus-templates-and-shops.md) — Item templates target skills, grouped into shops (systems/11) — needs SKL-04; the shape and the engine term, seeded with sample-confirmed vectors only
-- [ ] [TICKET-ITEM-02](./tickets/TICKET-ITEM-02-item-catalog-fragment.md) — The v4 item catalog: 40 categories, ~700 templates (systems/11) — needs ITEM-01; the milestone's biggest pure-data lift, scripted against the checked-in xlsx
-- [ ] [TICKET-INV-05](./tickets/TICKET-INV-05-composed-items-record-and-engine.md) — Composed items: the record and the engine (systems/12) — needs INV-04, MAT-03, INL-01, ITEM-01; `Item`'s fused `materialId`/`materialLevel` fields retire here
+- [ ] [TICKET-INV-04](./tickets/TICKET-INV-04-variable-equipment-slots.md) — Equipment slots stay User-built and variable (systems/08) — before INV-05. The builder is the authority (ticket-review ruling); this line seeds the sheet's spellings onto the figure and proves the count is free
+- [ ] [TICKET-INL-01](./tickets/TICKET-INL-01-inlay-entity-panel-catalog.md) — Inlays: the entity and its panel (systems/10) — the new entity; the other ingredient of composition. The gem catalog is the data pass's
+- [ ] [TICKET-ITEM-01](./tickets/TICKET-ITEM-01-skill-bonus-templates-and-shops.md) — Item templates target skills, grouped into shops (systems/11) — needs SKL-04; the shape and the engine term
+- [ ] [TICKET-INV-05](./tickets/TICKET-INV-05-composed-items-record-and-engine.md) — Composed items: the record and the engine (systems/12) — needs INV-04, INL-01, ITEM-01; `Item`'s fused `materialId`/`materialLevel` fields retire here
 - [ ] [TICKET-INV-06](./tickets/TICKET-INV-06-item-builder-and-backpack.md) — The item builder and the Backpack (systems/12) — needs INV-05; the sheet's Item selecter as a player action, and "in the bag" derived as built-but-not-worn
-- [ ] [TICKET-SPL-01](./tickets/TICKET-SPL-01-spell-entity-panel-fragment.md) — Spells: entity, panel, and the 418-spell fragment (systems/13) — casting needs only Mana, already a resource; effect text lands raw here, templating waits for SPL-03
+- [ ] [TICKET-SPL-01](./tickets/TICKET-SPL-01-spell-entity-panel-fragment.md) — Spells: the entity and its panel (systems/13) — casting needs only Mana, already a resource; the 418-row fragment is the data pass's, templating waits for SPL-03
 - [ ] [TICKET-SPL-02](./tickets/TICKET-SPL-02-learned-spells-spellbook-casting.md) — Learned spells, the Spellbook, and casting (systems/13) — needs SPL-01; spells unlock **manually** and "Chosen abiltie" is built into nothing (rulings above)
-- [ ] [TICKET-SPL-03](./tickets/TICKET-SPL-03-spell-effect-templating.md) — Spell effect templating (systems/13, D4) — needs SPL-01/02; the `spell-effect` attachment point and the 326-formula transcription
-- [ ] [TICKET-PAS-01](./tickets/TICKET-PAS-01-passives-catalog.md) — Passive abilities: the catalog (systems/14) — needs SPL-03's attachment point (two passives template like spells); nothing grants a passive yet, by the sheet's own admission
-- [ ] [TICKET-DX-09](./tickets/TICKET-DX-09-sheet-corpus-v4-and-goldens.md) — Sheet corpus v4 and the golden fixtures (systems/01) — **last**: every touched fragment confirmed re-sourced, the golden suite pinned on *Thomas the test more*, and the D6 break proven complete. Closes the milestone the way DX-04 closed v2.0
+- [ ] [TICKET-SPL-03](./tickets/TICKET-SPL-03-spell-effect-templating.md) — Spell effect templating (systems/13, D4) — needs SPL-01/02; the `spell-effect` attachment point and its preview. The 326-formula transcription is the data pass's
+- [ ] [TICKET-PAS-01](./tickets/TICKET-PAS-01-passives-catalog.md) — Passive abilities: the entity and the handout (systems/14) — needs SPL-03's attachment point; nothing grants a passive yet, by the sheet's own admission
+- [ ] [TICKET-DX-09](./tickets/TICKET-DX-09-clean-break-closeout.md) — The clean break, proven complete (systems/01) — **last of the shape pass**: one `SUPPORTED_SCHEMA_VERSION` bump, the old shape meeting `IncompatibleDataNotice`, TEST_STATUS refreshed. The corpus audit and the golden suite move to the data pass, which is where the numbers to pin come from
+
+### Deferred to the data pass (D7)
+
+Cut, specified, and **not built in this milestone's shape pass** — they are nothing but sheet
+values, so they belong with the rest of the data:
+
+- [TICKET-MAT-03](./tickets/TICKET-MAT-03-materials-catalog-v4.md) — Materials catalog replaced (systems/09) — 24 families × 10 tiers, no shape change at all
+- [TICKET-ITEM-02](./tickets/TICKET-ITEM-02-item-catalog-fragment.md) — The v4 item catalog: 40 categories, ~700 templates (systems/11) — the biggest lift, scripted against the checked-in xlsx
 
 The 2026-08-29 rulings' two cross-line dependencies are answered in the ordering above: RES-04
-lands the `dreamLevel` field before ARC-04's gain formula reads it, and RACE-04 gives the
-`Empty`-deletion reshape its own room instead of riding the catalog ticket.
+lands the `dreamLevel` field before ARC-04's gain formula reads it, and RACE-04 gives the race-count
+reshape its own room instead of riding the identity ticket. INV-05 no longer waits on MAT-03: the
+`Material` shape it composes from already exists, and which materials the corpus holds is the data
+pass's business.
 
 Prefixes minted by this version, as expected: **`SPL`** (spells and casting), **`INL`** (inlays),
 **`PAS`** (passive abilities) — plus **`ITEM`**'s first numbered tickets (the area existed, but

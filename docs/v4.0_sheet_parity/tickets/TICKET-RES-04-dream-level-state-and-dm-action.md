@@ -39,7 +39,7 @@ raises it as an action on the surface that already awards experience and sets le
   and before/after, callable from `characterStore` locally and the existing DM routes on the
   server (no new route surface; overview [D2](../overview.md#d2--the-backend-does-not-change)).
 - **Surfaced where progression already is**: a row in the DM's quick actions / adjustment panel,
-  and Dream level displayed in the sheet's identity block beside Level and ATP.
+  and Dream level displayed in the sheet's identity block beside Level and APT.
 
 ## Acceptance criteria
 

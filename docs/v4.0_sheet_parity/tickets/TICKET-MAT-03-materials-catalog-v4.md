@@ -5,6 +5,12 @@
 - **Traceability:** System [09 · Materials](../systems/09-materials.md); overview
   [D5](../overview.md#d5--what-is-deliberately-not-parity) (prices are gone from the sheet).
 
+> **⏸ Deferred to the data pass (overview [D7](../overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)).**
+> This ticket is nothing but seeded values — no type change, no engine change, no panel change —
+> so it is **not built in v4.0's shape pass**. It stays here, cut and specified, as what the data
+> pass implements. Nothing downstream waits on it: TICKET-INV-05 composes from the `Material`
+> shape, which already exists, and which materials the corpus holds is not its business.
+
 ## User story
 
 As a User, I want the new workbook's material catalog — 24 families in ten hand-authored tiers

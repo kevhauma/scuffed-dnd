@@ -6,6 +6,11 @@
   overview [D5](../overview.md#d5--what-is-deliberately-not-parity) (no prices). **Needs
   TICKET-ITEM-01** (the `skillBonuses` shape and shop tagging this data fills).
 
+> **⏸ Deferred to the data pass (overview [D7](../overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)).**
+> The milestone's biggest pure-data lift, and pure data is exactly what the shape pass does not
+> ship. It stays here, cut and specified, as what the data pass implements — and it is the reason
+> the data pass wants a script rather than a ticket-by-ticket trickle.
+
 ## User story
 
 As a User, I want the workbook's full item catalog — every weapon, dish, gem and chair with its

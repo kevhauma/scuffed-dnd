@@ -4,8 +4,15 @@
 - **Type:** Feature
 - **Traceability:** System [13 · Spells](../systems/13-spells.md) (gap 4); overview
   [D4](../overview.md#d4--spell-effect-text-goes-through-the-formula-engine) (one engine, no
-  second evaluator). **Needs TICKET-SPL-01** (the entity and fragment) and TICKET-SPL-02 (the
-  Spellbook that renders resolved text).
+  second evaluator). **Needs TICKET-SPL-01** (the entity) and TICKET-SPL-02 (the Spellbook that
+  renders resolved text).
+
+> **Scope (overview [D7](../overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)):**
+> the transcription is formula text, so it is the data pass's — and it is the single biggest reason
+> that pass wants a script. It owes this ticket 326 of the 418 effect cells converted from the
+> xlsx's `"text " & cell & " text"` concatenation into this ticket's template syntax, each citing
+> its cells, the 92 plain-text effects untouched, the `#VERW!` row left an empty template, and the
+> Fireball seam (the sheet's own missing text fragment) recorded as-is.
 
 ## User story
 
@@ -42,15 +49,17 @@ transcribes them into template syntax. No second evaluator, no regex arithmetic.
   the `spell-effect` `FormulaOwner` (editable sample values plus the level ladder — if the
   preview cannot express template-in-text, **extend the component and note it on FORM-08**, never
   a second evaluation); the Spellbook renders the resolved text per caster.
-- **The transcription**: 326 formula-effects converted from `"text " & cell & " text"`
-  concatenation into template syntax in [spells.json](../../imports/spells.json), each citing its
-  cells in the fragment; the `#VERW!` row stays an empty template with its note.
+- **A syntax the transcription can target**: the template grammar is this ticket's to define and
+  document, chosen so the sheet's `"text " & cell & " text"` shape converts mechanically — the data
+  pass writes 326 of them against it, so an awkward grammar is 326 awkward rows.
 
 ## Acceptance criteria
 
-- [ ] The confirmed samples resolve for the sample character: cure wounds "equal to 5", Fireball
-      "55-foot-radius … 11 fire damage", Acid Splash reading final Wis, Aid reading perception's
-      bonus + 1 and Healing's level — engine tests, golden-fixture-ready for TICKET-DX-09.
+- [ ] The four confirmed sample shapes resolve against fixtures of the ticket's own — a flat
+      computed number (cure wounds "equal to 5"), two numbers in one sentence (Fireball's
+      "55-foot-radius … 11 fire damage"), a final-stat read (Acid Splash on Wis), and a
+      skill-bonus-plus-level read (Aid) — engine tests. Their real texts pin once the data pass
+      transcribes them.
 - [ ] A placeholder referencing a deleted stat or skill renders an error chip inside otherwise-
       intact text — errors as values, pinned.
 - [ ] All user-authored math goes through `parseFormula` → `validateFormula` →
@@ -58,9 +67,8 @@ transcribes them into template syntax. No second evaluator, no regex arithmetic.
       review and by tests over operator-bearing placeholders.
 - [ ] The effect field renders `FormulaPreview` with the `spell-effect` owner — never a bare
       `FormulaEditor`; any preview extension is noted on FORM-08.
-- [ ] [spells.json](../../imports/spells.json) carries all 326 templates with cells cited and the
-      92 plain-text effects untouched; `yarn run sheet:import` regenerated; the Fireball seam
-      (the sheet's own missing text fragment) recorded as-is.
+- [ ] The template grammar is documented where a transcriber will find it — one page the data pass
+      can convert 326 cells against without reading the parser.
 - [ ] Unit tests cover: parse/resolve round-trips, each namespace reference kind (`stats.x`,
       `skills.y`, `skills.y.bonus`, `const.z`), the error chip, and cycle safety at the new
       attachment point (`scoping.ts`'s existing discipline).
@@ -73,4 +81,4 @@ transcribes them into template syntax. No second evaluator, no regex arithmetic.
 - Passives reuse this attachment point (two of the 26 template exactly like spells —
   TICKET-PAS-01 depends on this ticket).
 - The transcription is real work (326 cells) and scriptable against the checked-in xlsx — the
-  same repo-file approach as TICKET-ITEM-02; commit the script.
+  same repo-file approach as TICKET-ITEM-02, and it belongs to the same pass.

@@ -15,6 +15,9 @@ The Character Sheet's identity block (`Character Sheet` A1:B6):
 | **Dream level** | 1 | "Hoe ver je staat in je dream" — *how far you are in your dream* |
 | **ATP** | 1 | "Actions per turn" |
 
+**Every `ATP` in this document is the sheet quoting itself.** The app keeps calling the stat `APT`
+— the sheet's spelling is a mistake, and following it was ruled against (gap 1 below).
+
 Beside it (`K1:L3`): **Points to Use 0 · Points Spend 3**. The scaling tab carries the constants:
 *Points scaling* = **3** (X2:Y3) and *ATP scaling* = **30** (O2:P3). The xlsx formulas settle how
 they combine:
@@ -58,11 +61,14 @@ the wizard may caption the two race slots as parents, and there are exactly two.
 
 ## Parity gap
 
-1. **Rename APT → ATP** with the glossary's meaning, "Actions per turn". This is a *data* rename
-   (stat `name`/`abbreviation` in the fragment and seeds) — renaming is safe since TICKET-REF-01,
-   and the formula keeps reading `const.apt_value` unless the constant is renamed in the same
-   sweep. Decide in the ticket whether `apt_value` becomes `atp_value` (a constant rename is also
-   safe; the corpus and seeds move together).
+1. ~~**Rename APT → ATP**~~ — **closed, not a gap** (User ruling, 2026-08-29, ticket review): the
+   sheet writes ATP and the sheet is simply wrong there, so **the app keeps `APT`** with the
+   glossary's meaning, "Actions per turn". `const.apt_value` keeps its name too. This is the
+   milestone's one deliberate exception to D1's *the sheet wins*, and it is an exception because
+   this is a mistake rather than an anomaly — recorded in the
+   [overview's ticket-review rulings](../overview.md#rulings-user-2026-08-29--ticket-review).
+   Nothing about the arithmetic was ever in question: the constant is 30 in both workbooks and the
+   sample agrees (Speed 20 → 1).
 2. **`Character.dreamLevel?`** — new optional player state, absent-means-1 (the sheet's sample and
    its multiplicative role both point at 1 as the neutral value). **It is an input to derivation,
    not a derived value**: `statGain` reads it (systems/05), so it joins the sanctioned stored

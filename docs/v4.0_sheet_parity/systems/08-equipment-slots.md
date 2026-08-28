@@ -1,4 +1,4 @@
-# 08 · Equipment slots — the six-slot body
+# 08 · Equipment slots — the sheet's six, on a board the User draws
 
 **Sheet source:** `Backpack` C4:D9 · `Background References: Naming` BA12:BA17 ·
 `Background Charater Sheet: Calculations` H2:M2, U2:Z2.
@@ -25,37 +25,41 @@ skill-side gear columns (Calculations H2:M2) — systems/12 has the confirmed ar
 ## What the app has today
 
 Seven slots from the old sheet (equipment-slots.json): Head, chest, main hand, off hand, Legs,
-Feet, accesory — laid out on a 3×4 board (TICKET-INV-03). `EquipmentSlot` is **keyed by `type`**
-(the one entity still addressed by a code-like key), and `Inventory.equippedItems` is
-`Record<slotType, itemId>`.
+Feet, accesory — but the seven are *seed data*, not a rule. TICKET-INV-03 built the equipment slot
+display builder: the User adds and removes slots, sizes the board, assigns a slot to a cell and
+picks its glyph, and a slot the seed table has never heard of costs nothing — it starts unplaced
+and the User places it. `EquipmentSlot` is **keyed by `type`** (the one entity still addressed by a
+code-like key), and `Inventory.equippedItems` is `Record<slotType, itemId>`.
 
 ## Parity gap
 
-1. **Rename five slots, drop one, keep the count at six** — head→Head gear, chest→Upperbody gear,
-   legs→Lowerbody gear, feet→Foot gear, main_hand→right hand, off_hand→Left hand, and retire
-   `accessory`.
-2. **The keys are rewritten, and nothing is carried across** (User ruling, 2026-08-29 → overview
-   D6). Slot `type` is the join key into every character's `equippedItems`, and the two-path fork
-   this document used to carry — keep the old keys, or rename them and ship a conversion — is
-   resolved by the clean break: **rename them to match the sheet** (`head_gear`, `upperbody_gear`,
-   `lowerbody_gear`, `foot_gear`, `right_hand`, `left_hand`), delete `accessory`, and write no
-   conversion. An old stored character does not lose its accessory quietly; it meets
-   `IncompatibleDataNotice` with a backup offer, along with everything else from the old shape.
-   `accessory` still earns a `RETIRED_FIELDS` entry — that is the sentence naming what replaced
-   it, not a compatibility path.
-3. **Board layout** — re-place six slots on the figure (the sheet draws a simple list; our board
-   is our own presentation, TICKET-INV-03's `placement` is optional metadata).
-4. **Fragment update** — equipment-slots.json re-sourced with the new names and the retirement
-   noted.
+**The gap is data, not shape** (User ruling, 2026-08-29, ticket review). TICKET-INV-03 already made
+the slot set User-built: the slots are a list the User edits, the board is a grid the User sizes,
+and `EquipmentSlot.type` is free text. The app must not learn that a body has six slots — it must
+keep not caring.
+
+1. **Seed the new spellings** — `head_gear`, `upperbody_gear`, `lowerbody_gear`, `foot_gear`,
+   `right_hand`, `left_hand` join `SEED_PLACEMENTS`'s alias table beside the spellings already
+   there, so a v4 ruleset opens the builder on a placed figure instead of six unplaced boxes. The
+   old spellings stay: a ruleset that says `chest` keeps its figure.
+2. **Prove the count is free** — one slot, twelve slots, none. The builder was written for this;
+   the play-mode doll and the equip path were not written *against* it, and nobody has checked.
+3. **Fragment update** — equipment-slots.json re-sourced with the sheet's six names and the
+   `accesory` retirement noted. This is the data pass's work
+   ([D7](../overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)),
+   not a ticket's.
+
+Nothing is retired from the *shape*, so there is no `RETIRED_FIELDS` entry and no conversion here:
+a stored character keyed on slots its ruleset no longer has is the existing validation surface's
+problem. The clean break (D6) still covers the milestone; this line does not spend it.
 
 ## Backend note
 
-Document-only, and simpler under D6 than it looked: no conversion means no load-path code and no
-old-shape test. Server-held characters meet the same shared shape check.
+Document-only. Server-held characters meet the same shared shape check.
 
 ## Open questions
 
 None.
 
-*(Settled by User ruling, 2026-08-29: slot keys are rewritten to the sheet's six, `accessory` is
-deleted, and no backwards compatibility is built — overview D6.)*
+*(Settled by User ruling, 2026-08-29 and the same day's ticket review: the equipment-slot builder
+is the authority, a ruleset's slots are variable in count, and the sheet's six are seed data.)*
