@@ -65,9 +65,10 @@ it back into `vite.config.ts`; TEST_STATUS.md has the evidence.
 | Real ruleset data from the source spreadsheet, per feature | `docs/imports/README.md` |
 | `docs/` folder naming scheme and ticket prefixes | `docs/README.md` |
 
-Skills in `.claude/skills/`: `story-ticket` (write a new ticket), `work-ticket` (build one
-end-to-end), plus the three knowledge skills above.
-Subagents in `.claude/agents/`: `verifier` (test/typecheck/lint runner that reports the delta),
+Skills in `.claude/skills/`: `story-ticket` (write a new ticket), `work-ticket` (launcher for the
+subagent of the same name), plus the three knowledge skills above.
+Subagents in `.claude/agents/`: `work-ticket` (builds one ticket end-to-end — the procedure lives
+here, not in the skill), `verifier` (test/typecheck/lint runner that reports the delta),
 `conventions-reviewer` (diff review against project rules), `spec-navigator` (requirement
 questions from `docs/`).
 
@@ -78,8 +79,9 @@ to `docs/<version>/tickets/TICKET-<PREFIX>-<NN>-*.md` carrying the user story, a
 acceptance criteria.
 
 - New bug/refactor/feature → **`story-ticket`** skill.
-- Building one → **`work-ticket`** skill: plan against the criteria, wait for approval, implement,
-  tick each criterion **with evidence**, then check the line off in `overview.md`.
+- Building one → the **`work-ticket`** subagent (spawned by the skill of the same name): it plans
+  against the criteria and returns the plan, then — once resumed with the user's approval —
+  implements, ticks each criterion **with evidence**, and checks the line off in `overview.md`.
 - **Every User-authored formula field ships a preview.** A new field the User types a formula into
   renders `FormulaPreview` (TICKET-FORM-08) beneath it, with the `FormulaOwner` for that attachment
   point — editable sample values plus the level ladder. Never a bare `FormulaEditor`, and never a

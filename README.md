@@ -104,10 +104,11 @@ architecture, hard rules, and where the rest of the knowledge lives.
 | Skill / command | Does |
 | --- | --- |
 | `story-ticket` | Writes a new ticket (user story, as-is, to-be, acceptance criteria) and inserts its line into the right version's `overview.md` at the right build-order position |
-| `work-ticket` | Builds one ticket end-to-end: plan → approval → implement → tick each criterion with evidence → check off the story |
+| `work-ticket` | Spawns the `work-ticket` subagent, which builds one ticket end-to-end: plan → approval → implement → tick each criterion with evidence → check off the story |
 | `/spec-status` | Progress per version plus a test / typecheck / lint delta against the known baseline |
 
-Subagents: `verifier` (runs the suite, reports regressions vs. the documented baseline),
+Subagents: `work-ticket` (the ticket-building procedure itself), `verifier` (runs the suite,
+reports regressions vs. the documented baseline),
 `conventions-reviewer` (diff review against this project's rules), `spec-navigator` (requirement
 questions). Knowledge skills — `project-map`, `data-model`, `coding-conventions` — are read
 instead of re-exploring the codebase, and are updated by the ticket that changes them.

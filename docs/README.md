@@ -41,9 +41,9 @@ goes stale or the corpus stops importing.
 - A bug, refactor, or feature → the **`story-ticket`** skill. It asks which version the ticket
   belongs to, resolves the area prefix, writes the ticket, and inserts its line into that
   version's `overview.md` at the right build-order position.
-- Building one → the **`work-ticket`** skill. It plans against the acceptance criteria, waits for
-  approval, implements, ticks each criterion with evidence, then checks the line off in
-  `overview.md`.
+- Building one → the **`work-ticket`** skill, which spawns the subagent of the same name. It plans
+  against the acceptance criteria and hands the plan back for approval, then implements, ticks each
+  criterion with evidence, and checks the line off in `overview.md`.
 - A whole new milestone → a new `vX.Y_<topic>` folder scaffolded with `overview.md` + `tickets/`,
   mirroring the most recent version.
 
