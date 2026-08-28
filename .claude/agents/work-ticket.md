@@ -146,6 +146,14 @@ A criterion gets ticked **only when it verifiably passes** — never on hope.
    `preview_*` tools (`yarn dev`, port 3000) — but only if the caller's go-ahead said the user wants
    it. Reproduce the scenario and capture proof (snapshot/screenshot/console). If the user declined,
    leave the box open with a note saying why.
+
+   Two things automation gets wrong here, both worth knowing before you conclude a feature is
+   broken. **Focus events**: under this harness every tab reports `document.hasFocus()` true at
+   once, so the window never blurs and a `window.focus` listener fires on the first real click and
+   not on later tab switches — verify focus-triggered behaviour once, natively, and read the rest on
+   load. **A stale dev server**: `[vite] Failed to reload` and 500s naming a module that a recent
+   ticket renamed are a pre-rename module graph being held, not a fault in the tree — check the
+   console timestamps against when your run started before reporting one.
 4. For each satisfied criterion, edit the **ticket file**, changing `- [ ]` → `- [x]` **and
    appending the evidence in parentheses** — the file, the test name, or the observed behaviour that
    proves it. "Which file? which test? what did you observe?" must be answerable from the ticket

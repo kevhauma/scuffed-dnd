@@ -1,7 +1,8 @@
 # Test Status
 
-_Last verified: 2026-08-27 (`npx vitest run`), after **TICKET-DM-01 — DM controls: experience,
-grants, resources**.
+_Last verified: 2026-08-28 (`npx vitest run`) at **TICKET-GAM-03**'s closeout, which re-measured the
+baseline and found it unmoved — the count itself was set by **TICKET-DM-01 — DM controls:
+experience, grants, resources**, the last ticket to change source.
 The checkpoints before it were **TICKET-CUR-02 — a character carries a purse** at 2955,
 **TICKET-ROLL-07 — server-resolved rolls** at 2932,
 **TICKET-PLY-01 — player actions go through the server** at 2904,
@@ -1239,7 +1240,7 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 
 | File | Hotspot score | First flagged by | Latest | Status |
 | --- | --- | --- | --- | --- |
-| `architecture/boundaries.test.ts` | 18.4 | TICKET-AUTH-01's run | 3 commits, 310 churn, 0.18 density | ▲ **Accelerating — TICKET-GAM-03** |
+| `architecture/boundaries.test.ts` | 18.4 | TICKET-AUTH-01's run | 4 commits, 318 churn, 0.18 density | ▼ Cooling — **cooled by TICKET-GAM-03** (18.4 at AUTH-01, 18.6 now, velocity ▼). The score edged *up* 0.2 while the velocity turned: GAM-03 added one `it` for `the-server-sends-no-mail` and changed no harness, which is exactly the shape the row was watching for |
 | `vitest.setup.ts` | 8.2 | TICKET-AUTH-01's run | 3 commits, 35 churn, 0.08 density | ▲ **Accelerating** |
 | `src/server/http/apiRouter.test.ts` | 23.9 | TICKET-AUTH-01's run | 4 commits, 134 churn, 0.16 density | ─ Stable |
 | `src/server/http/apiRouter.ts` | 35.7 | TICKET-AUTH-02's run | 8 commits, 0.14 density | ─ Stable — **cooled by TICKET-GAM-01** |
@@ -1261,7 +1262,7 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/client/routeTree.gen.ts` | 5.5 | TICKET-GAM-02's run | 4 commits, 0.03 density | ▲ **Accelerating** — generated |
 | `src/server/auth/guards.ts` | 11.2 | TICKET-GAM-04's run | 5 commits, 318 churn, 54 fan-in | ─ Stable — **cooled by TICKET-DM-01** (8.3 at GAM-04, 10.3 at PLY-01). `requireCharacterDM` is four lines layered on `requireCharacterWriter` rather than a sixth rule written beside it, which is why a fifth commit lowered the score |
 | `src/client/stores/configStore.ts` | 18.5 | TICKET-CHAR-04's run | 3 commits, 1900 churn, 0.18 density | ▲ **Accelerating — TICKET-CHAR-04** |
-| `src/client/components/sessions/useSessionsManager.ts` | 12.5 | TICKET-CHAR-04's run | 3 commits, 165 churn, 0.12 density | ▲ **Accelerating — TICKET-CHAR-04** |
+| `src/client/components/sessions/useSessionsManager.ts` | 12.5 | TICKET-CHAR-04's run | 4 commits, 178 churn, 0.09 density, 2 fan-in | ▲ **Accelerating — TICKET-CHAR-04** — re-measured at GAM-03's closeout and **falling**: 12.5 → 9.4, density 0.12 → 0.09. A fourth commit added 13 lines and the file got *easier*, because the invitations state landed as its own `waiting` list rather than as branches inside the games one |
 | `src/client/components/sessions/SessionList.test.tsx` | 12.9 | TICKET-CHAR-04's run | 4 commits, 213 churn | ▲ **Accelerating — TICKET-PLY-01** (was 10.4 at CHAR-04) |
 | `src/client/components/sessions/SessionList.tsx` | 5.6 | TICKET-CHAR-04's run | 5 commits, 375 churn | ▼ Cooling — **cooled by TICKET-DM-01** (4.2 at CHAR-04, 6.4 at PLY-01; DM-01 passed one prop through) |
 | `src/server/repositories/characterRepository.ts` | 3.3 | TICKET-PLY-01's run | 4 commits, 252 churn | ─ Stable — **cooled by TICKET-DM-01**, which added no query at all: the DM's five writes reuse `recordPlayerAction` whole |
@@ -1272,17 +1273,20 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/server/routes/routeGuards.test.ts` | 10.9 | TICKET-DM-01's run | 3 commits, 209 churn | ▲ **Accelerating** — one line per new guard (GAM-03's `requireInvitee`, PLY-01's `requireCharacterPlayer`, DM-01's `requireCharacterDM`). That is the design working: the scan's corpus is every module defining a handler, so a new guard costs a name in a list. Worth watching only if a fourth ticket changes the *detector* rather than the list |
 | `src/client/stores/characterStore.table.test.ts` | 10.1 | TICKET-DM-01's run | 3 commits, 410 churn | ▲ **Accelerating** — PLY-01 created it, ROLL-07 and DM-01 each added a `describe`. It exists so `characterStore.test.ts` never has to change (the milestone's fifth Definition-of-Done rule), so growth here is the rule being honoured rather than a smell |
 | `src/client/components/play/sheet/CharacterSheet.test.tsx` | 7.5 | TICKET-DM-01's run | 3 commits, 1380 churn | ▲ **Accelerating** — 1,380 churn over three commits on a 1,400-line file is the number to notice. DM-01 added two cases and a `fetch` stub; what made the churn is that PLY-01 and CUR-02 each reshaped the fixtures. If a fourth ticket has to touch the fixtures again rather than add a case, split the local-mode cases from the at-a-table ones |
-| `src/client/components/sessions/SessionsPanel.tsx` | 3.1 | TICKET-CHAR-04's run | 3 commits, 75 churn, 0.03 density | ▲ **Accelerating — TICKET-CHAR-04** |
+| `src/client/components/sessions/SessionsPanel.tsx` | 3.1 | TICKET-CHAR-04's run | 4 commits, 76 churn, 0.03 density | ▲ **Accelerating — TICKET-CHAR-04** — re-measured at TICKET-GAM-03's closeout: a fourth commit and **one line** of churn, score unmoved at 3.1. The panel composes rather than does, so each new surface costs it a `<Panel …/>` and nothing else — the number to watch is the day one of them arrives with a branch |
+| `src/server/db/schema.ts` | 6.2 | TICKET-GAM-03's closeout run | 6 commits, 399 churn, 0.04 density, 14 fan-in | ▲ **Accelerating** — six tickets from DB-01 to CHAR-04 have each added to the normalised half (DB-01, AUTH-01, IO-04, GAM-01, GAM-03, CHAR-04); GAM-03's own contribution was making `session_invite.code` nullable (migration `0004`). The density is the reassuring number — 0.04 across 14 dependents means the file is *growing* rather than getting harder, which is what a schema is supposed to do. It earns watching, not splitting: what would make it a problem is a ticket that reshapes an existing table rather than adding one |
 
-**Both Accelerating rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they
+**Both rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they
 crossed the three-commit floor and became measurable at all. Recorded under the run that first saw
-them, with the tickets that moved them named here rather than lost:
+them, with the tickets that moved them named here rather than lost. Only `vitest.setup.ts` is still
+Accelerating; `boundaries.test.ts` has since cooled:
 
 - **`boundaries.test.ts`** — DX-08 rewrote it (9 → 21 cases) and DX-06 added one. 310 churn over
-  three commits is a file being *reshaped*, not extended, and that is what the tag is for. It is
-  not yet a problem: the growth is one `it` per rule, which is the design. What would make it one is
-  the next rewrite of how it cruises — if a fourth ticket changes the harness rather than adding a
-  case, that is the signal to split the rule fixtures from the cruise machinery.
+  three commits was a file being *reshaped*, not extended, and that is what the tag is for. The open
+  question was what the fourth ticket would do: change the harness, or add a case. **GAM-03 added a
+  case** — one `it` for `the-server-sends-no-mail`, 8 lines, no change to how it cruises — and the
+  velocity turned to cooling at 318 churn over four commits. The rule fixtures stay unsplit, and the
+  question reopens only if a *fifth* ticket touches the cruise machinery.
 - **`vitest.setup.ts`** — three consecutive tickets have each added a line to it (DB-01's
   `DATABASE_URL`, DX-06's note, AUTH-01's `BETTER_AUTH_SECRET`). A five-line file with a comment
   per line is not a maintenance risk; it is on the list because *every* server ticket touches it,

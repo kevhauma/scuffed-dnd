@@ -332,7 +332,7 @@ carrying a user story, the as-is / to-be, and acceptance criteria.
 
 1. `npx vitest run` — **fully green**: 0 failures, 0 skips. The suite passes today; any failing
    or newly-skipped test is a regression you introduced.
-2. `npx tsc --noEmit` — no errors beyond the **4 known ones** listed in
+2. `npx tsc --noEmit` — no errors beyond the **2 known ones** listed in
    [TEST_STATUS.md](TEST_STATUS.md).
 3. `yarn run check` — **completely clean**. There is no lint baseline to subtract; anything it
    reports is yours. The pre-commit hook enforces this (that's why the `core.hooksPath` setup
@@ -365,8 +365,8 @@ carrying a user story, the as-is / to-be, and acceptance criteria.
 - **`yarn check` ≠ `yarn run check`** — worth repeating; it will bite you exactly once.
 - **Tailwind v4 stale CSS**: after adding a new theme token to `styles.css`, the dev server can
   serve a stale CSS bundle. Hard-reload the browser before concluding your token doesn't work.
-- **`npx tsc --noEmit` is expected to show 4 errors.** They're enumerated in
-  [TEST_STATUS.md](TEST_STATUS.md). New errors = your problem; those 4 = known baseline.
+- **`npx tsc --noEmit` is expected to show 2 errors.** They're enumerated in
+  [TEST_STATUS.md](TEST_STATUS.md). New errors = your problem; those 2 = known baseline.
 - **One known open bug** (found by integration testing, ticketed separately): a main skill that a
   character never allocated is missing from the formula context, so *adding* a main skill to a
   ruleset breaks every existing character's sheet with an `Undefined variable` error.

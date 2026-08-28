@@ -6,6 +6,11 @@
       "runtimeExecutable": "yarn",
       "runtimeArgs": ["dev"],
       "port": 3000
+    },
+    {
+      "name": "dev-second-account",
+      "port": 3000,
+      "url": "http://[::1]:3000"
     }
   ]
 }

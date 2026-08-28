@@ -208,3 +208,13 @@ acceptance criteria.
 **In-browser verification**: always ask the user whether to verify in the browser. If they
 decline, continue with the task and leave the browser criterion open with a note. If something is
 broken in the browser, they will come back to correct it.
+
+**A check that needs two Accounts needs two cookie jars, not two sign-ins** (learned closing
+TICKET-GAM-03). Cookies are scoped to the *host*, so the one dev server answering on
+`http://localhost:3000` **and** on `http://[::1]:3000` holds two signed-in Accounts at once — one
+tab per side, no signing out between steps. The second host needs its own entry in
+[.claude/launch.json](.claude/launch.json) (`dev-second-account`, no command — it attaches to the
+running server), because the preview browser refuses any origin not configured there. `127.0.0.1`
+was **not** a third here: the dev server was listening on `[::1]:3000` only, so check with `netstat`
+before assuming a loopback alias answers. The agent still cannot create either Account or type
+either password; the User signs in once per tab, and everything after that is drivable.

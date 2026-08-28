@@ -92,10 +92,10 @@ waits and appears the moment someone registers it.
       `architecture/boundaries.test.ts`. Its reach and its limit — a global `fetch` is not an import
       — are recorded in [`architecture/README.md`](../../../architecture/README.md)'s
       *What dependency-cruiser cannot express* table.)
-- [ ] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions` skill,
+- [x] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions` skill,
       plus a live browser check with two accounts (ask the User first).
 
-      **Everything but the second account is done.** `npx vitest run` 2707 passed / 0 failed /
+      **At the time of building**: `npx vitest run` 2707 passed / 0 failed /
       0 skipped, three consecutive runs; `npx tsc --noEmit` at the documented 2-error baseline;
       `yarn run check` clean. The `conventions-reviewer` subagent — which folds in `fallow audit`,
       `dead-code` and `health --hotspots` — reviewed the diff, and its findings are applied,
@@ -103,8 +103,25 @@ waits and appears the moment someone registers it.
       **shared code** if handed that row's id, which is the fifth criterion crossed in the one
       direction no test covered.
 
-      **Verified live at `localhost:3000`, signed in as one account (`player2@example.com`), on a
-      table it runs (*Friday night*):**
+      **Re-measured at closeout (2026-08-28), when the second Account finally existed.** The seven
+      criteria above were re-read against the tree before anything was ticked: every module, the
+      `requireInvitee` guard, the `the-server-sends-no-mail` rule and all thirteen named test cases
+      still resolve, and the tests behind them pass — `npx vitest run src/server/routes/invitations
+      src/server/routes/sessions src/client/components/sessions architecture/boundaries.test.ts
+      src/server/db/migrate.test.ts` → **19 files, 274 passed**. Whole suite **3037 passed / 0 failed /
+      0 skipped across 190 files** — the documented baseline exactly; `npx tsc --noEmit` at the
+      documented 2-error baseline (`Button.test.tsx:68`, `configFiles.test.ts:238`) and nothing
+      else; `yarn run lint` clean over 657 files; `yarn run arch` clean over 678 modules.
+      On `fallow`, stated per command so the scope is honest: **`dead-code`** (whole tree, so it does
+      cover this ticket's modules) reports two findings, both inherited — `RulesetHomeKind` from
+      RUL-02, and the `fallow` dependency itself; **`health --hotspots`** puts no module of this
+      ticket in the complexity targets; **`audit --base main`** is clean but says nothing about the
+      feature, because GAM-03's code is long since *in* `main` and its scope was the six
+      documentation files of this closeout. Its hotspot rows are brought forward in
+      [TEST_STATUS.md](../../../TEST_STATUS.md).
+
+      **Verified live at build time at `localhost:3000`, signed in as one account
+      (`player2@example.com`), on a table it runs (*Friday night*) — the DM's half:**
       - Typing `  Newcomer@Example.TEST ` stores and shows `newcomer@example.test` — normalised on
         the way in, so case and stray spaces still reach the Account.
       - It appears as **Waiting**, with its expiry a fortnight out, and a *Take it back* beside it.
@@ -119,12 +136,46 @@ waits and appears the moment someone registers it.
         one: settled means re-invitable, and the history is kept.
       - Pressing *New code* reissues to `FN3D7-E0N8V` and **both letters are untouched** —
         criterion 5, the other direction.
+      - A pending invitation to `player1@example.com` was **deliberately left in the dev database**,
+        unanswerable while no Account held that address — the row the closeout below finally opens.
 
-      **What is not verified: the invitee's own side** — the *Waiting for you* card, accept and
-      decline. It needs a **second** signed-in Account, and creating one means typing a password
-      into a sign-up form, which this agent may not do. A pending invitation to
-      `player1@example.com` for *Friday night* is left in the dev database as the setup: signing in
-      as a second Account holding that address closes the rest of this box in three clicks.
+      **The invitee's own side, verified at closeout with two accounts on two cookie jars.**
+      Cookies are per **host**, so one dev server answering on `localhost:3000` and on
+      `http://[::1]:3000` holds two signed-in Accounts at once — `dm01-player@example.com` ran the
+      tables in one tab, `player1@example.com` answered in the other, and nobody had to be signed
+      out between steps. Worth reusing: it is what makes a two-account check a single sitting.
+      - **The letter that was waiting for an address nobody held.** `player2@example.com` addressed
+        one to `player1@example.com` two days before that Account existed. Registering the address
+        surfaced it on the first load of `/sessions` — *Friday night — Invited by
+        player2@example.com — expires 09/09/2026, 21:29:50* — which is **criterion 3 end-to-end in
+        a browser** rather than in a test, and the reason that row was left in the dev database.
+      - **No code anywhere on the card**, matching what `toAddressedInvite` refuses to serialise.
+      - **Arrival on focus, natively.** With the invitee's tab in the background, the DM invited the
+        address from *GAM-03 letters*; the tab took focus and the card appeared **with no reload and
+        no navigation**. That is the whole delivery mechanism (D12) observed working.
+      - **Join seats them.** The card left *Waiting for you* and *GAM-03 letters* appeared under
+        *Games you are in* badged **You play here**. On the DM's side the roster gained
+        `player1@example.com` as **Player**, and the outbox row turned **Joined** — expiry gone,
+        *Take it back* gone.
+      - **Inviting a Member is refused in the server's own words** — *player1@example.com is already
+        at this table, so there is nothing to invite them to* — the only non-200 of the whole run
+        (a 409, by design), with the address left in the box.
+      - **Declining is its own outcome.** On a second table (*GAM-03 refusals*) the invitee pressed
+        *No thanks*: the card went, *Games you are in* did **not** gain the table, and the DM's row
+        reads **Declined** with no expiry and no button — visibly not *Taken back*, not *Expired*.
+      - **Settled means re-invitable.** Inviting the same address again put a fresh **Waiting** row
+        *above* the Declined one — a new invitation, with the refusal kept as history.
+      - **No console error attributable to the run.** Every API call answered 200 but the intended
+        409. The `[vite] Failed to reload` entries sitting in the buffer are timestamped 45 minutes
+        earlier and name `sessions/sessionMoment.ts`, which TICKET-DM-01 renamed to
+        `shared/readableMoment.ts` — a dev server holding a pre-rename module graph, not a fault in
+        this tree — and three fresh loads afterwards produced nothing at all.
+
+      **What automation could not repeat, stated rather than glossed:** the on-focus arrival was
+      observed **once**, natively, and could not be staged a second time — under this harness both
+      tabs report `document.hasFocus()` true simultaneously, so the window never blurs and Chrome
+      fires no second `focus` event. The second invitation's arrival was therefore read on load,
+      with `GET /api/invitations` confirmed to be listing it while the stale UI had not yet asked.
 
 ## Notes
 
