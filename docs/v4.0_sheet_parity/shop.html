@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Imperial Ledger - Manifest I.XX</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,700;0,900;1,400&family=MedievalSharp&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --parchment: #f4e4bc;
+            --ink: #2c1e1a;
+            --wood-dark: #3e2723;
+            --wood-light: #5d4037;
+        }
+
+        body {
+            background-color: #1a1a14;
+            background-image: radial-gradient(circle at center, #2a2a20 0%, #1a1a14 100%);
+            color: var(--wood-dark);
+            font-family: 'Crimson Pro', serif;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .fantasy-font { font-family: 'MedievalSharp', cursive; }
+        .ledger-font { font-family: 'Crimson Pro', serif; }
+
+        .parchment {
+            background-color: var(--parchment);
+            background-image: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.2) 0%, rgba(0,0,0,0) 100%), url("https://www.transparenttextures.com/patterns/p6.png");
+            border: 1px solid #d2b48c;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.1), 5px 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .wood-border {
+            border: 8px solid var(--wood-dark);
+            border-image: linear-gradient(to bottom, var(--wood-light), var(--wood-dark)) 1;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #8b451344; border-radius: 10px; }
+
+        .btn-store {
+            transition: all 0.2s ease;
+            opacity: 0.6;
+        }
+        .btn-store.active {
+            opacity: 1;
+            transform: scale(1.05);
+            background-color: rgba(255,255,255,0.4);
+            border: 2px solid #8b4513;
+        }
+
+        .ink-text {
+            color: var(--ink);
+            text-shadow: 0.5px 0.5px 0px rgba(0,0,0,0.1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-flow { animation: fadeIn 0.3s ease-out forwards; }
+
+        @media print {
+            body { background: white !important; color: black !important; padding: 0; }
+            .no-print, button, input, #store-selector, #item-search, .buy-sell-toggle { display: none !important; }
+            .parchment { box-shadow: none !important; border: 1px solid #8b4513 !important; }
+            .wood-border { border: none !important; }
+            #ledger-items { overflow: visible !important; height: auto !important; }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+<div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+    
+    <!-- LEFT PANEL: Selection -->
+    <div class="lg:col-span-5 xl:col-span-4 flex flex-col gap-6 no-print">
+        
+        <!-- Search Bar -->
+        <div class="relative z-50 group">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg class="h-5 w-5 text-[#8b4513] opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
+            <input type="text" id="item-search" placeholder="Search the Imperial Registry..." class="w-full bg-[#f4e4bc] border-4 border-double border-[#8b4513] pl-10 p-3 rounded text-[#5d4037] font-bold ledger-font placeholder:text-[#8b4513]/50 focus:outline-none focus:bg-[#fff9e6] transition-colors shadow-inner text-lg" oninput="handleSearch(this.value)">
+            <div id="search-results" class="absolute w-full mt-1 bg-[#f4e4bc] border-2 border-[#8b4513] rounded shadow-2xl hidden max-h-72 overflow-y-auto custom-scrollbar z-50">
+                <!-- Results injected by JS -->
+            </div>
+        </div>
+
+        <!-- Store Selector -->
+        <div class="parchment p-4 rounded border-double border-4 border-[#8b4513] relative z-40">
+            <h3 class="fantasy-font text-xs uppercase tracking-widest mb-3 text-[#8b4513] border-b border-[#d2b48c] pb-2 text-center">Imperial Trade Venues</h3>
+            <div id="store-selector" class="grid grid-cols-3 lg:grid-cols-5 gap-2">
+                <!-- Stores injected by JS -->
+            </div>
+        </div>
+
+        <!-- Structured Order Entry -->
+        <div class="parchment p-6 rounded relative overflow-hidden flex-1 max-h-[750px] overflow-y-auto custom-scrollbar z-30">
+            <div id="entry-container" class="animate-flow">
+                <!-- Selection Flow injected by JS -->
+            </div>
+        </div>
+
+        <!-- Buy/Sell Toggle -->
+        <div class="bg-[#2c1e1a] p-1 rounded-lg wood-border grid grid-cols-3 gap-1 z-20 buy-sell-toggle">
+            <button onclick="setTradeMode('sale')" id="mode-sale" class="py-4 rounded font-bold fantasy-font text-[10px] bg-[#f4e4bc] text-[#2c1e1a] transition-all shadow-md">Imperial Sale</button>
+            <button onclick="setTradeMode('buyback')" id="mode-buy" class="py-4 rounded font-bold fantasy-font text-[10px] text-[#f4e4bc]/40 transition-all hover:bg-[#f4e4bc]/10">Citizen Buyback</button>
+            <button onclick="setTradeMode('recraft')" id="mode-recraft" class="py-4 rounded font-bold fantasy-font text-[10px] text-[#f4e4bc]/40 transition-all hover:bg-[#f4e4bc]/10">Imperial Recraft</button>
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL: Great Ledger -->
+    <div class="lg:col-span-7 xl:col-span-8">
+        <div class="bg-[#3e2723] rounded-xl shadow-2xl p-2 wood-border h-full">
+            <div class="parchment rounded-sm p-6 md:p-10 h-full flex flex-col relative">
+                
+                <div class="flex justify-between items-end border-b-4 border-double border-[#8b4513] pb-6 mb-6">
+                    <div>
+                        <h1 class="fantasy-font text-4xl tracking-tighter ink-text mb-1 uppercase">Great Ledger of Trade</h1>
+                        <p class="ledger-font italic opacity-60 text-sm">Imperial Manifest I.XX • Treasury Records</p>
+                    </div>
+                    <div class="flex gap-2 no-print">
+                        <button onclick="sealAndPrint()" class="fantasy-font text-[10px] bg-[#8b4513] text-[#f4e4bc] px-4 py-2 rounded hover:bg-[#5d4037] transition-colors shadow-md">Seal & Export</button>
+                        <button onclick="clearLedger()" class="fantasy-font text-[10px] text-[#8b4513] border border-[#8b4513]/20 px-4 py-2 rounded hover:bg-[#8b4513]/10 transition-colors">Purge Ledger</button>
+                    </div>
+                </div>
+
+                <!-- Encumbrance Bar -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="fantasy-font text-[10px] uppercase opacity-60 tracking-widest">Weight & Encumbrance</span>
+                        <span id="weight-label" class="ledger-font font-bold text-xs">0.0 kg</span>
+                    </div>
+                    <div class="w-full bg-[#8b4513]/10 h-3 rounded-full overflow-hidden border border-[#8b4513]/20 flex">
+                        <div id="weight-bar" class="bg-[#8b4513] h-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                    <p id="encumbrance-warning" class="fantasy-font text-[10px] mt-1 italic text-[#8b4513] opacity-60">Manifest is easily carried by hand.</p>
+                </div>
+
+                <!-- Ledger Items -->
+                <div id="ledger-items" class="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar min-h-[400px]">
+                    <!-- Items injected by JS -->
+                </div>
+
+                <!-- Totals Section -->
+                <div class="mt-8 pt-6 border-t-4 border-double border-[#8b4513]">
+                    <div class="flex flex-col xl:flex-row justify-between items-end gap-6">
+                        <div class="flex-1">
+                            <span class="fantasy-font text-xs uppercase opacity-40 mb-1 block tracking-widest">Sum Total of manifest</span>
+                            <div id="manifest-total" class="fantasy-font text-6xl leading-none ink-text">0cp</div>
+                        </div>
+                        <div id="coin-entry" class="flex gap-2 no-print"></div>
+                    </div>
+
+                    <!-- Change Due -->
+                    <div id="change-container" class="hidden mt-6 p-4 bg-[#2c1e1a] rounded text-[#f4e4bc] flex justify-between items-center border-2 border-[#8b4513]">
+                        <div>
+                            <span class="fantasy-font text-[10px] uppercase block opacity-60 tracking-widest">Citizen Reimbursement</span>
+                            <span id="change-text" class="fantasy-font text-3xl">0cp</span>
+                        </div>
+                        <div id="change-coins" class="flex flex-wrap gap-1 justify-end max-w-[60%]"></div>
+                    </div>
+                </div>
+
+                <div class="hidden print:block mt-20 pt-10 border-t border-dashed border-[#8b4513] text-center">
+                    <p class="fantasy-font text-sm opacity-40 italic">Sealed by Imperial Decree • All Wares Checked and Verified</p>
+                    <div class="mt-4 flex justify-center opacity-30">
+                        <div class="w-16 h-16 border-4 border-[#8b4513] rounded-full flex items-center justify-center font-bold text-2xl">IM</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /** CORE DATA **/
+    const COIN_TYPES = [
+        { name: 'Platinum', value: 10000, color: 'bg-[#E5E4E2] text-slate-900 border-[#C0C0C0]' },
+        { name: 'Gold', value: 1000, color: 'bg-[#FFD700] text-yellow-950 border-[#DAA520]' },
+        { name: 'Electrum', value: 100, color: 'bg-[#A7C7E7] text-blue-950 border-[#7FB3D5]' },
+        { name: 'Silver', value: 10, color: 'bg-[#C0C0C0] text-slate-800 border-[#A9A9A9]' },
+        { name: 'Copper', value: 1, color: 'bg-[#B87333] text-orange-950 border-[#8B4513]' },
+    ];
+
+    const STORES = {
+        FORGE: { id: 'FORGE', name: 'Imperial Forge', icon: 'H', color: '#991b1b' },
+        GROCERY: { id: 'GROCERY', name: 'Imperial Grocery', icon: 'U', color: '#166534' },
+        RESTAURANT: { id: 'RESTAURANT', name: 'Imperial Restaurant', icon: 'R', color: '#be123c' },
+        GENERAL: { id: 'GENERAL', name: 'General Store', icon: 'G', color: '#4b5563' },
+        MINERALS: { id: 'MINERALS', name: 'Stones & Ores', icon: 'M', color: '#0f766e' },
+        JEWELRY: { id: 'JEWELRY', name: 'Imperial Jewelry', icon: 'S', color: '#92400e' },
+        CLOTHING: { id: 'CLOTHING', name: 'Imperial Clothing', icon: 'C', color: '#1e40af' },
+        ARCANUM: { id: 'ARCANUM', name: 'Imperial Arcanum', icon: 'Z', color: '#6b21a8' },
+        FURNITURE: { id: 'FURNITURE', name: 'Imperial Furniture', icon: 'F', color: '#b45309' },
+        INN: { id: 'INN', name: 'Imperial Inn', icon: 'I', color: '#4338ca' }
+    };
+
+    const ROOM_TYPES = [
+        { id: 'common', name: 'Common Room Floor', price: 2, perPerson: true },
+        { id: 'shared', name: 'Shared Bunk', price: 5, perPerson: true },
+        { id: 'private', name: 'Private Room', price: 50, perPerson: false },
+        { id: 'royal', name: 'Royal Suite', price: 500, perPerson: false },
+    ];
+
+    const INLAY_GEMS = [
+        { id: 'in_quartz', name: 'Quartz', price: 10 },
+        { id: 'in_malachite', name: 'Malachite', price: 10 },
+        { id: 'in_obsidian', name: 'Obsidian', price: 10 },
+        { id: 'in_onyx', name: 'Onyx', price: 50 },
+        { id: 'in_moonstone', name: 'Moonstone', price: 50 },
+        { id: 'in_bloodstone', name: 'Bloodstone', price: 50 },
+        { id: 'in_amethyst', name: 'Amethyst', price: 250 },
+        { id: 'in_jade', name: 'Jade', price: 250 },
+        { id: 'in_sapphire', name: 'Sapphire', price: 250 },
+        { id: 'in_emerald', name: 'Emerald', price: 500 },
+        { id: 'in_opal', name: 'Opal', price: 500 },
+        { id: 'in_ruby', name: 'Ruby', price: 1000 },
+        { id: 'in_starsapphire', name: 'Star Sapphire', price: 1000 },
+        { id: 'in_diamond', name: 'Diamond', price: 5000 },
+        { id: 'in_dragonstone', name: 'Dragonstone', price: 10000 }
+    ];
+
+    const ITEMS = [
+        // --- FORGE ---
+        { id: 'f_baxe', name: 'Battleaxe', weight: 2.0, hours: 10, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_bhook', name: 'Billhook', weight: 2.5, hours: 6, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_bgun', name: 'Blowgun', weight: 1.0, hours: 4, store: 'FORGE', category: 'Arsenal', matTypes: ['wood', 'metal'] },
+        { id: 'f_clay', name: 'Claymore', weight: 4.0, hours: 26, store: 'FORGE', category: 'Arsenal', matTypes: ['metal'] },
+        { id: 'f_cleav', name: 'Cleaver', weight: 1.0, hours: 3, store: 'FORGE', category: 'Arsenal', matTypes: ['metal'] },
+        { id: 'f_club', name: 'Club', weight: 1.5, hours: 2, store: 'FORGE', category: 'Arsenal', matTypes: ['wood', 'metal'] },
+        { id: 'f_dag', name: 'Dagger', weight: 0.5, hours: 2, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood', 'bone'] },
+        { id: 'f_dart', name: 'Dart', weight: 0.2, hours: 1, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood', 'bone'] },
+        { id: 'f_dirk', name: 'Dirk', weight: 0.5, hours: 3, store: 'FORGE', category: 'Arsenal', matTypes: ['metal'] },
+        { id: 'f_estoc', name: 'Estoc', weight: 1.5, hours: 16, store: 'FORGE', category: 'Arsenal', matTypes: ['metal'] },
+        { id: 'f_falch', name: 'Falchion', weight: 2.0, hours: 14, store: 'FORGE', category: 'Arsenal', matTypes: ['metal'] },
+        { id: 'f_flail', name: 'Flail', weight: 1.5, hours: 10, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_glaiv', name: 'Glaive', weight: 3.0, hours: 15, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_gaxe', name: 'Greataxe', weight: 3.5, hours: 20, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_gswrd', name: 'Greatsword', weight: 3.0, hours: 24, store: 'FORGE', category: 'Arsenal', matTypes: ['metal'] },
+        { id: 'f_halb', name: 'Halberd', weight: 3.0, hours: 18, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_hspear', name: 'Halfspear', weight: 1.5, hours: 5, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_hatch', name: 'Hatchet', weight: 1.0, hours: 4, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_jav', name: 'Javelin', weight: 1.0, hours: 3, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_kukri', name: 'Kukri', weight: 1.0, hours: 6, store: 'FORGE', category: 'Arsenal', matTypes: ['metal'] },
+        { id: 'f_lance', name: 'Lance', weight: 4.5, hours: 12, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_lswrd', name: 'Longsword', weight: 1.5, hours: 10, store: 'FORGE', category: 'Arsenal', matTypes: ['metal'] },
+        { id: 'f_luc', name: 'Lucerne Hammer', weight: 3.5, hours: 18, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_mace', name: 'Mace', weight: 2.0, hours: 8, store: 'FORGE', category: 'Arsenal', matTypes: ['metal'] },
+        { id: 'f_maul', name: 'Maul', weight: 5.0, hours: 20, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_mstar', name: 'Morningstar', weight: 2.0, hours: 10, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_pike', name: 'Pike', weight: 4.5, hours: 12, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_pfork', name: 'Pitchfork', weight: 2.0, hours: 5, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_qstaff', name: 'Quarterstaff', weight: 2.0, hours: 3, store: 'FORGE', category: 'Arsenal', matTypes: ['wood', 'metal'] },
+        { id: 'f_rap', name: 'Rapier', weight: 1.0, hours: 15, store: 'FORGE', category: 'Arsenal', matTypes: ['metal'] },
+        { id: 'f_scim', name: 'Scimitar', weight: 1.5, hours: 12, store: 'FORGE', category: 'Arsenal', matTypes: ['metal'] },
+        { id: 'f_scy', name: 'Scythe', weight: 2.5, hours: 8, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_sswrd', name: 'Shortsword', weight: 1.0, hours: 5, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'bone'] },
+        { id: 'f_sick', name: 'Sickle', weight: 1.0, hours: 4, store: 'FORGE', category: 'Arsenal', matTypes: ['metal'] },
+        { id: 'f_sling', name: 'Sling', weight: 0.1, hours: 1, store: 'FORGE', category: 'Arsenal', matTypes: ['leather', 'fabric'] },
+        { id: 'f_schain', name: 'Spiked Chain', weight: 4.0, hours: 15, store: 'FORGE', category: 'Arsenal', matTypes: ['metal'] },
+        { id: 'f_stil', name: 'Stiletto', weight: 0.4, hours: 4, store: 'FORGE', category: 'Arsenal', matTypes: ['metal'] },
+        { id: 'f_tri', name: 'Trident', weight: 2.0, hours: 15, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_wham', name: 'Warhammer', weight: 1.0, hours: 10, store: 'FORGE', category: 'Arsenal', matTypes: ['metal', 'wood'] },
+        { id: 'f_whip', name: 'Whip', weight: 1.5, hours: 5, store: 'FORGE', category: 'Arsenal', matTypes: ['leather'] },
+        
+        { id: 'fa_band', name: 'Banded Mail', weight: 16.0, hours: 38, store: 'FORGE', category: 'Armory', matTypes: ['metal', 'leather'] },
+        { id: 'fa_basc', name: 'Bascinet', weight: 3.0, hours: 16, store: 'FORGE', category: 'Armory', matTypes: ['metal'] },
+        { id: 'fa_bplate', name: 'Breastplate', weight: 10.0, hours: 40, store: 'FORGE', category: 'Armory', matTypes: ['metal'] },
+        { id: 'fa_brig', name: 'Brigandine', weight: 12.0, hours: 30, store: 'FORGE', category: 'Armory', matTypes: ['metal', 'leather'] },
+        { id: 'fa_buck', name: 'Buckler', weight: 1.5, hours: 8, store: 'FORGE', category: 'Armory', matTypes: ['metal', 'wood'] },
+        { id: 'fa_cpant', name: 'Chain Pants', weight: 5.0, hours: 20, store: 'FORGE', category: 'Armory', matTypes: ['metal'] },
+        { id: 'fa_cshirt', name: 'Chain Shirt', weight: 10.0, hours: 35, store: 'FORGE', category: 'Armory', matTypes: ['metal'] },
+        { id: 'fa_fplate', name: 'Full Plate', weight: 25.0, hours: 80, store: 'FORGE', category: 'Armory', matTypes: ['metal'] },
+        { id: 'fa_gaunt', name: 'Gauntlets', weight: 2.0, hours: 15, store: 'FORGE', category: 'Armory', matTypes: ['metal', 'leather'] },
+        { id: 'fa_greav', name: 'Greaves', weight: 4.0, hours: 18, store: 'FORGE', category: 'Armory', matTypes: ['metal'] },
+        { id: 'fa_hplate', name: 'Half-Plate', weight: 18.0, hours: 50, store: 'FORGE', category: 'Armory', matTypes: ['metal'] },
+        { id: 'fa_helm', name: 'Helmet', weight: 3.0, hours: 15, store: 'FORGE', category: 'Armory', matTypes: ['metal'] },
+        { id: 'fa_kshield', name: 'Kite Shield', weight: 3.0, hours: 10, store: 'FORGE', category: 'Armory', matTypes: ['metal', 'wood'] },
+        { id: 'fa_knuck', name: 'Knuckles', weight: 0.5, hours: 4, store: 'FORGE', category: 'Armory', matTypes: ['metal'] },
+        { id: 'fa_lplate', name: 'Leg Plate', weight: 7.5, hours: 25, store: 'FORGE', category: 'Armory', matTypes: ['metal'] },
+        { id: 'fa_pauld', name: 'Pauldrons', weight: 3.0, hours: 14, store: 'FORGE', category: 'Armory', matTypes: ['metal'] },
+        { id: 'fa_rchest', name: 'Ring Mail Chest', weight: 15.0, hours: 30, store: 'FORGE', category: 'Armory', matTypes: ['metal'] },
+        { id: 'fa_schest', name: 'Scale Mail Chest', weight: 22.0, hours: 45, store: 'FORGE', category: 'Armory', matTypes: ['metal'] },
+        { id: 'fa_tshield', name: 'Tower Shield', weight: 10.0, hours: 25, store: 'FORGE', category: 'Armory', matTypes: ['metal', 'wood'] },
+
+        { id: 'fm_arr', name: 'Arrows (Batch)', weight: 0.05, hours: 1, store: 'FORGE', category: 'Munitions', matTypes: ['wood', 'metal'] },
+        { id: 'fm_bolt', name: 'Bolts (Batch)', weight: 0.05, hours: 1, store: 'FORGE', category: 'Munitions', matTypes: ['wood', 'metal'] },
+        { id: 'fm_hcross', name: 'Hand Crossbow', weight: 1.5, hours: 20, store: 'FORGE', category: 'Munitions', matTypes: ['wood', 'metal'] },
+        { id: 'fm_hvcross', name: 'Heavy Crossbow', weight: 8.0, hours: 25, store: 'FORGE', category: 'Munitions', matTypes: ['wood', 'metal'] },
+        { id: 'fm_lcross', name: 'Light Crossbow', weight: 2.5, hours: 15, store: 'FORGE', category: 'Munitions', matTypes: ['wood', 'metal'] },
+        { id: 'fm_lbow', name: 'Longbow', weight: 1.0, hours: 15, store: 'FORGE', category: 'Munitions', matTypes: ['wood'] },
+        { id: 'fm_sbow', name: 'Shortbow', weight: 1.0, hours: 10, store: 'FORGE', category: 'Munitions', matTypes: ['wood'] },
+
+        // --- RESTAURANT ---
+        { id: 'r_p1', name: 'Barley Cake', value: 1, store: 'RESTAURANT', category: 'Peasant Fare' },
+        { id: 'r_p2', name: 'Boiled Potatoes', value: 2, store: 'RESTAURANT', category: 'Peasant Fare' },
+        { id: 'r_p3', name: 'Dark Bread & Drippings', value: 2, store: 'RESTAURANT', category: 'Peasant Fare' },
+        { id: 'r_p4', name: 'Foraged Berry Compote', value: 3, store: 'RESTAURANT', category: 'Peasant Fare' },
+        { id: 'r_p5', name: 'Peasant\'s Bean Stew', value: 2, store: 'RESTAURANT', category: 'Peasant Fare' },
+        { id: 'r_p6', name: 'Pickled Herring', value: 3, store: 'RESTAURANT', category: 'Peasant Fare' },
+        { id: 'r_p7', name: 'Roasted Field Mouse', value: 1, store: 'RESTAURANT', category: 'Peasant Fare' },
+        { id: 'r_p8', name: 'Thick Gruel', value: 1, store: 'RESTAURANT', category: 'Peasant Fare' },
+        { id: 'r_p9', name: 'Thin Cabbage Soup', value: 1, store: 'RESTAURANT', category: 'Peasant Fare' },
+        { id: 'r_p10', name: 'Turnip Mash', value: 1, store: 'RESTAURANT', category: 'Peasant Fare' },
+        
+        { id: 'r_tc1', name: 'Baked Cod', value: 16, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc2', name: 'Baked Sweet Potato', value: 6, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc3', name: 'Bangers and Mash', value: 14, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc4', name: 'Braised Rabbit', value: 16, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc5', name: 'Cheese & Charcuterie', value: 20, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc6', name: 'Fried Boar Bites', value: 14, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc7', name: 'Fried River Fish', value: 12, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc8', name: 'Garlic Knots', value: 6, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc9', name: 'Hearty Beef Stew', value: 12, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc10', name: 'Honey-Glazed Carrots', value: 8, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc11', name: 'Hunter\'s Skillet', value: 18, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc12', name: 'Mutton Chops', value: 18, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc13', name: 'Ploughman\'s Lunch', value: 10, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc14', name: 'Pork Cracklings', value: 6, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc15', name: 'Roast Chicken & Tubers', value: 15, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc16', name: 'Sausage & Kraut', value: 12, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc17', name: 'Shepherd\'s Pie', value: 15, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc18', name: 'Stuffed Mushroom Caps', value: 10, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc19', name: 'Tavern Meat Pie', value: 10, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc20', name: 'Thick Clam Chowder', value: 15, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc21', name: 'Venison Jerky', value: 10, store: 'RESTAURANT', category: 'Tavern Classics' },
+        { id: 'r_tc22', name: 'Wild Turkey Leg', value: 12, store: 'RESTAURANT', category: 'Tavern Classics' },
+
+        { id: 'r_v1', name: 'Braised Artichoke Hearts', value: 28, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v2', name: 'Crispy Falafel Platter', value: 18, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v3', name: 'Foraged Forest Mushroom Soup', value: 14, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v4', name: 'Grilled Eggplant Steaks', value: 20, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v5', name: 'Hearty Bean & Barley Cassoulet', value: 15, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v6', name: 'Heirloom Tomato & Basil Galette', value: 25, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v7', name: 'Herb-Crusted Tempeh Medallions', value: 40, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v8', name: 'Pan-Seared King Oyster Mushrooms', value: 35, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v9', name: 'Roasted Cauliflower Steaks', value: 30, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v10', name: 'Roasted Root Vegetable Medley', value: 15, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v11', name: 'Smashed Peppercorn Potatoes', value: 18, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v12', name: 'Smoked Seitan Roast', value: 45, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v13', name: 'Spiced Lentil & Chickpea Stew', value: 14, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v14', name: 'Spiced Pumpkin Gnocchi', value: 22, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v15', name: 'Stuffed Bell Peppers with Quinoa', value: 20, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v16', name: 'Sweet Potato & Coconut Curry', value: 22, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v17', name: 'Truffled White Bean Purée', value: 30, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v18', name: 'Wild Mushroom Risotto', value: 25, store: 'RESTAURANT', category: 'Plant-Based' },
+        { id: 'r_v19', name: 'Zucchini Ribbons with Pesto', value: 20, store: 'RESTAURANT', category: 'Plant-Based' },
+
+        { id: 'r_m1', name: 'Beef Wellington', value: 60, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m2', name: 'Braised Short Ribs', value: 50, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m3', name: 'Butter-Poached Scallops', value: 55, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m4', name: 'Crown Roast of Pork', value: 65, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m5', name: 'Duck Confit', value: 50, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m6', name: 'Elk Medallions', value: 55, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m7', name: 'Gorgonzola Gnocchi', value: 35, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m8', name: 'Grilled Salmon Steak', value: 45, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m9', name: 'Halibut Filet', value: 50, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m10', name: 'Herb-Crusted Lamb Rack', value: 50, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m11', name: 'Honey-Glazed Ham', value: 35, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m12', name: 'Lobster Tail', value: 60, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m13', name: 'Oysters on the Half Shell', value: 30, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m14', name: 'Pan-Seared Duck Breast', value: 45, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m15', name: 'Pork Belly Roast', value: 40, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m16', name: 'Prime Rib Roast', value: 70, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m17', name: 'Roast Boar Loin', value: 40, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m18', name: 'Roast Venison Flank', value: 45, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m19', name: 'Roasted Pheasant', value: 45, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m20', name: 'Seafood Paella', value: 55, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m21', name: 'Spiced Quail', value: 40, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+        { id: 'r_m22', name: 'Veal Cutlet', value: 45, store: 'RESTAURANT', category: 'Merchant\'s Choice' },
+
+        { id: 'r_nd1', name: 'Basilisk Tail Stew', value: 130, store: 'RESTAURANT', category: 'Noble Dining' },
+        { id: 'r_nd2', name: 'Celestial Veal', value: 250, store: 'RESTAURANT', category: 'Noble Dining' },
+        { id: 'r_nd3', name: 'Cockatrice Coq au Vin', value: 160, store: 'RESTAURANT', category: 'Noble Dining' },
+        { id: 'r_nd4', name: 'Deep Sea King Crab', value: 140, store: 'RESTAURANT', category: 'Noble Dining' },
+        { id: 'r_nd5', name: 'Dire Boar Roast', value: 150, store: 'RESTAURANT', category: 'Noble Dining' },
+        { id: 'r_nd6', name: 'Gold-Leaf Steak', value: 200, store: 'RESTAURANT', category: 'Noble Dining' },
+        { id: 'r_nd7', name: 'Griffon Medallions', value: 150, store: 'RESTAURANT', category: 'Noble Dining' },
+        { id: 'r_nd8', name: 'Manticore Flank', value: 175, store: 'RESTAURANT', category: 'Noble Dining' },
+        { id: 'r_nd9', name: 'Phase Spider Crab Legs', value: 140, store: 'RESTAURANT', category: 'Noble Dining' },
+        { id: 'r_nd10', name: 'Roc Egg Omelet', value: 110, store: 'RESTAURANT', category: 'Noble Dining' },
+        { id: 'r_nd11', name: 'Saffron-Infused Scallops', value: 120, store: 'RESTAURANT', category: 'Noble Dining' },
+        { id: 'r_nd12', name: 'Treant-Smoked Brisket', value: 150, store: 'RESTAURANT', category: 'Noble Dining' },
+        { id: 'r_nd13', name: 'Truffle-Stuffed Owlbear', value: 190, store: 'RESTAURANT', category: 'Noble Dining' },
+        { id: 'r_nd14', name: 'Wyvern Ribs', value: 160, store: 'RESTAURANT', category: 'Noble Dining' },
+
+        { id: 'r_if1', name: 'Astral Dragon Filet', value: 1500, store: 'RESTAURANT', category: 'Imperial Feasts' },
+        { id: 'r_if2', name: 'Behemoth Crown Roast', value: 950, store: 'RESTAURANT', category: 'Imperial Feasts' },
+        { id: 'r_if3', name: 'Emperor\'s Golden Feast', value: 1000, store: 'RESTAURANT', category: 'Imperial Feasts' },
+        { id: 'r_if4', name: 'Kraken Calamari', value: 550, store: 'RESTAURANT', category: 'Imperial Feasts' },
+        { id: 'r_if5', name: 'Kraken Heart Tartare', value: 1200, store: 'RESTAURANT', category: 'Imperial Feasts' },
+        { id: 'r_if6', name: 'Phoenix Egg Soufflé', value: 1200, store: 'RESTAURANT', category: 'Imperial Feasts' },
+
+        { id: 'r_d1', name: 'Apple Cobbler', value: 8, store: 'RESTAURANT', category: 'Desserts' },
+        { id: 'r_d2', name: 'Berry Tart', value: 12, store: 'RESTAURANT', category: 'Desserts' },
+        { id: 'r_d3', name: 'Candied Nuts', value: 6, store: 'RESTAURANT', category: 'Desserts' },
+        { id: 'r_d4', name: 'Chocolate Truffles', value: 25, store: 'RESTAURANT', category: 'Desserts' },
+        { id: 'r_d5', name: 'Cinnamon Baked Apples', value: 10, store: 'RESTAURANT', category: 'Desserts' },
+        { id: 'r_d6', name: 'Gold-Dusted Macarons', value: 50, store: 'RESTAURANT', category: 'Desserts' },
+        { id: 'r_d7', name: 'Honey Cake', value: 10, store: 'RESTAURANT', category: 'Desserts' },
+        { id: 'r_d8', name: 'Lemon Sorbet', value: 15, store: 'RESTAURANT', category: 'Desserts' },
+        { id: 'r_d9', name: 'Spiced Plum Pudding', value: 20, store: 'RESTAURANT', category: 'Desserts' },
+        { id: 'r_d10', name: 'Sweet Roll', value: 5, store: 'RESTAURANT', category: 'Desserts' },
+
+        { id: 'r_b1', name: 'Apple Cider', value: 5, store: 'RESTAURANT', category: 'Beverages' },
+        { id: 'r_b2', name: 'Black Coffee', value: 4, store: 'RESTAURANT', category: 'Beverages' },
+        { id: 'r_b3', name: 'Dwarven Stout', value: 8, store: 'RESTAURANT', category: 'Beverages' },
+        { id: 'r_b4', name: 'Elven Spring Wine', value: 25, store: 'RESTAURANT', category: 'Beverages' },
+        { id: 'r_b5', name: 'Herbal Tea', value: 3, store: 'RESTAURANT', category: 'Beverages' },
+        { id: 'r_b6', name: 'Honey Mead', value: 10, store: 'RESTAURANT', category: 'Beverages' },
+        { id: 'r_b7', name: 'Imperial Champagne', value: 250, store: 'RESTAURANT', category: 'Beverages' },
+        { id: 'r_b8', name: 'Noble Vintage Wine', value: 100, store: 'RESTAURANT', category: 'Beverages' },
+        { id: 'r_b9', name: 'Spring Water', value: 1, store: 'RESTAURANT', category: 'Beverages' },
+        { id: 'r_b10', name: 'Tavern Ale', value: 5, store: 'RESTAURANT', category: 'Beverages' },
+
+        // --- GROCERY ---
+        { id: 'g_bak1', name: 'Dark Rye Loaf', value: 2, store: 'GROCERY', category: 'Bakery' },
+        { id: 'g_bak2', name: 'Elven Waybread', value: 10, store: 'GROCERY', category: 'Bakery' },
+        { id: 'g_bak3', name: 'Sailor\'s Hardtack (x10)', value: 5, store: 'GROCERY', category: 'Bakery' },
+        { id: 'g_bak4', name: 'Sourdough Loaf', value: 3, store: 'GROCERY', category: 'Bakery' },
+        { id: 'g_bak5', name: 'Whole Apple Pie', value: 15, store: 'GROCERY', category: 'Bakery' },
+        
+        { id: 'g_but1', name: 'Beef Ribeye (1kg)', value: 15, store: 'GROCERY', category: 'Butchery' },
+        { id: 'g_but2', name: 'Dire-Wolf Steak (1kg)', value: 45, store: 'GROCERY', category: 'Butchery' },
+        { id: 'g_but3', name: 'Dragon Flank Steak (1kg)', value: 500, store: 'GROCERY', category: 'Butchery' },
+        { id: 'g_but4', name: 'Ground Beef (1kg)', value: 8, store: 'GROCERY', category: 'Butchery' },
+        { id: 'g_but5', name: 'Owlbear Brisket (1kg)', value: 60, store: 'GROCERY', category: 'Butchery' },
+        { id: 'g_but6', name: 'Pork Sausages (1kg)', value: 10, store: 'GROCERY', category: 'Butchery' },
+        { id: 'g_but7', name: 'Whole Chicken', value: 8, store: 'GROCERY', category: 'Butchery' },
+        
+        { id: 'g_sea1', name: 'Deep Sea Fish (1kg)', value: 15, store: 'GROCERY', category: 'Seafood' },
+        { id: 'g_sea2', name: 'Exotic Crustacean (1kg)', value: 30, store: 'GROCERY', category: 'Seafood' },
+        { id: 'g_sea3', name: 'Kraken Meat (1kg)', value: 1000, store: 'GROCERY', category: 'Seafood' },
+        { id: 'g_sea4', name: 'River Fish / Herring (1kg)', value: 5, store: 'GROCERY', category: 'Seafood' },
+        { id: 'g_sea5', name: 'Shellfish Bucket', value: 10, store: 'GROCERY', category: 'Seafood' },
+
+        { id: 'g_pro1', name: 'Avocados (Basket)', value: 15, store: 'GROCERY', category: 'Produce' },
+        { id: 'g_pro2', name: 'Cabbage & Turnips (5kg)', value: 3, store: 'GROCERY', category: 'Produce' },
+        { id: 'g_pro3', name: 'Lentils & Chickpeas (5kg)', value: 5, store: 'GROCERY', category: 'Produce' },
+        { id: 'g_pro4', name: 'Potatoes (5kg)', value: 4, store: 'GROCERY', category: 'Produce' },
+        
+        { id: 'g_dai1', name: 'Chicken Eggs (Dozen)', value: 2, store: 'GROCERY', category: 'Dairy & Bases' },
+        { id: 'g_dai2', name: 'Churned Butter (1kg)', value: 8, store: 'GROCERY', category: 'Dairy & Bases' },
+        { id: 'g_dai3', name: 'Milk', value: 2, store: 'GROCERY', category: 'Dairy & Bases' },
+        { id: 'g_dai4', name: 'Monster Egg (Large)', value: 250, store: 'GROCERY', category: 'Dairy & Bases' },
+        { id: 'g_dai5', name: 'Wheel of Cheese', value: 8, store: 'GROCERY', category: 'Dairy & Bases' },
+
+        { id: 'g_pan1', name: 'Cane Sugar (1kg)', value: 20, store: 'GROCERY', category: 'Pantry' },
+        { id: 'g_pan2', name: 'Coarse Salt (1kg)', value: 10, store: 'GROCERY', category: 'Pantry' },
+        { id: 'g_pan3', name: 'Exotic Spices', value: 50, store: 'GROCERY', category: 'Pantry' },
+        { id: 'g_pan4', name: 'Flour (5kg)', value: 5, store: 'GROCERY', category: 'Pantry' },
+        { id: 'g_pan5', name: 'Olive Oil (Flask)', value: 15, store: 'GROCERY', category: 'Pantry' },
+
+        { id: 'g_exp1', name: 'Hardtack Sack (1 Month)', value: 30, store: 'GROCERY', category: 'Exploration' },
+        { id: 'g_exp2', name: 'Iron Rations (1 Week)', value: 50, store: 'GROCERY', category: 'Exploration' },
+        { id: 'g_exp3', name: 'Nut & Berry Trail Mix', value: 5, store: 'GROCERY', category: 'Exploration' },
+        { id: 'g_exp4', name: 'Spiced Beef Jerky (1kg)', value: 20, store: 'GROCERY', category: 'Exploration' },
+        { id: 'g_exp5', name: 'Travel Rations (1 day)', value: 5, store: 'GROCERY', category: 'Exploration' },
+
+        // --- GENERAL STORE ---
+        { id: 'gs_c1', name: 'Barrel', value: 500, store: 'GENERAL', category: 'Containers' },
+        { id: 'gs_c2', name: 'Bottle', value: 2, store: 'GENERAL', category: 'Containers' },
+        { id: 'gs_c3', name: 'Bucket', value: 50, store: 'GENERAL', category: 'Containers' },
+        { id: 'gs_c4', name: 'Chest', value: 1000, store: 'GENERAL', category: 'Containers' },
+        { id: 'gs_c5', name: 'Crate', value: 250, store: 'GENERAL', category: 'Containers' },
+        { id: 'gs_c6', name: 'Flask', value: 3, store: 'GENERAL', category: 'Containers' },
+        { id: 'gs_c7', name: 'Jar', value: 1, store: 'GENERAL', category: 'Containers' },
+        { id: 'gs_c8', name: 'Pouch', value: 5, store: 'GENERAL', category: 'Containers' },
+        { id: 'gs_c9', name: 'Sack', value: 2, store: 'GENERAL', category: 'Containers' },
+        { id: 'gs_c10', name: 'Vial', value: 1, store: 'GENERAL', category: 'Containers' },
+
+        { id: 'gs_s1', name: 'Backpack', value: 410, store: 'GENERAL', category: 'Survival Gear' },
+        { id: 'gs_s2', name: 'Bedroll', value: 2, store: 'GENERAL', category: 'Survival Gear' },
+        { id: 'gs_s3', name: 'Fishing Tackle', value: 150, store: 'GENERAL', category: 'Survival Gear' },
+        { id: 'gs_s4', name: 'Flask of Oil', value: 1, store: 'GENERAL', category: 'Survival Gear' },
+        { id: 'gs_s5', name: 'Grappling Hook', value: 300, store: 'GENERAL', category: 'Survival Gear' },
+        { id: 'gs_s6', name: 'Healer\'s Kit', value: 200, store: 'GENERAL', category: 'Survival Gear' },
+        { id: 'gs_s7', name: 'Lantern', value: 180, store: 'GENERAL', category: 'Survival Gear' },
+        { id: 'gs_s8', name: 'Rope (15m)', value: 1, store: 'GENERAL', category: 'Survival Gear' },
+        { id: 'gs_s9', name: 'Spyglass', value: 1000, store: 'GENERAL', category: 'Survival Gear' },
+        { id: 'gs_s10', name: 'Travel Tent', value: 1240, store: 'GENERAL', category: 'Survival Gear' },
+        
+        { id: 'gs_t1', name: 'Crowbar', value: 350, store: 'GENERAL', category: 'Tools' },
+        { id: 'gs_t2', name: 'Hammer', value: 140, store: 'GENERAL', category: 'Tools' },
+        { id: 'gs_t3', name: 'Manacles', value: 310, store: 'GENERAL', category: 'Tools' },
+        { id: 'gs_t4', name: 'Pickaxe', value: 700, store: 'GENERAL', category: 'Tools' },
+        { id: 'gs_t5', name: 'Shovel', value: 260, store: 'GENERAL', category: 'Tools' },
+
+        { id: 'gs_k1', name: 'Plate', value: 1, store: 'GENERAL', category: 'Kitchenware' },
+        { id: 'gs_k2', name: 'Pot', value: 5, store: 'GENERAL', category: 'Kitchenware' },
+        { id: 'gs_k3', name: 'Skillet', value: 3, store: 'GENERAL', category: 'Kitchenware' },
+
+        { id: 'gs_pk1', name: 'Alchemist Case', value: 750, store: 'GENERAL', category: 'Professional Kits' },
+        { id: 'gs_pk2', name: 'Smith\'s Tools', value: 750, store: 'GENERAL', category: 'Professional Kits' },
+        { id: 'gs_pk3', name: 'Tinker\'s Tools', value: 750, store: 'GENERAL', category: 'Professional Kits' },
+
+        // --- MINERALS (GEMS, ORES, STONE) ---
+        
+        // Stone & Clay (Scaled by 10 to match 50,000cp Diamond baseline)
+        { id: 'm_sc1', name: 'Limestone (10kg)', value: 1, store: 'MINERALS', category: 'Stone & Clay' },
+        { id: 'm_sc2', name: 'Sandstone (10kg)', value: 1, store: 'MINERALS', category: 'Stone & Clay' },
+        { id: 'm_sc3', name: 'Clay (10kg)', value: 2, store: 'MINERALS', category: 'Stone & Clay' },
+        { id: 'm_sc4', name: 'Granite (10kg)', value: 5, store: 'MINERALS', category: 'Stone & Clay' },
+        { id: 'm_sc5', name: 'Marble (1kg)', value: 1, store: 'MINERALS', category: 'Stone & Clay' },
+        { id: 'm_sc6', name: 'Obsidian (1kg)', value: 5, store: 'MINERALS', category: 'Stone & Clay' },
+
+        // Raw Ores (Scaled by 10 to match 50,000cp Diamond baseline)
+        { id: 'm_ro1', name: 'Coal (10kg)', value: 5, store: 'MINERALS', category: 'Raw Ores' },
+        { id: 'm_ro2', name: 'Bauxite Ore (1kg)', value: 1, store: 'MINERALS', category: 'Raw Ores' },
+        { id: 'm_ro3', name: 'Iron Ore (1kg)', value: 2, store: 'MINERALS', category: 'Raw Ores' },
+        { id: 'm_ro4', name: 'Lead Ore (1kg)', value: 2, store: 'MINERALS', category: 'Raw Ores' },
+        { id: 'm_ro5', name: 'Copper Ore (1kg)', value: 3, store: 'MINERALS', category: 'Raw Ores' },
+        { id: 'm_ro6', name: 'Silver Ore (1kg)', value: 200, store: 'MINERALS', category: 'Raw Ores' },
+        { id: 'm_ro7', name: 'Gold Ore (1kg)', value: 2000, store: 'MINERALS', category: 'Raw Ores' },
+        { id: 'm_ro8', name: 'Platinum Ore (1kg)', value: 20000, store: 'MINERALS', category: 'Raw Ores' },
+        { id: 'm_ro9', name: 'Mithril Ore (1kg)', value: 50000, store: 'MINERALS', category: 'Raw Ores' },
+        { id: 'm_ro10', name: 'Adamantine Ore (1kg)', value: 100000, store: 'MINERALS', category: 'Raw Ores' },
+
+        // Common Gems
+        { id: 'm_cg1', name: 'Quartz (1kg)', value: 100, store: 'MINERALS', category: 'Common Gems' },
+        { id: 'm_cg2', name: 'Agate (1kg)', value: 100, store: 'MINERALS', category: 'Common Gems' },
+        { id: 'm_cg3', name: 'Hematite (1kg)', value: 100, store: 'MINERALS', category: 'Common Gems' },
+        { id: 'm_cg4', name: 'Lapis Lazuli (1kg)', value: 100, store: 'MINERALS', category: 'Common Gems' },
+        { id: 'm_cg5', name: 'Malachite (1kg)', value: 100, store: 'MINERALS', category: 'Common Gems' },
+        { id: 'm_cg6', name: 'Turquoise (1kg)', value: 100, store: 'MINERALS', category: 'Common Gems' },
+        { id: 'm_cg7', name: 'Topaz (1kg)', value: 500, store: 'MINERALS', category: 'Common Gems' },
+        { id: 'm_cg8', name: 'Bloodstone (1kg)', value: 500, store: 'MINERALS', category: 'Common Gems' },
+        { id: 'm_cg9', name: 'Carnelian (1kg)', value: 500, store: 'MINERALS', category: 'Common Gems' },
+        { id: 'm_cg10', name: 'Moonstone (1kg)', value: 500, store: 'MINERALS', category: 'Common Gems' },
+        { id: 'm_cg11', name: 'Onyx (1kg)', value: 500, store: 'MINERALS', category: 'Common Gems' },
+        { id: 'm_cg12', name: 'Zircon (1kg)', value: 500, store: 'MINERALS', category: 'Common Gems' },
+
+        // Precious Gems
+        { id: 'm_pg1', name: 'Sapphire (1kg)', value: 2500, store: 'MINERALS', category: 'Precious Gems' },
+        { id: 'm_pg2', name: 'Amethyst (1kg)', value: 2500, store: 'MINERALS', category: 'Precious Gems' },
+        { id: 'm_pg3', name: 'Garnet (1kg)', value: 2500, store: 'MINERALS', category: 'Precious Gems' },
+        { id: 'm_pg4', name: 'Jade (1kg)', value: 2500, store: 'MINERALS', category: 'Precious Gems' },
+        { id: 'm_pg5', name: 'Pearl (1kg)', value: 2500, store: 'MINERALS', category: 'Precious Gems' },
+        { id: 'm_pg6', name: 'Tourmaline (1kg)', value: 2500, store: 'MINERALS', category: 'Precious Gems' },
+        { id: 'm_pg7', name: 'Emerald (1kg)', value: 5000, store: 'MINERALS', category: 'Precious Gems' },
+        { id: 'm_pg8', name: 'Opal (1kg)', value: 5000, store: 'MINERALS', category: 'Precious Gems' },
+        { id: 'm_pg9', name: 'Ruby (1kg)', value: 10000, store: 'MINERALS', category: 'Precious Gems' },
+        { id: 'm_pg10', name: 'Star Sapphire (1kg)', value: 10000, store: 'MINERALS', category: 'Precious Gems' },
+        { id: 'm_pg11', name: 'Diamond (1kg)', value: 50000, store: 'MINERALS', category: 'Precious Gems' },
+        { id: 'm_pg12', name: 'Dragonstone (1kg)', value: 100000, store: 'MINERALS', category: 'Precious Gems' },
+
+        // --- JEWELRY ---
+        { id: 'j_f1', name: 'Amulet', weight: 0.2, hours: 30, store: 'JEWELRY', category: 'Finery', matTypes: ['metal', 'crystal', 'wood'] },
+        { id: 'j_f2', name: 'Bracelet', weight: 0.1, hours: 20, store: 'JEWELRY', category: 'Finery', matTypes: ['metal'] },
+        { id: 'j_f3', name: 'Necklace', weight: 0.1, hours: 25, store: 'JEWELRY', category: 'Finery', matTypes: ['metal', 'crystal'] },
+        { id: 'j_f4', name: 'Noble Brooch', weight: 0.1, hours: 15, store: 'JEWELRY', category: 'Finery', matTypes: ['metal'] },
+        { id: 'j_f5', name: 'Signet Ring', weight: 0.01, hours: 15, store: 'JEWELRY', category: 'Finery', matTypes: ['metal', 'wood'] },
+        { id: 'j_f6', name: 'Simple Band', weight: 0.01, hours: 10, store: 'JEWELRY', category: 'Finery', matTypes: ['metal', 'wood', 'crystal'] },
+        { id: 'j_f7', name: 'Tiara', weight: 0.5, hours: 40, store: 'JEWELRY', category: 'Finery', matTypes: ['metal'] },
+
+        { id: 'j_r1', name: 'Chalice', weight: 0.5, hours: 40, store: 'JEWELRY', category: 'Regalia', matTypes: ['metal', 'crystal', 'wood'] },
+        { id: 'j_r2', name: 'Goblet', weight: 0.3, hours: 30, store: 'JEWELRY', category: 'Regalia', matTypes: ['metal', 'crystal', 'wood'] },
+        { id: 'j_r3', name: 'Royal Crown', weight: 1.0, hours: 100, store: 'JEWELRY', category: 'Regalia', matTypes: ['metal'] },
+        { id: 'j_r4', name: 'Royal Scepter', weight: 2.0, hours: 80, store: 'JEWELRY', category: 'Regalia', matTypes: ['metal', 'wood'] },
+
+        // --- ARCANUM ---
+        { id: 'a_s1', name: 'Blank Spell Scroll', value: 100, store: 'ARCANUM', category: 'Scholarly Goods' },
+        { id: 'a_s2', name: 'Ink 1oz vial', value: 50, store: 'ARCANUM', category: 'Scholarly Goods' },
+        { id: 'a_s3', name: 'Spellbook', value: 1300, store: 'ARCANUM', category: 'Scholarly Goods' },
+
+        { id: 'a_f1', name: 'Crystal Ball', value: 11000, store: 'ARCANUM', category: 'Foci' },
+        { id: 'a_f2', name: 'Pondering Orb', value: 6800, store: 'ARCANUM', category: 'Foci' },
+        { id: 'a_f3', name: 'Wizard Staff', value: 700, store: 'ARCANUM', category: 'Foci' },
+        { id: 'a_f4', name: 'Wizard\'s Wand', value: 410, store: 'ARCANUM', category: 'Foci' },
+
+        { id: 'a_r1', name: 'Bone Dust', value: 5, store: 'ARCANUM', category: 'Reagents' },
+        { id: 'a_r2', name: 'Mandragora Root', value: 75, store: 'ARCANUM', category: 'Reagents' },
+        { id: 'a_r3', name: 'Quicksilver / Mercury', value: 50, store: 'ARCANUM', category: 'Reagents' },
+        { id: 'a_r4', name: 'Sulfur / Brimstone', value: 15, store: 'ARCANUM', category: 'Reagents' },
+
+        // --- CLOTHING ---
+        { id: 'c_e1', name: 'Bodice', weight: 0.5, hours: 10, store: 'CLOTHING', category: 'Essentials', matTypes: ['fabric', 'leather'] },
+        { id: 'c_e2', name: 'Boots', weight: 1.5, hours: 15, store: 'CLOTHING', category: 'Essentials', matTypes: ['leather', 'fabric'] },
+        { id: 'c_e3', name: 'Breeches', weight: 0.8, hours: 8, store: 'CLOTHING', category: 'Essentials', matTypes: ['fabric', 'leather'] },
+        { id: 'c_e4', name: 'Simple Dress', weight: 0.8, hours: 10, store: 'CLOTHING', category: 'Essentials', matTypes: ['fabric'] },
+        { id: 'c_e5', name: 'Simple Shoes', weight: 0.5, hours: 5, store: 'CLOTHING', category: 'Essentials', matTypes: ['leather', 'fabric'] },
+        { id: 'c_e6', name: 'Trousers', weight: 0.8, hours: 6, store: 'CLOTHING', category: 'Essentials', matTypes: ['fabric', 'leather'] },
+        { id: 'c_e7', name: 'Tunic', weight: 0.8, hours: 5, store: 'CLOTHING', category: 'Essentials', matTypes: ['fabric', 'leather'] },
+
+        { id: 'c_a1', name: 'Belt', weight: 0.2, hours: 2, store: 'CLOTHING', category: 'Accessories', matTypes: ['leather', 'fabric'] },
+        { id: 'c_a2', name: 'Gloves', weight: 0.2, hours: 3, store: 'CLOTHING', category: 'Accessories', matTypes: ['leather', 'fabric'] },
+        { id: 'c_a3', name: 'Wide-brimmed Hat', weight: 0.5, hours: 4, store: 'CLOTHING', category: 'Accessories', matTypes: ['fabric', 'leather'] },
+
+        { id: 'c_n1', name: 'Ball Gown', weight: 3.0, hours: 50, store: 'CLOTHING', category: 'Noble Attire', matTypes: ['fabric'] },
+        { id: 'c_n2', name: 'Doublet', weight: 1.0, hours: 20, store: 'CLOTHING', category: 'Noble Attire', matTypes: ['fabric', 'leather'] },
+        { id: 'c_n3', name: 'Fine Robes', weight: 2.0, hours: 30, store: 'CLOTHING', category: 'Noble Attire', matTypes: ['fabric'] },
+
+        { id: 'c_o1', name: 'Cloak', weight: 2.0, hours: 10, store: 'CLOTHING', category: 'Outerwear', matTypes: ['fabric', 'leather'] },
+        { id: 'c_o2', name: 'Heavy Cloak', weight: 4.0, hours: 15, store: 'CLOTHING', category: 'Outerwear', matTypes: ['fabric', 'leather'] },
+
+        // --- FURNITURE ---
+        { id: 'fn_s1', name: 'Wooden Stool', weight: 2.0, hours: 2, store: 'FURNITURE', category: 'Seating', matTypes: ['wood', 'metal'] },
+        { id: 'fn_s2', name: 'Dining Chair', weight: 5.0, hours: 5, store: 'FURNITURE', category: 'Seating', matTypes: ['wood', 'metal'] },
+        { id: 'fn_s3', name: 'Armchair', weight: 12.0, hours: 12, store: 'FURNITURE', category: 'Seating', matTypes: ['wood', 'metal'] },
+        { id: 'fn_s4', name: 'Long Bench', weight: 15.0, hours: 8, store: 'FURNITURE', category: 'Seating', matTypes: ['wood', 'metal', 'stone'] },
+        { id: 'fn_s5', name: 'Royal Throne', weight: 50.0, hours: 50, store: 'FURNITURE', category: 'Seating', matTypes: ['wood', 'metal', 'bone', 'crystal'] },
+
+        { id: 'fn_t1', name: 'Side Table', weight: 6.0, hours: 6, store: 'FURNITURE', category: 'Tables', matTypes: ['wood', 'metal'] },
+        { id: 'fn_t2', name: 'Writing Desk', weight: 25.0, hours: 20, store: 'FURNITURE', category: 'Tables', matTypes: ['wood'] },
+        { id: 'fn_t3', name: 'Dining Table', weight: 40.0, hours: 15, store: 'FURNITURE', category: 'Tables', matTypes: ['wood', 'metal'] },
+        { id: 'fn_t4', name: 'Banquet Table', weight: 80.0, hours: 35, store: 'FURNITURE', category: 'Tables', matTypes: ['wood'] },
+
+        { id: 'fn_b1', name: 'Cot Frame', weight: 10.0, hours: 5, store: 'FURNITURE', category: 'Beds', matTypes: ['wood', 'metal'] },
+        { id: 'fn_b2', name: 'Single Bed Frame', weight: 25.0, hours: 10, store: 'FURNITURE', category: 'Beds', matTypes: ['wood', 'metal'] },
+        { id: 'fn_b3', name: 'Double Bed Frame', weight: 40.0, hours: 15, store: 'FURNITURE', category: 'Beds', matTypes: ['wood', 'metal'] },
+        { id: 'fn_b4', name: 'Four-Poster Bed', weight: 90.0, hours: 40, store: 'FURNITURE', category: 'Beds', matTypes: ['wood'] },
+
+        { id: 'fn_st1', name: 'Small Bookshelf', weight: 15.0, hours: 10, store: 'FURNITURE', category: 'Storage', matTypes: ['wood', 'metal'] },
+        { id: 'fn_st2', name: 'Large Bookshelf', weight: 35.0, hours: 20, store: 'FURNITURE', category: 'Storage', matTypes: ['wood', 'metal'] },
+        { id: 'fn_st3', name: 'Clothing Wardrobe', weight: 60.0, hours: 30, store: 'FURNITURE', category: 'Storage', matTypes: ['wood'] },
+        { id: 'fn_st4', name: 'Display Cabinet', weight: 45.0, hours: 35, store: 'FURNITURE', category: 'Storage', matTypes: ['wood'] },
+
+        { id: 'fn_m1', name: 'Straw Mattress', value: 5, store: 'FURNITURE', category: 'Bedding & Comfort' },
+        { id: 'fn_m2', name: 'Cotton Mattress', value: 25, store: 'FURNITURE', category: 'Bedding & Comfort' },
+        { id: 'fn_m3', name: 'Featherbed Mattress', value: 150, store: 'FURNITURE', category: 'Bedding & Comfort' },
+        { id: 'fn_m4', name: 'Plush Throw Pillows (Set)', value: 15, store: 'FURNITURE', category: 'Bedding & Comfort' },
+    ];
+
+    const MATERIALS = [
+        // Adjusted base prices to ensure Refined Metals > Raw Ores
+        { id: 'platinum', name: 'Platinum', base: 20000, type: 'tiered', q10: 200000, unit: 'kg', stores: ['FORGE', 'JEWELRY', 'ARCANUM', 'FURNITURE'], matType: 'metal' },
+        { id: 'gold', name: 'Gold', base: 2000, type: 'tiered', q10: 20000, unit: 'kg', stores: ['FORGE', 'JEWELRY', 'CLOTHING', 'ARCANUM', 'FURNITURE'], matType: 'metal' },
+        { id: 'silver', name: 'Silver', base: 200, type: 'tiered', q10: 2000, unit: 'kg', stores: ['FORGE', 'JEWELRY', 'ARCANUM', 'FURNITURE'], matType: 'metal' },
+        { id: 'steel', name: 'Steel', base: 50, type: 'linear', step: 10, unit: 'kg', stores: ['FORGE', 'GENERAL', 'FURNITURE'], matType: 'metal' },
+        { id: 'iron', name: 'Iron', base: 20, type: 'linear', step: 5, unit: 'kg', stores: ['FORGE', 'GENERAL', 'FURNITURE'], matType: 'metal' },
+        
+        { id: 'wood', name: 'Wood', base: 50, type: 'linear', step: 50, unit: 'kg', stores: ['FORGE', 'GENERAL', 'ARCANUM', 'JEWELRY', 'FURNITURE'], matType: 'wood' },
+        { id: 'silk', name: 'Silk', base: 500, type: 'linear', step: 200, unit: 'kg', stores: ['CLOTHING', 'GENERAL', 'FURNITURE'], matType: 'fabric' },
+        { id: 'hemp', name: 'Hemp', base: 100, type: 'linear', step: 10, unit: 'kg', stores: ['CLOTHING', 'GENERAL', 'FURNITURE'], matType: 'fabric' },
+        { id: 'fur', name: 'Fur/Pelts', base: 300, type: 'linear', step: 300, unit: 'kg', stores: ['CLOTHING', 'FURNITURE'], matType: 'fabric' },
+        { id: 'leather', name: 'Leather', base: 100, type: 'linear', step: 50, unit: 'kg', stores: ['FORGE', 'CLOTHING', 'GENERAL', 'FURNITURE'], matType: 'leather' },
+        { id: 'bone', name: 'Bone', base: 50, type: 'tiered_bone', unit: 'kg', stores: ['FORGE', 'JEWELRY', 'ARCANUM', 'FURNITURE'], matType: 'bone' },
+        { id: 'crystal', name: 'Arcane Crystal', base: 2000, type: 'linear', step: 500, unit: 'kg', stores: ['JEWELRY', 'ARCANUM', 'FURNITURE'], matType: 'crystal' },
+        
+        // Secondary/Fixed Mat types for Plating & Jewelry enrichment
+        { id: 'enc_gold', name: 'Gold Trim (+20% wt)', base: 2000, type: 'fixed', stores: ['JEWELRY', 'FORGE', 'CLOTHING', 'FURNITURE'] },
+        { id: 'enc_plat', name: 'Platinum Trim (+20% wt)', base: 20000, type: 'fixed', stores: ['JEWELRY', 'FORGE', 'FURNITURE'] },
+
+        // Conditions
+        { id: 'st_clean', name: 'Condition: Clean', base: 0, type: 'fixed', stores: ['CLOTHING', 'FORGE', 'GENERAL', 'FURNITURE'] },
+        { id: 'st_fancy', name: 'Condition: Fancy', base: 100, type: 'fixed', stores: ['CLOTHING', 'JEWELRY', 'GENERAL', 'FURNITURE'] },
+        { id: 'st_padded', name: 'Condition: Padded', base: 100, type: 'fixed', stores: ['CLOTHING', 'FORGE', 'GENERAL', 'FURNITURE'] },
+        { id: 'st_torn', name: 'Condition: Torn', base: -500, type: 'fixed', stores: ['CLOTHING', 'FORGE', 'GENERAL', 'FURNITURE'] },
+        { id: 'st_burned', name: 'Condition: Burned', base: -1000, type: 'fixed', stores: ['CLOTHING', 'FORGE', 'GENERAL', 'FURNITURE'] },
+    ];
+
+    /** STATE **/
+    let activeStoreId = 'FORGE';
+    let basket = [];
+    let tradeMode = 'sale'; // 'sale', 'buyback', 'recraft'
+    let cashProvided = { Platinum: 0, Gold: 0, Electrum: 0, Silver: 0, Copper: 0 };
+    
+    let currentCategory = null;
+    let selectedBaseItem = null;
+    
+    // Target / Sale State
+    let selectedPrimaryMat = null;
+    let selectedSecondaryMat = null;
+    let selectedCondition = null;
+    let selectedInlay = null; 
+    let itemQuality = 1;
+    
+    // Original State (For Recrafting)
+    let origPrimaryMat = null;
+    let origSecondaryMat = null;
+    let origCondition = null;
+    let origInlay = null; 
+    let origItemQuality = 1;
+
+    // Provided by Customer Toggles
+    let providedPrimary = false;
+    let providedSecondary = false;
+    let providedInlay = false;
+
+    let batchQty = 1;
+    let currentMarkup = 0; 
+    let currentHaggleRoll = null;
+
+    let innPartySize = 1;
+    let selectedRoom = ROOM_TYPES[0];
+    let innBreakfast = false;
+    let innBath = false;
+    let innLaundry = false;
+    let innHorses = 0;
+
+    /** ENGINE **/
+    function formatCp(cp) {
+        let rem = Math.abs(cp);
+        const parts = [];
+        COIN_TYPES.forEach(c => {
+            const count = Math.floor(rem / c.value);
+            if (count > 0) { parts.push(`${count}${c.name[0].toLowerCase()}`); rem %= c.value; }
+        });
+        return (cp < 0 ? '-' : '') + (parts.length > 0 ? parts.join(' ') : '0cp');
+    }
+
+    function getMatVal(mat, q) {
+        if (!mat) return 0;
+        if (mat.type === 'tiered_bone') return [50, 100, 200, 350, 500][q-1] || 50;
+        if (mat.type === 'linear') return mat.base + (q-1) * (mat.step || 0);
+        if (mat.type === 'tiered' && q === 10) return mat.q10 || (mat.base * 10);
+        if (mat.type === 'tiered') return mat.base * q;
+        if (mat.type === 'fixed') return mat.base;
+        return mat.base;
+    }
+
+    function applyMarkup(price) {
+        if (currentMarkup === 0) return price;
+        return Math.max(1, Math.ceil(price * (1 + (currentMarkup / 100))));
+    }
+
+    function calculateBreakdown(item, mats, inlay, flags) {
+        const layers = [];
+        const baseMat = mats[0];
+        
+        let basePrice = 0;
+        if (item.value) {
+            basePrice = item.value;
+        } else {
+            if (!flags.primary) {
+                basePrice = Math.ceil(item.weight * getMatVal(baseMat.mat, baseMat.q));
+                if (baseMat.mat && baseMat.mat.type === 'fixed') {
+                    basePrice += baseMat.mat.base;
+                }
+            }
+        }
+
+        layers.push({ name: baseMat.mat ? baseMat.mat.name : 'Standard', price: basePrice, type: 'Primary' });
+
+        for(let i=1; i<mats.length; i++) {
+            const m = mats[i].mat;
+            const isProvided = (i === 1) ? flags.secondary : false;
+
+            if(m && m.id && m.id.startsWith('st_')) {
+                layers.push({ name: m.name, price: m.base, type: 'Condition' });
+            } else if (m) {
+                const secondaryVal = isProvided ? 0 : (m.type === 'fixed' ? m.base : Math.ceil((item.weight * 0.20) * getMatVal(m, 1)));
+                layers.push({ name: m.name + (isProvided ? ' (Provided)' : ''), price: secondaryVal, type: 'Secondary' });
+            }
+        }
+        
+        if (inlay) {
+            layers.push({ name: `${inlay.name} Inlay${flags.inlay ? ' (Provided)' : ''}`, price: flags.inlay ? 0 : inlay.price, type: 'Inlay' });
+        }
+
+        const labor = item.value ? 0 : Math.ceil(item.hours * 20);
+        let total = layers.reduce((s, l) => s + l.price, 0) + labor;
+        
+        total = Math.max(1, total); 
+        return { total: applyMarkup(total), layers, labor };
+    }
+
+    function calculateRecraftBreakdown(item, origMats, newMats, oInlay, nInlay, flags) {
+        let totalMatDiff = 0;
+        let hours = 0;
+
+        const origBase = origMats[0].mat; const origQ = origMats[0].q;
+        const newBase = newMats[0].mat; const newQ = newMats[0].q;
+        
+        if (origBase && newBase) {
+            let origBasePrice = getMatVal(origBase, origQ) * item.weight + (origBase.type === 'fixed' ? origBase.base : 0);
+            let newBasePrice = flags.primary ? 0 : getMatVal(newBase, newQ) * item.weight + (newBase.type === 'fixed' ? newBase.base : 0);
+            
+            if (origBase.id !== newBase.id) {
+                totalMatDiff += Math.max(0, newBasePrice - origBasePrice);
+                hours += item.hours;
+            } else if (origQ !== newQ) {
+                totalMatDiff += Math.max(0, newBasePrice - origBasePrice);
+                hours += Math.ceil(item.hours * 0.5);
+            }
+        }
+
+        const origSec = origMats[1].mat; const newSec = newMats[1].mat;
+        if (origSec?.id !== newSec?.id) {
+            let origSecPrice = origSec ? (origSec.type === 'fixed' ? origSec.base : (item.weight * 0.2) * getMatVal(origSec, 1)) : 0;
+            let newSecPrice = newSec ? (flags.secondary ? 0 : (newSec.type === 'fixed' ? newSec.base : (item.weight * 0.2) * getMatVal(newSec, 1))) : 0;
+            totalMatDiff += Math.max(0, newSecPrice - origSecPrice);
+            hours += Math.ceil(item.hours * 0.3);
+        }
+
+        const origCond = origMats[2].mat; const newCond = newMats[2].mat;
+        if (origCond?.id !== newCond?.id) {
+            let origCondPrice = origCond ? origCond.base : 0;
+            let newCondPrice = newCond ? newCond.base : 0;
+            totalMatDiff += Math.max(0, newCondPrice - origCondPrice);
+            hours += Math.ceil(item.hours * 0.2);
+        }
+
+        if (oInlay?.id !== nInlay?.id) {
+            let origInlayPrice = oInlay ? oInlay.price : 0;
+            let newInlayPrice = nInlay ? (flags.inlay ? 0 : nInlay.price) : 0;
+            totalMatDiff += Math.max(0, newInlayPrice - origInlayPrice);
+            hours += 2; // Flat 2 hours for inlay work
+        }
+
+        hours = Math.max(0, Math.min(hours, item.hours * 1.5));
+        let laborCost = Math.ceil(hours * 200); 
+        let total = totalMatDiff + laborCost;
+
+        return { total: applyMarkup(total), labor: laborCost, hours };
+    }
+
+    /** RENDERING **/
+    function renderStores() {
+        const container = document.getElementById('store-selector');
+        container.innerHTML = Object.values(STORES).map(s => `
+            <button onclick="setActiveStore('${s.id}')" class="btn-store relative group flex flex-col items-center p-2 rounded hover:opacity-100 hover:z-50 ${activeStoreId === s.id ? 'active' : ''}">
+                <div class="p-2 rounded-full mb-1 flex items-center justify-center w-8 h-8 transition-transform duration-300 group-hover:scale-[2.5] group-hover:shadow-xl" style="background-color: ${s.color}">
+                    <span class="text-white text-[10px] font-bold">${s.icon}</span>
+                </div>
+                <span class="fantasy-font text-[8px] font-bold uppercase tracking-tighter text-center relative mt-1 transition-all duration-300 group-hover:translate-y-4 group-hover:opacity-0">${s.name.replace('Imperial ', '')}</span>
+            </button>
+        `).join('');
+    }
+
+    function setActiveStore(id) {
+        activeStoreId = id;
+        resetFlow();
+        renderStores();
+        renderEntry();
+    }
+
+    function resetFlow() {
+        currentCategory = null; 
+        selectedBaseItem = null; 
+        
+        selectedPrimaryMat = null; 
+        selectedSecondaryMat = null;
+        selectedCondition = null;
+        selectedInlay = null;
+        itemQuality = 1; 
+        
+        origPrimaryMat = null; 
+        origSecondaryMat = null;
+        origCondition = null;
+        origInlay = null;
+        origItemQuality = 1;
+
+        providedPrimary = false;
+        providedSecondary = false;
+        providedInlay = false;
+
+        batchQty = 1;
+        currentMarkup = 0;
+        currentHaggleRoll = null;
+    }
+
+    function renderHaggleSection() {
+        let colorClass = '';
+        if (currentMarkup !== 0) {
+            const favorsPlayer = (tradeMode === 'buyback' && currentMarkup > 0) || (tradeMode !== 'buyback' && currentMarkup < 0);
+            colorClass = favorsPlayer ? 'text-green-800' : 'text-red-800';
+        }
+        
+        return `
+            <div class="bg-white/20 p-3 rounded border border-[#8b4513]/10 my-4 shadow-inner">
+                <label class="fantasy-font text-[10px] uppercase opacity-80 flex justify-between mb-2 tracking-widest">
+                    <span>Haggle (Persuasion Check)</span>
+                    <span id="markup-label" class="${colorClass} font-black">${currentMarkup > 0 ? '+' : ''}${currentMarkup}%</span>
+                </label>
+                <div class="flex gap-2">
+                    <input type="number" id="haggle-roll" value="${currentHaggleRoll !== null ? currentHaggleRoll : ''}" placeholder="Roll d20..." class="flex-1 p-2 bg-white/50 border border-[#8b4513]/20 rounded text-sm ledger-font outline-none focus:border-[#8b4513]">
+                    <button onclick="applyHaggle()" class="px-3 py-2 bg-[#8b4513] text-white text-[10px] fantasy-font rounded uppercase hover:bg-[#5d4037] transition-colors">Apply</button>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderLabelWithProv(title, type) {
+        if (tradeMode === 'buyback') {
+            return `<label class="fantasy-font text-[10px] uppercase opacity-60 block mb-1">${title}</label>`;
+        }
+        const isProv = type === 'primary' ? providedPrimary : type === 'secondary' ? providedSecondary : providedInlay;
+        return `
+            <div class="flex justify-between items-end mb-1">
+                <label class="fantasy-font text-[10px] uppercase opacity-60">${title}</label>
+                <label class="flex items-center gap-1 cursor-pointer text-[#8b4513] hover:opacity-100 transition-opacity ${isProv ? 'opacity-100 font-bold' : 'opacity-50'}">
+                    <input type="checkbox" onchange="toggleProvided('${type}')" ${isProv ? 'checked' : ''} class="accent-[#8b4513] w-3 h-3">
+                    <span class="text-[9px] uppercase tracking-tighter">Provided</span>
+                </label>
+            </div>
+        `;
+    }
+
+    function renderEntry() {
+        const container = document.getElementById('entry-container');
+        let html = `<h2 class="fantasy-font text-2xl mb-6 text-[#5d4037] border-b border-[#8b4513]/20 pb-2">Manifest Entry</h2>`;
+
+        if (activeStoreId === 'INN') {
+            html += renderInn();
+        } else if (!currentCategory) {
+            const cats = [...new Set(ITEMS.filter(i => i.store === activeStoreId).map(i => i.category))].sort();
+            html += `<div class="grid grid-cols-1 gap-2">${cats.map(c => {
+                const escapedCat = c.replace(/'/g, "\\'");
+                return `<button onclick="setCat('${escapedCat}')" class="p-4 bg-white/40 border-2 border-[#8b4513]/10 rounded hover:border-[#8b4513] transition-all fantasy-font uppercase tracking-widest text-sm text-left pl-6 font-bold text-[#3e2723] hover:bg-[#fff9e6] shadow-sm">${c}</button>`;
+            }).join('')}</div>`;
+        } else if (!selectedBaseItem) {
+            html += `<button onclick="setCat(null)" class="text-[10px] fantasy-font mb-4 opacity-50 uppercase tracking-tighter hover:opacity-100 transition-opacity">← Categories</button>`;
+            const items = ITEMS.filter(i => i.store === activeStoreId && i.category === currentCategory).sort((a,b) => a.name.localeCompare(b.name));
+            html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-2">${items.map(i => `
+                <button onclick="setItem('${i.id}')" class="p-3 bg-white/40 border border-[#8b4513]/10 rounded hover:border-[#8b4513] text-sm ledger-font font-bold flex flex-col text-left transition-all hover:bg-[#fff9e6] shadow-sm">
+                    <span>${i.name}</span>
+                    <span class="opacity-40 text-xs italic">${i.value !== undefined ? formatCp(i.value) : i.weight + 'kg'}</span>
+                </button>
+            `).join('')}</div>`;
+        } else {
+            html += `<button onclick="setItem(null)" class="text-[10px] fantasy-font opacity-50 uppercase tracking-tighter mb-2 hover:opacity-100 transition-opacity">← Reselect Item</button>`;
+            html += renderCustomizer();
+        }
+        
+        container.innerHTML = `<div class="${selectedBaseItem ? '' : 'animate-flow'}">${html}</div>`;
+    }
+
+    function renderInn() {
+        return `
+            <div class="space-y-4">
+                <div>
+                    <label class="fantasy-font text-[10px] uppercase opacity-60 block mb-2">Room Grade</label>
+                    <div class="space-y-1">${ROOM_TYPES.map(r => `<button onclick="setRoom('${r.id}')" class="w-full text-left p-3 rounded border text-xs ledger-font transition-all ${selectedRoom.id === r.id ? 'bg-[#8b4513] text-white shadow-lg' : 'bg-white/40 border-transparent hover:border-[#8b4513]/50 hover:bg-[#fff9e6]'}"><b>${r.name}</b> • ${formatCp(r.price)}</button>`).join('')}</div>
+                </div>
+                <div class="bg-white/40 rounded p-3 border border-[#8b4513]/10">
+                    <label class="fantasy-font text-[10px] uppercase opacity-60 block mb-2">Party Size</label>
+                    <div class="flex items-center">
+                        <button onclick="changeParty(-1)" class="w-8 h-8 border border-[#8b4513]/20 rounded bg-white/50 hover:bg-[#8b4513]/10 transition-colors">-</button>
+                        <span id="party-val" class="flex-1 text-center font-bold text-xl ledger-font">${innPartySize}</span>
+                        <button onclick="changeParty(1)" class="w-8 h-8 border border-[#8b4513]/20 rounded bg-white/50 hover:bg-[#8b4513]/10 transition-colors">+</button>
+                    </div>
+                </div>
+                
+                <div class="bg-white/40 rounded p-3 space-y-3 border border-[#8b4513]/10">
+                    <label class="fantasy-font text-[10px] uppercase opacity-60 block mb-2">Inn Services & Amenities</label>
+                    <label class="flex items-center gap-2 text-sm ledger-font cursor-pointer">
+                        <input type="checkbox" onchange="toggleInnService('breakfast')" ${innBreakfast ? 'checked' : ''} class="accent-[#8b4513] w-4 h-4">
+                        <span>Morning Breakfast (+2cp / person)</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-sm ledger-font cursor-pointer">
+                        <input type="checkbox" onchange="toggleInnService('bath')" ${innBath ? 'checked' : ''} class="accent-[#8b4513] w-4 h-4">
+                        <span>Hot Bath (+1cp / person)</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-sm ledger-font cursor-pointer">
+                        <input type="checkbox" onchange="toggleInnService('laundry')" ${innLaundry ? 'checked' : ''} class="accent-[#8b4513] w-4 h-4">
+                        <span>Laundry Service (+3cp / person)</span>
+                    </label>
+                    <div class="flex items-center justify-between mt-3 pt-3 border-t border-[#8b4513]/20">
+                        <span class="text-sm ledger-font">Stabled Horses (+5cp / horse)</span>
+                        <div class="flex items-center bg-white/50 rounded p-1">
+                            <button onclick="changeHorses(-1)" class="w-6 h-6 border border-[#8b4513]/20 rounded text-xs bg-white/50 hover:bg-[#8b4513]/10 transition-colors">-</button>
+                            <span id="horses-val" class="w-8 text-center font-bold text-sm ledger-font">${innHorses}</span>
+                            <button onclick="changeHorses(1)" class="w-6 h-6 border border-[#8b4513]/20 rounded text-xs bg-white/50 hover:bg-[#8b4513]/10 transition-colors">+</button>
+                        </div>
+                    </div>
+                </div>
+
+                ${renderHaggleSection()}
+                <button onclick="addRes()" class="w-full py-4 bg-[#8b4513] text-[#f4e4bc] rounded fantasy-font text-xs shadow-lg uppercase tracking-widest hover:bg-[#5d4037] transition-colors mt-2">Authorize Booking</button>
+            </div>
+        `;
+    }
+
+    function renderCustomizer() {
+        if (tradeMode === 'recraft' && selectedBaseItem.value !== undefined) {
+            return `
+                <div class="space-y-4 mt-2">
+                    <h3 class="text-xl font-bold ledger-font ink-text">${selectedBaseItem.name}</h3>
+                    <div class="p-4 bg-red-900/10 border border-red-900/20 text-red-800 rounded font-bold text-center fantasy-font tracking-widest uppercase">Item cannot be recrafted.</div>
+                    <button onclick="setItem(null)" class="w-full py-4 bg-[#8b4513] text-[#f4e4bc] rounded fantasy-font text-xs shadow-lg uppercase tracking-widest hover:bg-[#5d4037] transition-colors mt-4">Go Back</button>
+                </div>`;
+        }
+
+        const itemMatTypes = selectedBaseItem?.matTypes || [];
+        
+        const primaryMats = MATERIALS.filter(m => {
+            if (!m.stores.includes(activeStoreId) || m.id.startsWith('st_') || m.id.startsWith('enc_')) return false;
+            if (itemMatTypes.length > 0 && m.matType && !itemMatTypes.includes(m.matType)) return false;
+            return true;
+        }).sort((a, b) => a.name.localeCompare(b.name));
+        
+        const secondaryMats = MATERIALS.filter(m => m.id.startsWith('enc_'))
+            .sort((a, b) => a.name.localeCompare(b.name));
+            
+        const storeConditions = MATERIALS.filter(m => m.id.startsWith('st_') && m.stores.includes(activeStoreId))
+            .sort((a, b) => a.name.localeCompare(b.name));
+
+        const canHaveInlay = ['FORGE', 'JEWELRY', 'CLOTHING', 'ARCANUM', 'GENERAL', 'FURNITURE'].includes(activeStoreId);
+
+        let html = `<div class="space-y-4 mt-2">
+            <h3 class="text-xl font-bold ledger-font ink-text">${selectedBaseItem.name} ${tradeMode === 'recraft' ? '<span class="text-sm opacity-50 ml-2">(Recraft Mode)</span>' : ''}</h3>
+        `;
+
+        if (tradeMode === 'recraft') {
+            html += `<div class="grid grid-cols-1 xl:grid-cols-2 gap-4">`;
+            
+            // --- ORIGINAL STATE COLUMN ---
+            html += `<div class="space-y-3 p-3 bg-red-900/5 rounded border border-red-900/10">
+                <h4 class="font-bold text-[10px] uppercase tracking-widest text-red-900/60 mb-2 border-b border-red-900/10 pb-1">Original State</h4>
+                <div>
+                    <label class="fantasy-font text-[10px] uppercase opacity-60 block mb-1">Core Material</label>
+                    <select onchange="setOrigPrimary(this.value)" class="w-full bg-white/40 border-b-2 border-[#8b4513]/20 p-1 text-xs ledger-font font-bold outline-none">
+                        <option value="">Select Core...</option>
+                        ${primaryMats.map(m => `<option value="${m.id}" ${origPrimaryMat?.id === m.id ? 'selected' : ''}>${m.name}</option>`).join('')}
+                    </select>
+                </div>`;
+            if (origPrimaryMat && origPrimaryMat.type !== 'fixed') {
+                html += `<div>
+                    <label id="orig-quality-label" class="fantasy-font text-[10px] uppercase opacity-60 block mb-1">Quality (Q${origItemQuality})</label>
+                    <input type="range" min="1" max="${origPrimaryMat.type === 'tiered_bone' ? '5' : '10'}" value="${origItemQuality}" oninput="setOrigQuality(this.value)" class="w-full accent-[#8b4513]" />
+                </div>`;
+            }
+            html += `<div>
+                    <label class="fantasy-font text-[10px] uppercase opacity-60 block mb-1">Enrichment / Trim</label>
+                    <select onchange="setOrigSecondary(this.value)" class="w-full bg-white/40 border-b-2 border-[#8b4513]/20 p-1 text-xs ledger-font font-bold outline-none">
+                        <option value="">None</option>
+                        ${secondaryMats.map(m => `<option value="${m.id}" ${origSecondaryMat?.id === m.id ? 'selected' : ''}>${m.name}</option>`).join('')}
+                    </select>
+                </div>`;
+            if (storeConditions.length > 0) {
+                html += `<div>
+                    <label class="fantasy-font text-[10px] uppercase opacity-60 block mb-1">Condition</label>
+                    <select onchange="setOrigCondition(this.value)" class="w-full bg-white/40 border-b-2 border-[#8b4513]/20 p-1 text-xs ledger-font font-bold outline-none">
+                        <option value="">Standard / Clean</option>
+                        ${storeConditions.filter(m => m.id !== 'st_clean' && m.id !== 'st_fresh').map(m => `<option value="${m.id}" ${origCondition?.id === m.id ? 'selected' : ''}>${m.name.replace('Condition: ', '')}</option>`).join('')}
+                    </select>
+                </div>`;
+            }
+            if (canHaveInlay) {
+                html += `<div>
+                    <label class="fantasy-font text-[10px] uppercase opacity-60 block mb-1">Inlay</label>
+                    <select onchange="setOrigInlay(this.value)" class="w-full bg-white/40 border-b-2 border-[#8b4513]/20 p-1 text-xs ledger-font font-bold outline-none">
+                        <option value="">None</option>
+                        ${INLAY_GEMS.map(g => `<option value="${g.id}" ${origInlay?.id === g.id ? 'selected' : ''}>${g.name}</option>`).join('')}
+                    </select>
+                </div>`;
+            }
+            html += `</div>`;
+
+            // --- TARGET STATE COLUMN ---
+            html += `<div class="space-y-3 p-3 bg-green-900/5 rounded border border-green-900/10 shadow-inner">
+                <h4 class="font-bold text-[10px] uppercase tracking-widest text-green-900/60 mb-2 border-b border-green-900/10 pb-1">Target Upgrade</h4>
+                <div>
+                    ${renderLabelWithProv('Target Core', 'primary')}
+                    <select onchange="setPrimary(this.value)" class="w-full bg-white/40 border-b-2 border-[#8b4513]/20 p-1 text-xs ledger-font font-bold outline-none text-[#8b4513]">
+                        <option value="">Select Target Core...</option>
+                        ${primaryMats.map(m => `<option value="${m.id}" ${selectedPrimaryMat?.id === m.id ? 'selected' : ''}>${m.name}</option>`).join('')}
+                    </select>
+                </div>`;
+            if (selectedPrimaryMat && selectedPrimaryMat.type !== 'fixed') {
+                html += `<div>
+                    <label id="target-quality-label" class="fantasy-font text-[10px] uppercase opacity-60 block mb-1">Quality (Q${itemQuality})</label>
+                    <input type="range" min="1" max="${selectedPrimaryMat.type === 'tiered_bone' ? '5' : '10'}" value="${itemQuality}" oninput="setQuality(this.value)" class="w-full accent-[#8b4513]" />
+                </div>`;
+            }
+            html += `<div>
+                    ${renderLabelWithProv('Enrichment / Trim', 'secondary')}
+                    <select onchange="setSecondary(this.value)" class="w-full bg-white/40 border-b-2 border-[#8b4513]/20 p-1 text-xs ledger-font font-bold outline-none text-[#8b4513]">
+                        <option value="">None</option>
+                        ${secondaryMats.map(m => `<option value="${m.id}" ${selectedSecondaryMat?.id === m.id ? 'selected' : ''}>${m.name}</option>`).join('')}
+                    </select>
+                </div>`;
+            if (storeConditions.length > 0) {
+                html += `<div>
+                    <label class="fantasy-font text-[10px] uppercase opacity-60 block mb-1">Condition</label>
+                    <select onchange="setCondition(this.value)" class="w-full bg-white/40 border-b-2 border-[#8b4513]/20 p-1 text-xs ledger-font font-bold outline-none text-[#8b4513]">
+                        <option value="">Standard / Clean</option>
+                        ${storeConditions.filter(m => m.id !== 'st_clean' && m.id !== 'st_fresh').map(m => `<option value="${m.id}" ${selectedCondition?.id === m.id ? 'selected' : ''}>${m.name.replace('Condition: ', '')}</option>`).join('')}
+                    </select>
+                </div>`;
+            }
+            if (canHaveInlay) {
+                html += `<div>
+                    ${renderLabelWithProv('Inlay Gem', 'inlay')}
+                    <select onchange="setInlay(this.value)" class="w-full bg-white/40 border-b-2 border-[#8b4513]/20 p-1 text-xs ledger-font font-bold outline-none text-[#8b4513]">
+                        <option value="">None</option>
+                        ${INLAY_GEMS.map(g => `<option value="${g.id}" ${selectedInlay?.id === g.id ? 'selected' : ''}>${g.name} (+${formatCp(g.price)})</option>`).join('')}
+                    </select>
+                </div>`;
+            }
+            html += `</div></div>`;
+
+        } else if (activeStoreId !== 'RESTAURANT' && activeStoreId !== 'GROCERY' && activeStoreId !== 'MINERALS' && selectedBaseItem.value === undefined) {
+            html += `
+                <div>
+                    ${renderLabelWithProv('Primary Material / Core', 'primary')}
+                    <select onchange="setPrimary(this.value)" class="w-full bg-white/40 border-b-2 border-[#8b4513]/20 p-2 text-sm ledger-font font-bold outline-none focus:border-[#8b4513]">
+                        <option value="">Select Core...</option>
+                        <option value="" disabled>────────────────</option>
+                        ${primaryMats.map(m => `<option value="${m.id}" ${selectedPrimaryMat?.id === m.id ? 'selected' : ''}>${m.name}</option>`).join('')}
+                    </select>
+                </div>`;
+
+            if (selectedPrimaryMat && selectedPrimaryMat.type !== 'fixed') {
+                html += `
+                <div>
+                    <label id="quality-label" class="fantasy-font text-[10px] uppercase opacity-60 block mb-1">Quality Level (Q${itemQuality})</label>
+                    <input type="range" min="1" max="${selectedPrimaryMat.type === 'tiered_bone' ? '5' : '10'}" value="${itemQuality}" oninput="setQuality(this.value)" class="w-full accent-[#8b4513]" />
+                </div>`;
+            }
+
+            html += `
+                <div>
+                    ${renderLabelWithProv('Enrichment / Trim', 'secondary')}
+                    <select onchange="setSecondary(this.value)" class="w-full bg-white/40 border-b-2 border-[#8b4513]/20 p-2 text-sm ledger-font font-bold outline-none focus:border-[#8b4513]">
+                        <option value="">None</option>
+                        <option value="" disabled>────────────────</option>
+                        ${secondaryMats.map(m => `<option value="${m.id}" ${selectedSecondaryMat?.id === m.id ? 'selected' : ''}>${m.name}</option>`).join('')}
+                    </select>
+                </div>`;
+        }
+
+        if (storeConditions.length > 0) {
+            html += `
+            <div>
+                <label class="fantasy-font text-[10px] uppercase opacity-60 block mb-1">Condition</label>
+                <select onchange="setCondition(this.value)" class="w-full bg-white/40 border-b-2 border-[#8b4513]/20 p-2 text-sm ledger-font font-bold outline-none text-[#8b4513] focus:border-[#8b4513]">
+                    <option value="">Standard / Clean</option>
+                    <option value="" disabled>────────────────</option>
+                    ${storeConditions.filter(m => m.id !== 'st_clean' && m.id !== 'st_fresh').map(m => `<option value="${m.id}" ${selectedCondition?.id === m.id ? 'selected' : ''}>${m.name.replace('Condition: ', '')}</option>`).join('')}
+                </select>
+            </div>`;
+        }
+
+        if (canHaveInlay && tradeMode !== 'recraft') {
+            html += `
+            <div>
+                ${renderLabelWithProv('Gemstone Inlay (Optional)', 'inlay')}
+                <select onchange="setInlay(this.value)" class="w-full bg-white/40 border-b-2 border-[#8b4513]/20 p-2 text-sm ledger-font font-bold outline-none text-[#8b4513] focus:border-[#8b4513]">
+                    <option value="">No Inlay</option>
+                    <option value="" disabled>────────────────</option>
+                    ${INLAY_GEMS.map(g => `<option value="${g.id}" ${selectedInlay?.id === g.id ? 'selected' : ''}>${g.name} (+${formatCp(g.price)})</option>`).join('')}
+                </select>
+            </div>`;
+        }
+
+        html += `
+            <div class="flex items-center bg-white/40 rounded p-2 border border-[#8b4513]/10">
+                <button onclick="changeBatch(-1)" class="w-8 h-8 border border-[#8b4513]/20 rounded font-bold bg-white/50 hover:bg-[#8b4513]/10 transition-colors">-</button>
+                <span id="batch-val" class="flex-1 text-center font-bold text-lg ledger-font">${batchQty}</span>
+                <button onclick="changeBatch(1)" class="w-8 h-8 border border-[#8b4513]/20 rounded font-bold bg-white/50 hover:bg-[#8b4513]/10 transition-colors">+</button>
+            </div>
+            ${renderHaggleSection()}
+            <button onclick="addItem()" class="w-full py-4 bg-[#8b4513] text-[#f4e4bc] rounded fantasy-font text-xs shadow-lg uppercase tracking-widest hover:bg-[#5d4037] transition-colors mt-4">${tradeMode === 'recraft' ? 'Authorize Recrafting' : 'Authorize Manifest'}</button>
+        </div>`;
+
+        return html;
+    }
+
+    /** HANDLERS **/
+
+    // Search Handlers
+    function handleSearch(query) {
+        const resultsContainer = document.getElementById('search-results');
+        if (!query.trim()) {
+            resultsContainer.classList.add('hidden');
+            return;
+        }
+
+        const lowerQuery = query.toLowerCase();
+        
+        // Find matching items from the global registry
+        const results = ITEMS.filter(i => 
+            i.name.toLowerCase().includes(lowerQuery) || 
+            i.category.toLowerCase().includes(lowerQuery)
+        ).slice(0, 10); 
+
+        if (results.length === 0) {
+            resultsContainer.innerHTML = `<div class="p-4 text-sm ledger-font opacity-60 italic text-center text-[#8b4513]">No wares found in the registry matching "${query}"...</div>`;
+        } else {
+            resultsContainer.innerHTML = results.map(i => `
+                <div onclick="selectSearchResult('${i.id}')" class="p-3 border-b border-[#8b4513]/20 hover:bg-[#fff9e6] cursor-pointer flex justify-between items-center transition-colors">
+                    <div>
+                        <div class="font-bold ledger-font text-[#3e2723] text-lg leading-none">${i.name}</div>
+                        <div class="text-[10px] fantasy-font uppercase tracking-widest text-[#8b4513] opacity-70 mt-1">${STORES[i.store].name} • ${i.category}</div>
+                    </div>
+                    <div class="text-xs ledger-font italic opacity-50">${i.value !== undefined ? formatCp(i.value) : i.weight + 'kg'}</div>
+                </div>
+            `).join('');
+        }
+        resultsContainer.classList.remove('hidden');
+    }
+
+    function selectSearchResult(itemId) {
+        const item = ITEMS.find(i => i.id === itemId);
+        if (item) {
+            resetFlow();
+            activeStoreId = item.store;
+            currentCategory = item.category;
+            selectedBaseItem = item;
+
+            document.getElementById('item-search').value = '';
+            document.getElementById('search-results').classList.add('hidden');
+
+            renderStores();
+            renderEntry();
+        }
+    }
+
+    document.addEventListener('click', function(e) {
+        const searchInput = document.getElementById('item-search');
+        const resultsContainer = document.getElementById('search-results');
+        if (e.target !== searchInput && !resultsContainer.contains(e.target)) {
+            resultsContainer.classList.add('hidden');
+        }
+    });
+
+    function setCat(c) { currentCategory = c; renderEntry(); }
+    function setItem(id) { 
+        selectedBaseItem = ITEMS.find(i => i.id === id); 
+        selectedPrimaryMat = null; origPrimaryMat = null;
+        selectedSecondaryMat = null; origSecondaryMat = null;
+        selectedCondition = null; origCondition = null;
+        selectedInlay = null; origInlay = null;
+        itemQuality = 1; origItemQuality = 1;
+        providedPrimary = false; providedSecondary = false; providedInlay = false;
+        renderEntry(); 
+    }
+    
+    function setPrimary(id) { selectedPrimaryMat = MATERIALS.find(m => m.id === id); renderEntry(); }
+    function setSecondary(id) { selectedSecondaryMat = MATERIALS.find(m => m.id === id) || null; renderEntry(); }
+    function setCondition(id) { selectedCondition = MATERIALS.find(m => m.id === id) || null; renderEntry(); }
+    function setInlay(id) { selectedInlay = INLAY_GEMS.find(g => g.id === id) || null; renderEntry(); }
+    function setOrigPrimary(id) { origPrimaryMat = MATERIALS.find(m => m.id === id); renderEntry(); }
+    function setOrigSecondary(id) { origSecondaryMat = MATERIALS.find(m => m.id === id) || null; renderEntry(); }
+    function setOrigCondition(id) { origCondition = MATERIALS.find(m => m.id === id) || null; renderEntry(); }
+    function setOrigInlay(id) { origInlay = INLAY_GEMS.find(g => g.id === id) || null; renderEntry(); }
+
+    function setRoom(id) { selectedRoom = ROOM_TYPES.find(r => r.id === id); renderEntry(); }
+    
+    function toggleProvided(type) {
+        if (type === 'primary') providedPrimary = !providedPrimary;
+        if (type === 'secondary') providedSecondary = !providedSecondary;
+        if (type === 'inlay') providedInlay = !providedInlay;
+        renderEntry();
+    }
+    
+    // UI-only updates to prevent re-rendering elements while interacting
+    function setQuality(val) { 
+        itemQuality = parseInt(val); 
+        const labelEl = document.getElementById(tradeMode === 'recraft' ? 'target-quality-label' : 'quality-label');
+        if (labelEl) labelEl.textContent = `Quality (Q${itemQuality})`;
+    }
+
+    function setOrigQuality(val) { 
+        origItemQuality = parseInt(val); 
+        const labelEl = document.getElementById('orig-quality-label');
+        if (labelEl) labelEl.textContent = `Quality (Q${origItemQuality})`;
+    }
+    
+    function applyHaggle() {
+        const rollInput = document.getElementById('haggle-roll');
+        if (rollInput && rollInput.value !== '') {
+            currentHaggleRoll = parseInt(rollInput.value);
+        } else {
+            currentHaggleRoll = null;
+        }
+        
+        if (currentHaggleRoll === null || isNaN(currentHaggleRoll)) {
+            currentMarkup = 0;
+        } else {
+            currentMarkup = (tradeMode === 'buyback') ? (currentHaggleRoll - 15) * 2.5 : (15 - currentHaggleRoll) * 2.5;
+        }
+        
+        const labelEl = document.getElementById('markup-label');
+        if (labelEl) {
+            labelEl.textContent = (currentMarkup > 0 ? '+' : '') + currentMarkup + '%';
+            
+            let colorClass = '';
+            if (currentMarkup !== 0) {
+                const favorsPlayer = (tradeMode === 'buyback' && currentMarkup > 0) || (tradeMode !== 'buyback' && currentMarkup < 0);
+                colorClass = favorsPlayer ? 'text-green-800' : 'text-red-800';
+            }
+            labelEl.className = colorClass + ' font-black';
+        }
+    }
+    
+    function changeBatch(d) { 
+        batchQty = Math.max(1, batchQty + d); 
+        const valEl = document.getElementById('batch-val');
+        if (valEl) valEl.textContent = batchQty;
+    }
+    
+    function changeParty(d) { 
+        innPartySize = Math.max(1, innPartySize + d); 
+        const valEl = document.getElementById('party-val');
+        if (valEl) valEl.textContent = innPartySize;
+    }
+    
+    function changeHorses(d) { 
+        innHorses = Math.max(0, innHorses + d); 
+        const valEl = document.getElementById('horses-val');
+        if (valEl) valEl.textContent = innHorses;
+    }
+
+    function toggleInnService(s) {
+        if(s === 'breakfast') innBreakfast = !innBreakfast;
+        if(s === 'bath') innBath = !innBath;
+        if(s === 'laundry') innLaundry = !innLaundry;
+    }
+
+    function addItem() {
+        if (tradeMode === 'recraft') {
+            const origMatConfigs = [
+                { mat: origPrimaryMat || { name: '', base: 0, type: 'fixed' }, q: origItemQuality },
+                { mat: origSecondaryMat, q: 1 },
+                { mat: origCondition, q: 1 }
+            ];
+            const newMatConfigs = [
+                { mat: selectedPrimaryMat || { name: '', base: 0, type: 'fixed' }, q: itemQuality },
+                { mat: selectedSecondaryMat, q: 1 },
+                { mat: selectedCondition, q: 1 }
+            ];
+            const flags = { primary: providedPrimary, secondary: providedSecondary, inlay: providedInlay };
+            
+            const brk = calculateRecraftBreakdown(selectedBaseItem, origMatConfigs, newMatConfigs, origInlay, selectedInlay, flags);
+            
+            if (brk.total === 0 && brk.labor === 0) {
+                alert("No structural modifications selected for recrafting.");
+                return;
+            }
+
+            let name = `[Recrafted] ${selectedBaseItem.name}`;
+            if (selectedPrimaryMat) name += ` (${selectedPrimaryMat.name} Q${itemQuality}${providedPrimary ? ' Prov' : ''})`;
+            if (selectedSecondaryMat) name += ` +${selectedSecondaryMat.name.split(' (')[0]}${providedSecondary ? ' Prov' : ''}`;
+            if (selectedInlay) name += ` w/ ${selectedInlay.name}${providedInlay ? ' Prov' : ''}`;
+
+            basket.push({
+                id: Date.now(),
+                name: name,
+                price: brk.total,
+                qty: batchQty,
+                weight: selectedBaseItem.weight !== undefined ? selectedBaseItem.weight : 0.5,
+                store: 'Imperial Recrafter'
+            });
+
+        } else {
+            const matConfigs = [
+                { mat: selectedPrimaryMat || { name: '', base: 0, type: 'fixed' }, q: itemQuality },
+                { mat: selectedSecondaryMat, q: 1 },
+                { mat: selectedCondition, q: 1 }
+            ];
+            const flags = { primary: providedPrimary, secondary: providedSecondary, inlay: providedInlay };
+
+            const brk = calculateBreakdown(selectedBaseItem, matConfigs, selectedInlay, flags);
+            
+            let conditionPrefix = selectedCondition ? selectedCondition.name.replace('Condition: ', '') + ' ' : '';
+            let primaryStr = selectedPrimaryMat ? `${selectedPrimaryMat.name}${providedPrimary && tradeMode !== 'buyback' ? ' (Prov)' : ''} ` : '';
+            let qStr = (selectedPrimaryMat && selectedPrimaryMat.type !== 'fixed' && itemQuality > 1) ? `Q${itemQuality} ` : '';
+            let secondaryStr = selectedSecondaryMat ? `(+ ${selectedSecondaryMat.name.split(' (')[0]}${providedSecondary && tradeMode !== 'buyback' ? ' Prov' : ''}) ` : '';
+            let inlayStr = selectedInlay ? ` (w/ ${selectedInlay.name} Inlay${providedInlay && tradeMode !== 'buyback' ? ' Prov' : ''})` : '';
+            
+            let name = `${conditionPrefix}${primaryStr}${qStr}${secondaryStr}${selectedBaseItem.name}${inlayStr}`.trim();
+            let itemWeight = selectedBaseItem.weight !== undefined ? selectedBaseItem.weight : 0.5;
+
+            basket.push({
+                id: Date.now(),
+                name: name,
+                price: brk.total,
+                qty: batchQty,
+                weight: itemWeight,
+                store: STORES[activeStoreId].name
+            });
+        }
+        
+        resetFlow(); renderLedger(); renderEntry();
+    }
+
+    function addRes() {
+        const roomPrice = selectedRoom.perPerson ? selectedRoom.price * innPartySize : selectedRoom.price;
+        basket.push({ id: Date.now(), name: `Room: ${selectedRoom.name} (${innPartySize}p)`, price: applyMarkup(roomPrice), qty: 1, weight: 0, store: 'Imperial Inn' });
+        
+        if (innBreakfast) basket.push({ id: Date.now() + 1, name: `Breakfast (${innPartySize}p)`, price: applyMarkup(2 * innPartySize), qty: 1, weight: 0.2 * innPartySize, store: 'Imperial Inn' });
+        if (innBath) basket.push({ id: Date.now() + 2, name: `Hot Bath (${innPartySize}p)`, price: applyMarkup(1 * innPartySize), qty: 1, weight: 0, store: 'Imperial Inn' });
+        if (innLaundry) basket.push({ id: Date.now() + 3, name: `Laundry Service (${innPartySize}p)`, price: applyMarkup(3 * innPartySize), qty: 1, weight: 0, store: 'Imperial Inn' });
+        if (innHorses > 0) basket.push({ id: Date.now() + 4, name: `Stabling (${innHorses} horses)`, price: applyMarkup(5 * innHorses), qty: 1, weight: 0, store: 'Imperial Inn' });
+
+        innBreakfast = false; innBath = false; innLaundry = false; innHorses = 0; innPartySize = 1;
+        currentMarkup = 0;
+        renderLedger(); renderEntry();
+    }
+
+    function setTradeMode(mode) {
+        tradeMode = mode;
+        
+        const activeClass = 'py-4 rounded font-bold fantasy-font text-[10px] bg-[#f4e4bc] text-[#2c1e1a] transition-all shadow-md';
+        const inactiveClass = 'py-4 rounded font-bold fantasy-font text-[10px] text-[#f4e4bc]/40 transition-all hover:bg-[#f4e4bc]/10';
+
+        document.getElementById('mode-sale').className = mode === 'sale' ? activeClass : inactiveClass;
+        document.getElementById('mode-buy').className = mode === 'buyback' ? activeClass : inactiveClass;
+        document.getElementById('mode-recraft').className = mode === 'recraft' ? activeClass : inactiveClass;
+        
+        applyHaggle();
+        renderLedger();
+        renderEntry();
+    }
+
+    function removeItem(id) { basket = basket.filter(i => i.id !== id); renderLedger(); }
+    
+    function clearLedger() { 
+        basket = []; 
+        cashProvided = { Platinum: 0, Gold: 0, Electrum: 0, Silver: 0, Copper: 0 }; 
+        renderLedger(); 
+    }
+    
+    function sealAndPrint() {
+        if (basket.length > 0) {
+            window.print();
+        } else {
+            alert("The Imperial Ledger is currently empty. There is no manifest to seal.");
+        }
+    }
+
+    function updateWeight(w) {
+        const label = document.getElementById('weight-label');
+        const bar = document.getElementById('weight-bar');
+        const warn = document.getElementById('encumbrance-warning');
+
+        if (!label || !bar || !warn) return;
+
+        label.textContent = `${w.toFixed(1)} kg`;
+        
+        const percent = Math.min(100, (w / 150) * 100);
+        bar.style.width = `${percent}%`;
+
+        if (w > 100) {
+            warn.textContent = "CRITICAL: Multiple carts or draft animals required.";
+            warn.className = "fantasy-font text-[10px] mt-1 italic text-red-600 font-bold";
+        } else if (w > 60) {
+            warn.textContent = "WARNING: Requires a horse or heavy carriage.";
+            warn.className = "fantasy-font text-[10px] mt-1 italic text-orange-600 font-bold";
+        } else if (w > 20) {
+            warn.textContent = "NOTICE: Manifest is too heavy for one person to carry by hand.";
+            warn.className = "fantasy-font text-[10px] mt-1 italic text-orange-800";
+        } else if (w > 5) {
+            warn.textContent = "Small pack or sack required for transport.";
+            warn.className = "fantasy-font text-[10px] mt-1 italic text-[#8b4513] opacity-60";
+        } else {
+            warn.textContent = "Manifest is easily carried by hand.";
+            warn.className = "fantasy-font text-[10px] mt-1 italic text-[#8b4513] opacity-60";
+        }
+    }
+
+    function renderLedger() {
+        const container = document.getElementById('ledger-items');
+        if (basket.length === 0) {
+            container.innerHTML = `<div class="h-full flex flex-col items-center justify-center opacity-10 py-32 text-center"><span class="fantasy-font text-xl tracking-widest uppercase">Registry Empty</span></div>`;
+            document.getElementById('manifest-total').textContent = '0cp';
+            renderCoins(0); updateChange(0); updateWeight(0); return;
+        }
+
+        container.innerHTML = basket.map(i => {
+            const finalPrice = (tradeMode === 'buyback') ? Math.floor(i.price * 0.75) : i.price;
+            return `
+                <div class="border-l-2 border-[#8b4513]/20 pl-6 ml-2 relative animate-flow">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="fantasy-font text-lg uppercase tracking-tighter ink-text">${i.name}</h4>
+                            <div class="flex gap-4 text-[9px] font-bold opacity-40 uppercase">
+                                <span>${i.store}</span>
+                                <span>Lot: ${i.qty}</span>
+                                ${i.weight > 0 ? `<span>${(i.weight * i.qty).toFixed(1)}kg</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="text-right flex flex-col items-end">
+                            <div class="fantasy-font text-2xl ink-text">${formatCp(finalPrice * i.qty)}</div>
+                            <button onclick="removeItem(${i.id})" class="text-red-800 text-[10px] font-black uppercase opacity-40 hover:opacity-100 tracking-widest mt-1 transition-opacity no-print">Void Entry</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const total = basket.reduce((s, i) => s + ((tradeMode === 'buyback') ? Math.floor(i.price * 0.75) : i.price) * i.qty, 0);
+        const totalWeight = basket.reduce((s, i) => s + (i.weight * i.qty), 0);
+        
+        document.getElementById('manifest-total').textContent = formatCp(total);
+        updateWeight(totalWeight);
+        renderCoins(total); 
+        updateChange(total);
+    }
+
+    function renderCoins(total) {
+        const container = document.getElementById('coin-entry');
+        if (tradeMode === 'buyback' || total === 0) { container.innerHTML = ''; return; }
+        container.innerHTML = COIN_TYPES.map(c => `
+            <div class="flex flex-col items-center">
+                <input type="number" min="0" value="${cashProvided[c.name] || ''}" oninput="updateCash('${c.name}', this.value)" class="w-12 xl:w-14 p-2 bg-white/40 border-2 border-[#8b4513]/20 rounded text-center ledger-font font-bold text-sm outline-none focus:border-[#8b4513] transition-colors" placeholder="0">
+                <span class="text-[10px] font-black opacity-40 mt-1 uppercase tracking-widest">${c.name[0]}</span>
+            </div>
+        `).join('');
+    }
+
+    function updateCash(coin, val) {
+        cashProvided[coin] = parseInt(val) || 0;
+        const total = basket.reduce((s, i) => s + ((tradeMode === 'buyback') ? Math.floor(i.price * 0.75) : i.price) * i.qty, 0);
+        updateChange(total);
+    }
+
+    function updateChange(bill) {
+        const container = document.getElementById('change-container');
+        if (tradeMode === 'buyback' || bill === 0) { container.classList.add('hidden'); return; }
+        
+        const tendered = Object.entries(cashProvided).reduce((s, [name, qty]) => s + (qty * COIN_TYPES.find(c => c.name === name).value), 0);
+        const change = tendered - bill;
+        
+        if (change > 0) {
+            container.classList.remove('hidden');
+            document.getElementById('change-text').textContent = formatCp(change);
+            let rem = change;
+            document.getElementById('change-coins').innerHTML = COIN_TYPES.map(c => {
+                const count = Math.floor(rem / c.value); rem %= c.value;
+                return count > 0 ? `<div class="px-2 py-1 rounded-full text-[10px] font-black uppercase ${c.color} shadow-sm">x${count} ${c.name}</div>` : '';
+            }).join('');
+        } else {
+            container.classList.add('hidden');
+        }
+    }
+
+    // INIT
+    renderStores(); renderEntry(); renderLedger();
+</script>
+</body>
+</html>
