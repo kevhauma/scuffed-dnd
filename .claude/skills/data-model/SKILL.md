@@ -58,8 +58,13 @@ Three things follow, and the first is the one to hold on to:
   game playable and merely anonymous about where it came from.
 - **Pulling the ruleset's current state in is a deliberate act that can be refused.**
   `POST /api/sessions/:id/snapshot` compares every character at the table against the candidate and
-  refuses when one would break (v3 Req 37.6), naming the character and the stat. Validity is
-  `validateStatAllocation`'s answer, not a second definition.
+  refuses when one would **break** (v3 Req 37.6), naming the character and what broke. Validity is
+  `validateStatAllocation`'s answer, not a second definition — and since TICKET-RES-05 the check is
+  a **comparison**: a character the *currently pinned* Snapshot already refuses does not block, since
+  they are broken either way and refusing on their account would freeze the table against every
+  candidate, the fixing one included. Every arm of the verdict has a sentence
+  (`snapshotConflicts.ts`'s `allocationReason`); an arm without one renders a reason that stops at
+  its own colon, which is how the overspend arm was found.
 - **Storing a whole ruleset per table is accepted duplication**, and the alternative (a
   content-addressed ruleset-version table) is a versioning system the milestone put out of scope.
 
@@ -593,7 +598,7 @@ fourth parameter is the level and is **required** so that no caller can grow a s
   ([D6](../../../docs/v4.0_sheet_parity/overview.md#d6--no-backwards-compatibility-v40-is-a-clean-break-user-2026-08-29))
   belongs to whichever reshaping ticket lands first; this is not one.
 
-**The point budget closes that chain** (TICKET-RES-02, TICKET-DM-01):
+**The point budget closes that chain** (TICKET-RES-02, TICKET-DM-01, TICKET-RES-05):
 `validateStatAllocation(character, config)` in
 [skillAllocation.ts](../../../src/shared/engine/skillAllocation.ts) prices the pool as
 `level × const.points_per_level + grantedStatPoints` — derived, never stored — and
@@ -601,9 +606,28 @@ fourth parameter is the level and is **required** so that no caller can grow a s
 are `FormulaResult`s, so a level that cannot be read makes the allocation *invalid* rather than
 unlimited, and a grant does **not** rescue a pool that cannot be derived at all. The result reports
 `grantedPoints` separately so a surface can say *8 incl. 3 granted* rather than a number nobody can
-account for. Spending post-creation goes through `characterStore.setInvestedStatPoints`, which
-**refuses** an unaffordable spend rather than clamping it — a partial investment would read as one
-that landed.
+account for. Spending post-creation goes through `characterStore.setInvestedStatPoints` /
+`setInvestedSkillPoints`, which **refuse** an unaffordable spend rather than clamping it — a partial
+investment would read as one that landed.
+
+**One pool pays for `investedStatPoints` *and* `investedSkillPoints`** (TICKET-RES-05). That is the
+source sheet's own arithmetic — `Points to Use = level × 3 − Points Spend`, where Points Spend sums
+the stat boxes and all 48 skill boxes (`Background Charater Sheet Calcu` AK3:AK4) — and it is a
+**behavioural change for every ruleset**: skill investment used to be free. Four consequences worth
+knowing before touching either map:
+
+- **Only the ruleset's own skills are charged.** Points against an id `config.skills` does not hold
+  raise the level of nothing, so they cost nothing either — `unknownStatIds`' rule. Such an id is
+  still refused at *creation* by `characterCreationErrors`, which is where it can be acted on.
+- **A negative in either map never refunds.** It lands in `violations` (stats) or `skillViolations`
+  (skills) and is counted as zero.
+- **Characters built before this are ordinarily over budget**, which is *reported* — `isOverBudget`,
+  the crimson tally — and never rewritten. Nothing rewrites a stored allocation.
+- **A refund is never refused.** Both invest actions let any change lowering the total spend through,
+  whatever state the sheet is in; without it an over-budget character could read the report and do
+  nothing about it.
+
+Neither field's *shape* moved, so there is no schema-version consequence.
 
 **Since TICKET-CALC-02, every *configured* stat has a value; absence is not a state.**
 `calculateStatValues` seeds every stat in `config.stats` before applying investment, racial

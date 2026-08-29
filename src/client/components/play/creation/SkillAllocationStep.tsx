@@ -1,11 +1,12 @@
 /**
  * Creation Step 3 — Stats
  *
- * Allocates points across the ruleset's **invested** stats within the budget their level grants —
- * `level × const.points_per_level` since TICKET-RES-02, which at creation is level-at-XP-0 — showing
- * each stat's racial modifier separately from the points spent, and the base level per speciality
- * skill. A **derived** stat takes no points, so it previews read-only and moves as the invested
- * ones do — that split is Concept 01's, wired here by TICKET-STAT-03.
+ * Allocates points across the ruleset's **invested** stats and its skills within the budget their
+ * level grants — `level × const.points_per_level` since TICKET-RES-02, which at creation is
+ * level-at-XP-0, and **one pool over both cards** since TICKET-RES-05 — showing each stat's racial
+ * modifier separately from the points spent, and the base level per speciality skill. A **derived**
+ * stat takes no points, so it previews read-only and moves as the invested ones do — that split is
+ * Concept 01's, wired here by TICKET-STAT-03.
  *
  * The budget arithmetic comes from `validateStatAllocation` and every derived number from
  * `calculateCharacter`; nothing is summed or evaluated here.
@@ -165,28 +166,39 @@ export function SkillAllocationStep({
           <Text variant="h4" as="h2" className="mb-4">
             Skills
           </Text>
+          {/* The pool is stated once, on the Stats card above: since TICKET-RES-05 it is one
+              budget over both cards, and a second tally here would read as a second pool */}
           <Text variant="body-small-secondary" className="mb-3">
-            Points invested. Each skill's governing stats are added on top and shown in the review.
+            Points invested, from the same pool as the stats above. Each skill's governing stats are
+            added on top and shown in the review.
           </Text>
 
           <div className="space-y-3">
-            {skills.map((skill) => (
-              <div key={skill.id} className="flex flex-wrap items-center gap-3">
-                <Label htmlFor={`skill-${skill.id}`} className="w-40 shrink-0">
-                  {skill.name}
-                </Label>
-                <Input
-                  id={`skill-${skill.id}`}
-                  type="number"
-                  min="0"
-                  value={investedSkillPoints[skill.id] ?? 0}
-                  onChange={(event) =>
-                    onChangeInvestedSkillPoints(skill.id, toLevel(event.target.value))
-                  }
-                  className="w-24"
-                />
-              </div>
-            ))}
+            {skills.map((skill) => {
+              const invested = investedSkillPoints[skill.id] ?? 0;
+
+              return (
+                <div key={skill.id} className="flex flex-wrap items-center gap-3">
+                  <Label htmlFor={`skill-${skill.id}`} className="w-40 shrink-0">
+                    {skill.name}
+                  </Label>
+                  <Input
+                    id={`skill-${skill.id}`}
+                    type="number"
+                    min="0"
+                    value={invested}
+                    onChange={(event) =>
+                      onChangeInvestedSkillPoints(skill.id, toLevel(event.target.value))
+                    }
+                    // The stat input's flag, which this box never had: `min` is advisory in a
+                    // number field and `toLevel` passes `-3` straight through, so the box the
+                    // Player is being stopped for has to be the box that looks wrong
+                    error={invested < 0}
+                    className="w-24"
+                  />
+                </div>
+              );
+            })}
           </div>
         </Card>
       )}

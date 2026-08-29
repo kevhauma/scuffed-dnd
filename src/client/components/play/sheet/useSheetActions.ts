@@ -93,12 +93,12 @@ export function useSheetActions(
       setInvestedStatPoints(character.id, statId, points, config);
     },
 
-    // No budget to check against: the ruleset prices stat points and says nothing about skill
-    // points, so the store's only rule is the shape. See `setInvestedSkillPoints`.
+    // The same pool as the stats above, since TICKET-RES-05 — so the same ruleset goes in, and the
+    // store refuses whatever the derived budget cannot pay for
     handleChangeInvestedSkillPoints: (skillId: string, points: number) => {
-      if (!character) return;
+      if (!character || !config) return;
 
-      setInvestedSkillPoints(character.id, skillId, points);
+      setInvestedSkillPoints(character.id, skillId, points, config);
     },
 
     // Set and adjust are two intents rather than one plus arithmetic here: `-12` against a purse

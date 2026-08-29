@@ -19,6 +19,7 @@ function result(overrides: Partial<StatAllocationResult> = {}): StatAllocationRe
     isOverBudget: false,
     gains: [],
     violations: [],
+    skillViolations: [],
     unknownStatIds: [],
     ...overrides,
   };

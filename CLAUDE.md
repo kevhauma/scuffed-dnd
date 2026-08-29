@@ -124,7 +124,12 @@ acceptance criteria.
   [engine/dreamLevel.ts](src/shared/engine/dreamLevel.ts), never a `?? 1` at a call site).
   **There is no stored level and no stored budget**: a
   DM sets experience, and "set level to N" writes what the `xp_thresholds` curve prices N at
-  (`experienceForLevel`), refusing when it cannot price one.
+  (`experienceForLevel`), refusing when it cannot price one. **That one derived budget pays for stat
+  points and skill points together** (TICKET-RES-05, the sheet's `Points to Use` / `Points Spend`
+  pair): both invest actions ask `validateStatAllocation` the same question, an unaffordable spend on
+  either side is refused **with the overspend named**, and a change that *lowers* the total spend is
+  never refused — otherwise a character built while skill investment was free could be told they are
+  over budget with no way to act on it.
 - **All user-authored math goes through the formula engine** (`parseFormula` → `validateFormula` →
   `evaluateFormula`). No `eval`, no `new Function`, no hand-rolled arithmetic parsing.
 - **Base components (`components/ui/`) carry intrinsic styling only** — no margin, flex/grid,

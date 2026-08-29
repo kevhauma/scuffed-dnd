@@ -79,7 +79,6 @@ export function ResourcesSection({
                     : (points) => onChangeInvestedPoints(resource.id, points)
                 }
                 canSpend={(budget?.pointsRemaining.value ?? 0) > 0}
-                canAdjust={budget?.pointsRemaining.value !== null}
                 // The same row `StatsSection` draws, from the same function — a pool's maximum is
                 // composed exactly like a stat, so the two must not disagree about the spelling
                 contributions={[

@@ -538,12 +538,17 @@ describe('POST /api/sessions/:id/snapshot', () => {
     it('reports every character that would break, not the first', () =>
       withTestDatabase(async (database) => {
         const { dm, ruleset, session, stat } = tableWithAnInvestedCharacter(database);
+        // **Two points, not five, since TICKET-RES-05.** A conflict is now a comparison — a
+        // character the *current* Snapshot already refuses cannot block a refresh it did not cause
+        // — so a second character has to be affordable today for "would break" to mean anything
+        // about them. Five is over the corpus's level-1 pool, which made this the wrong fixture for
+        // its own claim the moment the check learned to tell the two states apart.
         seedCharacter(database, {
           session,
           owner: dm,
           name: 'Waddles',
           data: JSON.stringify(
-            playerState({ id: 'character-2', investedStatPoints: { [stat.id]: 5 } })
+            playerState({ id: 'character-2', investedStatPoints: { [stat.id]: 2 } })
           ),
         });
 
@@ -581,6 +586,85 @@ describe('POST /api/sessions/:id/snapshot', () => {
 
         expect((await refresh(session.id, dm)).status).toBe(200);
       }));
+
+    /**
+     * A conflict is *broken by the refresh*, not *broken* (TICKET-RES-05)
+     *
+     * The two cases the widened pool made reachable. Before RES-05 an over-budget character at a
+     * table was hard to arrive at; now every character carrying skill investment beyond the pool is
+     * one, and so is anybody a DM's `removeExperience` drops a level.
+     */
+    describe('an allocation the pool cannot cover', () => {
+      /** The corpus with a smaller pool per level, which is what makes a valid spend unaffordable */
+      function withPointsPerLevel(value: number) {
+        const retuned = realConfiguration();
+        const declared = retuned.constants ?? [];
+
+        retuned.constants = declared.map((constant) =>
+          constant.name === 'points_per_level' ? { ...constant, value } : constant
+        );
+
+        return retuned;
+      }
+
+      it('names the overspend when the refresh makes an affordable spend unaffordable', () =>
+        withTestDatabase(async (database) => {
+          const { dm, ruleset, session } = tableWithAnInvestedCharacter(database);
+
+          // Quackers' two points are affordable at the corpus's pool and are not at a pool of one.
+          // The stat still exists, so `unknownStatIds` and both violation lists are empty and this
+          // is the arm that used to render "…refuse: " with nothing after the colon.
+          const tighter = withPointsPerLevel(1);
+          updateRulesetData(
+            ruleset.id,
+            ruleset.revision,
+            serializeConfiguration(tighter),
+            Date.now(),
+            database
+          );
+
+          const response = await refresh(session.id, dm);
+          const conflicts = conflictsOf(response.body);
+
+          expect(response.status).toBe(409);
+          expect(conflicts).toHaveLength(1);
+          expect(conflicts[0].characterName).toBe('Quackers');
+          expect(conflicts[0].reason).toContain('1 point more than the refreshed rules grant');
+          // The defect this case exists for: a reason that stops at its own punctuation
+          expect(conflicts[0].reason.trim()).not.toMatch(/[:,]$/);
+        }));
+
+      it('does not block on a character the pinned rules already refuse', () =>
+        withTestDatabase(async (database) => {
+          const dm = seedAccount();
+          const ruleset = seedRuleset(database, { owner: dm });
+          const { session } = seedSession(database, { dm, from: ruleset });
+          const stat = firstInvestableStat(realConfiguration());
+
+          // Over budget against the Snapshot the table is already playing on — the state RES-05
+          // makes ordinary. Refusing on their account would freeze this table against *every*
+          // candidate, including one byte-identical to what is pinned, and including the refresh
+          // that would fix them.
+          seedCharacter(database, {
+            session,
+            owner: dm,
+            name: 'Overspent',
+            data: JSON.stringify(playerState({ investedStatPoints: { [stat.id]: 40 } })),
+          });
+
+          const retuned = realConfiguration();
+          retuned.stats[0].description = 'Retuned on Thursday';
+          updateRulesetData(
+            ruleset.id,
+            ruleset.revision,
+            serializeConfiguration(retuned),
+            Date.now(),
+            database
+          );
+
+          expect((await refresh(session.id, dm)).status).toBe(200);
+        }));
+    });
 
     it('refuses rather than guessing when a character cannot be read at all', () =>
       withTestDatabase(async (database) => {

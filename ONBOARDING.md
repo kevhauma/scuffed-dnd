@@ -267,7 +267,9 @@ on every one of them, so internalise them before writing code:
    DM's handout, an *input* to the derived point pool rather than a stored budget) and `dreamLevel`
    (RES-04 — raised by the DM; the archetype's gains derive *from* it, and absent means 1 through
    `dreamLevelOf`, never a `?? 1` at a call site). There is no
-   stored level and no stored budget anywhere in the app.
+   stored level and no stored budget anywhere in the app — and since RES-05 that one derived budget
+   pays for **stat points and skill points together**, so a spend on either side is refused with the
+   overspend named rather than clamped.
 3. **All user-authored math goes through the formula engine.** See above.
 4. **Base components carry intrinsic styling only; feature components own layout.** See above.
 5. **Medieval theme tokens only.** No stock Tailwind palette, no hex literals. A new shade gets a

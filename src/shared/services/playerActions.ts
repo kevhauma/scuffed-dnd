@@ -37,7 +37,7 @@
  */
 
 import { calculateCharacter } from '../engine/calculator';
-import { asNumber } from '../engine/formula/errors';
+import { asNumber, isFormulaError } from '../engine/formula/errors';
 import { validateStatAllocation } from '../engine/skillAllocation';
 import type { ActionValue } from '../types/api';
 import type { Character, Inventory } from '../types/character';
@@ -81,15 +81,74 @@ function pointsRefusal(points: number): string | null {
 }
 
 /**
+ * Whether a proposed allocation fits the one pool, and what to say when it does not
+ *
+ * **Shared by both investment actions since TICKET-RES-05**, which is when the pool stopped being a
+ * stat-only budget: `level × const.points_per_level + grants` now prices the stat boxes and the
+ * skill boxes together, the way the source sheet's `Points Spend` always has. Refusing a skill
+ * spend and refusing a stat spend became the same question asked of the same verdict, so asking it
+ * twice in two spellings was how the two would start disagreeing.
+ *
+ * The verdict is `validateStatAllocation`'s, so the sheet, the creation wizard, the server and this
+ * cannot differ about what a point costs. A budget that cannot be *priced* — a ruleset with no
+ * `xp_thresholds` curve, say — lands here as `isValid: false`, which is the right answer rather
+ * than an accident: a ruleset that cannot say how many points exist cannot say this spend is
+ * allowed either.
+ *
+ * **The overspend is named** (RES-02's and DM-01's discipline): a Player told *no* with no number
+ * has nothing to act on, and `setGrantedPoints` has said "would leave them 4 points overspent"
+ * since DM-01.
+ *
+ * @param character Whose sheet, as it stands
+ * @param proposed The same character with the spend applied
+ * @param config The ruleset they play by — the browser's, or a session's Snapshot
+ * @returns The refusal, or null when the spend may go through
+ */
+function affordabilityRefusal(
+  character: Character,
+  proposed: Character,
+  config: Configuration
+): string | null {
+  const after = validateStatAllocation(proposed, config);
+
+  if (after.isValid) return null;
+
+  /*
+   * A change that *lowers* the total spend is never refused, whatever state the sheet is in.
+   *
+   * Widening the pool to cover skills makes an over-budget character an ordinary thing to meet —
+   * every character built while skill investment was free is one, which is exactly what this
+   * ticket's acceptance criteria ask to be *reported* rather than rewritten. A refusal that also
+   * blocked the refund would leave a Player reading a report they have no way to act on, and
+   * `StatsSection` has drawn `−` as always-open since RES-02 on precisely this reasoning.
+   */
+  const current = validateStatAllocation(character, config);
+
+  if (after.pointsSpent < current.pointsSpent) return null;
+
+  const remaining = after.pointsRemaining;
+
+  if (!after.isOverBudget || isFormulaError(remaining)) {
+    return (
+      'That spend is more than the points this character has. Free some points up, or gain a ' +
+      'level first.'
+    );
+  }
+
+  const overspend = -remaining;
+  const plural = overspend === 1 ? '' : 's';
+
+  return (
+    `That spend goes ${overspend} point${plural} over the budget. Free some points up, or gain a ` +
+    'level first.'
+  );
+}
+
+/**
  * Put points into one invested stat (Requirement 14.5, TICKET-RES-02)
  *
- * The affordability verdict is `validateStatAllocation`'s, so the sheet, the creation wizard and
- * this cannot disagree about what the budget is. It is a **refusal** rather than a clamp: silently
- * spending fewer points than asked would leave a Player believing an investment landed.
- *
- * A budget that cannot be *priced* — a ruleset with no `xp_thresholds` curve, say — lands here as
- * `isValid: false`, which is the right answer rather than an accident: a ruleset that cannot say
- * how many points exist cannot say this spend is allowed either.
+ * A **refusal** rather than a clamp: silently spending fewer points than asked would leave a Player
+ * believing an investment landed. What counts as affordable is {@link affordabilityRefusal}'s.
  *
  * @param character Whose sheet
  * @param config The ruleset they play by — the browser's, or a session's Snapshot
@@ -113,13 +172,8 @@ export function investInStat(
     investedStatPoints: { ...character.investedStatPoints, [statId]: points },
   };
 
-  if (!validateStatAllocation(proposed, config).isValid) {
-    return {
-      refusal:
-        'That spend is more than the points this character has. Free some points up, or gain a ' +
-        'level first.',
-    };
-  }
+  const unaffordable = affordabilityRefusal(character, proposed, config);
+  if (unaffordable) return { refusal: unaffordable };
 
   return { character: proposed, before, after: points };
 }
@@ -127,18 +181,25 @@ export function investInStat(
 /**
  * Put points into one skill
  *
- * **Deliberately not budgeted**, unlike its stat counterpart: the ruleset prices stat points and
- * says nothing about skill points, so the only rule is the shape of the number. The creation wizard
- * has always let a Player type any number into a skill, and refusing here would make the sheet
- * stricter than the wizard that produced the character.
+ * **Budgeted since TICKET-RES-05**, and that is the behavioural change the ticket is about: this
+ * used to check nothing but the shape of the number, because the app priced stat points only and a
+ * Player could raise forty skills at level 1 for free. The source sheet has always paid for both
+ * out of the one `level × 3` pool, so the same {@link affordabilityRefusal} the stat side asks now
+ * stands here too — the ruleset needs no skill-specific rule, because there is no skill-specific
+ * pool.
+ *
+ * The `config` parameter is what that cost: the browser's store and the server's route both hand
+ * their ruleset in, exactly as the stat counterpart has since TICKET-RES-02.
  *
  * @param character Whose sheet
+ * @param config The ruleset they play by — the browser's, or a session's Snapshot
  * @param skillId Which skill
  * @param points The new total for that skill
  * @returns The character with the spend applied, or the reason it was refused
  */
 export function investInSkill(
   character: Character,
+  config: Configuration,
   skillId: string,
   points: number
 ): PlayerActionResult {
@@ -147,14 +208,15 @@ export function investInSkill(
 
   const before = character.investedSkillPoints[skillId] ?? 0;
 
-  return {
-    character: {
-      ...character,
-      investedSkillPoints: { ...character.investedSkillPoints, [skillId]: points },
-    },
-    before,
-    after: points,
+  const proposed: Character = {
+    ...character,
+    investedSkillPoints: { ...character.investedSkillPoints, [skillId]: points },
   };
+
+  const unaffordable = affordabilityRefusal(character, proposed, config);
+  if (unaffordable) return { refusal: unaffordable };
+
+  return { character: proposed, before, after: points };
 }
 
 /**

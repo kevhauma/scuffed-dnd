@@ -50,8 +50,8 @@ the wizard may caption the two race slots as parents, and there are exactly two.
   shape-only, still waiting on the User (v2.0's open question, unchanged).
 - **The point budget is `level × const.points_per_level + grantedStatPoints`** (TICKET-RES-02,
   TICKET-DM-01), with `points_per_level = 3`. The new sheet's Points scaling is the **same 3** —
-  confirmed unchanged — but the app budgets **stat** points only, while the sheet's one pool also
-  pays for skill investment (parity gap 3 below).
+  confirmed unchanged — and since **TICKET-RES-05** that one pool pays for skill investment as well,
+  which is what the sheet always did (gap 3 below, closed).
 - **APT** is a derived stat, `max(1, round(SPEED / const.apt_value))`, `apt_value = 30`
   (stats.json, constants.json). The new sheet has the same constant (30) and the sample value
   agrees (Speed 20 → 1).
@@ -84,12 +84,18 @@ the wizard may caption the two race slots as parents, and there are exactly two.
    `dreamLevelOf` in [`engine/dreamLevel.ts`](../../../src/shared/engine/dreamLevel.ts), rather than
    to a backfill or a `?? 1` at a call site. It has a row in the DM's controls panel and shows in the
    sheet's identity block beside Level.
-3. **One pool for stats and skills** — today `validateStatAllocation` budgets stat points only and
-   skill investment is unbudgeted. Parity makes `level × points_per_level + grants` the budget for
-   the *sum* of `investedStatPoints` and `investedSkillPoints`. The refusal discipline is
-   unchanged (refuse an unaffordable spend, never clamp); the fix is where the spend is summed.
-4. **Points readout** — surface Points to Use / Points Spend on the sheet header where the sample
-   shows them; both come from the widened allocation result, so this is display only.
+3. **One pool for stats and skills** — ~~today `validateStatAllocation` budgets stat points only and
+   skill investment is unbudgeted~~ **built by TICKET-RES-05**: `level × points_per_level + grants`
+   is now the budget for the *sum* of `investedStatPoints` and `investedSkillPoints`, and the
+   refusal discipline is unchanged (refuse an unaffordable spend, never clamp) except that the
+   refusal now **names the overspend** on both sides. Two clarifications the build settled: only
+   skills the ruleset defines are charged (a stale id raises the level of nothing, so it costs
+   nothing — `unknownStatIds`' rule), and a change that *lowers* the total spend is never refused,
+   because every character built while skill investment was free is now over budget and has to be
+   able to refund its way back.
+4. **Points readout** — ~~surface Points to Use / Points Spend on the sheet header~~ **built by
+   TICKET-RES-05**: `PointBudgetSummary` names both halves — `13/15 Points spent · 2 Points to use`
+   — off the one allocation result, so it is display only and the wizard gets it at the same time.
 
 ## Backend note
 

@@ -225,7 +225,7 @@ describe('a write to the character open at a table', () => {
     ],
     [
       PLAYER_ACTION.INVEST_SKILL_POINTS,
-      () => useCharacterStore.getState().setInvestedSkillPoints('character-1', 'skill-x', 4),
+      () => useCharacterStore.getState().setInvestedSkillPoints('character-1', 'skill-x', 4, RULES),
       { skillId: 'skill-x', points: 4 },
     ],
     [

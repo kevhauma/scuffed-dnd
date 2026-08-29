@@ -96,6 +96,42 @@ export interface CharacterCreationFormData {
 }
 
 /**
+ * Which box is wrong and why, or null when the verdict names no single one
+ *
+ * The **per-entry** half of the step's refusal, split off from {@link allocationStepError} at
+ * TICKET-RES-05 — which is when there stopped being one violation list to read. The two halves ask
+ * different questions: this one is *whose box*, the caller is *is the pool the problem*, and keeping
+ * them in one body took that function over `fallow`'s complexity threshold the moment the skills
+ * arm landed.
+ *
+ * Stats before skills only because the stat boxes are where a Player spends most of a budget. The
+ * wording mirrors `characterCreation.ts`'s `allocationRefusal`, deliberately: the server refusing
+ * the identical character has to say the identical thing, and a generic *"adjust the allocation"*
+ * here against *"Stealth cannot take those points"* there is two surfaces of one verdict
+ * disagreeing.
+ *
+ * @param allocation The engine's verdict
+ * @returns The sentence, or null when nothing in either list is at fault
+ */
+function entryBreachError(allocation: StatAllocationResult): string | null {
+  const breach = allocation.violations[0];
+
+  if (breach) {
+    return breach.reason === 'negative-points'
+      ? `${breach.statName} cannot go below 0.`
+      : `${breach.statName} is derived from a formula, so it takes no points.`;
+  }
+
+  const skillBreach = allocation.skillViolations[0];
+
+  if (skillBreach) {
+    return `${skillBreach.skillName} cannot go below 0.`;
+  }
+
+  return null;
+}
+
+/**
  * Why the allocation step cannot be left, or null when it can
  *
  * Reads the engine's verdict; it does no arithmetic of its own.
@@ -119,14 +155,9 @@ function allocationStepError(
     return `That is ${over} point(s) over the budget of ${budget.pointBudget.value}.`;
   }
 
-  const breach = allocation.violations[0];
-  if (!breach) {
-    return 'Adjust the allocation before continuing.';
-  }
+  const breach = entryBreachError(allocation);
 
-  return breach.reason === 'negative-points'
-    ? `${breach.statName} cannot go below 0.`
-    : `${breach.statName} is derived from a formula, so it takes no points.`;
+  return breach ?? 'Adjust the allocation before continuing.';
 }
 
 export function useCharacterCreation() {

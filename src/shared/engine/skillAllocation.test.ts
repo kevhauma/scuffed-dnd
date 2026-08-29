@@ -1,18 +1,22 @@
 /**
- * Stat Point Allocation Validator Tests
+ * Point Allocation Validator Tests
  *
  * The budget is derived since TICKET-RES-02 — `level × const.points_per_level` — so these cover the
  * two inputs that move it (experience and the constant) as well as the boundaries SKL-01's flat
  * pool had: exactly at budget valid, one over invalid.
  *
- * **Validates: Concept 06; Concept 05; Concept 01; Requirements 2.4, 11.3**
+ * Since TICKET-RES-05 the spend it is measured against is the **sum of the stat boxes and the skill
+ * boxes**, which is the source sheet's own `Points Spend` — so the cases below cover both orderings
+ * of reaching one overspend and the readout pair the sheet header prints.
+ *
+ * **Validates: Concept 06; Concept 05; Concept 01; Requirements 2.4, 11.3; v4 systems/02 gaps 3-4**
  */
 
 import { describe, expect, it } from 'vitest';
 import type { Character } from '../types/character';
 import type { Archetype, Configuration, Constant, Curve } from '../types/config';
 import { isFormulaError } from './formula/errors';
-import { validateStatAllocation } from './skillAllocation';
+import { SKILL_ALLOCATION_VIOLATION, validateStatAllocation } from './skillAllocation';
 
 /**
  * The seeded XP table: level 1 at 0 XP, 2 at 300, 3 at 900, 4 at 2700
@@ -89,7 +93,11 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         rounding: 'none',
       },
     ],
-    skills: [],
+    // The pool pays for these too since TICKET-RES-05, so the fixture defines some
+    skills: [
+      { id: 'stealth', name: 'Stealth', description: '', statWeights: [] },
+      { id: 'alchemy', name: 'Alchemy', description: '', statWeights: [] },
+    ],
     materials: [],
     materialCategories: [],
     items: [],
@@ -274,6 +282,167 @@ describe('validateStatAllocation', () => {
       expect(result.pointsSpent).toBe(0);
       expect(result.pointsRemaining).toBe(15);
       expect(result.violations).toEqual([]);
+    });
+  });
+
+  /**
+   * One pool for stats and skills (TICKET-RES-05)
+   *
+   * The sheet's own arithmetic: `Points to Use = level × 3 − Points Spend`, where Points Spend sums
+   * the stat boxes and all 48 skill boxes together.
+   */
+  describe('the shared pool', () => {
+    it('should sum the stat boxes and the skill boxes into one spend', () => {
+      const both = createCharacter({
+        investedStatPoints: { STR: 5 },
+        investedSkillPoints: { stealth: 4 },
+      });
+      const config = createConfig();
+
+      const result = validateStatAllocation(both, config);
+
+      expect(result.pointsSpent).toBe(9);
+      expect(result.pointsRemaining).toBe(6);
+      expect(result.isValid).toBe(true);
+    });
+
+    it('should refuse a total the pool cannot cover though each half would fit alone', () => {
+      const both = createCharacter({
+        investedStatPoints: { STR: 10 },
+        investedSkillPoints: { stealth: 6 },
+      });
+      const config = createConfig();
+
+      const result = validateStatAllocation(both, config);
+
+      expect(result.pointsSpent).toBe(16);
+      expect(result.pointsRemaining).toBe(-1);
+      expect(result.isOverBudget).toBe(true);
+      expect(result.isValid).toBe(false);
+      // Over budget is not a per-entry problem, on either side
+      expect(result.violations).toEqual([]);
+      expect(result.skillViolations).toEqual([]);
+    });
+
+    it('should reach the same verdict whichever side the last point went into', () => {
+      // stat-then-skill and skill-then-stat: the pool is a sum, so the order cannot matter — and
+      // both refusals name the same one-point overspend
+      const statLast = createCharacter({
+        investedStatPoints: { STR: 10, DEX: 1 },
+        investedSkillPoints: { stealth: 5 },
+      });
+      const skillLast = createCharacter({
+        investedStatPoints: { STR: 10 },
+        investedSkillPoints: { stealth: 5, alchemy: 1 },
+      });
+      const config = createConfig();
+
+      for (const character of [statLast, skillLast]) {
+        const result = validateStatAllocation(character, config);
+
+        expect(result.pointsSpent).toBe(16);
+        expect(result.pointsRemaining).toBe(-1);
+        expect(result.isValid).toBe(false);
+      }
+    });
+
+    it('should sum across several skills rather than reading only the largest', () => {
+      const spread = createCharacter({ investedSkillPoints: { stealth: 8, alchemy: 8 } });
+      const config = createConfig();
+
+      const result = validateStatAllocation(spread, config);
+
+      expect(result.pointsSpent).toBe(16);
+    });
+
+    it('should charge nothing for points against a skill the ruleset does not define', () => {
+      // `skillCalculator` walks `config.skills`, so these raise the level of nothing — charging the
+      // pool for them would take a Player's budget for something no surface can show them
+      const stale = createCharacter({ investedSkillPoints: { 'skill-gone': 40 } });
+      const config = createConfig();
+
+      const result = validateStatAllocation(stale, config);
+
+      expect(result.pointsSpent).toBe(0);
+      expect(result.isValid).toBe(true);
+    });
+
+    it('should report a negative skill spend rather than letting it refund the pool', () => {
+      const refunder = createCharacter({
+        investedStatPoints: { STR: 15 },
+        investedSkillPoints: { stealth: -5 },
+      });
+      const config = createConfig();
+
+      const result = validateStatAllocation(refunder, config);
+
+      expect(result.pointsSpent).toBe(15);
+      expect(result.skillViolations).toEqual([
+        {
+          skillId: 'stealth',
+          skillName: 'Stealth',
+          points: -5,
+          reason: SKILL_ALLOCATION_VIOLATION.NEGATIVE_POINTS,
+        },
+      ]);
+      expect(result.isValid).toBe(false);
+    });
+
+    it('should report an allocation the widened pool can no longer afford, not rewrite it', () => {
+      // Every character built while skill investment was free is one of these. RES-02's treatment:
+      // the numbers stay exactly as stored and the verdict says they do not fit.
+      const legacy = createCharacter({ investedSkillPoints: { stealth: 20 } });
+      const config = createConfig();
+
+      const result = validateStatAllocation(legacy, config);
+
+      expect(result.isOverBudget).toBe(true);
+      expect(result.pointsSpent).toBe(20);
+      expect(legacy.investedSkillPoints.stealth).toBe(20);
+    });
+
+    it("should let the DM's grant pay for a skill spend, like any other", () => {
+      const granted = createCharacter({
+        investedSkillPoints: { stealth: 18 },
+        grantedStatPoints: 4,
+      });
+      const config = createConfig();
+
+      const result = validateStatAllocation(granted, config);
+
+      expect(result.isValid).toBe(true);
+    });
+
+    /**
+     * The pair the sheet header prints (`Character Sheet` K1:L3)
+     *
+     * The workbook's sample character: level 1, three points spent, none left to use — against the
+     * seeded `points_per_level` of 3 rather than this file's fixture 5.
+     */
+    it('should report the sample sheet’s Points Spend and Points to Use', () => {
+      const seeded = createConfig({ constants: [] });
+      const sample = createCharacter({ experience: 0, investedStatPoints: { STR: 3 } });
+
+      const result = validateStatAllocation(sample, seeded);
+
+      expect(result.pointBudget).toBe(3);
+      expect(result.pointsSpent).toBe(3);
+      expect(result.pointsRemaining).toBe(0);
+      expect(result.isValid).toBe(true);
+    });
+
+    it('should count a skill point against that same pair', () => {
+      const seeded = createConfig({ constants: [] });
+      const sample = createCharacter({
+        experience: 0,
+        investedStatPoints: { STR: 2 },
+        investedSkillPoints: { stealth: 1 },
+      });
+
+      const result = validateStatAllocation(sample, seeded);
+
+      expect(result.pointsSpent).toBe(3);
+      expect(result.pointsRemaining).toBe(0);
     });
   });
 

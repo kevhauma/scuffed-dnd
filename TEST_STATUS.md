@@ -1,8 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-29 (`npx vitest run`) at **TICKET-ARC-04 — dream-amplified archetype
-gains**, the current count-setter at **3108**.
+_Last verified: 2026-08-29 (`npx vitest run`) at **TICKET-RES-05 — one point pool for stats and
+skills**, the current count-setter at **3136**.
 The checkpoints before it were
+**TICKET-ARC-04 — dream-amplified archetype gains** at 3108,
 **TICKET-RES-04 — dream level, raised by the DM** at 3088,
 **TICKET-STAT-04 — stat groups on the character sheet** at 3067,
 **TICKET-ROLL-08 — the dice ladder's fractional remainder**, v4.0's first shape-pass ticket, at
@@ -36,8 +37,8 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 3108
-- **Passing**: 3108 (100%)
+- **Total tests**: 3136
+- **Passing**: 3136 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
@@ -65,6 +66,103 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-RES-05 — twenty-eight tests, and an assertion that had documented its own retirement
+
+The **+28 over ARC-04** is TICKET-RES-05, across eight files and no new one — **194 files,
+unchanged**. Twenty-four came from the build and four from the `conventions-reviewer` pass, whose
+findings are the second half of this section.
+
+`skillAllocation.test.ts` (+10) is the engine half: the sum over both maps, the two
+orderings that reach one overspend, the negative skill spend that must not refund, the stale skill id
+that must not be charged, the DM grant paying for a skill spend, and the workbook's own
+`Points to Use 0 · Points Spend 3` pair against the seeded `points_per_level` of 3.
+`playerActions.test.ts` (+7) is the refusal half. `CharacterSheet.test.tsx` (+4) is the readout, the
+skill row's new spend controls and the review's refund-against-an-unpriceable-pool case;
+`characterStore.test.ts` (+2) the local write, `dmActions.test.ts` (+2) the grant re-priced over the
+summed spend, and — both the review's — `sessions.test.ts` (+2) the Snapshot refresh and
+`CharacterCreationWizard.test.tsx` (+1) the wizard naming a skill.
+
+**One existing assertion was replaced, and it had written its own replacement.**
+`characterStore.test.ts` held *"should accept any whole number, because skills have no pool to
+overspend"* with a comment ending *"If a ticket gives skills a pool, the refusal goes in beside
+`setInvestedStatPoints`'s and this expectation changes."* This is that ticket, so the case is now
+*"should refuse a skill spend the shared pool cannot pay for"* against the same 9999.
+`SkillsSection`'s props carried the same promise in the same words and now carry the `canSpend` /
+`canAdjust` pair the stats have.
+
+**Skill investment stops being free for every ruleset**, which is behavioural rather than additive —
+but nothing stored moved, so there is still **no `SUPPORTED_SCHEMA_VERSION` bump**. D6's single
+milestone-wide bump belongs to the first *reshaping* ticket, or to DX-09.
+
+**The overspend is named now, on both sides.** `investInStat`'s refusal was *"more than the points
+this character has"* — true, and a number a Player cannot act on. Both actions share
+`affordabilityRefusal`, which says *"goes 1 point over the budget"* in `setGrantedPoints`'s own
+DM-01 register. `play.test.ts`'s route case asserts the new wording through a request.
+
+### The rule the ticket had to add rather than inherit: a refund is never refused
+
+Widening the pool makes an **over-budget character an ordinary thing to meet** — every character
+built while skill investment was free is one, and the ticket's own second criterion asks for that to
+be *reported* rather than rewritten. The store's existing refusal would have reported it and then
+blocked the only way out: `investInStat` refuses whenever the *proposal* is invalid, so lowering a
+stat on an overspent sheet was refused too. `StatsSection` has drawn `−` as always-open since RES-02
+on exactly the opposite assumption, with a comment saying *a point can always be taken back*.
+
+So `affordabilityRefusal` lets any change through that **lowers the total spend**, whatever state the
+sheet is in, and refuses every raise as before. Two cases pin the pair — a refund accepted from a
+character 28 points overspent, and a raise on that same character still refused. It costs a second
+`validateStatAllocation` call on the refusal path only.
+
+### The review found a third reader of the widened verdict, and a green suite over it
+
+`snapshotConflicts.ts` — the check that refuses a DM's Snapshot refresh — reads the same
+`validateStatAllocation` and had **two** arms where the verdict now has four. Two consequences, both
+new with this ticket and both invisible to the suite, whose conflict cases only ever removed a stat:
+
+- **An over-budget character produced an empty sentence.** Over budget is deliberately not a
+  per-entry violation — this ticket's own engine test asserts `violations: []` *and*
+  `skillViolations: []` for it — so a reader consulting only those two lists rendered *"has an
+  allocation the refreshed rules refuse: "*, a DM-facing reason stopping at its own colon.
+- **And the refresh was then blocked for good.** `conflictFor` tested validity **absolutely**, so
+  after RES-05 every table holding a character with skill investment beyond the pool was refused
+  against *any* candidate — including one byte-identical to what was pinned, and including the
+  refresh that would have fixed them. Reachable on a fresh install too: a DM's `removeExperience`
+  lowers the level and with it the pool.
+
+The fix is the same judgement the Kernel's refund rule makes, one layer out: **a conflict is a
+comparison, not an absolute**. `conflictFor` now asks the *current* Snapshot as well, and a
+character it already refuses cannot block a refresh it did not cause — they are broken either way,
+and their overspend is still reported where it can be acted on, on their own sheet in crimson. The
+second verdict is computed only on the refusal path, so the common case still costs one.
+`allocationReason` grew the two missing arms (the skill violation, the named overspend) plus a
+last-resort one for an unpriceable pool, because an unnamed arm here is not a wrong sentence but an
+empty one. Two cases in `sessions.test.ts`, and one existing fixture had to change: *reports every
+character that would break* seeded its second character with **five** points against a level-1 pool
+of three, so that character was already invalid and the test had been asserting its claim about a
+character the claim no longer covers.
+
+**Three smaller findings, all fixed.** The wizard's `allocationStepError` read `violations[0]` only,
+so a negative skill box stopped a Player under a generic *"Adjust the allocation"* while the server
+refusing the identical character said *"Stealth cannot take those points"* — the per-entry half is
+now `entryBreachError`, split out because adding the arm took the function to 10 cyclomatic and
+`fallow` said so. The skill `Input` gained the `error` flag its stat sibling always had, `min="0"`
+being advisory in a number field. And **`canAdjust` was deleted** from `CountRow` and its three
+callers: its whole rationale was *"the store refuses every write against an unpriceable pool,
+refunds included"*, which this ticket's refund rule falsified, so a disabled `−` was the UI refusing
+what the rule allows. The RES-02 assertion that pinned it is **reversed rather than removed**, with
+a case beside it driving the click for real.
+
+**`fallow` reported nothing of this ticket's.** `audit --base main` is **pass** across 33 changed
+files with 0 introduced dead-code, complexity or duplication findings; the inherited rows are
+`fallow` itself in `dependencies`, `RulesetHomeKind` in `rulesetSync.ts` (neither file touched here)
+and a 16-line clone between `CountRow.tsx` and `SkillBreakdownRow.tsx` that surfaced only because the
+review pulled `CountRow` into the changed set — pre-existing, and not this ticket's to merge.
+The complexity row that matters is the one that **left**: ARC-04 recorded `validateStatAllocation` at
+14 cyclomatic and 99 lines and warned that folding a second spend into the same loop would push it
+over. It was split first — `collectStatSpend`, `collectSkillSpend` and `derivePointBudget`, with the
+validator left as the ~30-line orchestrator — and the function no longer appears in `health` at all.
+Eight touched files come back Accelerating and are recorded below, five of them first rows.
 
 ## TICKET-ARC-04 — twenty net, and the twelve that had to be re-derived rather than re-fitted
 
@@ -1453,16 +1551,21 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/client/components/sessions/SessionList.test.tsx` | 12.9 | TICKET-CHAR-04's run | 4 commits, 213 churn | ▲ **Accelerating — TICKET-PLY-01** (was 10.4 at CHAR-04) |
 | `src/client/components/sessions/SessionList.tsx` | 5.6 | TICKET-CHAR-04's run | 5 commits, 375 churn | ▼ Cooling — **cooled by TICKET-DM-01** (4.2 at CHAR-04, 6.4 at PLY-01; DM-01 passed one prop through) |
 | `src/server/repositories/characterRepository.ts` | 3.3 | TICKET-PLY-01's run | 4 commits, 252 churn | ─ Stable — **cooled by TICKET-DM-01**, which added no query at all: the DM's five writes reuse `recordPlayerAction` whole |
-| `src/client/stores/characterStore.ts` | 17.3 | TICKET-CUR-02's run | 6 commits, 1324 added / 338 deleted, 0.11 density, 27 fan-in | ▲ **Accelerating — TICKET-RES-04** (11.6 at ROLL-07, 13.4 at CUR-02, 15.4 at DM-01, **17.3 now**). RES-04 added two actions — `updateDreamLevel` and `dmSetDreamLevel` — and no rule: both call the Kernel's `setDreamLevel`, and the second is one `adjustAtTable` line. Density unmoved at 0.11 across a sixth commit, which is the store growing as a router rather than as a rulebook. The earlier reading stands: (11.6 at ROLL-07, 13.4 at CUR-02, 15.4 at DM-01. Five consecutive tickets have added to it, and DM-01 added five actions — but it also moved the *experience* rules out into `shared/services/dmActions.ts`, so the density fell (0.12 → 0.11) while the churn rose. That is the direction to keep pushing: the store is a router with two destinations, and every rule still living in it is a rule the server cannot call) |
-| `src/client/components/play/sheet/CharacterSheet.tsx` | 9.2 | TICKET-CUR-02's run | 5 commits, 349 added / 118 deleted, 0.07 density, 5 fan-in | ▲ **Accelerating — TICKET-RES-04** (5.0 at CUR-02, 7.8 at DM-01, **9.2 now**). RES-04 passed two props through and added no branch, so the density held at 0.07 — but this is now five consecutive tickets each adding to the same two call sites, and DM-01 already had to split `SheetStatusNotice` and `SheetRefusalBanner` out to get it back under the complexity threshold. **The next ticket to add a section here extracts before it adds.** The DM-01 reading, unchanged: (5.0 at CUR-02. Four tickets in a row have each added a conditional, and DM-01's two took it *over* `fallow`'s complexity threshold — 13 → 18 cyclomatic — so the same ticket split `SheetStatusNotice` and `SheetRefusalBanner` out and brought it back off the list. 256 → 168 lines. The next ticket to add a section here should extract before it adds: TICKET-DM-03's sidebar is the obvious place) |
+| `src/client/stores/characterStore.ts` | 18.3 | TICKET-CUR-02's run | 7 commits, 1470 added / 373 deleted, 0.11 density, 27 fan-in | ▲ **Accelerating — TICKET-RES-05** (11.6 at ROLL-07, 13.4 at CUR-02, 15.4 at DM-01, 17.3 at RES-04, **18.3 now**). RES-05 added no action at all: `setInvestedSkillPoints` took a `Configuration` and passed it to the Kernel, which is the smallest contribution this row has recorded. **Density unmoved at 0.11 across a seventh commit** — the store keeps growing as a router rather than as a rulebook, which is the direction the RES-04 reading asked for. The RES-04 reading: (11.6 at ROLL-07, 13.4 at CUR-02, 15.4 at DM-01, **17.3 then**). RES-04 added two actions — `updateDreamLevel` and `dmSetDreamLevel` — and no rule: both call the Kernel's `setDreamLevel`, and the second is one `adjustAtTable` line. Density unmoved at 0.11 across a sixth commit, which is the store growing as a router rather than as a rulebook. The earlier reading stands: (11.6 at ROLL-07, 13.4 at CUR-02, 15.4 at DM-01. Five consecutive tickets have added to it, and DM-01 added five actions — but it also moved the *experience* rules out into `shared/services/dmActions.ts`, so the density fell (0.12 → 0.11) while the churn rose. That is the direction to keep pushing: the store is a router with two destinations, and every rule still living in it is a rule the server cannot call) |
+| `src/client/components/play/sheet/CharacterSheet.tsx` | 10.0 | TICKET-CUR-02's run | 6 commits, 355 added / 119 deleted, 0.07 density, 5 fan-in | ▲ **Accelerating — TICKET-RES-05** (5.0 at CUR-02, 7.8 at DM-01, 9.2 at RES-04, **10.0 now**). RES-05 passed one existing binding — `budget` — to a section that was already on the page, and added no branch and no section; the density held at 0.07 for a fourth consecutive measurement. **The standing instruction is unchanged and now three tickets old: the next ticket to add a *section* here extracts before it adds.** The RES-04 reading: (5.0 at CUR-02, 7.8 at DM-01, **9.2 then**). RES-04 passed two props through and added no branch, so the density held at 0.07 — but this is now five consecutive tickets each adding to the same two call sites, and DM-01 already had to split `SheetStatusNotice` and `SheetRefusalBanner` out to get it back under the complexity threshold. **The next ticket to add a section here extracts before it adds.** The DM-01 reading, unchanged: (5.0 at CUR-02. Four tickets in a row have each added a conditional, and DM-01's two took it *over* `fallow`'s complexity threshold — 13 → 18 cyclomatic — so the same ticket split `SheetStatusNotice` and `SheetRefusalBanner` out and brought it back off the list. 256 → 168 lines. The next ticket to add a section here should extract before it adds: TICKET-DM-03's sidebar is the obvious place) |
 | `src/client/components/play/sheet/useCharacterSheet.ts` | 20.8 | TICKET-DM-01's run | 6 commits, 655 churn, 0.14 density, 15 fan-in | ▲ **Accelerating — TICKET-ARC-04** (11.7 at DM-01, 14.7 at STAT-04, 18.4 at RES-04, **20.8 now** — a sixth consecutive commit, and the density is *still* 0.14 across all four measurements, so what keeps rising is churn rather than difficulty). ARC-04's own contribution is the smallest yet and is the shape STAT-04's row asked for in reverse: it added one binding (`dreamLevel`) and **removed** a nested call, lifting `affinityFor` and `statGain` out of `toDerivedValue(...)`'s argument list into named intermediates. The open question is unchanged and now four tickets old — what would make the tag *earned* is a ticket that puts a **decision** in `buildView` rather than a field. The RES-04 reading: (11.7 at DM-01, 14.7 at STAT-04, **18.4 now** — the largest single jump this row has taken, on a fifth commit that added *one returned field*, `dreamLevel`, read through `dreamLevelOf`. The density is still 0.14 across all three measurements, so what is rising is churn, not difficulty). The STAT-04 reading, which still applies: (11.7 at DM-01, 14.7 then. DM-01 touched it only to export `CharacterSheetStatus`, and STAT-04 added one carried-through field to `StatBreakdown` and one line to `buildView` — so the tag is still inherited rather than earned, and the density has not moved (0.14 at both). It is on the list because it is the sheet's real decision surface — 15 cyclomatic, above the threshold since before either ticket — and because 15 modules now read it. What would make it real is a ticket that puts a *decision* in `buildView` rather than a field |
 | `src/client/services/characterSync.ts` | 4.2 | TICKET-DM-01's run | 3 commits, 279 churn, 0.05 density, 3 fan-in | ▲ **Accelerating — TICKET-DM-01** (crossed the three-commit floor across CHAR-04's creation, PLY-01's actions and DM-01's `fetchCharacterAdjustments`). The **shape** is what keeps it low: DM-01 widened `sendPlayerAction`'s action type rather than adding a second sender, so the module grew one read and no branches. The next ticket to add a destination here should ask whether it is widening or duplicating |
 | `src/server/routes/routeGuards.test.ts` | 10.9 | TICKET-DM-01's run | 3 commits, 209 churn | ▲ **Accelerating** — one line per new guard (GAM-03's `requireInvitee`, PLY-01's `requireCharacterPlayer`, DM-01's `requireCharacterDM`). That is the design working: the scan's corpus is every module defining a handler, so a new guard costs a name in a list. Worth watching only if a fourth ticket changes the *detector* rather than the list |
 | `src/client/stores/characterStore.table.test.ts` | 10.1 | TICKET-DM-01's run | 3 commits, 410 churn | ▲ **Accelerating** — PLY-01 created it, ROLL-07 and DM-01 each added a `describe`. It exists so `characterStore.test.ts` never has to change (the milestone's fifth Definition-of-Done rule), so growth here is the rule being honoured rather than a smell |
-| `src/client/components/play/sheet/CharacterSheet.test.tsx` | 8.9 | TICKET-DM-01's run | 4 commits, 1415 churn, 0.09 density | ▲ **Accelerating — TICKET-ARC-04** (7.5 at DM-01, **8.9 now**). The DM-01 row set the test for the fourth ticket — *if it has to touch the fixtures again rather than add a case, split the local-mode cases from the at-a-table ones* — and **ARC-04 added cases**: 35 lines, three `it`s and two local builders inside the existing ARC-02 `describe`, with no shared fixture touched. That is the row passing rather than failing, and the same test now stands for the fifth. The DM-01 reading: (3 commits, 1,380 churn on a 1,400-line file is the number to notice. DM-01 added two cases and a `fetch` stub; what made the churn is that PLY-01 and CUR-02 each reshaped the fixtures) |
+| `src/client/components/play/sheet/CharacterSheet.test.tsx` | 10.7 | TICKET-DM-01's run | 5 commits, 1449 churn, 0.09 density | ▲ **Accelerating — TICKET-RES-05** (7.5 at DM-01, 8.9 at ARC-04, **10.7 now**). The fifth ticket met the DM-01 row's test the same way the fourth did: **three cases added, and three existing expectations re-valued rather than re-fitted** — `10/15` became `13/15` because the fixture character's three Stealth points are now part of the spend, which is the ticket. No shared fixture was reshaped. The split the row has been watching for (local-mode cases apart from at-a-table ones) is still not owed, but 1,449 churn on a 1,450-line file is the number that will eventually owe it. The ARC-04 reading: (7.5 at DM-01, **8.9 then**). The DM-01 row set the test for the fourth ticket — *if it has to touch the fixtures again rather than add a case, split the local-mode cases from the at-a-table ones* — and **ARC-04 added cases**: 35 lines, three `it`s and two local builders inside the existing ARC-02 `describe`, with no shared fixture touched. That is the row passing rather than failing, and the same test now stands for the fifth. The DM-01 reading: (3 commits, 1,380 churn on a 1,400-line file is the number to notice. DM-01 added two cases and a `fetch` stub; what made the churn is that PLY-01 and CUR-02 each reshaped the fixtures) |
 | `src/client/components/sessions/SessionsPanel.tsx` | 3.1 | TICKET-CHAR-04's run | 4 commits, 76 churn, 0.03 density | ▲ **Accelerating — TICKET-CHAR-04** — re-measured at TICKET-GAM-03's closeout: a fourth commit and **one line** of churn, score unmoved at 3.1. The panel composes rather than does, so each new surface costs it a `<Panel …/>` and nothing else — the number to watch is the day one of them arrives with a branch |
 | `src/client/components/play/sheet/SheetHeader.tsx` | 3.1 | TICKET-RES-04's run | 3 commits, 116 added / 11 deleted, 0.04 density, 2 fan-in | ▲ **Accelerating — TICKET-RES-04** — a first row, crossing the three-commit floor here (PLY-01 made the experience controls optional, DM-01 reworked the back button and the budget, RES-04 added the dream level and its box). The numbers are the reassuring ones — 0.04 density, 2 dependents, 105 net lines — and the shape is why: the header takes props and renders, so each ticket costs it a field and a conditional. It earns watching for one specific thing, which is a *third* optional write control arriving; at that point the identity block wants its own controls row rather than a fourth `{onX && …}` |
 | `src/shared/services/importExport.ts` | 12.4 | TICKET-STAT-04's run | 3 commits, 985 churn, 0.16 density, 21 fan-in | ▲ **Accelerating** — inherited, not earned: STAT-04 added one `mayBe` line to the `stats` entity spec. It crossed the three-commit floor here and is worth watching for the reason the number says — 0.16 density across 21 dependents, the highest density of any file on this list. `ENTITY_SPECS` is a table, so v4.0's remaining shape tickets will each add rows to it; the day one adds a *branch* instead is the day to split the spec from the checker |
+| `src/client/components/play/sheet/StatsSection.tsx` | 5.0 | TICKET-RES-05's run | 3 commits, 210 churn, 0.07 density, 3 fan-in | ▲ **Accelerating — TICKET-RES-05** — a first row, and it and the one below crossed the floor in RES-05's *review* pass rather than its build (STAT-04 added the group columns, ARC-04 the shared `investedContribution`, RES-05 deleted `canAdjust`). The contribution here was a **removal**: the prop's rationale said the store refuses every write against an unpriceable pool, which this ticket's refund rule falsified, so the line went rather than the comment being rewritten around it. Both sections are three-commit files with 0.07–0.10 density and three dependents each; what would earn the tag is a ticket that gives either one a decision rather than a row |
+| `src/client/components/play/sheet/ResourcesSection.tsx` | 7.1 | TICKET-RES-05's run | 3 commits, 250 churn, 0.10 density, 3 fan-in | ▲ **Accelerating — TICKET-RES-05** — `StatsSection`'s twin, moved by the same three tickets and the same one-line removal. They are deliberately two files drawing one row (`investedContribution`, `CountRow`, `StatGroupColumns` are all shared), so the pair moving together is the design rather than a smell — the day to worry is the day only one of them moves |
+| `src/shared/engine/skillAllocation.ts` | 5.0 | TICKET-RES-05's run | 3 commits, 190 churn, 0.07 density, 12 fan-in | ▲ **Accelerating — TICKET-RES-05** — a first row, crossing the three-commit floor here (RES-02 derived the pool, DM-01 added the grant term, ARC-04 added the dream term, RES-05 widened it over skills). The numbers are the reassuring ones and they are reassuring *because of* what this ticket did: ARC-04's closeout recorded the validator at **14 cyclomatic / 99 lines** and warned that a fourth concern in the same loop would push it over, so RES-05 split it into `collectStatSpend` / `collectSkillSpend` / `derivePointBudget` **before** adding one — and the function left `fallow health` entirely rather than climbing. 12 dependents is the number to watch: this is the one answer the wizard, the sheet, both player actions, the DM's grant and the server all read, so what would earn the tag is a ticket that adds a *rule* here rather than a term |
+| `src/shared/engine/skillAllocation.test.ts` | 7.1 | TICKET-RES-05's run | 3 commits, 320 churn, 0.10 density | ▲ **Accelerating — TICKET-RES-05** — a first row, and the mirror of the one above (DM-01 +6, ARC-04 +2, RES-05 +10). Growth by `it` rather than by fixture reshape: RES-05 added two skills to the shared `createConfig` and one `describe`, touching no existing case's numbers. Worth watching only if a fourth ticket has to re-value the existing cases |
+| `src/client/stores/characterStore.test.ts` | 7.6 | TICKET-RES-05's run | 4 commits, 470 churn, 0.08 density | ▲ **Accelerating — TICKET-RES-05** — a first row, and it is on the list for a reason the score does not say. v3.0's fifth Definition-of-Done rule is that **local mode's suite passes unchanged**, which is why `characterStore.table.test.ts` exists as a separate file at all. RES-05 had to edit this one: `setInvestedSkillPoints` grew a `Configuration` parameter, so every call site moved, and `budgetConfig` was hoisted out of one `describe` to be shared by both investment blocks. That is a *signature* change reaching local mode, not a rule change — but it is the second such reach, and a third is the point at which the two blocks want the shared fixture in a helper rather than in a hoisted const |
 | `src/server/db/schema.ts` | 6.2 | TICKET-GAM-03's closeout run | 6 commits, 399 churn, 0.04 density, 14 fan-in | ▲ **Accelerating** — six tickets from DB-01 to CHAR-04 have each added to the normalised half (DB-01, AUTH-01, IO-04, GAM-01, GAM-03, CHAR-04); GAM-03's own contribution was making `session_invite.code` nullable (migration `0004`). The density is the reassuring number — 0.04 across 14 dependents means the file is *growing* rather than getting harder, which is what a schema is supposed to do. It earns watching, not splitting: what would make it a problem is a ticket that reshapes an existing table rather than adding one |
 
 **Both rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they

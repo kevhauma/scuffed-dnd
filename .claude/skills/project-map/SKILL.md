@@ -320,12 +320,19 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   would out-buy the main column, and never amplified. Read by the composition and by
   `skillAllocation.ts`; never re-derive a gain.
 - `skillAllocation.ts` — `validateStatAllocation(character, config)` → points spent/remaining,
-  per-stat violations (`negative-points`, `derived-stat`), verdict. Keyed by stat id. The pool is
-  **derived** since TICKET-RES-02: `level × const.points_per_level`, so it takes the whole character
-  (the level comes from their experience) and both money numbers are `FormulaResult`s that carry the
-  level's error rather than substituting a number. An unpriceable pool is `isValid: false`, not
-  unlimited. The creation wizard, the sheet and `characterStore.setInvestedStatPoints` all read
-  this; none of them re-sums anything. Since TICKET-ARC-02 it also returns `gains` — one row per
+  per-stat violations (`negative-points`, `derived-stat`), per-skill `skillViolations`, verdict.
+  Keyed by stat id and by skill id. The pool is **derived** since TICKET-RES-02:
+  `level × const.points_per_level`, so it takes the whole character (the level comes from their
+  experience) and both money numbers are `FormulaResult`s that carry the level's error rather than
+  substituting a number. An unpriceable pool is `isValid: false`, not unlimited. **`pointsSpent` sums
+  the stat boxes *and* the skill boxes since TICKET-RES-05** — the sheet's one `Points Spend`
+  (`level × 3 − Points to Use`), so skill investment is no longer free; only skills the ruleset
+  actually defines are charged, and a negative one is a `skillViolation` rather than a refund. The
+  three collectors behind it (`collectStatSpend`, `collectSkillSpend`, `derivePointBudget`) are
+  module-private; the validator is the orchestrator. The creation wizard, the sheet, both
+  `characterStore.setInvested*Points` actions, `dmActions.setGrantedPoints` and the server's two
+  invest routes all read this; none of them re-sums anything. **The name is inherited** — it prices
+  both spends and is on TICKET-DX-09's list to rename. Since TICKET-ARC-02 it also returns `gains` — one row per
   investable stat with its affinity, its points and what they bought — so a surface renders
   "7 points in Char → +9" without touching the curve, and refuses an `unpriceable-gain` rather than
   letting a spend the table cannot value be saved.
@@ -417,7 +424,10 @@ between the roots is exactly *"does this touch a browser API"*.
   them would mean re-implementing `references.ts`; what is replaced is the ruleset's own id, which
   is the one identity that leaves the document.
 - `playerActions.ts` — **every rule behind a write a Player makes to their own sheet**
-  (TICKET-PLY-01): `investInStat`, `investInSkill`, `setResourceValue`, `adjustResourceValue`,
+  (TICKET-PLY-01): `investInStat`, `investInSkill` (both budgeted against the one pool since
+  TICKET-RES-05, through one shared `affordabilityRefusal` that **names the overspend** and lets any
+  change *lowering* the total spend through, so an over-budget sheet can always be refunded),
+  `setResourceValue`, `adjustResourceValue`,
   `resetResourceToMax`, `equipToSlot`, `emptySlot`, `moveItemToMisc`, `moveItemToEquipment`,
   `addToPack`, `removeFromPack`. Each takes a `Character` (and the ruleset where the rule needs
   one) and answers `PlayerActionResult` — either the new character **plus what the value was and
@@ -822,9 +832,12 @@ row that has two (a skill's level beside its bonus); it is dropped when it carri
 the total's chip to explain the one cause once. `pointBudgetView.ts` +
 `PointBudgetSummary.tsx` (TICKET-RES-02) are the third: `toPointBudgetView(allocation)` turns the
 engine's verdict into display numbers — a pure mapper in its own module, like `derivedValue.ts`, so a
-hook does not import a component to get a function — and the component states "N of M points spent ·
-K remaining", chipping instead when the pool cannot be priced. The wizard and the sheet both render
-it, so they cannot drift on what "remaining" means. `useNumericDraft.ts` (TICKET-RES-03) is the
+hook does not import a component to get a function — and the component states the source sheet's own
+pair, `13/15 Points spent · 2 Points to use` (`Character Sheet` K1:L3, named on both halves since
+TICKET-RES-05), chipping instead when the pool cannot be priced. The wizard and the sheet both render
+it, so they cannot drift on what "remaining" means — and since RES-05 that one pool covers the skill
+boxes too, which is why the wizard states it once on the Stats card rather than a second time over
+the Skills one. `useNumericDraft.ts` (TICKET-RES-03) is the
 fourth: hold a half-typed number, **commit on blur or Enter**, never per keystroke, with opt-in
 `allowRelative` for Concept 20's `+12` / `-7` quick entry. Every editable number on a play surface
 goes through it — reach for it rather than re-rolling a draft `useState`.
@@ -834,8 +847,9 @@ the four step components (`IdentityStep`, `ArchetypeStep`, `SkillAllocationStep`
 that order since TICKET-ARC-03, the archetype coming *before* allocation because it decides what a
 point buys)
 are pure props — all state, validation and the submit live in `useCharacterCreation`. That is the
-multi-step pattern to copy. `SkillAllocationStep` takes points for the **invested** stats only and
-previews the derived ones read-only off the same `calculateCharacter` result the review step uses.
+multi-step pattern to copy. `SkillAllocationStep` takes points for the **invested** stats and the
+ruleset's skills — one budget over both cards since TICKET-RES-05 — and previews the derived stats
+read-only off the same `calculateCharacter` result the review step uses.
 `sheet/` holds the character sheet: `CharacterSheet` (composition only since **DM-01**, which moved
 the six dead-end notices to **`SheetStatusNotice`** and the refusal banner to
 **`SheetRefusalBanner`** — `fallow` measured the DM panel and the adjustment log pushing that
@@ -874,7 +888,10 @@ the sheet has always shown. Reach for `groupStats` rather than re-deriving a col
 `SkillsSection` (one row per
 skill carrying **both** of Concept 02's numbers since TICKET-SKL-03 — the bonus as the row's total,
 the level in `SkillBreakdownRow`'s `secondary` slot — over a breakdown of `STR × 0.2 +2` terms plus
-the points invested) and `RollsSection` as pure props. **`RollsSection`** (TICKET-ROLL-06) groups
+the points invested. It takes the sheet's `budget` since TICKET-RES-05 and carries `StatsSection`'s
+`canSpend`, because the points spent here come out of the very same pool. There is no `canAdjust`
+beside it any more: RES-05's refund rule means the Kernel honours a `−` in every state, so a
+disabled one was the UI refusing what the rule allows) and `RollsSection` as pure props. **`RollsSection`** (TICKET-ROLL-06) groups
 by `category` and labels each button with the **pool** rather than a bonus — `Roll 1D20 + 1D12 +
 1D6 + 1` — which is the whole ticket in one line: raise a stat and the label changes, because the
 dice are derived from the character.

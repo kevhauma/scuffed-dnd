@@ -232,7 +232,12 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
         </div>
       </div>
 
-      <SkillsSection skills={skills} onChangeInvestedPoints={handleChangeInvestedSkillPoints} />
+      {/* The same `budget` the stats above spend from — one pool for both since TICKET-RES-05 */}
+      <SkillsSection
+        skills={skills}
+        budget={budget}
+        onChangeInvestedPoints={handleChangeInvestedSkillPoints}
+      />
     </div>
   );
 }

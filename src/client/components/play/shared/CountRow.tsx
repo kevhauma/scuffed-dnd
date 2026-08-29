@@ -57,17 +57,17 @@ export interface CountRowProps {
   contributions: SkillContribution[];
   /** Points already spent here — the number the controls move, and what `−` at zero is zero of */
   invested?: number;
-  /** Whether another point can be afforded. Ignored when `onAdjust` is absent. */
-  canSpend?: boolean;
   /**
-   * Whether *any* point can be moved, in either direction
+   * Whether another point can be afforded — `+` only. Ignored when `onAdjust` is absent.
    *
-   * Separate from `canSpend` because they fail for different reasons. `canSpend` is "the pool is
-   * empty", which still allows taking a point back. This is "the pool has no number at all" — a
-   * ruleset with no `xp_thresholds` curve cannot price the budget, and the store then refuses
-   * every write including a refund. A live `−` there is a click that silently does nothing.
+   * **`−` has no counterpart and deliberately no longer has one** (TICKET-RES-05). There used to be
+   * a `canAdjust` beside this, closing *both* buttons when the pool had no number at all, on the
+   * grounds that a ruleset with no `xp_thresholds` curve made the store refuse every write, refunds
+   * included. RES-05 made that false: the Kernel now lets any change that **lowers** the total spend
+   * through whatever state the sheet is in, so a disabled `−` was the UI refusing what the rule
+   * allows. A point can always be taken back, and now that is true in both places.
    */
-  canAdjust?: boolean;
+  canSpend?: boolean;
   /**
    * Spend or unspend a point. Absent for anything the Player cannot invest in — a derived stat
    * takes no points, so it gets no controls at all rather than disabled ones.
@@ -98,7 +98,6 @@ export function CountRow({
   contributions,
   invested = 0,
   canSpend = true,
-  canAdjust = true,
   onAdjust,
   size = 'md',
 }: CountRowProps) {
@@ -167,7 +166,7 @@ export function CountRow({
             variant="secondary"
             size="xs"
             aria-label={`Remove a point from ${name}`}
-            disabled={!canAdjust || invested <= 0}
+            disabled={invested <= 0}
             onClick={() => onAdjust(invested - 1)}
           >
             −
@@ -184,7 +183,7 @@ export function CountRow({
             variant="secondary"
             size="xs"
             aria-label={`Spend a point on ${name}`}
-            disabled={!canAdjust || !canSpend}
+            disabled={!canSpend}
             onClick={() => onAdjust(invested + 1)}
           >
             +

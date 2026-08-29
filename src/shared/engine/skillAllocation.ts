@@ -1,9 +1,9 @@
 /**
- * Stat Point Allocation Validator
+ * Point Allocation Validator
  *
- * Answers "may this Player spend their points this way?" for a stat investment, as data. Pure:
- * it never throws and never renders — the creation wizard and any later level-up UI both read the
- * result rather than repeating the arithmetic.
+ * Answers "may this Player spend their points this way?", as data. Pure: it never throws and never
+ * renders — the creation wizard and any later level-up UI both read the result rather than
+ * repeating the arithmetic.
  *
  * The rule is a **single global pool**, and since TICKET-RES-02 the pool is **derived**:
  *
@@ -11,6 +11,23 @@
  * available = level × const.points_per_level + granted
  * remaining = available − Σ invested points
  * ```
+ *
+ * **Σ is over stats *and* skills since TICKET-RES-05**, which is the source sheet's own arithmetic:
+ * `Points to Use = level × 3 − Points Spend`, where Points Spend sums the nine stat boxes and all
+ * 48 skill boxes together (`Background Charater Sheet Calcu` AK3:AK4). Skill investment used to be
+ * free — priced by nothing, capped by nothing — so a Player could raise forty skills at level 1 and
+ * the sheet would agree with them. The fix is only *where the spend is summed*: the refusal
+ * discipline is unchanged, and an unaffordable spend on either side is still refused with the
+ * overspend named rather than clamped.
+ *
+ * The function is still called `validateStatAllocation` and its result still
+ * `StatAllocationResult`. Renaming them is 90 references across 24 modules of pure churn, which
+ * would bury this ticket's behavioural change; the module has been called `skillAllocation.ts`
+ * since TICKET-SKL-01 and is finally accurate again. The rename is TICKET-DX-09's to make, and
+ * **`unknownStatIds` should go with it**: `pointsSpent` covers both maps now while that field is
+ * still stat-only, so the result mixes two scopes and the name reads as an omission rather than as
+ * a decision. It is a decision — {@link collectSkillSpend}'s docblock says why there is no
+ * `unknownSkillIds`, and that reasoning is what the rename has to carry, not drop.
  *
  * The `granted` term arrived with TICKET-DM-01 and is the DM's handout
  * ([D9](../../../docs/v3.0_backend/overview.md#d9--level-stays-derived-points-to-spend-becomes-a-grant)).
@@ -74,6 +91,39 @@ export interface StatAllocationViolation {
   reason: StatAllocationViolationReason;
 }
 
+/**
+ * Why a single skill's allocation is not allowed (TICKET-RES-05)
+ *
+ * One member, because a skill has only one way to be wrong that the pool cares about. It is a const
+ * object rather than a bare union because that is the house rule for a closed set of strings, and
+ * because SKL-05's focus skills are the next thing to look at this list.
+ *
+ * There is deliberately no `unpriceable-gain` counterpart: a skill's invested points are added
+ * straight to its level (TICKET-SKL-02) rather than routed through the `point_buy` curve, so there
+ * is no table to refuse them.
+ */
+export const SKILL_ALLOCATION_VIOLATION = {
+  /** Below zero — counted as nothing rather than as a refund, exactly a stat's `negative-points` */
+  NEGATIVE_POINTS: 'negative-points',
+} as const;
+
+export type SkillAllocationViolationReason =
+  (typeof SKILL_ALLOCATION_VIOLATION)[keyof typeof SKILL_ALLOCATION_VIOLATION];
+
+/**
+ * One skill's allocation being out of bounds, independent of the budget (TICKET-RES-05)
+ *
+ * Its own shape rather than {@link StatAllocationViolation} with the fields renamed: a caller
+ * rendering "Stealth cannot take those points" needs to know which list it read the row from, and a
+ * `statId` holding a skill id is the kind of quiet lie that survives a refactor.
+ */
+export interface SkillAllocationViolation {
+  skillId: string;
+  skillName: string;
+  points: number;
+  reason: SkillAllocationViolationReason;
+}
+
 /** The constant a level is multiplied by to reach a budget, and its Concept 05 seed */
 const POINTS_PER_LEVEL_NAME = 'points_per_level';
 const DEFAULT_POINTS_PER_LEVEL = 3;
@@ -135,9 +185,15 @@ export interface StatAllocationGain {
  * The verdict on a whole allocation
  */
 export interface StatAllocationResult {
-  /** True when the allocation is within budget and every stat is within its own bounds */
+  /** True when the allocation is within budget and every entry is within its own bounds */
   isValid: boolean;
-  /** Total points allocated across the configuration's investable stats */
+  /**
+   * Total points allocated across the configuration's investable stats **and its skills**
+   *
+   * The sheet's *Points Spend* (`Character Sheet` K1:L3). One number rather than a stat half and a
+   * skill half because there is one pool: a surface that showed the two separately would be
+   * inviting a Player to read two budgets that do not exist (TICKET-RES-05).
+   */
   pointsSpent: number;
   /**
    * What the DM handed out on top of the derived pool (TICKET-DM-01, v3 Req 42.3)
@@ -149,7 +205,11 @@ export interface StatAllocationResult {
   grantedPoints: number;
   /** `level × const.points_per_level + granted`, or the error that stood in for the level */
   pointBudget: FormulaResult;
-  /** Budget minus spend, or the same error the budget carries */
+  /**
+   * Budget minus spend, or the same error the budget carries
+   *
+   * The sheet's *Points to Use*, and the other half of the pair its header prints.
+   */
   pointsRemaining: FormulaResult;
   /** True only when the budget is a number and the spend exceeds it */
   isOverBudget: boolean;
@@ -163,31 +223,37 @@ export interface StatAllocationResult {
   gains: StatAllocationGain[];
   /** Per-stat problems: negative, or points put into a derived stat */
   violations: StatAllocationViolation[];
+  /** Per-skill problems (TICKET-RES-05) — kept apart from {@link violations}, see the type */
+  skillViolations: SkillAllocationViolation[];
   /** Allocated ids that are not stats in this configuration */
   unknownStatIds: string[];
 }
 
+/** One side of the allocation, before the two are priced against the one pool */
+interface StatSpend {
+  pointsSpent: number;
+  gains: StatAllocationGain[];
+  violations: StatAllocationViolation[];
+}
+
+/** The skill side of the same */
+interface SkillSpend {
+  pointsSpent: number;
+  violations: SkillAllocationViolation[];
+}
+
 /**
- * Validate a stat point allocation against a configuration
+ * What the stat boxes spend, what each spend bought, and where one is out of bounds
  *
- * Takes the whole `Character` rather than its allocation map because the budget is derived from
- * the character's **experience**: the same call has to answer "how many points do they have" and
- * "how many have they spent", and splitting those across two arguments is how the two drift apart.
- * The creation wizard passes the draft it is about to save, whose experience is 0 — so a new
- * character is validated against level-at-XP-0's budget, the same number the sheet will show it a
- * moment later.
+ * Extracted from {@link validateStatAllocation} at TICKET-RES-05, which is when that function
+ * acquired a second loop over a second map: three concerns in one body (walk the stats, walk the
+ * skills, price the pool) is how a 99-line function becomes a 130-line one nobody re-reads.
  *
- * Points for ids the configuration does not define are reported separately and do not count
- * towards the spend — a stale id should not silently consume a Player's budget.
- *
- * @param character - The character whose invested points and experience are being read
- * @param config - The configuration whose rules apply
- * @returns Points spent and remaining, per-stat violations, and the overall verdict
+ * @param character - The character whose invested points are being read
+ * @param config - The configuration whose stats they are read against
+ * @returns The stat half of the spend
  */
-export function validateStatAllocation(
-  character: Character,
-  config: Configuration
-): StatAllocationResult {
+function collectStatSpend(character: Character, config: Configuration): StatSpend {
   const investedStatPoints = character.investedStatPoints;
   const violations: StatAllocationViolation[] = [];
   const gains: StatAllocationGain[] = [];
@@ -248,18 +314,111 @@ export function validateStatAllocation(
     pointsSpent += points;
   }
 
-  const knownIds = new Set(config.stats.map((stat) => stat.id));
-  const unknownStatIds = Object.keys(investedStatPoints).filter((id) => !knownIds.has(id));
+  return { pointsSpent, gains, violations };
+}
 
-  // `level × points_per_level + granted`, carrying the level's error forward rather than
-  // substituting a number for it — see the module header. A grant does **not** rescue an
-  // underivable pool: a ruleset that cannot say how many points exist cannot say this spend is
-  // allowed either, and three granted points are three points on top of an unknown number.
+/**
+ * What the skill boxes spend, and where one is out of bounds (TICKET-RES-05)
+ *
+ * **Only the ruleset's own skills are summed.** Points sitting against an id this configuration
+ * does not define raise the level of nothing — `skillCalculator` walks `config.skills`, not the map
+ * — so charging the pool for them would take a Player's budget for something they cannot see.
+ * That is `unknownStatIds`' rule, minus the report: `characterCreationErrors` already refuses such
+ * an id by name, and a second surface saying the same thing about a character that already exists
+ * would be a finding nobody can act on.
+ *
+ * @param character - The character whose invested skill points are being read
+ * @param config - The configuration whose skills they are read against
+ * @returns The skill half of the spend
+ */
+function collectSkillSpend(character: Character, config: Configuration): SkillSpend {
+  const investedSkillPoints = character.investedSkillPoints;
+  const violations: SkillAllocationViolation[] = [];
+  let pointsSpent = 0;
+
+  for (const skill of config.skills ?? []) {
+    const points = investedSkillPoints[skill.id] ?? 0;
+
+    if (points === 0) continue;
+
+    // Never a refund: a negative in one box must not buy points in another, which is exactly what
+    // adding it to the sum would do
+    if (points < 0) {
+      violations.push({
+        skillId: skill.id,
+        skillName: skill.name,
+        points,
+        reason: SKILL_ALLOCATION_VIOLATION.NEGATIVE_POINTS,
+      });
+      continue;
+    }
+
+    pointsSpent += points;
+  }
+
+  return { pointsSpent, violations };
+}
+
+/**
+ * `level × const.points_per_level + granted`, or the error that stood in for the level
+ *
+ * Carries the level's error forward rather than substituting a number for it — see the module
+ * header. A grant does **not** rescue an underivable pool: a ruleset that cannot say how many
+ * points exist cannot say this spend is allowed either, and three granted points are three points
+ * on top of an unknown number.
+ *
+ * @param character - The character whose experience prices the level
+ * @param config - The configuration carrying the curve and the constant
+ * @param grantedPoints - The DM's handout, already read off the character
+ * @returns The pool, or the level's error
+ */
+function derivePointBudget(
+  character: Character,
+  config: Configuration,
+  grantedPoints: number
+): FormulaResult {
   const level = calculateCharacterLevel(character, config);
+
+  if (isFormulaError(level)) return level;
+
+  const perLevel = pointsPerLevel(config);
+
+  return level * perLevel + grantedPoints;
+}
+
+/**
+ * Validate a point allocation — stats and skills — against a configuration
+ *
+ * Takes the whole `Character` rather than its allocation maps because the budget is derived from
+ * the character's **experience**: the same call has to answer "how many points do they have" and
+ * "how many have they spent", and splitting those across two arguments is how the two drift apart.
+ * The creation wizard passes the draft it is about to save, whose experience is 0 — so a new
+ * character is validated against level-at-XP-0's budget, the same number the sheet will show it a
+ * moment later.
+ *
+ * Points for ids the configuration does not define are reported separately and do not count
+ * towards the spend — a stale id should not silently consume a Player's budget.
+ *
+ * @param character - The character whose invested points and experience are being read
+ * @param config - The configuration whose rules apply
+ * @returns Points spent and remaining, per-stat and per-skill violations, and the overall verdict
+ */
+export function validateStatAllocation(
+  character: Character,
+  config: Configuration
+): StatAllocationResult {
+  const statSpend = collectStatSpend(character, config);
+  const skillSpend = collectSkillSpend(character, config);
+  // The sheet's Points Spend: one number over both maps, because there is one pool (TICKET-RES-05)
+  const pointsSpent = statSpend.pointsSpent + skillSpend.pointsSpent;
+
+  const statIds = config.stats.map((stat) => stat.id);
+  const knownIds = new Set(statIds);
+  const allocatedIds = Object.keys(character.investedStatPoints);
+  const unknownStatIds = allocatedIds.filter((id) => !knownIds.has(id));
+
   const grantedPoints = grantedFrom(character);
-  const pointBudget: FormulaResult = isFormulaError(level)
-    ? level
-    : level * pointsPerLevel(config) + grantedPoints;
+  const pointBudget = derivePointBudget(character, config, grantedPoints);
   const pointsRemaining: FormulaResult = isFormulaError(pointBudget)
     ? pointBudget
     : pointBudget - pointsSpent;
@@ -271,15 +430,17 @@ export function validateStatAllocation(
     isValid:
       !isOverBudget &&
       !isFormulaError(pointBudget) &&
-      violations.length === 0 &&
+      statSpend.violations.length === 0 &&
+      skillSpend.violations.length === 0 &&
       unknownStatIds.length === 0,
     pointsSpent,
     grantedPoints,
     pointBudget,
     pointsRemaining,
     isOverBudget,
-    gains,
-    violations,
+    gains: statSpend.gains,
+    violations: statSpend.violations,
+    skillViolations: skillSpend.violations,
     unknownStatIds,
   };
 }

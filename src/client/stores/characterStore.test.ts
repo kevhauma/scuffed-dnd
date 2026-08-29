@@ -988,73 +988,81 @@ describe('CharacterStore', () => {
    * The level-up mechanic (TICKET-RES-02): points earned by levelling stay spendable, and the
    * store refuses anything the derived budget cannot pay for rather than clamping it.
    */
-  describe('setInvestedStatPoints', () => {
-    /** Level 2 at 300 XP, 5 points per level — a pool of 10 */
-    const budgetConfig: Configuration = {
-      id: 'config-1',
-      name: 'Test Config',
-      version: '1.0',
-      schemaVersion: 9,
-      stats: [
-        {
-          id: 'STR',
-          name: 'Strength',
-          abbreviation: 'STR',
-          description: '',
-          order: 0,
-          countsTowardTotal: true,
-          isResource: false,
-          rounding: 'none',
-        },
-        {
-          id: 'health',
-          name: 'Health',
-          abbreviation: 'HEA',
-          description: '',
-          order: 1,
-          countsTowardTotal: true,
-          isResource: true,
-          rounding: 'none',
-          formula: 'STR * 10',
-        },
-      ],
-      skills: [],
-      materials: [],
-      materialCategories: [],
-      items: [],
-      equipmentSlots: [],
-      races: [],
-      currencyTiers: [],
-      constants: [
-        {
-          id: 'const-ppl',
-          name: 'points_per_level',
-          displayName: 'Points per level',
-          description: '',
-          value: 5,
-        },
-      ],
-      curves: [
-        {
-          id: 'curve-xp',
-          name: 'xp_thresholds',
-          displayName: 'XP thresholds',
-          description: '',
-          keyName: 'level',
-          columns: [{ id: 'curve-xp-col', name: 'xp_required' }],
-          rows: [
-            { key: 1, values: [0] },
-            { key: 2, values: [300] },
-          ],
-          interpolation: 'step',
-          outOfRange: 'extrapolate',
-          lookupDirection: 'reverse',
-        },
-      ],
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-01',
-    };
+  /**
+   * Level 2 at 300 XP, 5 points per level — a pool of 10, over two skills and one invested stat
+   *
+   * Shared by both investment blocks below since TICKET-RES-05, because they now share the pool:
+   * a skill spend is priced against the very same `level × points_per_level` a stat spend is.
+   */
+  const budgetConfig: Configuration = {
+    id: 'config-1',
+    name: 'Test Config',
+    version: '1.0',
+    schemaVersion: 9,
+    stats: [
+      {
+        id: 'STR',
+        name: 'Strength',
+        abbreviation: 'STR',
+        description: '',
+        order: 0,
+        countsTowardTotal: true,
+        isResource: false,
+        rounding: 'none',
+      },
+      {
+        id: 'health',
+        name: 'Health',
+        abbreviation: 'HEA',
+        description: '',
+        order: 1,
+        countsTowardTotal: true,
+        isResource: true,
+        rounding: 'none',
+        formula: 'STR * 10',
+      },
+    ],
+    skills: [
+      { id: 'STL', name: 'Stealth', description: '', statWeights: [] },
+      { id: 'ALC', name: 'Alchemy', description: '', statWeights: [] },
+    ],
+    materials: [],
+    materialCategories: [],
+    items: [],
+    equipmentSlots: [],
+    races: [],
+    currencyTiers: [],
+    constants: [
+      {
+        id: 'const-ppl',
+        name: 'points_per_level',
+        displayName: 'Points per level',
+        description: '',
+        value: 5,
+      },
+    ],
+    curves: [
+      {
+        id: 'curve-xp',
+        name: 'xp_thresholds',
+        displayName: 'XP thresholds',
+        description: '',
+        keyName: 'level',
+        columns: [{ id: 'curve-xp-col', name: 'xp_required' }],
+        rows: [
+          { key: 1, values: [0] },
+          { key: 2, values: [300] },
+        ],
+        interpolation: 'step',
+        outOfRange: 'extrapolate',
+        lookupDirection: 'reverse',
+      },
+    ],
+    createdAt: '2024-01-01',
+    updatedAt: '2024-01-01',
+  };
 
+  describe('setInvestedStatPoints', () => {
     beforeEach(() => {
       useCharacterStore.setState({
         characters: [
@@ -1140,10 +1148,11 @@ describe('CharacterStore', () => {
   });
 
   /**
-   * Skill points, which are deliberately not budgeted
+   * Skill points, priced out of the same pool as stat points (TICKET-RES-05)
    *
-   * The counterpart to `setInvestedStatPoints`, minus the pool — because the ruleset has none for
-   * skills. These pin that the absence is a decision rather than an oversight.
+   * The counterpart to `setInvestedStatPoints`, and since RES-05 the counterpart *including* the
+   * pool: skill investment used to be free, and the case that used to pin "any whole number, because
+   * skills have no pool to overspend" is now the case that pins the refusal.
    */
   describe('setInvestedSkillPoints', () => {
     beforeEach(() => {
@@ -1152,12 +1161,13 @@ describe('CharacterStore', () => {
           {
             id: 'char1',
             name: 'Test',
-            configurationId: 'config1',
+            configurationId: 'config-1',
             raceIds: [],
             investedStatPoints: {},
             investedSkillPoints: { STL: 3 },
             currentResourceValues: {},
-            experience: 0,
+            // Level 2 against the shared fixture curve, so the pool is 10 and 3 of it is spent
+            experience: 300,
             inventory: { equippedItems: {}, miscItems: [] },
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01',
@@ -1169,14 +1179,14 @@ describe('CharacterStore', () => {
     });
 
     it('should put points into a skill and persist through the store', () => {
-      useCharacterStore.getState().setInvestedSkillPoints('char1', 'STL', 5);
+      useCharacterStore.getState().setInvestedSkillPoints('char1', 'STL', 5, budgetConfig);
 
       expect(useCharacterStore.getState().characters[0].investedSkillPoints).toEqual({ STL: 5 });
       expect(storage.saveCharacters).toHaveBeenCalled();
     });
 
     it('should add a skill that had no points yet, leaving the others alone', () => {
-      useCharacterStore.getState().setInvestedSkillPoints('char1', 'ALC', 2);
+      useCharacterStore.getState().setInvestedSkillPoints('char1', 'ALC', 2, budgetConfig);
 
       expect(useCharacterStore.getState().characters[0].investedSkillPoints).toEqual({
         STL: 3,
@@ -1185,25 +1195,42 @@ describe('CharacterStore', () => {
     });
 
     it('should refuse a negative or fractional number', () => {
-      useCharacterStore.getState().setInvestedSkillPoints('char1', 'STL', -1);
-      useCharacterStore.getState().setInvestedSkillPoints('char1', 'STL', 2.5);
+      useCharacterStore.getState().setInvestedSkillPoints('char1', 'STL', -1, budgetConfig);
+      useCharacterStore.getState().setInvestedSkillPoints('char1', 'STL', 2.5, budgetConfig);
 
       expect(useCharacterStore.getState().characters[0].investedSkillPoints).toEqual({ STL: 3 });
       expect(storage.saveCharacters).not.toHaveBeenCalled();
     });
 
-    it('should accept any whole number, because skills have no pool to overspend', () => {
-      // Not an oversight: `skillAllocation.ts` prices stat points and defines no skill budget, and
-      // the creation wizard already lets a Player type any number in. Refusing here would make the
-      // sheet stricter than the wizard that produced the character. If a ticket gives skills a
-      // pool, the refusal goes in beside `setInvestedStatPoints`'s and this expectation changes.
-      useCharacterStore.getState().setInvestedSkillPoints('char1', 'STL', 9999);
+    it('should refuse a skill spend the shared pool cannot pay for (TICKET-RES-05)', () => {
+      // What used to be "any whole number, because skills have no pool to overspend". The source
+      // sheet has always summed the stat boxes and the skill boxes into one `Points Spend`.
+      useCharacterStore.getState().setInvestedSkillPoints('char1', 'STL', 9999, budgetConfig);
 
-      expect(useCharacterStore.getState().characters[0].investedSkillPoints.STL).toBe(9999);
+      expect(useCharacterStore.getState().characters[0].investedSkillPoints.STL).toBe(3);
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+
+    it('should let a skill spend the pool covers through', () => {
+      useCharacterStore.getState().setInvestedSkillPoints('char1', 'ALC', 7, budgetConfig);
+
+      expect(useCharacterStore.getState().characters[0].investedSkillPoints.ALC).toBe(7);
+    });
+
+    it('should count what the stat boxes already took out of the same pool', () => {
+      // 4 in Strength leaves 6, so the 7 the previous case afforded is now one too many
+      const [character] = useCharacterStore.getState().characters;
+      useCharacterStore.setState({
+        characters: [{ ...character, investedStatPoints: { STR: 4 } }],
+      });
+
+      useCharacterStore.getState().setInvestedSkillPoints('char1', 'ALC', 7, budgetConfig);
+
+      expect(useCharacterStore.getState().characters[0].investedSkillPoints.ALC).toBeUndefined();
     });
 
     it('should do nothing for a character that is not there', () => {
-      useCharacterStore.getState().setInvestedSkillPoints('nope', 'STL', 5);
+      useCharacterStore.getState().setInvestedSkillPoints('nope', 'STL', 5, budgetConfig);
 
       expect(useCharacterStore.getState().characters[0].investedSkillPoints).toEqual({ STL: 3 });
       expect(storage.saveCharacters).not.toHaveBeenCalled();

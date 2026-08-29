@@ -17,16 +17,24 @@ import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 import { CountRow } from '../shared/CountRow';
 import type { DerivedValue } from '../shared/derivedValue';
+import type { PointBudgetView } from '../shared/pointBudgetView';
 import type { SkillBreakdown } from './useCharacterSheet';
 
 export interface SkillsSectionProps {
   skills: SkillBreakdown[];
   /**
+   * The pool a point spent here comes out of — the very same one the stats spend (TICKET-RES-05)
+   *
+   * Null when there is none to show. It is *stated* in the sheet header rather than here, for
+   * `StatsSection`'s reason: one pool governing three sections cannot sit inside one of them.
+   */
+  budget: PointBudgetView | null;
+  /**
    * Spend or unspend a point on one skill
    *
-   * Unbudgeted, unlike a stat's: the ruleset prices stat points and defines no skill pool, so `+`
-   * here is never disabled. The moment a ticket gives skills a budget, this row grows the same
-   * `canSpend` the stats have.
+   * Budgeted since TICKET-RES-05, so these rows carry the same `canSpend` the stats do — the note
+   * that used to stand here said this would happen the moment a ticket gave skills a pool, and this
+   * is that ticket.
    */
   onChangeInvestedPoints: (skillId: string, points: number) => void;
 }
@@ -41,7 +49,7 @@ function ceilLevel(level: DerivedValue): DerivedValue {
   return level.error === null ? { value: Math.ceil(level.value), error: null } : level;
 }
 
-export function SkillsSection({ skills, onChangeInvestedPoints }: SkillsSectionProps) {
+export function SkillsSection({ skills, budget, onChangeInvestedPoints }: SkillsSectionProps) {
   return (
     <Card className="p-6">
       <Text variant="h4" as="h2" className="mb-3">
@@ -72,7 +80,10 @@ export function SkillsSection({ skills, onChangeInvestedPoints }: SkillsSectionP
               // it is a column of 0s and 1s, where the level is what actually moves.
               secondary={{ label: 'bonus', value: skill.bonus }}
               invested={skill.invested}
-              onAdjust={(points) => onChangeInvestedPoints(skill.id, points)}
+              onAdjust={budget ? (points) => onChangeInvestedPoints(skill.id, points) : undefined}
+              // `StatsSection`'s line, for the same pool and the same reason: an empty pool closes
+              // `+` and leaves `−` open, because a point can always be taken back
+              canSpend={(budget?.pointsRemaining.value ?? 0) > 0}
               contributions={[
                 ...skill.statContributions,
                 { label: 'invested', value: skill.invested, alwaysShow: true },

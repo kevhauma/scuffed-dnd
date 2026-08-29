@@ -51,7 +51,8 @@ const RULES = {
       rounding: 'none',
     },
   ],
-  skills: [],
+  // One skill, so a grant can be priced against a spend that is not all stat-side (TICKET-RES-05)
+  skills: [{ id: 'skill-stealth', name: 'Stealth', description: '', statWeights: [] }],
   materials: [],
   materialCategories: [],
   items: [],
@@ -238,6 +239,32 @@ describe('granting and revoking stat points', () => {
   it('refuses a fractional or negative grant in words', () => {
     expect(refusal(setGrantedPoints(aCharacter(), RULES, 1.5))).toContain('whole number');
     expect(refusal(setGrantedPoints(aCharacter(), RULES, -1))).toContain('cannot be negative');
+  });
+
+  /**
+   * The grant is priced over the *summed* spend since TICKET-RES-05
+   *
+   * Every rule above is unchanged; what changed underneath them is what a revocation is measured
+   * against, because skill points now come out of the same pool.
+   */
+  it('prices a revocation over the skill boxes too, not the stat boxes alone', () => {
+    const spent = aCharacter({
+      grantedStatPoints: 5,
+      investedStatPoints: { 'stat-str': 4 },
+      investedSkillPoints: { 'skill-stealth': 5 },
+    });
+    const revoked = setGrantedPoints(spent, RULES, 0);
+
+    // Budget without the grant is 5 against nine points spent across both maps
+    expect(refusal(revoked)).toContain('4 points overspent');
+  });
+
+  it('still lets a grant cover a spend that is all skill-side', () => {
+    const spent = aCharacter({ investedSkillPoints: { 'skill-stealth': 8 } });
+    const granted = accepted(setGrantedPoints(spent, RULES, 3)).character;
+
+    expect(validateStatAllocation(spent, RULES).isValid).toBe(false);
+    expect(validateStatAllocation(granted, RULES).isValid).toBe(true);
   });
 });
 

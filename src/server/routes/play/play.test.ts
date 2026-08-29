@@ -210,7 +210,9 @@ describe('spending points at a table', () => {
       );
 
       expect(refused.status).toBe(400);
-      expect(messageOf(refused.body)).toContain('more than the points this character has');
+      // The overspend is named since TICKET-RES-05 — a Player told *no* with no number has
+      // nothing to act on
+      expect(messageOf(refused.body)).toContain('over the budget');
 
       // Nothing was written: not the character, and not the log
       expect(stateOf(database, row.id).investedStatPoints[stat.id]).toBeUndefined();

@@ -273,16 +273,21 @@ export interface CharacterState {
   /**
    * Put points into one skill
    *
-   * Deliberately **not** budgeted, unlike its stat counterpart, because the ruleset has no skill
-   * pool to budget against: `skillAllocation.ts` prices stat points and nothing else, and the
-   * creation wizard already lets a Player type any number into a skill. Refusing here would make
-   * the sheet stricter than the wizard that produced the character, which is the wrong direction
-   * for the two to disagree in.
+   * **Budgeted since TICKET-RES-05**, out of the same derived pool a stat spends from: the source
+   * sheet's `Points Spend` sums the stat boxes and the skill boxes together, so there is one
+   * budget and this refuses whatever it cannot pay for, naming the overspend. It used to check
+   * nothing but the shape of the number, because the app priced stat points only — which is why
+   * this signature grew a `Configuration` the way `setInvestedStatPoints` has had one since
+   * TICKET-RES-02.
    *
-   * The only rule is the one the data itself has: a whole number, not negative. If a later ticket
-   * gives skills a pool, this is where the refusal goes, next to `setInvestedStatPoints`'s.
+   * The shape rule is unchanged and still first: a whole number, not negative.
    */
-  setInvestedSkillPoints: (characterId: string, skillId: string, points: number) => void;
+  setInvestedSkillPoints: (
+    characterId: string,
+    skillId: string,
+    points: number,
+    config: Configuration
+  ) => void;
 
   /**
    * Set what the character is carrying, in the ruleset's base tier (Concept 16, TICKET-CUR-02)
@@ -922,12 +927,20 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     );
   },
 
-  setInvestedSkillPoints: (characterId: string, skillId: string, points: number) => {
+  setInvestedSkillPoints: (
+    characterId: string,
+    skillId: string,
+    points: number,
+    config: Configuration
+  ) => {
     const body = { skillId, points };
     if (toTable(set, get, characterId, PLAYER_ACTION.INVEST_SKILL_POINTS, body)) return;
 
-    // No budget check — see the note on the action's declaration. The whole rule is the shape.
-    applyLocally(set, get, characterId, (character) => investInSkill(character, skillId, points));
+    // Budgeted since TICKET-RES-05: skill points and stat points come out of the one derived pool,
+    // so this takes a ruleset for exactly the reason `setInvestedStatPoints` does
+    applyLocally(set, get, characterId, (character) =>
+      investInSkill(character, config, skillId, points)
+    );
   },
 
   setPurse: (characterId: string, amount: number) => {

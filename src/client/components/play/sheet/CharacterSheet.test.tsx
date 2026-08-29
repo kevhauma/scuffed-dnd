@@ -973,18 +973,33 @@ describe('CharacterSheet', () => {
       it('should state the pool the character’s level grants and what is left of it', () => {
         render(<CharacterSheet characterId="char1" />);
 
-        // Level 3 × 5 points per level = 15; STR 6 + DEX 4 already spent
-        expect(screen.getByText('10/15')).toBeDefined();
+        // Level 3 × 5 points per level = 15; STR 6 + DEX 4 + 3 in Stealth already spent, because
+        // since TICKET-RES-05 the skill boxes come out of this same pool
+        expect(screen.getByText('13/15')).toBeDefined();
         expect(screen.getByText('Points spent')).toBeDefined();
       });
 
+      it('should print the sheet’s Points to Use beside Points Spend (TICKET-RES-05)', () => {
+        render(<CharacterSheet characterId="char1" />);
+
+        // The workbook's own pair (`Character Sheet` K1:L3). Read off its label rather than by
+        // matching a bare `2`, which a page of stat values has plenty of.
+        const label = screen.getByText('Points to use');
+
+        expect(label.previousElementSibling?.textContent).toBe('2');
+      });
+
       it('should move the pool when experience moves the level', () => {
-        useCharacterStore.setState({ characters: [createCharacter({ experience: 300 })] });
+        useCharacterStore.setState({
+          // Nothing in the skill boxes, so the ten spent here are the ten stat points alone
+          characters: [createCharacter({ experience: 300, investedSkillPoints: {} })],
+        });
 
         render(<CharacterSheet characterId="char1" />);
 
         // Level 2 now, so 10 points — and the same 10 spent leaves nothing
         expect(screen.getByText('10/10')).toBeDefined();
+        expect(screen.getByText('Points to use').previousElementSibling?.textContent).toBe('0');
       });
 
       it('should give every invested stat a control to spend the pool on', () => {
@@ -1006,7 +1021,39 @@ describe('CharacterSheet', () => {
         fireEvent.click(screen.getByLabelText('Spend a point on Strength'));
 
         expect(useCharacterStore.getState().characters[0].investedStatPoints.STR).toBe(7);
-        expect(screen.getByText('11/15')).toBeDefined();
+        expect(screen.getByText('14/15')).toBeDefined();
+      });
+
+      /**
+       * The skill boxes spend the same pool (TICKET-RES-05)
+       *
+       * `SkillsSection` said in its own props that it would grow the stats' `canSpend` the moment a
+       * ticket gave skills a budget. This is that ticket, and these are that pair.
+       */
+      it('should spend a point on a skill out of the same pool', () => {
+        render(<CharacterSheet characterId="char1" />);
+
+        const spend = screen.getByLabelText('Spend a point on Stealth');
+        fireEvent.click(spend);
+
+        expect(useCharacterStore.getState().characters[0].investedSkillPoints.STL).toBe(4);
+        expect(screen.getByText('14/15')).toBeDefined();
+      });
+
+      it('should close a skill’s spend control once the pool is empty', () => {
+        useCharacterStore.setState({
+          characters: [createCharacter({ investedSkillPoints: { STL: 5 } })],
+        });
+
+        render(<CharacterSheet characterId="char1" />);
+
+        // 6 + 4 + 5 is the whole pool, so `+` closes on both sides — and `−` stays open, because a
+        // point can always be taken back
+        const spend = screen.getByLabelText('Spend a point on Stealth') as HTMLButtonElement;
+        const refund = screen.getByLabelText('Remove a point from Stealth') as HTMLButtonElement;
+
+        expect(spend.disabled).toBe(true);
+        expect(refund.disabled).toBe(false);
       });
 
       it('should refuse a spend the pool cannot pay for, leaving the character untouched', () => {
@@ -1034,37 +1081,49 @@ describe('CharacterSheet', () => {
         expect(screen.queryByText(/^\d+\/\d+$/)).toBeNull();
       });
 
-      it('should close every spend control when the pool cannot be priced', () => {
-        // The store refuses *every* write in this state, so a live control would be a click that
-        // silently did nothing — found by the conventions-reviewer on TICKET-RES-02
+      it('should close the spend control but not the refund when the pool cannot be priced', () => {
+        // **This assertion reversed at TICKET-RES-05**, and the reversal is the point. RES-02 closed
+        // the `−` here too, because the store refused *every* write against an unpriceable pool and
+        // a live control would have been a click that silently did nothing. RES-05's refund rule
+        // means the Kernel now honours a change that lowers the total spend whatever state the sheet
+        // is in — so a disabled `−` would be the UI refusing what the rule allows.
         useConfigStore.setState({ config: createConfig({ curves: [] }), isLoaded: true });
 
         render(<CharacterSheet characterId="char1" />);
 
-        expect(
-          (screen.getByLabelText('Spend a point on Strength') as HTMLButtonElement).disabled
-        ).toBe(true);
-        // Including the refund: an unpriceable pool refuses a `−` as well, unlike an empty one
-        expect(
-          (screen.getByLabelText('Remove a point from Strength') as HTMLButtonElement).disabled
-        ).toBe(true);
+        const spend = screen.getByLabelText('Spend a point on Strength') as HTMLButtonElement;
+        const refund = screen.getByLabelText('Remove a point from Strength') as HTMLButtonElement;
+
+        expect(spend.disabled).toBe(true);
+        expect(refund.disabled).toBe(false);
+      });
+
+      it('should refund through the store against a pool that cannot be priced', () => {
+        // The half the assertion above cannot make on its own: an *enabled* control that the store
+        // then refuses is the same defect the other way round, so the click is driven for real
+        useConfigStore.setState({ config: createConfig({ curves: [] }), isLoaded: true });
+
+        render(<CharacterSheet characterId="char1" />);
+
+        fireEvent.click(screen.getByLabelText('Remove a point from Strength'));
+
+        expect(useCharacterStore.getState().characters[0].investedStatPoints.STR).toBe(5);
       });
 
       it('should leave a refund open when the pool is merely empty', () => {
-        // The distinction the `canSpend` / `canAdjust` split exists for: nothing left to spend is
-        // not the same as no pool to spend from, and a Player who overspent must be able to undo it
+        // Nothing left to spend is not the same as no pool to spend from, and a Player who
+        // overspent must be able to undo it — which since RES-05 the store honours as well
         useCharacterStore.setState({
           characters: [createCharacter({ investedStatPoints: { STR: 11, 'dex-id': 4 } })],
         });
 
         render(<CharacterSheet characterId="char1" />);
 
-        expect(
-          (screen.getByLabelText('Spend a point on Strength') as HTMLButtonElement).disabled
-        ).toBe(true);
-        expect(
-          (screen.getByLabelText('Remove a point from Strength') as HTMLButtonElement).disabled
-        ).toBe(false);
+        const spend = screen.getByLabelText('Spend a point on Strength') as HTMLButtonElement;
+        const refund = screen.getByLabelText('Remove a point from Strength') as HTMLButtonElement;
+
+        expect(spend.disabled).toBe(true);
+        expect(refund.disabled).toBe(false);
       });
 
       it('should have no text field to type a partial number into', () => {

@@ -130,7 +130,9 @@ function seedResources(character: Character, config: Configuration): Record<stri
  *   TICKET-ARC-03 kept it optional on the type.
  * - **The allocation has to be affordable**, which is `validateStatAllocation`'s verdict and not a
  *   second opinion — the same call the level-up spend makes, so creation and levelling cannot
- *   disagree about what a point costs.
+ *   disagree about what a point costs. Since TICKET-RES-05 that verdict covers the **skill** boxes
+ *   as well as the stat ones, so a wizard that fills forty skills in is refused at the same line a
+ *   wizard that overspends on Strength always was.
  *
  * @param data The Player's choices
  * @param config The ruleset they were made against
@@ -157,11 +159,12 @@ export function characterCreationErrors(
 
   errors.push(...archetypeErrors(data, config));
 
-  // **Skills, which nothing else looks at.** `validateStatAllocation` below prices the *stat*
-  // allocation and has a violation for every way one can be wrong; the skill map has no engine
-  // equivalent — `skillCalculator` reads it straight into a level — so points spent on a skill this
-  // ruleset does not have would raise the level of nothing and sit on the sheet forever. The
-  // browser's `setInvestedSkillPoints` has always refused them; this is where the server does.
+  // **A skill id this ruleset does not have**, which nothing else looks at. Since TICKET-RES-05
+  // `validateStatAllocation` prices the skill boxes too, but only the ones the ruleset defines —
+  // points against a stale id raise the level of nothing (`skillCalculator` walks `config.skills`)
+  // and would sit on the sheet forever, so they are refused here rather than silently charged to
+  // the pool. The browser's `setInvestedSkillPoints` has always refused them; this is where the
+  // server does.
   for (const skillId of Object.keys(data.investedSkillPoints)) {
     if (!(config.skills ?? []).some((skill) => skill.id === skillId)) {
       errors.push('Points were put into a skill this ruleset does not have.');
@@ -195,6 +198,12 @@ function allocationRefusal(allocation: StatAllocationResult): string {
   const [violation] = allocation.violations;
 
   if (violation) return `${violation.statName} cannot take those points.`;
+
+  // The skill half, since the two spends became one pool (TICKET-RES-05). Second rather than
+  // first only because the stat boxes are where a Player spends most of a budget.
+  const [skillViolation] = allocation.skillViolations;
+
+  if (skillViolation) return `${skillViolation.skillName} cannot take those points.`;
 
   if (allocation.unknownStatIds.length > 0) {
     return 'Points were allocated to a stat this ruleset does not have.';

@@ -37,7 +37,7 @@ import {
   setResourceValue,
 } from './playerActions';
 
-/** A ruleset with one pool, one invested stat, two slots and three items */
+/** A ruleset with one pool, one invested stat, two skills, two slots and three items */
 const RULES = {
   id: 'config-1',
   name: 'Test',
@@ -66,7 +66,12 @@ const RULES = {
       formula: 'STR * 10',
     },
   ],
-  skills: [],
+  // Two of them since TICKET-RES-05: a skill spend is priced against the same pool a stat spend is,
+  // so the fixture needs skills the ruleset actually defines for the sum to be a sum
+  skills: [
+    { id: 'skill-stealth', name: 'Stealth', description: '', statWeights: [] },
+    { id: 'skill-alchemy', name: 'Alchemy', description: '', statWeights: [] },
+  ],
   materials: [],
   materialCategories: [],
   items: [
@@ -154,23 +159,95 @@ describe('investing points', () => {
     expect(change.character.investedStatPoints['stat-str']).toBe(2);
   });
 
-  it('treats a stat with nothing in it as having held zero', () => {
-    const change = accepted(investInSkill(aCharacter(), 'skill-new', 4));
+  it('treats a skill with nothing in it as having held zero', () => {
+    const result = investInSkill(aCharacter(), RULES, 'skill-stealth', 2);
+    const change = accepted(result);
 
     expect(change.before).toBe(0);
-    expect(change.after).toBe(4);
+    expect(change.after).toBe(2);
   });
 
   it('refuses a fraction and a negative, in words rather than by returning nothing', () => {
-    expect(refusal(investInStat(aCharacter(), RULES, 'stat-str', 1.5))).toContain('whole');
-    expect(refusal(investInSkill(aCharacter(), 'skill-new', -2))).toContain('below 0');
+    const fraction = investInStat(aCharacter(), RULES, 'stat-str', 1.5);
+    const negative = investInSkill(aCharacter(), RULES, 'skill-stealth', -2);
+
+    expect(refusal(fraction)).toContain('whole');
+    expect(refusal(negative)).toContain('below 0');
   });
 
-  it('refuses a spend the derived budget cannot pay for', () => {
+  it('refuses a spend the derived budget cannot pay for, naming the overspend', () => {
     // Level 1 at 0 XP, five points per level — six is one too many, and the sentence says so
-    expect(refusal(investInStat(aCharacter(), RULES, 'stat-str', 6))).toContain(
-      'more than the points this character has'
-    );
+    const result = investInStat(aCharacter(), RULES, 'stat-str', 6);
+
+    expect(refusal(result)).toContain('1 point over the budget');
+  });
+
+  /**
+   * One pool for both spends (TICKET-RES-05)
+   *
+   * The pool is 5 and Strength already holds 3 of it, so two points are left whichever box they go
+   * into. These are the two orderings the acceptance criteria name.
+   */
+  describe('the shared pool', () => {
+    it('refuses a skill spend the stat boxes have already eaten', () => {
+      // stat-then-skill: 3 in Strength, then 3 into Stealth is 6 against a pool of 5
+      const result = investInSkill(aCharacter(), RULES, 'skill-stealth', 3);
+
+      expect(refusal(result)).toContain('1 point over the budget');
+    });
+
+    it('refuses a stat spend the skill boxes have already eaten', () => {
+      // skill-then-stat: the same overspend reached from the other side
+      const invested = aCharacter({ investedSkillPoints: { 'skill-stealth': 3 } });
+      const result = investInStat(invested, RULES, 'stat-str', 3);
+
+      expect(refusal(result)).toContain('1 point over the budget');
+    });
+
+    it('lets a spend that exactly fills the pool through, from either side', () => {
+      const skillSide = investInSkill(aCharacter(), RULES, 'skill-stealth', 2);
+
+      expect(accepted(skillSide).after).toBe(2);
+
+      const invested = aCharacter({ investedSkillPoints: { 'skill-stealth': 2 } });
+      const statSide = investInStat(invested, RULES, 'stat-str', 3);
+
+      expect(accepted(statSide).after).toBe(3);
+    });
+
+    it('sums every skill box rather than only the one being changed', () => {
+      const invested = aCharacter({ investedSkillPoints: { 'skill-alchemy': 2 } });
+      const result = investInSkill(invested, RULES, 'skill-stealth', 1);
+
+      expect(refusal(result)).toContain('1 point over the budget');
+    });
+
+    it('charges nothing for points against a skill the ruleset does not define', () => {
+      // They raise the level of nothing, so charging the pool for them would take a Player's
+      // budget for something no surface can show them
+      const stale = aCharacter({ investedSkillPoints: { 'skill-gone': 40 } });
+      const result = investInSkill(stale, RULES, 'skill-stealth', 2);
+
+      expect(accepted(result).after).toBe(2);
+    });
+
+    it('never refuses a refund, even from a character the widened pool cannot afford', () => {
+      // Every character built while skill investment was free is one of these, and a refusal that
+      // also blocked the way back would leave the Player nothing to act on
+      const overspent = aCharacter({ investedSkillPoints: { 'skill-stealth': 30 } });
+      const skillRefund = investInSkill(overspent, RULES, 'skill-stealth', 1);
+      const statRefund = investInStat(overspent, RULES, 'stat-str', 1);
+
+      expect(accepted(skillRefund).after).toBe(1);
+      expect(accepted(statRefund).after).toBe(1);
+    });
+
+    it('still refuses a raise on an already-overspent character', () => {
+      const overspent = aCharacter({ investedSkillPoints: { 'skill-stealth': 30 } });
+      const result = investInSkill(overspent, RULES, 'skill-stealth', 31);
+
+      expect(refusal(result)).toContain('over the budget');
+    });
   });
 
   it('leaves the character it was given untouched', () => {

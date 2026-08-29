@@ -85,12 +85,12 @@ export function StatsSection({
                     ? undefined
                     : (points) => onChangeInvestedPoints(stat.id, points)
                 }
-                // An empty pool closes `+` but leaves `−` open — a point can always be taken
-                // back. A pool with no *number* closes both: the store refuses every write in
-                // that state, refunds included, so a live control would be a click that
-                // silently did nothing.
+                // An empty pool closes `+` and leaves `−` open — a point can always be taken
+                // back, and since TICKET-RES-05 that is the Kernel's rule too rather than only
+                // this row's manners. A pool with no *number* is `?? 0`, so it closes `+` by the
+                // same line; it no longer closes `−`, because the store now honours a refund
+                // whatever state the sheet is in.
                 canSpend={(budget?.pointsRemaining.value ?? 0) > 0}
-                canAdjust={budget?.pointsRemaining.value !== null}
                 // The spend and what it bought are one row, spelled in one place so this section
                 // and `ResourcesSection` cannot describe the same term differently — and since
                 // TICKET-ARC-04 that spelling has a branch in it, because a stat with nothing

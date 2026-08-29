@@ -293,6 +293,24 @@ describe('CharacterCreationWizard', () => {
     expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', true);
   });
 
+  it('should name the skill on a negative skill allocation (TICKET-RES-05)', () => {
+    // The same verdict the server reads: `characterCreation.ts`'s `allocationRefusal` says
+    // "Stealth cannot take those points", and the wizard used to fall through to a generic
+    // "Adjust the allocation before continuing" for the identical character
+    render(<CharacterCreationWizard />);
+
+    toStatsStep();
+    fireEvent.change(screen.getByLabelText('Stealth'), { target: { value: '-3' } });
+
+    expect(screen.getByText(/Stealth cannot go below 0/)).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', true);
+    // …and the box the Player is being stopped for is the box that looks wrong. `min="0"` is
+    // advisory in a number field, so `Input`'s own `error` flag is what marks it — the stat input
+    // beside it has carried one all along and this one did not.
+    const box = screen.getByLabelText('Stealth');
+    expect(box.className).toContain('border-crimson');
+  });
+
   it('should block progress when the allocation exceeds the point budget', () => {
     render(<CharacterCreationWizard />);
 

@@ -1,11 +1,12 @@
 /**
  * `POST /api/characters/:id/invest-skill-points` — spend points on one skill (TICKET-PLY-01)
  *
- * {@link investStatPoints}'s counterpart, and deliberately **not** budgeted: the ruleset prices stat
- * points and says nothing about skill points, so the Kernel's only rule is the shape of the number.
- * Refusing here would make a sheet stricter than the wizard that produced the character.
+ * {@link investStatPoints}'s counterpart, and **budgeted against the Snapshot since
+ * TICKET-RES-05**: the pool the sheet prices covers stat points and skill points together, so this
+ * hands the session's rules to the same Kernel rule the stat route calls rather than checking the
+ * shape of a number and nothing else.
  *
- * **Validates: v3 Req 41.1, 41.2, 45.1**
+ * **Validates: v3 Req 41.1, 41.2, 45.1; v4 systems/02 gap 3**
  */
 
 import { investInSkill } from '#shared/services/playerActions';
@@ -30,6 +31,6 @@ export const investSkillPoints = defineHandler(async (context) => {
     row,
     PLAYER_ACTION.INVEST_SKILL_POINTS,
     skillId,
-    (character) => investInSkill(character, skillId, points)
+    (character, rules) => investInSkill(character, rules, skillId, points)
   );
 });
