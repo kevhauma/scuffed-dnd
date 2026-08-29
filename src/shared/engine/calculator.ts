@@ -29,6 +29,7 @@ import { calculateRollInputs } from './calculators/rollCalculator';
 // Import for the composed entry point
 import { calculateSkills } from './calculators/skillCalculator';
 import { calculateStatTotal, calculateStatValues } from './calculators/statCalculator';
+import { resolveRaces } from './races';
 
 /**
  * Calculate every derived value for a character
@@ -64,8 +65,10 @@ export function calculateCharacter(
   character: Character,
   config: Configuration
 ): CalculatedCharacter {
-  // Get races for this character
-  const races = config.races.filter((race) => character.raceIds.includes(race.id));
+  // The picks in pick order, duplicates kept and capped at `const.race_count` — a pure-blood is the
+  // same race in every slot since TICKET-RACE-04, and a filter over the ruleset's list would
+  // collapse it to one. The cap lives in `resolveRaces` so the sheet names exactly what this blends
+  const races = resolveRaces(config, character.raceIds);
 
   // 1. Equipment bonuses from equipped items
   const equipmentBonuses = calculateEquipmentBonuses(character, config);

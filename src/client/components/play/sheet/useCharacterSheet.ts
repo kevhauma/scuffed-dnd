@@ -25,6 +25,7 @@ import { calculateCharacterLevel } from '#shared/engine/characterSummary';
 import { rollPool } from '#shared/engine/dice/rollDefinition';
 import { DEFAULT_DREAM_LEVEL, dreamLevelOf } from '#shared/engine/dreamLevel';
 import { describeFormulaError, isFormulaError } from '#shared/engine/formula/errors';
+import { resolveRaces } from '#shared/engine/races';
 import { validateStatAllocation } from '#shared/engine/skillAllocation';
 import type { CalculatedCharacter, Character } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
@@ -314,10 +315,14 @@ function buildView(
   config: Configuration,
   calculated: CalculatedCharacter
 ): CharacterSheetView {
-  const races = config.races.filter((race) => character.raceIds.includes(race.id));
+  // The same resolution the composition makes, duplicates and order kept (TICKET-RACE-04): a
+  // pure-blood picked twice must show two blocks here and blend as two there. It is also **capped
+  // at `const.race_count` inside `resolveRaces`**, which is what keeps `raceNames` below honest now
+  // that the count is a dial a User can lower under a character that was created at the old one
+  const races = resolveRaces(config, character.raceIds);
 
-  // The blend, not a sum (TICKET-RACE-02) — and the same call the composition makes, so the
-  // racial section and each stat's `race` term can never disagree
+  // The blend, not a sum (TICKET-RACE-02) — and the same call the composition makes, over the same
+  // capped list, so the racial section and each stat's `race` term can never disagree
   const raceBases = calculateRaceStatBases(races, config.constants);
   // Keyed by stat id since TICKET-MAT-02, so only a stat has an equipment contribution
   const equipmentBonuses = indexStatModifiers(calculated.equipmentBonuses);

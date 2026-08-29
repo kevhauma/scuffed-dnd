@@ -33,13 +33,12 @@ export function CharacterCreationWizard() {
     skills,
     races,
     raceBases,
-    canAddRace,
-    maxRaceCount,
+    raceSlots,
     budget,
     gains,
     preview,
     previewError,
-    toggleRace,
+    setRaceAt,
     setInvestedStatPoints,
     setInvestedSkillPoints,
     setArchetypeId,
@@ -99,10 +98,8 @@ export function CharacterCreationWizard() {
         <IdentityStep
           register={form.register}
           races={races}
-          selectedRaceIds={values.raceIds}
-          canAddRace={canAddRace}
-          maxRaceCount={maxRaceCount}
-          onToggleRace={toggleRace}
+          raceSlots={raceSlots}
+          onSelectRace={setRaceAt}
         />
       )}
 

@@ -39,6 +39,12 @@ export function useCharacterListManager() {
 
   const entries: CharacterListEntry[] = characters.map((character) => ({
     character,
+    // **Deliberately not `resolveRaces` (TICKET-RACE-04), and this is the only surface where that
+    // is true.** The Kernel's resolver *drops* a pick naming a race the ruleset no longer defines
+    // and caps the list at `const.race_count`, because it feeds the blend — and both are wrong for
+    // a roster. A card is the one place a Player looks to find out that a character is stale, so it
+    // names every id the character actually holds and says `Unknown race` where the ruleset can no
+    // longer answer. Swapping this for `resolveRaces` would make a broken character look tidy.
     raceNames: character.raceIds.map(
       (raceId) => races.find((race) => race.id === raceId)?.name ?? 'Unknown race'
     ),

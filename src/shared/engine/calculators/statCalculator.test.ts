@@ -183,7 +183,7 @@ describe('calculateRaceStatBases — the hybrid blend (TICKET-RACE-02)', () => {
 
   it('should ignore a third race rather than distorting the blend', () => {
     // The cardinality is enforced where characters are written; hand-edited data reaching the
-    // engine gets the two-race blend rather than a sum divided by 2
+    // engine gets the ruleset's own count blended rather than a longer sum divided by it
     const bases = calculateRaceStatBases([
       race('a', { str: 10 }),
       race('b', { str: 12 }),
@@ -191,6 +191,83 @@ describe('calculateRaceStatBases — the hybrid blend (TICKET-RACE-02)', () => {
     ]);
 
     expect(bases).toEqual({ str: 11 });
+  });
+
+  describe('the count as ruleset data (TICKET-RACE-04)', () => {
+    /** A ruleset's constants, stating a race count and optionally a divisor */
+    function withCount(count: number, divisor?: number): Configuration['constants'] {
+      const stated = [
+        {
+          id: 'race-count-id',
+          name: 'race_count',
+          displayName: 'Races per character',
+          description: '',
+          value: count,
+        },
+      ];
+
+      if (divisor === undefined) return stated;
+
+      const dividing = withDivisor(divisor) ?? [];
+      return [...stated, ...dividing];
+    }
+
+    it('should blend three blocks over three when the ruleset asks for three', () => {
+      // The divisor **defaults to the count** (see `raceBlendDivisor`), which is the ticket's
+      // decision: roundup((10 + 12 + 5) / 3) = roundup(9) = 9, and the same three picked as
+      // themselves stay themselves
+      const three = [race('a', { str: 10 }), race('b', { str: 12 }), race('c', { str: 5 })];
+      const asksForThree = withCount(3);
+
+      expect(calculateRaceStatBases(three, asksForThree)).toEqual({ str: 9 });
+    });
+
+    it('should keep a pure-blood intact at every count', () => {
+      // The property the whole model rests on, and the reason the divisor follows the count: the
+      // same race in every slot is the race itself, at 1, at 3 and at 4
+      const dwarf = race('dwarf', { str: 14, con: 15 });
+      const block = { str: 14, con: 15 };
+
+      const alone = calculateRaceStatBases([dwarf], withCount(1));
+      const thrice = calculateRaceStatBases([dwarf, dwarf, dwarf], withCount(3));
+      const fourfold = calculateRaceStatBases([dwarf, dwarf, dwarf, dwarf], withCount(4));
+
+      expect(alone).toEqual(block);
+      expect(thrice).toEqual(block);
+      expect(fourfold).toEqual(block);
+    });
+
+    it('should blend only as many as the count, whatever it is handed', () => {
+      const four = [
+        race('a', { str: 10 }),
+        race('b', { str: 12 }),
+        race('c', { str: 100 }),
+        race('d', { str: 100 }),
+      ];
+
+      const atOne = calculateRaceStatBases(four, withCount(1));
+      const atFour = calculateRaceStatBases(four, withCount(4));
+
+      // A count of 1 takes the first block and nothing else — the lone-block answer
+      expect(atOne).toEqual({ str: 10 });
+      // …and a count of 4 blends all of them: roundup(222 / 4) = roundup(55.5) = 56
+      expect(atFour).toEqual({ str: 56 });
+    });
+
+    it('should let an explicit divisor override the count, so a ruleset can sum instead', () => {
+      // The divisor stays a dial rather than becoming an alias for the count — a three-race
+      // ruleset that wants its parents summed writes 1 and gets 27, not 9
+      const three = [race('a', { str: 10 }), race('b', { str: 12 }), race('c', { str: 5 })];
+      const summing = withCount(3, 1);
+
+      expect(calculateRaceStatBases(three, summing)).toEqual({ str: 27 });
+    });
+
+    it('should read no count at all as the sheet’s two, exactly as before', () => {
+      const picked = [race('a', { str: 10 }), race('b', { str: 12 }), race('c', { str: 100 })];
+
+      expect(calculateRaceStatBases(picked, [])).toEqual({ str: 11 });
+    });
   });
 });
 

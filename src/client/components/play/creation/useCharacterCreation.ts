@@ -14,8 +14,9 @@ import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { calculateCharacter, firstCalculationError } from '#shared/engine/calculator';
-import { calculateRaceStatBases, MAX_RACE_COUNT } from '#shared/engine/calculators/statCalculator';
+import { calculateRaceStatBases } from '#shared/engine/calculators/statCalculator';
 import { describeFormulaError } from '#shared/engine/formula/errors';
+import { racesRequired, resolveRaces } from '#shared/engine/races';
 import type { StatAllocationResult } from '#shared/engine/skillAllocation';
 import { validateStatAllocation } from '#shared/engine/skillAllocation';
 import type {
@@ -23,7 +24,7 @@ import type {
   Character,
   CharacterCreationData,
 } from '#shared/types/character';
-import type { Stat } from '#shared/types/config';
+import type { Configuration, Stat } from '#shared/types/config';
 import { useConfigStore } from '../../../stores/configStore';
 import type { DerivedValue } from '../shared/derivedValue';
 import { toDerivedValue } from '../shared/derivedValue';
@@ -160,6 +161,27 @@ function allocationStepError(
   return breach ?? 'Adjust the allocation before continuing.';
 }
 
+/**
+ * One entry per race slot the ruleset asks for — a race id, or `''` for an unfilled one
+ *
+ * **The slots themselves rather than only the picks** (TICKET-RACE-04): the form field holds the
+ * empty ones too, so a Player who fills the second slot first does not have their choice slide into
+ * the first, and a slot may legitimately repeat what another holds — which is how a pure-blood is
+ * written now that `Empty` is retired.
+ *
+ * Outside the hook because it is a pure function of the ruleset and the picks, and because the
+ * hook's body is the tree `fallow` measures.
+ *
+ * @param config The open ruleset, or null before one is loaded
+ * @param picked What the form holds, which may be shorter than the ruleset asks for
+ * @returns One entry per slot
+ */
+function raceSlotsFor(config: Configuration | null, picked: string[]): string[] {
+  const required = config === null ? 0 : racesRequired(config);
+
+  return Array.from({ length: required }, (_, index) => picked[index] ?? '');
+}
+
 export function useCharacterCreation() {
   const navigate = useNavigate();
 
@@ -194,6 +216,12 @@ export function useCharacterCreation() {
   const races = config?.races ?? [];
   const archetypes = config?.archetypes ?? [];
 
+  /** One slot per race the ruleset asks for, holding what has been picked into it so far */
+  const raceSlots = raceSlotsFor(config, values.raceIds);
+
+  /** The filled slots, in slot order and duplicates kept — what the character is created with */
+  const chosenRaceIds = raceSlots.filter((raceId) => raceId !== '');
+
   /**
    * The choices the engine reads, stable while their content is (CR-14)
    *
@@ -201,14 +229,16 @@ export function useCharacterCreation() {
    * typing the character's name on step 0 no longer re-runs the whole ruleset.
    */
   const engineInputs = useContentStable<EngineInputs>({
-    raceIds: values.raceIds,
+    raceIds: chosenRaceIds,
     investedStatPoints: values.investedStatPoints,
     investedSkillPoints: values.investedSkillPoints,
     archetypeId: values.archetypeId || undefined,
   });
 
+  // Resolved through the Kernel's own lookup so a race picked in two slots is two blocks here as
+  // well as in the composition (TICKET-RACE-04) — a filter would have collapsed a pure-blood to one
   const selectedRaces = useMemo(
-    () => (config?.races ?? []).filter((race) => engineInputs.raceIds.includes(race.id)),
+    () => (config === null ? [] : resolveRaces(config, engineInputs.raceIds)),
     [config, engineInputs]
   );
 
@@ -281,23 +311,18 @@ export function useCharacterCreation() {
     (allocation?.gains ?? []).map((row) => [row.statId, toDerivedValue(row.gain)])
   );
 
-  /** Whether another race can still be added — the blend is defined over at most two (RACE-02) */
-  const canAddRace = values.raceIds.length < MAX_RACE_COUNT;
-
-  const toggleRace = (raceId: string) => {
-    if (values.raceIds.includes(raceId)) {
-      form.setValue(
-        'raceIds',
-        values.raceIds.filter((id) => id !== raceId)
-      );
-      return;
-    }
-
-    // Refused rather than silently swapping one out: which of the two to drop is the Player's
-    // decision, and the step disables the remaining boxes so this is only ever the last line
-    if (!canAddRace) return;
-
-    form.setValue('raceIds', [...values.raceIds, raceId]);
+  /**
+   * Put a race in one slot
+   *
+   * Slot-addressed rather than toggled (TICKET-RACE-04): the same race may legitimately fill every
+   * slot, so *is it already picked* stopped being a question with an answer. Which is also why
+   * nothing here refuses a pick — a slot holds exactly one race and replacing it is the only edit
+   * there is, where the old checkbox list had to decide which of two to drop.
+   */
+  const setRaceAt = (index: number, raceId: string) => {
+    const filled = [...raceSlots];
+    filled[index] = raceId;
+    form.setValue('raceIds', filled);
   };
 
   const setInvestedStatPoints = (statId: string, points: number) => {
@@ -363,16 +388,18 @@ export function useCharacterCreation() {
   /**
    * Why the identity step cannot be left, or null when it can
    *
-   * The race count is checked as well as the name, even though `toggleRace` and the step's
-   * disabled boxes already make a third race unreachable. `characterStore.createCharacter` refuses
-   * that data by returning `null`, and a Submit that silently does nothing is the worst way for
-   * the two limits to drift apart — this is where the Player would be told, at the step that owns
-   * the choice rather than three steps later.
+   * The race count is checked as well as the name. The step renders exactly the ruleset's number of
+   * slots, so *too many* is unreachable and what this catches is an **empty slot** — the rule
+   * TICKET-RACE-04 made exact. `characterStore.createCharacter` and the Kernel both refuse a short
+   * pick by returning nothing much, and a Submit that silently does nothing is the worst way for
+   * two spellings of one limit to drift apart — this is where the Player is told, at the step that
+   * owns the choice rather than three steps later.
    */
   const identityStepError = (): string | null => {
     if (creationData.name === '') return 'Give your character a name before continuing.';
-    if (values.raceIds.length > MAX_RACE_COUNT)
-      return `A character blends at most ${MAX_RACE_COUNT} races.`;
+    if (chosenRaceIds.length !== raceSlots.length) {
+      return `This ruleset gives a character ${raceSlots.length} races — ${chosenRaceIds.length} chosen.`;
+    }
     return null;
   };
 
@@ -444,15 +471,14 @@ export function useCharacterCreation() {
     skills,
     races,
     raceBases,
-    canAddRace,
-    maxRaceCount: MAX_RACE_COUNT,
+    raceSlots,
     // `allocation` stays local: the step renders `budget`, and re-exporting the raw engine result
     // through the play barrel would offer supported API nothing consumes
     budget,
     gains,
     preview,
     previewError,
-    toggleRace,
+    setRaceAt,
     setInvestedStatPoints,
     setInvestedSkillPoints,
     setArchetypeId,

@@ -75,7 +75,7 @@ code, docs, and tickets. Capitalised **User** and **Player** always mean the per
 | **Formula** | A User-authored arithmetic expression referencing skill codes. Parsed and evaluated by our own formula engine — never `eval`. |
 | **Material / Material Level** | A substance (iron, mithril) with tiers; each tier carries skill bonuses/penalties and a monetary value. |
 | **Item / Equipment Slot** | An item optionally has a material and a slot type (helmet, main hand). Equipping it applies the material's bonuses. |
-| **Race** | A lineage, stored as an **absolute stat block** rather than a set of bonuses (TICKET-RACE-01), plus an optional creature `type` / `size` / `challengeRate` (TICKET-RACE-03). Characters have more than one, and the blocks **blend** rather than stack. |
+| **Race** | A lineage, stored as an **absolute stat block** rather than a set of bonuses (TICKET-RACE-01), plus an optional creature `type` / `size` / `challengeRate` (TICKET-RACE-03). A Character has **exactly as many as the ruleset says** — `const.race_count`, defaulting to the sheet's 2 (TICKET-RACE-04) — and the blocks **blend** rather than stack. The same race may fill every slot; that is what a pure-blood is. |
 | **Focus Stat** | The one skill a character specialises in, granting bonus levels. |
 | **Currency Tier** | A level in the money system (copper/silver/gold) with conversion rates. |
 | **Character** | A Player's persona: chosen races, allocated skill levels, focus stat, inventory, and current stat values. Everything else about it is computed. |

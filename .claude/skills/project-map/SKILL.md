@@ -247,8 +247,16 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   `calculateStatTotal`, `statVariables` (the flat map keyed by abbreviation, for the downstream
   formulas), `calculateRaceStatBases` (the races' **blended** stat block on its own, keyed by stat
   **id**, for display — TICKET-RACE-01/02, plus TICKET-RACE-03's `withBlendFloor`: the sheet's
-  `MAX(1, …)`, so a pairing that supplies nothing supplies 1) and `MAX_RACE_COUNT`, the one place the 1–2 race
-  cardinality is written.
+  `MAX(1, …)`, so a pairing that supplies nothing supplies 1). It blends the ruleset's own
+  `const.race_count` blocks and divides by `const.race_blend_divisor`, which **defaults to that
+  count** (TICKET-RACE-04) — the number itself lives in `engine/races.ts`, not here.
+- `races.ts` — **how many races a character has, and which** (TICKET-RACE-04). `raceCount(constants)`
+  reads `const.race_count` (absent means the sheet's 2); `racesRequired(config)` is the creation
+  rule's number, which is that count except that a ruleset offering no races requires none;
+  `resolveRaces(config, raceIds)` turns picks into blocks in **pick order, duplicates kept, capped at
+  the count**, so a pure-blood picked twice is two blocks and a character stored at a higher count is
+  named and blended over one list. The one place the count is written — `MAX_RACE_COUNT` is
+  gone, and `races.test.ts` fails if a former call site spells the number again.
 - `calculators/skillCalculator.ts` — `calculateSkills(config, statValues, character)` → `{ levels, bonuses, contributions }`, all keyed by skill id (TICKET-SKL-02; `contributions` added by TICKET-SKL-03 — one `SkillStatContribution` per weight row with `weight × statValue` **already multiplied**, so the sheet labels terms it never recomputes; empty for a level that failed). `level = Σ(weight × stat) + invested`, `bonus = round(level / const.bonus_divider)` half-away-from-zero, with the divider read **by name** and falling back to Concept 05's seeded 5. A weight naming a stat that no longer exists contributes nothing; a stat whose own formula failed yields an `upstream` error naming it, with the original as `cause`. The invested term is 1:1 and **provisional** — TICKET-ARC-02 routes it through the point-buy curve.
 - `calculators/rollCalculator.ts` — `calculateRollInputs(config, statValues, skills)` → `Record<rollId, FormulaResult>` (TICKET-ROLL-06). Each roll definition's input expression over the composed numbers — the value fed to the ladder. Replaced `combatSkillCalculator`, and the swap is the entity's argument: that produced a *bonus* added to a hand-typed pool, this produces the *input* a pool is derived from. Keyed by roll **id**; no equipment term (TICKET-MAT-02).
 - `calculators/equipmentBonusCalculator.ts` — `calculateEquipmentBonuses` (aggregates equipped items' material tier modifiers into one `StatModifier[]`, keyed by stat **id**) and `indexStatModifiers(modifiers)` → `Record<statId, number>` (any `StatModifier[]` as a per-stat lookup, for showing a stat's equipment contribution on its own).
@@ -848,7 +856,10 @@ the four step components (`IdentityStep`, `ArchetypeStep`, `SkillAllocationStep`
 that order since TICKET-ARC-03, the archetype coming *before* allocation because it decides what a
 point buys)
 are pure props — all state, validation and the submit live in `useCharacterCreation`. That is the
-multi-step pattern to copy. `SkillAllocationStep` takes points for the **invested** stats and the
+multi-step pattern to copy. `IdentityStep` renders **one `Select` per race slot** since
+TICKET-RACE-04 — as many as `racesRequired(config)` says, numbered rather than captioned, each
+fillable with a race another slot already holds — because a checkbox list cannot express the
+pure-blood that replaced `Empty`. `SkillAllocationStep` takes points for the **invested** stats and the
 ruleset's skills — one budget over both cards since TICKET-RES-05 — and previews the derived stats
 read-only off the same `calculateCharacter` result the review step uses.
 `sheet/` holds the character sheet: `CharacterSheet` (composition only since **DM-01**, which moved

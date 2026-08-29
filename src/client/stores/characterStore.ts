@@ -9,7 +9,7 @@
  */
 
 import { create } from 'zustand';
-import { MAX_RACE_COUNT } from '#shared/engine/calculators/statCalculator';
+import { racesRequired } from '#shared/engine/races';
 import { validateStatAllocation } from '#shared/engine/skillAllocation';
 import { buildCharacter } from '#shared/services/characterCreation';
 import { purseFromStoredWallet } from '#shared/services/characterShape';
@@ -61,17 +61,25 @@ import { useUIStore } from './uiStore';
 /**
  * What {@link CharacterState.updateCharacter} may patch (CR-12)
  *
- * The three fields of a character that are plain content: what they are called, what they are, and
- * how they grow. Everything else on `Character` is either an invariant somebody else enforces
- * (`experience`, `investedStatPoints`, `currentResourceValues`, `inventory`) or identity nothing
- * may rewrite (`id`, `configurationId`, `createdAt`, `updatedAt`). Widening this type is how a
- * future feature says it needs a new patchable field — and the place to ask whether that field
- * wants a guarded action of its own instead.
+ * The fields of a character that are plain content: what they are called and how they grow.
+ * Everything else on `Character` is either an invariant somebody else enforces (`experience`,
+ * `investedStatPoints`, `currentResourceValues`, `inventory`) or identity nothing may rewrite
+ * (`id`, `configurationId`, `createdAt`, `updatedAt`). Widening this type is how a future feature
+ * says it needs a new patchable field — and the place to ask whether that field wants a guarded
+ * action of its own instead.
+ *
+ * **`raceIds` left in TICKET-RACE-04**, which is that question answered rather than a rule dropped.
+ * A character's races are now *exactly* the ruleset's `race_count`, and a patch carries no ruleset
+ * to count against — so this action could either grow a `Configuration` parameter that only one of
+ * its three fields would ever read, or stop accepting the field. Nothing has ever patched it (the
+ * wizard is the only thing that writes races, and it writes them all at once through
+ * `createCharacter`), so it stops accepting it. A future *re-pick your ancestry* feature arrives as
+ * its own action taking the ruleset, which is exactly what the paragraph above is for.
  *
  * Module-local: callers pass object literals and TypeScript infers, so exporting it would be
  * supported API nothing consumes (the CR-39 rule).
  */
-type CharacterPatch = Partial<Pick<Character, 'name' | 'raceIds' | 'archetypeId'>>;
+type CharacterPatch = Partial<Pick<Character, 'name' | 'archetypeId'>>;
 
 /**
  * Character store state
@@ -415,21 +423,6 @@ export function selectCharacter(state: CharacterState, characterId: string): Cha
 }
 
 /**
- * Whether a set of races is one the composition can blend (TICKET-RACE-02)
- *
- * The upper bound is the rule: past {@link MAX_RACE_COUNT} the sheet's hybrid has no meaning, so
- * the store refuses the write rather than storing a character whose bases cannot be computed.
- *
- * **No lower bound.** Concept 04 describes a character as one or two creatures, but a ruleset is
- * free to define no races at all, and a raceless character is a coherent state the sheet already
- * has an empty state for (Requirement 11.2). Requiring one would make the wizard unusable on a
- * ruleset that has none — see the ticket's implementation note.
- */
-function hasBlendableRaces(raceIds: string[]): boolean {
-  return raceIds.length <= MAX_RACE_COUNT;
-}
-
-/**
  * Apply a change to one character's inventory, then stamp and persist
  *
  * Every inventory action is the same three steps — find the character, replace its `Inventory`,
@@ -675,7 +668,10 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
 
   // Create new character
   createCharacter: (data: CharacterCreationData, config: Configuration) => {
-    if (!hasBlendableRaces(data.raceIds)) return null;
+    // **Exactly the ruleset's count** since TICKET-RACE-04, read from the same `racesRequired` the
+    // Kernel's `characterCreationErrors` and the wizard read — the number is the ruleset's
+    // `const.race_count`, so there is nothing here for a fourth spelling of it to drift from
+    if (data.raceIds.length !== racesRequired(config)) return null;
 
     // **The character's shape is the Kernel's since TICKET-CHAR-04**, so the browser and
     // `POST /api/sessions/:id/characters` mint the same thing — a resource seeded from the same
@@ -729,9 +725,6 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
 
   // Update character — see `CharacterPatch` for what this may and may not touch
   updateCharacter: (id: string, updates: CharacterPatch) => {
-    // Same rule as on create: a patch that would put a character past the blend is not applied
-    if (updates.raceIds !== undefined && !hasBlendableRaces(updates.raceIds)) return;
-
     const { characters } = get();
     const updated = autoSave(
       characters.map((char) => (char.id === id ? updateTimestamp({ ...char, ...updates }) : char))

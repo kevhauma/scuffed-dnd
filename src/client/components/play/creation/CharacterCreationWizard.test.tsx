@@ -163,6 +163,41 @@ const next = () => fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 const back = () => fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 const nameField = () => screen.getByLabelText(/Character Name/i);
 
+/** The step's race pickers, one per slot the ruleset asks for (TICKET-RACE-04) */
+const raceSlots = () => screen.queryAllByLabelText(/^Race \d+$/) as HTMLSelectElement[];
+
+/**
+ * Put one race in each slot, in the order given
+ *
+ * A picker per slot rather than a checkbox list since TICKET-RACE-04, which is what makes
+ * `pickRaces('elf', 'elf')` — a pure-blood — expressible at all.
+ */
+function pickRaces(...raceIds: string[]) {
+  const slots = raceSlots();
+
+  raceIds.forEach((raceId, index) => {
+    const slot = slots[index];
+    if (!slot) throw new Error(`the step renders no slot ${index + 1}`);
+    fireEvent.change(slot, { target: { value: raceId } });
+  });
+}
+
+/**
+ * Fill the identity step: a name, and Human in every slot the ruleset asks for
+ *
+ * **Human on purpose** — its stat block is empty in this fixture, so filling the slots satisfies
+ * the count rule without moving a single number the tests below assert. A ruleset with no races
+ * renders no slots and needs no picks, which is the `races: undefined` case further down.
+ */
+function fillIdentity(name = 'Aria') {
+  const field = nameField();
+  fireEvent.change(field, { target: { value: name } });
+
+  for (const slot of raceSlots()) {
+    fireEvent.change(slot, { target: { value: 'human' } });
+  }
+}
+
 /**
  * Fill the identity step and advance to the allocation step
  *
@@ -171,7 +206,7 @@ const nameField = () => screen.getByLabelText(/Character Name/i);
  * ruleset may define none.
  */
 function toStatsStep(name = 'Aria') {
-  fireEvent.change(nameField(), { target: { value: name } });
+  fillIdentity(name);
   next();
   next();
 }
@@ -192,6 +227,12 @@ describe('CharacterCreationWizard', () => {
     fireEvent.change(nameField(), { target: { value: 'Aria' } });
 
     expect(screen.queryByText(/Give your character a name/)).toBeNull();
+    // …and the empty race slots take over as the reason, until each is filled (TICKET-RACE-04)
+    expect(screen.getByText(/2 races — 0 chosen/)).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', true);
+
+    pickRaces('elf', 'human');
+
     expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', false);
   });
 
@@ -204,60 +245,89 @@ describe('CharacterCreationWizard', () => {
     back(); // Archetype
     back(); // Identity
     expect((nameField() as HTMLInputElement).value).toBe('Aria');
+    expect(raceSlots().map((slot) => slot.value)).toEqual(['human', 'human']);
 
     next();
     next();
     expect((screen.getByLabelText(/Strength \(STR\)/) as HTMLInputElement).value).toBe('4');
   });
 
-  it('should allow selecting zero, one or two races', () => {
+  it('should render one picker per slot and block until each is filled (TICKET-RACE-04)', () => {
     render(<CharacterCreationWizard />);
 
-    // Zero races is valid — the name alone unblocks step 1
     fireEvent.change(nameField(), { target: { value: 'Aria' } });
+
+    // Two slots, because the fixture states no `race_count` and the reader's default is the
+    // sheet's two — and every one of them has to hold a race
+    expect(raceSlots()).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', true);
+
+    pickRaces('elf');
+    expect(screen.getByText(/2 races — 1 chosen/)).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', true);
+
+    pickRaces('elf', 'human');
     expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', false);
-
-    fireEvent.click(screen.getByLabelText('Elf'));
-    fireEvent.click(screen.getByLabelText('Human'));
-
-    expect((screen.getByLabelText('Elf') as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByLabelText('Human') as HTMLInputElement).checked).toBe(true);
   });
 
-  it('should refuse a third race and say why (TICKET-RACE-02)', () => {
-    const config = createConfig({
-      races: [
-        { id: 'elf', name: 'Elf', description: '', statValues: { DEX: 2 } },
-        { id: 'human', name: 'Human', description: '', statValues: {} },
-        { id: 'dwarf', name: 'Dwarf', description: '', statValues: { STR: 4 } },
-      ],
-    });
-    useConfigStore.setState({ config, isLoaded: true });
+  it.each([1, 3, 4])(
+    'should render %i pickers when the ruleset asks for that many (TICKET-RACE-04)',
+    (count) => {
+      const base = createConfig();
+      const config = createConfig({
+        constants: [
+          ...(base.constants ?? []),
+          {
+            id: 'const-race-count',
+            name: 'race_count',
+            displayName: 'Races per character',
+            description: '',
+            value: count,
+          },
+        ],
+      });
+      useConfigStore.setState({ config, isLoaded: true });
+
+      render(<CharacterCreationWizard />);
+
+      fireEvent.change(nameField(), { target: { value: 'Aria' } });
+      expect(raceSlots()).toHaveLength(count);
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', true);
+
+      // The copy counts in words at one rather than reading "has 1 races"
+      const caption = count === 1 ? /has one race\./ : new RegExp(`has ${count} races,`);
+      expect(screen.getByText(caption)).toBeDefined();
+
+      // The same race in all of them — legal at any count, and the whole point of a slot picker
+      const picks = Array.from({ length: count }, () => 'elf');
+      pickRaces(...picks);
+
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', false);
+    }
+  );
+
+  it('should say only that a ruleset defines no races, with no count beside it', () => {
+    // Decision 3's flagship case — a fresh ruleset starts with `races: []` and must stay playable.
+    // The count sentence is inside the same branch as the pickers, so it does not appear here
+    // claiming a character "has 0 races" directly above "This ruleset defines no races."
+    useConfigStore.setState({ config: createConfig({ races: [] }), isLoaded: true });
 
     render(<CharacterCreationWizard />);
 
-    fireEvent.click(screen.getByLabelText('Elf'));
-    fireEvent.click(screen.getByLabelText('Human'));
+    fireEvent.change(nameField(), { target: { value: 'Aria' } });
 
-    // The third box is out of reach, and clicking it anyway changes nothing
-    const dwarf = () => screen.getByLabelText('Dwarf') as HTMLInputElement;
-    expect(dwarf().disabled).toBe(true);
-    expect(screen.getByText(/That is 2 races/)).toBeDefined();
-
-    fireEvent.click(dwarf());
-    expect(dwarf().checked).toBe(false);
-
-    // Clearing one puts the third back within reach
-    fireEvent.click(screen.getByLabelText('Human'));
-    expect(dwarf().disabled).toBe(false);
+    expect(screen.getByText('This ruleset defines no races.')).toBeDefined();
+    expect(screen.queryByText(/A character in this ruleset has/)).toBeNull();
+    expect(raceSlots()).toHaveLength(0);
+    // …and nothing blocks the step, which is the point of the exception
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', false);
   });
 
   it('should show the blended base of two races on the allocation step (TICKET-RACE-02)', () => {
     render(<CharacterCreationWizard />);
 
     fireEvent.change(nameField(), { target: { value: 'Aria' } });
-    fireEvent.click(screen.getByLabelText('Elf')); // DEX 2
-    fireEvent.click(screen.getByLabelText('Human')); // says nothing about DEX
+    pickRaces('elf', 'human'); // DEX 2, and a block that says nothing about DEX
     next();
     next();
 
@@ -265,11 +335,13 @@ describe('CharacterCreationWizard', () => {
     expect(screen.getByText(/\+1 racial/)).toBeDefined();
   });
 
-  it('should show the racial modifier separately from the allocated base level', () => {
+  it('should preview the intact block when the same race fills every slot (TICKET-RACE-04)', () => {
     render(<CharacterCreationWizard />);
 
     fireEvent.change(nameField(), { target: { value: 'Aria' } });
-    fireEvent.click(screen.getByLabelText('Elf')); // DEX +2
+    // A pure-blood: roundup((2 + 2) / 2) = 2, the elf's own block rather than half of it. This is
+    // what replaced `Empty`, and it is the whole reason a slot takes a duplicate.
+    pickRaces('elf', 'elf');
     next();
     next();
 
@@ -383,9 +455,15 @@ describe('CharacterCreationWizard', () => {
     it('should say so rather than show 0 when the whole calculation fails', () => {
       // `calculateCharacter` throwing is an engine bug or a malformed ruleset, not an ordinary
       // formula mistake — but it must not reach the Player as a confident `Health 0` while they
-      // allocate against it. A ruleset with no `races` array at all makes the engine throw.
+      // allocate against it. A ruleset with no `skills` array at all makes the engine throw.
+      //
+      // **It used to be `races: undefined` here, and TICKET-RACE-04 took that away deliberately.**
+      // `engine/races.ts` reads a missing race list as *no races*, because `racesRequired` is now
+      // asked during **render** — the step draws one picker per slot — and a hook that threw would
+      // cost the Player the whole wizard rather than the preview. `skills` is the same class of
+      // malformation with the calculation still the only thing that fails.
       useConfigStore.setState({
-        config: createConfig({ races: undefined as unknown as Configuration['races'] }),
+        config: createConfig({ skills: undefined as unknown as Configuration['skills'] }),
         isLoaded: true,
       });
 
@@ -435,10 +513,10 @@ describe('CharacterCreationWizard', () => {
     });
 
     it('should say so rather than block when the ruleset defines no archetypes', () => {
-      // The fixture defines none, which is legal — the same rule TICKET-RACE-02 kept for races
+      // The fixture defines none, which is legal — the same rule a ruleset with no races gets
       render(<CharacterCreationWizard />);
 
-      fireEvent.change(nameField(), { target: { value: 'Aria' } });
+      fillIdentity();
       next();
 
       expect(screen.getByText(/defines no archetypes/)).toBeDefined();
@@ -449,7 +527,7 @@ describe('CharacterCreationWizard', () => {
       useConfigStore.setState({ config: withArchetypes(), isLoaded: true });
       render(<CharacterCreationWizard />);
 
-      fireEvent.change(nameField(), { target: { value: 'Aria' } });
+      fillIdentity();
       next();
 
       expect(screen.getByText('Pick an archetype before continuing.')).toBeDefined();
@@ -460,7 +538,7 @@ describe('CharacterCreationWizard', () => {
       useConfigStore.setState({ config: withArchetypes(), isLoaded: true });
       render(<CharacterCreationWizard />);
 
-      fireEvent.change(nameField(), { target: { value: 'Aria' } });
+      fillIdentity();
       next();
       fireEvent.click(screen.getByRole('button', { name: /Strong/ }));
 
@@ -502,7 +580,7 @@ describe('CharacterCreationWizard', () => {
       });
       render(<CharacterCreationWizard />);
 
-      fireEvent.change(nameField(), { target: { value: 'Aria' } });
+      fillIdentity();
       next();
       fireEvent.click(screen.getByRole('button', { name: /Strong/ }));
       next();
@@ -524,7 +602,7 @@ describe('CharacterCreationWizard', () => {
     render(<CharacterCreationWizard />);
 
     fireEvent.change(nameField(), { target: { value: 'Aria' } });
-    fireEvent.click(screen.getByLabelText('Elf'));
+    pickRaces('elf', 'human');
     next();
     next();
     fireEvent.change(screen.getByLabelText(/Strength \(STR\)/), { target: { value: '5' } });
@@ -537,7 +615,7 @@ describe('CharacterCreationWizard', () => {
         id: 'x',
         name: 'Aria',
         configurationId: 'config1',
-        raceIds: ['elf'],
+        raceIds: ['elf', 'human'],
         investedStatPoints: { STR: 5, DEX: 0 },
         investedSkillPoints: { STL: 1 },
         currentResourceValues: {},
@@ -567,7 +645,9 @@ describe('CharacterCreationWizard', () => {
     // than withhold the preview over `Undefined variable`.
     render(<CharacterCreationWizard />);
 
-    fireEvent.change(nameField(), { target: { value: 'Aria' } });
+    // Human in both slots: the count rule is satisfied and no race supplies a stat, so every
+    // number below is still the unallocated zero this test is about
+    fillIdentity();
     next(); // Archetype — the fixture defines none, so nothing to pick
     next(); // Stats — nothing entered
     next(); // Review
@@ -585,7 +665,8 @@ describe('CharacterCreationWizard', () => {
     render(<CharacterCreationWizard />);
 
     fireEvent.change(nameField(), { target: { value: 'Aria' } });
-    fireEvent.click(screen.getByLabelText('Elf'));
+    // A pure-blood elf — both of the ruleset's slots, the same race in each (TICKET-RACE-04)
+    pickRaces('elf', 'elf');
     next(); // Archetype — none defined in this fixture
     next();
     fireEvent.change(screen.getByLabelText(/Strength \(STR\)/), { target: { value: '5' } });
@@ -597,7 +678,7 @@ describe('CharacterCreationWizard', () => {
     expect(characters).toHaveLength(1);
     expect(characters[0]).toMatchObject({
       name: 'Aria',
-      raceIds: ['elf'],
+      raceIds: ['elf', 'elf'],
       investedStatPoints: { STR: 5 },
       configurationId: 'config1',
     });

@@ -25,6 +25,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { racesRequired } from '#shared/engine/races';
 import type {
   CharacterCreateRequest,
   CharacterDocument,
@@ -103,13 +104,29 @@ function rulesOf(session: GameSessionRow): Configuration {
   return snapshotOf(session);
 }
 
+/**
+ * The corpus's first race, filling every slot the corpus asks for (TICKET-RACE-04)
+ *
+ * A character carries **exactly** `const.race_count` races now, so a body claiming none is refused
+ * by the Kernel before any of the rules below is reached. The same race in every slot is what a
+ * pure-blood is, and the server derives the count from the Snapshot rather than from anything the
+ * body says about it.
+ */
+function pureBlood(rules: Configuration): string[] {
+  const [first] = rules.races;
+  if (first === undefined) return [];
+
+  const required = racesRequired(rules);
+  return Array.from({ length: required }, () => first.id);
+}
+
 /** A creation body that the corpus accepts — no points spent, one archetype if the corpus has any */
 function validBody(session: GameSessionRow, overrides: Partial<CharacterCreateRequest> = {}) {
   const rules = rulesOf(session);
 
   return {
     name: 'Quackers',
-    raceIds: [],
+    raceIds: pureBlood(rules),
     investedStatPoints: {},
     investedSkillPoints: {},
     archetypeId: rules.archetypes?.[0]?.id,
@@ -264,6 +281,22 @@ describe('the Kernel’s own rules, applied server-side', () => {
 
       expect(refused.status).toBe(400);
       expect(messageOf(refused.body)).toContain('blend');
+    }));
+
+  it('should refuse fewer races than the Snapshot asks for, naming the count (TICKET-RACE-04)', () =>
+    withTestDatabase(async (database) => {
+      const { player, session } = aTable(database);
+      const rules = rulesOf(session);
+      const required = racesRequired(rules);
+
+      // The corpus states no `race_count`, so the count is the reader's default of 2 — which is
+      // the half of this the server derives rather than being told
+      expect(required).toBe(2);
+
+      const refused = await create(session.id, validBody(session, { raceIds: [] }), player);
+
+      expect(refused.status).toBe(400);
+      expect(messageOf(refused.body)).toContain('exactly 2 races');
     }));
 
   it('should require an archetype when the Snapshot defines any', () =>

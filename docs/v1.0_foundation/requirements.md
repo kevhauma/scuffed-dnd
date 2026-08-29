@@ -190,7 +190,7 @@ The original criteria, for the record:
 #### Acceptance Criteria
 
 1. THE Application SHALL allow Players to create Characters with names
-2. THE Application SHALL allow Players to select one or more Races for their Character
+2. ~~THE Application SHALL allow Players to select one or more Races for their Character~~ — **AMENDED (TICKET-RACE-04)**: THE Application SHALL require Players to select **exactly `const.race_count` Races** for their Character, the same Race being a legal choice in more than one slot. The count is per-Configuration and defaults to 2 (the source sheet's two parent slots); a Configuration that defines no Races requires none, which is where this criterion's original lower bound survives. "One or more" was already only approximately true — TICKET-RACE-02 bounded it at two and left zero legal — and the v4.0 ticket-review ruling of 2026-08-29 (*"as many races as the ruleset says"*) makes the number the ruleset's rather than the app's
 3. THE Application SHALL allow Players to allocate points to Main_Skills according to User-defined rules
 4. ~~THE Application SHALL allow Players to select a Focus_Stat~~ — **RETIRED (TICKET-ARC-03)**, and replaced by the wizard's archetype step; see Requirement 9
 5. THE Application SHALL calculate all derived Stats, Speciality_Skills, and Combat_Skills automatically

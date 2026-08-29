@@ -111,6 +111,12 @@ interface SampleCharacterOptions {
  * `createCharacter` refuses an allocation the ruleset cannot afford or price, so a character coming
  * back at all is already an assertion — the sample spends nothing, which every budget allows.
  *
+ * **A pure-blood, written as the sheet writes one since TICKET-RACE-04**: the same race in both of
+ * the corpus's slots, rather than one race and an empty second. That is not a workaround for the
+ * exact-count rule, it is the sheet's own answer — `Setup` A7:B9 has the sample character down as
+ * Ducklets in both rows — and every number below is unchanged by it, because a blend of one block
+ * with itself is that block.
+ *
  * **Deliberately archetype-less since TICKET-ARC-04.** The suite installs the sheet's *whole*
  * confirmed stat line as a race stat block, because the export does not say how that line splits
  * between race base and point-buy spend (see the README). Tagging the character with an archetype
@@ -131,7 +137,7 @@ function buildSampleCharacter(
   const character = useCharacterStore.getState().createCharacter(
     {
       name: 'Bickuss Dickuss',
-      raceIds: options.raceIds ?? [SAMPLE_RACE_ID],
+      raceIds: options.raceIds ?? [SAMPLE_RACE_ID, SAMPLE_RACE_ID],
       investedStatPoints: options.investedStatPoints ?? {},
       investedSkillPoints: options.investedSkillPoints ?? {},
     },
@@ -313,10 +319,9 @@ describe('golden fixtures — the sheet’s confirmed derivations', () => {
   describe('six-core-only stat totals (Concept 01)', () => {
     it.each(raceTotalFixtures)('$name', (fixture) => {
       const raceId = idOf(config.races, fixture.raceName, 'race');
-      const calculated = calculateCharacter(
-        buildSampleCharacter(config, { raceIds: [raceId] }),
-        config
-      );
+      // The race twice: a pure-blood of it, which blends to its own block (TICKET-RACE-04)
+      const character = buildSampleCharacter(config, { raceIds: [raceId, raceId] });
+      const calculated = calculateCharacter(character, config);
 
       expect(calculated.statTotal, describeCitation(fixture.citation)).toBe(fixture.expected);
     });

@@ -26,8 +26,8 @@
  */
 
 import { calculateCharacter } from '../engine/calculator';
-import { MAX_RACE_COUNT } from '../engine/calculators/statCalculator';
 import { asNumber } from '../engine/formula/errors';
+import { racesRequired } from '../engine/races';
 import { type StatAllocationResult, validateStatAllocation } from '../engine/skillAllocation';
 import type { Character, CharacterCreationData } from '../types/character';
 import type { Configuration } from '../types/config';
@@ -122,9 +122,12 @@ function seedResources(character: Character, config: Configuration): Record<stri
  *
  * Three rules, and they are the three the wizard enforces:
  *
- * - **A blend is at most {@link MAX_RACE_COUNT}.** Past that the sheet's hybrid has no meaning.
- *   There is deliberately **no lower bound**: a ruleset may define no races at all, and a raceless
- *   character is a coherent state the sheet has an empty state for (v1.0 Req 11.2).
+ * - **A blend is exactly what the ruleset's {@link racesRequired} says** (TICKET-RACE-04), and the
+ *   refusal names the number so a Player who sent three to a two-slot ruleset is told which rule
+ *   they broke. Exactly, not at most: `Empty` — the old sheet's no-race placeholder — is retired,
+ *   and a pure-blood is **the same race picked in every slot**, which the blend already returns
+ *   unchanged. The lower bound is no longer open, and it does not have to be: a ruleset that offers
+ *   no races requires none, which is where v1.0 Req 11.2's raceless character now lives.
  * - **An archetype is required when the ruleset defines any**, and refused when it does not name
  *   one this ruleset has. A ruleset with no archetypes leaves the field empty, the same way
  *   TICKET-ARC-03 kept it optional on the type.
@@ -146,8 +149,10 @@ export function characterCreationErrors(
 
   if (data.name.trim() === '') errors.push('A character needs a name.');
 
-  if (data.raceIds.length > MAX_RACE_COUNT) {
-    errors.push(`A character is a blend of at most ${MAX_RACE_COUNT} races.`);
+  const required = racesRequired(config);
+
+  if (data.raceIds.length !== required) {
+    errors.push(`A character in this ruleset is a blend of exactly ${required} races.`);
   }
 
   for (const raceId of data.raceIds) {

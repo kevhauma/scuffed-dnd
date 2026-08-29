@@ -35,6 +35,7 @@ import { evaluateFormulaString } from '../formula/evaluator';
 import { roundAwayFromZero } from '../formula/functions';
 import type { NamespaceSource } from '../formula/namespaces';
 import { namespacesFor } from '../formula/namespaces';
+import { raceCount } from '../races';
 import { affinityFor, statGain } from './pointBuy';
 
 /** What the composition needs beyond the stats themselves */
@@ -51,18 +52,8 @@ export interface StatCompositionOptions {
   pointBuy?: Curve;
 }
 
-/**
- * How many races a character's base can be blended from (Concept 04, TICKET-RACE-02)
- *
- * The sheet's hybrid is a two-creature blend, so two is what the arithmetic is defined over. The
- * rule is enforced where a character is written — `characterStore`'s create and update — and in
- * the wizard's race step; this constant is the one place the number is stated.
- */
-export const MAX_RACE_COUNT = 2;
-
-/** The constant the blend divides by, and what it is worth when the ruleset does not define it */
+/** The constant the blend divides by */
 const RACE_BLEND_DIVISOR_NAME = 'race_blend_divisor';
-const DEFAULT_RACE_BLEND_DIVISOR = 2;
 
 /**
  * What a blend that supplies nothing supplies instead — the sheet's `MAX(1, …)` (TICKET-RACE-03)
@@ -102,7 +93,7 @@ function withBlendFloor(value: number): number {
 }
 
 /**
- * The ruleset's blend divisor, or the seeded 2
+ * The ruleset's blend divisor, defaulting to how many races the ruleset blends
  *
  * The **first** engine code to read a constant by name rather than through `const.*` in a User
  * formula: the blend is system arithmetic (Concept 04), not something the User writes, so there is
@@ -115,14 +106,33 @@ function withBlendFloor(value: number): number {
  *
  * A zero, negative or non-finite divisor would turn every base into `Infinity` or `NaN`, which is
  * a worse answer than the seed (TICKET-FORM-07's rule, applied outside the evaluator).
+ *
+ * ## The divisor defaults to the count, and stays a dial (TICKET-RACE-04)
+ *
+ * The ticket asked which of the two the divisor should be, and this is the answer: **an independent
+ * constant whose default is `race_count`.** The seeded `2` it used to fall back to was only ever the
+ * count wearing another name — the sheet divides by two because it blends two — and hard-coding it
+ * meant a ruleset that raised the count to three got a blend that inflated every base by half, for no
+ * reason it could see. Defaulting to the count keeps the property the whole model rests on true at
+ * any count: **picking the same race in every slot changes nothing**, which is what a pure-blood is.
+ *
+ * Nothing about the sheet's ruleset moves — a count of 2 defaults the divisor to 2, exactly as
+ * before. And the dial itself is untouched, which is the half worth keeping: a three-race ruleset
+ * that wants its parents *summed* rather than averaged writes `race_blend_divisor` 1 and gets it.
+ *
+ * **The unstated consequence, stated: raising `race_count` re-values every existing character.** A
+ * stored two-pick blend that divided by 2 divides by 3 the moment the ruleset says three, because
+ * the divisor followed the count — and lowering it truncates the picks the blend reads. That is the
+ * ruleset being the authority working as designed (`race_blend_divisor` and `bonus_divider` have
+ * always had it), but the count is the first dial that moves what a character *is* rather than what
+ * a number is worth, and a User turning it mid-campaign should be told rather than surprised.
+ *
+ * @param constants The ruleset's constants; absent is the same as none
+ * @param count The ruleset's race count, already read by the caller
+ * @returns The divisor to blend by
  */
-function raceBlendDivisor(constants: Constant[] = []): number {
-  return namedConstant(
-    constants,
-    RACE_BLEND_DIVISOR_NAME,
-    DEFAULT_RACE_BLEND_DIVISOR,
-    (value) => value > 0
-  );
+function raceBlendDivisor(constants: Constant[] | undefined, count: number): number {
+  return namedConstant(constants, RACE_BLEND_DIVISOR_NAME, count, (value) => value > 0);
 }
 
 /**
@@ -135,12 +145,12 @@ function raceBlendDivisor(constants: Constant[] = []): number {
  * Not a sum — TICKET-RACE-02 replaced v1's additive stacking with the sheet's hybrid:
  *
  * - **no races** — nothing, so every base is 0;
- * - **one race** — its block. The sheet writes a single-race character as a blend of the
- *   same race twice, which for the seeded divisor of 2 is the race itself; taking it as identity
- *   keeps that true for *any* divisor rather than only for 2. {@link withBlendFloor} still applies,
- *   because it has to: without it "picking the same race twice changes nothing" would stop being
- *   true the moment a block carried an explicit 0;
- * - **two races** — `max(1, roundup((a + b) / const.race_blend_divisor))` per stat, rounding away
+ * - **one race** — its block. A lone block is itself, whatever the ruleset's count and divisor:
+ *   that is the answer for a `race_count` of 1, for the wizard's half-made pick, and for a roster
+ *   written before the count was ruleset data. {@link withBlendFloor} still applies, because it has
+ *   to: without it "picking the same race twice changes nothing" would stop being true the moment a
+ *   block carried an explicit 0;
+ * - **two or more** — `max(1, roundup(Σ / const.race_blend_divisor))` per stat, rounding away
  *   from zero exactly as a User formula spelling `roundup` would, then floored the way the workbook
  *   floors it (TICKET-RACE-03). A stat absent from one block counts as 0 in
  *   the blend, which is the whole point of picking a race that lacks it.
@@ -153,20 +163,30 @@ function raceBlendDivisor(constants: Constant[] = []): number {
  * call sites display; it is a reshape of what a blend *is* rather than one engine term, and is
  * recorded on TICKET-RACE-03 as such.
  *
- * Picking the same race twice therefore changes nothing, and beyond {@link MAX_RACE_COUNT} the
- * blend has no meaning: a third race is refused where characters are written, and is ignored here
- * rather than distorting the divisor if it reaches the engine through hand-edited data.
+ * Picking the same race in every slot therefore changes nothing, and past the ruleset's own
+ * `race_count` the blend has no meaning: an over-long pick is refused where characters are written,
+ * and truncated here rather than distorting the divisor. **The count is read from the ruleset, not
+ * held here** (TICKET-RACE-04) — this function and the creation rules ask {@link raceCount} the same
+ * question and cannot drift.
  *
- * @param races - The character's races
- * @param constants - The ruleset's constants, for the blend divisor; absent uses the seeded 2
+ * The truncation is **a defence rather than the truncation that matters**: every caller that starts
+ * from a `Character` resolves its picks through `engine/races.ts`'s `resolveRaces`, which caps the
+ * list before anything sees it, so what the sheet *names* and what this blends are one list. This
+ * slice only catches a caller handing over a bare array — a test, or a future surface that builds
+ * races some other way.
+ *
+ * @param races - The character's races, in pick order and duplicates included
+ * @param constants - The ruleset's constants, for the count and the blend divisor
  * @returns Record of stat id to the base value the races supply
  */
 export function calculateRaceStatBases(
   races: Race[],
   constants: Constant[] = []
 ): Record<string, number> {
-  const blended = races.slice(0, MAX_RACE_COUNT);
+  const count = raceCount(constants);
+  const blended = races.slice(0, count);
 
+  // A count of 0 lands here, which is also what keeps the divisor below from ever seeing that 0
   const [only] = blended;
   if (only === undefined) return {};
 
@@ -176,7 +196,7 @@ export function calculateRaceStatBases(
     return Object.fromEntries(floored);
   }
 
-  const divisor = raceBlendDivisor(constants);
+  const divisor = raceBlendDivisor(constants, count);
   const bases: Record<string, number> = {};
   const mentioned = blended.flatMap((race) => Object.keys(race.statValues));
 

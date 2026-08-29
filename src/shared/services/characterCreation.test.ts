@@ -14,6 +14,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { calculateCharacter } from '../engine/calculator';
+import { RACE_COUNT_NAME } from '../engine/races';
 import type { CharacterCreationData } from '../types/character';
 import type { Configuration } from '../types/config';
 import { buildCharacter, characterCreationErrors } from './characterCreation';
@@ -131,29 +133,110 @@ describe('characterCreationErrors', () => {
     expect(characterCreationErrors(choices({ name: '   ' }), ruleset())[0]).toMatch(/name/i);
   });
 
-  it('refuses more races than a character can blend', () => {
-    const config = ruleset({
-      races: [
-        { id: 'a', name: 'A', description: '', statValues: {} },
-        { id: 'b', name: 'B', description: '', statValues: {} },
-        { id: 'c', name: 'C', description: '', statValues: {} },
-      ],
+  describe('the ruleset’s race count (TICKET-RACE-04)', () => {
+    /** Three races to pick from, and whatever count the case wants */
+    function withRaces(count?: number): Configuration {
+      const constants =
+        count === undefined
+          ? []
+          : [
+              {
+                id: 'const-race-count',
+                name: RACE_COUNT_NAME,
+                displayName: 'Races per character',
+                description: '',
+                value: count,
+              },
+            ];
+
+      return ruleset({
+        races: [
+          { id: 'a', name: 'A', description: '', statValues: { str: 10 } },
+          { id: 'b', name: 'B', description: '', statValues: { str: 12 } },
+          { id: 'c', name: 'C', description: '', statValues: { str: 4 } },
+        ],
+        constants,
+      });
+    }
+
+    /** What this ruleset says about a set of picks — the call every case below makes */
+    function verdictOn(raceIds: string[], config: Configuration): string[] {
+      const picks = choices({ raceIds });
+
+      return characterCreationErrors(picks, config);
+    }
+
+    it('refuses more races than the ruleset asks for, naming the count', () => {
+      const refusal = verdictOn(['a', 'b', 'c'], withRaces());
+
+      expect(refusal[0]).toMatch(/blend of exactly 2 races/i);
     });
 
-    expect(characterCreationErrors(choices({ raceIds: ['a', 'b', 'c'] }), config)[0]).toMatch(
-      /blend/i
-    );
-  });
+    it('refuses fewer races than the ruleset asks for, naming the same count', () => {
+      // The half that used to be legal: *at most two* accepted one, and `Empty` was how a
+      // single-parent character was written. Exactly two is the rule now.
+      const short = verdictOn(['a'], withRaces());
+      const empty = verdictOn([], withRaces());
 
-  it('accepts a raceless character, because a ruleset may define none', () => {
-    // v1.0 Req 11.2 — requiring one would make such a ruleset unusable
-    expect(characterCreationErrors(choices({ raceIds: [] }), ruleset())).toEqual([]);
-  });
+      expect(short[0]).toMatch(/blend of exactly 2 races/i);
+      expect(empty[0]).toMatch(/blend of exactly 2 races/i);
+    });
 
-  it('refuses a race the ruleset does not have', () => {
-    expect(characterCreationErrors(choices({ raceIds: ['ghost'] }), ruleset())[0]).toMatch(
-      /not a race/i
-    );
+    it('accepts the same race in every slot — a pure-blood, which is what replaced `Empty`', () => {
+      const verdict = verdictOn(['a', 'a'], withRaces());
+
+      expect(verdict).toEqual([]);
+    });
+
+    it('reads an absent race_count as 2, the sheet’s own answer', () => {
+      const noConstant = withRaces();
+      const pair = verdictOn(['a', 'b'], noConstant);
+      const single = verdictOn(['a'], noConstant);
+
+      expect(noConstant.constants).toEqual([]);
+      expect(pair).toEqual([]);
+      expect(single).not.toEqual([]);
+    });
+
+    it('takes the count from the ruleset at 1 and at 4', () => {
+      const asksForOne = withRaces(1);
+      const asksForFour = withRaces(4);
+
+      expect(verdictOn(['a'], asksForOne)).toEqual([]);
+      expect(verdictOn(['a', 'b'], asksForOne)).not.toEqual([]);
+
+      expect(verdictOn(['a', 'b', 'c', 'a'], asksForFour)).toEqual([]);
+      expect(verdictOn(['a', 'b'], asksForFour)[0]).toMatch(/exactly 4 races/i);
+    });
+
+    it('asks for none from a ruleset that defines no races', () => {
+      // v1.0 Req 11.2's raceless character, which is where it lives now: a fresh ruleset starts
+      // with an empty race list, and demanding two picks from it would make one unplayable
+      const raceless = ruleset();
+
+      expect(verdictOn([], raceless)).toEqual([]);
+      expect(verdictOn(['ghost'], raceless)).not.toEqual([]);
+    });
+
+    it('refuses a race the ruleset does not have', () => {
+      const refusal = verdictOn(['a', 'ghost'], withRaces());
+      const said = refusal.join(' ');
+
+      expect(said).toMatch(/not a race/i);
+    });
+
+    it('leaves a stored character whose count no longer matches readable, refusing only the write', () => {
+      // The clean break's honest edge (overview D6): a roster written when *at most two* was the
+      // rule holds one-race characters, and nothing about this ticket makes one unreadable — the
+      // blend is defined for a lone block, so the sheet still prices it. What is refused is
+      // *creating* another, which is what a rule about new characters ought to mean.
+      const config = withRaces();
+      const picks = choices({ raceIds: ['a'] });
+      const stored = buildCharacter(picks, config, IDENTITY);
+
+      expect(() => calculateCharacter(stored, config)).not.toThrow();
+      expect(verdictOn(['a'], config)).not.toEqual([]);
+    });
   });
 
   it('requires an archetype only when the ruleset defines any', () => {

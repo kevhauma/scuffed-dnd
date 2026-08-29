@@ -201,10 +201,12 @@ describe('persistence round trip', () => {
     const config = createConfig();
     useConfigStore.getState().replaceConfig(config);
 
+    // Both of the ruleset's slots, since a character carries exactly `const.race_count` of them
+    // (TICKET-RACE-04) — absent here, so the reader's seeded 2
     const created = useCharacterStore.getState().createCharacter(
       {
         name: 'Aria',
-        raceIds: ['elf'],
+        raceIds: ['elf', 'human'],
         investedStatPoints: { STR: 6, DEX: 4 },
         investedSkillPoints: { STL: 3 },
       },
@@ -228,7 +230,7 @@ describe('persistence round trip', () => {
     useCharacterStore.getState().createCharacter(
       {
         name: 'Aria',
-        raceIds: [],
+        raceIds: ['elf', 'human'],
         investedStatPoints: { STR: 5, DEX: 0 },
         investedSkillPoints: {},
       },
@@ -293,7 +295,8 @@ describe('local mode, with the network unavailable (TICKET-CHAR-04, v3 Req 40.0)
       LOCAL_SOURCE,
       {
         name: 'Offline Ducklet',
-        raceIds: [],
+        // A pure-blood: the same race in both of the ruleset's slots (TICKET-RACE-04)
+        raceIds: ['elf', 'elf'],
         investedStatPoints: { STR: 1 },
         investedSkillPoints: {},
       },
@@ -318,13 +321,16 @@ describe('local mode, with the network unavailable (TICKET-CHAR-04, v3 Req 40.0)
   it('should survive a reload without asking anything of the network', async () => {
     const config = createConfig();
     useConfigStore.setState({ config, isLoaded: true });
-    await useCharacterStore
-      .getState()
-      .createCharacterHere(
-        LOCAL_SOURCE,
-        { name: 'Offline Ducklet', raceIds: [], investedStatPoints: {}, investedSkillPoints: {} },
-        config
-      );
+    await useCharacterStore.getState().createCharacterHere(
+      LOCAL_SOURCE,
+      {
+        name: 'Offline Ducklet',
+        raceIds: ['elf', 'elf'],
+        investedStatPoints: {},
+        investedSkillPoints: {},
+      },
+      config
+    );
 
     useCharacterStore.setState({ characters: [], isLoaded: false });
     useCharacterStore.getState().loadCharacters();

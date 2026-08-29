@@ -359,17 +359,35 @@ and the message names the offending key. If you add a third kind of collection, 
 and widen that union — do not delete the guard.
 
 Race blocks are the composition's **`base` term** and they **blend, never stack** (TICKET-RACE-02):
-one race is its own block, two are `roundup((a + b) / const.race_blend_divisor)` per stat, and a
+one race is its own block, more are `roundup(Σ / const.race_blend_divisor)` per stat, and a
 stat one block omits is a real 0 in that average. **Since TICKET-RACE-03 the sheet's `MAX(1, …)`
 floor applies to both**: a blend that comes to *nothing* reads 1 rather than 0. It is deliberately
 narrower than the workbook's literal `MAX(1, …)` — a negative pairing is left alone, because the app
 lets a ruleset write a negative block and the sheet has no negative row to say otherwise — and it
 reaches only the stats the blocks *mention*, since a block prunes its zeros and a stat neither race
-names is absent from the map entirely. `Character.raceIds` therefore holds **at most 2**
-— `createCharacter` returns `null` and `updateCharacter` no-ops past that, and `MAX_RACE_COUNT` in
-[statCalculator.ts](../../../src/shared/engine/calculators/statCalculator.ts) is the one place the number
-is written. Never re-derive a race contribution in a component: call `calculateRaceStatBases`, the
-same function the composition calls.
+names is absent from the map entirely. Never re-derive a race contribution in a component: call
+`calculateRaceStatBases`, the same function the composition calls.
+
+**How many races a character has is the ruleset's, not the engine's** (TICKET-RACE-04).
+`Character.raceIds` holds **exactly `const.race_count`** of them, duplicates legal — the same race
+in every slot is a pure-blood, which is what retired the old `Empty` placeholder row. The number
+lives in exactly one module,
+[engine/races.ts](../../../src/shared/engine/races.ts): `raceCount(constants)` is the dial (absent or
+unusable means the sheet's **2**, the reader's rule — nothing is backfilled and no schema bump is
+owed), `racesRequired(config)` is the creation rule's number with its one stated exception (**a
+ruleset that offers no races requires none**, which is where v1.0 Req 11.2's raceless character
+lives), and `resolveRaces(config, raceIds)` turns picks into blocks **in pick order, duplicates kept,
+capped at the count** — never `config.races.filter(r => raceIds.includes(r.id))`, which collapses a
+pure-blood to one block. **Resolve through it rather than capping anywhere else**: the count is a
+dial a User can lower under a character created at the old one, and the cap living in the resolver is
+what stops a sheet naming three lineages while it blends two.
+`const.race_blend_divisor` **defaults to the count** and stays an independent dial, so a
+3-race ruleset averages by default and can still be told to sum — which also means **turning the dial
+re-values stored characters**, and nothing warns about that yet. `characterCreationErrors` refuses
+any other length naming the count, on both sides; `CharacterPatch` no longer carries `raceIds`,
+because a patch has no ruleset to count against. The one deliberate non-caller is
+`useCharacterListManager`, which names every id a character holds (`Unknown race` where the ruleset
+cannot answer) precisely so a stale roster looks stale.
 
 **`schemaVersion` is the clean break** (TICKET-STAT-01, TICKET-IO-03). v1 files have no such key,
 which is exactly how they are recognised. The number itself lives in

@@ -189,7 +189,9 @@ describe('CharacterStore', () => {
     it('should create a new character and save to storage', () => {
       const creationData: CharacterCreationData = {
         name: 'New Character',
-        raceIds: ['race-1'],
+        // This fixture defines no races, so the ruleset asks for none (TICKET-RACE-04) — the count
+        // rule has its own block below, on a ruleset that has some
+        raceIds: [],
         investedStatPoints: { STR: 10, DEX: 8 },
         archetypeId: 'strong',
         investedSkillPoints: { SWD: 5 },
@@ -198,7 +200,7 @@ describe('CharacterStore', () => {
       const character = createOrFail(creationData, testConfig);
 
       expect(character.name).toBe('New Character');
-      expect(character.raceIds).toEqual(['race-1']);
+      expect(character.raceIds).toEqual([]);
       expect(character.investedStatPoints).toEqual({ STR: 10, DEX: 8 });
       expect(character.archetypeId).toBe('strong');
       expect(character.configurationId).toBe('config-1');
@@ -326,24 +328,33 @@ describe('CharacterStore', () => {
       expect(character.currentResourceValues.mana).toBeUndefined();
     });
 
-    it('should refuse a third race, storing nothing (TICKET-RACE-02)', () => {
-      // The blend is defined over two; a third has no base to compute, so the write is refused
-      // rather than a character being stored that the composition cannot answer for
-      const creationData: CharacterCreationData = {
-        name: 'Chimera',
-        raceIds: ['race-1', 'race-2', 'race-3'],
-        investedStatPoints: {},
-        investedSkillPoints: {},
-      };
+    describe('the ruleset’s race count (TICKET-RACE-04)', () => {
+      /** The same ruleset with three races, and a `race_count` when the case names one */
+      function withRaces(count?: number): Configuration {
+        const raceCountConstant =
+          count === undefined
+            ? []
+            : [
+                {
+                  id: 'const-race-count',
+                  name: 'race_count',
+                  displayName: 'Races per character',
+                  description: '',
+                  value: count,
+                },
+              ];
 
-      const character = useCharacterStore.getState().createCharacter(creationData, testConfig);
+        return {
+          ...testConfig,
+          races: [
+            { id: 'race-1', name: 'One', description: '', statValues: {} },
+            { id: 'race-2', name: 'Two', description: '', statValues: {} },
+            { id: 'race-3', name: 'Three', description: '', statValues: {} },
+          ],
+          constants: [...(testConfig.constants ?? []), ...raceCountConstant],
+        };
+      }
 
-      expect(character).toBeNull();
-      expect(useCharacterStore.getState().characters).toHaveLength(0);
-      expect(storage.saveCharacters).not.toHaveBeenCalled();
-    });
-
-    it('should accept none, one or two races', () => {
       const forRaces = (raceIds: string[]): CharacterCreationData => ({
         name: raceIds.join('-') || 'raceless',
         raceIds,
@@ -351,13 +362,50 @@ describe('CharacterStore', () => {
         investedSkillPoints: {},
       });
 
-      // Zero stays legal: a ruleset may define no races at all (Requirement 11.2)
-      expect(createOrFail(forRaces([]), testConfig).raceIds).toEqual([]);
-      expect(createOrFail(forRaces(['race-1']), testConfig).raceIds).toEqual(['race-1']);
-      expect(createOrFail(forRaces(['race-1', 'race-2']), testConfig).raceIds).toEqual([
-        'race-1',
-        'race-2',
-      ]);
+      it('should store exactly the count the ruleset states, duplicates included', () => {
+        const config = withRaces();
+
+        const mixed = forRaces(['race-1', 'race-2']);
+        const created = createOrFail(mixed, config);
+        expect(created.raceIds).toEqual(['race-1', 'race-2']);
+
+        // The pure-blood that replaced `Empty` — the same race in both slots
+        const pureBlood = forRaces(['race-1', 'race-1']);
+        const bred = createOrFail(pureBlood, config);
+        expect(bred.raceIds).toEqual(['race-1', 'race-1']);
+      });
+
+      it('should refuse a short pick and a long one alike, storing nothing', () => {
+        const config = withRaces();
+        const store = useCharacterStore.getState();
+
+        const short = store.createCharacter(forRaces(['race-1']), config);
+        const long = store.createCharacter(forRaces(['race-1', 'race-2', 'race-3']), config);
+
+        expect(short).toBeNull();
+        expect(long).toBeNull();
+        expect(useCharacterStore.getState().characters).toHaveLength(0);
+        expect(storage.saveCharacters).not.toHaveBeenCalled();
+      });
+
+      it('should follow the ruleset’s dial rather than the seeded 2', () => {
+        const single = forRaces(['race-1']);
+        const atOne = createOrFail(single, withRaces(1));
+        expect(atOne.raceIds).toEqual(['race-1']);
+
+        const quad = forRaces(['race-1', 'race-2', 'race-3', 'race-1']);
+        const atFour = createOrFail(quad, withRaces(4));
+        expect(atFour.raceIds).toHaveLength(4);
+      });
+
+      it('should ask for none from a ruleset that defines no races', () => {
+        // Requirement 11.2's raceless character: `testConfig` has an empty race list, which is
+        // where a fresh ruleset starts
+        const raceless = forRaces([]);
+        const created = createOrFail(raceless, testConfig);
+
+        expect(created.raceIds).toEqual([]);
+      });
     });
   });
 
@@ -387,32 +435,6 @@ describe('CharacterStore', () => {
       expect(storage.saveCharacters).toHaveBeenCalled();
     });
 
-    it('should refuse a patch that would give a character a third race (TICKET-RACE-02)', () => {
-      const character: Character = {
-        id: 'char-1',
-        name: 'Hybrid',
-        configurationId: 'config-1',
-        raceIds: ['race-1', 'race-2'],
-        investedStatPoints: {},
-        investedSkillPoints: {},
-        currentResourceValues: {},
-        experience: 0,
-        inventory: { equippedItems: {}, miscItems: [] },
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z',
-      };
-
-      useCharacterStore.setState({ characters: [character], isLoaded: true });
-
-      useCharacterStore
-        .getState()
-        .updateCharacter('char-1', { raceIds: ['race-1', 'race-2', 'race-3'] });
-
-      // Nothing moved — not the races, and not the rest of the patch either
-      expect(useCharacterStore.getState().characters[0]).toEqual(character);
-      expect(storage.saveCharacters).not.toHaveBeenCalled();
-    });
-
     it('should not accept the fields a guarded action owns (CR-12)', () => {
       const update = useCharacterStore.getState().updateCharacter;
 
@@ -427,6 +449,9 @@ describe('CharacterStore', () => {
       update('char-1', { id: 'someone-else' });
       // @ts-expect-error — identity, not content
       update('char-1', { configurationId: 'another-ruleset' });
+      // @ts-expect-error — a patch carries no ruleset, and races are exactly `const.race_count`
+      // of them since TICKET-RACE-04; a re-pick needs an action that takes the ruleset
+      update('char-1', { raceIds: ['race-1', 'race-2', 'race-3'] });
 
       // And the point of the type: nothing above reached the store
       expect(useCharacterStore.getState().characters).toEqual([]);
