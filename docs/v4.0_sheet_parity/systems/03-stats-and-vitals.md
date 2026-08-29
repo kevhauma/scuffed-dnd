@@ -48,10 +48,11 @@ The calculation tab (R2:AA11) assembles a final stat as
 
 ## Parity gap
 
-1. **Stat grouping** — the sheet's Physical/Mental/Vitals is presentation with one mechanical
-   shadow (only Vitals carry Temp). Model as an optional `Stat.group?: string` (User-named, not a
-   closed set — it is their ruleset) or as sheet-layout metadata; the ticket decides, but the
-   character sheet renders three columns either way. Additive-optional.
+1. **Stat grouping** — ~~the ticket decides~~ **built by TICKET-STAT-04** as an optional
+   `Stat.group?: string`, User-named and validated against nothing, with the character sheet
+   drawing one column per distinct value present. Additive-optional, so no schema bump. A group
+   spanning the app's pool/stat split (the sheet's *Vitals* does) draws a column in each section —
+   see the ticket's Notes.
 2. **The Temp column is not built at all** (User ruling, 2026-08-29: it means *nothing*). No
    `tempStatValues`, no third box on the sheet, no rendering of the column. It stays in this
    document as a record of what the workbook draws, and `currentResourceValues` remains the only
@@ -69,10 +70,11 @@ server-side.
 
 ## Open questions
 
-- **May a fractional final stat reach the sheet?** The workbook allows it (no rounding on the
-  final SUM); the app displays whatever the engine returns. Decide in the ticket whether to mirror
-  exactly or surface the ruleset's `rounding` mode — mirroring exactly is the default (the sheet
-  wins). Live now that a sub-affinity stat gains `+dreamLevel` and `main(0)` is 0.75.
+- ~~**May a fractional final stat reach the sheet?**~~ **Settled by TICKET-STAT-04: mirror the
+  sheet exactly.** The workbook applies no rounding to the final SUM, and the app displays whatever
+  the engine returns — the ruleset's per-stat `rounding` mode stays the one place a fraction is
+  deliberately removed, and no display surface adds a second one. Live now that a sub-affinity stat
+  gains `+dreamLevel` and `main(0)` is 0.75; ARC-04 meets a sheet that already prints a fraction.
 
 *(Settled by User ruling, 2026-08-29: the Temp box means nothing and is not modelled; Speed does
 not become a resource.)*

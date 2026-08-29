@@ -553,6 +553,9 @@ const ENTITY_SPECS: Record<CollectionKey, EntitySpec> = {
       order: must(isNumber, 'must be a number'),
       countsTowardTotal: must(isFlag, 'must be a boolean'),
       isResource: must(isFlag, 'must be a boolean'),
+      // Which sheet column the stat is listed under (TICKET-STAT-04). Absent is ungrouped, and the
+      // string itself is checked for nothing beyond being one — the groups are the User's names
+      group: mayBe(isText, 'must be a string when present'),
       // Absent is the invested case; present makes the stat derived
       formula: mayBe(isText, 'must be a string when present'),
       rounding: oneOf(['none', 'nearest', 'up', 'down'], 'must be one of: none, nearest, up, down'),

@@ -106,6 +106,11 @@ export interface StatBreakdown {
   id: string;
   name: string;
   abbreviation: string;
+  /**
+   * Which column of the sheet this stat is listed under, or undefined when the ruleset grouped it
+   * nowhere (TICKET-STAT-04). Presentation only — `statGroups.ts` is its only reader.
+   */
+  group?: string;
   isResource: boolean;
   /** Whether the value comes from a formula rather than from points the Player spent */
   isDerived: boolean;
@@ -362,6 +367,8 @@ function buildView(
         id: stat.id,
         name: stat.name,
         abbreviation: stat.abbreviation,
+        // Carried straight through — a group is the ruleset's own string and nothing interprets it
+        group: stat.group,
         isResource: stat.isResource,
         isDerived: stat.formula !== undefined,
         invested,

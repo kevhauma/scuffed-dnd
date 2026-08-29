@@ -370,6 +370,15 @@ and `rounding` (`none` | `nearest` | `up` | `down`, applied after the clamp — 
 re-applied after it, so a fractional bound wins over the rounding mode rather than being rounded
 past, CR-41).
 
+**Plus an optional `group`** (TICKET-STAT-04) — which column of the character sheet the stat is
+listed under, the source sheet's *Physical* / *Mental* / *Vitals*. Three things about it:
+**presentation only** (nothing derives from a group and no rule reads one — `statGroups.ts` is its
+only consumer); a **User-named free string** validated against nothing, like `Skill.category`, so
+two spellings of one word are two groups and that is the User's to fix; and **additive-optional**,
+so absent means ungrouped and it needed no schema bump of its own. A group total or a per-group cap
+would be a new decision, not an extension of the field. **`updateStat` clears it the way it clears
+`min`/`max`/`formula`** — through `mergeClearingAbsent`, so emptying the field deletes the key.
+
 Identity rules that the rest of the app depends on:
 
 - **Every referenceable entity carries a stable `id`.** Since TICKET-REF-01 that includes stats

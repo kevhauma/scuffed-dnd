@@ -6,7 +6,9 @@
  * Carries every field of the unified stat (TICKET-STAT-02): an empty `formula` means the stat is
  * **invested** rather than derived, which is why it is stripped rather than stored as an empty
  * string — the two are different stats, not different spellings of one. `min`/`max` are the same
- * shape: empty means unbounded and the key stays off the record.
+ * shape: empty means unbounded and the key stays off the record. **`group` is the third**
+ * (TICKET-STAT-04) — empty means ungrouped, and unlike the abbreviation it is validated against
+ * nothing at all: it is the User's own name for a column of their sheet.
  *
  * Two kinds of refusal live here, and they are not the same thing. A **refusal** stops the save:
  * a malformed or colliding abbreviation, a formula that will not compute. A **warning** does not:
@@ -50,6 +52,8 @@ export interface StatFormData {
   name: string;
   abbreviation: string;
   description: string;
+  /** Which sheet column the stat is listed under; empty means ungrouped (TICKET-STAT-04) */
+  group: string;
   formula: string;
   countsTowardTotal: boolean;
   isResource: boolean;
@@ -62,6 +66,7 @@ const EMPTY_FORM: StatFormData = {
   name: '',
   abbreviation: '',
   description: '',
+  group: '',
   formula: '',
   countsTowardTotal: true,
   isResource: false,
@@ -90,6 +95,42 @@ function boundValue(raw: string): number | undefined {
 
   const parsed = Number(trimmed);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/** A stat's optional half, in the two spellings the two store actions want */
+interface OptionalStatFields {
+  /** Explicit `undefined` for an empty field — an `updateStat` patch, so clearing one clears it */
+  patch: Pick<Stat, 'formula' | 'group' | 'min' | 'max'>;
+  /** The empty ones left out entirely — a new record, so a stat never carries an empty key */
+  present: Partial<Stat>;
+}
+
+/**
+ * Read the four fields where empty means absent, once
+ *
+ * `formula`, `group`, `min` and `max` share one rule — *absent rather than empty* — and the save
+ * needs it spelled twice, because `addStat` takes a whole record while `updateStat` takes a patch
+ * that must be able to *clear* a field the User just emptied. Spelling it here rather than inline
+ * keeps the save about refusal and collision (TICKET-STAT-04).
+ *
+ * @param data - The submitted form
+ * @returns The same four values as a clearing patch and as a present-only partial
+ */
+function optionalStatFields(data: StatFormData): OptionalStatFields {
+  const formula = data.formula.trim();
+  const group = data.group.trim();
+  const min = boundValue(data.min);
+  const max = boundValue(data.max);
+
+  const patch = { formula: formula || undefined, group: group || undefined, min, max };
+  const present: Partial<Stat> = {
+    ...(patch.formula !== undefined ? { formula: patch.formula } : {}),
+    ...(patch.group !== undefined ? { group: patch.group } : {}),
+    ...(min !== undefined ? { min } : {}),
+    ...(max !== undefined ? { max } : {}),
+  };
+
+  return { patch, present };
 }
 
 export function useStatManager() {
@@ -131,6 +172,8 @@ export function useStatManager() {
       name: stat.name,
       abbreviation: stat.abbreviation,
       description: stat.description,
+      // Absent stays empty, for the same reason the bounds do: ungrouped is not a group named ''
+      group: stat.group ?? '',
       formula: stat.formula ?? '',
       countsTowardTotal: stat.countsTowardTotal,
       isResource: stat.isResource,
@@ -244,18 +287,17 @@ export function useStatManager() {
 
     const id = dialog.editingId || crypto.randomUUID();
     const abbreviation = data.abbreviation.trim().toUpperCase();
-    const formula = data.formula.trim();
+    // The group is trimmed and otherwise untouched — the User's own spelling (TICKET-STAT-04)
+    const optional = optionalStatFields(data);
 
     // Refuses the save rather than persisting it (Req 16.5, 16.6)
-    const refusal = statFormError(id, abbreviation, formula);
+    const refusal = statFormError(id, abbreviation, optional.patch.formula ?? '');
     if (refusal) {
       form.setError(refusal.field, { type: 'validate', message: refusal.message });
       return;
     }
 
     const existing = currentStats.find((candidate) => candidate.id === dialog.editingId);
-    const min = boundValue(data.min);
-    const max = boundValue(data.max);
     const stat: Stat = {
       id,
       name: data.name,
@@ -264,19 +306,17 @@ export function useStatManager() {
       order: existing?.order ?? currentStats.length,
       countsTowardTotal: data.countsTowardTotal,
       isResource: data.isResource,
-      // Absent rather than empty: absence is what makes the stat invested
-      ...(formula ? { formula } : {}),
-      ...(min !== undefined ? { min } : {}),
-      ...(max !== undefined ? { max } : {}),
+      // Absence is what makes a stat invested, and what makes a group no group
+      ...optional.present,
       rounding: data.rounding,
     };
 
     // The store owns the uniqueness invariant and hands back its refusal (CR-17); the dialog stays
     // open with the message on the field that collided
     const collision = dialog.editingId
-      ? // Spelled out rather than merged: `formula` and the bounds are optional, and a shallow
-        // merge would keep a bound or a formula the User just cleared
-        updateStat(dialog.editingId, { ...stat, formula: formula || undefined, min, max })
+      ? // The clearing spelling rather than the record's: a shallow merge of `present` would keep a
+        // bound, a group or a formula the User just emptied
+        updateStat(dialog.editingId, { ...stat, ...optional.patch })
       : addStat(stat);
 
     if (collision) {

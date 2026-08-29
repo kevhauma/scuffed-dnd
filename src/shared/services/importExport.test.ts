@@ -711,6 +711,56 @@ describe('Import/Export Service', () => {
     });
   });
 
+  describe('stat groups (TICKET-STAT-04)', () => {
+    it('should round-trip a ruleset that names no groups unchanged', () => {
+      const exported = serializeConfiguration(validConfig);
+      const imported = importConfiguration(exported);
+
+      expect(imported.stats).toEqual(validConfig.stats);
+      // Additive-optional: an ungrouped ruleset gains no key, so it needs no version bump of its own
+      for (const stat of imported.stats) {
+        expect('group' in stat).toBe(false);
+      }
+    });
+
+    it('should round-trip the groups a ruleset does name', () => {
+      const grouped: Configuration = {
+        ...validConfig,
+        stats: validConfig.stats.map((stat) => ({ ...stat, group: 'Physical' })),
+      };
+
+      const exported = serializeConfiguration(grouped);
+      const imported = importConfiguration(exported);
+
+      expect(imported.stats.map((stat) => stat.group)).toEqual([
+        'Physical',
+        'Physical',
+        'Physical',
+      ]);
+    });
+
+    it('should accept any spelling of a group, because the names are the Users own', () => {
+      const odd: Configuration = {
+        ...validConfig,
+        stats: validConfig.stats.map((stat) => ({ ...stat, group: 'vittals ' })),
+      };
+
+      const result = validateConfigurationShape(odd);
+
+      expect(result.isValid).toBe(true);
+    });
+
+    it('should reject a group that is not a string at all', () => {
+      const [first, ...rest] = validConfig.stats;
+      const result = validateConfigurationShape({
+        ...validConfig,
+        stats: [{ ...first, group: 3 }, ...rest],
+      });
+
+      expect(result.errors).toContain('stats[0].group must be a string when present');
+    });
+  });
+
   describe('archetypes (TICKET-ARC-01)', () => {
     const strong = {
       id: 'strong',

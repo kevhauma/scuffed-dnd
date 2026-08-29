@@ -838,6 +838,12 @@ TICKET-RACE-01), `StatsSection` (one `SkillBreakdownRow` per stat in
 `order`, **plus** a `StatEditor` for each `isResource` stat and an `InvestedPointsEditor` for each
 non-derived one — the breakdown row owns the value and its error chip, the editor owns the current
 value, the points editor spends the level-derived pool; TICKET-STAT-03, TICKET-RES-02),
+**`statGroups.ts` + `StatGroupColumns`** (TICKET-STAT-04 — the sheet's *Physical* / *Mental* /
+*Vitals* columns: the pure mapper decides what the columns **are** from the distinct `Stat.group`
+values present, in the stats' own order, and the render-prop container **draws** them. Both
+`StatsSection` and `ResourcesSection` use the pair, so a group spanning the pool/stat split draws a
+column on each side; a ruleset naming no groups is one unlabelled column, which is the flat list
+the sheet has always shown. Reach for `groupStats` rather than re-deriving a column set),
 `SkillsSection` (one row per
 skill carrying **both** of Concept 02's numbers since TICKET-SKL-03 — the bonus as the row's total,
 the level in `SkillBreakdownRow`'s `secondary` slot — over a breakdown of `STR × 0.2 +2` terms plus

@@ -234,4 +234,57 @@ describe('useStatManager', () => {
       expect(result.current.warnings).toEqual([]);
     });
   });
+
+  describe('the group (TICKET-STAT-04)', () => {
+    it('should store the group the User typed, spelling and all', async () => {
+      const { result } = renderStatManager();
+
+      act(() => result.current.handleAdd());
+      act(() => result.current.form.setValue('group', '  Vitals  '));
+      await submit(result, { name: 'Mana', formula: '' });
+
+      const stats = useConfigStore.getState().config?.stats ?? [];
+      // Trimmed, and otherwise untouched — the app validates nothing about it
+      expect(stats.at(-1)?.group).toBe('Vitals');
+    });
+
+    it('should leave the key off a stat the User grouped nowhere', async () => {
+      const { result } = renderStatManager();
+
+      act(() => result.current.handleAdd());
+      await submit(result, { name: 'Luck', formula: '' });
+
+      const stats = useConfigStore.getState().config?.stats ?? [];
+      const saved = stats.at(-1);
+      const keys = Object.keys(saved ?? {});
+
+      expect(keys).not.toContain('group');
+    });
+
+    it('should load an existing group into the form and delete it when cleared', async () => {
+      useConfigStore.setState((state) => ({
+        config: state.config && {
+          ...state.config,
+          stats: state.config.stats.map((stat) =>
+            stat.id === 'STR' ? { ...stat, group: 'Physical' } : stat
+          ),
+        },
+      }));
+
+      const { result } = renderStatManager();
+
+      act(() => result.current.handleEdit('STR'));
+      expect(result.current.form.getValues('group')).toBe('Physical');
+
+      act(() => result.current.form.setValue('group', ''));
+      await submit(result, { name: 'Strength', formula: '', abbreviation: 'STR' });
+
+      const stats = useConfigStore.getState().config?.stats ?? [];
+      const strength = stats.find((stat) => stat.id === 'STR');
+      const keys = Object.keys(strength ?? {});
+
+      // Cleared means gone, not present-and-empty — the same rule the bounds follow
+      expect(keys).not.toContain('group');
+    });
+  });
 });

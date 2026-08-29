@@ -22,14 +22,21 @@
  * The **stat total** stays here even though a resource can count toward it, because it is the
  * ruleset's total over every stat rather than a total of the rows above it.
  *
+ * **The rows are laid out in the ruleset's own groups** (TICKET-STAT-04) — the source sheet keeps
+ * its stats under *Physical*, *Mental* and *Vitals*, and a ruleset that names groups gets a column
+ * per distinct name. One that names none is the flat list it has always been. The section itself
+ * names no group and lays no column out: `statGroups.ts` decides what the columns *are* and
+ * `StatGroupColumns` draws them, so this file still only knows how to draw a stat.
+ *
  * **Validates: Concept 01; Concept 06; Requirements 11.3, 13.4, 16.6, 21.1-21.5**
  */
 
-import { Fragment } from 'react';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 import { CountRow } from '../shared/CountRow';
 import type { PointBudgetView } from '../shared/pointBudgetView';
+import { StatGroupColumns } from './StatGroupColumns';
+import { groupStats } from './statGroups';
 import type { StatBreakdown } from './useCharacterSheet';
 
 export interface StatsSectionProps {
@@ -48,6 +55,8 @@ export function StatsSection({
   budget,
   onChangeInvestedPoints,
 }: StatsSectionProps) {
+  const groups = groupStats(stats);
+
   return (
     <Card className="p-6">
       {/* The pool itself is stated once, in the sheet header: it governs the controls here *and*
@@ -59,46 +68,50 @@ export function StatsSection({
       {stats.length === 0 ? (
         <Text variant="body-small-secondary">This ruleset defines no stats.</Text>
       ) : (
-        stats.map((stat) => (
-          <Fragment key={stat.id}>
-            <CountRow
-              name={stat.name}
-              code={stat.abbreviation}
-              total={stat.max}
-              invested={stat.invested}
-              // A derived stat takes no points, so it gets no controls at all rather than two
-              // permanently disabled ones
-              onAdjust={
-                stat.isDerived || !budget
-                  ? undefined
-                  : (points) => onChangeInvestedPoints(stat.id, points)
-              }
-              // An empty pool closes `+` but leaves `−` open — a point can always be taken back.
-              // A pool with no *number* closes both: the store refuses every write in that state,
-              // refunds included, so a live control would be a click that silently did nothing.
-              canSpend={(budget?.pointsRemaining.value ?? 0) > 0}
-              canAdjust={budget?.pointsRemaining.value !== null}
-              contributions={[
-                // The **gain** is the term, not the points: since TICKET-ARC-02 the archetype's
-                // affinity decides what a point buys, so `invested 15` against a total of 14 was
-                // the breakdown failing to add up. The label carries the price so the exchange
-                // rate is legible — `invested 15 → +12` — which is what a Player deciding where
-                // to spend actually needs.
-                //
-                // A derived stat takes no points, so a forced `invested +0` would only mislead;
-                // an invested one shows the zero, so "spent nothing" reads apart from "no such
-                // contribution"
-                {
-                  label: stat.invested === 0 ? 'invested' : `invested ${stat.invested} →`,
-                  value: stat.gain.value ?? 0,
-                  alwaysShow: !stat.isDerived,
-                },
-                { label: 'race', value: stat.race },
-                { label: 'equipment', value: stat.equipment },
-              ]}
-            />
-          </Fragment>
-        ))
+        <StatGroupColumns groups={groups}>
+          {(group) =>
+            group.stats.map((stat) => (
+              <CountRow
+                key={stat.id}
+                name={stat.name}
+                code={stat.abbreviation}
+                total={stat.max}
+                invested={stat.invested}
+                // A derived stat takes no points, so it gets no controls at all rather than two
+                // permanently disabled ones
+                onAdjust={
+                  stat.isDerived || !budget
+                    ? undefined
+                    : (points) => onChangeInvestedPoints(stat.id, points)
+                }
+                // An empty pool closes `+` but leaves `−` open — a point can always be taken
+                // back. A pool with no *number* closes both: the store refuses every write in
+                // that state, refunds included, so a live control would be a click that
+                // silently did nothing.
+                canSpend={(budget?.pointsRemaining.value ?? 0) > 0}
+                canAdjust={budget?.pointsRemaining.value !== null}
+                contributions={[
+                  // The **gain** is the term, not the points: since TICKET-ARC-02 the
+                  // archetype's affinity decides what a point buys, so `invested 15` against a
+                  // total of 14 was the breakdown failing to add up. The label carries the price
+                  // so the exchange rate is legible — `invested 15 → +12` — which is what a
+                  // Player deciding where to spend actually needs.
+                  //
+                  // A derived stat takes no points, so a forced `invested +0` would only
+                  // mislead; an invested one shows the zero, so "spent nothing" reads apart
+                  // from "no such contribution"
+                  {
+                    label: stat.invested === 0 ? 'invested' : `invested ${stat.invested} →`,
+                    value: stat.gain.value ?? 0,
+                    alwaysShow: !stat.isDerived,
+                  },
+                  { label: 'race', value: stat.race },
+                  { label: 'equipment', value: stat.equipment },
+                ]}
+              />
+            ))
+          }
+        </StatGroupColumns>
       )}
 
       <div className="flex items-baseline justify-between gap-4 pt-3 mt-3 border-t border-stone-200">

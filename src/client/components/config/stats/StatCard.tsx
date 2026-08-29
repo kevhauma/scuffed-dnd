@@ -42,6 +42,8 @@ export interface StatCardProps {
 function statBadges(stat: Stat): string[] {
   const badges = [stat.formula === undefined ? 'Invested' : 'Derived'];
 
+  // Which sheet column the stat lands in (TICKET-STAT-04); a stat in none simply has no badge
+  if (stat.group !== undefined) badges.push(`Group ${stat.group}`);
   if (stat.isResource) badges.push('Resource');
   if (stat.countsTowardTotal) badges.push('Counts toward total');
   if (stat.min !== undefined) badges.push(`Min ${stat.min}`);

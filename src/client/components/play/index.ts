@@ -46,5 +46,7 @@ export * from './sheet/SheetRefusalBanner';
 export * from './sheet/SheetStatusNotice';
 export * from './sheet/SkillsSection';
 export * from './sheet/StatEditor';
+export * from './sheet/StatGroupColumns';
 export * from './sheet/StatsSection';
+export * from './sheet/statGroups';
 export * from './sheet/useCharacterSheet';

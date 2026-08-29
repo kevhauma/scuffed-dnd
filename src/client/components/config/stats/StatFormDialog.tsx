@@ -89,6 +89,15 @@ export function StatFormDialog({
           {...register('description')}
         />
 
+        {/* Free text, checked against nothing (TICKET-STAT-04): the groups are the User's own
+            names for the columns of their sheet, so a misspelling is theirs to keep or fix */}
+        <FormField
+          label="Group"
+          placeholder="Vitals"
+          helperText="Which column of the character sheet this stat is listed under. Leave empty to keep it ungrouped."
+          {...register('group')}
+        />
+
         <div className="flex flex-col gap-2">
           <Checkbox
             label="Counts toward the character's stat total"

@@ -129,6 +129,13 @@ export type StatRounding = 'none' | 'nearest' | 'up' | 'down';
  * `id` is the identity (TICKET-REF-01) and everything else is renamable display data.
  * `abbreviation` is the flat spelling a formula uses (`STR + DEX`); `stats.<name-slug>` reaches
  * the same stat by the dotted route.
+ *
+ * **`APT` keeps its name, deliberately** (TICKET-STAT-04). The v4.0 workbook writes the derived
+ * actions-per-turn stat as *ATP*; the app does not follow it, and `const.apt_value` keeps its
+ * spelling with it. This is v4.0's **one** named exception to
+ * [D1](../../../docs/v4.0_sheet_parity/overview.md)'s *the sheet wins* rule — the sheet is mistaken
+ * there rather than idiosyncratic (ticket-review ruling, 2026-08-29) — and it is written here so
+ * nobody "fixes" the app's spelling back to the sheet's later.
  */
 export interface Stat {
   id: string; // Stable identity — assigned on creation, never shown, never reused
@@ -142,6 +149,19 @@ export interface Stat {
   countsTowardTotal: boolean;
   /** Whether the composed value is a **maximum** the character spends against (Mana, Health) */
   isResource: boolean;
+  /**
+   * Which of the sheet's stat groups this stat is listed under — `Physical`, `Mental`, `Vitals`
+   * (TICKET-STAT-04).
+   *
+   * **Presentation only.** Nothing derives from a group and no rule reads one: it decides which
+   * column of the character sheet the stat lands in, and that is the whole of it. A group total or
+   * a per-group cap would be a new decision, not an extension of this field.
+   *
+   * A **User-named free string**, validated against nothing — it is their ruleset, so a misspelling
+   * is theirs to keep or fix, exactly as `Skill.category` is. Absent means ungrouped, and a ruleset
+   * that names no groups renders the flat list it always has.
+   */
+  group?: string;
   /**
    * Makes the stat **derived**: its value is this expression rather than anything invested.
    *
