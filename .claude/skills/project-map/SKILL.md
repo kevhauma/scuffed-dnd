@@ -171,7 +171,11 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   same pair to make an edit rename-safe. The index is derived, never persisted.
 - `formula/functions.ts` — the closed function library (`round`/`roundup`/`rounddown`/`floor`/
   `ceil`/`min`/`max`/`clamp`/`abs`), lowercase reserved names matched case-sensitively; `round` is
-  Excel half-away-from-zero (TICKET-FORM-02).
+  Excel half-away-from-zero (TICKET-FORM-02). Two are **exported for system arithmetic to share**
+  rather than re-spell — `roundHalfAwayFromZero` (`ROUND`) and `roundAwayFromZero` (`ROUNDUP`) — so a
+  calculator and a User formula cannot answer differently; `roundAwayFromZero` **settles binary noise
+  to 15 significant digits before rounding**, Excel's own rule (TICKET-SKL-04), and its JSDoc records
+  why `rounddown`/`floor`/`ceil` are deliberately left literal.
 - `formula/errors.ts` — **error values** (TICKET-FORM-05): `formulaError`, `isFormulaError`,
   `asNumber`, `numberOr`, `withSource`, `describeFormulaError`, `rootCause`. Evaluation returns
   `number | FormulaError` and never throws for a ruleset problem, so a broken formula poisons only
@@ -257,7 +261,7 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   the count**, so a pure-blood picked twice is two blocks and a character stored at a higher count is
   named and blended over one list. The one place the count is written — `MAX_RACE_COUNT` is
   gone, and `races.test.ts` fails if a former call site spells the number again.
-- `calculators/skillCalculator.ts` — `calculateSkills(config, statValues, character)` → `{ levels, bonuses, contributions }`, all keyed by skill id (TICKET-SKL-02; `contributions` added by TICKET-SKL-03 — one `SkillStatContribution` per weight row with `weight × statValue` **already multiplied**, so the sheet labels terms it never recomputes; empty for a level that failed). `level = Σ(weight × stat) + invested`, `bonus = round(level / const.bonus_divider)` half-away-from-zero, with the divider read **by name** and falling back to Concept 05's seeded 5. A weight naming a stat that no longer exists contributes nothing; a stat whose own formula failed yields an `upstream` error naming it, with the original as `cause`. The invested term is 1:1 and **provisional** — TICKET-ARC-02 routes it through the point-buy curve.
+- `calculators/skillCalculator.ts` — `calculateSkills(config, statValues, character)` → `{ levels, bonuses, contributions }`, all keyed by skill id (TICKET-SKL-02; `contributions` added by TICKET-SKL-03 — one `SkillStatContribution` per weight row with `weight × statValue` **already multiplied**, so the sheet labels terms it never recomputes; empty for a level that failed). `level = ceil(Σ(weight × stat)) + invested`, `bonus = ceil(level / const.bonus_divider)` — **both halves round up** since TICKET-SKL-04, through `roundAwayFromZero` — the formula library's Excel `ROUNDUP`, which settles binary noise to 15 significant digits before rounding so a duo skill's `3.0000000000000004` cannot buy a whole level (the settle lives in that shared function, so a User formula spelling the same arithmetic agrees). Invested points are added **after** the level's round-up, so a bought point stays whole; the rounding is an engine rule rather than a ruleset dial (the ticket records why), while the divider is still read **by name** and falls back to Concept 05's seeded 5. TICKET-SKL-05's focus multiplier multiplies the weighted sum *inside* the round-up. A weight naming a stat that no longer exists contributes nothing; a stat whose own formula failed yields an `upstream` error naming it, with the original as `cause`. The invested term is 1:1 and **provisional** — TICKET-ARC-02 routes it through the point-buy curve.
 - `calculators/rollCalculator.ts` — `calculateRollInputs(config, statValues, skills)` → `Record<rollId, FormulaResult>` (TICKET-ROLL-06). Each roll definition's input expression over the composed numbers — the value fed to the ladder. Replaced `combatSkillCalculator`, and the swap is the entity's argument: that produced a *bonus* added to a hand-typed pool, this produces the *input* a pool is derived from. Keyed by roll **id**; no equipment term (TICKET-MAT-02).
 - `calculators/equipmentBonusCalculator.ts` — `calculateEquipmentBonuses` (aggregates equipped items' material tier modifiers into one `StatModifier[]`, keyed by stat **id**) and `indexStatModifiers(modifiers)` → `Record<statId, number>` (any `StatModifier[]` as a per-stat lookup, for showing a stat's equipment contribution on its own).
 - `calculator.ts` — re-exports the calculators, plus **`calculateCharacter(character, config):
@@ -903,7 +907,9 @@ the level in `SkillBreakdownRow`'s `secondary` slot — over a breakdown of `STR
 the points invested. It takes the sheet's `budget` since TICKET-RES-05 and carries `StatsSection`'s
 `canSpend`, because the points spent here come out of the very same pool. There is no `canAdjust`
 beside it any more: RES-05's refund rule means the Kernel honours a `−` in every state, so a
-disabled one was the UI refusing what the rule allows) and `RollsSection` as pure props. **`RollsSection`** (TICKET-ROLL-06) groups
+disabled one was the UI refusing what the rule allows. **It rounds nothing** — its `ceilLevel` helper
+went with TICKET-SKL-04, which moved the level's ceiling into `skillCalculator`, so a level arrives
+whole and a term keeps its fraction) and `RollsSection` as pure props. **`RollsSection`** (TICKET-ROLL-06) groups
 by `category` and labels each button with the **pool** rather than a bonus — `Roll 1D20 + 1D12 +
 1D6 + 1` — which is the whole ticket in one line: raise a stat and the label changes, because the
 dice are derived from the character.

@@ -1,8 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-29 (`npx vitest run`) at **TICKET-RACE-04 — the race count is ruleset
-data**, the current count-setter at **3198**.
+_Last verified: 2026-08-29 (`npx vitest run`) at **TICKET-SKL-04 — skill levels and bonuses round
+with ceil**, the current count-setter at **3209**.
 The checkpoints before it were
+**TICKET-RACE-04 — the race count is ruleset data** at 3198,
 **TICKET-RACE-03 — race identity fields and the blend floor** at 3166,
 **TICKET-RES-05 — one point pool for stats and skills** at 3136,
 **TICKET-ARC-04 — dream-amplified archetype gains** at 3108,
@@ -39,8 +40,8 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 3198
-- **Passing**: 3198 (100%)
+- **Total tests**: 3209
+- **Passing**: 3209 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
@@ -68,6 +69,109 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-SKL-04 — eleven new cases, and thirty-two existing ones re-derived
+
+**3198 → 3209, no new file — 196 files, unchanged.** Ten are in
+`shared/engine/calculators/skillCalculator.test.ts`: six in a new *rounding up, twice* block
+(`it.each` over both sides of the level's boundary and both sides of the bonus's), three more for the
+rules the block exists to pin — invested-after-the-ceil, the negative that tells `ROUNDUP` from
+`Math.ceil`, and the binary-noise settle — and one in the breakdown block for terms keeping their
+fractions while the level rounds away from them. The eleventh is the review's, in
+`formula/evaluator.test.ts`: `roundup(0.2 * 12 + 0.1 * 6) = 3` through a **User formula**, which is
+the half of the promise the calculator's own tests cannot make.
+
+**The number that matters is the other one: 32 existing assertions were re-derived.** Concept 02's
+verified table, the `bonus_divider` dial block, both golden fixture sets and two `CharacterSheet`
+rows all moved, because the derivation moved — the v4 workbook's cells read `ROUNDUP` in **both**
+places (`Background Charater Sheet Calcu` rows 3–50) where the app left the level fractional and
+rounded the bonus to nearest. Each row carries the sum it now rounds up from, so what changed is
+legible rather than merely different, and the golden README's *never fix a failing fixture by editing
+the fixture* rule is honoured in its intended form: the rounding rule changed, so the rows were
+**re-derived, not re-fitted**.
+
+**The dial block had to change its dial to stay a check.** `bonus_divider: 4` over a level of 12 is
+3 — the same answer the seeded 5 now gives, because rounding *up* absorbs the difference — so the
+unit test reads the constant at **2** instead. A restated expectation that no longer moves when the
+dial moves is a test that has quietly stopped testing. The golden suite's dialled fixtures keep 4 and
+still earn their place: two of six rows move there (Brewing and perception, 1 → 2).
+
+### `ceil` is not `Math.ceil`, and rounding up needed a tolerance the old rule never did
+
+Two things the ticket did not predict, both now in `roundAwayFromZero` itself:
+
+- **`roundAwayFromZero`, not `Math.ceil`** — the house spelling of Excel's `ROUNDUP` and the one a
+  User formula writing `roundup` gets. `Math.ceil(-1.5)` is -1 where both answer -2, and a ruleset is
+  free to weight a skill negatively. Pinned in both the level and the bonus.
+- **The argument is settled to 15 significant digits first**, and this is the finding worth keeping.
+  Rounding up has no tolerance for binary noise: at the sheet's own duo weights,
+  `12 × 0.2 + 6 × 0.1` is `3.0000000000000004`, and rounding that up reads a whole level higher than
+  the workbook — which settles arithmetic to 15 significant digits before it rounds. A grid scan puts
+  **142 such stat pairs in 0–100 × 0–100**, so it is a Tuesday rather than an edge case. Half-away-
+  from-zero hid the entire class, because noise that small never crossed a `.5` boundary; the hazard
+  therefore arrives with each new *upward* rounding rather than having been solved once, which is why
+  it is now a line in the `coding-conventions` skill's Formulas section rather than only a comment.
+
+**The settle moved from the calculator into the shared function in the review pass, and the reason is
+the more useful half of this ticket.** The first draft snapped inside `skillCalculator`, which left
+`FORMULA_FUNCTIONS.roundup` raw — so a User formula spelling `roundup(stats.a * 0.2 + stats.b * 0.1)`
+answered **4** where the calculator answered **3** on identical arithmetic, falsifying the exact
+invariant the shared export exists to hold (and which this diff's own `coding-conventions` paragraph
+had just written down). Folding it into `roundAwayFromZero` fixes all three callers at once — the
+formula library, the race blend and the skill calculator — and makes divergence unconstructable
+rather than merely absent. The digit count went 12 → **15** with it: the authority quoted is Excel's,
+so the number is Excel's, and a sweep of every 3-decimal weight × integer stat to 500 agrees with the
+exact decimal ceiling at 12, 13, 14 and 15 alike. `rounddown`/`floor`/`ceil` carry the mirror hazard
+(`Math.trunc(2.9999999999999996)` is 2 where `ROUNDDOWN` says 3) and are **deliberately left
+literal**, recorded in that function's JSDoc: nothing in system arithmetic calls them, so changing
+them would move only User-authored results.
+
+One claim in the review did not reproduce, and it is worth writing down so nobody re-derives it: the
+**race blend cannot reach this hazard today**. `2.4 + 0.6` is exactly 3 in binary, and a sweep of
+every 1- and 2-decimal pair — summed, and divided by 2, 3 or 4 — finds **zero** noise cases, because
+it takes a *multiplication* to produce one and the blend only ever sums stored values and divides by
+an integer. The blend is protected anyway, by construction rather than by a test, which is the point
+of putting the settle in the shared function.
+
+### The display edge had been ceiling the level for four tickets, and said so
+
+`SkillsSection.ceilLevel` rounded the level up **for display** while the engine kept the fraction,
+under a comment reading *"Rounded up here, at the display edge, and nowhere else … moving the ceiling
+into the engine is a rules change, not a formatting one."* This is that rules change, so the helper
+is **deleted** and the section rounds nothing — the ticket's fourth criterion (a grep at the call
+sites stays empty) is answered by a removal rather than by an audit finding nothing.
+
+The consequence is a real change to a Player's sheet and not a refactor: the **bonus** derives from
+the rounded level now, so the fixture character's Stealth reads `bonus 2` where it read `bonus 1`
+(`ceil(6/5)` against `round(6/5)`). That is exactly the class of change the display-edge ceiling was
+hiding, and it is why the level and the bonus could not be moved separately.
+
+### The review's blocking find: fourteen new numbers under citations that state the old ones
+
+Every fixture value was re-derived rather than re-fitted — and all fourteen kept their **Concept 02**
+citations, which is the other half of the golden README's rule and the one the first pass missed.
+Concept 02 § *Derivation ✅* states `39 × 0.3 = 11.7 | 11.7 ✅ | round(2.34) = 2 ✅`; the row citing it
+now asserts 12 and 3. The worst instance cited § *"Rounding is half-up ✅"* on a value produced by
+rounding **up**, in the ticket that abolished half-up. `describeCitation` renders the citation into
+the test name and the failure message, so the next failure would have sent its reader to a page
+stating the opposite number — the single edit that file exists to prevent, and *"not made less wrong
+by the number being right"* in TICKET-ARC-04's words, 200 lines below in the same file.
+
+Fixed in ARC-04's shape: one `V4_SKILL_ROUNDING` const (`v4 systems/06 · Skills § The level and bonus
+formulas, read from the cells`, ranged at `Background Charater Sheet Calcu rows 3–50`) cited by all 8
+`skillFixtures` and all 6 `bonusDividerFixtures` — Black smithing included, whose level of 2 never
+moved but whose bonus went 0 → 1. **Concept 02 keeps what it is still right about**: the weights, the
+stat line and the editing scenario, now in each row's comment and each block's JSDoc rather than
+attached to a number the page contradicts. Persuasion's `Skills!D31:G31` moved into its row name for
+the same reason — that range names where its *weights* come from.
+
+**No `SUPPORTED_SCHEMA_VERSION` bump, and none owed** — nothing persisted moved; both numbers were
+always derived, and only how they are derived changed. D6's single milestone-wide bump still belongs
+to DX-09. **`fallow audit --base main` is pass** across 6 changed files with `dead code 0 ·
+complexity 0 · duplication 0` introduced; the two standing `dead-code` rows (`RulesetHomeKind`, the
+`fallow` dependency) are inherited and neither file is in this diff. **Two touched files come back
+Accelerating and are recorded below**, one of them a first row. **The browser check was skipped by
+User instruction for this run**, so the skills grid has not been seen live at the new rounding.
 
 ## TICKET-RACE-04 — thirty-two tests, and a green golden suite that proves the whole reshape
 
@@ -1727,7 +1831,7 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/client/services/characterSync.ts` | 4.2 | TICKET-DM-01's run | 3 commits, 279 churn, 0.05 density, 3 fan-in | ▲ **Accelerating — TICKET-DM-01** (crossed the three-commit floor across CHAR-04's creation, PLY-01's actions and DM-01's `fetchCharacterAdjustments`). The **shape** is what keeps it low: DM-01 widened `sendPlayerAction`'s action type rather than adding a second sender, so the module grew one read and no branches. The next ticket to add a destination here should ask whether it is widening or duplicating |
 | `src/server/routes/routeGuards.test.ts` | 10.9 | TICKET-DM-01's run | 3 commits, 209 churn | ▲ **Accelerating** — one line per new guard (GAM-03's `requireInvitee`, PLY-01's `requireCharacterPlayer`, DM-01's `requireCharacterDM`). That is the design working: the scan's corpus is every module defining a handler, so a new guard costs a name in a list. Worth watching only if a fourth ticket changes the *detector* rather than the list |
 | `src/client/stores/characterStore.table.test.ts` | 10.1 | TICKET-DM-01's run | 3 commits, 410 churn | ▲ **Accelerating** — PLY-01 created it, ROLL-07 and DM-01 each added a `describe`. It exists so `characterStore.test.ts` never has to change (the milestone's fifth Definition-of-Done rule), so growth here is the rule being honoured rather than a smell |
-| `src/client/components/play/sheet/CharacterSheet.test.tsx` | 10.7 | TICKET-DM-01's run | 5 commits, 1449 churn, 0.09 density | ▲ **Accelerating — TICKET-RES-05** (7.5 at DM-01, 8.9 at ARC-04, **10.7 now**). The fifth ticket met the DM-01 row's test the same way the fourth did: **three cases added, and three existing expectations re-valued rather than re-fitted** — `10/15` became `13/15` because the fixture character's three Stealth points are now part of the spend, which is the ticket. No shared fixture was reshaped. The split the row has been watching for (local-mode cases apart from at-a-table ones) is still not owed, but 1,449 churn on a 1,450-line file is the number that will eventually owe it. The ARC-04 reading: (7.5 at DM-01, **8.9 then**). The DM-01 row set the test for the fourth ticket — *if it has to touch the fixtures again rather than add a case, split the local-mode cases from the at-a-table ones* — and **ARC-04 added cases**: 35 lines, three `it`s and two local builders inside the existing ARC-02 `describe`, with no shared fixture touched. That is the row passing rather than failing, and the same test now stands for the fifth. The DM-01 reading: (3 commits, 1,380 churn on a 1,400-line file is the number to notice. DM-01 added two cases and a `fetch` stub; what made the churn is that PLY-01 and CUR-02 each reshaped the fixtures) |
+| `src/client/components/play/sheet/CharacterSheet.test.tsx` | 12.8 | TICKET-DM-01's run | 6 commits, 1584 churn, 0.09 density | ▲ **Accelerating — TICKET-SKL-04** (7.5 at DM-01, 8.9 at ARC-04, 10.7 at RES-05, **12.8 now**). The sixth ticket touched **two lines** — a `bonus 1` that became `bonus 2` and an assertion on `skillBonuses.STL` — because the rounding rule moved under the fixture rather than the fixture moving. That is the cheapest possible visit and the score still rose, which is the honest reading of a 1,584-churn file: it is not this ticket that made it expensive. The RES-05 row's standing test (split the local-mode cases from the at-a-table ones the next time the *fixtures* have to move) is **not** discharged and not owed here — nothing was reshaped. The RES-05 reading: (7.5 at DM-01, 8.9 at ARC-04, **10.7 then**). The fifth ticket met the DM-01 row's test the same way the fourth did: **three cases added, and three existing expectations re-valued rather than re-fitted** — `10/15` became `13/15` because the fixture character's three Stealth points are now part of the spend, which is the ticket. No shared fixture was reshaped. The split the row has been watching for (local-mode cases apart from at-a-table ones) is still not owed, but 1,449 churn on a 1,450-line file is the number that will eventually owe it. The ARC-04 reading: (7.5 at DM-01, **8.9 then**). The DM-01 row set the test for the fourth ticket — *if it has to touch the fixtures again rather than add a case, split the local-mode cases from the at-a-table ones* — and **ARC-04 added cases**: 35 lines, three `it`s and two local builders inside the existing ARC-02 `describe`, with no shared fixture touched. That is the row passing rather than failing, and the same test now stands for the fifth. The DM-01 reading: (3 commits, 1,380 churn on a 1,400-line file is the number to notice. DM-01 added two cases and a `fetch` stub; what made the churn is that PLY-01 and CUR-02 each reshaped the fixtures) |
 | `src/client/components/sessions/SessionsPanel.tsx` | 3.1 | TICKET-CHAR-04's run | 4 commits, 76 churn, 0.03 density | ▲ **Accelerating — TICKET-CHAR-04** — re-measured at TICKET-GAM-03's closeout: a fourth commit and **one line** of churn, score unmoved at 3.1. The panel composes rather than does, so each new surface costs it a `<Panel …/>` and nothing else — the number to watch is the day one of them arrives with a branch |
 | `src/client/components/play/sheet/SheetHeader.tsx` | 3.1 | TICKET-RES-04's run | 3 commits, 116 added / 11 deleted, 0.04 density, 2 fan-in | ▲ **Accelerating — TICKET-RES-04** — a first row, crossing the three-commit floor here (PLY-01 made the experience controls optional, DM-01 reworked the back button and the budget, RES-04 added the dream level and its box). The numbers are the reassuring ones — 0.04 density, 2 dependents, 105 net lines — and the shape is why: the header takes props and renders, so each ticket costs it a field and a conditional. It earns watching for one specific thing, which is a *third* optional write control arriving; at that point the identity block wants its own controls row rather than a fourth `{onX && …}` |
 | `src/shared/services/importExport.ts` | 12.4 | TICKET-STAT-04's run | 3 commits, 985 churn, 0.16 density, 21 fan-in | ▲ **Accelerating** — inherited, not earned: STAT-04 added one `mayBe` line to the `stats` entity spec. It crossed the three-commit floor here and is worth watching for the reason the number says — 0.16 density across 21 dependents, the highest density of any file on this list. `ENTITY_SPECS` is a table, so v4.0's remaining shape tickets will each add rows to it; the day one adds a *branch* instead is the day to split the spec from the checker |
@@ -1737,6 +1841,7 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/shared/engine/skillAllocation.test.ts` | 7.1 | TICKET-RES-05's run | 3 commits, 320 churn, 0.10 density | ▲ **Accelerating — TICKET-RES-05** — a first row, and the mirror of the one above (DM-01 +6, ARC-04 +2, RES-05 +10). Growth by `it` rather than by fixture reshape: RES-05 added two skills to the shared `createConfig` and one `describe`, touching no existing case's numbers. Worth watching only if a fourth ticket has to re-value the existing cases |
 | `src/client/stores/characterStore.test.ts` | 10.7 | TICKET-RES-05's run | 5 commits, 1775 added / 139 deleted, 0.09 density | ▲ **Accelerating — TICKET-RACE-04** (7.6 at RES-05, **10.7 now**). RES-05's row set the test for this ticket — *"it is the second such reach, and a third is the point at which the two blocks want the shared fixture in a helper rather than in a hoisted const"* — and **RACE-04 is the third edit but not the third reach**, which is the distinction the row was really drawing. RES-05 had to touch this file because a *signature* changed under local mode and every call site moved; RACE-04 touched it because it added a `describe` with its own two builders (`withRaces`, `forRaces`), and **`testConfig` was not reshaped** — the one existing case that moved (`raceIds: ['race-1']` → `[]`) moved because the fixture defines no races and the rule now says so, not because a fixture was refitted around a new signature. So the helper extraction is **not** taken here and the standing test rolls to the fourth ticket, with the trigger restated: *a change that makes existing cases move rather than adding new ones*. The RES-05 reading, which is what set it: it is on the list for a reason the score does not say. v3.0's fifth Definition-of-Done rule is that **local mode's suite passes unchanged**, which is why `characterStore.table.test.ts` exists as a separate file at all. RES-05 had to edit this one: `setInvestedSkillPoints` grew a `Configuration` parameter, so every call site moved, and `budgetConfig` was hoisted out of one `describe` to be shared by both investment blocks. That is a *signature* change reaching local mode, not a rule change — but it is the second such reach, and a third is the point at which the two blocks want the shared fixture in a helper rather than in a hoisted const |
 | `src/shared/engine/calculators/statCalculator.ts` | 7.1 | TICKET-RACE-04's run | 3 commits, 419 added / 12 deleted, 0.10 density, 6 fan-in | ▲ **Accelerating — TICKET-RACE-04** — a first row, crossing the three-commit floor here (ARC-04 added the dream term to the invested gain, RACE-03 added the blend floor, RACE-04 moved the count out). The numbers are the reassuring ones and it is on the list for the churn rather than the difficulty: 419 lines added against 12 deleted over three tickets is a file being *documented* — the blend's three-branch behaviour, the floor's deliberate narrowness and now the divisor decision are all argued in JSDoc beside twenty lines of arithmetic, 0.10 density across 6 dependents. RACE-04's own contribution is a **deletion**: `MAX_RACE_COUNT` left the module entirely and both the slice and the divisor's fallback read `raceCount(constants)`. What would earn the tag is a fourth ticket adding a *term* to the blend rather than a reading of the ruleset — at which point `calculateRaceStatBases` wants to be its own module beside `races.ts` rather than the third export of the composition calculator |
+| `src/client/integration/golden.test.ts` | 11.4 | TICKET-SKL-04's run | 3 commits, 463 churn, 0.16 density, 0 fan-in | ▲ **Accelerating — TICKET-SKL-04** — a first row, crossing the three-commit floor here (RACE-04 changed its sample character's race picks, ARC-04 re-derived four point-buy rows and added the `document` citation field, SKL-04 re-derived all fourteen skill rows). **0.16 density is the second-highest on this list**, and the shape says why: the suite is one `describe` per concept page over an `it.each` of fixtures, so a milestone that changes derivations pays for it here twice — once in `fixtures.ts` and once in the assertions that read them. What earns the tag is a ticket that has to change the *machinery* (a new `describe`, a new way of building the sample character) rather than re-derive rows; three consecutive tickets have re-derived rows and none has, which is the design holding. The number to watch is what the **data pass** does to it — it re-sources the whole corpus, and this is the file that pins the corpus's arithmetic |
 | `src/server/db/schema.ts` | 6.2 | TICKET-GAM-03's closeout run | 6 commits, 399 churn, 0.04 density, 14 fan-in | ▲ **Accelerating** — six tickets from DB-01 to CHAR-04 have each added to the normalised half (DB-01, AUTH-01, IO-04, GAM-01, GAM-03, CHAR-04); GAM-03's own contribution was making `session_invite.code` nullable (migration `0004`). The density is the reassuring number — 0.04 across 14 dependents means the file is *growing* rather than getting harder, which is what a schema is supposed to do. It earns watching, not splitting: what would make it a problem is a ticket that reshapes an existing table rather than adding one |
 
 **Both rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they

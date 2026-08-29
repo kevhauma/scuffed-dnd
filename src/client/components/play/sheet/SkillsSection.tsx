@@ -8,15 +8,15 @@
  * The weighted stats *are* itemised here, unlike before this ticket. They are a property of the
  * ruleset rather than something the Player changed, but a Player reading `+3` has no way to tell a
  * high stat from spent points without them, which is the question the breakdown exists to answer.
- * Every number comes from the calculator; this section multiplies nothing.
+ * Every number comes from the calculator; this section multiplies nothing and — since
+ * TICKET-SKL-04 moved the level's ceiling into the engine — rounds nothing either.
  *
- * **Validates: Concept 02; Requirements 13.4, 21.1-21.5**
+ * **Validates: Concept 02; Requirements 13.4, 21.1-21.5; v4 systems/06 gap 3**
  */
 
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 import { CountRow } from '../shared/CountRow';
-import type { DerivedValue } from '../shared/derivedValue';
 import type { PointBudgetView } from '../shared/pointBudgetView';
 import type { SkillBreakdown } from './useCharacterSheet';
 
@@ -39,16 +39,6 @@ export interface SkillsSectionProps {
   onChangeInvestedPoints: (skillId: string, points: number) => void;
 }
 
-/**
- * A skill level as a whole number
- *
- * Rounded up, and the error carried through untouched — a level that could not be computed still
- * has nothing to round.
- */
-function ceilLevel(level: DerivedValue): DerivedValue {
-  return level.error === null ? { value: Math.ceil(level.value), error: null } : level;
-}
-
 export function SkillsSection({ skills, budget, onChangeInvestedPoints }: SkillsSectionProps) {
   return (
     <Card className="p-6">
@@ -68,16 +58,16 @@ export function SkillsSection({ skills, budget, onChangeInvestedPoints }: Skills
               key={skill.id}
               size="sm"
               name={skill.name}
-              // The **level** leads the row, as a whole number: `STR × 0.2 + DEX × 0.1` lands on
-              // 2.4, and nobody at a table has two-and-two-fifths of a level. Rounded up **here,
-              // at the display edge, and nowhere else** — the engine keeps the exact value because
-              // the bonus derives from it (`round(level / bonus_divider)`) and the golden fixtures
-              // pin that chain to the source sheet's own numbers. Moving the ceiling into the
-              // engine is a rules change, not a formatting one.
-              total={ceilLevel(skill.total)}
+              // The **level** leads the row, and it arrives whole: `STR × 0.2 + DEX × 0.1` lands on
+              // 2.4 and the engine rounds it up to 3, because the sheet's own formula does
+              // (`ROUNDUP(…) + invested`, TICKET-SKL-04). This row used to do that ceiling itself,
+              // at the display edge, while the engine kept the fraction — the note that stood here
+              // said moving it into the engine would be a rules change rather than a formatting
+              // one, and SKL-04 is that rules change. **Nothing is rounded here.**
+              total={skill.total}
               // The bonus is in the breakdown rather than on the row. It is the integer a Player
-              // adds to a roll, but it is also `round(level / 5)` — so on a page of forty skills
-              // it is a column of 0s and 1s, where the level is what actually moves.
+              // adds to a roll, but it is also `ceil(level / 5)` — so on a page of forty skills
+              // it is a column of small numbers, where the level is what actually moves.
               secondary={{ label: 'bonus', value: skill.bonus }}
               invested={skill.invested}
               onAdjust={budget ? (points) => onChangeInvestedPoints(skill.id, points) : undefined}

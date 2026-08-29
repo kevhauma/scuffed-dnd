@@ -153,85 +153,128 @@ export interface SkillFixture extends GoldenFixture {
 }
 
 /**
- * Concept 02's verified table, plus the two rows that pin its rounding rule
+ * Where both round-ups come from — the cells the new workbook computes a skill in
  *
- * `level = Σ(weight × stat) + invested`, `bonus = round(level / const.bonus_divider)` with the
- * divider at 5. Rounding is half-**away-from-zero**, which is Excel's `ROUND` rather than
- * JavaScript's `Math.round` — the `perception` row at exactly 7.5 is the case that tells them apart.
+ * `ROUNDUP((primary + secondary) × focus, 0) + investedPoints` and `ROUNDUP(level / 5, 0)`, read
+ * from the checked-in xlsx rather than inferred (v4 D3).
+ *
+ * **Every row whose level or bonus moved with TICKET-SKL-04 cites this instead of Concept 02**, and
+ * that is the whole of why the const exists. Concept 02 § *Derivation ✅* literally states
+ * `39 × 0.3 = 11.7 | 11.7 ✅ | round(2.34) = 2 ✅` — a page that now says the opposite of the row it
+ * would be cited by. One section is worse still: *"Rounding is half-up ✅"*, on a value produced by
+ * rounding up, in the ticket that abolished half-up. A new expected value under an old citation is
+ * the single edit this file exists to prevent, and it is not made less wrong by the number being
+ * right (TICKET-ARC-04 settled the same question for the point-buy rows, 200 lines below).
+ *
+ * The concept page keeps everything it is still right about: the **weights** and the **stat line**
+ * are read from it, they did not move, and each row's comment carries the weighted sum the page
+ * shows before the round-up.
+ */
+const V4_SKILL_ROUNDING: GoldenCitation = {
+  document: 'v4',
+  concept: 'systems/06 · Skills',
+  section: 'The level and bonus formulas, read from the cells',
+  range: 'Background Charater Sheet Calcu rows 3–50',
+};
+
+/**
+ * Concept 02's verified table, at the rounding the new workbook computes it with
+ *
+ * `level = ceil(Σ(weight × stat)) + invested`, `bonus = ceil(level / const.bonus_divider)` with the
+ * divider at 5 (TICKET-SKL-04) — `roundup` away from zero rather than `Math.ceil`, settled against
+ * binary noise the way Excel settles it.
+ *
+ * **The weights and the stat line are Concept 02's and are untouched; every expected *level* and
+ * *bonus* moved, so every row cites {@link V4_SKILL_ROUNDING}.** All eight, including Black
+ * smithing, whose level of 2 was already whole and whose *bonus* still moved from 0 to 1. Each row's
+ * comment carries the weighted sum the concept page shows, which is what makes the two citations
+ * legible side by side: the page is still where the arithmetic's inputs come from, and the system
+ * document is where its rounding does.
  *
  * **Two settlements are recorded in these rows** (both in the README at length):
  *
  * - Concept 02's `Persuasion 13.2 → 3` is **Charm's** number. The page has Persuasion at `Char × 0.3`;
  *   the live `Skills!D31:G31` has `Char × 0.2 + Strenght × 0.1`, which is 8.8 at Char 39. The sheet
  *   wins, so the derivation the page verified is pinned on the skill whose weights actually produce
- *   it, and Persuasion is pinned at what the sheet says.
- * - The `+1.5` for one starting pick is 🔍, not ✅ — Concept 02's own open question.
+ *   it, and Persuasion is pinned at what the sheet says. That range names where its **weights** come
+ *   from, so it now sits in the row's name rather than on a number the page contradicts.
+ * - The `+1.5` for one starting pick is 🔍, not ✅ — Concept 02's own open question, and still that
+ *   row's reason for `inferred`. What its citation names is the rounding around the 1.5, not the 1.5.
  */
 export const skillFixtures: readonly SkillFixture[] = [
   {
+    // 39 × 0.3 = 11.7
     name: 'Charm — CHA 0.3 at Char 39',
     skillName: 'Charm',
     invested: 0,
-    expectedLevel: 11.7,
-    expectedBonus: 2,
-    citation: { concept: '02 · Skill', section: 'Derivation ✅' },
+    expectedLevel: 12,
+    expectedBonus: 3,
+    citation: V4_SKILL_ROUNDING,
   },
   {
+    // 39 × 0.3 = 11.7
     name: 'Trading — CHA 0.3 at Char 39',
     skillName: 'Trading',
     invested: 0,
-    expectedLevel: 11.7,
-    expectedBonus: 2,
-    citation: { concept: '02 · Skill', section: 'Derivation ✅' },
+    expectedLevel: 12,
+    expectedBonus: 3,
+    citation: V4_SKILL_ROUNDING,
   },
   {
+    // 15 × 0.3 = 4.5
     name: 'Brewing — WIS 0.3 at Wis 15',
     skillName: 'Brewing',
     invested: 0,
-    expectedLevel: 4.5,
+    expectedLevel: 5,
     expectedBonus: 1,
-    citation: { concept: '02 · Skill', section: 'Derivation ✅' },
+    citation: V4_SKILL_ROUNDING,
   },
   {
+    // 10 × 0.2 = 2, already whole — the row where only the *bonus* moves (0.4 rounds up to 1)
     name: 'Black smithing — STR 0.2 at Strenght 10',
     skillName: 'Black smithing',
     invested: 0,
     expectedLevel: 2,
-    expectedBonus: 0,
-    citation: { concept: '02 · Skill', section: 'Derivation ✅' },
+    expectedBonus: 1,
+    citation: V4_SKILL_ROUNDING,
   },
   {
+    // 8 × 0.2 = 1.6
     name: 'alchemy — INT 0.2 at Int 8',
     skillName: 'alchemy',
     invested: 0,
-    expectedLevel: 1.6,
-    expectedBonus: 0,
-    citation: { concept: '02 · Skill', section: 'Derivation ✅' },
+    expectedLevel: 2,
+    expectedBonus: 1,
+    citation: V4_SKILL_ROUNDING,
   },
   {
-    name: 'Charm with one starting pick — 11.7 + 1.5, the page’s "Persuasion" row',
+    // ceil(11.7) + 1.5 — the invested half is added after the rounding, so it keeps its fraction
+    name: 'Charm with one starting pick — ceil(11.7) + 1.5, the page’s "Persuasion" row',
     skillName: 'Charm',
     invested: 1.5,
-    expectedLevel: 13.2,
+    expectedLevel: 13.5,
     expectedBonus: 3,
     inferred: true,
-    citation: { concept: '02 · Skill', section: 'Derivation ✅' },
+    citation: V4_SKILL_ROUNDING,
   },
   {
-    name: 'perception at exactly 7.5 rounds to 2, not 1',
+    // The row that used to pin half-away-from-zero on a level of exactly 7.5: ceil(4.5) + 3 = 8,
+    // and 8 / 5 = 1.6 rounds up to the same 2 the old rule reached from 1.5
+    name: 'perception — ceil(4.5) + 3 invested is level 8, bonus 2',
     skillName: 'perception',
     invested: 3,
-    expectedLevel: 7.5,
+    expectedLevel: 8,
     expectedBonus: 2,
-    citation: { concept: '02 · Skill', section: 'Derivation ✅ — "Rounding is half-up ✅"' },
+    citation: V4_SKILL_ROUNDING,
   },
   {
-    name: 'Persuasion — the live sheet’s CHA 0.2 + STR 0.1, not the page’s CHA 0.3',
+    // 39 × 0.2 + 10 × 0.1 = 8.8
+    name: 'Persuasion — the live sheet’s CHA 0.2 + STR 0.1 (Skills!D31:G31), not the page’s CHA 0.3',
     skillName: 'Persuasion',
     invested: 0,
-    expectedLevel: 8.8,
+    expectedLevel: 9,
     expectedBonus: 2,
-    citation: { concept: '02 · Skill', section: 'Seed weights ✅', range: 'Skills!D31:G31' },
+    citation: V4_SKILL_ROUNDING,
   },
 ];
 
@@ -239,26 +282,28 @@ export const skillFixtures: readonly SkillFixture[] = [
  * `const.bonus_divider` as a balance dial (Concept 02's first editing scenario)
  *
  * The same six skills at divider 4 instead of 5, with no investment. Two rows move and four do not,
- * which is what makes this a real check rather than a restatement: Charm 2 → 3, and Black smithing
- * 0 → 1 — the latter landing on exactly 0.5, so it also re-pins half-away-from-zero at the dial's
- * new setting.
+ * which is what makes this a real check rather than a restatement: Brewing 1 → 2 and perception
+ * 1 → 2, while the two Charm-weighted rows and the two that sit at level 2 already round up to what
+ * the tighter divider gives them.
+ *
+ * The levels are TICKET-SKL-04's rounded-up ones — the dial divides a whole level now, and Black
+ * smithing's `2 / 4 = 0.5` re-pins rounding *up* at the dial's new setting where it used to re-pin
+ * half-away-from-zero. **All six values moved, so all six cite {@link V4_SKILL_ROUNDING}**; the
+ * editing scenario these rows come from is Concept 02's and is stated here, where it is prose rather
+ * than a pointer attached to a number the page does not hold.
  */
 export const bonusDividerFixtures: readonly SkillFixture[] = [
-  { skillName: 'Charm', expectedLevel: 11.7, expectedBonus: 3 },
-  { skillName: 'Trading', expectedLevel: 11.7, expectedBonus: 3 },
-  { skillName: 'Brewing', expectedLevel: 4.5, expectedBonus: 1 },
+  { skillName: 'Charm', expectedLevel: 12, expectedBonus: 3 },
+  { skillName: 'Trading', expectedLevel: 12, expectedBonus: 3 },
+  { skillName: 'Brewing', expectedLevel: 5, expectedBonus: 2 },
   { skillName: 'Black smithing', expectedLevel: 2, expectedBonus: 1 },
-  { skillName: 'alchemy', expectedLevel: 1.6, expectedBonus: 0 },
-  { skillName: 'perception', expectedLevel: 4.5, expectedBonus: 1 },
+  { skillName: 'alchemy', expectedLevel: 2, expectedBonus: 1 },
+  { skillName: 'perception', expectedLevel: 5, expectedBonus: 2 },
 ].map((row) => ({
   ...row,
   name: `${row.skillName} — level ${row.expectedLevel} becomes bonus ${row.expectedBonus}`,
   invested: 0,
-  citation: {
-    concept: '02 · Skill',
-    section: 'Editing scenarios — "Make bonuses grow faster"',
-    range: 'Calculator "Bonus divider"',
-  },
+  citation: V4_SKILL_ROUNDING,
 }));
 
 /** What `const.bonus_divider` is turned down to for {@link bonusDividerFixtures} */

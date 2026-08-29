@@ -581,9 +581,10 @@ describe('CharacterSheet', () => {
 
       render(<CharacterSheet characterId="char1" />);
 
-      // level 6 = 3 weighted + 3 invested; bonus = round(6 / 5) = 1
+      // level 6 = ceil(3 weighted) + 3 invested; bonus = ceil(6 / 5) = 2 since TICKET-SKL-04, where
+      // the old `round(6 / 5)` gave 1
       expect(expected.skillLevels.STL).toBe(6);
-      expect(expected.skillBonuses.STL).toBe(1);
+      expect(expected.skillBonuses.STL).toBe(2);
       const row = rowFor(/Stealth/);
       // The **level** is the row's lead number — `variant="highlight"` — rather than any text node
       // that happens to read "6"
@@ -595,8 +596,9 @@ describe('CharacterSheet', () => {
     });
 
     it('should not show a weighted term as binary floating-point noise', () => {
-      // DEX 7 at weight 0.2 is 1.4000000000000001 as a double. The terms must keep summing to the
-      // level exactly, so the rounding belongs at the display edge and nowhere earlier.
+      // DEX 7 at weight 0.2 is 1.4000000000000001 as a double. The *term* keeps that value — it is
+      // a weight times a stat — while the level it feeds is rounded up by the engine
+      // (TICKET-SKL-04), so neither number is a truncation of the other.
       useConfigStore.setState({
         config: createConfig({
           skills: [
@@ -620,9 +622,9 @@ describe('CharacterSheet', () => {
       const row = rowFor(/Stealth/);
       expect(within(row).getByText('DEX × 0.2 +1.4')).toBeDefined();
       // The *term* keeps its fraction — it is a weight times a stat, and hiding that is hiding the
-      // ruleset. The *level* is rounded up, because a level is a whole number and nobody at a
-      // table has two-fifths of one. The rounding is at the display edge only: the engine keeps
-      // 1.4, which is what the bonus derives from.
+      // ruleset. The *level* is a whole 2, because nobody at a table has two-fifths of a level and
+      // the sheet's own `ROUNDUP` says so. Since TICKET-SKL-04 that rounding is the engine's, not
+      // this section's — the bonus derives from the rounded level too.
       expect(within(row).getByText('2', VISIBLE_ONLY)).toBeDefined();
       expect(within(row).queryByText(/0000000/)).toBeNull();
     });
@@ -1441,11 +1443,12 @@ describe('CharacterSheet', () => {
       expect(within(rowFor('Evasion')).getByText('of 12 max')).toBeDefined();
 
       // …as are the stat and skill totals, which never depended on the broken formula.
-      // Stealth is 3 invested + DEX 6 × 0.5 = 6, which the row leads with; the bonus it rounds to
-      // is round(6 / 5) = 1, behind it in the breakdown.
+      // Stealth is ceil(DEX 6 × 0.5) + 3 invested = 6, which the row leads with; the bonus it
+      // rounds up to is ceil(6 / 5) = 2, behind it in the breakdown (it was `round(6 / 5)` = 1
+      // before TICKET-SKL-04).
       expect(within(rowFor(/Strength \(STR\)/)).getByText('6', VISIBLE_ONLY)).toBeDefined();
       expect(within(rowFor(/Stealth/)).getByText('6', VISIBLE_ONLY)).toBeDefined();
-      expect(within(rowFor(/Stealth/)).getByText('bonus 1')).toBeDefined();
+      expect(within(rowFor(/Stealth/)).getByText('bonus 2')).toBeDefined();
     });
   });
 

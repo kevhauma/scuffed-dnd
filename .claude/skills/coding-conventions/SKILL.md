@@ -240,6 +240,20 @@ crash. A field the User types a formula into also renders `FormulaPreview` benea
 values plus the level ladder — with the `FormulaOwner` for that attachment point, so scope and
 resolvers match what the formula will see at play time (TICKET-FORM-08).
 
+**System arithmetic rounds through the formula library's exports, not through `Math`.** A calculator
+that mirrors one of the sheet's rounding functions imports `roundHalfAwayFromZero` (Excel `ROUND`) or
+`roundAwayFromZero` (Excel `ROUNDUP`) from `engine/formula/functions.ts`, so the engine and a User
+formula spelling `round`/`roundup` cannot answer differently — `Math.round(-0.5)` is `-0` and
+`Math.ceil(-1.5)` is `-1`, where both sheet functions break away from zero. **`roundAwayFromZero`
+settles binary noise to 15 significant digits before it rounds** (TICKET-SKL-04, Excel's own rule):
+`0.2 × 12 + 0.1 × 6` is `3.0000000000000004` as a double, and rounding that up buys a whole extra
+unit at every integer boundary. The settle lives **inside that one function**, so `FORMULA_FUNCTIONS`'
+`roundup`, the race blend and the skill calculator cannot diverge; a settle written into a calculator
+instead would have made the promise above false. `round` needs none (noise never crosses a `.5`
+boundary), and `rounddown`/`floor`/`ceil` are deliberately left literal — see that function's JSDoc,
+which is where the decision is recorded and where a ticket that gives one of them a system caller
+should re-open it.
+
 ## Styling
 
 - **Tailwind v4 utilities in the JSX**, no CSS modules, no CSS-in-JS. The only stylesheet is

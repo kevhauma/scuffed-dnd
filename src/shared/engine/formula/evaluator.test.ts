@@ -345,6 +345,15 @@ describe('Function calls (TICKET-FORM-02)', () => {
       expect(evaluate('roundup(-1.2)')).toBe(-2);
     });
 
+    it('roundup(0.2 * 12 + 0.1 * 6) = 3 — binary noise is settled, as Excel settles it', () => {
+      // The sum is 3.0000000000000004 as a double, so an unsettled round-up answers 4 where the
+      // workbook answers 3. It is pinned *here*, through a User formula, because that is the half of
+      // the promise a test could otherwise miss: `skillCalculator` rounds a skill level through this
+      // same function (TICKET-SKL-04), and a settle living only in the calculator would leave a
+      // formula spelling the identical arithmetic disagreeing with the sheet it sits on.
+      expect(evaluate('roundup(0.2 * 12 + 0.1 * 6)')).toBe(3);
+    });
+
     it('rounddown(1.8) = 1', () => {
       expect(evaluate('rounddown(1.8)')).toBe(1);
     });

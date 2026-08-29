@@ -195,7 +195,7 @@ describe('golden fixtures — the sheet’s confirmed derivations', () => {
       // Pinned rather than counted: a confirmed row quietly re-tagged as inferred is how a suite
       // stops being a parity gate, and it would not otherwise fail anything
       expect(all.filter((fixture) => fixture.inferred).map((fixture) => fixture.name)).toEqual([
-        'Charm with one starting pick — 11.7 + 1.5, the page’s "Persuasion" row',
+        'Charm with one starting pick — ceil(11.7) + 1.5, the page’s "Persuasion" row',
         'Speed 22 still gets 1 — the creature call sheet’s value',
       ]);
     });

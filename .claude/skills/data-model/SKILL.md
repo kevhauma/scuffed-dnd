@@ -216,8 +216,8 @@ below.
 
 **`Skill` is the sheet's Skill since TICKET-SKL-02**: `{ id, name, description, statWeights:
 [{ statId, weight }], category? }`. It replaced v1's `SpecialitySkill` outright — no `code`, no
-`maxBaseLevel`, no `bonusFormula`. The arithmetic is not per-skill any more: `level = Σ(weight ×
-stat value) + invested` and `bonus = round(level / const.bonus_divider)` live once, in
+`maxBaseLevel`, no `bonusFormula`. The arithmetic is not per-skill any more: `level = ceil(Σ(weight ×
+stat value)) + invested` and `bonus = ceil(level / const.bonus_divider)` live once, in
 [skillCalculator.ts](../../../src/shared/engine/calculators/skillCalculator.ts), so a global rebalance is
 one constant rather than 48 formula edits. A weight row names a stat by **id**, so a rename cannot
 orphan it, and a formula reaches a skill as `skills.<name-slug>` (`.bonus` for the integer).
