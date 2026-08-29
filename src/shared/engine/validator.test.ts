@@ -1533,6 +1533,72 @@ describe('validateConfiguration', () => {
     });
   });
 
+  describe('creature identity against the reference lists (TICKET-RACE-03)', () => {
+    /** A ruleset holding one race, so each case says only what it is about */
+    function withRace(race: Partial<Configuration['races'][number]>): Configuration {
+      const config = createMinimalConfig();
+      config.races = [{ id: 'race-1', name: 'Ducklets', description: '', statValues: {}, ...race }];
+      return config;
+    }
+
+    it('should say nothing when the race names a word the list offers', () => {
+      const config = withRace({ type: 'humaniod', size: 'medium' });
+      config.creatureTypes = ['humaniod', 'construct'];
+      config.creatureSizes = ['small', 'medium'];
+
+      const report = validateConfiguration(config);
+
+      expect(report.warnings).toEqual([]);
+      expect(report.isValid).toBe(true);
+    });
+
+    it('should warn when a race names a creature type the list does not offer', () => {
+      const config = withRace({ type: 'ooze' });
+      config.creatureTypes = ['humaniod', 'construct'];
+
+      const report = validateConfiguration(config);
+
+      expect(report.warnings).toHaveLength(1);
+      expect(report.warnings[0].message).toContain('creature type "ooze"');
+      expect(report.warnings[0].entityId).toBe('race-1');
+      // A finding, never a refusal: nothing derives from a creature type
+      expect(report.isValid).toBe(true);
+    });
+
+    it('should warn about a size the same way, and about both at once', () => {
+      const config = withRace({ type: 'ooze', size: 'colossal' });
+      config.creatureTypes = ['humaniod'];
+      config.creatureSizes = ['small', 'medium'];
+
+      const messages = validateConfiguration(config).warnings.map((issue) => issue.message);
+
+      expect(messages).toHaveLength(2);
+      expect(messages.some((message) => message.includes('size "colossal"'))).toBe(true);
+    });
+
+    it('should validate nothing when the ruleset names no lists', () => {
+      // Absent means *none*, not *none allowed* — which is every ruleset written before this ticket
+      const config = withRace({ type: 'ooze', size: 'colossal' });
+
+      expect(validateConfiguration(config).warnings).toEqual([]);
+    });
+
+    it('should validate nothing when the ruleset holds an empty list', () => {
+      const config = withRace({ type: 'ooze' });
+      config.creatureTypes = [];
+
+      expect(validateConfiguration(config).warnings).toEqual([]);
+    });
+
+    it('should say nothing about a race that states no identity at all', () => {
+      const config = withRace({});
+      config.creatureTypes = ['humaniod'];
+      config.creatureSizes = ['medium'];
+
+      expect(validateConfiguration(config).warnings).toEqual([]);
+    });
+  });
+
   describe('archetypes (TICKET-ARC-01)', () => {
     /** Two stats and a `point_buy` curve with all three affinity columns — the seeded shape */
     function withArchetypes(overrides: Partial<Configuration> = {}): Configuration {

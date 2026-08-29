@@ -49,6 +49,14 @@ export function RaceCard({ race, availableStats, onEdit, onDelete }: RaceCardPro
               {race.description}
             </Text>
           )}
+          {/* The creature identity, when the race states any of it (TICKET-RACE-03). The challenge
+              rate is deliberately **not** here: it is stored because the workbook has it and built
+              on nothing, so the editor is its one reader. */}
+          {(race.type || race.size) && (
+            <Text variant="body-small-secondary" as="p" className="mb-2">
+              {[race.size, race.type].filter(Boolean).join(' · ')}
+            </Text>
+          )}
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => onEdit(race.id)} className="text-sm px-2 py-1">

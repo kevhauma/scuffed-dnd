@@ -7,4 +7,5 @@
 export * from './RaceCard';
 export * from './RaceFormDialog';
 export * from './RacesConfigPanel';
+export * from './ReferenceListEditor';
 export * from './useRaceManager';

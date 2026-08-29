@@ -100,6 +100,28 @@ export interface Configuration {
    * stays absent, and only `createFreshConfiguration` puts any there.
    */
   rollDefinitions?: RollDefinition[];
+  /**
+   * The sizes a creature may be — `tiny`, `small`, `medium`, … (v4 systems/14, TICKET-RACE-03).
+   *
+   * The vocabulary a {@link Race.size} is picked from, and **the User's own words**: the workbook
+   * spells one of them `guargantian`, and that is theirs to keep or fix. Free strings rather than a
+   * const object for exactly that reason — a hard-coded set would make the app disagree with the
+   * ruleset it is running.
+   *
+   * Optional and **absent means none**, like `constants` and `curves`: a ruleset that names no
+   * sizes round-trips without growing an empty array, and validates nothing.
+   */
+  creatureSizes?: string[];
+  /**
+   * The kinds a creature may be — `humaniod`, `construct`, `fey`, … (v4 systems/14, TICKET-RACE-03).
+   *
+   * {@link creatureSizes}' sibling in every respect, including the misspelling: the sheet's
+   * `humaniod` is a User string this app records rather than corrects (overview D1).
+   *
+   * Two lists rather than one `{ sizes, types }` container, because *absent means none* has to be
+   * answerable per list — a ruleset may well name its sizes and never bother with its types.
+   */
+  creatureTypes?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -509,6 +531,36 @@ export interface Race {
   description: string;
   /** Absolute value this race supplies per stat id; absent means 0 */
   statValues: Record<string, number>;
+  /**
+   * What kind of creature this is — `humaniod`, `construct`, `fey` (v4 systems/04, TICKET-RACE-03).
+   *
+   * A free string picked from {@link Configuration.creatureTypes}, **not** a reference by id: the
+   * reference lists hold the User's own words, so the value *is* the word. A value the ruleset's
+   * list does not carry is a validation **finding** (`engine/validator.ts`), never a refusal — a
+   * ruleset that names no types at all is entirely valid and validates nothing.
+   *
+   * Additive-optional: absent means the race says nothing about its kind, which is every race
+   * written before this field existed.
+   */
+  type?: string;
+  /**
+   * How big this creature is — `small`, `medium`, `large` (v4 systems/04, TICKET-RACE-03).
+   *
+   * {@link type}'s counterpart over {@link Configuration.creatureSizes}, with the same rules.
+   */
+  size?: string;
+  /**
+   * The sheet's challenge rate for this creature (v4 systems/04, TICKET-RACE-03).
+   *
+   * **Stored, and built on nothing.** It is 0 for every playable race in the workbook — a
+   * creature-facing number waiting for a bestiary the app does not have — so it is recorded because
+   * the sheet has it (overview D1) and read only by its own plumbing: this declaration, the import
+   * shape gate, and the race editor, which puts it in the form and writes it back. No engine term
+   * consumes it and no sheet displays it — not even the race card —
+   * and `components/config/races/challengeRate.test.ts` fails if a fifth module names it, so the
+   * day something *is* built on it is a deliberate day rather than a drift.
+   */
+  challengeRate?: number;
 }
 
 /**

@@ -899,6 +899,68 @@ describe('ConfigStore', () => {
       expect(config?.races).toHaveLength(0);
       expect(storage.saveConfiguration).toHaveBeenCalled();
     });
+
+    describe('creature identity (TICKET-RACE-03)', () => {
+      const withIdentity = (overrides: Partial<Race> = {}): Race => ({
+        id: 'human',
+        name: 'Human',
+        description: '',
+        statValues: {},
+        ...overrides,
+      });
+
+      it('should drop an identity field that arrives empty rather than storing it undefined', () => {
+        // The editor spells "says nothing" as an explicit `undefined`, which is how `updateRace` is
+        // told to clear one — on the way *in* there is nothing to clear, so the key is not stored
+        useConfigStore
+          .getState()
+          .addRace(withIdentity({ type: undefined, size: 'medium', challengeRate: undefined }));
+
+        const stored = useConfigStore.getState().config?.races[0];
+        expect('type' in (stored ?? {})).toBe(false);
+        expect('challengeRate' in (stored ?? {})).toBe(false);
+        expect(stored?.size).toBe('medium');
+      });
+
+      it('should clear an identity field on update rather than leaving it present and empty', () => {
+        useConfigStore.getState().addRace(withIdentity({ type: 'humaniod' }));
+        vi.clearAllMocks();
+
+        useConfigStore.getState().updateRace('human', { type: undefined });
+
+        expect('type' in (useConfigStore.getState().config?.races[0] ?? {})).toBe(false);
+        expect(storage.saveConfiguration).toHaveBeenCalled();
+      });
+    });
+
+    describe('the creature reference lists (TICKET-RACE-03)', () => {
+      it('should store the sizes and types a ruleset names', () => {
+        useConfigStore.getState().setCreatureSizes(['small', 'medium']);
+        useConfigStore.getState().setCreatureTypes(['humaniod']);
+
+        const { config } = useConfigStore.getState();
+        expect(config?.creatureSizes).toEqual(['small', 'medium']);
+        expect(config?.creatureTypes).toEqual(['humaniod']);
+        expect(storage.saveConfiguration).toHaveBeenCalled();
+      });
+
+      it('should spell an emptied list as absence, the way `constants` does', () => {
+        useConfigStore.getState().setCreatureSizes(['small']);
+        useConfigStore.getState().setCreatureSizes([]);
+
+        expect('creatureSizes' in (useConfigStore.getState().config ?? {})).toBe(false);
+      });
+
+      it('should do nothing without a configuration', () => {
+        useConfigStore.setState({ config: null });
+        vi.clearAllMocks();
+
+        useConfigStore.getState().setCreatureTypes(['humaniod']);
+
+        expect(useConfigStore.getState().config).toBeNull();
+        expect(storage.saveConfiguration).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe('Currency Tiers CRUD', () => {

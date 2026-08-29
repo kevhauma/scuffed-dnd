@@ -255,6 +255,12 @@ interface ConfigState {
   updateRace: (id: string, updates: Partial<Race>) => void;
   deleteRace: (id: string, options?: DeleteOptions) => EntityReference[];
 
+  // The creature reference lists a race's identity is picked from (v4 systems/14, TICKET-RACE-03)
+  /** Replace the sizes a race may be; an empty list clears the key rather than storing `[]` */
+  setCreatureSizes: (sizes: string[]) => void;
+  /** Replace the creature types a race may be; empty clears the key, as sizes do */
+  setCreatureTypes: (types: string[]) => void;
+
   // Archetypes CRUD (Concept 03, TICKET-ARC-01)
   addArchetype: (archetype: Archetype) => void;
   updateArchetype: (id: string, updates: Partial<Archetype>) => void;
@@ -368,6 +374,21 @@ function mergeClearingAbsent<T extends object>(entity: T, updates: Partial<T>): 
     if (merged[key] === undefined) delete merged[key];
   }
   return merged as T;
+}
+
+/**
+ * An optional list, with the empty one spelled as absence (TICKET-RACE-03)
+ *
+ * The data model's rule for an optional collection is *absent means none and stays absent* — a
+ * ruleset that names no creature sizes must round-trip without growing a `"creatureSizes": []`.
+ * Emptying the list in the panel is therefore the same act as never having had one, and this is
+ * where the two are made identical rather than at each caller.
+ *
+ * @param values - What the editor now holds
+ * @returns The list, or `undefined` when it holds nothing — which {@link mergeClearingAbsent} deletes
+ */
+function emptyToAbsent(values: string[]): string[] | undefined {
+  return values.length === 0 ? undefined : values;
 }
 
 /**
@@ -1192,9 +1213,15 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const { config } = get();
     if (!config) return;
 
+    // A race arrives from the editor with its unstated identity fields explicitly `undefined` —
+    // which is how `updateRace` is told to *clear* one (TICKET-RACE-03). On the way in there is
+    // nothing to clear, so the empty keys are dropped rather than stored: an optional field is
+    // absent or it has a value, never present-and-empty.
+    const seeded = mergeClearingAbsent(race, {});
+
     const updated = autoSave({
       ...config,
-      races: [...config.races, race],
+      races: [...config.races, seeded],
     });
     set({ config: updated });
   },
@@ -1203,9 +1230,14 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const { config } = get();
     if (!config) return;
 
+    // `mergeClearingAbsent` rather than a spread since TICKET-RACE-03 gave a race three optional
+    // fields: clearing the creature type in the editor arrives as `type: undefined`, and a spread
+    // would either keep the old value (if the key were omitted) or leave the key present and empty
     const updated = autoSave({
       ...config,
-      races: config.races.map((race) => (race.id === id ? { ...race, ...updates } : race)),
+      races: config.races.map((race) =>
+        race.id === id ? mergeClearingAbsent(race, updates) : race
+      ),
     });
     set({ config: updated });
   },
@@ -1215,6 +1247,31 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       ...config,
       races: config.races.filter((race) => race.id !== id),
     })),
+
+  // The creature reference lists (v4 systems/14, TICKET-RACE-03)
+  setCreatureSizes: (sizes: string[]) => {
+    const { config } = get();
+    if (!config) return;
+
+    // Absent means none and stays absent — the `constants`/`curves` treatment — so emptying the
+    // list in the panel gives back the ruleset that never had one rather than one carrying `[]`
+    const stored = emptyToAbsent(sizes);
+    const patched = mergeClearingAbsent(config, { creatureSizes: stored });
+
+    const updated = autoSave(patched);
+    set({ config: updated });
+  },
+
+  setCreatureTypes: (types: string[]) => {
+    const { config } = get();
+    if (!config) return;
+
+    const stored = emptyToAbsent(types);
+    const patched = mergeClearingAbsent(config, { creatureTypes: stored });
+
+    const updated = autoSave(patched);
+    set({ config: updated });
+  },
 
   // Archetypes CRUD (Concept 03, TICKET-ARC-01)
   addArchetype: (archetype: Archetype) => {

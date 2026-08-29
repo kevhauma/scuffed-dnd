@@ -210,7 +210,9 @@ plus the entity arrays — `stats`, `skills`,
 `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
 `currencyTiers`, the optional `constants` (TICKET-CST-01), `curves` (TICKET-CRV-01),
 `archetypes` (TICKET-ARC-01), `diceLadders` (TICKET-ROLL-03) and `rollDefinitions`
-(TICKET-ROLL-05).
+(TICKET-ROLL-05) — plus the two **word lists** `creatureSizes` and `creatureTypes`
+(TICKET-RACE-03), which are `string[]` rather than entity arrays and are described under `Race`
+below.
 
 **`Skill` is the sheet's Skill since TICKET-SKL-02**: `{ id, name, description, statWeights:
 [{ statId, weight }], category? }`. It replaced v1's `SpecialitySkill` outright — no `code`, no
@@ -320,9 +322,50 @@ member of that race has, like the sheet's creature rows. Two rules follow, and b
   writes a complete block (`useRaceManager`'s `handleSave` normalises against the ruleset as it
   stands at save time).
 
+**A race also carries the creature identity the old sheet never gave it** (TICKET-RACE-03, v4
+systems/04): optional `type?`, `size?` and `challengeRate?`. Four rules:
+
+- **`type` and `size` are free User strings, not references.** They are compared by *spelling*
+  against two optional reference lists on the `Configuration` — `creatureSizes?: string[]` and
+  `creatureTypes?: string[]` — which hold the User's own words, `humaniod` and `guargantian`
+  included. A race naming a word its ruleset's list does not offer is an `engine/validator.ts`
+  **warning**, never a refusal, and a ruleset with no list (or an empty one) validates nothing. The
+  editor still *offers* an off-list word as a selected option, so editing a race imported from
+  elsewhere cannot quietly change its kind.
+- **Both lists follow `constants`' absent-means-none rule**, and the store enforces it: emptying one
+  in the panel deletes the key rather than storing `[]` (`emptyToAbsent` in `configStore`), so a
+  ruleset that never named a vocabulary round-trips unchanged. They are two fields rather than one
+  `{ sizes, types }` container because *absent means none* has to be answerable per list.
+- **`challengeRate` is stored and built on nothing.** It is 0 for every playable race in the
+  workbook — a creature-facing number waiting for a bestiary — so it is recorded because the sheet
+  has it and read only by its own plumbing (the declaration, the shape gate, the race editor).
+  `components/config/races/challengeRate.test.ts` scans `src/` and fails the day a fifth module
+  names it. Copy that guard for the next field stored ahead of its mechanic.
+- **`updateRace` merges through `mergeClearingAbsent`**, like `updateStat`, so clearing an identity
+  field deletes the key; `addRace` runs the same cleaner so a race arrives without empty ones.
+
+All three fields and both lists are **additive-optional**, so TICKET-RACE-03 needed no
+`SUPPORTED_SCHEMA_VERSION` bump. **The shape gate has two tables now** (`importExport.ts`):
+`ENTITY_SPECS` over the array-of-*entity* keys, and `REFERENCE_LIST_SUBJECTS` over the
+array-of-*string* keys, both derived from `Configuration` so adding either kind of collection without
+a check is a **type error** rather than silence. A new word list is a row in the second table.
+
+**Two tables are not automatically exhaustive, and the third kind is guarded rather than assumed.**
+An array that is neither entities nor strings — a `number[]`, a `boolean[]`, a mixed union — matches
+neither key type and would ship unchecked, which is the hole CR-22's single `readonly unknown[]` key
+existed to close. `EveryCollectionIsChecked` is intersected onto `REFERENCE_LIST_SUBJECTS`'s type and
+turns that case into a required property no literal can satisfy, so the build fails **on the table**
+and the message names the offending key. If you add a third kind of collection, give it its own table
+and widen that union — do not delete the guard.
+
 Race blocks are the composition's **`base` term** and they **blend, never stack** (TICKET-RACE-02):
 one race is its own block, two are `roundup((a + b) / const.race_blend_divisor)` per stat, and a
-stat one block omits is a real 0 in that average. `Character.raceIds` therefore holds **at most 2**
+stat one block omits is a real 0 in that average. **Since TICKET-RACE-03 the sheet's `MAX(1, …)`
+floor applies to both**: a blend that comes to *nothing* reads 1 rather than 0. It is deliberately
+narrower than the workbook's literal `MAX(1, …)` — a negative pairing is left alone, because the app
+lets a ruleset write a negative block and the sheet has no negative row to say otherwise — and it
+reaches only the stats the blocks *mention*, since a block prunes its zeros and a stat neither race
+names is absent from the map entirely. `Character.raceIds` therefore holds **at most 2**
 — `createCharacter` returns `null` and `updateCharacter` no-ops past that, and `MAX_RACE_COUNT` in
 [statCalculator.ts](../../../src/shared/engine/calculators/statCalculator.ts) is the one place the number
 is written. Never re-derive a race contribution in a component: call `calculateRaceStatBases`, the

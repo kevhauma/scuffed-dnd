@@ -70,7 +70,7 @@ rather than a read-only config UI).
 | `/config/stats` | `routes/config/stats.tsx` | `StatsConfigPanel` — the unified Stat: invested, resource and derived alike, every field in one editor with drag/arrow reordering (TICKET-STAT-02). The flat point-budget field is gone — TICKET-RES-02 derives it |
 | `/config/materials` | `routes/config/materials.tsx` | `MaterialsConfigPanel` |
 | `/config/items` | `routes/config/items.tsx` | `ItemsConfigPanel` + `EquipmentSlotsConfigPanel` |
-| `/config/races` | `routes/config/races.tsx` | `RacesConfigPanel` |
+| `/config/races` | `routes/config/races.tsx` | `RacesConfigPanel` — and, in its `headerExtra`, the ruleset's two **creature reference lists** (sizes and types) through `ReferenceListEditor` (TICKET-RACE-03). They live on this route rather than one of their own because they exist for the pickers on the race form; there is no `/config/creatures` and adding one would be a page with two word lists on it |
 | `/config/archetypes` | `routes/config/archetypes.tsx` | `ArchetypesConfigPanel` — what a character is good at growing: `main`/`sub`/`non` per stat, which selects a `point_buy` column (TICKET-ARC-01) |
 | `/config/rolls` | `routes/config/rolls.tsx` | `RollsConfigPanel` + `DiceLaddersConfigPanel` (TICKET-ROLL-05) — a roll is an input formula fed down a ladder; the two are separate entities, so two panels, like `/config/items` and `/config/skills` |
 | `/config/currency` | `routes/config/currency.tsx` | `CurrencyConfigPanel` (which renders `ConversionCalculator` once tiers exist) |
@@ -246,7 +246,8 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   **fractional** bound cannot be rounded past (CR-41). Plus
   `calculateStatTotal`, `statVariables` (the flat map keyed by abbreviation, for the downstream
   formulas), `calculateRaceStatBases` (the races' **blended** stat block on its own, keyed by stat
-  **id**, for display — TICKET-RACE-01/02) and `MAX_RACE_COUNT`, the one place the 1–2 race
+  **id**, for display — TICKET-RACE-01/02, plus TICKET-RACE-03's `withBlendFloor`: the sheet's
+  `MAX(1, …)`, so a pairing that supplies nothing supplies 1) and `MAX_RACE_COUNT`, the one place the 1–2 race
   cardinality is written.
 - `calculators/skillCalculator.ts` — `calculateSkills(config, statValues, character)` → `{ levels, bonuses, contributions }`, all keyed by skill id (TICKET-SKL-02; `contributions` added by TICKET-SKL-03 — one `SkillStatContribution` per weight row with `weight × statValue` **already multiplied**, so the sheet labels terms it never recomputes; empty for a level that failed). `level = Σ(weight × stat) + invested`, `bonus = round(level / const.bonus_divider)` half-away-from-zero, with the divider read **by name** and falling back to Concept 05's seeded 5. A weight naming a stat that no longer exists contributes nothing; a stat whose own formula failed yields an `upstream` error naming it, with the original as `cause`. The invested term is 1:1 and **provisional** — TICKET-ARC-02 routes it through the point-buy curve.
 - `calculators/rollCalculator.ts` — `calculateRollInputs(config, statValues, skills)` → `Record<rollId, FormulaResult>` (TICKET-ROLL-06). Each roll definition's input expression over the composed numbers — the value fed to the ladder. Replaced `combatSkillCalculator`, and the swap is the entity's argument: that produced a *bonus* added to a hand-typed pool, this produces the *input* a pool is derived from. Keyed by roll **id**; no equipment term (TICKET-MAT-02).

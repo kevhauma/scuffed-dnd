@@ -10,6 +10,8 @@
  * - Curve tables are readable — unique, sorted keys with a value per column (Concept 06)
  * - Dice ladders can be walked — positive, strictly descending die sizes (Concept 07)
  * - Roll definitions compute and point at a ladder that exists (Concept 08)
+ * - A race's creature type and size are words the ruleset's own reference lists offer
+ *   (v4 systems/04, systems/14) — a warning, because nothing derives from either
  *
  * Each of those is a `(config) => ValidationIssue[]` helper listed in {@link ISSUE_SOURCES}, and
  * `validateConfiguration` is the concatenation of them (CR-19). A new entity type is a new helper
@@ -93,6 +95,7 @@ const ISSUE_SOURCES: readonly ((config: Configuration) => ValidationIssue[])[] =
   itemIssues,
   equipmentLayoutIssues,
   raceIssues,
+  raceIdentityIssues,
   archetypeIssues,
   pointBuyCurveIssues,
   currencyTierIssues,
@@ -479,6 +482,58 @@ function raceIssues(config: Configuration): ValidationIssue[] {
         entityName: race.name,
       }))
   );
+}
+
+/**
+ * A race's creature type and size against the ruleset's own reference lists (TICKET-RACE-03)
+ *
+ * The lists (`Configuration.creatureTypes` / `creatureSizes`, v4 systems/14) hold the User's own
+ * words — the workbook writes `humaniod` and `guargantian` — so a race names one by **spelling**
+ * rather than by id, and the check is a comparison of strings rather than a reference lookup.
+ *
+ * Three rules, and each is a decision:
+ *
+ * - **A finding, never a refusal.** Nothing derives from a type or a size, so a race naming one the
+ *   list does not carry costs the ruleset nothing at play time. `warning` rather than `information`
+ *   because it is a mismatch the User would want to fix — a race sized `smal` beside a list saying
+ *   `small` is a typo, not a choice.
+ * - **A ruleset with no list validates nothing.** Absent means none (not "none allowed"), which is
+ *   the state every ruleset written before this ticket is in, and reporting every race against an
+ *   empty vocabulary would bury the report in findings nobody asked for.
+ * - **An absent field on a race is silent too.** The fields are additive-optional; saying nothing
+ *   about a race's kind is a complete answer.
+ *
+ * @param config - The ruleset to check
+ * @returns One warning per race field naming something its list does not hold
+ */
+function raceIdentityIssues(config: Configuration): ValidationIssue[] {
+  const vocabularies = [
+    { field: 'type', subject: 'creature type', allowed: config.creatureTypes ?? [] },
+    { field: 'size', subject: 'size', allowed: config.creatureSizes ?? [] },
+  ] as const;
+
+  const issues: ValidationIssue[] = [];
+
+  for (const { field, subject, allowed } of vocabularies) {
+    if (allowed.length === 0) continue;
+    const listed = new Set(allowed);
+
+    for (const race of config.races) {
+      const named = race[field];
+      if (named === undefined || listed.has(named)) continue;
+
+      issues.push({
+        severity: 'warning',
+        category: 'Reference Validation',
+        message: `Race "${race.name}" has ${subject} "${named}", which the ruleset's list does not offer`,
+        entityType: 'race',
+        entityId: race.id,
+        entityName: race.name,
+      });
+    }
+  }
+
+  return issues;
 }
 
 /**

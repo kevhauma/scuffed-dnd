@@ -519,17 +519,68 @@ interface EntitySpec {
 }
 
 /**
- * Every array-valued key of `Configuration`
+ * Every array-valued key of `Configuration`, whichever table describes it
  *
- * Derived from the type rather than listed, which is the structural half of CR-22's fix: adding a
- * collection to `Configuration` without adding a row to {@link ENTITY_SPECS} is a **type error**,
- * where before it was silence.
+ * The structural half of CR-22's fix: a collection that reaches `Configuration` without reaching a
+ * checker is silence, and silence is how `{"currencyTiers":[null]}` used to arrive in LocalStorage.
+ * Derived from the type rather than listed so the set cannot be forgotten.
  */
-type CollectionKey = {
+type AnyCollectionKey = {
   [K in keyof Configuration]-?: NonNullable<Configuration[K]> extends readonly unknown[]
     ? K
     : never;
 }[keyof Configuration];
+
+/**
+ * The array-of-**entity** keys — what {@link ENTITY_SPECS} describes
+ *
+ * Adding one to `Configuration` without adding a row there is a **type error**.
+ */
+type CollectionKey = {
+  [K in keyof Configuration]-?: NonNullable<Configuration[K]> extends readonly object[] ? K : never;
+}[keyof Configuration];
+
+/**
+ * The array-of-**word** keys — what {@link REFERENCE_LIST_SUBJECTS} describes (TICKET-RACE-03)
+ *
+ * The reference lists — creature sizes and creature types — are `string[]`, which
+ * {@link EntitySpec} cannot describe: it walks *entities*, checking a field table against each
+ * entry's properties, and a string has none. So they get their own one-line table below, derived
+ * from the type the same way {@link CollectionKey} is.
+ *
+ * `readonly object[]` above is what splits the two — an array of entities satisfies it and an array
+ * of strings does not — so neither table can claim a key belonging to the other.
+ */
+type ReferenceListKey = {
+  [K in keyof Configuration]-?: NonNullable<Configuration[K]> extends readonly string[] ? K : never;
+}[keyof Configuration];
+
+/**
+ * A collection kind neither table describes (CR-22)
+ *
+ * Splitting `CollectionKey` in two made each half exhaustive over its own kind and neither
+ * exhaustive over the whole: a future `number[]`, `boolean[]` or `(string | number)[]` field
+ * satisfies neither `readonly object[]` nor `readonly string[]`, would land in no table, and would
+ * ship **unchecked and silently** — precisely the hole the single `readonly unknown[]` key existed
+ * to close. So the union is proven rather than assumed.
+ */
+type UncheckedCollectionKey = Exclude<AnyCollectionKey, CollectionKey | ReferenceListKey>;
+
+/**
+ * The proof, carried by a table that is actually read
+ *
+ * Nothing when every array is described — `X & unknown` is `X`, so the table below types exactly as
+ * it reads. The moment one is not, this becomes a **required property no literal can satisfy**, and
+ * the compile error lands on {@link REFERENCE_LIST_SUBJECTS} naming the offending key. Attached to a
+ * real declaration rather than left as a lone `const _assert`, which would be an unused local and a
+ * third entry in the typecheck baseline.
+ *
+ * The fix, when it fires: describe the new kind with a third table and widen this union, or give the
+ * field a shape one of the existing two can check.
+ */
+type EveryCollectionIsChecked = [UncheckedCollectionKey] extends [never]
+  ? unknown
+  : { readonly UNCHECKED_COLLECTION: UncheckedCollectionKey };
 
 /**
  * What each collection's entries must look like
@@ -634,6 +685,14 @@ const ENTITY_SPECS: Record<CollectionKey, EntitySpec> = {
         'must be an object keyed by stat id',
         'must be a finite number'
       ),
+      // The identity fields (v4 systems/04, TICKET-RACE-03). All three are additive-optional, so a
+      // ruleset written before them imports untouched. `type` and `size` are checked for being
+      // strings and nothing more — *which* string is the ruleset's own reference lists' business,
+      // and disagreeing with them is `engine/validator.ts`'s warning rather than a refusal here.
+      type: mayBe(isText, 'must be a string when present'),
+      size: mayBe(isText, 'must be a string when present'),
+      // Stored because the sheet has it and built on nothing; 0 for every playable race
+      challengeRate: mayBe(isFiniteNumber, 'must be a finite number when present'),
     },
   },
 
@@ -749,6 +808,45 @@ const ENTITY_SPECS: Record<CollectionKey, EntitySpec> = {
 };
 
 /**
+ * What each reference list is called in a message (v4 systems/14, TICKET-RACE-03)
+ *
+ * One row per {@link ReferenceListKey}, so a word list added to `Configuration` without a subject
+ * here is a type error — and {@link EveryCollectionIsChecked} on the same declaration makes a
+ * collection of a *third* kind one too, rather than something that ships unchecked.
+ *
+ * Both lists are optional and **absent means none**, so a ruleset that names neither imports
+ * exactly as it did before they existed. A *present* one has to be an array of strings: the entries
+ * are the vocabulary a race's `type` and `size` are compared against, and a number in there would
+ * make the comparison quietly never match.
+ *
+ * Duplicates and casing are deliberately not checked. They are the User's own words — the workbook
+ * itself carries `humaniod` — and two spellings of one idea is the same situation `Stat.group` and
+ * `Skill.category` are already in: theirs to keep or fix.
+ */
+const REFERENCE_LIST_SUBJECTS: Record<ReferenceListKey, string> & EveryCollectionIsChecked = {
+  creatureSizes: 'creature sizes',
+  creatureTypes: 'creature types',
+};
+
+/**
+ * The reference lists as they arrived
+ *
+ * @param config - The parsed configuration object
+ * @returns One error per list that is present and not a list of strings
+ */
+function referenceListErrors(config: Record<string, unknown>): string[] {
+  const lists = Object.entries(REFERENCE_LIST_SUBJECTS);
+
+  return lists.flatMap(([field, subject]) => {
+    const rule = mayBe(
+      (value) => Array.isArray(value) && value.every(isText),
+      `must be an array of ${subject} when present`
+    );
+    return rule(config[field], `Field '${field}'`);
+  });
+}
+
+/**
  * One collection as it arrived, against its spec
  *
  * Whether it is there at all, whether it is an array, and then its entries. An absent *required*
@@ -857,6 +955,9 @@ export function validateConfigurationShape(data: unknown): ValidationResult {
 
   // The one non-collection shape on the configuration (TICKET-INV-03)
   errors.push(...equipmentLayoutShapeErrors(config));
+
+  // …and the two lists that are collections of plain words rather than of entities (TICKET-RACE-03)
+  errors.push(...referenceListErrors(config));
 
   const specs = Object.entries(ENTITY_SPECS) as [CollectionKey, EntitySpec][];
 

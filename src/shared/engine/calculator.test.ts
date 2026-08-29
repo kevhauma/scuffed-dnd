@@ -203,11 +203,15 @@ describe('calculateCharacterStats', () => {
 
     // The bases are the round-up average of the two blocks, not their sum: a human's Strength of 1
     // pulls an elf's -1 to 0 rather than cancelling it, and the DEX the human block says nothing
-    // about is a real 0 in the average
+    // about is a real 0 in the average.
+    //
+    // The Strength pair then meets TICKET-RACE-03's floor: a blend that comes to *nothing* is the
+    // sheet's `MAX(1, …)` case, so the base is 1 rather than 0. This is the one place in the suite
+    // where the floor moves a number that is not a plain pair of zeros.
     expect(result).toEqual({
-      STR: 10, // 10 invested + roundup((-1 + 1) / 2) = 10 + 0
+      STR: 11, // 10 invested + max(1, roundup((-1 + 1) / 2)) = 10 + 1
       DEX: 9, // 8 invested + roundup((2 + 0) / 2) = 8 + 1
-      power: 19, // 10 + 9
+      power: 20, // 11 + 9
     });
   });
 
@@ -600,8 +604,9 @@ describe('calculateCharacter', () => {
     const result = calculateCharacter(character, createFixtureConfig());
 
     // elf is { DEX 2, STR -1 }, human is { STR 1 } — the base is their round-up average, so
-    // STR = roundup((-1 + 1) / 2) = 0 and DEX = roundup((2 + 0) / 2) = 1
-    expect(result.statValues).toEqual({ STR: 10, DEX: 9, CON: 12, health: 160, evasion: 18 });
+    // DEX = roundup((2 + 0) / 2) = 1 and STR = max(1, roundup((-1 + 1) / 2)) = 1: the Strengths
+    // cancel, which is the sheet's `MAX(1, …)` case (TICKET-RACE-03)
+    expect(result.statValues).toEqual({ STR: 11, DEX: 9, CON: 12, health: 170, evasion: 18 });
     // The allocated points are still available alongside the total, so the racial part is
     // displayable rather than having to be recovered from a difference
     expect(result.investedStatPoints).toEqual({ STR: 10, DEX: 8, CON: 12 });
@@ -619,8 +624,9 @@ describe('calculateCharacter', () => {
     const sword = result.equipmentBonuses.find((bonus) => bonus.statId === 'STR');
 
     expect(sword).toBeDefined();
-    // base 0 (blended) + 10 invested + the sword's STR bonus
-    expect(result.statValues.STR).toBe(10 + (sword?.modifier ?? 0));
+    // base 1 (the blended −1 and 1 cancel, and TICKET-RACE-03's floor raises the 0) + 10 invested
+    // + the sword's STR bonus
+    expect(result.statValues.STR).toBe(11 + (sword?.modifier ?? 0));
   });
 
   it('should raise a resource maximum by the tier that grants it — the +50 Mana case', () => {

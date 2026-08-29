@@ -1,8 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-29 (`npx vitest run`) at **TICKET-RES-05 — one point pool for stats and
-skills**, the current count-setter at **3136**.
+_Last verified: 2026-08-29 (`npx vitest run`) at **TICKET-RACE-03 — race identity fields and the
+blend floor**, the current count-setter at **3166**.
 The checkpoints before it were
+**TICKET-RES-05 — one point pool for stats and skills** at 3136,
 **TICKET-ARC-04 — dream-amplified archetype gains** at 3108,
 **TICKET-RES-04 — dream level, raised by the DM** at 3088,
 **TICKET-STAT-04 — stat groups on the character sheet** at 3067,
@@ -37,12 +38,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 3136
-- **Passing**: 3136 (100%)
+- **Total tests**: 3166
+- **Passing**: 3166 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **194 files**: `server` in node, everything else in happy-dom.
+Split across **195 files**: `server` in node, everything else in happy-dom.
 
 > **CHAR-04's recorded count was 26 low, and PLY-01 measured it rather than inheriting it.** This
 > file said 2801 across 174 files; `git stash` + a full run on `main` says **2827 across 176**. The
@@ -66,6 +67,87 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-RACE-03 — thirty tests, and three that had to be re-valued because the floor is real
+
+The **+30 over RES-05** is TICKET-RACE-03, across six files and **one new one — 194 → 195 files**.
+
+`RacesConfigPanel.test.tsx` (+6) is the panel: a word added to a reference list, the last word
+removed giving back a ruleset with no key at all, the three identity fields stored together, a
+cleared field *removed* rather than stored empty, an off-list word surviving an unrelated save, and
+the card showing size and type while never showing the challenge rate. `importExport.test.ts` (+6)
+is the boundary — a v3-shape ruleset round-tripping without growing a single key, the fields and
+both lists round-tripping when present, a `challengeRate` of **0** surviving (the value the whole
+field exists to record, so any falsy check on the path would erase exactly the data there is), and
+the two shape refusals. `validator.test.ts` (+6) is the finding: both fields warned about, both at
+once, and the three silences — no list, an empty list, and a race that states no identity.
+`configStore.test.ts` (+5) is the store, `statCalculator.test.ts` (+5) the floor, and the new
+`challengeRate.test.ts` (+2) is the grep the ticket's third criterion asks for, run every time the
+suite runs.
+
+**Three existing assertions in `calculator.test.ts` were re-valued rather than re-fitted**, and they
+are the evidence the engine term is not cosmetic. The fixture's elf carries `STR -1` and its human
+`STR 1`, so their blend comes to **nothing** — which is precisely the sheet's `MAX(1, …)` case. The
+three expectations that read `STR 10 / power 19 / base 0` now read `STR 11 / power 20 / base 1`,
+each with the reason written beside it. No fixture was changed to make a test pass; the numbers
+moved because the rule did.
+
+**The floor is deliberately narrower than a blanket `Math.max(1, …)`, and that is a divergence from
+the workbook's literal spelling.** Only a blend that lands on **0** moves. A blend cannot land there
+any other way — the divisor is positive, so a positive sum rounds away from zero to at least 1 and a
+negative sum to at most −1 — which makes *"the result is 0"* and *"neither race supplied this stat"*
+the same statement. The workbook would also raise a **negative** pairing to 1; it has no negative
+creature row to say so, the app has always let a ruleset write one, and the ticket's first criterion
+asks for a non-zero blend to be bit-for-bit unchanged. Widening the floor is a decision, not a
+tidy-up, and `statCalculator.ts`'s `withBlendFloor` says so where the next reader will find it.
+
+**One reach the floor does not have**, recorded on the ticket rather than left to be rediscovered: a
+stat *neither* block mentions is not in the blend's key set at all, so it reaches the composition as
+`?? 0` rather than as the floor. Race blocks prune their zeros by convention (TICKET-RACE-01 — a
+stored 0 would read as a reference and make `deleteStat` refuse), so that is the common case. Making
+every *configured* stat come out at the floor means handing `calculateRaceStatBases` the ruleset's
+stat list, which changes what four call sites display — a reshape of what a blend is, next door to
+TICKET-RACE-04's.
+
+**Additive-optional throughout, so no `SUPPORTED_SCHEMA_VERSION` bump.** Three optional fields on
+`Race` and two optional lists on `Configuration`; nothing moved and nothing was retired. D6's single
+milestone-wide bump still belongs to the first *reshaping* ticket, or to DX-09.
+
+### The review found one real hole, and it was in the fail-closed guard itself
+
+The `conventions-reviewer` pass verified all three implementation notes independently — including
+re-deriving the floor's arithmetic claim, which is the load-bearing one: `namedConstant`'s `accepts`
+makes the divisor strictly positive, and `roundAwayFromZero(x) === 0` **iff** `x === 0`, so *"the
+blend landed on 0"* and *"the blocks supplied nothing"* really are one statement. Three style
+findings were fixed (two nested calls in the new store actions, a JSDoc block orphaned from
+`mergeClearingAbsent`, and a `Validates:` line on `ReferenceListEditor` citing Req 8.1, which is
+about creating a *race* and not a word list).
+
+**The fourth was a correctness finding, and it is worth recording because the ticket introduced it
+while making CR-22's guarantee look stronger.** Splitting `CollectionKey` into an
+array-of-entity half and an array-of-string half left each half exhaustive over its own kind and
+**neither exhaustive over the whole**: a future `number[]`, `boolean[]` or mixed-union field on
+`Configuration` would have satisfied neither key type, landed in neither table, and shipped
+unchecked — the exact hole the single `readonly unknown[]` key existed to close, reopened by a change
+whose own comment claimed to have kept it shut. The fix is `EveryCollectionIsChecked`, intersected
+onto `REFERENCE_LIST_SUBJECTS`'s type: it is `unknown` (a no-op) while every array is described, and
+a required property no literal can satisfy the moment one is not. **Proven by probe rather than
+asserted** — adding a `probeNumbers?: number[]` to `Configuration` fails the build on the table with
+`Type '{ creatureSizes: string; creatureTypes: string; }' is not assignable to … { readonly
+UNCHECKED_COLLECTION: "probeNumbers" }`, naming the offending key; the probe was then reverted.
+
+It is attached to a declaration that is actually read rather than left as a lone
+`const _assert: … = true`, which typechecks as **TS6133 'declared but its value is never read'** and
+would have put a third entry in this file's typecheck baseline to guard against a second one.
+
+**No hotspot row is owed.** `fallow health --hotspots --since 6m` puts two touched files on the list
+and both are **cooling** — `configStore.ts` (16.8, down from 18.5 at CHAR-04) and `importExport.ts`
+(15.0); the races folder, `statCalculator.ts` and `engine/validator.ts` do not appear at all.
+`fallow audit --base main` returns **pass** with `complexity_introduced: 0`,
+`dead_code_introduced: 0` and `duplication_introduced: 0`. And the standing instruction on
+`CharacterSheet.tsx` — *the next ticket to add a section extracts before it adds* — is **not**
+discharged here and is now four tickets old: this ticket's identity block is the **race config
+panel's**, and no file under `components/play/sheet/` was touched.
 
 ## TICKET-RES-05 — twenty-eight tests, and an assertion that had documented its own retirement
 

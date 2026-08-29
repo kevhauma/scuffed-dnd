@@ -65,6 +65,43 @@ const RACE_BLEND_DIVISOR_NAME = 'race_blend_divisor';
 const DEFAULT_RACE_BLEND_DIVISOR = 2;
 
 /**
+ * What a blend that supplies nothing supplies instead — the sheet's `MAX(1, …)` (TICKET-RACE-03)
+ *
+ * The v4.0 workbook's chain is `ROUND( MAX(1, ROUNDUP(race1 + race2, 0) / 2), 0)`
+ * (`Background Setup Calculations ` H33:H41, rounded into `Background Charater Sheet Calcu` S3:S11),
+ * which is the divisor blend above plus this one term. A stat neither parent supplies reads **1** in
+ * the sheet and read 0 here.
+ *
+ * A **module constant rather than a second ruleset dial.** The divisor is `const.race_blend_divisor`
+ * because the sheet's own chain divides by a number a ruleset might reasonably retune; the floor is
+ * one term of the same formula and nobody has asked to move it, so introducing a
+ * `race_blend_floor` constant now would be an option before its first caller (the house rule's
+ * third-caller test). It is one `namedConstant` call away the day a ruleset wants it.
+ */
+const RACE_BLEND_FLOOR = 1;
+
+/**
+ * The sheet's floor, applied to one blended stat
+ *
+ * **Deliberately narrower than a blanket `Math.max(1, …)`, and this is the ticket's contract**: only
+ * a pairing that comes to *nothing* moves, from 0 to 1. A blend cannot land on 0 any other way —
+ * the divisor is positive, so a positive sum rounds away from zero to at least 1 and a negative sum
+ * to at most −1 — which makes "the result is 0" and "neither race supplied this stat" the same
+ * statement, and leaves a deliberately **negative** stat block alone.
+ *
+ * That last part is the one place this parts company with the workbook's literal `MAX(1, …)`, which
+ * would raise −2 to 1 as well. The sheet has no negative creature row to say what it means there,
+ * the app has always let a ruleset write one, and TICKET-RACE-03's criteria ask for a non-zero blend
+ * to be bit-for-bit what it was. Widening the floor is a decision, not a tidy-up.
+ *
+ * @param value - The blended, rounded value for one stat
+ * @returns The value, or the floor when the pairing supplied nothing
+ */
+function withBlendFloor(value: number): number {
+  return value === 0 ? RACE_BLEND_FLOOR : value;
+}
+
+/**
  * The ruleset's blend divisor, or the seeded 2
  *
  * The **first** engine code to read a constant by name rather than through `const.*` in a User
@@ -98,12 +135,23 @@ function raceBlendDivisor(constants: Constant[] = []): number {
  * Not a sum — TICKET-RACE-02 replaced v1's additive stacking with the sheet's hybrid:
  *
  * - **no races** — nothing, so every base is 0;
- * - **one race** — its block, unchanged. The sheet writes a single-race character as a blend of the
+ * - **one race** — its block. The sheet writes a single-race character as a blend of the
  *   same race twice, which for the seeded divisor of 2 is the race itself; taking it as identity
- *   keeps that true for *any* divisor rather than only for 2;
- * - **two races** — `roundup((a + b) / const.race_blend_divisor)` per stat, rounding away from zero
- *   exactly as a User formula spelling `roundup` would. A stat absent from one block counts as 0 in
+ *   keeps that true for *any* divisor rather than only for 2. {@link withBlendFloor} still applies,
+ *   because it has to: without it "picking the same race twice changes nothing" would stop being
+ *   true the moment a block carried an explicit 0;
+ * - **two races** — `max(1, roundup((a + b) / const.race_blend_divisor))` per stat, rounding away
+ *   from zero exactly as a User formula spelling `roundup` would, then floored the way the workbook
+ *   floors it (TICKET-RACE-03). A stat absent from one block counts as 0 in
  *   the blend, which is the whole point of picking a race that lacks it.
+ *
+ * **The floor reaches the stats the blocks mention, and no others.** The key set is the union of
+ * both blocks' keys, and a block stores no zeros by convention (TICKET-RACE-01 prunes them, so a
+ * stored 0 would read as a reference and make `deleteStat` refuse) — so a stat *neither* race names
+ * is not in this map at all and reaches the composition as `?? 0`. Making every configured stat come
+ * out at the floor would mean handing this function the ruleset's stat list, which changes what four
+ * call sites display; it is a reshape of what a blend *is* rather than one engine term, and is
+ * recorded on TICKET-RACE-03 as such.
  *
  * Picking the same race twice therefore changes nothing, and beyond {@link MAX_RACE_COUNT} the
  * blend has no meaning: a third race is refused where characters are written, and is ignored here
@@ -121,14 +169,21 @@ export function calculateRaceStatBases(
 
   const [only] = blended;
   if (only === undefined) return {};
-  if (blended.length === 1) return { ...only.statValues };
+
+  if (blended.length === 1) {
+    const entries = Object.entries(only.statValues);
+    const floored = entries.map(([statId, value]) => [statId, withBlendFloor(value)] as const);
+    return Object.fromEntries(floored);
+  }
 
   const divisor = raceBlendDivisor(constants);
   const bases: Record<string, number> = {};
+  const mentioned = blended.flatMap((race) => Object.keys(race.statValues));
 
-  for (const statId of new Set(blended.flatMap((race) => Object.keys(race.statValues)))) {
+  for (const statId of new Set(mentioned)) {
     const sum = blended.reduce((total, race) => total + (race.statValues[statId] ?? 0), 0);
-    bases[statId] = roundAwayFromZero(sum / divisor);
+    const rounded = roundAwayFromZero(sum / divisor);
+    bases[statId] = withBlendFloor(rounded);
   }
 
   return bases;

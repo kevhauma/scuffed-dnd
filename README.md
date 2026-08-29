@@ -73,7 +73,7 @@ yarn build
 - Create stats with formula-based calculations
 - Build materials with bonuses and tiers
 - Design items and equipment systems
-- Configure races with skill modifiers
+- Configure races as stat blocks, with a creature type and size picked from your own lists
 - Set up multi-tier currency systems
 
 ### Play Mode

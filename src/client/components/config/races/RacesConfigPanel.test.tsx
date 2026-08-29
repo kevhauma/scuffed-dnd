@@ -165,6 +165,134 @@ describe('RacesConfigPanel', () => {
     });
   });
 
+  describe('creature identity and the reference lists (TICKET-RACE-03)', () => {
+    /** The ruleset with both vocabularies named, so the pickers have something to offer */
+    const withVocabularies = (races = createConfig().races) =>
+      createConfig({
+        races,
+        creatureSizes: ['small', 'medium'],
+        creatureTypes: ['humaniod', 'construct'],
+      });
+
+    it('should add a word to a reference list through the store', async () => {
+      useConfigStore.setState({ config: createConfig(), isLoaded: true });
+      render(<RacesConfigPanel />);
+
+      fireEvent.change(screen.getByLabelText('Creature Types'), {
+        target: { value: 'humaniod' },
+      });
+      const [addType] = screen.getAllByRole('button', { name: 'Add' });
+      fireEvent.click(addType);
+
+      await waitFor(() => {
+        expect(useConfigStore.getState().config?.creatureTypes).toEqual(['humaniod']);
+      });
+    });
+
+    it('should give back the ruleset that never had a list when the last word is removed', async () => {
+      useConfigStore.setState({ config: withVocabularies(), isLoaded: true });
+      render(<RacesConfigPanel />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Remove humaniod' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Remove construct' }));
+
+      // Absent means none and *stays* absent — an empty array would be a new shape to round-trip
+      await waitFor(() => {
+        expect('creatureTypes' in (useConfigStore.getState().config ?? {})).toBe(false);
+      });
+    });
+
+    it('should pick a type and a size from the lists and store all three fields', async () => {
+      useConfigStore.setState({ config: withVocabularies(), isLoaded: true });
+      render(<RacesConfigPanel />);
+      openEditor();
+
+      fireEvent.change(screen.getByLabelText('Creature Type'), { target: { value: 'construct' } });
+      fireEvent.change(screen.getByLabelText('Size'), { target: { value: 'medium' } });
+      fireEvent.change(screen.getByLabelText('Challenge Rate'), { target: { value: '0' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Update Race' }));
+
+      await waitFor(() => {
+        const stored = useConfigStore.getState().config?.races[0];
+        expect(stored?.type).toBe('construct');
+        expect(stored?.size).toBe('medium');
+        expect(stored?.challengeRate).toBe(0);
+      });
+    });
+
+    it('should clear an identity field rather than storing it empty', async () => {
+      useConfigStore.setState({
+        config: withVocabularies([
+          {
+            id: 'dwarf',
+            name: 'Dwarf',
+            description: 'Stout',
+            statValues: { 'str-id': 14 },
+            type: 'humaniod',
+            challengeRate: 3,
+          },
+        ]),
+        isLoaded: true,
+      });
+      render(<RacesConfigPanel />);
+      openEditor();
+
+      fireEvent.change(screen.getByLabelText('Creature Type'), { target: { value: '' } });
+      fireEvent.change(screen.getByLabelText('Challenge Rate'), { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Update Race' }));
+
+      await waitFor(() => {
+        const stored = useConfigStore.getState().config?.races[0];
+        expect(stored).toBeDefined();
+        expect('type' in (stored ?? {})).toBe(false);
+        expect('challengeRate' in (stored ?? {})).toBe(false);
+      });
+    });
+
+    it('should keep a word the list no longer offers rather than silently changing the race', async () => {
+      // An imported ruleset may name a creature type this one has never heard of; the validator
+      // reports it, and the editor must not quietly rewrite it on the next unrelated save
+      useConfigStore.setState({
+        config: withVocabularies([
+          { id: 'dwarf', name: 'Dwarf', description: '', statValues: {}, type: 'fey' },
+        ]),
+        isLoaded: true,
+      });
+      render(<RacesConfigPanel />);
+      openEditor();
+
+      expect((screen.getByLabelText('Creature Type') as HTMLSelectElement).value).toBe('fey');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Update Race' }));
+
+      await waitFor(() => {
+        expect(useConfigStore.getState().config?.races[0].type).toBe('fey');
+      });
+    });
+
+    it('should show the identity a race states on its card, and never the challenge rate', () => {
+      useConfigStore.setState({
+        config: withVocabularies([
+          {
+            id: 'dwarf',
+            name: 'Dwarf',
+            description: '',
+            statValues: {},
+            type: 'humaniod',
+            size: 'small',
+            challengeRate: 7,
+          },
+        ]),
+        isLoaded: true,
+      });
+
+      render(<RacesConfigPanel />);
+
+      expect(screen.getByText('small · humaniod')).toBeDefined();
+      expect(screen.queryByText('7')).toBeNull();
+    });
+  });
+
   it('should say why there is nothing to edit when the ruleset has no stats', () => {
     useConfigStore.setState({ config: createConfig({ stats: [], races: [] }), isLoaded: true });
 

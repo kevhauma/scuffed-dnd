@@ -5,6 +5,11 @@
  * (Concept 04, TICKET-RACE-01). The ruleset's stats decide what a block contains, so a race
  * cannot be edited before there are stats to be made of.
  *
+ * The header also carries the ruleset's two **creature reference lists** (v4 systems/14,
+ * TICKET-RACE-03) — the sizes and the creature types a race's identity is picked from. They live
+ * here rather than on a section of their own because they exist for the pickers three fields below
+ * them; a route whose only content is two word lists is a page nobody would visit.
+ *
  * **Validates: Concept 04; Requirements 8.1, 8.2, 8.5, 21.1-21.5**
  */
 
@@ -13,6 +18,7 @@ import { ConfigEmptyState } from '../shared/ConfigEmptyState';
 import { ConfigPanelShell, NoConfigurationNotice } from '../shared/ConfigPanelShell';
 import { RaceCard } from './RaceCard';
 import { RaceFormDialog } from './RaceFormDialog';
+import { ReferenceListEditor } from './ReferenceListEditor';
 import { useRaceManager } from './useRaceManager';
 
 export function RacesConfigPanel() {
@@ -20,6 +26,10 @@ export function RacesConfigPanel() {
     config,
     currentRaces,
     availableStats,
+    creatureSizes,
+    creatureTypes,
+    setCreatureSizes,
+    setCreatureTypes,
     isDialogOpen,
     closeDialog,
     editingRaceId,
@@ -50,6 +60,26 @@ export function RacesConfigPanel() {
           ? ['No stats configured yet. A race is a stat block, so add stats first.']
           : undefined
       }
+      headerExtra={
+        <div className="mt-6 grid grid-cols-1 gap-6 border-t border-stone-200 pt-6 lg:grid-cols-2">
+          <ReferenceListEditor
+            title="Creature Types"
+            description="The kinds a race may be. Their spelling is yours."
+            placeholder="humaniod"
+            idPrefix="creature-type"
+            values={creatureTypes}
+            onChange={setCreatureTypes}
+          />
+          <ReferenceListEditor
+            title="Creature Sizes"
+            description="The sizes a race may be, smallest first."
+            placeholder="medium"
+            idPrefix="creature-size"
+            values={creatureSizes}
+            onChange={setCreatureSizes}
+          />
+        </div>
+      }
       blocked={blocked}
       onCloseBlocked={dismissBlocked}
     >
@@ -74,6 +104,8 @@ export function RacesConfigPanel() {
         isEditing={!!editingRaceId}
         form={form}
         availableStats={availableStats}
+        creatureSizes={creatureSizes}
+        creatureTypes={creatureTypes}
         onClose={closeDialog}
         onSave={handleSave}
       />

@@ -132,6 +132,55 @@ describe('calculateRaceStatBases — the hybrid blend (TICKET-RACE-02)', () => {
     expect(calculateRaceStatBases(picked, [])).toEqual({ str: 11 });
   });
 
+  describe('the sheet’s MAX(1, …) floor (TICKET-RACE-03)', () => {
+    it('should give a stat both blocks carry at 0 the floor of 1', () => {
+      // `Background Setup Calculations ` H33:H41 wraps the halving in `MAX(1, …)`, so a pairing
+      // that supplies nothing still supplies 1. This read 0 before the floor.
+      expect(calculateRaceStatBases([race('a', { str: 0 }), race('b', { str: 0 })])).toEqual({
+        str: 1,
+      });
+    });
+
+    it('should floor a pairing whose values cancel out', () => {
+      // The only other way a blend lands on 0: the divisor is positive, so nothing else can
+      expect(calculateRaceStatBases([race('a', { str: 4 }), race('b', { str: -4 })])).toEqual({
+        str: 1,
+      });
+    });
+
+    it('should floor a single race’s explicit zero too, so picking it twice still changes nothing', () => {
+      const hollow = race('hollow', { str: 0, con: 15 });
+
+      expect(calculateRaceStatBases([hollow])).toEqual({ str: 1, con: 15 });
+      expect(calculateRaceStatBases([hollow, hollow])).toEqual({ str: 1, con: 15 });
+    });
+
+    it('should leave a stat neither block mentions out of the blend entirely', () => {
+      // A block stores no zeros (TICKET-RACE-01 prunes them), so "both races have it at 0" is
+      // normally "neither race names it" — which is absent here and reaches the composition as 0
+      const bases = calculateRaceStatBases([race('a', { str: 10 }), race('b', { str: 12 })]);
+
+      expect(bases).toEqual({ str: 11 });
+      expect('dex' in bases).toBe(false);
+    });
+
+    it('should leave every non-zero blend bit-for-bit what it was', () => {
+      // The floor is the one new term; nothing else about the chain moved. Negatives included —
+      // the workbook's literal MAX(1, …) would raise them, and the app keeps a ruleset's own
+      // negative stat block (see `withBlendFloor`)
+      expect(
+        calculateRaceStatBases([race('a', { str: 10, dex: 9 }), race('b', { str: 12, dex: 12 })])
+      ).toEqual({
+        str: 11,
+        dex: 11,
+      });
+      expect(calculateRaceStatBases([race('a', { str: -2 }), race('b', { str: -1 })])).toEqual({
+        str: -2,
+      });
+      expect(calculateRaceStatBases([race('a', { str: 10 }), race('b', {})])).toEqual({ str: 5 });
+    });
+  });
+
   it('should ignore a third race rather than distorting the blend', () => {
     // The cardinality is enforced where characters are written; hand-edited data reaching the
     // engine gets the two-race blend rather than a sum divided by 2
