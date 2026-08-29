@@ -551,6 +551,15 @@ legal** — TICKET-SKL-05), `currentResourceValues`,
 and an `Inventory` (`equippedItems: Record<slotType, itemId>` + `miscItems: itemId[]`). It carries
 `configurationId` so a character is always read against the ruleset it was built on.
 
+**`equippedItems` has no fixed key set, and no code may assume one** (TICKET-INV-04). A ruleset's
+equipment slots are User-built — the list is CRUD in `EquipmentSlotsConfigPanel`, the board is a
+grid the User sizes in `EquipmentLayoutPanel`, and `EquipmentSlot.type` is free text — so one, six
+and twelve slots are all ordinary, and none is the app's number. `SEED_PLACEMENTS` in
+[equipmentLayout.ts](../../../src/shared/engine/equipmentLayout.ts) recognises a couple of dozen
+spellings (both workbooks' — `main_hand` and `right_hand`, `chest` and `upperbody_gear`) purely so
+the builder opens on a figure instead of a column of boxes; a slot it has never heard of seeds
+unplaced and costs nothing. Anything summing or rendering per slot walks the ruleset's own list.
+
 **`investedStatPoints` holds points *spent*, not levels gained** (TICKET-ARC-02). The `point_buy`
 curve is the exchange rate between the two, selected by the archetype's affinity for that stat —
 15 points buy 12 on a main-type stat and 5 on a non-type one. Nothing about the stored shape

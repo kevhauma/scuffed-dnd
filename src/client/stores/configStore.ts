@@ -1200,10 +1200,16 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const { config } = get();
     if (!config || config.equipmentLayout) return;
 
+    // A **copy** of the default, not the exported object: handing the module's own constant to a
+    // ruleset would make every ruleset seeded in a session share one layout, and the day something
+    // patches a grid in place they would all move together. `setEquipmentLayout` builds a new
+    // clamped object every time, so this is latent rather than live — and closing it costs a spread
+    // (TICKET-INV-04, which closed the same hazard class in `seedPlacementFor`).
+    const seededSlots = seedPlacements(config.equipmentSlots);
     const updated = autoSave({
       ...config,
-      equipmentLayout: DEFAULT_EQUIPMENT_LAYOUT,
-      equipmentSlots: seedPlacements(config.equipmentSlots),
+      equipmentLayout: { ...DEFAULT_EQUIPMENT_LAYOUT },
+      equipmentSlots: seededSlots,
     });
     set({ config: updated });
   },

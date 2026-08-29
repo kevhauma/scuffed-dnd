@@ -35,8 +35,8 @@ import { MAX_EQUIPMENT_GRID_COLUMNS, MAX_EQUIPMENT_GRID_ROWS } from '../types/co
 /**
  * The grid a ruleset gets seeded with
  *
- * The source spreadsheet's, read straight off `Charactersheet!M3:O15` — the seven boxes are not a
- * list there, they are laid out as a figure across three columns and four rows:
+ * The old source spreadsheet's, read straight off `Charactersheet!M3:O15` — the seven boxes are not
+ * a list there, they are laid out as a figure across three columns and four rows:
  *
  * ```
  *            M            N            O
@@ -45,8 +45,27 @@ import { MAX_EQUIPMENT_GRID_COLUMNS, MAX_EQUIPMENT_GRID_ROWS } from '../types/co
  *  11                    Legs       accesory
  *  14                    Feet
  * ```
+ *
+ * The v4 workbook's six boxes (`Backpack` C4:D9) are the same figure with the accessory box empty,
+ * so the grid is unchanged — see {@link SEED_PLACEMENTS}. **It is still only a default**: a ruleset's
+ * board is whatever size the User picks in the builder, and the count of slots standing on it is
+ * theirs too (v4.0 overview, *Rulings — ticket review*).
  */
 export const DEFAULT_EQUIPMENT_LAYOUT: EquipmentLayout = { columns: 3, rows: 4 };
+
+/*
+ * The boxes the seeded figure is made of, each named once. A block comment rather than a JSDoc one
+ * because it describes the whole run below: JSDoc would attach to `HEAD_BOX` alone and leave the
+ * other seven hovering undocumented. The argument itself is in {@link SEED_PLACEMENTS}'s doc.
+ */
+const HEAD_BOX: EquipmentSlotPlacement = { column: 2, row: 1, glyph: 'helm' };
+const MAIN_HAND_BOX: EquipmentSlotPlacement = { column: 1, row: 2, glyph: 'main-hand' };
+const CHEST_BOX: EquipmentSlotPlacement = { column: 2, row: 2, glyph: 'chest' };
+const OFF_HAND_BOX: EquipmentSlotPlacement = { column: 3, row: 2, glyph: 'off-hand' };
+const LEGS_BOX: EquipmentSlotPlacement = { column: 2, row: 3, glyph: 'legs' };
+const ACCESSORY_BOX: EquipmentSlotPlacement = { column: 3, row: 3, glyph: 'accessory' };
+const AMULET_BOX: EquipmentSlotPlacement = { column: 3, row: 3, glyph: 'amulet' };
+const FEET_BOX: EquipmentSlotPlacement = { column: 2, row: 4, glyph: 'feet' };
 
 /**
  * The figure the seed draws, keyed by normalised slot type
@@ -56,32 +75,51 @@ export const DEFAULT_EQUIPMENT_LAYOUT: EquipmentLayout = { columns: 3, rows: 4 }
  * rather than `main_hand` or `feet`. Recognising a few obvious spellings costs one line each and
  * is the difference between opening the builder on a figure and opening it on twelve empty cells.
  *
- * Unlike the table this grew out of, being absent from it costs a slot nothing: it seeds unplaced
- * and the User places it.
+ * **Two generations of the workbook are in here at once** (TICKET-INV-04). The v4 sheet renamed its
+ * body slots — `head_gear`, `upperbody_gear`, `lowerbody_gear`, `foot_gear`, `right_hand`,
+ * `left_hand` (`Backpack` C4:D9, `Background References: Naming` BA12:BA17) — and dropped the
+ * accessory box. Each new spelling joins the box its old spelling already stands on, and **nothing
+ * is removed**: a ruleset that says `chest` keeps its figure, and `accessory` is an ordinary
+ * spelling of an ordinary box that a ruleset may or may not have a slot for.
+ *
+ * **Every value here is one of the `*_BOX` constants above rather than a repeated literal**, which
+ * is what keeps the two generations from drifting: `right_hand` *is* the main-hand box, so moving
+ * the box moves every spelling of it at once. `AMULET_BOX` is a box of its own rather than another
+ * alias because it shares the accessory box's cell and differs only in its drawing.
+ *
+ * **This table is a convenience, not a vocabulary.** It has no say in how many slots a ruleset has
+ * or what they may be called — that is the builder's, and the User's. Unlike the table this grew
+ * out of, being absent from it costs a slot nothing: it seeds unplaced and the User places it.
  */
 const SEED_PLACEMENTS: Record<string, EquipmentSlotPlacement> = {
-  head: { column: 2, row: 1, glyph: 'helm' },
-  helmet: { column: 2, row: 1, glyph: 'helm' },
-  helm: { column: 2, row: 1, glyph: 'helm' },
+  head: HEAD_BOX,
+  helmet: HEAD_BOX,
+  helm: HEAD_BOX,
+  head_gear: HEAD_BOX,
 
-  main_hand: { column: 1, row: 2, glyph: 'main-hand' },
-  weapon: { column: 1, row: 2, glyph: 'main-hand' },
+  main_hand: MAIN_HAND_BOX,
+  weapon: MAIN_HAND_BOX,
+  right_hand: MAIN_HAND_BOX,
 
-  chest: { column: 2, row: 2, glyph: 'chest' },
-  body: { column: 2, row: 2, glyph: 'chest' },
-  torso: { column: 2, row: 2, glyph: 'chest' },
+  chest: CHEST_BOX,
+  body: CHEST_BOX,
+  torso: CHEST_BOX,
+  upperbody_gear: CHEST_BOX,
 
-  off_hand: { column: 3, row: 2, glyph: 'off-hand' },
-  shield: { column: 3, row: 2, glyph: 'off-hand' },
+  off_hand: OFF_HAND_BOX,
+  shield: OFF_HAND_BOX,
+  left_hand: OFF_HAND_BOX,
 
-  legs: { column: 2, row: 3, glyph: 'legs' },
+  legs: LEGS_BOX,
+  lowerbody_gear: LEGS_BOX,
 
-  accessory: { column: 3, row: 3, glyph: 'accessory' },
-  ring: { column: 3, row: 3, glyph: 'accessory' },
-  amulet: { column: 3, row: 3, glyph: 'amulet' },
+  accessory: ACCESSORY_BOX,
+  ring: ACCESSORY_BOX,
+  amulet: AMULET_BOX,
 
-  feet: { column: 2, row: 4, glyph: 'feet' },
-  boots: { column: 2, row: 4, glyph: 'feet' },
+  feet: FEET_BOX,
+  boots: FEET_BOX,
+  foot_gear: FEET_BOX,
 };
 
 /** What the picker offers a slot the seed table has never heard of */
@@ -103,11 +141,17 @@ function normalise(type: string): string {
 /**
  * Where the seed would put this slot, or `null` when it has never heard of it
  *
+ * A **copy** of the box, because several spellings share one — handing the same object to two
+ * rulesets would make the seed table something a caller could edit from a distance.
+ *
  * @param type - The `EquipmentSlot.type` from the ruleset
  * @returns Its seeded cell and glyph, or `null` for a slot the User will place themselves
  */
 export function seedPlacementFor(type: string): EquipmentSlotPlacement | null {
-  return SEED_PLACEMENTS[normalise(type)] ?? null;
+  const key = normalise(type);
+  const box = SEED_PLACEMENTS[key];
+
+  return box ? { ...box } : null;
 }
 
 /** A placement's cell as one comparable string — `2:3` */

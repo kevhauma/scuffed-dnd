@@ -1,8 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-29 (`npx vitest run`) at **TICKET-SKL-05 — focus skills multiply growth**,
-the current count-setter at **3264**.
+_Last verified: 2026-08-29 (`npx vitest run`) at **TICKET-INV-04 — equipment slots stay User-built
+and variable**, the current count-setter at **3278**.
 The checkpoints before it were
+**TICKET-SKL-05 — focus skills multiply growth** at 3264,
 **TICKET-SKL-04 — skill levels and bonuses round with ceil** at 3209,
 **TICKET-RACE-04 — the race count is ruleset data** at 3198,
 **TICKET-RACE-03 — race identity fields and the blend floor** at 3166,
@@ -41,8 +42,8 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 3264
-- **Passing**: 3264 (100%)
+- **Total tests**: 3278
+- **Passing**: 3278 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
@@ -70,6 +71,83 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-INV-04 — fourteen tests, one production file, and a count that was already free
+
+**3264 → 3278 across five files and no new one — 197 files, unchanged.** The number is small
+because the ticket's own premise turned out to hold: TICKET-INV-03 made the slot set User-built, and
+what this ticket owed was *proof* rather than a build.
+
+`shared/engine/equipmentLayout.test.ts` (+4) is the seed table's two generations — the v4 sheet's
+six spellings on the boxes the old ones already stand on, every old spelling and alias still
+resolving, the whole six-slot figure seeded with nothing left over, and the copy the reader now
+hands out. `play/inventory/InventoryPanel.test.tsx` (+4) is the end-to-end pass at 1, 6, 12 and 0
+slots: configure, lay out through `seedEquipmentLayout`, equip through the tile's own control, read
+the board back. `config/equipment/EquipmentLayoutPanel.test.tsx` (+3) is the configure half at the
+same counts, the twelve-slot case placing all six unrecognised slots on the six free cells of the
+default 3×4 board. `importExport.test.ts` (+2) and `characterShape.test.ts` (+1) are the wire: a
+ruleset of 1 and of 12 placed slots round-tripping unchanged, and an `equippedItems` of 1 and of 12
+keys surviving JSON and `uploadedCharacterErrors`.
+
+**The finding is that there was nothing to fix.** The system doc's second gap — *"the play-mode doll
+and the equip path were not written against a variable count, and nobody has checked"* — comes back
+clean: the grid ceiling is 6×6 and clamped in the store, `EquipmentDoll` draws whatever
+`splitByPlacement` hands it and lists the rest beneath, `useInventoryManager` maps the ruleset's
+slots without naming one, and `InventoryPanel` already carried the no-slots empty state. So **two
+production files changed** — the alias table, and one spread in `configStore.seedEquipmentLayout`
+that the review found (below) — and the count went from incidentally free to proven free.
+
+**The boxes were named before the six spellings joined them**, which is the diff's one structural
+choice. `SEED_PLACEMENTS` repeated a three-field literal per alias, so `right_hand` would have been
+a second copy of `main_hand`'s coordinates and moving a box would have meant moving it twice. Eight
+`*_BOX` constants hold the cells and glyphs now and every spelling is a key pointing at one, which
+makes *"an alias of the cell and glyph its old spelling already uses"* structural rather than
+asserted. `seedPlacementFor` returns a copy, since several keys share one object and a shared object
+handed to a ruleset is the table editable from a distance.
+
+**`accessory` is deliberately still in the table.** The overview's ruling retires the sheet's
+accessory *box*; whether a ruleset has an accessory slot is a data question, and under
+[D7](docs/v4.0_sheet_parity/overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)
+the fragment's slot keys are the data pass's. Nothing was removed to make room for the six.
+
+**No `SUPPORTED_SCHEMA_VERSION` bump, and none owed — this is not the first reshaping ticket.**
+`EquipmentSlot.type` was already free text, `EquipmentSlot` gained and lost no field, and
+`Inventory.equippedItems` is the same map. D6's single milestone-wide bump still belongs to the
+first ticket that genuinely reshapes a document, or to DX-09.
+
+### The review found the same hazard one file over, still latent
+
+The `conventions-reviewer` re-derived the headline claim rather than taking it — ten modules traced
+plus its own grep of all 22 spellings — and confirmed no module assumes a fixed slot count, a
+canonical vocabulary or a specific key. Nothing blocking. Its one correctness find is the
+interesting one, because the ticket had just closed the same hazard class next door and stopped one
+file short: **`configStore.seedEquipmentLayout` wrote `equipmentLayout: DEFAULT_EQUIPMENT_LAYOUT`,
+the exported module object itself**, so every ruleset seeded in a session shared one layout object.
+Latent rather than live — `setEquipmentLayout` builds a new clamped object every time — and closed
+by a spread, with the reason at the call site. No test moved, which is the honest reading: a latent
+aliasing hazard is not observable until something patches in place, so there is nothing to assert
+that would fail today.
+
+Two smaller findings, both taken: a JSDoc block sitting above a run of eight `const` declarations
+documented only the first (TypeScript attaches it to `HEAD_BOX` and leaves the other seven bare), so
+it is a plain block comment now and the argument moved into `SEED_PLACEMENTS`'s own doc where it was
+already half-stated; and three nested calls in `equipmentLayout.test.ts` were bound, that file's
+earlier cases having already bound theirs. **The reviewer's meta-point is deliberately not settled
+here** — the no-nested-calls rule is being half-applied across RACE-04, SKL-05 and INV-04, which is
+a decision for the `coding-conventions` skill rather than a per-ticket judgement, and it is now an
+item on TICKET-DX-09.
+
+Two suggestions were declined: extracting the thrice-declared `SHEET_SIX` fixture (sharing it means
+a test fixture crossing a root boundary, and each test's prose cites the list as its own subject —
+revisit if INV-05 adds a fourth), and splitting `importExport.test.ts`'s 1218-line top-level
+describe, whose append-only shape is argued in its hotspot row below.
+
+`fallow audit --base main` is **pass** across the changed files with `dead code 0 · complexity 0 ·
+duplication 0` introduced; the two standing `dead-code` rows (`RulesetHomeKind` in
+`client/services/rulesetSync.ts`, the `fallow` dependency itself) are inherited and neither file is
+in this diff. **One touched file comes back Accelerating and is recorded below**, a first row.
+**The browser check was skipped by User instruction for this run**, so neither a six-slot nor a
+twelve-slot board has been seen live.
 
 ## TICKET-SKL-05 — fifty-five cases, and a route the first pass never exercised
 
@@ -1904,7 +1982,7 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/client/routes/signin.tsx` | 7.2 | TICKET-GAM-02's run | 3 commits, 0.07 density | ▲ **Accelerating** |
 | `src/client/routeTree.gen.ts` | 5.5 | TICKET-GAM-02's run | 4 commits, 0.03 density | ▲ **Accelerating** — generated |
 | `src/server/auth/guards.ts` | 11.2 | TICKET-GAM-04's run | 5 commits, 318 churn, 54 fan-in | ─ Stable — **cooled by TICKET-DM-01** (8.3 at GAM-04, 10.3 at PLY-01). `requireCharacterDM` is four lines layered on `requireCharacterWriter` rather than a sixth rule written beside it, which is why a fifth commit lowered the score |
-| `src/client/stores/configStore.ts` | 18.5 | TICKET-CHAR-04's run | 3 commits, 1900 churn, 0.18 density | ▲ **Accelerating — TICKET-CHAR-04** |
+| `src/client/stores/configStore.ts` | 18.5 | TICKET-CHAR-04's run | 5 commits, 1771 added / 236 deleted, 0.18 density, 60 fan-in | ▼ Cooling — **cooled by TICKET-INV-04** (18.5 at CHAR-04, 16.8 at RACE-03, **20.8 now, velocity ▼**). The score rose 2.3 while the velocity turned, and the shape is why: two more tickets each added a *CRUD-shaped* action to a file that is already thirty of them, so the churn climbed and the **density did not move at all** (0.18 at every measurement since CHAR-04). INV-04's own contribution is one spread in `seedEquipmentLayout` — the review's latent-aliasing find — which is the smallest visit this row has recorded. **60 dependents is the number to watch**, the highest on this list by a factor of two: it is the store every config panel subscribes to, so what would re-earn the tag is a ticket putting a *rule* in an action rather than a patch, which is the same test `characterStore.ts`'s row has been applying for six tickets |
 | `src/client/components/sessions/useSessionsManager.ts` | 12.5 | TICKET-CHAR-04's run | 4 commits, 178 churn, 0.09 density, 2 fan-in | ▲ **Accelerating — TICKET-CHAR-04** — re-measured at GAM-03's closeout and **falling**: 12.5 → 9.4, density 0.12 → 0.09. A fourth commit added 13 lines and the file got *easier*, because the invitations state landed as its own `waiting` list rather than as branches inside the games one |
 | `src/client/components/sessions/SessionList.test.tsx` | 12.9 | TICKET-CHAR-04's run | 4 commits, 213 churn | ▲ **Accelerating — TICKET-PLY-01** (was 10.4 at CHAR-04) |
 | `src/client/components/sessions/SessionList.tsx` | 5.6 | TICKET-CHAR-04's run | 5 commits, 375 churn | ▼ Cooling — **cooled by TICKET-DM-01** (4.2 at CHAR-04, 6.4 at PLY-01; DM-01 passed one prop through) |
@@ -1927,6 +2005,7 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/shared/engine/calculators/statCalculator.ts` | 7.1 | TICKET-RACE-04's run | 3 commits, 419 added / 12 deleted, 0.10 density, 6 fan-in | ▲ **Accelerating — TICKET-RACE-04** — a first row, crossing the three-commit floor here (ARC-04 added the dream term to the invested gain, RACE-03 added the blend floor, RACE-04 moved the count out). The numbers are the reassuring ones and it is on the list for the churn rather than the difficulty: 419 lines added against 12 deleted over three tickets is a file being *documented* — the blend's three-branch behaviour, the floor's deliberate narrowness and now the divisor decision are all argued in JSDoc beside twenty lines of arithmetic, 0.10 density across 6 dependents. RACE-04's own contribution is a **deletion**: `MAX_RACE_COUNT` left the module entirely and both the slice and the divisor's fallback read `raceCount(constants)`. What would earn the tag is a fourth ticket adding a *term* to the blend rather than a reading of the ruleset — at which point `calculateRaceStatBases` wants to be its own module beside `races.ts` rather than the third export of the composition calculator |
 | `src/client/integration/golden.test.ts` | 11.4 | TICKET-SKL-04's run | 3 commits, 463 churn, 0.16 density, 0 fan-in | ▲ **Accelerating — TICKET-SKL-04** — a first row, crossing the three-commit floor here (RACE-04 changed its sample character's race picks, ARC-04 re-derived four point-buy rows and added the `document` citation field, SKL-04 re-derived all fourteen skill rows). **0.16 density is the second-highest on this list**, and the shape says why: the suite is one `describe` per concept page over an `it.each` of fixtures, so a milestone that changes derivations pays for it here twice — once in `fixtures.ts` and once in the assertions that read them. What earns the tag is a ticket that has to change the *machinery* (a new `describe`, a new way of building the sample character) rather than re-derive rows; three consecutive tickets have re-derived rows and none has, which is the design holding. The number to watch is what the **data pass** does to it — it re-sources the whole corpus, and this is the file that pins the corpus's arithmetic |
 | `src/shared/services/characterCreation.ts` | 10.4 | TICKET-SKL-05's run | 3 commits, 261 added / 12 deleted, 0.14 density, 6 fan-in | ▲ **Accelerating — TICKET-SKL-05** — a first row, crossing the three-commit floor here (RES-05's widened affordability verdict, RACE-04's `racesRequired`, SKL-05's `focusErrors`). 261 added against 12 deleted over three tickets is a file being *argued* rather than reworked: `characterCreationErrors` is a list of `errors.push(...)` lines with a named helper behind each, so a fourth rule costs one line in the list and one function below it — which is exactly what this ticket paid. 0.14 density across 6 dependents is on the high side for a service, and the reason is the same shape: every rule carries its reasoning in JSDoc beside four lines of code. What would earn the tag is a ticket that puts a *branch* in `characterCreationErrors` itself rather than a helper beside it — at that point the rules want to be a table the way `importExport.ts`'s `ENTITY_SPECS` is |
+| `src/shared/services/importExport.test.ts` | 9.8 | TICKET-INV-04's run | 3 commits, 1202 added / 0 deleted, 0.14 density, 0 fan-in | ▲ **Accelerating — TICKET-INV-04** — a first row, crossing the three-commit floor here (RACE-03's identity round-trip, STAT-04's stat groups, INV-04's slot-count round-trip). **1,202 lines added against 0 deleted is the whole reading**: the file is the mirror of `importExport.ts`'s own row above it, and it grows the same way — one `describe` per shape ticket, appended, with no existing block reshaped. That is the design of a boundary suite rather than a smell, and 0 deleted lines across three tickets is the evidence for it. INV-04's own contribution is two cases in one new `describe`. What would earn the tag is a ticket that has to **change** an existing block — at which point the per-entity describes want splitting into files the way `ENTITY_SPECS` is a table, and the `validConfig` fixture wants to stop being one shared literal that every block spreads |
 | `src/server/db/schema.ts` | 6.2 | TICKET-GAM-03's closeout run | 6 commits, 399 churn, 0.04 density, 14 fan-in | ▲ **Accelerating** — six tickets from DB-01 to CHAR-04 have each added to the normalised half (DB-01, AUTH-01, IO-04, GAM-01, GAM-03, CHAR-04); GAM-03's own contribution was making `session_invite.code` nullable (migration `0004`). The density is the reassuring number — 0.04 across 14 dependents means the file is *growing* rather than getting harder, which is what a schema is supposed to do. It earns watching, not splitting: what would make it a problem is a ticket that reshapes an existing table rather than adding one |
 
 **Both rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they

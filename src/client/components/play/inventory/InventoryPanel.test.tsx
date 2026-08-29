@@ -378,6 +378,119 @@ describe('InventoryPanel', () => {
   });
 });
 
+/**
+ * How many slots a ruleset has is the User's answer, not the app's (TICKET-INV-04)
+ *
+ * The builder was written for a variable count; the doll and the equip path were not written
+ * *against* one, and nobody had checked. So each case here goes the whole way — configure the slots,
+ * lay them out through the same store action the builder's effect calls, equip into one, and read
+ * the board back — at one slot, at the sheet's six, at twelve, and at none.
+ */
+describe('a ruleset’s slot count', () => {
+  /** The v4 workbook's six body slots, `Backpack` C4:D9 */
+  const SHEET_SIX = [
+    'head_gear',
+    'upperbody_gear',
+    'lowerbody_gear',
+    'foot_gear',
+    'right_hand',
+    'left_hand',
+  ];
+
+  /** Six the seed table has never heard of, so twelve is genuinely twelve rather than six twice */
+  const INVENTED_SIX = ['horns', 'tail', 'bond', 'sigil', 'familiar', 'cloak_pin'];
+
+  /**
+   * A ruleset with exactly these slots, one carried item per slot, laid out by the store
+   *
+   * `seedEquipmentLayout` is the action the builder's own effect calls, so the board a Player reads
+   * here is the board the builder would have written.
+   */
+  function withSlotTypes(types: string[]) {
+    const equipmentSlots = types.map((type) => ({ type, name: type, description: '' }));
+    const items = types.map((type, index) => ({
+      id: `item-${index}`,
+      name: `Gear ${index}`,
+      description: '',
+      equipmentSlotType: type,
+    }));
+    const carried = items.map((item) => item.id);
+
+    useConfigStore.setState({ config: createConfig({ equipmentSlots, items }), isLoaded: true });
+    useConfigStore.getState().seedEquipmentLayout();
+    useCharacterStore.setState({
+      characters: [createCharacter({ inventory: { equippedItems: {}, miscItems: carried } })],
+      isLoaded: true,
+    });
+  }
+
+  /**
+   * The doll tile for a slot
+   *
+   * Found by its own control rather than by the caption, because the pack rows print the slot type
+   * a carried item declares and a bare text query would match both.
+   */
+  function tileFor(slotName: string): HTMLElement {
+    const control = screen.getByLabelText(`Equip into ${slotName}`);
+    const tile = control.closest('li');
+    if (!tile) throw new Error(`No tile found for ${slotName}`);
+    return tile;
+  }
+
+  /** Configure, render and equip into the first slot — the end-to-end pass every count makes */
+  function drive(types: string[]) {
+    withSlotTypes(types);
+    render(<InventoryPanel characterId="char1" />);
+
+    expect(screen.getAllByLabelText(/^Equip into /)).toHaveLength(types.length);
+
+    const first = types[0];
+    fireEvent.change(screen.getByLabelText(`Equip into ${first}`), {
+      target: { value: 'item-0' },
+    });
+
+    expect(inventory().equippedItems[first]).toBe('item-0');
+  }
+
+  it('should draw a one-slot ruleset as a figure of one', () => {
+    drive(['head_gear']);
+
+    expect(tileFor('head_gear').className).toContain('col-start-2');
+    expect(tileFor('head_gear').className).toContain('row-start-1');
+  });
+
+  it('should draw the sheet’s six with every one of them on the figure', () => {
+    drive(SHEET_SIX);
+
+    for (const type of SHEET_SIX) {
+      expect(tileFor(type).className, `${type} was not placed`).toContain('col-start-');
+    }
+  });
+
+  it('should draw twelve slots without dropping the ones it does not recognise', () => {
+    drive([...SHEET_SIX, ...INVENTED_SIX]);
+
+    // The seed knows six of them; the other six are first-class slots the User places once, and
+    // until they do the sheet lists them beneath the figure rather than losing them
+    for (const type of SHEET_SIX) {
+      expect(tileFor(type).className, `${type} was not placed`).toContain('col-start-');
+    }
+    for (const type of INVENTED_SIX) {
+      expect(tileFor(type).className, `${type} was placed by guesswork`).not.toContain(
+        'col-start-'
+      );
+    }
+  });
+
+  it('should say a ruleset defines no slots rather than draw an empty board', () => {
+    withSlotTypes([]);
+    render(<InventoryPanel characterId="char1" />);
+
+    expect(screen.getByText('This ruleset defines no equipment slots.')).toBeDefined();
+    expect(screen.queryByLabelText(/^Equip into /)).toBeNull();
+  });
+});
+
 describe('equipment bonuses on the sheet', () => {
   beforeEach(() => {
     vi.clearAllMocks();

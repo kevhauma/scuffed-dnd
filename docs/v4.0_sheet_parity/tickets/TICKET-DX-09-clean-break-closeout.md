@@ -85,3 +85,11 @@ smuggled in, and the documentation the milestone invalidated has moved.
 - If any earlier ticket left a capture caveat (the ladder's `.5` rounding, the tail
   reconciliation), this is where the recorded answer is checked against the xlsx one last time
   before the data pass pins anything on it.
+- **Settle whether the no-nested-calls rule applies to test assertion arguments** (raised in
+  TICKET-INV-04's `conventions-reviewer` pass). It is being half-applied: RACE-04, SKL-05 and INV-04
+  each converted a handful of sites while adding ten to thirty more, because `expect(f(x))` is the
+  suite's pervasive existing form and converting one file's new cases makes it disagree with its own
+  neighbours. Re-litigating it per ticket costs a paragraph each time and settles nothing. Decide
+  once and write it down in the `coding-conventions` skill — either state the exception (the rule is
+  about production code; an assertion's subject may be a call) or keep the rule whole and schedule
+  the sweep as its own ticket. Do not leave it implicit.

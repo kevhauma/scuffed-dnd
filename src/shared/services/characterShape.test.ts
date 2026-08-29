@@ -175,4 +175,33 @@ describe('uploadedCharacterErrors', () => {
       ).toEqual([]);
     });
   });
+
+  describe('a kit of any size (TICKET-INV-04)', () => {
+    /** A character wearing one item in each of `count` slots, named the way a v4 ruleset names them */
+    function wearing(count: number): Character {
+      const entries = Array.from({ length: count }, (_, index) => [
+        `slot_${index}`,
+        `item-${index}`,
+      ]);
+      const equippedItems = Object.fromEntries(entries);
+
+      return stored({ inventory: { equippedItems, miscItems: [] } });
+    }
+
+    it('carries a one-slot and a twelve-slot kit through JSON and past the gate', () => {
+      // How many slots a ruleset has is the User's answer, so neither the wire shape nor the check
+      // above it may have a number of its own
+      for (const count of [1, 12]) {
+        const character = wearing(count);
+        const written = JSON.stringify(character);
+        const read = JSON.parse(written) as Character;
+
+        expect(read.inventory.equippedItems, `a kit of ${count} did not survive`).toEqual(
+          character.inventory.equippedItems
+        );
+        expect(Object.keys(read.inventory.equippedItems)).toHaveLength(count);
+        expect(uploadedCharacterErrors(read, 'characters[0]')).toEqual([]);
+      }
+    });
+  });
 });

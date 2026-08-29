@@ -185,3 +185,89 @@ describe('EquipmentLayoutPanel', () => {
     expect(screen.getByText(/No configuration loaded/)).toBeDefined();
   });
 });
+
+/**
+ * The builder has no opinion about how many slots a ruleset has (TICKET-INV-04)
+ *
+ * One, the sheet's six, twelve — the board is the User's and the count is theirs with it. The
+ * v4 workbook's six spellings are here because they are the case that made the question urgent, not
+ * because the app knows a body has six of anything.
+ */
+describe('EquipmentLayoutPanel at any slot count', () => {
+  /** The v4 workbook's six body slots, `Backpack` C4:D9 */
+  const SHEET_SIX = [
+    'head_gear',
+    'upperbody_gear',
+    'lowerbody_gear',
+    'foot_gear',
+    'right_hand',
+    'left_hand',
+  ];
+
+  /** Six the seed table has never heard of, so twelve is genuinely twelve */
+  const INVENTED_SIX = ['horns', 'tail', 'bond', 'sigil', 'familiar', 'cloak_pin'];
+
+  function withTypes(types: string[]) {
+    const slots = types.map((type) => ({ type, name: type, description: '' }));
+    withSlots(...slots);
+  }
+
+  /** The slot names the panel currently lists as not on the figure */
+  function unplacedNames(): string {
+    const heading = screen.getByRole('heading', { name: 'Not on the figure' });
+    return heading.parentElement?.textContent ?? '';
+  }
+
+  it('should place a single slot and call the board complete', () => {
+    withTypes(['head_gear']);
+
+    render(<EquipmentLayoutPanel />);
+
+    expect(cell(2, 1).value).toBe('head_gear');
+    expect(unplacedNames()).toContain('Every slot is placed.');
+  });
+
+  it('should open a v4 ruleset with all six on the figure', () => {
+    withTypes(SHEET_SIX);
+
+    render(<EquipmentLayoutPanel />);
+
+    expect(cell(2, 1).value).toBe('head_gear');
+    expect(cell(2, 2).value).toBe('upperbody_gear');
+    expect(cell(2, 3).value).toBe('lowerbody_gear');
+    expect(cell(2, 4).value).toBe('foot_gear');
+    expect(cell(1, 2).value).toBe('right_hand');
+    expect(cell(3, 2).value).toBe('left_hand');
+    expect(unplacedNames()).toContain('Every slot is placed.');
+  });
+
+  it('should let the User put all twelve of a twelve-slot ruleset on the board', () => {
+    withTypes([...SHEET_SIX, ...INVENTED_SIX]);
+
+    render(<EquipmentLayoutPanel />);
+
+    // The seed places the six it knows and leaves the rest for the User, who has six free cells on
+    // the default 3×4 board and puts one slot on each
+    for (const type of INVENTED_SIX) {
+      expect(unplacedNames(), `${type} should start unplaced`).toContain(type);
+    }
+
+    const freeCells = [
+      [1, 1],
+      [3, 1],
+      [1, 3],
+      [3, 3],
+      [1, 4],
+      [3, 4],
+    ];
+    freeCells.forEach(([column, row], index) => {
+      fireEvent.change(cell(column, row), { target: { value: INVENTED_SIX[index] } });
+    });
+
+    expect(unplacedNames()).toContain('Every slot is placed.');
+
+    const slots = useConfigStore.getState().config?.equipmentSlots ?? [];
+    expect(slots).toHaveLength(12);
+    expect(slots.every((slot) => slot.placement)).toBe(true);
+  });
+});

@@ -9,6 +9,11 @@
  *
  * Grew out of `components/play/inventory/slotLayout.test.ts`, which tested the same figure back
  * when it was hardcoded in play mode.
+ *
+ * **Two generations of spelling are pinned here** (TICKET-INV-04): the v4 workbook renamed its body
+ * slots, so each new spelling is asserted to stand on the box its old spelling already had, and the
+ * old ones are asserted to still resolve. Neither the table nor these tests say anything about how
+ * *many* slots a ruleset has — that is the builder's, and the component tests prove it.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -35,6 +40,41 @@ function seeded(type: string): EquipmentSlotPlacement {
   return placement;
 }
 
+/** The v4 workbook's six body slots, `Backpack` C4:D9 — the spellings TICKET-INV-04 added */
+const SHEET_SIX = [
+  'head_gear',
+  'upperbody_gear',
+  'lowerbody_gear',
+  'foot_gear',
+  'right_hand',
+  'left_hand',
+];
+
+/** The old workbook's seven, which keep their figure — nothing was removed to make room */
+const OLD_SHEET_SLOTS = ['head', 'chest', 'main_hand', 'off_hand', 'legs', 'accessory', 'feet'];
+
+/** Every hand-written spelling the table has ever recognised, beside the box it stands on */
+const OLD_SHEET_ALIASES: Record<string, string> = {
+  helmet: 'head',
+  helm: 'head',
+  weapon: 'main_hand',
+  body: 'chest',
+  torso: 'chest',
+  shield: 'off_hand',
+  ring: 'accessory',
+  boots: 'feet',
+};
+
+/** Each v4 spelling beside the old one whose box it joins */
+const SHEET_SIX_BOXES: Record<string, string> = {
+  head_gear: 'head',
+  upperbody_gear: 'chest',
+  lowerbody_gear: 'legs',
+  foot_gear: 'feet',
+  right_hand: 'main_hand',
+  left_hand: 'off_hand',
+};
+
 describe('seedPlacementFor', () => {
   it('should lay the sheet’s seven boxes out as a body', () => {
     const head = seeded('head');
@@ -57,8 +97,12 @@ describe('seedPlacementFor', () => {
     expect(off.column).toBeGreaterThan(chest.column);
   });
 
-  it('should fit inside the grid it seeds alongside', () => {
-    for (const type of ['head', 'chest', 'main_hand', 'off_hand', 'legs', 'accessory', 'feet']) {
+  it('should fit inside the grid it seeds alongside, in both generations of spelling', () => {
+    // Both halves in one loop on purpose (TICKET-INV-04): the v4 spellings join the figure the old
+    // ones already draw, so a box that moved out of the grid would take both with it.
+    const spellings = [...OLD_SHEET_SLOTS, ...SHEET_SIX];
+
+    for (const type of spellings) {
       expect(
         isWithinLayout(seeded(type), DEFAULT_EQUIPMENT_LAYOUT),
         `${type} seeds outside the default grid`
@@ -86,6 +130,50 @@ describe('seedPlacementFor', () => {
   it('should have no opinion about a slot it has never heard of', () => {
     expect(seedPlacementFor('horns')).toBeNull();
   });
+
+  it('should put the v4 sheet’s six spellings on the boxes the old ones already stand on', () => {
+    // TICKET-INV-04. `right_hand` beside `main_hand` rather than replacing it — the new workbook
+    // renamed its boxes, and a ruleset written against the old one is still a ruleset.
+    for (const [recent, original] of Object.entries(SHEET_SIX_BOXES)) {
+      const box = seeded(original);
+      const stands = seedPlacementFor(recent);
+
+      expect(stands, `${recent} does not stand where ${original} does`).toEqual(box);
+    }
+  });
+
+  it('should keep every spelling it recognised before, alias for alias', () => {
+    // The other half of the same promise: nothing was removed to make room for the six above.
+    for (const type of OLD_SHEET_SLOTS) {
+      const kept = seedPlacementFor(type);
+
+      expect(kept, `${type} fell out of the seed table`).not.toBeNull();
+    }
+
+    for (const [alias, original] of Object.entries(OLD_SHEET_ALIASES)) {
+      const box = seeded(original);
+      const resolved = seedPlacementFor(alias);
+
+      expect(resolved, `${alias} no longer resolves like ${original}`).toEqual(box);
+    }
+
+    // `amulet` shares the accessory cell and differs only in its drawing, so it is checked apart
+    const amulet = seeded('amulet');
+    const accessory = seeded('accessory');
+
+    expect(amulet.column).toBe(accessory.column);
+    expect(amulet.row).toBe(accessory.row);
+    expect(amulet.glyph).toBe('amulet');
+  });
+
+  it('should hand out a copy, so one ruleset cannot edit another’s seed', () => {
+    // Several spellings share one box now that they are named constants rather than repeated
+    // literals; handing the object itself out would make the table writable from a distance.
+    const first = seeded('head');
+    const second = seeded('head_gear');
+
+    expect(first).not.toBe(second);
+  });
 });
 
 describe('seedPlacements', () => {
@@ -95,6 +183,22 @@ describe('seedPlacements', () => {
     expect(seeded[0].placement).toEqual({ column: 2, row: 1, glyph: 'helm' });
     expect(seeded[1].placement).toBeUndefined();
     expect(seeded[2].placement).toEqual({ column: 2, row: 4, glyph: 'feet' });
+  });
+
+  it('should open a v4 ruleset on a whole figure with nothing left over', () => {
+    // TICKET-INV-04's first criterion: a ruleset whose slots are exactly the sheet's six opens the
+    // builder placed, not as six boxes in the loose row.
+    const slots = SHEET_SIX.map((type) => slot(type));
+    const placedSix = seedPlacements(slots);
+
+    const placements = placedSix.map((entry) => entry.placement);
+    expect(placements.every(Boolean), 'a slot seeded unplaced').toBe(true);
+
+    const cells = placedSix.map((entry) => cellKey(entry.placement as EquipmentSlotPlacement));
+    expect(new Set(cells).size).toBe(6);
+
+    const glyphs = placedSix.map((entry) => entry.placement?.glyph);
+    expect(glyphs).toEqual(['helm', 'chest', 'legs', 'feet', 'main-hand', 'off-hand']);
   });
 
   it('should give a cell to the first claimant only', () => {

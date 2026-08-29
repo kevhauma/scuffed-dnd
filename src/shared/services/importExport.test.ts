@@ -1199,4 +1199,42 @@ describe('Import/Export Service', () => {
       expect(result.errors).toContain('curves[1].name must be unique');
     });
   });
+
+  describe('a slot set of any size round-trips (TICKET-INV-04)', () => {
+    /** A ruleset with this many slots, each placed on its own cell of a board that holds them */
+    function withSlots(count: number): Configuration {
+      const equipmentSlots = Array.from({ length: count }, (_, index) => ({
+        type: `slot_${index}`,
+        name: `Slot ${index}`,
+        description: '',
+        placement: {
+          column: (index % 4) + 1,
+          row: Math.floor(index / 4) + 1,
+          glyph: 'slot' as const,
+        },
+      }));
+
+      return { ...validConfig, equipmentLayout: { columns: 4, rows: 3 }, equipmentSlots };
+    }
+
+    it('survives export then import at one slot and at twelve', () => {
+      // The count is the User's (v4.0 overview, *Rulings — ticket review*), so the file format
+      // cannot have a favourite number either
+      const one = withSlots(1);
+      const twelve = withSlots(12);
+      const oneExported = serializeConfiguration(one);
+      const twelveExported = serializeConfiguration(twelve);
+
+      expect(importConfiguration(oneExported)).toEqual(one);
+      expect(importConfiguration(twelveExported)).toEqual(twelve);
+    });
+
+    it('accepts either size as a valid shape', () => {
+      const one = withSlots(1);
+      const twelve = withSlots(12);
+
+      expect(validateConfigurationShape(one)).toEqual({ isValid: true, errors: [] });
+      expect(validateConfigurationShape(twelve)).toEqual({ isValid: true, errors: [] });
+    });
+  });
 });
