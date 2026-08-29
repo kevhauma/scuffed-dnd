@@ -11,6 +11,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Character } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
+import { STAT_AFFINITY } from '#shared/types/config';
 
 const navigate = vi.fn();
 vi.mock('@tanstack/react-router', () => ({
@@ -385,6 +386,71 @@ describe('CharacterSheet', () => {
 
       // DEX is untagged, so `non`: 4 points buy 2, plus the elf's race block of 2
       expect(within(rowFor(/Dexterity \(DEX\)/)).getByText('invested 4 → +2')).toBeDefined();
+    });
+
+    /**
+     * The label had one branch and now needs two (TICKET-ARC-04)
+     *
+     * A gain is no longer a function of the spend: a sub-tagged stat gains the character's dream
+     * level flat, points or none. The bare `invested` label meant *spent nothing, gained nothing*
+     * and would now sit beside a number — telling a Player they invested in a stat they have never
+     * touched, which is the same class of mistake ARC-02 fixed here.
+     */
+    describe('a stat the dream reaches with nothing spent in it (TICKET-ARC-04)', () => {
+      /** The same table, with DEX sub-tagged so the flat dream term lands on an untouched stat */
+      const withSubTag = () =>
+        createConfig({
+          curves: withPointBuy().curves,
+          archetypes: [
+            {
+              id: 'strong',
+              name: 'Strong',
+              description: '',
+              statAffinity: { STR: STAT_AFFINITY.MAIN, 'dex-id': STAT_AFFINITY.SUB },
+            },
+          ],
+        });
+
+      /** Nothing in DEX, so its whole gain is the dream level's flat term */
+      const untouchedDex = () =>
+        createCharacter({ archetypeId: 'strong', investedStatPoints: { STR: 6 } });
+
+      it('should say the spend was zero rather than calling the dream term an investment', () => {
+        useConfigStore.setState({ config: withSubTag(), isLoaded: true });
+        useCharacterStore.setState({ characters: [untouchedDex()] });
+
+        render(<CharacterSheet characterId="char1" />);
+
+        const dexterity = rowFor(/Dexterity \(DEX\)/);
+        // `sub(0) + dreamLevel` is 1 at the neutral level, and the arrow follows the gain
+        expect(within(dexterity).getByText('invested 0 → +1')).toBeDefined();
+        expect(within(dexterity).queryByText('invested +1')).toBeNull();
+      });
+
+      it('should still have the breakdown add up to the total', () => {
+        useConfigStore.setState({ config: withSubTag(), isLoaded: true });
+        useCharacterStore.setState({ characters: [untouchedDex()] });
+
+        render(<CharacterSheet characterId="char1" />);
+
+        // 1 from the dream, 2 from the elf's block — the row leads with what they make
+        const dexterity = rowFor(/Dexterity \(DEX\)/);
+        expect(within(dexterity).getByText('race +2')).toBeDefined();
+        expect(within(dexterity).getByText('3')).toBeDefined();
+      });
+
+      it('should keep the bare label for a stat with nothing spent and nothing gained', () => {
+        // The case the zero branch was always about: `non` is untouched by the dream, so "no
+        // points here" still has to read apart from "no such contribution"
+        useConfigStore.setState({ config: withPointBuy(), isLoaded: true });
+        useCharacterStore.setState({ characters: [untouchedDex()] });
+
+        render(<CharacterSheet characterId="char1" />);
+
+        // `signed(0)` is a bare `0`, so this reads *invested 0* — no arrow, because there is no
+        // exchange rate to show
+        expect(within(rowFor(/Dexterity \(DEX\)/)).getByText('invested 0')).toBeDefined();
+      });
     });
   });
 

@@ -28,6 +28,7 @@
 import type { Character } from '../../types/character';
 import type { Archetype, Constant, Curve, Race, Stat, StatModifier } from '../../types/config';
 import type { FormulaContext, FormulaResult } from '../../types/formula';
+import { dreamLevelOf } from '../dreamLevel';
 import { namedConstant } from '../formula/constants';
 import { asNumber, isFormulaError, withSource } from '../formula/errors';
 import { evaluateFormulaString } from '../formula/evaluator';
@@ -180,6 +181,12 @@ function finish(value: number, stat: Stat): number {
  * the `point_buy` table is User data and can refuse an input (the seed's `outOfRange` is `error`
  * past 15 points), so a stat whose spend cannot be priced chips rather than answering with a number
  * nobody derived.
+ *
+ * **Since TICKET-ARC-04 the term also carries the character's Dream level** — main-tagged stats
+ * multiply by it, sub-tagged stats add it — which is what makes a stat move when the DM raises the
+ * dream and nothing else about the character is written. It is also where the composition first
+ * meets a **fractional** invested term (`main(0)` is 0.75): `finish` rounds only when the stat's own
+ * `rounding` asks it to, so the fraction reaches the total and every formula reading `stats.*`.
  */
 function investedValue(
   stat: Stat,
@@ -191,11 +198,12 @@ function investedValue(
 ): FormulaResult {
   const base = raceBases[stat.id] ?? 0;
 
-  const gain = statGain(
-    character.investedStatPoints[stat.id] ?? 0,
-    affinityFor(archetype, stat.id),
-    pointBuy
-  );
+  const pointsSpent = character.investedStatPoints[stat.id] ?? 0;
+  const affinity = affinityFor(archetype, stat.id);
+  // RES-04's one reader owns the absent-means-1 default; the gain adds none of its own (ARC-04)
+  const dreamLevel = dreamLevelOf(character);
+
+  const gain = statGain(pointsSpent, affinity, pointBuy, dreamLevel);
   if (isFormulaError(gain)) {
     return withSource(gain, { kind: 'stat', id: stat.id, name: stat.name });
   }

@@ -1203,9 +1203,10 @@ describe('calculateCharacter — curve-routed stat gains (TICKET-ARC-02)', () =>
   it('should replace the raw points with what the affinity’s column buys', () => {
     const result = calculateCharacter(bareCharacter({ archetypeId: 'strong' }), bareConfig());
 
-    // The same 15 points, three different values — the whole point of the concept
+    // The same 15 points, three different values — the whole point of the concept. DEX reads the
+    // table's 7 plus the neutral dream level, which a sub-tagged stat adds flat (TICKET-ARC-04)
     expect(result.statValues.STR).toBe(12);
-    expect(result.statValues.DEX).toBe(7);
+    expect(result.statValues.DEX).toBe(8);
     expect(result.statValues.CON).toBe(5);
   });
 
@@ -1234,7 +1235,7 @@ describe('calculateCharacter — curve-routed stat gains (TICKET-ARC-02)', () =>
     );
 
     const base = createFixtureConfig().races.find((race) => race.id === 'elf')?.statValues.DEX ?? 0;
-    expect(result.statValues.DEX).toBe(base + 7);
+    expect(result.statValues.DEX).toBe(base + 8);
   });
 
   it('should chip a stat whose spend the table cannot price', () => {
@@ -1255,7 +1256,7 @@ describe('calculateCharacter — curve-routed stat gains (TICKET-ARC-02)', () =>
       bareConfig()
     );
 
-    expect(result.statValues.DEX).toBe(7);
+    expect(result.statValues.DEX).toBe(8);
   });
 
   it('should fall back to 1:1 for a ruleset with no point_buy curve', () => {
@@ -1263,5 +1264,70 @@ describe('calculateCharacter — curve-routed stat gains (TICKET-ARC-02)', () =>
     const result = calculateCharacter(bareCharacter(), bareConfig({ curves: [] }));
 
     expect(result.statValues.STR).toBe(15);
+  });
+
+  describe('the dream level in the composition (TICKET-ARC-04)', () => {
+    it('should move a character’s stats when the dream is raised and nothing else changes', () => {
+      const dreaming = bareCharacter({ archetypeId: 'strong', dreamLevel: 3 });
+      const awake = bareCharacter({ archetypeId: 'strong' });
+      const config = bareConfig();
+
+      const raised = calculateCharacter(dreaming, config);
+      const neutral = calculateCharacter(awake, config);
+
+      // main multiplies, sub adds, non is untouched — the same allocation throughout
+      expect(raised.statValues.STR).toBe(36);
+      expect(neutral.statValues.STR).toBe(12);
+      expect(raised.statValues.DEX).toBe(10);
+      expect(neutral.statValues.DEX).toBe(8);
+      expect(raised.statValues.CON).toBe(neutral.statValues.CON);
+    });
+
+    it('should grant a sub-tagged stat the dream level with nothing spent in it', () => {
+      // The User's 2026-08-29 ruling, composed rather than priced: an archetype is a small passive
+      // block over its two sub stats before the Player has spent anything
+      const unspent = bareCharacter({
+        archetypeId: 'strong',
+        investedStatPoints: {},
+        dreamLevel: 4,
+      });
+      const result = calculateCharacter(unspent, bareConfig());
+
+      expect(result.statValues.DEX).toBe(4);
+      expect(result.statValues.CON).toBe(0);
+    });
+
+    it('should carry a fractional main gain through the composition unrounded', () => {
+      // `main(0)` is the seed generator's 0.75, which ARC-02 used to zero — the composition rounds
+      // nothing of its own, so the fraction reaches the stat and its total (v4 systems/03)
+      const rows = pointBuy.rows.map((row) => ({
+        key: row.key,
+        values: [row.values[0], row.values[1], 0.75 * (row.key + 1)],
+      }));
+      const generated: Curve = { ...pointBuy, rows };
+      const unspent = bareCharacter({
+        archetypeId: 'strong',
+        investedStatPoints: {},
+        dreamLevel: 2,
+      });
+      const config = bareConfig({ curves: [generated] });
+
+      const result = calculateCharacter(unspent, config);
+
+      expect(result.statValues.STR).toBe(1.5);
+    });
+
+    it('should compute a character with no dream level exactly as one at level 1', () => {
+      // RES-04's reader owns the default; the calculator adds no second one
+      const unwritten = bareCharacter({ archetypeId: 'strong' });
+      const written = bareCharacter({ archetypeId: 'strong', dreamLevel: 1 });
+      const config = bareConfig();
+
+      const absent = calculateCharacter(unwritten, config);
+      const explicit = calculateCharacter(written, config);
+
+      expect(absent.statValues).toEqual(explicit.statValues);
+      expect(absent.statTotal).toBe(explicit.statTotal);
+    });
   });
 });

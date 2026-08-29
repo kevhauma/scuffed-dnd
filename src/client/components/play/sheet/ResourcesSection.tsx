@@ -27,6 +27,7 @@ import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 import { CountRow } from '../shared/CountRow';
 import type { PointBudgetView } from '../shared/pointBudgetView';
+import { investedContribution } from './investedContribution';
 import { StatEditor } from './StatEditor';
 import { StatGroupColumns } from './StatGroupColumns';
 import { groupStats } from './statGroups';
@@ -79,12 +80,10 @@ export function ResourcesSection({
                 }
                 canSpend={(budget?.pointsRemaining.value ?? 0) > 0}
                 canAdjust={budget?.pointsRemaining.value !== null}
+                // The same row `StatsSection` draws, from the same function — a pool's maximum is
+                // composed exactly like a stat, so the two must not disagree about the spelling
                 contributions={[
-                  {
-                    label: resource.invested === 0 ? 'invested' : `invested ${resource.invested} →`,
-                    value: resource.gain.value ?? 0,
-                    alwaysShow: !resource.isDerived,
-                  },
+                  investedContribution(resource),
                   { label: 'race', value: resource.race },
                   { label: 'equipment', value: resource.equipment },
                 ]}

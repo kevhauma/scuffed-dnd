@@ -15,14 +15,17 @@
  * 🔍-inferred values are included but carry `inferred: true`: consistent with the sheet, not proven
  * by it. The suite reports them separately so "confirmed" never quietly comes to mean "plausible".
  *
- * This module imports **types only**. It is data, and keeping it that way is what lets it sit
- * inside `engine/` without reaching for the stores and services the builder in `golden.test.ts`
- * needs (`engine/` is pure — see `.claude/skills/coding-conventions/SKILL.md`).
+ * This module imports **types, and the frozen constants declared beside them** (`STAT_AFFINITY`
+ * since TICKET-ARC-04 — a fixture naming an affinity references the constant like every other call
+ * site). It is data, and keeping it that way is what lets it sit inside `engine/` without reaching
+ * for the stores and services the builder in `golden.test.ts` needs (`engine/` is pure — see
+ * `.claude/skills/coding-conventions/SKILL.md`).
  *
  * **Validates: Concepts 01, 02, 03, 04, 05, 06, 07, 08, 20; spec §12**
  */
 
 import type { StatAffinity } from '../../types/config';
+import { STAT_AFFINITY } from '../../types/config';
 
 /**
  * Where a fixture's expected value comes from
@@ -38,6 +41,17 @@ export interface GoldenCitation {
   section: string;
   /** The sheet range the page cites, where it cites one — e.g. `Charactersheet!E9` */
   range?: string;
+  /**
+   * What kind of document `concept` names, when it is not a concept page — `v4` for a
+   * `docs/v4.0_sheet_parity/systems/` document.
+   *
+   * v4.0's system documents supersede the concept pages wherever the new workbook changed something
+   * (v4 D1), so a fixture whose expected value comes from one has to **say so**. A new number left
+   * under an old citation is the single edit this file exists to prevent (see the README): the
+   * citation is what a reader follows to check the number, and one that leads to a page not stating
+   * it is worse than none.
+   */
+  document?: string;
 }
 
 /** What every fixture row carries, whatever it asserts */
@@ -56,8 +70,11 @@ export interface GoldenFixture {
 }
 
 /** Render a citation the way the suite prints it in a test name and a failure message */
-export function describeCitation({ concept, section, range }: GoldenCitation): string {
-  return `Concept ${concept} § ${section}${range === undefined ? '' : ` (${range})`}`;
+export function describeCitation({ concept, section, range, document }: GoldenCitation): string {
+  const kind = document ?? 'Concept';
+  const cited = range === undefined ? '' : ` (${range})`;
+
+  return `${kind} ${concept} § ${section}${cited}`;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -307,57 +324,117 @@ export const aptFixtures: readonly AptFixture[] = [
 // Point buy (Concepts 03, 06)
 // ---------------------------------------------------------------------------------------------
 
-/** What a spend buys, at one affinity */
+/**
+ * What a spend buys, at one affinity and one dream level
+ *
+ * `dreamLevel` is explicit on every row since TICKET-ARC-04, because a gain is no longer a function
+ * of the spend alone: `expected` is what a *character* at that dream level gains, table value and
+ * dream term together. Stating the level per row is what keeps the two halves legible — the table's
+ * own number is `expected` minus (or over) the term the affinity names.
+ */
 export interface PointBuyFixture extends GoldenFixture {
   points: number;
   affinity: StatAffinity;
+  /** How far the character stands in their dream; 1 is the neutral level (RES-04) */
+  dreamLevel: number;
   expected: number;
 }
 
 /**
- * Concept 06's seed table, at the rows that carry an argument
+ * Concept 06's seed table, at the rows that carry an argument — through the v4 gain formula
  *
- * The 15-point row is the one the whole archetype concept rests on — **5 / 7 / 12**, a 2.4× spread
- * between a stat your archetype ignores and one it is built around. The 9-point `sub` cell is the
- * sheet's own anomaly (65/14, where every neighbour is an integer), carried across deliberately
- * rather than rounded away, and pinned here so that "fix the 4.642857 cell" stays a decision
- * somebody makes rather than something that quietly happens.
+ * The 15-point row is the one the whole archetype concept rests on — the table's **5 / 7 / 12**, a
+ * 2.4× spread between a stat your archetype ignores and one it is built around. The 9-point `sub`
+ * cell is the sheet's own anomaly (65/14, where every neighbour is an integer), carried across
+ * deliberately rather than rounded away, and pinned here so that "fix the 4.642857 cell" stays a
+ * decision somebody makes rather than something that quietly happens.
+ *
+ * **The `expected` numbers moved with TICKET-ARC-04, and the *table* rows' citations did not.** The
+ * curve is byte-identical to what the old workbook held and the new one still holds (v4 systems/05:
+ * the "new integer table" was display rounding), so Concept 06 remains where each **table value**
+ * comes from — and the two rows that are still nothing but a table cell (`non` at 15, `main` at 0)
+ * keep that citation. What changed is the formula reading it: `main × dreamLevel`,
+ * `sub + dreamLevel`. Every row whose number now contains that term **cites v4 systems/05
+ * instead**, because Concept 06 does not state it: a new expected value under an old citation is
+ * the one edit this file exists to prevent, and it is not made less wrong by the number being
+ * right.
+ *
+ * This is the README's "never fix a failing fixture by editing the fixture" exception in its
+ * intended form: the derivation was deliberately changed by a ticket, so the rows were re-derived
+ * rather than re-fitted, and the citation moved with the number.
  */
+const POINT_BUY_TABLE: GoldenCitation = {
+  concept: '06 · Curve',
+  section: 'Seed curve: point-buy ✅',
+};
+
+/** Where the dream term comes from — the formulas the new workbook writes per (stat × archetype) */
+const DREAM_TERM: GoldenCitation = {
+  document: 'v4',
+  concept: 'systems/05 · Archetypes',
+  section: 'Dream level enters the gain formula',
+};
+
 export const pointBuyFixtures: readonly PointBuyFixture[] = [
   {
-    name: '15 points on a non-type stat buy 5',
+    name: '15 points on a non-type stat buy 5, which the dream never reaches',
     points: 15,
-    affinity: 'non',
+    affinity: STAT_AFFINITY.NON,
+    dreamLevel: 1,
     expected: 5,
-    citation: { concept: '06 · Curve', section: 'Seed curve: point-buy ✅' },
+    citation: POINT_BUY_TABLE,
   },
   {
-    name: '15 points on a sub-type stat buy 7',
+    name: '15 points on a sub-type stat buy the table’s 7, plus a dream level of 1',
     points: 15,
-    affinity: 'sub',
-    expected: 7,
-    citation: { concept: '06 · Curve', section: 'Seed curve: point-buy ✅' },
+    affinity: STAT_AFFINITY.SUB,
+    dreamLevel: 1,
+    expected: 8,
+    citation: DREAM_TERM,
   },
   {
-    name: '15 points on a main-type stat buy 12 — the 2.4× spread',
+    name: '15 points on a main-type stat buy 12 at dream 1 — the 2.4× spread',
     points: 15,
-    affinity: 'main',
+    affinity: STAT_AFFINITY.MAIN,
+    dreamLevel: 1,
+    // Still the table's own cell: the neutral level multiplies it by one
     expected: 12,
-    citation: { concept: '06 · Curve', section: 'Seed curve: point-buy ✅' },
+    citation: POINT_BUY_TABLE,
   },
   {
-    name: '9 points on a sub-type stat buy the sheet’s 65/14 anomaly, unrounded',
+    name: '15 points on a main-type stat buy 24 at dream 2 — the whole column doubles',
+    points: 15,
+    affinity: STAT_AFFINITY.MAIN,
+    dreamLevel: 2,
+    expected: 24,
+    citation: DREAM_TERM,
+  },
+  {
+    name: '9 points on a sub-type stat buy the sheet’s 65/14 anomaly, unrounded, plus dream 1',
     points: 9,
-    affinity: 'sub',
-    expected: 4.64285714285714,
-    citation: { concept: '06 · Curve', section: 'Seed curve: point-buy ✅ — the ⚠️ cell' },
+    affinity: STAT_AFFINITY.SUB,
+    dreamLevel: 1,
+    expected: 5.64285714285714,
+    // The anomaly is Concept 06's (`Seed curve: point-buy ✅ — the ⚠️ cell`); the `+1` on top of it
+    // is systems/05's, and a row carrying both cites the one a reader could not otherwise find
+    citation: DREAM_TERM,
   },
   {
-    name: 'spending nothing gains nothing, though the main column reads 0.75 at zero',
+    name: 'spending nothing on a main-type stat still buys the column’s fractional 0.75',
     points: 0,
-    affinity: 'main',
-    expected: 0,
-    citation: { concept: '06 · Curve', section: 'Seed curve: point-buy ✅' },
+    affinity: STAT_AFFINITY.MAIN,
+    dreamLevel: 1,
+    // The generator's own value at key 0, which ARC-02 used to override and ARC-04 stopped
+    expected: 0.75,
+    citation: POINT_BUY_TABLE,
+  },
+  {
+    name: 'spending nothing on a sub-type stat buys the dream level itself',
+    points: 0,
+    affinity: STAT_AFFINITY.SUB,
+    dreamLevel: 3,
+    expected: 3,
+    citation: DREAM_TERM,
   },
 ];
 

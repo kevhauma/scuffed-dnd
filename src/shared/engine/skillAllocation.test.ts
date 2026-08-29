@@ -363,8 +363,10 @@ describe('validateStatAllocation', () => {
         })
       );
 
+      // DEX reads the table's 5 plus the neutral dream level, added flat to a sub-tagged stat
+      // (TICKET-ARC-04); STR's main column is multiplied by it, which at 1 leaves it alone
       expect(rows.STR).toMatchObject({ affinity: 'main', points: 10, gain: 8.25 });
-      expect(rows.DEX).toMatchObject({ affinity: 'sub', points: 10, gain: 5 });
+      expect(rows.DEX).toMatchObject({ affinity: 'sub', points: 10, gain: 6 });
       expect(rows.CON).toMatchObject({ affinity: 'non', points: 10, gain: 4 });
     });
 
@@ -374,7 +376,8 @@ describe('validateStatAllocation', () => {
       );
 
       expect(rows.STR.gain).toBe(4.5);
-      expect(rows.DEX.gain).toBe(5);
+      expect(rows.DEX.gain).toBe(6);
+      // Untouched and untagged: the dream reaches neither the `non` column nor a zero spend there
       expect(rows.CON.gain).toBe(0);
     });
 
@@ -458,7 +461,30 @@ describe('validateStatAllocation', () => {
         createCharacter({ archetypeId: 'strong', investedStatPoints: { STR: 40, DEX: 10 } })
       );
 
-      expect(rows.DEX.gain).toBe(5);
+      expect(rows.DEX.gain).toBe(6);
+    });
+
+    it('should report the dream level in the gain the Player is shown (TICKET-ARC-04)', () => {
+      // The readout and the sheet read the same engine, so what a Player is told a point buys
+      // already carries the dream their character stands at
+      const dreamer = createCharacter({
+        archetypeId: 'strong',
+        dreamLevel: 3,
+        investedStatPoints: { STR: 10, DEX: 10, CON: 10 },
+      });
+      const rows = gainsOf(dreamer);
+
+      expect(rows.STR.gain).toBeCloseTo(24.75, 10);
+      expect(rows.DEX.gain).toBe(8);
+      expect(rows.CON.gain).toBe(4);
+    });
+
+    it('should grant a sub-tagged stat the dream level with nothing spent in it', () => {
+      const unspent = createCharacter({ archetypeId: 'strong', dreamLevel: 2 });
+      const rows = gainsOf(unspent);
+
+      expect(rows.DEX.gain).toBe(2);
+      expect(rows.CON.gain).toBe(0);
     });
 
     it('should fall back to 1:1 for a ruleset with no point_buy curve', () => {

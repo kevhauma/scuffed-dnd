@@ -124,10 +124,13 @@ export interface StatBreakdown {
    */
   invested: number;
   /**
-   * What the invested points bought, through the archetype's affinity column (TICKET-ARC-02)
+   * What the invested points bought, through the archetype's affinity column (TICKET-ARC-02),
+   * amplified by the character's Dream level (TICKET-ARC-04)
    *
-   * The actual term of the composed value. Equal to `invested` on a ruleset with no `point_buy`
-   * curve, which is the 1:1 fallback showing through.
+   * The actual term of the composed value, and **not a function of `invested` alone**: a main-tagged
+   * stat multiplies by the dream level and a sub-tagged one adds it, so a stat with nothing spent in
+   * it can still show a gain, and it can be fractional. Equal to `invested` on a ruleset with no
+   * `point_buy` curve and no archetype, which is the 1:1 fallback showing through.
    */
   gain: DerivedValue;
   /** What the character's races supply for this stat, blended (Requirement 8.5, Concept 04) */
@@ -323,6 +326,9 @@ function buildView(
   // stat's breakdown terms cannot disagree with the total they are terms of
   const archetype = archetypeOf(character, config);
   const pointBuy = pointBuyCurve(config);
+  // The third term of the gain since TICKET-ARC-04, read through RES-04's one reader so the
+  // breakdown row and the composed value cannot disagree about an untouched character
+  const dreamLevel = dreamLevelOf(character);
 
   const orderedStats = [...config.stats].sort((a, b) => a.order - b.order);
   const abbreviationById = new Map(config.stats.map((stat) => [stat.id, stat.abbreviation]));
@@ -363,6 +369,8 @@ function buildView(
       const current = character.currentResourceValues[stat.id] ?? 0;
       const max = toDerivedValue(calculated.statValues[stat.id]);
       const invested = character.investedStatPoints[stat.id] ?? 0;
+      const affinity = affinityFor(archetype, stat.id);
+      const gain = statGain(invested, affinity, pointBuy, dreamLevel);
 
       return {
         id: stat.id,
@@ -373,7 +381,7 @@ function buildView(
         isResource: stat.isResource,
         isDerived: stat.formula !== undefined,
         invested,
-        gain: toDerivedValue(statGain(invested, affinityFor(archetype, stat.id), pointBuy)),
+        gain: toDerivedValue(gain),
         race: raceBases[stat.id] ?? 0,
         equipment: equipmentBonuses[stat.id] ?? 0,
         current,

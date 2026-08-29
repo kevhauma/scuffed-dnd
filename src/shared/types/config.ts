@@ -516,12 +516,30 @@ export interface Race {
  *
  * The three values are not a scale the app interprets — they are **column names in the `point_buy`
  * curve**, which is what makes "flatten the archetype advantage" a table edit rather than a code
- * change. TICKET-ARC-02 is what routes a spent point through the matching column.
+ * change. TICKET-ARC-02 is what routes a spent point through the matching column, and TICKET-ARC-04
+ * gives `main` and `sub` a second job: each names the shape Dream level enters the gain in.
+ *
+ * **A const object since TICKET-ARC-04** — the house rule's conversion-when-touched, earned by that
+ * second job: the dream term branches on the tag, so the engine now *spells* two of these values in
+ * code rather than only forwarding them to a column lookup. The derived type is the same union it
+ * always was, so every existing call site keeps typechecking; new ones reference the constant.
  */
-export type StatAffinity = 'main' | 'sub' | 'non';
+export const STAT_AFFINITY = {
+  MAIN: 'main',
+  SUB: 'sub',
+  NON: 'non',
+} as const;
 
-/** Every affinity, in the order an editor offers them — least favoured last */
-export const STAT_AFFINITIES: readonly StatAffinity[] = ['main', 'sub', 'non'];
+export type StatAffinity = (typeof STAT_AFFINITY)[keyof typeof STAT_AFFINITY];
+
+/**
+ * Every affinity, in the order an editor offers them — least favoured last
+ *
+ * Derived from the constant rather than written out beside it: a hand-written second list of the
+ * same three members is one that can be added to in one place and not the other. The declaration
+ * order of `STAT_AFFINITY` is what "least favoured last" means, and object key order preserves it.
+ */
+export const STAT_AFFINITIES: readonly StatAffinity[] = Object.values(STAT_AFFINITY);
 
 /**
  * What a stat an archetype says nothing about is worth (Concept 03)
@@ -529,7 +547,7 @@ export const STAT_AFFINITIES: readonly StatAffinity[] = ['main', 'sub', 'non'];
  * Lives with the type rather than with the editor because it is a property of the **stored shape**,
  * not of any one surface: a tagging is sparse, so every reader resolves an absent stat through this.
  */
-export const DEFAULT_STAT_AFFINITY: StatAffinity = 'non';
+export const DEFAULT_STAT_AFFINITY: StatAffinity = STAT_AFFINITY.NON;
 
 /**
  * The curve an archetype's affinity selects a column of (Concept 03, Concept 06)

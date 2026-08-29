@@ -46,6 +46,7 @@ import type { Configuration, StatAffinity } from '../types/config';
 import type { FormulaResult } from '../types/formula';
 import { affinityFor, archetypeOf, pointBuyCurve, statGain } from './calculators/pointBuy';
 import { calculateCharacterLevel } from './characterSummary';
+import { dreamLevelOf } from './dreamLevel';
 import { namedConstant } from './formula/constants';
 import { isFormulaError } from './formula/errors';
 
@@ -196,6 +197,9 @@ export function validateStatAllocation(
   // properties of the character and the ruleset, not of any one row (TICKET-ARC-02)
   const archetype = archetypeOf(character, config);
   const curve = pointBuyCurve(config);
+  // Likewise a property of the character rather than of any one row (TICKET-ARC-04), and read
+  // through RES-04's one reader so this agrees with the sheet about an untouched character
+  const dreamLevel = dreamLevelOf(character);
 
   for (const stat of config.stats) {
     const points = investedStatPoints[stat.id] ?? 0;
@@ -203,7 +207,7 @@ export function validateStatAllocation(
     // A derived stat computes its own value, so there is nothing a point could buy in it
     if (stat.formula === undefined) {
       const affinity = affinityFor(archetype, stat.id);
-      const gain = statGain(points, affinity, curve);
+      const gain = statGain(points, affinity, curve, dreamLevel);
       gains.push({ statId: stat.id, statName: stat.name, affinity, points, gain });
 
       // A spend the table cannot price is refused here rather than persisted and chipped later.

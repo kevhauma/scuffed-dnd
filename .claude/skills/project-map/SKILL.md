@@ -305,12 +305,19 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   chips rather than claiming 1. The curve is found **by name**, like `const.bonus_divider` and
   `const.race_blend_divisor`, so renaming it breaks the link rather than following it. Every screen
   showing a level reads it from here.
-- `calculators/pointBuy.ts` — `statGain(pointsSpent, affinity, curve)` → what a spent point *buys*
-  (TICKET-ARC-02), plus `archetypeOf` / `affinityFor` / `pointBuyCurve`. The character's archetype
-  tags a stat `main`/`sub`/`non`; that names a **column** of the `point_buy` curve, and the points
-  are the key — 15 points buy 12/7/5. Three rules live here rather than in the table: zero points
-  gains zero, a missing curve falls back to 1:1, and a lookup the table refuses is an **error value**
-  (never a 1:1 fallback, which would out-buy the main column). Read by the composition and by
+- `calculators/pointBuy.ts` — `statGain(pointsSpent, affinity, curve, dreamLevel)` → what a spent
+  point *buys* (TICKET-ARC-02, TICKET-ARC-04), plus `archetypeOf` / `affinityFor` / `pointBuyCurve`.
+  The character's archetype tags a stat `main`/`sub`/`non`; that names a **column** of the
+  `point_buy` curve, and the points are the key — 15 points buy 12/7/5 off the table. The tag then
+  names how **Dream level** enters: `main × dreamLevel`, `sub + dreamLevel`, `non` untouched. The
+  shape is hard-wired (the sheet hard-wires it) and the level is a **required fourth parameter**, so
+  this module adds no second absent-means-1 rule — callers read `dreamLevelOf(character)` and pass
+  the number. Three rules live here rather than in the table: a **negative** spend gains zero (zero
+  itself does not — `main(0)` is the seed generator's fractional 0.75, and a sub stat gains the dream
+  level flat with nothing spent, which is what superseded ARC-02's *spending nothing gains nothing*),
+  a missing curve falls back to 1:1 (amplified all the same, since the term is the formula and not
+  the table), and a lookup the table refuses is an **error value** — never a 1:1 fallback, which
+  would out-buy the main column, and never amplified. Read by the composition and by
   `skillAllocation.ts`; never re-derive a gain.
 - `skillAllocation.ts` — `validateStatAllocation(character, config)` → points spent/remaining,
   per-stat violations (`negative-points`, `derived-stat`), verdict. Keyed by stat id. The pool is
@@ -859,6 +866,11 @@ values present, in the stats' own order, and the render-prop container **draws**
 `StatsSection` and `ResourcesSection` use the pair, so a group spanning the pool/stat split draws a
 column on each side; a ruleset naming no groups is one unlabelled column, which is the flat list
 the sheet has always shown. Reach for `groupStats` rather than re-deriving a column set),
+**`investedContribution.ts`** (TICKET-ARC-04 — the *"invested 6 → +5.25"* breakdown term, shared by
+`StatsSection` and `ResourcesSection` for the same reason the pair above is. Since ARC-04 a gain is
+**not** a function of the spend — a main-tagged stat gains `0.75 × dream` and a sub-tagged one
+`+dream` with nothing invested — so the label branches: the arrow follows the *gain*, and the bare
+`invested` is kept only for nothing-spent-and-nothing-gained. Never re-spell this row inline),
 `SkillsSection` (one row per
 skill carrying **both** of Concept 02's numbers since TICKET-SKL-03 — the bonus as the row's total,
 the level in `SkillBreakdownRow`'s `secondary` slot — over a breakdown of `STR × 0.2 +2` terms plus

@@ -29,6 +29,7 @@ import { calculateCharacter } from '#shared/engine/calculator';
 import { affinityFor, pointBuyCurve, statGain } from '#shared/engine/calculators/pointBuy';
 import { calculateRaceStatBases } from '#shared/engine/calculators/statCalculator';
 import { decomposeValue, formatLadderNotation, rollPool } from '#shared/engine/dice';
+import { DEFAULT_DREAM_LEVEL } from '#shared/engine/dreamLevel';
 import { asNumber } from '#shared/engine/formula/errors';
 import {
   aptFixtures,
@@ -52,6 +53,7 @@ import {
 import { importConfiguration } from '#shared/services/importExport';
 import type { Character } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
+import { STAT_AFFINITY } from '#shared/types/config';
 import { IMPORTS_DIR, OUTPUT_FILE } from '../../../scripts/build-sheet-import.mjs';
 import { useCharacterStore } from '../stores/characterStore';
 import { useConfigStore } from '../stores/configStore';
@@ -109,6 +111,15 @@ interface SampleCharacterOptions {
  * `createCharacter` refuses an allocation the ruleset cannot afford or price, so a character coming
  * back at all is already an assertion — the sample spends nothing, which every budget allows.
  *
+ * **Deliberately archetype-less since TICKET-ARC-04.** The suite installs the sheet's *whole*
+ * confirmed stat line as a race stat block, because the export does not say how that line splits
+ * between race base and point-buy spend (see the README). Tagging the character with an archetype
+ * was harmless while a zero spend bought exactly zero; it is not any more — a main-tagged stat now
+ * gains `0.75 × dreamLevel` and a sub-tagged one `+dreamLevel` with nothing spent, so an archetype
+ * here would add a term on top of a line that already contains it and every total would drift by
+ * 0.75. The archetype's own routing is pinned directly, below, where it can be read against the
+ * table rather than through a double count.
+ *
  * @param config - The ruleset to build on
  * @param options - What to vary
  * @returns The stored character
@@ -121,7 +132,6 @@ function buildSampleCharacter(
     {
       name: 'Bickuss Dickuss',
       raceIds: options.raceIds ?? [SAMPLE_RACE_ID],
-      archetypeId: SAMPLE_ARCHETYPE_ID,
       investedStatPoints: options.investedStatPoints ?? {},
       investedSkillPoints: options.investedSkillPoints ?? {},
     },
@@ -262,10 +272,13 @@ describe('golden fixtures — the sheet’s confirmed derivations', () => {
 
   describe('point buy — what a spent point is worth (Concepts 03, 06)', () => {
     it.each(pointBuyFixtures)('$name', (fixture) => {
-      expect(
-        asNumber(statGain(fixture.points, fixture.affinity, pointBuyCurve(config))),
-        describeCitation(fixture.citation)
-      ).toBeCloseTo(fixture.expected, PRECISION);
+      const curve = pointBuyCurve(config);
+      const gain = statGain(fixture.points, fixture.affinity, curve, fixture.dreamLevel);
+
+      expect(asNumber(gain), describeCitation(fixture.citation)).toBeCloseTo(
+        fixture.expected,
+        PRECISION
+      );
     });
 
     it(POINT_BUY_MAIN_GENERATOR.name, () => {
@@ -273,14 +286,17 @@ describe('golden fixtures — the sheet’s confirmed derivations', () => {
       if (curve === undefined) throw new Error('the corpus has no point_buy curve');
       const citation = describeCitation(POINT_BUY_MAIN_GENERATOR.citation);
 
-      // Every row, through the engine's own lookup rather than by reading the table back — the
-      // 0 row excepted, where "a spend of nothing buys nothing" overrides the generator's 0.75
+      // Every row, through the engine's own lookup rather than by reading the table back. The 0 row
+      // is no longer excepted: TICKET-ARC-04 superseded "a spend of nothing buys nothing", so the
+      // generator's 0.75 is what the engine answers there too, at the neutral dream level of 1
       expect(curve.rows.length).toBeGreaterThan(1);
-      for (const row of curve.rows.filter(({ key }) => key > 0)) {
-        expect(
-          asNumber(statGain(row.key, 'main', curve)),
-          `${citation} — ${row.key} points`
-        ).toBeCloseTo(POINT_BUY_MAIN_GENERATOR.factor * (row.key + 1), PRECISION);
+      for (const row of curve.rows) {
+        const gain = statGain(row.key, STAT_AFFINITY.MAIN, curve, DEFAULT_DREAM_LEVEL);
+
+        expect(asNumber(gain), `${citation} — ${row.key} points`).toBeCloseTo(
+          POINT_BUY_MAIN_GENERATOR.factor * (row.key + 1),
+          PRECISION
+        );
       }
     });
 

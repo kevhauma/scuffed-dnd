@@ -219,6 +219,11 @@ Two families of judgement, both concrete here rather than generic.
   is, and the day the neutral value is questioned there is one line to argue about. The reader
   returns a stored number **as it stands**: the setter owns the floor, and a clamp in the reader
   would be a second, silent rule competing with a refusal the Player was shown.
+  **The corollary, from TICKET-ARC-04: a Kernel function that needs such a value takes it as a
+  *required* parameter and never re-derives it.** `statGain(pointsSpent, affinity, curve,
+  dreamLevel)` has no default and no `Character` argument — the callers that hold a character read
+  `dreamLevelOf` and pass the number. A defaulted parameter would have been the second rule the
+  reader exists to prevent, one file further down.
 - Session-only UI state (open dialogs, roll history, active mode) lives in `useUIStore`, not in
   the persisted stores.
 

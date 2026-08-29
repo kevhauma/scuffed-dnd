@@ -1,8 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-29 (`npx vitest run`) at **TICKET-RES-04 — dream level, raised by the DM**,
-the current count-setter at **3088**.
+_Last verified: 2026-08-29 (`npx vitest run`) at **TICKET-ARC-04 — dream-amplified archetype
+gains**, the current count-setter at **3108**.
 The checkpoints before it were
+**TICKET-RES-04 — dream level, raised by the DM** at 3088,
 **TICKET-STAT-04 — stat groups on the character sheet** at 3067,
 **TICKET-ROLL-08 — the dice ladder's fractional remainder**, v4.0's first shape-pass ticket, at
 3047,
@@ -35,8 +36,8 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 3088
-- **Passing**: 3088 (100%)
+- **Total tests**: 3108
+- **Passing**: 3108 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
@@ -64,6 +65,80 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-ARC-04 — twenty net, and the twelve that had to be re-derived rather than re-fitted
+
+The **+20 over RES-04** is TICKET-ARC-04, and the net number understates the movement: **12 existing
+assertions changed value**, which is the whole ticket. `pointBuy.test.ts` (+12) carries the new
+behaviour — a sub stat's `+dreamLevel` at zero points over four levels, the raise-the-dream delta,
+`main(0)` as a real fractional 0.75, the 1:1 fallback amplified, and the *no dream level computes as
+1* pin. `calculator.test.ts` (+4) and `skillAllocation.test.ts` (+2) prove the same thing
+**composed** rather than priced, which is where a Player actually meets it. `CharacterSheet.test.tsx`
+(+3) is the review's find, below. `golden.test.ts` and `fixtures.ts` net +2 fixture rows.
+**194 files, unchanged** — the one new module, `investedContribution.ts`, is covered through the
+sheet rather than given a file of its own, because what it gets wrong is only wrong *rendered*.
+
+### The review found a label that had quietly become a lie
+
+`gain` stopped being a function of `invested` the moment the dream term landed, and two components
+were still spelling it as though it were: `StatsSection` and `ResourcesSection` labelled the term
+`invested` when the spend was zero — a branch whose comment said *spent nothing* — and now paired it
+with `+0.75`. A Player would read **"invested +0.75"** on a stat they had never touched, which is
+the inverse of the defect ARC-02 fixed in that exact row. **Live on the shipped corpus**, since
+`archetypes.json` tags main stats today, and `+1` on two stats per archetype the moment the data
+pass lands the matrix. Neither file was in the diff, no test covered it, and the browser check that
+would have shown it is the one criterion this ticket left struck through.
+
+The fix is one function, `investedContribution.ts`, shared by both sections: the arrow follows the
+**gain**, so `invested 0 → +1` reads as *nothing spent, and this is what that is worth*, and the
+bare `invested` survives for the case it was always about — nothing spent and nothing gained. It is
+extracted at its second caller deliberately (GAM-01's `entityName.ts` precedent): the rule now has a
+branch in it, and a three-way conditional written twice in JSX is the shape that drifts.
+
+**The superseded assertion is the interesting one, and it was ARC-02's.** *"Spending nothing gains
+nothing, though the main column reads 0.75 at zero"* was a defensible reading of a generator fitted
+over the range a Player spends in — and it is not what the new sheet's formulas do: they read the 0
+row like any other, so a main stat with nothing spent in it gains `0.75 × dream` and a sub stat gains
+the dream level flat (the User's 2026-08-29 ruling). `statGain`'s guard went from `pointsSpent <= 0`
+to `pointsSpent < 0`; the negative half kept its rule and its reason, because that one is about
+where a message belongs rather than about the curve.
+
+**Three golden fixtures moved and the `point_buy` curve did not**, which is the distinction the
+fixture block now spells out. `docs/imports/curves.json` is `git diff` clean; what changed is the
+formula reading it. `PointBuyFixture` gained an explicit `dreamLevel` per row so the two halves stay
+legible — the sheet's own cell is `expected` minus (or over) the term the affinity names — and the
+README's *never fix a failing fixture by editing the fixture* rule is honoured in its intended form:
+a ticket deliberately changed the derivation, so the rows were **re-derived**, not re-fitted.
+
+**And the citation moved with the number**, which the review had to point out: four rows now carry a
+term Concept 06 does not state, so they cite `v4 systems/05 § Dream level enters the gain formula`
+instead, and only the two that are still nothing but a table cell keep Concept 06. `GoldenCitation`
+grew one optional `document` field for it — the concept pages are superseded wherever the new
+workbook changed something (v4 D1), and a citation leading to a page that does not state the number
+is worse than none. That is the one edit the golden README exists to prevent, and it was made and
+then unmade inside this ticket.
+
+**The golden suite's sample character lost its archetype**, and that is the subtlest consequence in
+the diff. The suite installs the sheet's *whole* confirmed stat line as a race stat block, because
+the export never said how that line splits between race base and point-buy spend. An archetype tag
+contributed exactly zero under the old rule and contributes `0.75 × dream` under the new one, so
+every stat total drifted by 0.75 the moment the term landed — twelve golden failures with nothing
+wrong with them. The routing the tag was there to prove is pinned directly instead.
+
+**`StatAffinity` became a const object**, the house rule's convert-when-touched. It earned it: the
+dream term *branches* on the tag, so the engine spells `main` and `sub` in code now rather than only
+forwarding them to a column lookup. The derived type is the same union, so no existing call site
+moved — and `amplifyByDream`'s `switch` is exhaustive over it.
+
+**`fallow` reported nothing of this ticket's.** `audit --base main` is **pass** with 0 introduced
+dead-code, complexity or duplication findings across 22 changed files; the two dead-code rows
+(`fallow` itself in `dependencies`, `RulesetHomeKind` in `rulesetSync.ts`) and both complexity rows
+(`useCharacterSheet` at 16 cyclomatic, `validateStatAllocation` at 14) are inherited — this diff
+added no branch to either. Two touched files come back Accelerating and are recorded below:
+`useCharacterSheet.ts` (18.4 → 20.8) and `CharacterSheet.test.tsx` (7.5 → 8.9), the second of which
+is the DM-01 row's own test being passed rather than failed. **No `SUPPORTED_SCHEMA_VERSION` bump**:
+no persisted shape moved, so D6's single milestone-wide bump still belongs to the first *reshaping*
+ticket, or to DX-09.
 
 ## TICKET-RES-04 — twenty-one tests for one optional number, and where the default lives
 
@@ -1380,11 +1455,11 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/server/repositories/characterRepository.ts` | 3.3 | TICKET-PLY-01's run | 4 commits, 252 churn | ─ Stable — **cooled by TICKET-DM-01**, which added no query at all: the DM's five writes reuse `recordPlayerAction` whole |
 | `src/client/stores/characterStore.ts` | 17.3 | TICKET-CUR-02's run | 6 commits, 1324 added / 338 deleted, 0.11 density, 27 fan-in | ▲ **Accelerating — TICKET-RES-04** (11.6 at ROLL-07, 13.4 at CUR-02, 15.4 at DM-01, **17.3 now**). RES-04 added two actions — `updateDreamLevel` and `dmSetDreamLevel` — and no rule: both call the Kernel's `setDreamLevel`, and the second is one `adjustAtTable` line. Density unmoved at 0.11 across a sixth commit, which is the store growing as a router rather than as a rulebook. The earlier reading stands: (11.6 at ROLL-07, 13.4 at CUR-02, 15.4 at DM-01. Five consecutive tickets have added to it, and DM-01 added five actions — but it also moved the *experience* rules out into `shared/services/dmActions.ts`, so the density fell (0.12 → 0.11) while the churn rose. That is the direction to keep pushing: the store is a router with two destinations, and every rule still living in it is a rule the server cannot call) |
 | `src/client/components/play/sheet/CharacterSheet.tsx` | 9.2 | TICKET-CUR-02's run | 5 commits, 349 added / 118 deleted, 0.07 density, 5 fan-in | ▲ **Accelerating — TICKET-RES-04** (5.0 at CUR-02, 7.8 at DM-01, **9.2 now**). RES-04 passed two props through and added no branch, so the density held at 0.07 — but this is now five consecutive tickets each adding to the same two call sites, and DM-01 already had to split `SheetStatusNotice` and `SheetRefusalBanner` out to get it back under the complexity threshold. **The next ticket to add a section here extracts before it adds.** The DM-01 reading, unchanged: (5.0 at CUR-02. Four tickets in a row have each added a conditional, and DM-01's two took it *over* `fallow`'s complexity threshold — 13 → 18 cyclomatic — so the same ticket split `SheetStatusNotice` and `SheetRefusalBanner` out and brought it back off the list. 256 → 168 lines. The next ticket to add a section here should extract before it adds: TICKET-DM-03's sidebar is the obvious place) |
-| `src/client/components/play/sheet/useCharacterSheet.ts` | 18.4 | TICKET-DM-01's run | 5 commits, 552 added / 95 deleted, 0.14 density, 15 fan-in | ▲ **Accelerating — TICKET-RES-04** (11.7 at DM-01, 14.7 at STAT-04, **18.4 now** — the largest single jump this row has taken, on a fifth commit that added *one returned field*, `dreamLevel`, read through `dreamLevelOf`. The density is still 0.14 across all three measurements, so what is rising is churn, not difficulty). The STAT-04 reading, which still applies: (11.7 at DM-01, 14.7 then. DM-01 touched it only to export `CharacterSheetStatus`, and STAT-04 added one carried-through field to `StatBreakdown` and one line to `buildView` — so the tag is still inherited rather than earned, and the density has not moved (0.14 at both). It is on the list because it is the sheet's real decision surface — 15 cyclomatic, above the threshold since before either ticket — and because 15 modules now read it. What would make it real is a ticket that puts a *decision* in `buildView` rather than a field |
+| `src/client/components/play/sheet/useCharacterSheet.ts` | 20.8 | TICKET-DM-01's run | 6 commits, 655 churn, 0.14 density, 15 fan-in | ▲ **Accelerating — TICKET-ARC-04** (11.7 at DM-01, 14.7 at STAT-04, 18.4 at RES-04, **20.8 now** — a sixth consecutive commit, and the density is *still* 0.14 across all four measurements, so what keeps rising is churn rather than difficulty). ARC-04's own contribution is the smallest yet and is the shape STAT-04's row asked for in reverse: it added one binding (`dreamLevel`) and **removed** a nested call, lifting `affinityFor` and `statGain` out of `toDerivedValue(...)`'s argument list into named intermediates. The open question is unchanged and now four tickets old — what would make the tag *earned* is a ticket that puts a **decision** in `buildView` rather than a field. The RES-04 reading: (11.7 at DM-01, 14.7 at STAT-04, **18.4 now** — the largest single jump this row has taken, on a fifth commit that added *one returned field*, `dreamLevel`, read through `dreamLevelOf`. The density is still 0.14 across all three measurements, so what is rising is churn, not difficulty). The STAT-04 reading, which still applies: (11.7 at DM-01, 14.7 then. DM-01 touched it only to export `CharacterSheetStatus`, and STAT-04 added one carried-through field to `StatBreakdown` and one line to `buildView` — so the tag is still inherited rather than earned, and the density has not moved (0.14 at both). It is on the list because it is the sheet's real decision surface — 15 cyclomatic, above the threshold since before either ticket — and because 15 modules now read it. What would make it real is a ticket that puts a *decision* in `buildView` rather than a field |
 | `src/client/services/characterSync.ts` | 4.2 | TICKET-DM-01's run | 3 commits, 279 churn, 0.05 density, 3 fan-in | ▲ **Accelerating — TICKET-DM-01** (crossed the three-commit floor across CHAR-04's creation, PLY-01's actions and DM-01's `fetchCharacterAdjustments`). The **shape** is what keeps it low: DM-01 widened `sendPlayerAction`'s action type rather than adding a second sender, so the module grew one read and no branches. The next ticket to add a destination here should ask whether it is widening or duplicating |
 | `src/server/routes/routeGuards.test.ts` | 10.9 | TICKET-DM-01's run | 3 commits, 209 churn | ▲ **Accelerating** — one line per new guard (GAM-03's `requireInvitee`, PLY-01's `requireCharacterPlayer`, DM-01's `requireCharacterDM`). That is the design working: the scan's corpus is every module defining a handler, so a new guard costs a name in a list. Worth watching only if a fourth ticket changes the *detector* rather than the list |
 | `src/client/stores/characterStore.table.test.ts` | 10.1 | TICKET-DM-01's run | 3 commits, 410 churn | ▲ **Accelerating** — PLY-01 created it, ROLL-07 and DM-01 each added a `describe`. It exists so `characterStore.test.ts` never has to change (the milestone's fifth Definition-of-Done rule), so growth here is the rule being honoured rather than a smell |
-| `src/client/components/play/sheet/CharacterSheet.test.tsx` | 7.5 | TICKET-DM-01's run | 3 commits, 1380 churn | ▲ **Accelerating** — 1,380 churn over three commits on a 1,400-line file is the number to notice. DM-01 added two cases and a `fetch` stub; what made the churn is that PLY-01 and CUR-02 each reshaped the fixtures. If a fourth ticket has to touch the fixtures again rather than add a case, split the local-mode cases from the at-a-table ones |
+| `src/client/components/play/sheet/CharacterSheet.test.tsx` | 8.9 | TICKET-DM-01's run | 4 commits, 1415 churn, 0.09 density | ▲ **Accelerating — TICKET-ARC-04** (7.5 at DM-01, **8.9 now**). The DM-01 row set the test for the fourth ticket — *if it has to touch the fixtures again rather than add a case, split the local-mode cases from the at-a-table ones* — and **ARC-04 added cases**: 35 lines, three `it`s and two local builders inside the existing ARC-02 `describe`, with no shared fixture touched. That is the row passing rather than failing, and the same test now stands for the fifth. The DM-01 reading: (3 commits, 1,380 churn on a 1,400-line file is the number to notice. DM-01 added two cases and a `fetch` stub; what made the churn is that PLY-01 and CUR-02 each reshaped the fixtures) |
 | `src/client/components/sessions/SessionsPanel.tsx` | 3.1 | TICKET-CHAR-04's run | 4 commits, 76 churn, 0.03 density | ▲ **Accelerating — TICKET-CHAR-04** — re-measured at TICKET-GAM-03's closeout: a fourth commit and **one line** of churn, score unmoved at 3.1. The panel composes rather than does, so each new surface costs it a `<Panel …/>` and nothing else — the number to watch is the day one of them arrives with a branch |
 | `src/client/components/play/sheet/SheetHeader.tsx` | 3.1 | TICKET-RES-04's run | 3 commits, 116 added / 11 deleted, 0.04 density, 2 fan-in | ▲ **Accelerating — TICKET-RES-04** — a first row, crossing the three-commit floor here (PLY-01 made the experience controls optional, DM-01 reworked the back button and the budget, RES-04 added the dream level and its box). The numbers are the reassuring ones — 0.04 density, 2 dependents, 105 net lines — and the shape is why: the header takes props and renders, so each ticket costs it a field and a conditional. It earns watching for one specific thing, which is a *third* optional write control arriving; at that point the identity block wants its own controls row rather than a fourth `{onX && …}` |
 | `src/shared/services/importExport.ts` | 12.4 | TICKET-STAT-04's run | 3 commits, 985 churn, 0.16 density, 21 fan-in | ▲ **Accelerating** — inherited, not earned: STAT-04 added one `mayBe` line to the `stats` entity spec. It crossed the three-commit floor here and is worth watching for the reason the number says — 0.16 density across 21 dependents, the highest density of any file on this list. `ENTITY_SPECS` is a table, so v4.0's remaining shape tickets will each add rows to it; the day one adds a *branch* instead is the day to split the spec from the checker |

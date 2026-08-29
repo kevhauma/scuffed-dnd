@@ -244,10 +244,13 @@ a component**: the two consumers of the ordered list (`SkillAllocationStep`, `Re
 as a prop.
 
 **`Archetype` is what a character is good at growing** (Concept 03, TICKET-ARC-01):
-`{ id, name, description, statAffinity: Record<statId, 'main' | 'sub' | 'non'> }` on the optional
+`{ id, name, description, statAffinity: Record<statId, StatAffinity> }` on the optional
 `Configuration.archetypes`, with `Character.archetypeId?` pointing at one. The three affinity values
 are not a scale the app interprets — they are **column names in the `point_buy` curve**, which is
-what makes "flatten the archetype advantage" a table edit. Two rules, both load-bearing:
+what makes "flatten the archetype advantage" a table edit. They also name how **Dream level** enters
+the gain (`main × dream`, `sub + dream`, `non` untouched — TICKET-ARC-04), which is why they are a
+const object (`STAT_AFFINITY` in [types/config.ts](../../../src/shared/types/config.ts)) rather than
+a bare union: the engine spells two of them in code now. Two rules, both load-bearing:
 
 - **`non` is absence.** A tagging is stored **sparsely** and a stat missing from the record reads
   `non`. A stored `non` would count as a reference and make `deleteStat` refuse for every stat every
@@ -487,6 +490,12 @@ curve is the exchange rate between the two, selected by the archetype's affinity
 changed; what changed is what the number means, so never read an entry as a stat's value. Ask
 `statGain` (or read `validateStatAllocation(...).gains`) instead.
 
+**And a gain is not a function of these points alone** (TICKET-ARC-04): `dreamLevel` multiplies a
+main-tagged stat's gain and adds to a sub-tagged one's, so **a stat with no entry here still has a
+gain**, and it can be fractional (`main(0)` is 0.75 on the seeded curve). Two persisted fields feed
+one derived number, which is the reason to route every reader through `statGain` rather than
+through the allocation map.
+
 **Derived values are never persisted.** Composed stat values, the stat total, skill levels and
 bonuses, roll inputs, and equipment bonuses are computed on demand from
 `src/shared/engine/`. `calculateCharacter(character, config)` in
@@ -563,7 +572,9 @@ derives it: *"the DM gave you three points"* is new information, the same test t
 And **`dreamLevel`** (TICKET-RES-04, v4 systems/02) — *"how far you stand in your dream"*, the new
 workbook's identity block. The fifth exception, on `experience`'s exact test: **nothing derives it**,
 and the archetype gains derive *from* it (a **main**-affinity stat's gain is the point-table value
-**× dream**, a **sub**-affinity stat's is **+ dream** even at zero points — TICKET-ARC-04).
+**× dream**, a **sub**-affinity stat's is **+ dream** even at zero points — TICKET-ARC-04, live in
+[calculators/pointBuy.ts](../../../src/shared/engine/calculators/pointBuy.ts)'s `statGain`, whose
+fourth parameter is the level and is **required** so that no caller can grow a second default).
 
 - **Optional, and absent means 1** — not 0, because the role is multiplicative and 1 is the neutral
   value the sheet's own sample shows. **The default is the reader's rule, not a stored backfill**:

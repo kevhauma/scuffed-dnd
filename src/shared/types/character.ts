@@ -44,6 +44,10 @@ export interface Character {
    * exchange rate between the two, selected by the archetype's affinity for that stat: 15 points
    * buy 12 on a main-type stat and 5 on a non-type one. Never read an entry as a stat's value —
    * ask `statGain`, or read `validateStatAllocation(...).gains`.
+   *
+   * **Nor is the gain a function of these points alone** (TICKET-ARC-04): Dream level multiplies a
+   * main-tagged stat's gain and adds to a sub-tagged one's, so a stat with no entry here still
+   * moves when the DM raises {@link Character.dreamLevel}.
    */
   investedStatPoints: Record<string, number>; // statId -> points spent
   /**
