@@ -23,6 +23,9 @@ vi.mock('../../components/config/stats/StatsConfigPanel', () => ({
 vi.mock('../../components/config/materials/MaterialsConfigPanel', () => ({
   MaterialsConfigPanel: () => <div data-testid="materials-config-panel" />,
 }));
+vi.mock('../../components/config/inlays/InlaysConfigPanel', () => ({
+  InlaysConfigPanel: () => <div data-testid="inlays-config-panel" />,
+}));
 vi.mock('../../components/config/items/ItemsConfigPanel', () => ({
   ItemsConfigPanel: () => <div data-testid="items-config-panel" />,
 }));
@@ -72,6 +75,7 @@ import { CurrencyConfig } from './currency';
 import { CurvesConfig } from './curves';
 import { EquipmentConfig } from './equipment';
 import { ConfigIndex } from './index';
+import { InlaysConfig } from './inlays';
 import { ItemsConfig } from './items';
 import { MaterialsConfig } from './materials';
 import { RacesConfig } from './races';
@@ -101,6 +105,12 @@ describe('configuration routes', () => {
     render(<MaterialsConfig />);
 
     expect(screen.getByTestId('materials-config-panel')).toBeDefined();
+  });
+
+  it('/config/inlays renders the inlays panel', () => {
+    render(<InlaysConfig />);
+
+    expect(screen.getByTestId('inlays-config-panel')).toBeDefined();
   });
 
   it('/config/items renders only the items panel', () => {
@@ -161,6 +171,7 @@ describe('configuration routes', () => {
       SkillsConfig,
       StatsConfig,
       MaterialsConfig,
+      InlaysConfig,
       ItemsConfig,
       EquipmentConfig,
       RacesConfig,

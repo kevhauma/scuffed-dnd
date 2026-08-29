@@ -35,6 +35,9 @@ const CONFIG_NAV = [
   { to: '/config/skills', label: 'Skills' },
   { to: '/config/stats', label: 'Stats' },
   { to: '/config/materials', label: 'Materials' },
+  // Beside Materials, because they are the two ingredients a composed item is made of
+  // (v4 systems/10, systems/12)
+  { to: '/config/inlays', label: 'Inlays' },
   { to: '/config/items', label: 'Items' },
   { to: '/config/equipment', label: 'Equipment' },
   { to: '/config/races', label: 'Races' },

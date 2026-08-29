@@ -101,6 +101,14 @@ export interface Configuration {
    */
   rollDefinitions?: RollDefinition[];
   /**
+   * The gems a crafted item can be socketed with (v4 systems/10, TICKET-INL-01).
+   *
+   * Optional and **absent means none**, like `constants`, `curves` and `archetypes`: a ruleset that
+   * has never heard of an inlay round-trips without growing an empty array, and this build reads one
+   * that has. Purely additive, so it owes no `SUPPORTED_SCHEMA_VERSION` bump — nothing moved.
+   */
+  inlays?: Inlay[];
+  /**
    * The sizes a creature may be — `tiny`, `small`, `medium`, … (v4 systems/14, TICKET-RACE-03).
    *
    * The vocabulary a {@link Race.size} is picked from, and **the User's own words**: the workbook
@@ -385,6 +393,74 @@ export interface MaterialCategory {
   id: string;
   name: string;
   description: string;
+}
+
+/**
+ * Inlay — a gem family whose tiers grant stats to whatever it is socketed into
+ *
+ * The new workbook's `Background Reference inlay: scaling` tab (v4 systems/10): 25 families in ten
+ * tiers apiece, each tier a vector over nine axes — the six core stats plus Health, Mana and Speed.
+ * The **other** ingredient of a composed item beside a {@link Material} (systems/12), and the shape
+ * deliberately mirrors that one: a family, and tiers of {@link StatModifier} rows keyed by stat id.
+ *
+ * Two things it does **not** carry, both on purpose:
+ *
+ * - **No price.** The new sheet prices nothing
+ *   ([D5](../../../docs/v4.0_sheet_parity/overview.md#d5--what-is-deliberately-not-parity)), so a
+ *   tier is bonuses and nothing else — where `MaterialLevel` still has a `value` from the old one.
+ * - **No generator.** 23 of the 25 families happen to be linear in tier, but that is a property the
+ *   capture *verified* rather than a rule to impose: Obsidian is hand-authored across all ten rows
+ *   and Zircon's tenth is blank. Every tier a family has is stored, and nothing invents one.
+ *
+ * The socket on the item (`inlayId` + `inlayLevel`) and the engine term that adds a tier's row to an
+ * equipped item's bonuses are TICKET-INV-05's; this is the entity and its panel.
+ */
+export interface Inlay {
+  id: string; // Stable identity — assigned on creation, never shown, never reused
+  name: string;
+  description: string;
+  /**
+   * Which family group this gem belongs to — the sheet's `Common Gems` / `Precious Gems`.
+   *
+   * A **User-named free string** validated against nothing and read by nothing, exactly like
+   * {@link Stat.group} (TICKET-STAT-04): it decides which heading the panel lists the family under
+   * and that is the whole of it. Absent means ungrouped, which is every family in a ruleset that
+   * never bothered to sort its gems.
+   */
+  group?: string;
+  /**
+   * The family's ladder — **stored in the order the User added to it**, and a rung may be missing.
+   *
+   * Insertion order rather than rung order, because nothing here reorders: adding tier 5 to a
+   * family holding 1 and 9 appends it. Every surface that *shows* a ladder sorts by
+   * {@link InlayTier.tier} (`InlayCard` does), which is the same split `Stat.order` makes — the
+   * stored array is not the display sequence, and no reader may assume it is.
+   */
+  tiers: InlayTier[];
+}
+
+/**
+ * One tier of an inlay family — what socketing this gem at this rung grants
+ *
+ * **A family may have a gap, and the shape says so by carrying the rung number on the row.** The
+ * sheet's Zircon has tiers 1–9 and a blank tenth, which is a gap rather than a zero: importable,
+ * selectable up to 9, and the User's to fill. `Material.levels` is built the same way — a
+ * `MaterialLevel` carries its own `level` and nothing indexes the array by rung — so this tolerates
+ * a hole for the same reason that one does, rather than by a new rule.
+ */
+export interface InlayTier {
+  /**
+   * Which rung of the family this is — a whole number from 1 up, **unique within the family**, and
+   * not necessarily contiguous.
+   *
+   * Unique because it is what a socket will name (TICKET-INV-05): two rows claiming one rung makes
+   * *which tier this gem is at* unanswerable. Enforced in the two places the model's identity rules
+   * always are — `inlayTierShapeErrors` for untrusted import, and `useInlayManager`'s save path for
+   * User input.
+   */
+  tier: number;
+  /** What the tier grants, keyed by stat id like a material tier's (TICKET-MAT-01) */
+  bonuses: StatModifier[];
 }
 
 /**

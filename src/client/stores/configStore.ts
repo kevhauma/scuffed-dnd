@@ -46,6 +46,7 @@ import type {
   EquipmentLayout,
   EquipmentSlot,
   EquipmentSlotPlacement,
+  Inlay,
   Item,
   Material,
   MaterialCategory,
@@ -231,6 +232,20 @@ interface ConfigState {
   addMaterial: (material: Material) => void;
   updateMaterial: (id: string, updates: Partial<Material>) => void;
   deleteMaterial: (id: string, options?: DeleteOptions) => EntityReference[];
+
+  /**
+   * Inlays CRUD (v4 systems/10, TICKET-INL-01)
+   *
+   * The tiers are edited through `updateInlay` with the whole ladder, like a material's levels: a
+   * tier has no identity of its own, so there is nothing for a per-tier action to address.
+   *
+   * The delete is guarded through the same surface as every other one, and — like `deleteDiceLadder`
+   * before TICKET-ROLL-05 — nothing can point at an inlay yet, so it always succeeds. The socket
+   * that gives the guard something to find lands in TICKET-INV-05.
+   */
+  addInlay: (inlay: Inlay) => void;
+  updateInlay: (id: string, updates: Partial<Inlay>) => void;
+  deleteInlay: (id: string, options?: DeleteOptions) => EntityReference[];
 
   // Items CRUD
   addItem: (item: Item) => void;
@@ -1077,6 +1092,46 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     guardedDelete(set, get, 'material', id, options, (config) => ({
       ...config,
       materials: config.materials.filter((material) => material.id !== id),
+    })),
+
+  // Inlays CRUD (v4 systems/10, TICKET-INL-01)
+  addInlay: (inlay: Inlay) => {
+    const { config } = get();
+    if (!config) return;
+
+    // The editor states an unset `group` as an explicit `undefined`, which is how `updateInlay` is
+    // told to *clear* one. On the way in there is nothing to clear, so the empty key is dropped
+    // rather than stored — `addRace`'s rule (TICKET-RACE-03).
+    const seeded = mergeClearingAbsent(inlay, {});
+
+    // `inlays` is optional and absent means none, so the first family creates the array rather than
+    // a fresh ruleset carrying an empty one — `constants`' rule (TICKET-CST-01)
+    const updated = autoSave({
+      ...config,
+      inlays: [...(config.inlays ?? []), seeded],
+    });
+    set({ config: updated });
+  },
+
+  updateInlay: (id: string, updates: Partial<Inlay>) => {
+    const { config } = get();
+    if (!config) return;
+
+    // `mergeClearingAbsent` because `group` is optional: clearing the Common/Precious heading in the
+    // panel has to delete the key rather than store `""`, the way `updateStat` clears a bound
+    const updated = autoSave({
+      ...config,
+      inlays: (config.inlays ?? []).map((inlay) =>
+        inlay.id === id ? mergeClearingAbsent(inlay, updates) : inlay
+      ),
+    });
+    set({ config: updated });
+  },
+
+  deleteInlay: (id: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'inlay', id, options, (config) => ({
+      ...config,
+      inlays: (config.inlays ?? []).filter((inlay) => inlay.id !== id),
     })),
 
   // Items CRUD

@@ -72,6 +72,7 @@ yarn build
 - Define custom skills with 3-letter codes
 - Create stats with formula-based calculations
 - Build materials with bonuses and tiers
+- Catalogue gem inlays — families of socketable stones, in tiers of stat grants
 - Design items and equipment systems
 - Configure races as stat blocks, with a creature type and size picked from your own lists
 - Set up multi-tier currency systems

@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { Configuration, Curve, DiceLadder } from '../types/config';
+import type { Configuration, Curve, DiceLadder, InlayTier } from '../types/config';
 import { validateConfiguration } from './validator';
 
 /** A stat with the boring fields filled in */
@@ -1596,6 +1596,78 @@ describe('validateConfiguration', () => {
       config.creatureSizes = ['medium'];
 
       expect(validateConfiguration(config).warnings).toEqual([]);
+    });
+  });
+
+  describe('inlays (v4 systems/10, TICKET-INL-01)', () => {
+    /** A ruleset holding one gem family, so each case says only what it is about */
+    function withInlay(tiers: InlayTier[]): Configuration {
+      const config = createMinimalConfig();
+      config.inlays = [
+        { id: 'zircon', name: 'Zircon', description: '', group: 'Common Gems', tiers },
+      ];
+      return config;
+    }
+
+    it('should say nothing about grants naming stats the ruleset defines', () => {
+      const config = withInlay([{ tier: 1, bonuses: [{ statId: 'DEX', modifier: 1 }] }]);
+
+      const report = validateConfiguration(config);
+
+      expect(report.isValid).toBe(true);
+      expect(report.errors).toEqual([]);
+    });
+
+    it('should report a grant naming a stat that does not exist', () => {
+      const config = withInlay([{ tier: 4, bonuses: [{ statId: 'MANA', modifier: 400 }] }]);
+
+      const report = validateConfiguration(config);
+
+      expect(report.isValid).toBe(false);
+      expect(report.errors[0].message).toContain('Inlay "Zircon" tier 4');
+      expect(report.errors[0].message).toContain('MANA');
+      expect(report.errors[0].entityId).toBe('zircon');
+    });
+
+    it('should report a grant on a derived stat, whose formula is its only source', () => {
+      const config = withInlay([{ tier: 1, bonuses: [{ statId: 'APT', modifier: 2 }] }]);
+      config.stats = [...config.stats, stat('APT', 'Actions', 'APT', 'DEX / 2')];
+
+      const report = validateConfiguration(config);
+
+      expect(report.isValid).toBe(false);
+      expect(report.errors[0].message).toContain('which is a derived stat');
+    });
+
+    it('should say nothing about a ladder with a gap in it', () => {
+      // Zircon's tenth row is blank in the sheet, so a family that skips a rung is data rather than
+      // a defect — flagging it would put a permanent warning on a correctly imported corpus
+      const config = withInlay([
+        { tier: 1, bonuses: [{ statId: 'DEX', modifier: 1 }] },
+        { tier: 9, bonuses: [{ statId: 'DEX', modifier: 9 }] },
+      ]);
+
+      const report = validateConfiguration(config);
+
+      expect(report.isValid).toBe(true);
+      expect(report.warnings).toEqual([]);
+      expect(report.information).toEqual([]);
+    });
+
+    it('should report two families sharing an id', () => {
+      const config = withInlay([]);
+      const [first] = config.inlays ?? [];
+      config.inlays = [first, { ...first, name: 'Obsidian' }];
+
+      const messages = validateConfiguration(config).errors.map((issue) => issue.message);
+
+      expect(messages.some((message) => message.includes('2 inlays share the id'))).toBe(true);
+    });
+
+    it('should validate nothing when the ruleset names no inlays', () => {
+      const config = createMinimalConfig();
+
+      expect(validateConfiguration(config).isValid).toBe(true);
     });
   });
 

@@ -37,6 +37,7 @@ export type ReferenceTargetKind =
   | 'race'
   | 'archetype'
   | 'item'
+  | 'inlay'
   | 'material'
   | 'material-category'
   | 'equipment-slot'
@@ -224,6 +225,27 @@ function materialBonusReferences(config: Configuration, statId: string): EntityR
 }
 
 /**
+ * Inlay families whose tier bonuses name a stat (TICKET-INL-01)
+ *
+ * `materialBonusReferences`' twin, one entity over and by **id** for the same reason: a gem's tier
+ * row is a `{ statId, modifier }` list, so deleting a stat three gem families grant has to be
+ * refused rather than merely survived. One reference per family however many of its tiers name the
+ * stat — the dialog says *which gem*, and ten rows of Diamond would say it ten times.
+ */
+function inlayBonusReferences(config: Configuration, statId: string): EntityReference[] {
+  return (config.inlays ?? [])
+    .filter((inlay) =>
+      inlay.tiers.some((tier) => tier.bonuses.some((bonus) => bonus.statId === statId))
+    )
+    .map((inlay) => ({
+      holderKind: 'Inlay',
+      holderName: inlay.name,
+      field: 'tiers[].bonuses',
+      holderId: inlay.id,
+    }));
+}
+
+/**
  * Races whose stat block gives a stat a non-zero value
  *
  * By **id** since TICKET-RACE-01, unlike the material bonuses beside it, so this half of the guard
@@ -348,6 +370,7 @@ function statReferences(
   const modifiers = [
     ...raceStatBlockReferences(config, id),
     ...materialBonusReferences(config, id),
+    ...inlayBonusReferences(config, id),
     ...archetypeAffinityReferences(config, id),
   ];
 
@@ -501,6 +524,15 @@ export function findReferences(
 
     case 'item':
       return itemReferences(characters, target.id);
+
+    case 'inlay':
+      // Deliberately nothing **yet** (TICKET-INL-01). The socket that names a family — an item's
+      // `inlayId`, the way it already names a `materialId` — is TICKET-INV-05's, and this is the
+      // `dice-ladder` situation exactly: ROLL-03 shipped that kind unguarded because a check with no
+      // possible referrer can never fire, and ROLL-05 filled it in the moment something could point
+      // at one. The kind exists now so the panel wires the same guarded-delete surface every other
+      // panel uses, rather than growing a second delete path to convert later.
+      return [];
 
     case 'material':
       return config.items

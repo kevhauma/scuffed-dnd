@@ -209,10 +209,10 @@ A `Configuration` is: id, name, version, **`schemaVersion: 9`**, timestamps,
 plus the entity arrays — `stats`, `skills`,
 `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
 `currencyTiers`, the optional `constants` (TICKET-CST-01), `curves` (TICKET-CRV-01),
-`archetypes` (TICKET-ARC-01), `diceLadders` (TICKET-ROLL-03) and `rollDefinitions`
-(TICKET-ROLL-05) — plus the two **word lists** `creatureSizes` and `creatureTypes`
-(TICKET-RACE-03), which are `string[]` rather than entity arrays and are described under `Race`
-below.
+`archetypes` (TICKET-ARC-01), `diceLadders` (TICKET-ROLL-03), `rollDefinitions`
+(TICKET-ROLL-05) and `inlays` (TICKET-INL-01) — plus the two **word lists** `creatureSizes` and
+`creatureTypes` (TICKET-RACE-03), which are `string[]` rather than entity arrays and are described
+under `Race` below.
 
 **`Skill` is the sheet's Skill since TICKET-SKL-02**: `{ id, name, description, statWeights:
 [{ statId, weight }], category? }`. It replaced v1's `SpecialitySkill` outright — no `code`, no
@@ -306,6 +306,39 @@ roll *derives* its pool by feeding `input` down `ladderId`.
   A new configuration has no stats, so those would name missing members and open with four errors;
   the descriptions say what the sheet reads and the corpus carries the real expressions. Copy that
   when seeding anything whose formula references entities a fresh ruleset does not have.
+
+**`Inlay` is a gem family, and the shape mirrors `Material`** (TICKET-INL-01, v4 systems/10):
+`{ id, name, description, group?, tiers: [{ tier, bonuses: StatModifier[] }] }` on the optional
+`Configuration.inlays`. The other ingredient a composed item is made of (systems/12), so it holds
+the *same* `{ statId, modifier }` row a material tier holds, keyed by stat **id** — which means
+`references.ts` translates neither and a rename cannot orphan one. Four rules:
+
+- **A family may have a gap, and the shape says so by carrying the rung number on the row.** The
+  sheet's Zircon has tiers 1–9 and a **blank** tenth, which is a gap rather than a zero: importable,
+  selectable up to 9, the User's to fill, and reported by nothing. `Material.levels` already
+  tolerates one for the same reason — a `MaterialLevel` carries its own `level` and nothing indexes
+  the array by rung — so this is that property, not a new rule. **Nothing generates a tier**: 23 of
+  the sheet's 25 families happen to be linear, but Obsidian is hand-authored across all ten rows,
+  and linearity is a property the capture verified rather than one to impose.
+- **No price and no per-tier name.** `MaterialLevel` has both because the *old* workbook named and
+  priced every rung; the new one does neither for a gem
+  ([v4 D5](../../../docs/v4.0_sheet_parity/overview.md#d5--what-is-deliberately-not-parity)).
+- **`group?` is a free User string** — the sheet's *Common Gems* / *Precious Gems*. `Stat.group`'s
+  rules exactly (TICKET-STAT-04): presentation only, validated against nothing, absent means
+  ungrouped, and the panel's headings are the **distinct values present** rather than a list the app
+  knows. `updateInlay` clears it through `mergeClearingAbsent` and `addInlay` runs the same cleaner,
+  so an unstated heading is absent rather than `""`.
+- **Additive-optional, so no `SUPPORTED_SCHEMA_VERSION` bump** — absent means none and stays absent,
+  `constants`' rule. It is an `optional`-presence row in `ENTITY_SPECS`, and its tier ladder is a
+  `custom` checker (`inlayTierShapeErrors`) because a nested array is what a field table cannot
+  express. A tier's rung must be a whole number from 1 up and unique within the family; *contiguous*
+  is deliberately not checked, since inventing that rule means inventing the missing row.
+
+The **socket** that names a family from an item — `inlayId` + `inlayLevel`, the way `Item` already
+names `materialId` + `materialLevel` — and the engine term that adds a tier's row to an equipped
+item's bonuses are TICKET-INV-05's. Until then nothing points at an inlay, so `dependencies.ts`'s
+`inlay` case finds nothing and the delete always succeeds; what it *does* already walk is the other
+direction — `inlayBonusReferences` makes deleting a stat a gem family grants refuse.
 
 **`Race` is a stat block, not a bag of bonuses** (TICKET-RACE-01):
 `{ id, name, description, statValues: Record<statId, number> }`, holding the **absolute** value a

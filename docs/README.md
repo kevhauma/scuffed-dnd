@@ -62,3 +62,7 @@ Added by [`v3.0_backend`](./v3.0_backend/overview.md): `SRV` (server runtime and
 `RUL` (server-owned rulesets — the successor to the single browser `Configuration`),
 `GAM` (game sessions, invites, membership), `PLY` (session-scoped player actions),
 `DM` (Dungeon Master controls), `LIVE` (WebSocket transport and live updates).
+
+Added by [`v4.0_sheet_parity`](./v4.0_sheet_parity/overview.md): `INL` (inlays — the socketable gems
+a composed item is made of, minted by TICKET-INL-01), plus `SPL` (spells and casting) and `PAS`
+(passive abilities), both still to be built.

@@ -394,6 +394,70 @@ function materialLevelShapeErrors(material: Record<string, unknown>, path: strin
 }
 
 /**
+ * An inlay family's tiers — the part of its shape a field table cannot express (TICKET-INL-01)
+ *
+ * A tier is `{ tier, bonuses }`, and its bonuses are the same `{ statId, modifier }` rows a material
+ * tier carries — keyed by stat **id**, so a rename cannot orphan one and this crosses the
+ * reference-form boundary untranslated.
+ *
+ * **A missing rung is not a shape error.** The sheet's Zircon has no tenth tier, and the array is
+ * whatever rungs the family has rather than a dense ten: nothing here checks that the numbers are
+ * contiguous, start at 1, or reach any particular ceiling, because inventing the rule would mean
+ * inventing the missing row. Duplicates and non-integers are refused, since those make *which* tier
+ * a socket names unanswerable.
+ *
+ * @param inlay - One element of `config.inlays`
+ * @param path - Where it sits, for the message — `inlays[2]`
+ * @returns The errors found, empty when the shape is sound
+ */
+function inlayTierShapeErrors(inlay: Record<string, unknown>, path: string): string[] {
+  if (!Array.isArray(inlay.tiers)) {
+    return [`${path}.tiers must be an array`];
+  }
+
+  const errors: string[] = [];
+  const seenTiers = new Set<number>();
+
+  inlay.tiers.forEach((tier: unknown, tierIndex: number) => {
+    const where = `${path}.tiers[${tierIndex}]`;
+    if (!tier || typeof tier !== 'object') {
+      errors.push(`${where} must be an object`);
+      return;
+    }
+    const row = tier as Record<string, unknown>;
+
+    const isRung = typeof row.tier === 'number' && Number.isInteger(row.tier) && row.tier >= 1;
+    if (!isRung) {
+      errors.push(`${where}.tier must be a whole number from 1 up`);
+    } else if (seenTiers.has(row.tier as number)) {
+      errors.push(`${where}.tier ${row.tier} is claimed by more than one row`);
+    } else {
+      seenTiers.add(row.tier as number);
+    }
+
+    if (!Array.isArray(row.bonuses)) {
+      errors.push(`${where}.bonuses must be an array`);
+      return;
+    }
+
+    row.bonuses.forEach((bonus: unknown, bonusIndex: number) => {
+      const at = `${where}.bonuses[${bonusIndex}]`;
+      if (!bonus || typeof bonus !== 'object') {
+        errors.push(`${at} must be an object`);
+        return;
+      }
+      const modifier = bonus as Record<string, unknown>;
+      errors.push(...must(isNonEmptyText, 'must be a stat id')(modifier.statId, `${at}.statId`));
+      errors.push(
+        ...must(isFiniteNumber, 'must be a finite number')(modifier.modifier, `${at}.modifier`)
+      );
+    });
+  });
+
+  return errors;
+}
+
+/**
  * A skill's weight rows — the part of its shape a field table cannot express (CR-22)
  *
  * A skill is `{ id, name, description, statWeights }` since TICKET-SKL-02, with rows keyed by stat
@@ -643,6 +707,21 @@ const ENTITY_SPECS: Record<CollectionKey, EntitySpec> = {
       name: must(isText, 'must be a string'),
       description: must(isText, 'must be a string'),
     },
+  },
+
+  // Optional and absent-means-none (v4 systems/10, TICKET-INL-01), so a ruleset written before gems
+  // existed imports untouched. `group` is the sheet's Common/Precious heading — a User word checked
+  // for being a string and nothing more, like `Stat.group`. Whether a bonus's stat *exists* is
+  // `engine/validator.ts`'s report, as it is for a material tier.
+  inlays: {
+    presence: 'optional',
+    fields: {
+      id: must(isNonEmptyText, 'must be a non-empty string'),
+      name: must(isText, 'must be a string'),
+      description: must(isText, 'must be a string'),
+      group: mayBe(isText, 'must be a string when present'),
+    },
+    custom: inlayTierShapeErrors,
   },
 
   // Every reference is optional — an item may be plain — but a *present* one has to be a string,

@@ -25,6 +25,7 @@ import { Route as ConfigRollsRouteImport } from './routes/config/rolls'
 import { Route as ConfigRacesRouteImport } from './routes/config/races'
 import { Route as ConfigMaterialsRouteImport } from './routes/config/materials'
 import { Route as ConfigItemsRouteImport } from './routes/config/items'
+import { Route as ConfigInlaysRouteImport } from './routes/config/inlays'
 import { Route as ConfigEquipmentRouteImport } from './routes/config/equipment'
 import { Route as ConfigCurvesRouteImport } from './routes/config/curves'
 import { Route as ConfigCurrencyRouteImport } from './routes/config/currency'
@@ -112,6 +113,11 @@ const ConfigItemsRoute = ConfigItemsRouteImport.update({
   path: '/config/items',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConfigInlaysRoute = ConfigInlaysRouteImport.update({
+  id: '/config/inlays',
+  path: '/config/inlays',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConfigEquipmentRoute = ConfigEquipmentRouteImport.update({
   id: '/config/equipment',
   path: '/config/equipment',
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/config/currency': typeof ConfigCurrencyRoute
   '/config/curves': typeof ConfigCurvesRoute
   '/config/equipment': typeof ConfigEquipmentRoute
+  '/config/inlays': typeof ConfigInlaysRoute
   '/config/items': typeof ConfigItemsRoute
   '/config/materials': typeof ConfigMaterialsRoute
   '/config/races': typeof ConfigRacesRoute
@@ -179,6 +186,7 @@ export interface FileRoutesByTo {
   '/config/currency': typeof ConfigCurrencyRoute
   '/config/curves': typeof ConfigCurvesRoute
   '/config/equipment': typeof ConfigEquipmentRoute
+  '/config/inlays': typeof ConfigInlaysRoute
   '/config/items': typeof ConfigItemsRoute
   '/config/materials': typeof ConfigMaterialsRoute
   '/config/races': typeof ConfigRacesRoute
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   '/config/currency': typeof ConfigCurrencyRoute
   '/config/curves': typeof ConfigCurvesRoute
   '/config/equipment': typeof ConfigEquipmentRoute
+  '/config/inlays': typeof ConfigInlaysRoute
   '/config/items': typeof ConfigItemsRoute
   '/config/materials': typeof ConfigMaterialsRoute
   '/config/races': typeof ConfigRacesRoute
@@ -230,6 +239,7 @@ export interface FileRouteTypes {
     | '/config/currency'
     | '/config/curves'
     | '/config/equipment'
+    | '/config/inlays'
     | '/config/items'
     | '/config/materials'
     | '/config/races'
@@ -254,6 +264,7 @@ export interface FileRouteTypes {
     | '/config/currency'
     | '/config/curves'
     | '/config/equipment'
+    | '/config/inlays'
     | '/config/items'
     | '/config/materials'
     | '/config/races'
@@ -278,6 +289,7 @@ export interface FileRouteTypes {
     | '/config/currency'
     | '/config/curves'
     | '/config/equipment'
+    | '/config/inlays'
     | '/config/items'
     | '/config/materials'
     | '/config/races'
@@ -303,6 +315,7 @@ export interface RootRouteChildren {
   ConfigCurrencyRoute: typeof ConfigCurrencyRoute
   ConfigCurvesRoute: typeof ConfigCurvesRoute
   ConfigEquipmentRoute: typeof ConfigEquipmentRoute
+  ConfigInlaysRoute: typeof ConfigInlaysRoute
   ConfigItemsRoute: typeof ConfigItemsRoute
   ConfigMaterialsRoute: typeof ConfigMaterialsRoute
   ConfigRacesRoute: typeof ConfigRacesRoute
@@ -430,6 +443,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfigItemsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/config/inlays': {
+      id: '/config/inlays'
+      path: '/config/inlays'
+      fullPath: '/config/inlays'
+      preLoaderRoute: typeof ConfigInlaysRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/config/equipment': {
       id: '/config/equipment'
       path: '/config/equipment'
@@ -487,6 +507,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConfigCurrencyRoute: ConfigCurrencyRoute,
   ConfigCurvesRoute: ConfigCurvesRoute,
   ConfigEquipmentRoute: ConfigEquipmentRoute,
+  ConfigInlaysRoute: ConfigInlaysRoute,
   ConfigItemsRoute: ConfigItemsRoute,
   ConfigMaterialsRoute: ConfigMaterialsRoute,
   ConfigRacesRoute: ConfigRacesRoute,

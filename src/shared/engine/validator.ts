@@ -12,6 +12,8 @@
  * - Roll definitions compute and point at a ladder that exists (Concept 08)
  * - A race's creature type and size are words the ruleset's own reference lists offer
  *   (v4 systems/04, systems/14) — a warning, because nothing derives from either
+ * - An inlay tier's bonuses name stats that exist and are not derived (v4 systems/10) — the same
+ *   two rules a material tier's bonuses answer to
  *
  * Each of those is a `(config) => ValidationIssue[]` helper listed in {@link ISSUE_SOURCES}, and
  * `validateConfiguration` is the concatenation of them (CR-19). A new entity type is a new helper
@@ -24,6 +26,7 @@ import type {
   Configuration,
   Curve,
   DiceLadder,
+  InlayTier,
   MaterialLevel,
   RollDefinition,
   Stat,
@@ -92,6 +95,7 @@ const ISSUE_SOURCES: readonly ((config: Configuration) => ValidationIssue[])[] =
   nearDuplicateStatNameWarnings,
   circularDependencyIssues,
   materialIssues,
+  inlayIssues,
   itemIssues,
   equipmentLayoutIssues,
   raceIssues,
@@ -339,6 +343,77 @@ function materialLevelIssues(
       message: `Material "${materialName}" level ${level.level} references non-existent currency tier: ${level.value.tierId}`,
       ...entity,
     });
+  }
+
+  return issues;
+}
+
+/**
+ * Inlay tier bonuses that point at nothing, or at a stat they could never move (TICKET-INL-01)
+ *
+ * `materialIssues`' sibling, and deliberately the same two rules over the same
+ * `{ statId, modifier }` row: a gem grants stats the way a material tier does, so a modifier naming
+ * a stat the ruleset has deleted, or naming a **derived** stat whose formula is its only source, is
+ * wrong here for exactly the reason it is wrong there.
+ *
+ * **A gap in the ladder is reported by nothing**, here included. Zircon's missing tenth tier is the
+ * sheet's own data (v4 systems/10), so "this family skips a rung" is a fact about the ruleset rather
+ * than a defect in it — flagging it would put a permanent warning on a correctly imported corpus.
+ *
+ * @param config - The ruleset to check
+ * @returns One issue per broken bonus
+ */
+function inlayIssues(config: Configuration): ValidationIssue[] {
+  const statsById = new Map(config.stats.map((stat) => [stat.id, stat]));
+
+  return (config.inlays ?? []).flatMap((inlay) => {
+    const entity = { entityType: 'inlay', entityId: inlay.id, entityName: inlay.name };
+
+    return inlay.tiers.flatMap((tier) => inlayTierIssues(inlay.name, tier, entity, statsById));
+  });
+}
+
+/**
+ * One inlay tier's modifiers
+ *
+ * Split out for {@link materialLevelIssues}' reason: every message here is about the tier rather
+ * than about the family, and the two loops nest otherwise.
+ *
+ * @param inlayName - What the family is called, which every message names
+ * @param tier - The tier to check
+ * @param entity - The entity fields shared by every issue about this family
+ * @param statsById - The ruleset's stats, for resolving each modifier's target
+ * @returns One issue per broken reference
+ */
+function inlayTierIssues(
+  inlayName: string,
+  tier: InlayTier,
+  entity: Pick<ValidationIssue, 'entityType' | 'entityId' | 'entityName'>,
+  statsById: ReadonlyMap<string, Stat>
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+
+  for (const bonus of tier.bonuses) {
+    const target = statsById.get(bonus.statId);
+
+    if (!target) {
+      issues.push({
+        severity: 'error',
+        category: 'Reference Validation',
+        message: `Inlay "${inlayName}" tier ${tier.tier} references non-existent stat: ${bonus.statId}`,
+        ...entity,
+      });
+      continue;
+    }
+
+    if (target.formula !== undefined) {
+      issues.push({
+        severity: 'error',
+        category: 'Reference Validation',
+        message: `Inlay "${inlayName}" tier ${tier.tier} modifies "${target.name}", which is a derived stat — its formula is its only source`,
+        ...entity,
+      });
+    }
   }
 
   return issues;
@@ -753,6 +828,7 @@ function duplicateIdIssues(config: Configuration): ValidationIssue[] {
       { entityType: 'skill', entities: config.skills },
       { entityType: 'material', entities: config.materials },
       { entityType: 'materialCategory', entities: config.materialCategories },
+      { entityType: 'inlay', entities: config.inlays ?? [] },
       { entityType: 'item', entities: config.items },
       { entityType: 'race', entities: config.races },
       { entityType: 'currencyTier', entities: config.currencyTiers },

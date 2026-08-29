@@ -66,6 +66,14 @@ deleted here.
       legal — the sheet's "with empty inlay").
 - [ ] Deleting a referenced material/template/inlay is refused naming the characters holding it;
       an unreferenced one deletes — `dependencies` tests for each new edge.
+- [ ] **The `inlay` arm of `findReferences` is filled, and a scan test makes forgetting it a
+      failure.** TICKET-INL-01 shipped the `inlay` target kind returning `[]` deliberately (nothing
+      could point at one yet), and the `switch`'s `never` default catches a **missing kind** but not
+      a **new referrer to an existing kind** — so adding `inlayId` while leaving that arm empty
+      compiles, passes, and silently orphans every socket. Close it the way
+      [`components/config/races/challengeRate.test.ts`](../../../src/client/components/config/races/challengeRate.test.ts)
+      closes its equivalent: a test that scans `src/` and **fails if `Item` (or the composed record)
+      names an `inlayId` while the `inlay` arm still returns nothing**.
 - [ ] `Item`'s fused fields appear nowhere; old-shape files meet `IncompatibleDataNotice` with the
       retirement recorded in `RETIRED_FIELDS`; the milestone's `SUPPORTED_SCHEMA_VERSION` bump
       covers it (if this ticket lands the bump, say so and update the `data-model` skill).
@@ -84,3 +92,15 @@ deleted here.
   this ticket is the shape and the math; that one is the surface.
 - The sheet keys its gear columns on the composed display *name*; the app keys on ids and treats
   the phrase as display (the standing rule) — the fragment's `notes` records the divergence.
+- **Three things INL-01 hands over.** (1) An `InlayTier.tier` is a whole number from 1 up and
+  **unique within the family**, enforced in both places the model's identity rules always are — so
+  `inlayLevel` may address a rung by number and get one answer. (2) A family's ladder may have a
+  **gap** (the sheet's Zircon has no tenth), so an `inlayLevel` naming an absent rung is a real
+  case: report it the way `itemIssues` already reports a `materialLevel` that names no tier. (3)
+  `Inlay.tiers` is stored in **insertion order**, not rung order — sort before displaying or
+  looking up by position, as `InlayCard` does.
+- **Two clones become owed if this ticket adds a third caller.** `groupInlays`
+  (`config/inlays/useInlayManager.ts`) duplicates `groupStats` (`play/sheet/statGroups.ts`), and the
+  `modifiableStats` pair duplicates `useMaterialManager`'s. Both are second instances left standing
+  by the no-abstraction-before-the-third-caller rule; a third group-by-free-string list or a third
+  `modifiableStats` makes both extractions due.

@@ -73,3 +73,10 @@ templates' skill bonuses into skill levels — the shape `statCalculator` alread
   bonuses apply when **equipped** — kept, with the gap noted (systems/11's open question).
 - The old `materialId`/`materialLevel` fused-instance fields retire in TICKET-INV-05, not here —
   one reshape per ticket.
+- **A shop is the third caller of two patterns, if it is spelled the obvious way** (TICKET-INL-01's
+  handoff). Grouping templates under a free-string shop name is a copy of `groupStats`
+  (`play/sheet/statGroups.ts`) and `groupInlays` (`config/inlays/useInlayManager.ts`), and a panel
+  offering *the stats a bonus may target* is a copy of `useMaterialManager`'s and
+  `useInlayManager`'s `modifiableStats`. Both are at **two** instances, left standing by the
+  no-abstraction-before-the-third-caller rule — so if this ticket adds either, it owes the
+  extraction rather than a third copy.

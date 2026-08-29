@@ -303,6 +303,30 @@ describe('findReferences', () => {
       expect(holders(found)).toEqual(['Character: Aria']);
     });
 
+    it('finds an inlay family whose tier grants the stat (TICKET-INL-01)', () => {
+      const config = createConfig({
+        inlays: [
+          {
+            id: 'zircon',
+            name: 'Zircon',
+            description: '',
+            tiers: [
+              { tier: 1, bonuses: [{ statId: 'id-dex', modifier: 1 }] },
+              { tier: 9, bonuses: [{ statId: 'id-dex', modifier: 9 }] },
+            ],
+          },
+        ],
+      });
+
+      const found = findReferences({ kind: 'stat', id: 'id-dex' }, config, []);
+      const inlay = found.find((reference) => reference.holderKind === 'Inlay');
+
+      // One reference for the family however many of its tiers name the stat — the dialog says
+      // *which gem*, and nine rows of Zircon would say it nine times
+      expect(inlay?.holderName).toBe('Zircon');
+      expect(inlay?.field).toBe('tiers[].bonuses');
+    });
+
     it('does not count the stat’s own formula against it', () => {
       const config = createConfig({
         stats: [
@@ -322,6 +346,19 @@ describe('findReferences', () => {
 
       expect(findReferences({ kind: 'stat', id: 'id-hp' }, config, [])).toEqual([]);
     });
+  });
+
+  it('finds nothing pointing at an inlay yet, which is the kind existing early (TICKET-INL-01)', () => {
+    // The `dice-ladder` situation before TICKET-ROLL-05: the socket that names a family is
+    // TICKET-INV-05's, so the guard has no possible referrer and always lets the delete through.
+    // The kind is here so the panel wires the same guarded surface as every other one.
+    const config = createConfig({
+      inlays: [{ id: 'zircon', name: 'Zircon', description: '', tiers: [] }],
+    });
+
+    expect(findReferences({ kind: 'inlay', id: 'zircon' }, config, [createCharacter()])).toEqual(
+      []
+    );
   });
 
   it('finds a race on a character', () => {

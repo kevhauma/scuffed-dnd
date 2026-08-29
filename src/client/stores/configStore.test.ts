@@ -17,6 +17,7 @@ import type {
   Curve,
   DiceLadder,
   EquipmentSlot,
+  Inlay,
   Item,
   Material,
   MaterialCategory,
@@ -839,6 +840,116 @@ describe('ConfigStore', () => {
       );
 
       expect(importConfiguration(exported).archetypes).toEqual([strong]);
+    });
+  });
+
+  describe('Inlays CRUD (v4 systems/10, TICKET-INL-01)', () => {
+    /** Zircon's shape: nine linear rungs and a **gap** where the sheet's tenth row is blank */
+    const zircon: Inlay = {
+      id: 'zircon',
+      name: 'Zircon',
+      description: '',
+      group: 'Common Gems',
+      tiers: [
+        { tier: 1, bonuses: [{ statId: 'DEX', modifier: 1 }] },
+        { tier: 9, bonuses: [{ statId: 'DEX', modifier: 9 }] },
+      ],
+    };
+
+    beforeEach(() => {
+      useConfigStore.getState().initializeConfig('Test');
+      vi.clearAllMocks();
+    });
+
+    it('should mint a fresh ruleset with no inlays key at all', () => {
+      // Absent means none, like `constants`, `curves` and `archetypes` — a fresh ruleset does not
+      // grow an empty array it would then round-trip
+      expect(useConfigStore.getState().config?.inlays).toBeUndefined();
+    });
+
+    it('should add an inlay and persist it', () => {
+      useConfigStore.getState().addInlay(zircon);
+
+      const { config } = useConfigStore.getState();
+      expect(config?.inlays).toEqual([zircon]);
+      expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+
+    it('should drop an unstated group on the way in rather than storing an empty key', () => {
+      const ungrouped: Inlay = { ...zircon, group: undefined };
+
+      useConfigStore.getState().addInlay(ungrouped);
+
+      expect(useConfigStore.getState().config?.inlays?.[0]).not.toHaveProperty('group');
+    });
+
+    it('should delete the group key when the heading is cleared', () => {
+      useConfigStore.getState().addInlay(zircon);
+      vi.clearAllMocks();
+
+      useConfigStore.getState().updateInlay('zircon', { group: undefined });
+
+      const stored = useConfigStore.getState().config?.inlays?.[0];
+      expect(stored).not.toHaveProperty('group');
+      expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+
+    it('should add a tier through the store, keeping the ladder as given', () => {
+      useConfigStore.getState().addInlay(zircon);
+      const grown = [...zircon.tiers, { tier: 10, bonuses: [{ statId: 'DEX', modifier: 10 }] }];
+      vi.clearAllMocks();
+
+      useConfigStore.getState().updateInlay('zircon', { tiers: grown });
+
+      const rungs = useConfigStore.getState().config?.inlays?.[0].tiers.map((tier) => tier.tier);
+      expect(rungs).toEqual([1, 9, 10]);
+      expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+
+    it('should edit a tier in place without touching the rungs beside it', () => {
+      useConfigStore.getState().addInlay(zircon);
+      const edited = zircon.tiers.map((tier) =>
+        tier.tier === 1 ? { tier: 1, bonuses: [{ statId: 'DEX', modifier: 4 }] } : tier
+      );
+
+      useConfigStore.getState().updateInlay('zircon', { tiers: edited });
+
+      const tiers = useConfigStore.getState().config?.inlays?.[0].tiers;
+      expect(tiers?.[0].bonuses).toEqual([{ statId: 'DEX', modifier: 4 }]);
+      expect(tiers?.[1]).toEqual(zircon.tiers[1]);
+    });
+
+    it('should remove a tier without renumbering the ones that remain', () => {
+      // A tier number is what a socket will name (TICKET-INV-05), so shifting the rest down would
+      // silently re-price every item made with this gem
+      useConfigStore.getState().addInlay(zircon);
+      const remaining = zircon.tiers.filter((tier) => tier.tier !== 1);
+
+      useConfigStore.getState().updateInlay('zircon', { tiers: remaining });
+
+      const rungs = useConfigStore.getState().config?.inlays?.[0].tiers.map((tier) => tier.tier);
+      expect(rungs).toEqual([9]);
+    });
+
+    it('should delete an inlay nothing points at', () => {
+      useConfigStore.getState().addInlay(zircon);
+      vi.clearAllMocks();
+
+      const references = useConfigStore.getState().deleteInlay('zircon');
+
+      expect(references).toEqual([]);
+      expect(useConfigStore.getState().config?.inlays).toEqual([]);
+      expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+
+    it('should round-trip a gapped ladder through export and import', () => {
+      useConfigStore.getState().addInlay(zircon);
+
+      const exported = JSON.stringify(
+        toStoredConfiguration(useConfigStore.getState().config as Configuration)
+      );
+
+      expect(importConfiguration(exported).inlays).toEqual([zircon]);
     });
   });
 

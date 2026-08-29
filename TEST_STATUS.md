@@ -1,8 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-29 (`npx vitest run`) at **TICKET-INV-04 — equipment slots stay User-built
-and variable**, the current count-setter at **3278**.
+_Last verified: 2026-08-29 (`npx vitest run`) at **TICKET-INL-01 — inlays: the entity and its
+panel**, the current count-setter at **3320**.
 The checkpoints before it were
+**TICKET-INV-04 — equipment slots stay User-built and variable** at 3278,
 **TICKET-SKL-05 — focus skills multiply growth** at 3264,
 **TICKET-SKL-04 — skill levels and bonuses round with ceil** at 3209,
 **TICKET-RACE-04 — the race count is ruleset data** at 3198,
@@ -42,12 +43,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 3278
-- **Passing**: 3278 (100%)
+- **Total tests**: 3320
+- **Passing**: 3320 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **197 files**: `server` in node, everything else in happy-dom.
+Split across **198 files**: `server` in node, everything else in happy-dom.
 
 > **CHAR-04's recorded count was 26 low, and PLY-01 measured it rather than inheriting it.** This
 > file said 2801 across 174 files; `git stash` + a full run on `main` says **2827 across 176**. The
@@ -71,6 +72,80 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-INL-01 — a new entity, and every gate it has to pass on the way in
+
+**3278 → 3320 across six files and one new one — 197 → 198 files.** The new file is
+`config/inlays/InlaysConfigPanel.test.tsx` (15), which drives the real store with storage mocked:
+the Common/Precious headings coming from the ruleset's own words rather than a pair of names the app
+knows, a family added, edited, deleted, a tier added with a grant and removed without renumbering
+the rest, and the empty state for a ruleset that has no `inlays` key at all. **Four of the fifteen
+came from the `conventions-reviewer` pass**, which found a blocker the build's own criteria had let
+through; that half is the last section here.
+
+The other 27 are the gates a new persisted collection has to clear, and they are worth listing
+because *which* gates those are is the reusable part. `configStore.test.ts` (+9) is the store's own
+contract — absent default, the group key dropped on the way in and deleted when cleared, tier
+add/edit/remove through `updateInlay`, a guarded delete, a round-trip. `importExport.test.ts` (+9)
+is the wire: absent means none in both directions, a grant spelled in stat **ids** rather than
+abbreviations, and the shape gate refusing a rung that is not a whole number and two rows claiming
+one. `validator.test.ts` (+6) is the referential half — a grant naming a stat that does not exist, a
+grant on a **derived** stat, two families sharing an id. `dependencies.test.ts` (+2) is the walker:
+a family whose tier grants a stat now blocks that stat's delete, and an inlay itself is pointed at by
+nothing yet. `configRoutes.test.tsx` (+1) mounts `/config/inlays`.
+
+**The one thing pinned rather than merely tested is the gap.** The sheet's Zircon has a blank tenth
+row, and three of these files carry a Zircon-shaped fixture — rungs 1 and 9, no 10 — so *a gap, not
+a zero* is asserted at the store, on the wire and in the DOM (`Tier 1` and `Tier 9` drawn, `Tier 10`
+absent). That is the property the data pass's catalog will land against.
+
+**One hotspot row, and the first reading of it was wrong.** The build's closeout claimed *no file
+this ticket touched is Accelerating*, having checked only the three **production** files —
+`configStore.ts`, `importExport.ts` and `validator.ts`, which do all come back *cooling*. The review
+caught the omission: `src/shared/services/importExport.test.ts` is **13.1 ▲ accelerating** and this
+diff adds nine tests to it. Its row below is extended rather than a new one added. **The rule this
+corrects: the hotspot check is over every touched file, test files included** — this table has
+carried test-file rows since AUTH-01, and reading only the production half of a diff is how a row
+gets missed.
+
+`findReferences` moved from cyclomatic 23 to 24, which was already over the threshold before this
+ticket: the growth is one `case` on the exhaustive `switch` whose `never` default is what makes a
+missing target kind a compile error, and it is recorded on the ticket rather than refactored away.
+
+### The review pass — one blocker, and a rule that was enforced in one place instead of two
+
+**The panel could write a tier ladder the app's own importer refuses.** `inlayTierShapeErrors` holds
+two rules about a rung — a whole number from 1 up, and **unique within the family** — and the save
+path enforced neither: `register('tier', { min: { value: 1 } })` catches `0` and nothing else, so
+`2.5` stored as `2.5`, and editing tier 9 down to 1 on a family already holding a tier 1 stored two
+rows on one rung. Three costs, and the third is the one that matters: an export the app itself wrote
+would fail its own import (`importExport.test.ts` asserts that very refusal); `InlayCard` keys tier
+rows by rung, so duplicates are a React key collision and the edit and delete buttons can act on the
+wrong row; and *which tier a socket names* becomes unanswerable with TICKET-INV-05 about to read it.
+
+**The fix is the codebase's standing two-place rule**, the one `useConstantManager`,
+`useCurveManager` and `useStatManager` each already apply: the shape gate for untrusted import, the
+hook's save path for User input. `handleSaveTier` binds the family's *other* rungs and refuses a
+collision through `tierForm.setError('tier', …)`; the integer rule is a `validate` on the register.
+It is deliberately **not** a "match `useMaterialManager`" case — `materialLevelShapeErrors` has no
+uniqueness or integer rule at all, so a material has nothing to mirror; this gate is stricter by
+design, which is exactly why the write path had to be brought up to it.
+
+Three of the four new cases are that rule (a rung another row claims, a row keeping its own rung
+while something else about it changes, a fractional rung). **The fractional one is submitted through
+the form rather than through the button, and the reason is worth recording**: a `type="number"`
+input has an implicit `step` of 1, so clicking submit is blocked by the browser's *own* constraint
+validation and never reaches react-hook-form — a click would have asserted the browser's rule and
+not ours. The fourth case is a display fix the review also found: tiers are stored in insertion
+order, so adding tier 5 to a `[1, 9]` family drew `1, 9, 5`. `InlayCard` sorts by rung now, carrying
+the **stored** index with each row so the edit and delete buttons still address what they name.
+
+Two findings were **recorded rather than taken**, both by the house rule that waits for a third
+caller: `groupInlays` is a near-copy of `play/sheet/statGroups.ts`'s `groupStats`, and the
+`modifiableStats` pair is a copy of `useMaterialManager`'s. Both are second instances. **If ITEM-01
+or SPL-01 adds a third group-by-free-string list or a third `modifiableStats`, both extractions
+become owed at once**, and that is now a line in INV-05's and ITEM-01's handoff rather than a note
+nobody will find.
 
 ## TICKET-INV-04 — fourteen tests, one production file, and a count that was already free
 
@@ -2005,7 +2080,7 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/shared/engine/calculators/statCalculator.ts` | 7.1 | TICKET-RACE-04's run | 3 commits, 419 added / 12 deleted, 0.10 density, 6 fan-in | ▲ **Accelerating — TICKET-RACE-04** — a first row, crossing the three-commit floor here (ARC-04 added the dream term to the invested gain, RACE-03 added the blend floor, RACE-04 moved the count out). The numbers are the reassuring ones and it is on the list for the churn rather than the difficulty: 419 lines added against 12 deleted over three tickets is a file being *documented* — the blend's three-branch behaviour, the floor's deliberate narrowness and now the divisor decision are all argued in JSDoc beside twenty lines of arithmetic, 0.10 density across 6 dependents. RACE-04's own contribution is a **deletion**: `MAX_RACE_COUNT` left the module entirely and both the slice and the divisor's fallback read `raceCount(constants)`. What would earn the tag is a fourth ticket adding a *term* to the blend rather than a reading of the ruleset — at which point `calculateRaceStatBases` wants to be its own module beside `races.ts` rather than the third export of the composition calculator |
 | `src/client/integration/golden.test.ts` | 11.4 | TICKET-SKL-04's run | 3 commits, 463 churn, 0.16 density, 0 fan-in | ▲ **Accelerating — TICKET-SKL-04** — a first row, crossing the three-commit floor here (RACE-04 changed its sample character's race picks, ARC-04 re-derived four point-buy rows and added the `document` citation field, SKL-04 re-derived all fourteen skill rows). **0.16 density is the second-highest on this list**, and the shape says why: the suite is one `describe` per concept page over an `it.each` of fixtures, so a milestone that changes derivations pays for it here twice — once in `fixtures.ts` and once in the assertions that read them. What earns the tag is a ticket that has to change the *machinery* (a new `describe`, a new way of building the sample character) rather than re-derive rows; three consecutive tickets have re-derived rows and none has, which is the design holding. The number to watch is what the **data pass** does to it — it re-sources the whole corpus, and this is the file that pins the corpus's arithmetic |
 | `src/shared/services/characterCreation.ts` | 10.4 | TICKET-SKL-05's run | 3 commits, 261 added / 12 deleted, 0.14 density, 6 fan-in | ▲ **Accelerating — TICKET-SKL-05** — a first row, crossing the three-commit floor here (RES-05's widened affordability verdict, RACE-04's `racesRequired`, SKL-05's `focusErrors`). 261 added against 12 deleted over three tickets is a file being *argued* rather than reworked: `characterCreationErrors` is a list of `errors.push(...)` lines with a named helper behind each, so a fourth rule costs one line in the list and one function below it — which is exactly what this ticket paid. 0.14 density across 6 dependents is on the high side for a service, and the reason is the same shape: every rule carries its reasoning in JSDoc beside four lines of code. What would earn the tag is a ticket that puts a *branch* in `characterCreationErrors` itself rather than a helper beside it — at that point the rules want to be a table the way `importExport.ts`'s `ENTITY_SPECS` is |
-| `src/shared/services/importExport.test.ts` | 9.8 | TICKET-INV-04's run | 3 commits, 1202 added / 0 deleted, 0.14 density, 0 fan-in | ▲ **Accelerating — TICKET-INV-04** — a first row, crossing the three-commit floor here (RACE-03's identity round-trip, STAT-04's stat groups, INV-04's slot-count round-trip). **1,202 lines added against 0 deleted is the whole reading**: the file is the mirror of `importExport.ts`'s own row above it, and it grows the same way — one `describe` per shape ticket, appended, with no existing block reshaped. That is the design of a boundary suite rather than a smell, and 0 deleted lines across three tickets is the evidence for it. INV-04's own contribution is two cases in one new `describe`. What would earn the tag is a ticket that has to **change** an existing block — at which point the per-entity describes want splitting into files the way `ENTITY_SPECS` is a table, and the `validConfig` fixture wants to stop being one shared literal that every block spreads |
+| `src/shared/services/importExport.test.ts` | 13.1 | TICKET-INV-04's run | 4 commits, 1240 churn, 0.14 density, 0 fan-in | ▲ **Accelerating — TICKET-INL-01** (9.8 at INV-04, **13.1 now**). The INV-04 row set the test for the fourth ticket — *what would earn the tag is a ticket that has to **change** an existing block* — and **INL-01 did not**: it appended one `describe` of nine `it`s for a collection that did not exist before, reshaped no existing block, and left the `validConfig` fixture untouched (its cases spread it rather than adding to it). That is growth by `it` rather than by fixture reshape, the same reading `skillAllocation.test.ts`'s row carries, and `importExport.ts`'s own row above predicted exactly this: *"v4.0's remaining shape tickets will each add rows to `ENTITY_SPECS`"* — each of those rows costs a describe here. **The score rose 3.3 on the cheapest possible visit**, which is the honest reading of a 1,240-churn file: it is not this ticket that made it expensive. The standing test rolls to the fifth ticket unchanged, and the split it names is now close enough to price: **`SPL-01`, `PAS-01` and INV-05's socket are three more describes**, at which point the per-entity blocks want splitting into files the way `ENTITY_SPECS` is a table. Also recorded here because the check nearly missed it: this row was **found by the review, not the build** — the build's hotspot pass read only the diff's production files. The INV-04 reading: (3 commits, 1202 added / 0 deleted) — a first row, crossing the three-commit floor here (RACE-03's identity round-trip, STAT-04's stat groups, INV-04's slot-count round-trip). **1,202 lines added against 0 deleted is the whole reading**: the file is the mirror of `importExport.ts`'s own row above it, and it grows the same way — one `describe` per shape ticket, appended, with no existing block reshaped. That is the design of a boundary suite rather than a smell, and 0 deleted lines across three tickets is the evidence for it. INV-04's own contribution is two cases in one new `describe`. What would earn the tag is a ticket that has to **change** an existing block — at which point the per-entity describes want splitting into files the way `ENTITY_SPECS` is a table, and the `validConfig` fixture wants to stop being one shared literal that every block spreads |
 | `src/server/db/schema.ts` | 6.2 | TICKET-GAM-03's closeout run | 6 commits, 399 churn, 0.04 density, 14 fan-in | ▲ **Accelerating** — six tickets from DB-01 to CHAR-04 have each added to the normalised half (DB-01, AUTH-01, IO-04, GAM-01, GAM-03, CHAR-04); GAM-03's own contribution was making `session_invite.code` nullable (migration `0004`). The density is the reassuring number — 0.04 across 14 dependents means the file is *growing* rather than getting harder, which is what a schema is supposed to do. It earns watching, not splitting: what would make it a problem is a ticket that reshapes an existing table rather than adding one |
 
 **Both rows were moved by DX-08 and DX-06 rather than by AUTH-01**, which is when they
