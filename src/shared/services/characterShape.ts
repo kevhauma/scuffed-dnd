@@ -79,7 +79,7 @@ function isIdMap(value: unknown): boolean {
   return Object.values(value as Record<string, unknown>).every((id) => typeof id === 'string');
 }
 
-/** A plain list of ids — what `miscItems` and `raceIds` are */
+/** A plain list of ids — what `raceIds` is */
 function isIdList(value: unknown): boolean {
   return Array.isArray(value) && value.every((id: unknown) => typeof id === 'string');
 }
@@ -130,20 +130,26 @@ function isComposedItem(value: unknown): boolean {
   );
 }
 
-/** The inventory's three collections: what is equipped, what is carried, and what was built */
+/**
+ * The inventory's two collections: what was built, and which of those are worn
+ *
+ * **`miscItems` left with TICKET-INV-06**, which made the Backpack a derivation (`backpackOf`) rather
+ * than a stored list. A body still carrying one is not refused — it is a field nothing reads, the way
+ * every other unknown key is — and the builds it named are in `composedItems` either way, so such a
+ * character opens with everything it was carrying in the bag.
+ */
 const INVENTORY_FIELDS: Record<string, { accepts: (value: unknown) => boolean; rule: string }> = {
   equippedItems: { accepts: isIdMap, rule: 'must be an object keyed by equipment slot type' },
-  miscItems: { accepts: isIdList, rule: 'must be an array of composed item ids' },
   composedItems: {
     accepts: (value) => Array.isArray(value) && value.every(isComposedItem),
     rule: 'must be an array of { id, templateId, materialId?, materialLevel?, inlayId?, inlayLevel? } records',
   },
 };
 
-/** The inventory: what is equipped, keyed by slot type, what is carried, and what was built */
+/** The inventory: what was built, and what is equipped, keyed by slot type */
 function inventoryErrors(value: unknown, path: string): string[] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return [`${path} must be an { equippedItems, miscItems, composedItems } object`];
+    return [`${path} must be an { equippedItems, composedItems } object`];
   }
 
   const inventory = value as Record<string, unknown>;

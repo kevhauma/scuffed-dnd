@@ -1,5 +1,5 @@
 /**
- * What the eleven player-action routes share (TICKET-PLY-01)
+ * What the ten player-action routes share (TICKET-PLY-01)
  *
  * `sessionPayloads.ts`'s counterpart for the routes a Player drives. Each route beside this one is a
  * guard, a body read and one Kernel call, because everything else they have in common is here: which

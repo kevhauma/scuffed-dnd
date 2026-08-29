@@ -8,8 +8,9 @@
  * **Validates: Requirements 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 13.1, 13.2, 13.3, 13.5**
  */
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { backpackOf } from '#shared/engine/composedItems';
 import type { Character, ComposedItem, Inventory } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
 
@@ -138,7 +139,10 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
  * TICKET-INV-05 moved the material link off the template and onto the thing a Player made — an Iron
  * Helm is a *helm built out of Iron 1* now — so the stat bonuses these cases read come from here.
  * **The build's id is the template's id**, a readability choice rather than a rule: every case says
- * `miscItems: ['helm']` and means the obvious thing.
+ * `equippedItems: { helmet: 'helm' }` and means the obvious thing.
+ *
+ * Every one of them is in the **Backpack** unless a case wears it, because the Backpack is derived
+ * as everything built and not worn (TICKET-INV-06) — there is no carried list to put them on.
  */
 const BUILDS: ComposedItem[] = [
   { id: 'helm', templateId: 'helm', materialId: 'iron', materialLevel: 1 },
@@ -163,9 +167,14 @@ function createCharacter(
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     ...rest,
-    inventory: { equippedItems: {}, miscItems: [], composedItems: BUILDS, ...inventory },
+    inventory: { equippedItems: {}, composedItems: BUILDS, ...inventory },
   };
 }
+
+/** The phrase a build goes by, as the panel derives it (TICKET-INV-06) */
+const IRON_HELM = 'Iron 1 Iron Helm with empty inlay';
+const STEEL_BLADE = 'Steel 1 Steel Blade with empty inlay';
+const ROPE = 'Rope with empty inlay';
 
 /**
  * The row or tile an item, slot or stat is rendered in
@@ -199,6 +208,14 @@ function inventory() {
   return useCharacterStore.getState().characters[0].inventory;
 }
 
+/** What the Backpack currently holds, derived exactly as the panel derives it (TICKET-INV-06) */
+function backpack(): string[] {
+  const character = useCharacterStore.getState().characters[0];
+  const config = useConfigStore.getState().config as Configuration;
+
+  return backpackOf(character, config).map((build) => build.id);
+}
+
 describe('InventoryPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -209,10 +226,11 @@ describe('InventoryPanel', () => {
   it('should render one row per configured equipment slot, each empty', () => {
     render(<InventoryPanel characterId="char1" />);
 
-    // Requirement 12.1
+    // Requirement 12.1. `ignore` throughout because a tile with a candidate in the bag also renders
+    // the picker's own "Empty" placeholder `<option>` — the assertion is about what the tile *shows*
     expect(screen.getByText('Helmet')).toBeDefined();
     expect(screen.getByText('Main Hand')).toBeDefined();
-    expect(within(rowFor('Helmet')).getByText(/Empty/)).toBeDefined();
+    expect(within(rowFor('Helmet')).getByText(/Empty/, { ignore: 'option' })).toBeDefined();
   });
 
   it('should put a slot on the cell the ruleset placed it (TICKET-INV-03)', () => {
@@ -278,29 +296,28 @@ describe('InventoryPanel', () => {
     expect(rowFor('Main Hand').className).not.toContain('col-start-');
   });
 
-  it('should equip a carried item into its matching slot', () => {
-    useCharacterStore.setState({
-      characters: [createCharacter({ inventory: { equippedItems: {}, miscItems: ['helm'] } })],
-    });
-
+  it('should equip a build from the Backpack into its matching slot', () => {
     render(<InventoryPanel characterId="char1" />);
 
-    // Requirement 12.2 — the slot offers what fits and equipping moves it out of the pack
+    // Requirement 12.2 — the slot offers what fits, and equipping takes the row out of the bag
+    // without anything writing to a carried list (TICKET-INV-06)
     fireEvent.change(screen.getByLabelText('Equip into Helmet'), { target: { value: 'helm' } });
 
     expect(inventory().equippedItems.helmet).toBe('helm');
-    expect(inventory().miscItems).toEqual([]);
+    expect(backpack()).toEqual(['blade', 'rope']);
     // `ignore` because the equipped item is also the tile's `<option>`: the picker keeps whatever
     // is worn as its current value so swapping is one gesture. This asserts the tile *shows* it.
     expect(
-      within(rowFor('Helmet')).getByText('Iron Helm', { ignore: 'script, style, option' })
+      within(rowFor('Helmet')).getByText(IRON_HELM, { ignore: 'script, style, option' })
     ).toBeDefined();
   });
 
-  it('should only offer carried items that fit the slot', () => {
+  it('should only offer bagged builds that fit the slot', () => {
     useCharacterStore.setState({
       characters: [
-        createCharacter({ inventory: { equippedItems: {}, miscItems: ['blade', 'rope'] } }),
+        createCharacter({
+          inventory: { composedItems: BUILDS.filter((build) => build.id !== 'helm') },
+        }),
       ],
     });
 
@@ -308,75 +325,136 @@ describe('InventoryPanel', () => {
 
     // The blade belongs in the main hand, the rope nowhere — neither is offered for the helmet
     expect(screen.queryByLabelText('Equip into Helmet')).toBeNull();
-    expect(within(rowFor('Helmet')).getByText(/nothing carried fits/i)).toBeDefined();
+    expect(within(rowFor('Helmet')).getByText(/nothing in the bag fits/i)).toBeDefined();
 
     const mainHand = screen.getByLabelText('Equip into Main Hand') as HTMLSelectElement;
     expect(Array.from(mainHand.options).map((option) => option.value)).toContain('blade');
     expect(Array.from(mainHand.options).map((option) => option.value)).not.toContain('rope');
   });
 
-  it('should carry an item that declares no equipment slot type', () => {
-    useCharacterStore.setState({
-      characters: [createCharacter({ inventory: { equippedItems: {}, miscItems: ['rope'] } })],
-    });
-
+  it('should carry a build whose template declares no equipment slot type', () => {
     render(<InventoryPanel characterId="char1" />);
 
-    // Requirement 12.4 — found by the marker, since the item name also appears in the add picker
-    expect(within(rowFor('no slot')).getByText('Rope')).toBeDefined();
+    // Requirement 12.4 — found by the marker rather than by the name, which the tiles also carry
+    expect(within(rowFor('no slot')).getByText(ROPE)).toBeDefined();
   });
 
-  it('should build a template from the ruleset into the pack (TICKET-INV-05)', () => {
-    // The picker still offers *templates*, because building one is what taking a thing means; what
-    // lands in the pack is a new `ComposedItem` whose id nothing outside the character has seen
+  it('should name every build by the phrase its links spell (TICKET-INV-06)', () => {
+    render(<InventoryPanel characterId="char1" />);
+
+    // `<Material N> <Template> with <Inlay N|empty> inlay`, derived every render — the sheet's own
+    // concatenation, minus the double space its item cell carries. `ignore` because an equippable
+    // build is named twice: once in its Backpack row, once as the tile picker's `<option>`
+    expect(screen.getByText(IRON_HELM, { ignore: 'option' })).toBeDefined();
+    expect(screen.getByText(STEEL_BLADE, { ignore: 'option' })).toBeDefined();
+    expect(screen.getByText(ROPE)).toBeDefined();
+  });
+
+  it('should relabel every build made of a material when the material is renamed', () => {
+    // The reason the phrase is derived rather than stored, in one case: nothing rewrites the
+    // character, and the next render is the whole of the update
+    render(<InventoryPanel characterId="char1" />);
+
+    expect(screen.getByText(IRON_HELM, { ignore: 'option' })).toBeDefined();
+
+    const config = createConfig();
+    const renamed = config.materials.map((family) =>
+      family.id === 'iron' ? { ...family, name: 'Pig Iron' } : family
+    );
+
+    act(() => {
+      useConfigStore.setState({ config: { ...config, materials: renamed }, isLoaded: true });
+    });
+
+    expect(
+      screen.getByText('Pig Iron 1 Iron Helm with empty inlay', { ignore: 'option' })
+    ).toBeDefined();
+    expect(screen.queryByText(IRON_HELM, { ignore: 'option' })).toBeNull();
+  });
+
+  it('should build a template, a material and a tier into one thing (TICKET-INV-06)', () => {
     useCharacterStore.setState({
       characters: [createCharacter({ inventory: { composedItems: [] } })],
     });
 
     render(<InventoryPanel characterId="char1" />);
 
-    fireEvent.change(screen.getByLabelText('Add an item to the pack'), {
-      target: { value: 'rope' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Add to Pack' }));
+    fireEvent.change(screen.getByLabelText('Item'), { target: { value: 'rope' } });
+    fireEvent.change(screen.getByLabelText('Material'), { target: { value: 'iron' } });
+    fireEvent.change(screen.getByLabelText('Material tier'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Build' }));
 
     const built = inventory();
 
-    expect(built.composedItems).toEqual([{ id: expect.any(String), templateId: 'rope' }]);
-    expect(built.miscItems).toEqual([built.composedItems[0].id]);
+    expect(built.composedItems).toEqual([
+      { id: expect.any(String), templateId: 'rope', materialId: 'iron', materialLevel: 1 },
+    ]);
+    // And it is in the bag by virtue of not being worn — nothing put it there
+    expect(backpack()).toEqual([built.composedItems[0].id]);
   });
 
-  it('should move an item from a slot back to the pack and in again', () => {
+  it('should offer only the rungs a family actually has', () => {
+    // Iron has one tier and Steel has one; a family with a gap offers the rungs it holds and no
+    // others, which is what makes an absent tier unpickable rather than a refusal a Player meets
+    render(<InventoryPanel characterId="char1" />);
+
+    fireEvent.change(screen.getByLabelText('Material'), { target: { value: 'iron' } });
+
+    const tiers = screen.getByLabelText('Material tier') as HTMLSelectElement;
+    const offered = Array.from(tiers.options)
+      .filter((option) => !option.disabled)
+      .map((option) => option.value);
+
+    expect(offered).toEqual(['1']);
+  });
+
+  it('should not build until an item, a material and a tier are all picked', () => {
+    render(<InventoryPanel characterId="char1" />);
+
+    const button = screen.getByRole('button', { name: 'Build' }) as HTMLButtonElement;
+
+    expect(button.disabled).toBe(true);
+
+    fireEvent.change(screen.getByLabelText('Item'), { target: { value: 'rope' } });
+    expect((screen.getByRole('button', { name: 'Build' }) as HTMLButtonElement).disabled).toBe(
+      true
+    );
+
+    fireEvent.change(screen.getByLabelText('Material'), { target: { value: 'iron' } });
+    fireEvent.change(screen.getByLabelText('Material tier'), { target: { value: '1' } });
+    expect((screen.getByRole('button', { name: 'Build' }) as HTMLButtonElement).disabled).toBe(
+      false
+    );
+  });
+
+  it('should move a build from a slot back to the Backpack and in again', () => {
     useCharacterStore.setState({
-      characters: [
-        createCharacter({ inventory: { equippedItems: { helmet: 'helm' }, miscItems: [] } }),
-      ],
+      characters: [createCharacter({ inventory: { equippedItems: { helmet: 'helm' } } })],
     });
 
     render(<InventoryPanel characterId="char1" />);
 
     // Requirement 12.5 — out...
+    expect(backpack()).toEqual(['blade', 'rope']);
     fireEvent.click(screen.getByRole('button', { name: 'Unequip' }));
     expect(inventory().equippedItems.helmet).toBeUndefined();
-    expect(inventory().miscItems).toEqual(['helm']);
+    expect(backpack()).toEqual(['helm', 'blade', 'rope']);
 
     // ...and back in
     fireEvent.change(screen.getByLabelText('Equip into Helmet'), { target: { value: 'helm' } });
     expect(inventory().equippedItems.helmet).toBe('helm');
-    expect(inventory().miscItems).toEqual([]);
+    expect(backpack()).toEqual(['blade', 'rope']);
   });
 
-  it('should remove a carried item from the inventory', () => {
-    useCharacterStore.setState({
-      characters: [createCharacter({ inventory: { equippedItems: {}, miscItems: ['rope'] } })],
-    });
-
+  it('should destroy a bagged build when it is removed', () => {
     render(<InventoryPanel characterId="char1" />);
 
-    // Requirement 12.6
-    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    // Requirement 12.6 — the rope's row, found through the phrase that names it
+    const row = rowFor(ROPE);
+    fireEvent.click(within(row).getByRole('button', { name: 'Remove' }));
 
-    expect(inventory().miscItems).toEqual([]);
+    expect(backpack()).toEqual(['helm', 'blade']);
+    expect(inventory().composedItems.map((build) => build.id)).toEqual(['helm', 'blade']);
   });
 
   it('should persist through the store rather than storage directly', () => {
@@ -386,14 +464,14 @@ describe('InventoryPanel', () => {
 
     render(<InventoryPanel characterId="char1" />);
 
-    fireEvent.change(screen.getByLabelText('Add an item to the pack'), {
-      target: { value: 'rope' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Add to Pack' }));
+    fireEvent.change(screen.getByLabelText('Item'), { target: { value: 'rope' } });
+    fireEvent.change(screen.getByLabelText('Material'), { target: { value: 'iron' } });
+    fireEvent.change(screen.getByLabelText('Material tier'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Build' }));
 
     const stored = useCharacterStore.getState().characters[0].inventory;
 
-    expect(stored.miscItems).toHaveLength(1);
+    expect(stored.composedItems).toHaveLength(1);
     expect(stored.composedItems[0].templateId).toBe('rope');
   });
 });
@@ -421,7 +499,7 @@ describe('a ruleset’s slot count', () => {
   const INVENTED_SIX = ['horns', 'tail', 'bond', 'sigil', 'familiar', 'cloak_pin'];
 
   /**
-   * A ruleset with exactly these slots, one carried item per slot, laid out by the store
+   * A ruleset with exactly these slots, one bagged build per slot, laid out by the store
    *
    * `seedEquipmentLayout` is the action the builder's own effect calls, so the board a Player reads
    * here is the board the builder would have written.
@@ -434,16 +512,14 @@ describe('a ruleset’s slot count', () => {
       description: '',
       equipmentSlotType: type,
     }));
-    const carried = items.map((item) => item.id);
-    // One build per template, with the build's id matching the template's — the pack holds builds
+    // One build per template, with the build's id matching the template's. None of them is worn, so
+    // all of them are in the Backpack and every slot has its candidate (TICKET-INV-06)
     const composedItems = items.map((item) => ({ id: item.id, templateId: item.id }));
 
     useConfigStore.setState({ config: createConfig({ equipmentSlots, items }), isLoaded: true });
     useConfigStore.getState().seedEquipmentLayout();
     useCharacterStore.setState({
-      characters: [
-        createCharacter({ inventory: { equippedItems: {}, miscItems: carried, composedItems } }),
-      ],
+      characters: [createCharacter({ inventory: { equippedItems: {}, composedItems } })],
       isLoaded: true,
     });
   }
@@ -451,8 +527,8 @@ describe('a ruleset’s slot count', () => {
   /**
    * The doll tile for a slot
    *
-   * Found by its own control rather than by the caption, because the pack rows print the slot type
-   * a carried item declares and a bare text query would match both.
+   * Found by its own control rather than by the caption, because the Backpack rows print the slot
+   * type a bagged build declares and a bare text query would match both.
    */
   function tileFor(slotName: string): HTMLElement {
     const control = screen.getByLabelText(`Equip into ${slotName}`);
@@ -520,9 +596,7 @@ describe('equipment bonuses on the sheet', () => {
     vi.clearAllMocks();
     useConfigStore.setState({ config: createConfig(), isLoaded: true });
     useCharacterStore.setState({
-      characters: [
-        createCharacter({ inventory: { equippedItems: {}, miscItems: ['helm', 'blade'] } }),
-      ],
+      characters: [createCharacter({ inventory: { equippedItems: {} } })],
       isLoaded: true,
     });
   });

@@ -403,9 +403,10 @@ carrying a user story, the as-is / to-be, and acceptance criteria.
    two main skills, one stat with a formula (`10 + STR * 2`), one combat skill with a dice pool,
    an item template, a material with a tier bonus, a race.
 3. **Use the app as the Player**: switch to Play mode, run the character creation wizard, open
-   the character sheet, add the template to the pack, equip what that built, watch the numbers move,
-   roll the combat skill. (The three-column builder that also picks a material and a gem tier is
-   TICKET-INV-06's; until it lands, taking a template builds one made of nothing.)
+   the character sheet, **build** the template into something — pick an item, a material and its
+   tier, optionally a gem and its tier — equip what came out of the Backpack, watch the numbers move,
+   roll the combat skill. (The Backpack is not a stored list: it is every build you are not wearing,
+   derived each render, so equipping takes a row out of it and unequipping puts it back.)
 4. Skim [requirements.md](docs/v1.0_foundation/requirements.md)'s glossary and headings — you
    now recognise everything in it from step 2–3.
 5. Read the three skill docs in `.claude/skills/` (conventions, data model, project map).

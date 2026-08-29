@@ -434,7 +434,7 @@ function plainCharacter(id: string, name: string, sessionId: string): Character 
     investedSkillPoints: {},
     currentResourceValues: {},
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+    inventory: { equippedItems: {}, composedItems: [] },
     createdAt: new Date(SEEDED_AT).toISOString(),
     updatedAt: new Date(SEEDED_AT).toISOString(),
   };

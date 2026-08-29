@@ -42,6 +42,7 @@ import {
 import { previewInvite, redeemInvite } from '../routes/invites';
 import {
   adjustResource,
+  buildItem,
   dropItem,
   equipItem,
   investSkillPoints,
@@ -49,10 +50,7 @@ import {
   resetResource,
   setFocusSkills,
   setResource,
-  stowItem,
-  takeItem,
   unequipItem,
-  wearItem,
 } from '../routes/play';
 import { listRolls, rollDice } from '../routes/rolls';
 import {
@@ -170,15 +168,13 @@ export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Respon
   'POST /api/characters/:id/reset-resource': resetResource,
   'POST /api/characters/:id/equip-item': equipItem,
   'POST /api/characters/:id/unequip-item': unequipItem,
-  'POST /api/characters/:id/stow-item': stowItem,
-  'POST /api/characters/:id/wear-item': wearItem,
-  'POST /api/characters/:id/take-item': takeItem,
+  'POST /api/characters/:id/build-item': buildItem,
   'POST /api/characters/:id/drop-item': dropItem,
-  // The dice are the server's (TICKET-ROLL-07). Beside the eleven above because it is the same kind
+  // The dice are the server's (TICKET-ROLL-07). Beside the ten above because it is the same kind
   // of request — a Player acting on their own character — even though it writes an Event and not
   // the sheet. The path names the **character**, not the session, so a request cannot disagree with
   // itself about which table it is at; the row already says.
-  // The DM's writes to somebody else's sheet (TICKET-DM-01). Same collection as the eleven above,
+  // The DM's writes to somebody else's sheet (TICKET-DM-01). Same collection as the ten above,
   // and the `dm-` prefix is not decoration: the Event log holds both kinds in one `type` column, so
   // a DM's *set-resource* and a Player's have to be tellable apart by a reader six months later —
   // and the path, the Event type and the client call stay one spelling, as PLY-01 established.

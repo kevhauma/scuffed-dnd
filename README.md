@@ -79,7 +79,8 @@ yarn build
 
 ### Play Mode
 - Create characters with your custom system
-- Manage inventory and equipment
+- Build items out of a template, a material tier and an optional gem, and wear them
+- Manage inventory and equipment — the Backpack is everything you have built and are not wearing
 - Track stats and skill progression
 - Roll combat skills with dice simulation
 - All data stored locally in browser

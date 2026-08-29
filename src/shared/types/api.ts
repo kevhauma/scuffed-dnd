@@ -540,6 +540,31 @@ export interface CharacterListing {
  * `experience`, the purse and everything else a **DM** changes are deliberately absent: those are
  * TICKET-DM-01 and TICKET-DM-02, and a Player granting themselves experience is the exact thing v3
  * Req 41 exists to prevent.
+ *
+ * ## `wear-item` and `stow-item` are retired (TICKET-INV-06)
+ *
+ * There were four inventory-placement intents for what turned out to be two acts. *Wear* — take a
+ * thing out of the pack and put it on — and *equip* became one implementation under INV-05, because a
+ * build a character does not hold cannot be equipped from anywhere else. *Stow* and *unequip* were
+ * separated only by the stored pack: one put the build there, the other destroyed it. With the
+ * **Backpack derived** as everything built and not worn, taking a thing off *is* putting it in the
+ * bag, so both pairs collapse and what is left is one intent per act — build it, put it on, take it
+ * off, throw it away.
+ *
+ * Retiring a value rather than aliasing it is D6's clean break applied to the API surface: an alias
+ * would be a second spelling in the Event log's `type` column for something no route can produce.
+ *
+ * ## `take-item` became `build-item` for the same reason, one step further on
+ *
+ * Retiring two values while **keeping a third whose meaning had changed** would have been the exact
+ * failure the retirements were for. `take-item` meant *put a template in the pack*; the act it names
+ * now is *build a template, a material tier and an optional gem tier into one thing*, which is a
+ * different thing a person does at a table. Two `event` rows sharing one `type` string and meaning
+ * two acts is unreadable in a way a *missing* string never is — a log with no `wear-item` after some
+ * date is a retirement, a log where `take-item` silently changed meaning is a lie. So the value was
+ * renamed with the act, which is also what the vocabulary rule in
+ * [`playerActions.ts`](../services/playerActions.ts) asks for: the route is named for what the person
+ * did, and the person now builds.
  */
 export const PLAYER_ACTION = {
   /** Put points into one invested stat — refused when the derived budget cannot pay for it */
@@ -554,17 +579,13 @@ export const PLAYER_ACTION = {
   ADJUST_RESOURCE: 'adjust-resource',
   /** Fill a resource pool to its derived maximum */
   RESET_RESOURCE: 'reset-resource',
-  /** Put an item in an equipment slot */
+  /** Put a build in an equipment slot */
   EQUIP_ITEM: 'equip-item',
-  /** Take whatever is in a slot off, dropping it */
+  /** Take whatever is in a slot off — it is in the Backpack the moment it is not worn */
   UNEQUIP_ITEM: 'unequip-item',
-  /** Take what is in a slot off and put it in the pack */
-  STOW_ITEM: 'stow-item',
-  /** Take an item out of the pack and put it on */
-  WEAR_ITEM: 'wear-item',
-  /** Put an item in the pack */
-  TAKE_ITEM: 'take-item',
-  /** Take an item out of the pack */
+  /** Build a template, a material tier and an optional inlay tier into one thing (TICKET-INV-06) */
+  BUILD_ITEM: 'build-item',
+  /** Destroy a build the character is not wearing */
   DROP_ITEM: 'drop-item',
 } as const;
 
@@ -620,9 +641,30 @@ export interface EquipmentSlotRequest {
   equipmentSlotType: string;
 }
 
-/** What a client sends to pick an item up or put it down */
+/** What a client sends to put a build down — `itemId` is a `ComposedItem.id` */
 export interface ItemRequest {
   itemId: string;
+}
+
+/**
+ * What a client sends to build one thing — the sheet's three picker columns (TICKET-INV-06)
+ *
+ * `itemId` is the **template** and the other four are the parts, spelled exactly as they are stored
+ * on `ComposedItem` so the route assembles a record rather than translating one. The identity is not
+ * on the wire: each root mints its own, and a client-supplied id would be an id the server had no
+ * reason to trust.
+ *
+ * **Every field but the template is optional here and not all of them are optional to the rule.**
+ * `buildItem` requires a material and its tier and refuses an inlay named without one — this shape's
+ * job is only to say what may be *in the body*, and a `materialId` missing from the JSON has to reach
+ * the Kernel to be answered in the Kernel's words (`playPayloads`' standing split: the route asks
+ * *is this a number*, the rule asks *is this number allowed*).
+ */
+export interface BuildItemRequest extends ItemRequest {
+  materialId?: string;
+  materialLevel?: number;
+  inlayId?: string;
+  inlayLevel?: number;
 }
 
 /**

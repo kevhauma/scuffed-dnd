@@ -108,8 +108,12 @@ acceptance criteria.
   writes LocalStorage exactly as before, the account home sends a debounced revision-guarded `PUT`.
   A component still never reaches either.
 - **Derived values are computed, never stored.** Composed stat values, the stat total, skill levels
-  and bonuses, combat bonuses, equipment bonuses, and **the character's level** come from
-  `engine/calculator.ts` / `engine/calculators/*` / `engine/characterSummary.ts` at read time.
+  and bonuses, combat bonuses, equipment bonuses, **the character's level**, and — since
+  TICKET-INV-06 — **what is in the Backpack** and **what a built item is called** come from
+  `engine/calculator.ts` / `engine/calculators/*` / `engine/characterSummary.ts` /
+  `engine/composedItems.ts` at read time. The Backpack is everything built and not worn
+  (`backpackOf`), which is why `Inventory` has no carried list; the display phrase is rebuilt from
+  the material, template and inlay links every render, which is why a `ComposedItem` has no `name`.
   There are exactly five sanctioned exceptions, all genuine player state rather than derivations:
   `Character.currentResourceValues` (where a resource pool currently stands),
   `Character.experience` (TICKET-RES-01 — XP is awarded at the table, and level derives *from* it),

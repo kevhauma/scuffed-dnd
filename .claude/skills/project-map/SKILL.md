@@ -138,7 +138,7 @@ change also exists (v3 Req 33.8).
 | `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), skills, roll definitions, dice ladders, materials + categories, **inlays** (TICKET-INL-01 — gem families, whose tiers are written through `updateInlay` with the whole ladder, like a material's levels), items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
 | `useCharacterStore` (cont.) | `tableCharacter` + `tableSessionId` + `tableCharacterOwnerId` + `isActing` + `actionError`, and `openTableCharacter` / `closeTableCharacter` / `dismissActionError` (TICKET-PLY-01; `tableSessionId` is ROLL-07's, read by the session-scoped roll log; `tableCharacterOwnerId` is DM-01's, and is how the sheet tells the DM's view from the Player's without a second request) — **the one character open at a game session**, held apart from `characters` because that list is LocalStorage's and a session character must never land in it (v3 Req 36.2). Every existing write action keeps its signature and gains one line: `toTable(...)` sends the named intent to the server when the id is this one's, otherwise the Kernel rule runs locally. `selectCharacter(state, id)` is the exported reader both the sheet and the inventory panel use | server, via `services/characterSync.ts` |
-| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience` (the rule is the Kernel's `dmActions.ts` since TICKET-DM-01, not this store's), `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) — `setFocusSkills(characterId, focusSkillIds, config)` (TICKET-SKL-05 — the whole list of picks at once, refusing more than three or a skill the ruleset has not got, and *reporting* the refusal because the picker has nothing standing in front of it) — and the DM's six, `dmAwardExperience` / `dmDeductExperience` / `dmSetLevel` / `dmSetGrantedPoints` / `dmSetResource` / `dmSetDreamLevel` (TICKET-DM-01, TICKET-RES-04), which are **table-only** and named apart from the Player's own so no call site has to decide which act it is — `updateDreamLevel` is the local half of the last one, refused at a table exactly as `awardExperience` and `setPurse` are. `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
+| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `buildItem`, `discardItem` — four since TICKET-INV-06, where the derived Backpack collapsed `addMiscItem`/`removeMiscItem`/`moveItemToMisc`/`moveItemToEquipment` into them), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience` (the rule is the Kernel's `dmActions.ts` since TICKET-DM-01, not this store's), `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) — `setFocusSkills(characterId, focusSkillIds, config)` (TICKET-SKL-05 — the whole list of picks at once, refusing more than three or a skill the ruleset has not got, and *reporting* the refusal because the picker has nothing standing in front of it) — and the DM's six, `dmAwardExperience` / `dmDeductExperience` / `dmSetLevel` / `dmSetGrantedPoints` / `dmSetResource` / `dmSetDreamLevel` (TICKET-DM-01, TICKET-RES-04), which are **table-only** and named apart from the Player's own so no call site has to decide which act it is — `updateDreamLevel` is the local half of the last one, refused at a table exactly as `awardExperience` and `setPurse` are. `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
 | `useConfigStore` (cont.) | `source` + `openAccountRuleset(id)` / `openLocalRuleset()` (TICKET-RUL-02) — which home is open, and the two ways to change it. Opening one home reads nothing from the other | via `services/rulesetSync.ts` |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history, `storageFailure` and `saveConflict` (TICKET-RUL-02 — a *server* refusal, with the edit still on screen) | not persisted |
 
@@ -342,6 +342,15 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   **Absent dials are neutral by arithmetic rather than by a
   branch**: each defaults to `1 / FOCUS_SLOT_COUNT`, so a ruleset that states neither multiplies by
   exactly 1. Three slots is an engine constant, not yet a dial (the ticket says when it becomes one).
+- `composedItems.ts` (TICKET-INV-06) — the **read side of a `ComposedItem`**: `materialTierOf` /
+  `inlayTierOf` (a rung is found **by its number**, never by array position — neither ladder is kept
+  dense or sorted), `composedItemLabel` (the derived display phrase, the sheet's own
+  `material & " " & item & " with " & inlay & " inlay"`, minus its double-space quirk),
+  `wornBuildIds` and **`backpackOf`** — everything built and not worn, which is the whole of what the
+  Backpack is. Nothing here is stored: rename a material and every build made of it is relabelled on
+  the next render, and there is no carried list to keep in step with the slots.
+  `equipmentBonusCalculator.ts` walks `wornBuildIds` too, so what the sheet counts and what the bag
+  shows cannot disagree.
 - `characterSummary.ts` — `calculateCharacterLevel(character, config)` and
   `toCharacterSummary(character, config)`. **The single definition of "level"**, and since
   TICKET-RES-01 it is a **reverse lookup on the `xp_thresholds` curve** — accumulated XP in, level
@@ -476,12 +485,15 @@ between the roots is exactly *"does this touch a browser API"*.
   multiplier is a sum over the slots and a slot-addressed write would need an empty-slot sentinel
   stored on the character; what may be in it is `focusSkills.focusPickRefusal`, the same call
   `characterCreationErrors` makes), `setResourceValue`, `adjustResourceValue`,
-  `resetResourceToMax`, `equipToSlot`, `emptySlot`, `moveItemToMisc`, `moveItemToEquipment`,
-  `addToPack`, `removeFromPack`. **The five inventory actions speak `ComposedItem.id`s since
-  TICKET-INV-05**, `addToPack` excepted — it takes a *template* id plus a caller-minted build id and
-  mints the record. A build is in at most one place (`wearingOnly`), dropping destroys it and stowing
-  keeps it (`takeOff` is the shared half of that pair), and `removeFromPack` takes exactly the build
-  named where v1.0 took every copy. Each takes a `Character` (and the ruleset where the rule needs
+  `resetResourceToMax`, `equipToSlot`, `unequipSlot`, `composeBuild`, `discardBuild`. **The four
+  inventory actions speak `ComposedItem.id`s since TICKET-INV-05**, `composeBuild` excepted — it takes
+  the whole record to make, identity included, and checks all three picks (a template the ruleset
+  has, a material at a rung its family actually holds, and a gem the same or no gem at all), refusing
+  rather than clamping. **They went from six to four in TICKET-INV-06**: with the Backpack derived
+  (`backpackOf`), *wear* and *equip* are one act and *stow* and *unequip* are one act, so
+  `moveItemToMisc` / `moveItemToEquipment` / `emptySlot` / `addToPack` / `removeFromPack` collapse
+  into these. Taking a thing off keeps it (it is in the bag by not being worn); `discardBuild` is the
+  only one that destroys, and it refuses a build being worn. Each takes a `Character` (and the ruleset where the rule needs
   one) and answers `PlayerActionResult` — either the new character **plus what the value was and
   became**, or a `refusal` sentence. Moved out of `characterStore` so the server could call the same
   rules rather than a second copy (D5); the store's actions are now three lines each. **The names
@@ -998,13 +1010,19 @@ adjustment answer landing last is dropped rather than showing a log an entry sho
 `dm-set-level` reads as the **experience** it wrote and never as a level.
 
 `inventory/` holds `InventoryPanel` (mounted by the sheet, taking only a `characterId`) with
-`EquipmentDoll`, `EquipmentSlotTile`, `MiscItemRow` and `useInventoryManager`. Equipping needs no
-recalculation call: `calculateCharacter` reads `inventory.equippedItems` at render time. Since
-TICKET-INV-05 those ids name the character's **builds**, so the hook resolves each one to a
-`CarriedBuild` (`{ build, item }`) — the id an equip or a drop names, and the template the row is
-spelled and slot-matched by — and hands the whole record down, which is what INV-06's display phrase
-will read. The pack picker still offers *templates*, because building one is what taking a thing
-means; the three-column builder and the Backpack are TICKET-INV-06's.
+`EquipmentDoll`, `EquipmentSlotTile`, `ItemBuilder` + `PartPicker`, `BackpackRow` and
+`useInventoryManager`. Equipping needs no recalculation call: `calculateCharacter` reads
+`inventory.equippedItems` at render time. Since TICKET-INV-05 those ids name the character's
+**builds**, so the hook resolves each one to a `CarriedBuild` (`{ build, item, label }`) — the id an
+equip or a discard names, the template the row is slot-matched by, and the **derived display phrase**
+`composedItemLabel` spells (*Iron Ore 10 Battleaxe with Diamond 4 inlay*). **`ItemBuilder` is the
+sheet's three-column Item selecter** (TICKET-INV-06): a template, a material family + rung, an
+optional gem family + rung, previewed by the same phrase and written by one store action. Its two
+part columns are `PartPicker` used twice — which is where *offer only the rungs a family actually
+has* lives, sorted by rung number because neither ladder is stored sorted. **The Backpack is derived,
+not stored**: `backpackOf` is everything built and not worn, so equipping takes a row out of the bag
+and unequipping puts it back without either control touching a list (`MiscItemRow` was renamed
+`BackpackRow` here, and `Inventory.miscItems` deleted).
 `rolls/` holds `useRoller`, `RollBreakdown` and `RollHistoryPanel`.
 The roll button and the last result live in `RollsSection`; the history is its own panel.
 **`useRoller` branches on where the character lives** (TICKET-ROLL-07). A **local** character rolls

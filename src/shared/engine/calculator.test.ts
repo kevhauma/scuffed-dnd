@@ -26,7 +26,7 @@ describe('calculateCharacterStats', () => {
       investedSkillPoints: {},
       currentResourceValues: {},
       experience: 0,
-      inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+      inventory: { equippedItems: {}, composedItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -132,7 +132,7 @@ describe('calculateCharacterStats', () => {
       investedSkillPoints: {},
       currentResourceValues: {},
       experience: 0,
-      inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+      inventory: { equippedItems: {}, composedItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -227,7 +227,7 @@ describe('calculateCharacterStats', () => {
       investedSkillPoints: {},
       currentResourceValues: {},
       experience: 0,
-      inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+      inventory: { equippedItems: {}, composedItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -515,12 +515,7 @@ function createFixtureCharacter(
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     ...rest,
-    inventory: {
-      equippedItems: {},
-      miscItems: [],
-      composedItems: FIXTURE_BUILDS,
-      ...inventory,
-    },
+    inventory: { equippedItems: {}, composedItems: FIXTURE_BUILDS, ...inventory },
   };
 }
 
@@ -547,7 +542,7 @@ describe('calculateCharacter', () => {
 
   it('should apply an equipment bonus to a main skill and propagate it into stat values', () => {
     const character = createFixtureCharacter({
-      inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: [] },
+      inventory: { equippedItems: { main_hand: 'item-sword' } },
     });
 
     const result = calculateCharacter(character, createFixtureConfig());
@@ -566,7 +561,7 @@ describe('calculateCharacter', () => {
     // (Concept 09), so it raises DEX and the speciality skill follows because its formula reads
     // DEX — one route instead of two, and the one the sheet actually has.
     const character = createFixtureCharacter({
-      inventory: { equippedItems: { cloak: 'item-cloak' }, miscItems: [] },
+      inventory: { equippedItems: { cloak: 'item-cloak' } },
     });
 
     const result = calculateCharacter(character, createFixtureConfig());
@@ -581,7 +576,7 @@ describe('calculateCharacter', () => {
 
   it('should count a stat-targeted bonus exactly once across every consumer', () => {
     const character = createFixtureCharacter({
-      inventory: { equippedItems: { trinket: 'item-charm' }, miscItems: [] },
+      inventory: { equippedItems: { trinket: 'item-charm' } },
     });
 
     const result = calculateCharacter(character, createFixtureConfig());
@@ -603,7 +598,6 @@ describe('calculateCharacter', () => {
       createFixtureCharacter({
         inventory: {
           equippedItems: { main_hand: 'item-sword', cloak: 'item-cloak', trinket: 'item-charm' },
-          miscItems: [],
         },
       }),
       config
@@ -611,7 +605,7 @@ describe('calculateCharacter', () => {
     expect(equipped.statValues.health).not.toBe(baseline.statValues.health);
 
     const unequipped = calculateCharacter(
-      createFixtureCharacter({ inventory: { equippedItems: {}, miscItems: ['item-sword'] } }),
+      createFixtureCharacter({ inventory: { equippedItems: {} } }),
       config
     );
 
@@ -641,7 +635,7 @@ describe('calculateCharacter', () => {
     // The whole composition through the composed entry point (TICKET-RACE-02 acceptance criterion)
     const character = createFixtureCharacter({
       raceIds: ['elf', 'human'],
-      inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: [] },
+      inventory: { equippedItems: { main_hand: 'item-sword' } },
     });
 
     const result = calculateCharacter(character, createFixtureConfig());
@@ -706,7 +700,6 @@ describe('calculateCharacter', () => {
       ...unarmoured,
       inventory: {
         equippedItems: { cloak: 'build-fur-cloak' },
-        miscItems: [],
         composedItems: [
           {
             id: 'build-fur-cloak',
@@ -998,7 +991,7 @@ describe('calculateCharacter', () => {
 
   it('should agree with calculateCharacterStats, the wrapper over the same chain', () => {
     const character = createFixtureCharacter({
-      inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: [] },
+      inventory: { equippedItems: { main_hand: 'item-sword' } },
     });
     const config = createFixtureConfig();
 
@@ -1396,7 +1389,7 @@ describe('calculateCharacter — curve-routed stat gains (TICKET-ARC-02)', () =>
 
     it('should move the skill bonus when the template is worn', () => {
       const wielding = createFixtureCharacter({
-        inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: [] },
+        inventory: { equippedItems: { main_hand: 'item-sword' } },
       });
 
       const result = calculateCharacter(
@@ -1409,7 +1402,7 @@ describe('calculateCharacter — curve-routed stat gains (TICKET-ARC-02)', () =>
 
     it('should move nothing while the template is only carried', () => {
       const carrying = createFixtureCharacter({
-        inventory: { equippedItems: {}, miscItems: ['item-sword'] },
+        inventory: { equippedItems: {} },
       });
 
       const result = calculateCharacter(
@@ -1424,7 +1417,7 @@ describe('calculateCharacter — curve-routed stat gains (TICKET-ARC-02)', () =>
 
     it('should subtract a negative row', () => {
       const wielding = createFixtureCharacter({
-        inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: [] },
+        inventory: { equippedItems: { main_hand: 'item-sword' } },
       });
 
       const result = calculateCharacter(
@@ -1437,7 +1430,7 @@ describe('calculateCharacter — curve-routed stat gains (TICKET-ARC-02)', () =>
 
     it('should leave the level alone while the bonus moves', () => {
       const wielding = createFixtureCharacter({
-        inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: [] },
+        inventory: { equippedItems: { main_hand: 'item-sword' } },
       });
 
       const bare = calculateCharacter(wielding, createFixtureConfig());
@@ -1454,7 +1447,7 @@ describe('calculateCharacter — curve-routed stat gains (TICKET-ARC-02)', () =>
       // The corpus is untouched by this ticket (v4 D7), so this is the state every stored ruleset is
       // in: the sword still supplies its material's `STR +2` and nothing else
       const wielding = createFixtureCharacter({
-        inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: [] },
+        inventory: { equippedItems: { main_hand: 'item-sword' } },
       });
 
       const result = calculateCharacter(wielding, createFixtureConfig());
@@ -1472,7 +1465,7 @@ describe('calculateCharacter — curve-routed stat gains (TICKET-ARC-02)', () =>
         ),
       };
       const wielding = createFixtureCharacter({
-        inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: [] },
+        inventory: { equippedItems: { main_hand: 'item-sword' } },
       });
 
       const result = calculateCharacter(wielding, renamed);
@@ -1495,10 +1488,7 @@ describe('calculateCharacter — curve-routed stat gains (TICKET-ARC-02)', () =>
         }),
       };
       const kitted = createFixtureCharacter({
-        inventory: {
-          equippedItems: { main_hand: 'item-sword', cloak: 'item-cloak' },
-          miscItems: [],
-        },
+        inventory: { equippedItems: { main_hand: 'item-sword', cloak: 'item-cloak' } },
       });
 
       const result = calculateCharacter(kitted, vectored);

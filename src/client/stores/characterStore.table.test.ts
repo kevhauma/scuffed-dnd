@@ -72,7 +72,7 @@ function aCharacter(overrides: Partial<Character> = {}): Character {
     investedSkillPoints: {},
     currentResourceValues: { 'stat-health': 30 },
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+    inventory: { equippedItems: {}, composedItems: [] },
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
     ...overrides,
@@ -253,24 +253,28 @@ describe('a write to the character open at a table', () => {
       { equipmentSlotType: 'head' },
     ],
     [
-      PLAYER_ACTION.STOW_ITEM,
-      () => useCharacterStore.getState().moveItemToMisc('character-1', 'head'),
-      { equipmentSlotType: 'head' },
-    ],
-    [
-      PLAYER_ACTION.WEAR_ITEM,
+      PLAYER_ACTION.BUILD_ITEM,
       () =>
-        useCharacterStore.getState().moveItemToEquipment('character-1', 'item-1', 'head', RULES),
-      { equipmentSlotType: 'head', itemId: 'item-1' },
-    ],
-    [
-      PLAYER_ACTION.TAKE_ITEM,
-      () => useCharacterStore.getState().addMiscItem('character-1', 'item-1', RULES),
-      { itemId: 'item-1' },
+        useCharacterStore
+          .getState()
+          .buildItem(
+            'character-1',
+            { templateId: 'item-1', materialId: 'mat-iron', materialLevel: 1 },
+            RULES
+          ),
+      // The whole triple goes on the wire: the *template* is `itemId` and the parts are spelled as
+      // `ComposedItem` spells them, so the route assembles a record rather than translating one
+      {
+        itemId: 'item-1',
+        materialId: 'mat-iron',
+        materialLevel: 1,
+        inlayId: undefined,
+        inlayLevel: undefined,
+      },
     ],
     [
       PLAYER_ACTION.DROP_ITEM,
-      () => useCharacterStore.getState().removeMiscItem('character-1', 'item-1'),
+      () => useCharacterStore.getState().discardItem('character-1', 'item-1', RULES),
       { itemId: 'item-1' },
     ],
   ])('sends %s with the fields that action needs', async (action, run, body) => {

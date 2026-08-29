@@ -354,7 +354,7 @@ export function useCharacterCreation() {
             configurationId: config.id,
             currentResourceValues: {},
             experience: 0,
-            inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+            inventory: { equippedItems: {}, composedItems: [] },
             createdAt: '',
             updatedAt: '',
             ...engineInputs,

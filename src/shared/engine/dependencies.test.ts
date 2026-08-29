@@ -143,7 +143,6 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     // deletes this file exercises reach the character through it (TICKET-INV-05).
     inventory: {
       equippedItems: { main_hand: 'build-axe' },
-      miscItems: [],
       composedItems: [
         {
           id: 'build-axe',
@@ -506,12 +505,11 @@ describe('findReferences', () => {
   });
 
   it('finds an item template through the builds made from it, equipped or loose', () => {
-    // `equippedItems` and `miscItems` hold `ComposedItem.id`s since TICKET-INV-05, so the walk is
-    // over `composedItems[].templateId` and a build in the pack counts exactly as a worn one does
+    // `equippedItems` holds `ComposedItem.id`s since TICKET-INV-05, so the walk is over
+    // `composedItems[].templateId` and a build in the Backpack counts exactly as a worn one does
     const loose = createCharacter({
       inventory: {
         equippedItems: {},
-        miscItems: ['build-axe'],
         composedItems: [{ id: 'build-axe', templateId: 'axe' }],
       },
     });
@@ -569,7 +567,6 @@ describe('findReferences', () => {
     const emptySocket = createCharacter({
       inventory: {
         equippedItems: { main_hand: 'build-axe' },
-        miscItems: [],
         composedItems: [
           { id: 'build-axe', templateId: 'axe', materialId: 'iron', materialLevel: 1 },
         ],
@@ -585,7 +582,6 @@ describe('findReferences', () => {
     const hoarder = createCharacter({
       inventory: {
         equippedItems: { main_hand: 'build-1' },
-        miscItems: ['build-2', 'build-3'],
         composedItems: [1, 2, 3].map((n) => ({
           id: `build-${n}`,
           templateId: 'axe',

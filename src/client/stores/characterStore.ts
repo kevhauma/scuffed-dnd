@@ -16,28 +16,32 @@ import { purseFromStoredWallet } from '#shared/services/characterShape';
 // The experience rules **moved** here from this module with TICKET-DM-01, rather than being copied
 // into a DM route — the same thing PLY-01 did to the sheet's other writes, and for the same reason
 import { addExperience, removeExperience, setDreamLevel } from '#shared/services/dmActions';
-// `addToPack` and `removeFromPack` joined the list with TICKET-INV-05, having been deliberately
-// absent before it: the browser's pack had no rule to share — its picker is built from the ruleset's
-// item list — so it appended an id and left the checking to the server. Taking something now *mints
-// a `ComposedItem`* and putting it down *destroys one*, and how a build is made and unmade is a rule
-// rather than a picker convenience, so both sides ask the Kernel for it.
+// `composeBuild` and `discardBuild` joined the list with TICKET-INV-05 (as `addToPack` and
+// `removeFromPack`), having been deliberately absent before it: the browser's pack had no rule to
+// share — its picker is built from the ruleset's item list — so it appended an id and left the
+// checking to the server. Building something now *mints a `ComposedItem` out of three checked picks*
+// and putting it down *destroys one*, and how a build is made and unmade is a rule rather than a
+// picker convenience, so both sides ask the Kernel for it.
+//
+// **The names differ from the actions that call them on purpose** — `composeBuild` says what happens
+// to the document, `buildItem` says what the person did — which is `playerActions.ts`' standing rule
+// and the one thing `fallow` cannot check here, since a Zustand action is a property rather than an
+// export (the TICKET-INV-06 review's finding).
 import {
-  addToPack,
   adjustPurseBy,
   adjustResourceValue,
   chooseFocusSkills,
-  emptySlot,
+  composeBuild,
+  discardBuild,
   equipToSlot,
   investInSkill,
   investInStat,
   isRefusal,
-  moveItemToEquipment,
-  moveItemToMisc,
   type PlayerActionResult,
-  removeFromPack,
   resetResourceToMax,
   setPurseAmount,
   setResourceValue,
+  unequipSlot,
 } from '#shared/services/playerActions';
 import type {
   DmAction,
@@ -51,7 +55,7 @@ import type {
   SheetAction,
 } from '#shared/types/api';
 import { DM_ACTION, PLAYER_ACTION } from '#shared/types/api';
-import type { Character, CharacterCreationData } from '#shared/types/character';
+import type { Character, CharacterCreationData, ComposedItem } from '#shared/types/character';
 import type { Configuration, CurrencyTier } from '#shared/types/config';
 import {
   ACTION_OUTCOME,
@@ -240,24 +244,26 @@ export interface CharacterState {
   dismissActionError: () => void;
 
   // Inventory Management
+  /** Put one of the character's builds on — `itemId` is a `ComposedItem.id` */
   equipItem: (
     characterId: string,
     equipmentSlotType: string,
     itemId: string,
     config: Configuration
   ) => void;
+  /** Take a slot's occupant off; it is in the Backpack the moment it is not worn (TICKET-INV-06) */
   unequipItem: (characterId: string, equipmentSlotType: string) => void;
-  /** Build one of the ruleset's templates into the pack — `itemId` is an `Item.id` */
-  addMiscItem: (characterId: string, itemId: string, config: Configuration) => void;
+  /**
+   * Build a template, a material tier and an optional inlay tier into one thing (TICKET-INV-06)
+   *
+   * Takes the record **without its identity**, which this mints: the picks are the Player's and the
+   * id is the root's, exactly as `createCharacter` splits the two. A refusal — an absent rung, a
+   * material nobody picked — is reported through `actionError` rather than swallowed, because the
+   * builder is a form and a form that ignores a *no* is a form that looks broken.
+   */
+  buildItem: (characterId: string, build: Omit<ComposedItem, 'id'>, config: Configuration) => void;
   /** Put one build down for good — `itemId` is a `ComposedItem.id` */
-  removeMiscItem: (characterId: string, itemId: string) => void;
-  moveItemToMisc: (characterId: string, equipmentSlotType: string) => void;
-  moveItemToEquipment: (
-    characterId: string,
-    itemId: string,
-    equipmentSlotType: string,
-    config: Configuration
-  ) => void;
+  discardItem: (characterId: string, itemId: string, config: Configuration) => void;
 
   // Current Stat Value Updates
   updateCurrentStatValue: (
@@ -801,60 +807,51 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     );
   },
 
-  // Unequip item from equipment slot
+  // Take a slot's occupant off — the Backpack is everything not worn (TICKET-INV-06)
   unequipItem: (characterId: string, equipmentSlotType: string) => {
     const body = { equipmentSlotType };
     if (toTable(set, get, characterId, PLAYER_ACTION.UNEQUIP_ITEM, body)) return;
 
-    applyLocally(set, get, characterId, (character) => emptySlot(character, equipmentSlotType));
+    applyLocally(set, get, characterId, (character) => unequipSlot(character, equipmentSlotType));
   },
 
-  // Build a template into the pack (TICKET-INV-05)
-  addMiscItem: (characterId: string, itemId: string, config: Configuration) => {
-    if (toTable(set, get, characterId, PLAYER_ACTION.TAKE_ITEM, { itemId })) return;
+  // Build three picks into one thing (TICKET-INV-06)
+  buildItem: (characterId: string, build: Omit<ComposedItem, 'id'>, config: Configuration) => {
+    const body = {
+      itemId: build.templateId,
+      materialId: build.materialId,
+      materialLevel: build.materialLevel,
+      inlayId: build.inlayId,
+      inlayLevel: build.inlayLevel,
+    };
+    if (toTable(set, get, characterId, PLAYER_ACTION.BUILD_ITEM, body)) return;
 
-    // **A Kernel call now, where there used to be none.** This appended a catalog id and left every
-    // check to the server, on the grounds that a picker had already made the choice legal. Taking
-    // something is no longer an append: it mints a `ComposedItem` and puts *its* id in the pack, and
-    // what a fresh build looks like is a rule the server must agree with rather than a shape two
-    // sides each write out. The id is this side's to mint, as `createCharacter`'s is.
-    applyLocally(set, get, characterId, (character) => {
-      const composedId = crypto.randomUUID();
+    // **A Kernel call, where before INV-05 there was none.** This appended a catalog id and left
+    // every check to the server, on the grounds that a picker had already made the choice legal. A
+    // build is not an append: three picks have to agree with each other and with the ruleset, and
+    // that is a rule the server must share rather than a shape two sides each write out. The id is
+    // this side's to mint, as `createCharacter`'s is — and the record is assembled into a name here
+    // exactly as `buildItem.ts` assembles it on the server, so the two roots read alike.
+    applyLocally(
+      set,
+      get,
+      characterId,
+      (character) => {
+        const built: ComposedItem = { id: crypto.randomUUID(), ...build };
 
-      return addToPack(character, config, itemId, composedId);
-    });
+        return composeBuild(character, config, built);
+      },
+      { reportRefusal: true }
+    );
   },
 
-  // Take a build out of the pack, destroying it
-  removeMiscItem: (characterId: string, itemId: string) => {
+  // Destroy a build the character is not wearing
+  discardItem: (characterId: string, itemId: string, config: Configuration) => {
     if (toTable(set, get, characterId, PLAYER_ACTION.DROP_ITEM, { itemId })) return;
 
-    applyLocally(set, get, characterId, (character) => removeFromPack(character, itemId));
-  },
-
-  // Move equipped item to miscellaneous inventory
-  moveItemToMisc: (characterId: string, equipmentSlotType: string) => {
-    const body = { equipmentSlotType };
-    if (toTable(set, get, characterId, PLAYER_ACTION.STOW_ITEM, body)) return;
-
-    applyLocally(set, get, characterId, (character) =>
-      moveItemToMisc(character, equipmentSlotType)
-    );
-  },
-
-  // Move miscellaneous item to equipment slot
-  moveItemToEquipment: (
-    characterId: string,
-    itemId: string,
-    equipmentSlotType: string,
-    config: Configuration
-  ) => {
-    const body = { equipmentSlotType, itemId };
-    if (toTable(set, get, characterId, PLAYER_ACTION.WEAR_ITEM, body)) return;
-
-    applyLocally(set, get, characterId, (character) =>
-      moveItemToEquipment(character, config, itemId, equipmentSlotType)
-    );
+    applyLocally(set, get, characterId, (character) => discardBuild(character, config, itemId), {
+      reportRefusal: true,
+    });
   },
 
   // Update single current stat value

@@ -376,7 +376,7 @@ describe('the corpus the fixtures seed', () => {
       investedSkillPoints: {},
       currentResourceValues: {},
       experience: 0,
-      inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+      inventory: { equippedItems: {}, composedItems: [] },
       createdAt: '2026-08-25T00:00:00.000Z',
       updatedAt: '2026-08-25T00:00:00.000Z',
     };

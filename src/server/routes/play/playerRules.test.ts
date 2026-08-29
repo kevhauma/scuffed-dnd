@@ -47,8 +47,9 @@ function routeModules(): { name: string; source: string }[] {
 
 describe('the player-action routes', () => {
   it('has one route module per named intent, so this is not passing by looking at nothing', () => {
-    // Eleven actions, eleven modules — a twelfth action without a route, or a route without an
-    // action, is a difference this names rather than a gap somebody notices later
+    // One module per action, counted rather than written down — which is why TICKET-INV-06 retiring
+    // two actions and renaming a third needed no edit here at all. An action without a route, or a
+    // route without an action, is a difference this names rather than a gap somebody notices later
     expect(routeModules()).toHaveLength(Object.values(PLAYER_ACTION).length);
   });
 

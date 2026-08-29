@@ -129,7 +129,9 @@ Three consequences worth stating outright, because they are the tempting excepti
   the tree is briefly unreadable to old data either way. **That ticket was TICKET-INV-05
   (2026-08-29), which took `SUPPORTED_SCHEMA_VERSION` from 9 to 10** retiring `Item.materialId` /
   `Item.materialLevel`; everything after it inherits 10, and TICKET-DX-09 proves the break complete
-  rather than raising it again.
+  rather than raising it again. **TICKET-INV-06 then deleted `Inventory.miscItems` under the same
+  10**, which is the rule working as written rather than an exception to it: one milestone, one
+  bump, however many shapes move inside it.
 - **`RETIRED_FIELDS` still earns its keep** — it turns "your file has `wallet`" into a sentence
   naming the replacement instead of a shape error. Retiring a field is documentation, not
   compatibility.
@@ -222,7 +224,7 @@ that pass.
 - [x] [TICKET-INL-01](./tickets/TICKET-INL-01-inlay-entity-panel-catalog.md) — Inlays: the entity and its panel (systems/10) — the new entity; the other ingredient of composition. The gem catalog is the data pass's
 - [x] [TICKET-ITEM-01](./tickets/TICKET-ITEM-01-skill-bonus-templates-and-shops.md) — Item templates target skills, grouped into shops (systems/11) — needs SKL-04; the shape and the engine term
 - [x] [TICKET-INV-05](./tickets/TICKET-INV-05-composed-items-record-and-engine.md) — Composed items: the record and the engine (systems/12) — needs INV-04, INL-01, ITEM-01; `Item`'s fused `materialId`/`materialLevel` fields retire here, and **this is the ticket that landed D6's one `SUPPORTED_SCHEMA_VERSION` bump (9 → 10)** — every v4.0 ticket after it inherits the number
-- [ ] [TICKET-INV-06](./tickets/TICKET-INV-06-item-builder-and-backpack.md) — The item builder and the Backpack (systems/12) — needs INV-05; the sheet's Item selecter as a player action, and "in the bag" derived as built-but-not-worn
+- [x] [TICKET-INV-06](./tickets/TICKET-INV-06-item-builder-and-backpack.md) — The item builder and the Backpack (systems/12) — needs INV-05; the sheet's Item selecter as a player action, and "in the bag" derived as built-but-not-worn. **`Inventory.miscItems` is deleted** (a stored derivation) and the `wear-item` / `stow-item` player actions retire with it — still no second schema bump, D6's 10 stands
 - [ ] [TICKET-SPL-01](./tickets/TICKET-SPL-01-spell-entity-panel-fragment.md) — Spells: the entity and its panel (systems/13) — casting needs only Mana, already a resource; the 418-row fragment is the data pass's, templating waits for SPL-03
 - [ ] [TICKET-SPL-02](./tickets/TICKET-SPL-02-learned-spells-spellbook-casting.md) — Learned spells, the Spellbook, and casting (systems/13) — needs SPL-01; spells unlock **manually** and "Chosen abiltie" is built into nothing (rulings above)
 - [ ] [TICKET-SPL-03](./tickets/TICKET-SPL-03-spell-effect-templating.md) — Spell effect templating (systems/13, D4) — needs SPL-01/02; the `spell-effect` attachment point and its preview. The 326-formula transcription is the data pass's

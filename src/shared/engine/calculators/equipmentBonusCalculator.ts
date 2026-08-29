@@ -15,7 +15,10 @@
  * an optional inlay tier, and every number this module produces is read off those parts at
  * calculation time. Retuning Iron Ore tier 10 therefore moves every axe made of it on the next read —
  * which is *derived values are computed, never stored* applied to the aggregate rather than to a
- * field, and the reason the record holds no numbers of its own.
+ * field, and the reason the record holds no numbers of its own. **How a record's parts are resolved
+ * lives in [`composedItems.ts`](../composedItems.ts)** since TICKET-INV-06 — the display phrase asks
+ * the same two questions this does, and a second copy of *find the rung by its number* is how the
+ * label and the arithmetic would come to name different tiers.
  *
  * **Equipment reaches a skill two ways since TICKET-ITEM-01, and they cannot overlap.** Through the
  * stats a skill's weight rows read — a Stealth weighted on DEX moves when a cloak raises DEX — and
@@ -28,14 +31,9 @@
  * **Validates: Concepts 01, 09; Requirements 13.1, 13.2, 13.4; v4 systems/11, systems/12**
  */
 
-import type { Character, ComposedItem } from '../../types/character';
-import type {
-  Configuration,
-  InlayTier,
-  Item,
-  MaterialLevel,
-  StatModifier,
-} from '../../types/config';
+import type { Character } from '../../types/character';
+import type { Configuration, Item, StatModifier } from '../../types/config';
+import { inlayTierOf, materialTierOf, wornBuildIds } from '../composedItems';
 
 /**
  * One equipped composed item, with each of its three parts already resolved
@@ -54,47 +52,6 @@ interface EquippedComposition {
 }
 
 /**
- * The material tier a composed record names, or nothing when it names none this ruleset has
- *
- * Looked up by `MaterialLevel.level` rather than by position in `levels`, because a family's ladder
- * carries its own rung numbers and nothing keeps the array dense or sorted.
- *
- * @param composed - The record to resolve
- * @param config - The ruleset whose materials it names
- * @returns The tier, or `undefined` when either half of the reference is absent or dangling
- */
-function materialTierOf(composed: ComposedItem, config: Configuration): MaterialLevel | undefined {
-  if (composed.materialId === undefined || composed.materialLevel === undefined) return undefined;
-
-  const material = config.materials.find((candidate) => candidate.id === composed.materialId);
-
-  return material?.levels.find((level) => level.level === composed.materialLevel);
-}
-
-/**
- * The inlay tier a composed record names, or nothing when it names none this ruleset has
- *
- * `materialTierOf`'s twin one entity over, and it has to be a search by `tier` for a sharper reason
- * than symmetry: **`Inlay.tiers` is stored in insertion order and a family's ladder may have a gap**
- * (TICKET-INL-01 — the sheet's Zircon has no tenth). Indexing the array by rung would read the wrong
- * row for the first family somebody edited out of order, and would read *some* row for a rung that
- * does not exist. An `inlayLevel` naming an absent rung resolves to nothing and therefore grants
- * nothing; telling the Player their gem has no such tier is TICKET-INV-06's picker refusal, which is
- * the surface where they can act on it.
- *
- * @param composed - The record to resolve
- * @param config - The ruleset whose inlays it names
- * @returns The tier, or `undefined` when either half of the reference is absent or dangling
- */
-function inlayTierOf(composed: ComposedItem, config: Configuration): InlayTier | undefined {
-  if (composed.inlayId === undefined || composed.inlayLevel === undefined) return undefined;
-
-  const inlay = (config.inlays ?? []).find((candidate) => candidate.id === composed.inlayId);
-
-  return inlay?.tiers.find((tier) => tier.tier === composed.inlayLevel);
-}
-
-/**
  * The composed items the character currently has equipped, one per filled slot
  *
  * **Walks the ruleset's own slot list rather than a set of keys written down anywhere**
@@ -102,7 +59,10 @@ function inlayTierOf(composed: ComposedItem, config: Configuration): InlayTier |
  * are all ordinary and none of them is the app's number. `equippedItems` is keyed by
  * `EquipmentSlot.type`, so reading it *through* `config.equipmentSlots` is what makes the count
  * follow the ruleset — and it means a slot the ruleset no longer defines equips nothing, the same
- * rule the composition applies to every other dangling reference.
+ * rule the composition applies to every other dangling reference. That walk is
+ * [`wornBuildIds`](../composedItems.ts) since TICKET-INV-06, because the **Backpack is its
+ * complement**: what the sheet counts and what the bag shows are now one predicate rather than two
+ * that have to be kept saying the same thing.
  *
  * **Both equipment terms read it, which is what makes them agree** (TICKET-ITEM-01). The stat term
  * walked `Object.values(equippedItems)` until that ticket, and the difference was not theoretical:
@@ -124,11 +84,9 @@ function inlayTierOf(composed: ComposedItem, config: Configuration): InlayTier |
 function equippedCompositions(character: Character, config: Configuration): EquippedComposition[] {
   const byId = new Map(character.inventory.composedItems.map((record) => [record.id, record]));
   const equipped: EquippedComposition[] = [];
+  const worn = wornBuildIds(character, config);
 
-  for (const slot of config.equipmentSlots) {
-    const composedId = character.inventory.equippedItems[slot.type];
-    if (composedId === undefined) continue;
-
+  for (const composedId of worn) {
     const composed = byId.get(composedId);
     if (composed === undefined) continue;
 

@@ -170,6 +170,18 @@ Two families of judgement, both concrete here rather than generic.
   made the name false, so it became `ValueRowsField` over `options: RowOption[]` with
   `statRowOptions(stats)` beside it. Widen the parameter and rename in the same change — do not add a
   second component with the same markup.
+- **A stored value that is exactly a function of two others is a bug with a schedule.** It is kept
+  correct by discipline in every action that writes either input, and the first one that forgets is
+  silent. TICKET-INV-06's `Inventory.miscItems` is the worked example: it held precisely
+  `composedItems − worn`, five separate actions maintained it, and INV-05's review caught one of them
+  leaving a build in neither place — invisible to every surface and still blocking the delete of the
+  material it was made of. **Delete the field and derive it**, even when the sweep is wide (that one
+  cost a one-line fixture edit in 40 files); the alternative is guarding an invariant forever.
+- **When two named things become one implementation, retire a name — do not keep an alias.** INV-05
+  left `equipToSlot` and `moveItemToEquipment` as one body with two names because the two *acts* were
+  still distinct in the API's vocabulary; when INV-06 made *unequip* and *stow* the same act too, four
+  intents for two acts was the answer to delete rather than to document. A wrapper that exists only so
+  a second spelling keeps compiling is *Delete rather than deprecate* wearing a routing table.
 - A shorter diff a reader can hold in their head beats a cleverer one they have to reconstruct.
 
 ## Components

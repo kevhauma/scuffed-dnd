@@ -1,8 +1,9 @@
 /**
  * Inventory Panel
  *
- * The character's equipment slots and the pack they carry. Layout and composition only — every
- * decision lives in `useInventoryManager`, and every write goes through a character store action.
+ * The character's equipment slots, the Backpack, and the builder that fills it. Layout and
+ * composition only — every decision lives in `useInventoryManager`, and every write goes through a
+ * character store action.
  *
  * Equipping changes what the rest of the sheet shows: `calculateCharacter` reads
  * `inventory.equippedItems` at render time, so no recalculation is triggered from here
@@ -10,20 +11,19 @@
  * and the tiers each build is made of are read at that same moment — so retuning a material moves
  * every sheet wearing it without anything here being told.
  *
- * **The picker still offers templates**, because building one is what putting a thing in your pack
- * means; the three-column builder that also picks a material and an inlay tier is TICKET-INV-06's,
- * as is the Backpack that will replace this flat pack list.
+ * **The Backpack is the sheet's own `FILTER`** (TICKET-INV-06): everything built and not worn,
+ * derived by `backpackOf` rather than read out of a stored list. That is why equipping a thing takes
+ * its row out of the bag and unequipping puts it back, with neither control touching the bag — the
+ * two lists cannot disagree because there is only one.
  *
  * **Validates: Requirements 12.1, 12.2, 12.4, 12.5, 12.6, 13.1, 13.3, 13.5, 21.1-21.5**
  */
 
-import { useId, useState } from 'react';
-import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
-import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
+import { BackpackRow } from './BackpackRow';
 import { EquipmentDoll } from './EquipmentDoll';
-import { MiscItemRow } from './MiscItemRow';
+import { ItemBuilder } from './ItemBuilder';
 import { useInventoryManager } from './useInventoryManager';
 
 export interface InventoryPanelProps {
@@ -34,23 +34,16 @@ export function InventoryPanel({ characterId }: InventoryPanelProps) {
   const {
     slots,
     equipmentLayout,
-    miscItems,
+    backpack,
     availableItems,
+    availableMaterials,
+    availableInlays,
     handleEquip,
     handleUnequip,
-    handleAddItem,
-    handleRemoveItem,
+    handleBuild,
+    handleDiscard,
+    labelFor,
   } = useInventoryManager(characterId);
-
-  const addSelectId = useId();
-
-  /** The item chosen in the picker but not yet added — purely local to this control */
-  const [itemToAdd, setItemToAdd] = useState('');
-
-  const addItem = () => {
-    handleAddItem(itemToAdd);
-    setItemToAdd('');
-  };
 
   return (
     <Card className="p-6">
@@ -73,30 +66,25 @@ export function InventoryPanel({ characterId }: InventoryPanelProps) {
       )}
 
       <Text variant="h5" as="h3" className="mt-6 mb-2">
-        Pack
+        Backpack
       </Text>
-      {miscItems.length === 0 ? (
-        <Text variant="body-small-secondary">Nothing carried.</Text>
+      {backpack.length === 0 ? (
+        <Text variant="body-small-secondary">Nothing built and unworn.</Text>
       ) : (
-        miscItems.map((entry) => (
-          <MiscItemRow key={entry.build.id} entry={entry} onRemove={handleRemoveItem} />
+        backpack.map((entry) => (
+          <BackpackRow key={entry.build.id} entry={entry} onDiscard={handleDiscard} />
         ))
       )}
 
       {availableItems.length > 0 && (
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Select
-            id={addSelectId}
-            aria-label="Add an item to the pack"
-            value={itemToAdd}
-            placeholder="Choose an item"
-            options={availableItems.map((item) => ({ value: item.id, label: item.name }))}
-            onChange={(event) => setItemToAdd(event.target.value)}
-            className="w-56"
+        <div className="mt-4">
+          <ItemBuilder
+            templates={availableItems}
+            materials={availableMaterials}
+            inlays={availableInlays}
+            labelFor={labelFor}
+            onBuild={handleBuild}
           />
-          <Button variant="secondary" disabled={itemToAdd === ''} onClick={addItem}>
-            Add to Pack
-          </Button>
         </div>
       )}
     </Card>

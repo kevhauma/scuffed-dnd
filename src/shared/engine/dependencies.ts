@@ -570,9 +570,9 @@ export function findReferences(
       return [];
 
     case 'item':
-      // A template is pointed at by the **builds made from it** (TICKET-INV-05), not by the pack
-      // directly: `equippedItems` and `miscItems` hold `ComposedItem.id`s now, so a walk over those
-      // two would compare a build's id against a template's and never match.
+      // A template is pointed at by the **builds made from it** (TICKET-INV-05), not by the slots
+      // directly: `equippedItems` holds `ComposedItem.id`s now, so a walk over it would compare a
+      // build's id against a template's and never match.
       return composedItemReferences(
         characters,
         'inventory.composedItems[].templateId',

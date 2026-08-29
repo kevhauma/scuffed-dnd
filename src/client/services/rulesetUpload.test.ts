@@ -33,7 +33,7 @@ function storedCharacter(configurationId: string, overrides: Partial<Character> 
     investedSkillPoints: {},
     currentResourceValues: {},
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+    inventory: { equippedItems: {}, composedItems: [] },
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,

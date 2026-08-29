@@ -23,7 +23,7 @@ function stored(overrides: Partial<Character> = {}): Character {
     investedSkillPoints: {},
     currentResourceValues: {},
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+    inventory: { equippedItems: {}, composedItems: [] },
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
@@ -69,6 +69,8 @@ describe('isReadableCharacter', () => {
     const beforeBuilds = stored({
       inventory: { equippedItems: {}, miscItems: [] } as never,
     });
+    // `miscItems` is the *pre*-INV-06 spelling of the pack, kept here on purpose: this is a v3
+    // roster, and what makes it unreadable is the absent `composedItems` rather than the extra key
 
     const readable = isReadableCharacter(beforeBuilds);
 
@@ -156,17 +158,28 @@ describe('uploadedCharacterErrors', () => {
       expect(errors.join(' ')).toContain('c.inventory');
     });
 
-    it('requires all three of the inventory’s collections', () => {
+    it('requires both of the inventory’s collections', () => {
+      // Two since TICKET-INV-06, where INV-05 had three: the Backpack is derived, so a stored
+      // `miscItems` is a field nothing reads rather than a collection to insist on
       expect(
-        uploadedCharacterErrors({ ...stored(), inventory: { miscItems: [] } }, 'c').join(' ')
+        uploadedCharacterErrors({ ...stored(), inventory: { composedItems: [] } }, 'c').join(' ')
       ).toContain('equippedItems');
-      expect(
-        uploadedCharacterErrors({ ...stored(), inventory: { equippedItems: {} } }, 'c').join(' ')
-      ).toContain('miscItems');
-      const withoutBuilds = { ...stored(), inventory: { equippedItems: {}, miscItems: [] } };
-      const missingThird = uploadedCharacterErrors(withoutBuilds, 'c');
+      const withoutBuilds = { ...stored(), inventory: { equippedItems: {} } };
+      const missingSecond = uploadedCharacterErrors(withoutBuilds, 'c');
 
-      expect(missingThird.join(' ')).toContain('composedItems');
+      expect(missingSecond.join(' ')).toContain('composedItems');
+    });
+
+    it('ignores a stored miscItems rather than refusing the character (TICKET-INV-06)', () => {
+      // The Backpack stopped being stored; a body still carrying the list is not wrong, it is
+      // out of date, and every build it named is in `composedItems` either way — so the character
+      // opens with all of them in the bag rather than meeting an error about a field nobody reads
+      const stale = {
+        ...stored(),
+        inventory: { equippedItems: {}, miscItems: ['build-1'], composedItems: [] },
+      };
+
+      expect(uploadedCharacterErrors(stale, 'c')).toEqual([]);
     });
 
     it.each([
@@ -183,7 +196,7 @@ describe('uploadedCharacterErrors', () => {
     ])('refuses a composed record with %s (TICKET-INV-05)', (_label, composedItems: unknown[]) => {
       const uploaded = {
         ...stored(),
-        inventory: { equippedItems: {}, miscItems: [], composedItems },
+        inventory: { equippedItems: {}, composedItems },
       };
 
       const errors = uploadedCharacterErrors(uploaded, 'c');
@@ -196,7 +209,6 @@ describe('uploadedCharacterErrors', () => {
         ...stored(),
         inventory: {
           equippedItems: {},
-          miscItems: ['build-1'],
           composedItems: [{ id: 'build-1', templateId: 'item-rope' }],
         },
       };
@@ -211,7 +223,6 @@ describe('uploadedCharacterErrors', () => {
         ...stored(),
         inventory: {
           equippedItems: { main_hand: 'build-1' },
-          miscItems: [],
           composedItems: [
             {
               id: 'build-1',
@@ -270,7 +281,7 @@ describe('uploadedCharacterErrors', () => {
         templateId: `item-${index}`,
       }));
 
-      return stored({ inventory: { equippedItems, miscItems: [], composedItems } });
+      return stored({ inventory: { equippedItems, composedItems } });
     }
 
     it('carries a one-slot and a twelve-slot kit through JSON and past the gate', () => {

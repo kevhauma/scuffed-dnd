@@ -67,7 +67,7 @@ function createCharacter(rollInputs: Record<string, FormulaResult>): CalculatedC
     investedSkillPoints: {},
     currentResourceValues: {},
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+    inventory: { equippedItems: {}, composedItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     statValues: {},

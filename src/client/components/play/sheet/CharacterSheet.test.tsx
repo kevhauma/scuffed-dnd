@@ -186,7 +186,7 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     investedSkillPoints: { STL: 3 },
     currentResourceValues: { health: 60, mana: 30 },
     experience: 900,
-    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+    inventory: { equippedItems: {}, composedItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     ...overrides,
@@ -297,7 +297,6 @@ describe('CharacterSheet', () => {
           // TICKET-INV-05, and the sheet reads the tier's rows through it
           inventory: {
             equippedItems: { cloak: 'build-cloak' },
-            miscItems: [],
             composedItems: [
               { id: 'build-cloak', templateId: 'cloak', materialId: 'fur', materialLevel: 1 },
             ],

@@ -515,11 +515,7 @@ describe('reading a table’s characters', () => {
       const [listed] = (await listAtTable(session.id, player)).body.characters;
 
       expect(listed.character.name).toBe('Quackers');
-      expect(listed.character.inventory).toEqual({
-        equippedItems: {},
-        miscItems: [],
-        composedItems: [],
-      });
+      expect(listed.character.inventory).toEqual({ equippedItems: {}, composedItems: [] });
     }));
 });
 

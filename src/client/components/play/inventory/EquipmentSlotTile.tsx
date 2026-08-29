@@ -61,20 +61,20 @@ export function EquipmentSlotTile({
 
   const filled = slot.equipped !== null;
 
-  // A build the ruleset can no longer name — its template was deleted under the Player — is still
-  // *in* the slot and still says so, the way `MiscItemRow` names an unresolvable carried one. The
-  // engine grants nothing for it; hiding it would leave a slot that reads empty and cannot be filled.
-  const wornLabel = slot.equipped?.item?.name ?? 'Unknown item';
+  // The **derived phrase** since TICKET-INV-06 — *Iron Ore 10 Battleaxe with Diamond 4 inlay* —
+  // handed down by `useInventoryManager` rather than spelled here, so the tile and the Backpack row
+  // showing the same build cannot disagree about what it is called. A build the ruleset can no longer
+  // name — its template was deleted under the Player — reads as *Unknown item* inside that phrase and
+  // is still in the slot: the engine grants nothing for it, and hiding it would leave a slot that
+  // reads empty and cannot be filled.
+  const wornLabel = slot.equipped?.label ?? '';
 
   // Whatever is in the slot stays in the list, so the control shows it as the current value and
   // swapping is one gesture rather than unequip-then-equip. The values are `ComposedItem.id`s since
   // TICKET-INV-05 — one Player's builds rather than the catalog's templates.
   const options = [
     ...(slot.equipped ? [{ value: slot.equipped.build.id, label: wornLabel }] : []),
-    ...slot.candidates.map((carried) => ({
-      value: carried.build.id,
-      label: carried.item?.name ?? 'Unknown item',
-    })),
+    ...slot.candidates.map((carried) => ({ value: carried.build.id, label: carried.label })),
   ];
 
   // A tile with nothing to choose is not a control, and must not light up like one
@@ -100,7 +100,7 @@ export function EquipmentSlotTile({
         // The picture already says "empty" to anyone who can see it; this is the same fact for
         // anyone who cannot, plus the reason when there is one
         <span className="sr-only">
-          {slot.candidates.length === 0 ? 'Empty — nothing carried fits this slot.' : 'Empty'}
+          {slot.candidates.length === 0 ? 'Empty — nothing in the bag fits this slot.' : 'Empty'}
         </span>
       )}
 

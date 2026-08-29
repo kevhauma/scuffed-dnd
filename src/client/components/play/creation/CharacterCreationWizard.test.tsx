@@ -622,7 +622,7 @@ describe('CharacterCreationWizard', () => {
         investedSkillPoints: { STL: 1 },
         currentResourceValues: {},
         experience: 0,
-        inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+        inventory: { equippedItems: {}, composedItems: [] },
         createdAt: '',
         updatedAt: '',
       },
@@ -687,11 +687,7 @@ describe('CharacterCreationWizard', () => {
       configurationId: 'config1',
     });
     // Empty inventory — slots come from the configuration, not from the character (Req 11.6)
-    expect(characters[0].inventory).toEqual({
-      equippedItems: {},
-      miscItems: [],
-      composedItems: [],
-    });
+    expect(characters[0].inventory).toEqual({ equippedItems: {}, composedItems: [] });
 
     // …and the result is a v2 character: points keyed by stat *id*, resources seeded to their
     // calculated maximum, and nothing left of the v1 main-skill map (TICKET-STAT-01, STAT-03)

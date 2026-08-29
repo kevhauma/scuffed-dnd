@@ -265,8 +265,9 @@ export interface Character {
  *
  * The split is `Character.focusSkillIds`' exactly: **the field tolerates, the action insists.** Three
  * focus picks are optional on the type and required by `characterCreationErrors`; a material tier is
- * optional here and required by TICKET-INV-06's build action, which is the surface that actually
- * offers the picker.
+ * optional here and **required by [`buildItem`](../services/playerActions.ts)** (TICKET-INV-06),
+ * which is the surface that actually offers the picker. A record that names no material is therefore
+ * something an *older* build minted or an import carried, not something the app writes.
  *
  * ## A part the ruleset no longer defines contributes nothing
  *
@@ -280,8 +281,8 @@ export interface ComposedItem {
   /**
    * Stable identity, minted by whoever builds it — **this is what the inventory names**.
    *
-   * `equippedItems` and `miscItems` hold these ids rather than `Item.id`s, which is what makes two
-   * Battleaxes at different tiers two different things a Player can wear and drop independently.
+   * `equippedItems` holds these ids rather than `Item.id`s, which is what makes two Battleaxes at
+   * different tiers two different things a Player can wear and drop independently.
    * Minted by the caller rather than here or in a Kernel rule, for `CharacterIdentity`'s reason: the
    * browser mints its own and the server mints its own, and `shared/` reaches for no global.
    */
@@ -299,31 +300,33 @@ export interface ComposedItem {
 }
 
 /**
- * Inventory — what the character has built, and where each of those things is
+ * Inventory — what the character has built, and which of those things are worn
  *
- * **Three collections since TICKET-INV-05, and the two older ones changed meaning rather than
- * shape.** `equippedItems` and `miscItems` held `Item.id`s — catalog templates — and now hold
- * {@link ComposedItem.id}s. The shape is untouched (`Record<slotType, id>` and `id[]`), which is why
- * this was the smaller of the two homes the ticket weighed: everything that walks a slot or a pack
- * still walks the same structure, and only what the id *resolves to* moved.
+ * **Two collections since TICKET-INV-06, where INV-05 left three.** `composedItems` is everything the
+ * Player has made; `equippedItems` says which of them are on the body. **The Backpack is neither of
+ * them — it is the difference**, derived at read time by
+ * [`backpackOf`](../engine/composedItems.ts), which is exactly the `FILTER` the sheet's own Backpack
+ * tab is (v4 systems/12: "built but not worn").
  *
- * **A build is worn or carried — never both, and never neither.** Both halves are enforced by the
- * actions in [`playerActions.ts`](../services/playerActions.ts) rather than by this type: `wearingOnly`
- * and the pack filter keep a build out of two places at once, and every action that removes one from
- * a slot puts it somewhere — the pack (`moveItemToMisc`, `equipToSlot`'s displaced occupant) or out
- * of existence (`emptySlot`, `removeFromPack`, which delete the record too).
+ * ## Why `miscItems` is gone
  *
- * **"In neither" is a defect, not a spare state**, and an earlier draft of this note had it the other
- * way round — which is precisely what let `equipToSlot` ship orphaning the build it displaced. A
- * record nothing wears and nothing carries is invisible to every surface *and* still counted by
- * `composedItemReferences`, so it makes the material it was made of undeletable with a refusal naming
- * a Player who cannot see the thing.
+ * It was a *stored derivation*, and the house rule against those is the first hard rule in
+ * [CLAUDE.md](../../../CLAUDE.md). Once every build was either worn or carried — INV-05's invariant —
+ * the carried list held precisely `composedItems − worn`, maintained by hand in five separate
+ * actions. INV-05's own review caught one of those five leaving a build in neither list, which is the
+ * failure mode a stored derivation always has: two answers to one question, kept in step by
+ * discipline.
  *
- * **What could make it legal is TICKET-INV-06**, and only by removing the other half: if the Backpack
- * becomes *derived* — every build that is not worn — then `miscItems` stops being stored and "carried"
- * stops being a place a record can fail to be in. That is the ticket to revisit
- * `emptySlot` / `removeFromPack`'s destruction in, since a derived Backpack makes *unequipped* and
- * *discarded* different things again.
+ * Deleting it removes the failure mode rather than guarding against it. There is no "carried" place a
+ * record can fail to be in, `equipToSlot` has nothing to stow, and *unequipped* and *discarded* are
+ * different things again — the first clears a slot, the second deletes the record.
+ *
+ * ## Worn means worn in a slot the ruleset still defines
+ *
+ * `backpackOf` walks `config.equipmentSlots` rather than the keys of `equippedItems`, so a build left
+ * in a slot the User force-deleted comes back to the Backpack instead of vanishing into a slot no
+ * surface can show — the same rule `equippedCompositions` applies when deciding what grants bonuses,
+ * so what the sheet counts and what the bag shows cannot disagree.
  *
  * A **dangling** id is a different matter and stays tolerated: the engine drops what it cannot
  * resolve, for the reason `equippedItems` never enforced that its items existed — a rule that refused
@@ -331,8 +334,7 @@ export interface ComposedItem {
  */
 export interface Inventory {
   equippedItems: Record<string, string>; // equipmentSlotType -> ComposedItem.id
-  miscItems: string[]; // ComposedItem.ids
-  /** Everything the character has built, worn or carried, keyed by nothing — see {@link ComposedItem.id} */
+  /** Everything the character has built, worn or not — see {@link ComposedItem.id} */
   composedItems: ComposedItem[];
 }
 

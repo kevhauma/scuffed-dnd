@@ -164,7 +164,7 @@ describe('handleApiRequest', () => {
       }));
 
     it('keeps the roll distinct from the player actions at the same shape of path', async () => {
-      // `roll` and `take-item` are two literal segments under one parameter, and the router matches
+      // `roll` and `build-item` are two literal segments under one parameter, and the router matches
       // by segment rather than by prefix — so neither can swallow the other, and a verb no route
       // answers is a 405 at both
       expect((await answer('/api/characters/abc/roll', 'GET')).status).toBe(405);

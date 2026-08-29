@@ -27,7 +27,7 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     investedSkillPoints: {},
     currentResourceValues: {},
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+    inventory: { equippedItems: {}, composedItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-02',
     ...overrides,
@@ -146,7 +146,6 @@ describe('calculateCharacterLevel', () => {
       experience: 900,
       inventory: {
         equippedItems: { main_hand: 'build-sword' },
-        miscItems: ['build-cloak'],
         composedItems: [
           { id: 'build-sword', templateId: 'item-sword' },
           { id: 'build-cloak', templateId: 'item-cloak' },

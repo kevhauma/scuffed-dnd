@@ -16,27 +16,26 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { backpackOf } from '../engine/composedItems';
 import { focusPicksOf } from '../engine/focusSkills';
-import type { Character } from '../types/character';
+import type { Character, ComposedItem } from '../types/character';
 import type { Configuration } from '../types/config';
 import {
-  addToPack,
   adjustPurseBy,
   adjustResourceValue,
   chooseFocusSkills,
-  emptySlot,
+  composeBuild,
+  discardBuild,
   equipToSlot,
   investInSkill,
   investInStat,
   isRefusal,
-  moveItemToEquipment,
-  moveItemToMisc,
   type PlayerActionChange,
   type PlayerActionResult,
-  removeFromPack,
   resetResourceToMax,
   setPurseAmount,
   setResourceValue,
+  unequipSlot,
 } from './playerActions';
 
 /** A ruleset with one pool, one invested stat, two skills, two slots and three items */
@@ -74,8 +73,34 @@ const RULES = {
     { id: 'skill-stealth', name: 'Stealth', description: '', statWeights: [] },
     { id: 'skill-alchemy', name: 'Alchemy', description: '', statWeights: [] },
   ],
-  materials: [],
-  materialCategories: [],
+  // One family with a **gap in its ladder** — tiers 1 and 10, nothing between — because the build
+  // rule's whole job is to answer for a rung the family does not have (TICKET-INV-06)
+  materials: [
+    {
+      id: 'mat-iron',
+      name: 'Iron Ore',
+      description: '',
+      categoryId: 'metal',
+      levels: [
+        { level: 1, name: 'Pig iron', bonuses: [], value: { tierId: 'gold', amount: 1 } },
+        { level: 10, name: 'Wrought', bonuses: [], value: { tierId: 'gold', amount: 10 } },
+      ],
+    },
+  ],
+  materialCategories: [{ id: 'metal', name: 'Metal', description: '' }],
+  // The sheet's Zircon, whose tenth row is blank — and stored **out of rung order** on purpose, so a
+  // reader that indexed the array by rung would read the wrong row (TICKET-INL-01)
+  inlays: [
+    {
+      id: 'inlay-zircon',
+      name: 'Zircon',
+      description: '',
+      tiers: [
+        { tier: 9, bonuses: [] },
+        { tier: 1, bonuses: [] },
+      ],
+    },
+  ],
   items: [
     { id: 'item-helm', name: 'Helm', description: '', equipmentSlotType: 'head' },
     { id: 'item-circlet', name: 'Circlet', description: '', equipmentSlotType: 'head' },
@@ -131,7 +156,7 @@ function aCharacter(overrides: Partial<Character> = {}): Character {
     investedSkillPoints: {},
     currentResourceValues: { 'stat-health': 30 },
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+    inventory: { equippedItems: {}, composedItems: [] },
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
     ...overrides,
@@ -139,31 +164,36 @@ function aCharacter(overrides: Partial<Character> = {}): Character {
 }
 
 /**
- * A character holding one build per template named, worn or carried (TICKET-INV-05)
+ * A character holding one build per template named, worn or in the bag (TICKET-INV-05/06)
  *
  * The equipment cases are about *where a thing is*, and the build layer is not what they are
  * testing — so the ids are derived (`build-item-helm`) rather than spelled out, and a case still
  * reads as *wearing the helm on the head*.
  *
+ * **Carried is not a field any more**: a build that is not worn is in the Backpack by definition, so
+ * the second argument only decides which builds exist without being in a slot.
+ *
  * @param equippedItems - Slot type to **template** id
- * @param carried - Template ids in the pack, in order; a repeat is a second build
+ * @param carried - Template ids to have built and not be wearing; a repeat is a second build
  * @returns The character, holding one build per entry
  */
 function holding(equippedItems: Record<string, string>, carried: string[] = []): Character {
   const worn = Object.entries(equippedItems);
   const slots = Object.fromEntries(worn.map(([slot, id]) => [slot, `build-${id}`]));
 
-  // A repeated template is a repeated *build*, so the pack ids are made unique by position — which
+  // A repeated template is a repeated *build*, so the bagged ids are made unique by position — which
   // is the whole difference from the id-list pack this replaced
-  const packIds = carried.map((id, index) => `build-${id}-${index}`);
   const builds = [
     ...worn.map(([, id]) => ({ id: `build-${id}`, templateId: id })),
     ...carried.map((id, index) => ({ id: `build-${id}-${index}`, templateId: id })),
   ];
 
-  return aCharacter({
-    inventory: { equippedItems: slots, miscItems: packIds, composedItems: builds },
-  });
+  return aCharacter({ inventory: { equippedItems: slots, composedItems: builds } });
+}
+
+/** Everything built and not worn, as the Backpack derives it */
+function bagged(character: Character): string[] {
+  return backpackOf(character, RULES).map((build) => build.id);
 }
 
 /** The accepted half of a result, failing the case if it was refused */
@@ -456,15 +486,16 @@ describe('equipment', () => {
     );
   });
 
-  it('takes the build out of the pack when it is put on (TICKET-INV-05)', () => {
-    // A build is one thing, so it cannot be worn and carried at once — which an id naming a catalog
-    // template legitimately could be, two of a thing being the same id twice
+  it('takes the build out of the Backpack when it is put on', () => {
+    // A build is one thing, so it cannot be worn and bagged at once — which an id naming a catalog
+    // template legitimately could be, two of a thing being the same id twice. Nothing removes it
+    // from a list: the Backpack is the complement of what is worn (TICKET-INV-06)
     const carrying = holding({}, ['item-helm']);
 
     const change = accepted(equipToSlot(carrying, RULES, 'head', 'build-item-helm-0'));
 
     expect(change.character.inventory.equippedItems.head).toBe('build-item-helm-0');
-    expect(change.character.inventory.miscItems).toEqual([]);
+    expect(bagged(change.character)).toEqual([]);
   });
 
   it('wears a build in one slot at a time', () => {
@@ -476,44 +507,37 @@ describe('equipment', () => {
     expect(Object.values(change.character.inventory.equippedItems)).toEqual(['build-item-helm']);
   });
 
-  it('stows the build it displaces rather than orphaning it (the INV-05 review)', () => {
-    // **The blocker this case exists for.** Equipping into an occupied slot dropped the previous
-    // occupant from `equippedItems` and did nothing else — so the displaced build survived in
-    // `composedItems` worn by nothing and carried by nothing: invisible to every surface, and still
-    // counted by `composedItemReferences`, which made its material permanently undeletable.
+  it('puts the build it displaces back in the Backpack rather than orphaning it', () => {
+    // **The blocker this case exists for** (the INV-05 review). Equipping into an occupied slot
+    // dropped the previous occupant from `equippedItems` and did nothing else — so the displaced
+    // build survived in `composedItems` worn by nothing and carried by nothing: invisible to every
+    // surface, and still counted by `composedItemReferences`, which made its material permanently
+    // undeletable. With the bag derived there is no *nothing* for it to be in.
     const worn = holding({ head: 'item-helm' }, ['item-circlet']);
 
-    const after = accepted(equipToSlot(worn, RULES, 'head', 'build-item-circlet-0')).character
-      .inventory;
+    const after = accepted(equipToSlot(worn, RULES, 'head', 'build-item-circlet-0')).character;
 
-    expect(after.equippedItems.head).toBe('build-item-circlet-0');
-    expect(after.miscItems).toEqual(['build-item-helm']);
+    expect(after.inventory.equippedItems.head).toBe('build-item-circlet-0');
+    expect(bagged(after)).toEqual(['build-item-helm']);
     // Nothing was destroyed either — putting something on is not a decision to throw away what you
-    // were wearing, which is the difference from `emptySlot`
-    expect(after.composedItems.map((build) => build.id).sort()).toEqual([
+    // were wearing, which is the difference from `discardBuild`
+    expect(after.inventory.composedItems.map((build) => build.id).sort()).toEqual([
       'build-item-circlet-0',
       'build-item-helm',
     ]);
   });
 
-  it('leaves every build worn or carried, whichever equip action was used', () => {
-    // The invariant `Inventory`'s own doc states, asserted over both names rather than argued: since
-    // TICKET-INV-05 they are one implementation, and this is what would fail if they stopped being
+  it('leaves every build either worn or in the Backpack, and never both', () => {
+    // The invariant `Inventory`'s own doc states. It is now structural rather than maintained — the
+    // two sets are one partition of `composedItems` — and this is what would fail if a future action
+    // reintroduced a second list to keep in step
     const worn = holding({ head: 'item-helm' }, ['item-circlet']);
-    const placed = (inventory: Character['inventory']) =>
-      [...Object.values(inventory.equippedItems), ...inventory.miscItems].sort();
 
-    const equipped = accepted(equipToSlot(worn, RULES, 'head', 'build-item-circlet-0')).character;
-    const wearing = accepted(
-      moveItemToEquipment(worn, RULES, 'build-item-circlet-0', 'head')
-    ).character;
+    const after = accepted(equipToSlot(worn, RULES, 'head', 'build-item-circlet-0')).character;
+    const placed = [...Object.values(after.inventory.equippedItems), ...bagged(after)].sort();
 
-    for (const result of [equipped, wearing]) {
-      expect(placed(result.inventory)).toEqual(
-        result.inventory.composedItems.map((build) => build.id).sort()
-      );
-    }
-    expect(equipped.inventory).toEqual(wearing.inventory);
+    expect(placed).toEqual(after.inventory.composedItems.map((build) => build.id).sort());
+    expect(new Set(placed).size).toBe(placed.length);
   });
 
   it('refuses a build the character does not have (TICKET-INV-05)', () => {
@@ -525,73 +549,156 @@ describe('equipment', () => {
   });
 
   it('refuses to empty a slot that is already empty', () => {
-    expect(refusal(emptySlot(aCharacter(), 'head'))).toContain('nothing in that slot');
-    expect(refusal(moveItemToMisc(aCharacter(), 'head'))).toContain('nothing in that slot');
+    expect(refusal(unequipSlot(aCharacter(), 'head'))).toContain('nothing in that slot');
   });
 
-  it('keeps a stowed build and destroys a dropped one', () => {
+  it('keeps the build it takes off, where unequipping used to destroy it (TICKET-INV-06)', () => {
+    // `emptySlot` destroyed and `moveItemToMisc` kept, and the two were told apart only by which
+    // stored list the build landed in. Taking a helmet off is now one act with one answer, and
+    // throwing it away is `discardBuild`.
     const worn = holding({ head: 'item-helm' });
 
-    const stowed = accepted(moveItemToMisc(worn, 'head')).character.inventory;
-    const dropped = accepted(emptySlot(worn, 'head')).character.inventory;
+    const after = accepted(unequipSlot(worn, 'head')).character;
 
-    expect(stowed.miscItems).toEqual(['build-item-helm']);
-    // Stowing keeps the thing the Player made; dropping is the action that unmakes it, so the record
-    // goes with it rather than being orphaned in `composedItems`
-    expect(stowed.composedItems.map((build) => build.id)).toEqual(['build-item-helm']);
-    expect(dropped.miscItems).toEqual([]);
-    expect(dropped.composedItems).toEqual([]);
+    expect(after.inventory.equippedItems.head).toBeUndefined();
+    expect(bagged(after)).toEqual(['build-item-helm']);
+    expect(after.inventory.composedItems.map((build) => build.id)).toEqual(['build-item-helm']);
   });
 
-  it('swaps a slot occupant back into the pack rather than losing it', () => {
-    const worn = holding({ head: 'item-helm' }, ['item-circlet']);
+  it('rounds a build out of the bag and back again', () => {
+    // The round trip TICKET-INV-06's criteria pin, in the Kernel: equip takes the row out of the
+    // Backpack, unequip puts it back, and neither touches a list to do it
+    const carrying = holding({}, ['item-helm']);
 
-    const change = accepted(moveItemToEquipment(worn, RULES, 'build-item-circlet-0', 'head'));
+    const worn = accepted(equipToSlot(carrying, RULES, 'head', 'build-item-helm-0')).character;
+    const off = accepted(unequipSlot(worn, 'head')).character;
 
-    expect(change.character.inventory.equippedItems.head).toBe('build-item-circlet-0');
-    expect(change.character.inventory.miscItems).toEqual(['build-item-helm']);
+    expect(bagged(worn)).toEqual([]);
+    expect(bagged(off)).toEqual(['build-item-helm-0']);
+    expect(off.inventory.composedItems).toEqual(carrying.inventory.composedItems);
   });
 });
 
-describe('the pack', () => {
+describe('building a thing', () => {
+  /** The picks a case is not testing, so it can name only the one it is */
+  function picks(overrides: Partial<ComposedItem> = {}): ComposedItem {
+    return {
+      id: 'build-1',
+      templateId: 'item-rope',
+      materialId: 'mat-iron',
+      materialLevel: 10,
+      ...overrides,
+    };
+  }
+
   it('refuses a template the ruleset does not define', () => {
-    expect(refusal(addToPack(aCharacter(), RULES, 'item-ghost', 'build-1'))).toContain(
-      'no such item'
-    );
+    expect(
+      refusal(composeBuild(aCharacter(), RULES, picks({ templateId: 'item-ghost' })))
+    ).toContain('no such item');
   });
 
-  it('mints a build and puts its id in the pack (TICKET-INV-05)', () => {
-    const change = accepted(addToPack(aCharacter(), RULES, 'item-rope', 'build-1'));
+  it('mints the build and leaves it in the Backpack', () => {
+    const change = accepted(composeBuild(aCharacter(), RULES, picks()));
 
-    expect(change.character.inventory.miscItems).toEqual(['build-1']);
-    expect(change.character.inventory.composedItems).toEqual([
-      { id: 'build-1', templateId: 'item-rope' },
-    ]);
+    expect(change.character.inventory.composedItems).toEqual([picks()]);
+    expect(bagged(change.character)).toEqual(['build-1']);
     expect(change.after).toBe('build-1');
   });
 
-  it('names no material and no inlay — the picker for those is TICKET-INV-06’s', () => {
-    const built = accepted(addToPack(aCharacter(), RULES, 'item-rope', 'build-1')).character;
-    const [only] = built.inventory.composedItems;
+  it('refuses a build with no material and one with no tier, rather than choosing either', () => {
+    // The action insists where the field tolerates: `ComposedItem` leaves both links optional so an
+    // older record can be read, and the *builder* is the surface that requires them
+    const noMetal = picks({ materialId: undefined, materialLevel: undefined });
+    const noTier = picks({ materialLevel: undefined });
 
-    expect(only.materialId).toBeUndefined();
-    expect(only.inlayId).toBeUndefined();
+    expect(refusal(composeBuild(aCharacter(), RULES, noMetal))).toContain('what this is made of');
+    expect(refusal(composeBuild(aCharacter(), RULES, noTier))).toContain('which tier of Iron Ore');
   });
 
-  it('refuses to put down something that is not being carried', () => {
-    expect(refusal(removeFromPack(aCharacter(), 'build-nothing'))).toContain('not in the pack');
+  it('refuses a material rung the family does not have, naming the gap', () => {
+    // Iron Ore has tiers 1 and 10 and nothing between — a clamp to 1 would hand the Player an
+    // object they did not ask for and cannot tell from one they did
+    expect(refusal(composeBuild(aCharacter(), RULES, picks({ materialLevel: 5 })))).toBe(
+      'Iron Ore has no tier 5.'
+    );
+    expect(
+      refusal(composeBuild(aCharacter(), RULES, picks({ materialId: 'mat-ghost' })))
+    ).toContain('no such material');
+  });
+
+  it('builds with an empty socket, which is the sheet’s own row', () => {
+    const change = accepted(composeBuild(aCharacter(), RULES, picks()));
+    const [only] = change.character.inventory.composedItems;
+
+    expect(only.inlayId).toBeUndefined();
+    expect(only.inlayLevel).toBeUndefined();
+  });
+
+  it('sockets a gem at a rung its family has', () => {
+    const socketed = picks({ inlayId: 'inlay-zircon', inlayLevel: 9 });
+
+    expect(
+      accepted(composeBuild(aCharacter(), RULES, socketed)).character.inventory.composedItems
+    ).toEqual([socketed]);
+  });
+
+  it('refuses the rung a family skips — the sheet’s Zircon 10', () => {
+    // TICKET-INL-01's absent-tier rule surfacing where a Player can act on it. At calculation time
+    // an absent rung is worth nothing, silently and deliberately; at build time it is a refusal.
+    const zircon10 = picks({ inlayId: 'inlay-zircon', inlayLevel: 10 });
+
+    expect(refusal(composeBuild(aCharacter(), RULES, zircon10))).toBe('Zircon has no tier 10.');
+  });
+
+  it('refuses half a socket in either direction', () => {
+    const noRung = picks({ inlayId: 'inlay-zircon' });
+    const noGem = picks({ inlayLevel: 9 });
+
+    expect(refusal(composeBuild(aCharacter(), RULES, noRung))).toContain('which tier of Zircon');
+    expect(refusal(composeBuild(aCharacter(), RULES, noGem))).toContain('leave the socket empty');
+    expect(refusal(composeBuild(aCharacter(), RULES, picks({ inlayId: 'inlay-ghost' })))).toContain(
+      'no such inlay'
+    );
+  });
+
+  it('refuses to put down something the character does not have', () => {
+    expect(refusal(discardBuild(aCharacter(), RULES, 'build-nothing'))).toContain('no such item');
+  });
+
+  it('refuses to destroy what is being worn, and says to take it off', () => {
+    // The one state `discardBuild` refuses, and the reason *unequipped* and *discarded* are
+    // different acts again now that the bag is derived
+    const worn = holding({ head: 'item-helm' });
+
+    expect(refusal(discardBuild(worn, RULES, 'build-item-helm'))).toContain('Take it off');
   });
 
   it('takes exactly the build named, where v1.0 took every copy', () => {
     // Two ropes are two *builds* now, so they are distinguishable and only the one asked for goes
     const hoarder = holding({}, ['item-rope', 'item-helm', 'item-rope']);
 
-    const put = accepted(removeFromPack(hoarder, 'build-item-rope-0')).character.inventory;
+    const put = accepted(discardBuild(hoarder, RULES, 'build-item-rope-0')).character;
 
-    expect(put.miscItems).toEqual(['build-item-helm-1', 'build-item-rope-2']);
-    expect(put.composedItems.map((build) => build.id)).toEqual([
+    expect(bagged(put)).toEqual(['build-item-helm-1', 'build-item-rope-2']);
+    expect(put.inventory.composedItems.map((build) => build.id)).toEqual([
       'build-item-helm-1',
       'build-item-rope-2',
     ]);
+  });
+
+  it('clears a discarded build out of a slot the ruleset no longer defines', () => {
+    // A force-deleted slot leaves its occupant worn nowhere real, so the bag offers it — and the id
+    // has to go from `equippedItems` too, or it is a dangling reference nothing can ever clear
+    const stranded = aCharacter({
+      inventory: {
+        equippedItems: { retired: 'build-1' },
+        composedItems: [{ id: 'build-1', templateId: 'item-helm' }],
+      },
+    });
+
+    const after = accepted(discardBuild(stranded, RULES, 'build-1')).character;
+
+    expect(after.inventory.equippedItems).toEqual({});
+    expect(after.inventory.composedItems).toEqual([]);
   });
 });

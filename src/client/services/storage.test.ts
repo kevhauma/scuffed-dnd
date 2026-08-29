@@ -195,7 +195,7 @@ describe('Storage Service', () => {
           investedSkillPoints: {},
           currentResourceValues: {},
           experience: 0,
-          inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+          inventory: { equippedItems: {}, composedItems: [] },
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-01T00:00:00Z',
         },
@@ -238,7 +238,7 @@ describe('Storage Service', () => {
           investedSkillPoints: {},
           currentResourceValues: {},
           experience: 0,
-          inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+          inventory: { equippedItems: {}, composedItems: [] },
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-01T00:00:00Z',
         },
@@ -370,7 +370,7 @@ describe('Storage Service', () => {
           experience: 0,
           // Readable means readable *by this build*, and since TICKET-INV-05 that includes the
           // inventory's third collection — see the composed-items case below
-          inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+          inventory: { equippedItems: {}, composedItems: [] },
         },
       ]);
       localStorage.setItem('dnd_builder_characters', raw);
@@ -413,7 +413,7 @@ describe('Storage Service', () => {
           experience: 0,
           // Readable means readable *by this build*, and since TICKET-INV-05 that includes the
           // inventory's third collection — see the composed-items case below
-          inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+          inventory: { equippedItems: {}, composedItems: [] },
         },
       ]);
       localStorage.setItem('dnd_builder_characters', raw);
@@ -432,7 +432,7 @@ describe('Storage Service', () => {
             investedStatPoints: { 'id-str': 5 },
             currentResourceValues: {},
             experience: 0,
-            inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
+            inventory: { equippedItems: {}, composedItems: [] },
           },
         ])
       );

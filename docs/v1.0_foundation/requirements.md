@@ -18,7 +18,8 @@ This document specifies requirements for a custom DnD experience builder - a Rea
 - **Material_Category**: A User-defined grouping of related Materials
 - **Item**: An object with description, optional Material, optional Equipment_Slot, and category
 - **Equipment_Slot**: A designated place on a Character where Items can be equipped (e.g., helmet, main hand)
-- **Inventory**: A Character's collection of Equipment_Slots and miscellaneous Item storage
+- **Inventory**: Everything a Character has built, and which of those things each Equipment_Slot holds
+- **Backpack**: What a Character has built and is **not** wearing — derived from the Inventory, never stored (TICKET-INV-06)
 - **Race**: A Character lineage that provides bonuses or penalties to Main_Skills
 - **Focus_Stat**: A Main_Skill or Speciality_Skill that a Character specializes in, receiving bonus levels
 - **Currency_Tier**: A level in the monetary system with conversion rates between tiers
@@ -205,9 +206,16 @@ The original criteria, for the record:
 1. THE Application SHALL display all Equipment_Slots for a Character
 2. THE Application SHALL allow Players to assign Items to Equipment_Slots
 3. WHEN an Item is assigned to an Equipment_Slot, THE Application SHALL verify the Item's Equipment_Slot type matches
-4. THE Application SHALL provide miscellaneous inventory slots for Items without Equipment_Slot types
-5. THE Application SHALL allow Players to move Items between Equipment_Slots and miscellaneous slots
+4. THE Application SHALL hold Items without Equipment_Slot types in the Backpack
+5. THE Application SHALL allow Players to move Items between Equipment_Slots and the Backpack
 6. THE Application SHALL allow Players to remove Items from Inventory
+
+> **Amended by TICKET-INV-06 (2026-08-29).** 12.4 and 12.5 read *miscellaneous inventory slots* and
+> named a second stored list; there is none. The **Backpack is derived** — everything the Character
+> has built and is not wearing — so an Item with no Equipment_Slot type is in it by never being
+> equippable, and "moving between" is equipping and unequipping rather than a transfer. The
+> behaviour these two criteria ask for is unchanged; the storage they implied is not what the app
+> has, and a criterion describing storage nothing does would mislead whoever read it next.
 
 ### Requirement 13: Equipment Bonus Calculation
 
