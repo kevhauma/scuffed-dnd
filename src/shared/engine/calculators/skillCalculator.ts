@@ -6,7 +6,7 @@
  *
  * ```
  * level = ceil(Σ (weight × stat value) × focus) + invested
- * bonus = ceil(level / const.bonus_divider)
+ * bonus = ceil(level / const.bonus_divider) + Σ gear
  * ```
  *
  * The **weights are data**, which is the whole point of the entity: the source sheet re-implements
@@ -38,6 +38,19 @@
  * answer: `ceil(5.2 × 2.1) + 3` is 14 where `ceil(5.2) × 2.1 + 3` is 15.6 and
  * `ceil((5.2 + 3) × 2.1)` is 18. The rule itself, the two constants and *absent means neutral* are
  * [`focusSkills.ts`](../focusSkills.ts)'s; this module multiplies by what it is told.
+ *
+ * ## The gear term is added to the bonus, after the ceil (TICKET-ITEM-01)
+ *
+ * The v4 workbook's calculation rows read `ROUNDUP(level / 5, 0) + gear`, and the ordering is the
+ * whole of the criterion: the equipped templates' per-skill vector lands on the **bonus** and not on
+ * the level, *outside* the round-up. A Battleaxe worth +2 Athletics is +2 to the bonus whatever the
+ * level rounds to — put inside the divide it would be worth two fifths of itself, and put on the
+ * level it would be multiplied by the focus picks it has nothing to do with.
+ *
+ * The number itself is [`equipmentBonusCalculator`](./equipmentBonusCalculator.ts)'s — summed across
+ * however many slots the ruleset has (TICKET-INV-04) — and arrives here already totalled per skill,
+ * so this module has no opinion about equipment beyond where the term goes. A ruleset whose
+ * templates carry no vectors passes an empty map and computes exactly as it did before.
  *
  * The multiplication makes the round-up's float settling load-bearing rather than merely correct:
  * `roundAwayFromZero` settles to 15 significant digits before it rounds, and a fractional multiplier
@@ -210,12 +223,16 @@ function levelOf(
  * @param config - The configuration's skills and constants
  * @param statValues - Composed stat values, keyed by stat id
  * @param character - The character whose invested points are applied
+ * @param gearBonuses - What the equipped templates add per skill id, already totalled
+ *   (TICKET-ITEM-01). **Required**, on `statGain`'s precedent: a defaulted `{}` would let a second
+ *   caller quietly grow a character with no gear, and a preview that has none says so by passing one
  * @returns Both maps, keyed by skill id
  */
 export function calculateSkills(
   config: Configuration,
   statValues: Record<string, FormulaResult>,
-  character: Pick<Character, 'investedSkillPoints' | 'focusSkillIds'>
+  character: Pick<Character, 'investedSkillPoints' | 'focusSkillIds'>,
+  gearBonuses: Record<string, number>
 ): CalculatedSkills {
   const divider = bonusDivider(config);
   const statNames = new Map(config.stats.map((stat) => [stat.id, stat.name]));
@@ -247,9 +264,12 @@ export function calculateSkills(
     if (computed.focus) focus[skill.id] = computed.focus;
 
     // A level that failed has no bonus either, and the bonus says the same thing rather than a
-    // confident 0 (Concept 00 §7)
+    // confident 0 (Concept 00 §7) — gear included: a gear bonus on top of a number that could not
+    // be computed would be a confident total resting on nothing
     const numeric = asNumber(level);
-    bonuses[skill.id] = numeric === undefined ? level : roundAwayFromZero(numeric / divider);
+    const gear = gearBonuses[skill.id] ?? 0;
+    const rounded = numeric === undefined ? undefined : roundAwayFromZero(numeric / divider);
+    bonuses[skill.id] = rounded === undefined ? level : rounded + gear;
   }
 
   return { levels, bonuses, contributions, focus };

@@ -340,6 +340,46 @@ item's bonuses are TICKET-INV-05's. Until then nothing points at an inlay, so `d
 `inlay` case finds nothing and the delete always succeeds; what it *does* already walk is the other
 direction — `inlayBonusReferences` makes deleting a stat a gem family grants refuse.
 
+**`Item` is a template, and since TICKET-ITEM-01 it is a per-skill bonus vector** (v4 systems/11):
+`{ id, name, description, categoryId?, materialId?, materialLevel?, equipmentSlotType?, shop?,
+skillBonuses? }`. What a template *is* moves skills; what it is *made of* moves stats. Four rules:
+
+- **`skillBonuses?: SkillModifier[]` is sparse and keyed by skill id.** `SkillModifier` is
+  `{ skillId, modifier }` — `StatModifier`'s shape one entity over, and deliberately a **second type**
+  rather than one generic `{ targetId, modifier }`, because a shared shape would let a material tier's
+  row point at a skill. Id-keyed, so `references.ts` translates nothing and a rename cannot orphan a
+  bonus (TICKET-MAT-01's precedent). **Only the skills a template actually moves are stored**: a zero
+  contributes nothing, and storing one would make every skill look referenced by every item. The
+  editor prunes zeros (`sparseSkillBonuses` in `useItemManager`); the import gate **accepts** a stored
+  zero, because sparseness is a storage convention rather than an identity rule and a file carrying a
+  zero plays identically. **It also prunes a non-finite modifier, and that half is not a
+  convention**: a number box registered `{ valueAsNumber: true }` yields `NaN` when cleared, which
+  serialises as `null` and which the gate refuses — so a writer that let it through would produce a
+  document this app cannot re-import. Copy the `Number.isFinite` guard into any new sparse-row writer;
+  `useMaterialManager` and `useInlayManager` still lack it.
+- **`shop?: string` is a free User word**, `Stat.group`'s and `Inlay.group`'s rules exactly:
+  validated against nothing, the panel's headings are the distinct values present, absent means the
+  template is in no shop. **It sits on the template rather than on a category record** because
+  `categoryId` is itself a free string with no entity behind it — there is no `ItemCategory` — so the
+  shop is the same kind of thing one level up, and minting an entity to hold it would be INV-05's
+  reshape rather than this one's. The workbook's nine shop names are seed data, not a vocabulary.
+- **Both are additive-optional, so no `SUPPORTED_SCHEMA_VERSION` bump** — `constants`' rule. `items`
+  gained a `shop` field row and an `itemSkillBonusShapeErrors` `custom` checker in `ENTITY_SPECS`;
+  `configStore.addItem` runs `mergeClearingAbsent` so an unset key is dropped rather than stored as
+  `undefined`, which is `addInlay`'s and `addRace`'s rule.
+- **A vector is a config→config reference and is guarded like one.** `itemSkillBonusReferences` in
+  `dependencies.ts` makes deleting a skill that templates grant refuse, naming them;
+  `engine/validator.ts` reports a row naming a skill the ruleset no longer defines, once per row,
+  because the row is what has to be repointed. The engine drops such a row rather than inventing a
+  target.
+
+The engine term is `calculateEquipmentSkillBonuses` (`calculators/equipmentBonusCalculator.ts`),
+which walks **`config.equipmentSlots`** — one, six and twelve slots are all ordinary (TICKET-INV-04)
+— and sums into the skill's **bonus**, outside the round-up: `ceil(level / bonus_divider) + Σ gear`.
+`calculateEquipmentBonuses` walks the same list, so an item worn in a slot the User force-deleted
+grants nothing on either axis rather than half of itself.
+The fused `materialId` / `materialLevel` pair retires in TICKET-INV-05, not here.
+
 **`Race` is a stat block, not a bag of bonuses** (TICKET-RACE-01):
 `{ id, name, description, statValues: Record<statId, number> }`, holding the **absolute** value a
 member of that race has, like the sheet's creature rows. Two rules follow, and both are load-bearing:
@@ -475,8 +515,8 @@ past, CR-41).
 
 **Plus an optional `group`** (TICKET-STAT-04) — which column of the character sheet the stat is
 listed under, the source sheet's *Physical* / *Mental* / *Vitals*. Three things about it:
-**presentation only** (nothing derives from a group and no rule reads one — `statGroups.ts` is its
-only consumer); a **User-named free string** validated against nothing, like `Skill.category`, so
+**presentation only** (nothing derives from a group and no rule reads one — `StatsSection` /
+`ResourcesSection` reading it through `components/shared/labelledGroups.ts` is all that consumes it); a **User-named free string** validated against nothing, like `Skill.category`, so
 two spellings of one word are two groups and that is the User's to fix; and **additive-optional**,
 so absent means ungrouped and it needed no schema bump of its own. A group total or a per-group cap
 would be a new decision, not an extension of the field. **`updateStat` clears it the way it clears

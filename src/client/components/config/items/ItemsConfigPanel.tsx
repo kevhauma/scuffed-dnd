@@ -10,7 +10,13 @@
  * a prerequisite note pointing at the page that defines them. Since TICKET-INV-02 that is
  * `/config/equipment` rather than the panel below, so the note names the section by its nav label.
  *
- * **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 21.1-21.5**
+ * **Templates are listed under the shop that sells them** (v4 systems/11, TICKET-ITEM-01). The
+ * headings are the ruleset's own words — nine in the source workbook, three or none in somebody
+ * else's — and a ruleset that names no shops gets the one flat grid it always had, grouped and
+ * filtered by category exactly as before. The category filter still narrows the list; the shops
+ * re-head whatever survives it, so a filter cannot leave an empty heading standing.
+ *
+ * **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 21.1-21.5; v4 systems/11**
  */
 
 import { Button } from '../../ui/Button/Button';
@@ -27,9 +33,12 @@ export function ItemsConfigPanel() {
   const {
     config,
     filteredItems,
+    shopGroups,
     materials,
     equipmentSlots,
     stats,
+    skills,
+    skillOptions,
     itemCategories,
     categoryFilter,
     setCategoryFilter,
@@ -109,17 +118,32 @@ export function ItemsConfigPanel() {
             }
           />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredItems.map((item) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                materials={materials}
-                equipmentSlots={equipmentSlots}
-                stats={stats}
-                onEdit={handleEditItem}
-                onDelete={handleDeleteItem}
-              />
+          <div className="space-y-6">
+            {shopGroups.map((shop) => (
+              <div key={shop.label ?? ''} className="space-y-2">
+                {/* An unnamed group carries no heading: it is the templates the ruleset put in no
+                    shop, and a blank one would be a heading nobody asked for */}
+                {shop.label && (
+                  <Text variant="h5" as="h3">
+                    {shop.label}
+                  </Text>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {shop.members.map((item) => (
+                    <ItemCard
+                      key={item.id}
+                      item={item}
+                      materials={materials}
+                      equipmentSlots={equipmentSlots}
+                      stats={stats}
+                      skills={skills}
+                      onEdit={handleEditItem}
+                      onDelete={handleDeleteItem}
+                    />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -132,6 +156,7 @@ export function ItemsConfigPanel() {
         form={itemForm}
         materials={materials}
         equipmentSlots={equipmentSlots}
+        skillOptions={skillOptions}
         onClose={() => setIsItemDialogOpen(false)}
         onSave={handleSaveItem}
       />

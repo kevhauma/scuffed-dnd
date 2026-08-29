@@ -23,7 +23,10 @@ export * from './calculators/rollCalculator';
 export * from './calculators/skillCalculator';
 export * from './calculators/statCalculator';
 
-import { calculateEquipmentBonuses } from './calculators/equipmentBonusCalculator';
+import {
+  calculateEquipmentBonuses,
+  calculateEquipmentSkillBonuses,
+} from './calculators/equipmentBonusCalculator';
 import { archetypeOf, pointBuyCurve } from './calculators/pointBuy';
 import { calculateRollInputs } from './calculators/rollCalculator';
 // Import for the composed entry point
@@ -44,14 +47,20 @@ import { resolveRaces } from './races';
  *    the formula for a derived one, then clamp and round (TICKET-STAT-01). Everything downstream
  *    reads them, so an equipped `STR +2` moves every stat and skill derived from `STR`
  *    (Requirement 13.3);
- * 3. **skills** — `Σ(weight × stat) + invested`, and the bonus that rounds off it (Concept 02);
+ * 3. **skills** — `Σ(weight × stat) + invested`, and the bonus that rounds off it (Concept 02),
+ *    plus the equipped templates' own per-skill vector on that bonus (TICKET-ITEM-01);
  * 4. **roll inputs** — each roll definition's expression over stats and skills, both already
  *    computed (TICKET-ROLL-06, which replaced the combat skill that used to sit here).
  *
- * **Equipment is applied exactly once, at step 2** (TICKET-MAT-02). A tier modifier names a stat,
- * so steps 3 and 4 have no equipment term to claim a second share with — they read stats the
- * bonus has already moved, which is what makes double-counting structurally impossible rather
- * than merely avoided (Requirement 13.2).
+ * **Equipment supplies two terms, and neither can claim the other's share** (TICKET-MAT-02,
+ * TICKET-ITEM-01). A *material tier's* modifier names a **stat** and is applied exactly once, at
+ * step 2 — steps 3 and 4 read stats the bonus has already moved rather than adding it again. An
+ * *item template's* bonus names a **skill** and is applied exactly once, at step 3, on the skill's
+ * bonus. They cannot double-count because a stat is not a skill: no shape lets one modifier be both
+ * (Requirement 13.2, v4 systems/11). They are resolved together in step 1 because they read the
+ * *same* worn set — one `equippedTemplates` walk over the ruleset's own slots — which is what stops
+ * a force-deleted slot leaving one item half-counted, granting its material's stats and none of its
+ * skill vector.
  *
  * **This function always returns.** A stat or skill whose formula is broken gets an error value
  * in its map entry naming what failed and on which entity; everything else is still calculated
@@ -70,8 +79,11 @@ export function calculateCharacter(
   // collapse it to one. The cap lives in `resolveRaces` so the sheet names exactly what this blends
   const races = resolveRaces(config, character.raceIds);
 
-  // 1. Equipment bonuses from equipped items
+  // 1. What the equipped items are worth — the material tiers' stat side, and the templates' own
+  // per-skill vector (TICKET-ITEM-01). Both read the same equipped slots, so they are resolved
+  // together; they land two steps apart because they move two different quantities
   const equipmentBonuses = calculateEquipmentBonuses(character, config);
+  const gearSkillBonuses = calculateEquipmentSkillBonuses(character, config);
 
   // 2. Stat values — the composition (invested or derived), clamped and rounded
   const statValues = calculateStatValues(config.stats, character, {
@@ -90,7 +102,7 @@ export function calculateCharacter(
     bonuses: skillBonuses,
     contributions: skillContributions,
     focus: skillFocus,
-  } = calculateSkills(config, statValues, character);
+  } = calculateSkills(config, statValues, character, gearSkillBonuses);
 
   // 4. Roll inputs — each definition's expression over the stats and skills already computed
   // (TICKET-ROLL-06). The number, not a pool: the pool is derived from it at roll time.

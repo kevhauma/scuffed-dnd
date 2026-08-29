@@ -74,7 +74,7 @@ code, docs, and tickets. Capitalised **User** and **Player** always mean the per
 | **Combat Skill** | A rollable skill: a dice pool (`2d6 + 1d20`) plus a formula bonus. Also keyed by a 3-letter code. |
 | **Formula** | A User-authored arithmetic expression referencing skill codes. Parsed and evaluated by our own formula engine — never `eval`. |
 | **Material / Material Level** | A substance (iron, mithril) with tiers; each tier carries skill bonuses/penalties and a monetary value. |
-| **Item / Equipment Slot** | An item optionally has a material and a slot type (helmet, main hand). Equipping it applies the material's bonuses. |
+| **Item / Equipment Slot** | An item optionally has a material and a slot type (helmet, main hand), and since TICKET-ITEM-01 a **per-skill bonus vector** of its own plus the free-text `shop` that sells it. Equipping it applies both: the material's bonuses to **stats**, the template's vector to **skill bonuses**. What a thing *is* moves skills; what it is *made of* moves stats. |
 | **Race** | A lineage, stored as an **absolute stat block** rather than a set of bonuses (TICKET-RACE-01), plus an optional creature `type` / `size` / `challengeRate` (TICKET-RACE-03). A Character has **exactly as many as the ruleset says** — `const.race_count`, defaulting to the sheet's 2 (TICKET-RACE-04) — and the blocks **blend** rather than stack. The same race may fill every slot; that is what a pure-blood is. |
 | **Focus Skill** | One of **three** skills a Character names, each multiplying that skill's growth — a duplicate pick stacking (TICKET-SKL-05, v4 systems/06). Not to be confused with the **Focus Stat**, a flat bonus on one skill that v2.0 **retired** (TICKET-ARC-03) and replaced with the Archetype; the two share a word and nothing else. |
 | **Currency Tier** | A level in the money system (copper/silver/gold) with conversion rates. |
@@ -193,8 +193,10 @@ client/routes/      TanStack Router file-based routes. Thin: render a feature co
 3. **The Player edits a character** — same shape via `useCharacterStore` → `saveCharacters()`.
 4. **Anything shown as a number** — the component calls
    `calculateCharacter(character, config)` from `src/shared/engine/calculator.ts` at render time. That
-   one entry point composes all the calculators (equipment → main skills → stats → speciality →
-   combat) and returns a `CalculatedCharacter`.
+   one entry point composes all the calculators (equipment → stats → skills → roll inputs) and
+   returns a `CalculatedCharacter`. **Equipment supplies two terms and they cannot double-count**: a
+   material tier names a *stat* and is applied once at the composition, an item template's vector
+   names a *skill* and is applied once on the skill's bonus (TICKET-ITEM-01).
 5. **Sharing** — export writes the `Configuration` to a JSON file; import validates the file's
    *structure* (`services/importExport.ts`) before applying, then validates its *references*
    (`engine/validator.ts`) and reports problems so the User can repair them in-app.

@@ -20,7 +20,7 @@ import { Dialog } from '../../../ui/Dialog/Dialog';
 import { FormField } from '../../../ui/FormField/FormField';
 import { Text } from '../../../ui/Text/Text';
 import { FormDialogActions } from '../../shared/FormDialogActions';
-import { StatValueRowsField } from '../../shared/StatValueRowsField';
+import { statRowOptions, ValueRowsField } from '../../shared/ValueRowsField';
 import type { SkillFormData } from './useSkillManager';
 
 interface SkillFormDialogProps {
@@ -47,6 +47,7 @@ export function SkillFormDialog({
     formState: { errors },
   } = form;
   const { fields, append, remove } = useFieldArray({ control, name: 'statWeights' });
+  const weightOptions = statRowOptions(weightableStats);
 
   return (
     <Dialog
@@ -70,14 +71,15 @@ export function SkillFormDialog({
           {...register('description')}
         />
 
-        <StatValueRowsField
+        <ValueRowsField
           title="Governing stats"
           addLabel="Add Stat"
           onAdd={() => append({ statId: weightableStats[0]?.id ?? '', weight: 0.2 })}
-          availableStats={weightableStats}
+          options={weightOptions}
+          targetLabel="Stat"
           rows={fields}
           onRemove={remove}
-          registerStat={(index) => register(`statWeights.${index}.statId` as const)}
+          registerTarget={(index) => register(`statWeights.${index}.statId` as const)}
           registerValue={(index) =>
             register(`statWeights.${index}.weight`, { valueAsNumber: true })
           }
@@ -95,7 +97,7 @@ export function SkillFormDialog({
               No stats yet, so this skill is worth whatever the Player invests in it.
             </Text>
           )}
-        </StatValueRowsField>
+        </ValueRowsField>
 
         <FormDialogActions
           submitLabel={`${isEditing ? 'Update' : 'Add'} Skill`}

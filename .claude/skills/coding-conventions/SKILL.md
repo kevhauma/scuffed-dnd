@@ -150,6 +150,26 @@ Two families of judgement, both concrete here rather than generic.
   dead code with a polite name.
 - When KISS and open/closed disagree, **KISS wins until a third caller exists**. The shell earned
   its extension points from eight copies of the same frame, not from anticipating them.
+- **The third caller is a debt the ticket that creates it pays** — extract then, in the same change,
+  never "later". TICKET-ITEM-01 is the worked example: two copies of a group-by-a-free-string mapper
+  had been left standing on purpose (`Stat.group`, `Inlay.group`), and the ticket that added
+  `Item.shop` moved all three onto `components/shared/labelledGroups.ts` rather than writing a third.
+  **Check whether it really is a third instance first**: the same ticket declined to extract
+  `modifiableStats`, because *the skills a bonus may target* is `config.skills` — not the
+  sort-and-filter-out-derived-stats expression it superficially resembles. Two look-alikes that differ
+  in *behaviour* stay duplicated.
+- **A panel must never write a document its own importer refuses.** The identity gates are stated in
+  two places on purpose (the hook's form and the import shape gate), and the failure mode is always
+  the same: the writer's rule is *narrower* than the gate's. TICKET-ITEM-01's case is the one to
+  remember, because it looks like a rounding detail — a number box registered
+  `{ valueAsNumber: true }` yields **`NaN`** when cleared, not `0`, so a `!== 0` filter passes it, the
+  value serialises as `null`, and the app's own gate then rejects the file on re-import. Filter on
+  `Number.isFinite` in any writer that decides which rows are worth storing.
+- **A shared component whose prop names the caller it was written for is a rename waiting to happen.**
+  `StatValueRowsField` took `availableStats: Stat[]` for three stat callers; a fourth naming *skills*
+  made the name false, so it became `ValueRowsField` over `options: RowOption[]` with
+  `statRowOptions(stats)` beside it. Widen the parameter and rename in the same change — do not add a
+  second component with the same markup.
 - A shorter diff a reader can hold in their head beats a cleverer one they have to reconstruct.
 
 ## Components

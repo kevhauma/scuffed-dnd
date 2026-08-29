@@ -65,12 +65,27 @@ columns were all zero; bonuses came from materials), base values parked in descr
 
 ## Parity gap
 
+**Gaps 1, 2 and 4 are closed by [TICKET-ITEM-01](../tickets/TICKET-ITEM-01-skill-bonus-templates-and-shops.md)
+(2026-08-29)** — the shape, the shop tagging and the engine term. Gap 3 is the catalog and belongs to
+the data pass ([D7](../overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)),
+cut as TICKET-ITEM-02.
+
 1. **`Item.skillBonuses?`** — `[{ skillId, modifier }]`, keyed by skill id (the same id-keyed
    treatment `MaterialModifier` got in TICKET-MAT-01; a rename cannot orphan a bonus). Sparse:
    only nonzero entries stored. Additive-optional.
 2. **Shops** — the category list becomes 40 `ItemCategory`-style records tagged with a shop name
    (or 9 shops holding categories; ticket decides the nesting — the sheet writes
-   `category (shop)` on one line). The existing `categoryId` field already points at categories.
+   `category (shop)` on one line). ~~The existing `categoryId` field already points at categories.~~
+
+   > **Settled by TICKET-ITEM-01 (2026-08-29), and the struck sentence was wrong.** There is no
+   > `ItemCategory` entity and never has been: `categoryId` is **free text on the Item**, which v1.0
+   > Requirement 7's note (2026-07-30) settles deliberately — a category exists as long as an item
+   > names it. So the shop is that rule one level up: **`Item.shop?: string`**, a free User word with
+   > `Stat.group`'s and `Inlay.group`'s rules (headings are the distinct values present, absent means
+   > none, validated against nothing). Neither of the two nestings this line offered was available
+   > without minting a `Configuration` collection and converting every stored `categoryId`, which is
+   > a second reshape. **The data pass therefore tags the shop per template, not on 40 category
+   > rows.**
 3. **The catalog fragment** — a rewritten items.json from A1:AX1055: 40 categories, ~700 unique
    templates once the un-headed tail is reconciled, each with its skill vector. The old fragment's
    priced descriptions retire with a note (D5: prices left the sheet). This is the milestone's

@@ -19,7 +19,7 @@ import { Label } from '../../ui/Label/Label';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
 import { FormDialogActions } from '../shared/FormDialogActions';
-import { StatValueRowsField } from '../shared/StatValueRowsField';
+import { statRowOptions, ValueRowsField } from '../shared/ValueRowsField';
 import type { LevelFormData } from './useMaterialManager';
 
 interface MaterialLevelFormDialogProps {
@@ -54,6 +54,8 @@ export function MaterialLevelFormDialog({
     control,
     name: 'bonuses',
   });
+
+  const bonusOptions = statRowOptions(modifiableStats);
 
   const handleAddBonus = () => {
     append({ statId: modifiableStats[0]?.id ?? '', modifier: 0 });
@@ -90,14 +92,15 @@ export function MaterialLevelFormDialog({
           {...register('name', { required: 'Name is required' })}
         />
 
-        <StatValueRowsField
+        <ValueRowsField
           title="Stat Bonuses/Penalties"
           addLabel="Add Bonus"
           onAdd={handleAddBonus}
-          availableStats={modifiableStats}
+          options={bonusOptions}
+          targetLabel="Stat"
           rows={fields}
           onRemove={remove}
-          registerStat={(index) => register(`bonuses.${index}.statId` as const)}
+          registerTarget={(index) => register(`bonuses.${index}.statId` as const)}
           registerValue={(index) => register(`bonuses.${index}.modifier`, { valueAsNumber: true })}
           rowNoun="bonus"
           valueLabel="Modifier"
@@ -115,7 +118,7 @@ export function MaterialLevelFormDialog({
               No bonuses defined. Click 'Add Bonus' to add stat modifiers.
             </Text>
           )}
-        </StatValueRowsField>
+        </ValueRowsField>
 
         {/* Currency Value Section */}
         <div className="space-y-2">

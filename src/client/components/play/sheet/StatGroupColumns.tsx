@@ -16,19 +16,23 @@
  * list of group names anywhere. Below `md` the flow falls back to rows, so a narrow screen reads
  * one group at a time.
  *
- * A ruleset that names **no** groups comes back from `groupStats` as one unlabelled column, and
+ * A ruleset that names **no** groups comes back from `groupByLabel` as one unlabelled column, and
  * that draws neither a grid nor a heading — it is the flat list the sheet has always shown.
  *
  * **Validates: Requirements 13.4, 21.1-21.5**
  */
 
 import type { ReactNode } from 'react';
+import type { LabelledGroup } from '../../shared/labelledGroups';
+import { hasNamedGroups } from '../../shared/labelledGroups';
 import { Text } from '../../ui/Text/Text';
-import type { StatGroup } from './statGroups';
-import { hasNamedGroups } from './statGroups';
+import type { StatBreakdown } from './useCharacterSheet';
+
+/** One column of the sheet's stats — the shared grouping, narrowed to what this draws */
+export type StatGroup = LabelledGroup<StatBreakdown>;
 
 export interface StatGroupColumnsProps {
-  /** The columns to draw, as `groupStats` produced them */
+  /** The columns to draw, as `groupByLabel` produced them */
   groups: StatGroup[];
   /** The rows for one column — a `CountRow` per stat, plus whatever else the section adds */
   children: (group: StatGroup) => ReactNode;

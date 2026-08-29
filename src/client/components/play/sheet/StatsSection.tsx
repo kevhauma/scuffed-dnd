@@ -25,19 +25,19 @@
  * **The rows are laid out in the ruleset's own groups** (TICKET-STAT-04) — the source sheet keeps
  * its stats under *Physical*, *Mental* and *Vitals*, and a ruleset that names groups gets a column
  * per distinct name. One that names none is the flat list it has always been. The section itself
- * names no group and lays no column out: `statGroups.ts` decides what the columns *are* and
- * `StatGroupColumns` draws them, so this file still only knows how to draw a stat.
+ * names no group and lays no column out: `shared/labelledGroups.ts` decides what the columns *are*
+ * and `StatGroupColumns` draws them, so this file still only knows how to draw a stat.
  *
  * **Validates: Concept 01; Concept 06; Requirements 11.3, 13.4, 16.6, 21.1-21.5**
  */
 
+import { groupByLabel } from '../../shared/labelledGroups';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 import { CountRow } from '../shared/CountRow';
 import type { PointBudgetView } from '../shared/pointBudgetView';
 import { investedContribution } from './investedContribution';
 import { StatGroupColumns } from './StatGroupColumns';
-import { groupStats } from './statGroups';
 import type { StatBreakdown } from './useCharacterSheet';
 
 export interface StatsSectionProps {
@@ -56,7 +56,7 @@ export function StatsSection({
   budget,
   onChangeInvestedPoints,
 }: StatsSectionProps) {
-  const groups = groupStats(stats);
+  const groups = groupByLabel(stats, (stat) => stat.group);
 
   return (
     <Card className="p-6">
@@ -71,7 +71,7 @@ export function StatsSection({
       ) : (
         <StatGroupColumns groups={groups}>
           {(group) =>
-            group.stats.map((stat) => (
+            group.members.map((stat) => (
               <CountRow
                 key={stat.id}
                 name={stat.name}

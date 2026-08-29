@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Character } from '../types/character';
-import type { Archetype, Configuration, Curve } from '../types/config';
+import type { Archetype, Configuration, Curve, SkillModifier } from '../types/config';
 import { calculateCharacter, calculateCharacterStats, firstCalculationError } from './calculator';
 import { isFormulaError } from './formula/errors';
 
@@ -1334,6 +1334,147 @@ describe('calculateCharacter — curve-routed stat gains (TICKET-ARC-02)', () =>
 
       expect(absent.statValues).toEqual(explicit.statValues);
       expect(absent.statTotal).toBe(explicit.statTotal);
+    });
+  });
+
+  /**
+   * The item matrix, end to end (v4 systems/11, TICKET-ITEM-01)
+   *
+   * The fixture's Stealth is `0.5 × DEX` plus 2 invested, so with nothing equipped it is level 7 and
+   * `ceil(7 / 5)` = **bonus 2**. Every case below moves that 2 and nothing else, which is the whole
+   * claim: what a template does lands on the bonus, and only when it is worn.
+   */
+  describe('an equipped templates skill vector', () => {
+    /**
+     * The fixture ruleset with the sword carrying a skill vector
+     *
+     * @param bonuses - What wielding the sword moves
+     * @returns The configuration, everything else untouched
+     */
+    function withSwordVector(bonuses: SkillModifier[]): Configuration {
+      const config = createFixtureConfig();
+
+      return {
+        ...config,
+        items: config.items.map((item) =>
+          item.id === 'item-sword' ? { ...item, skillBonuses: bonuses } : item
+        ),
+      };
+    }
+
+    it('should move the skill bonus when the template is worn', () => {
+      const wielding = createFixtureCharacter({
+        inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: [] },
+      });
+
+      const result = calculateCharacter(
+        wielding,
+        withSwordVector([{ skillId: 'STL', modifier: 3 }])
+      );
+
+      expect(result.skillBonuses.STL).toBe(5);
+    });
+
+    it('should move nothing while the template is only carried', () => {
+      const carrying = createFixtureCharacter({
+        inventory: { equippedItems: {}, miscItems: ['item-sword'] },
+      });
+
+      const result = calculateCharacter(
+        carrying,
+        withSwordVector([{ skillId: 'STL', modifier: 3 }])
+      );
+
+      // The app's rule is *equipped*, and a consumable in the pack is no exception to it
+      // (systems/11's open question, recorded rather than answered)
+      expect(result.skillBonuses.STL).toBe(2);
+    });
+
+    it('should subtract a negative row', () => {
+      const wielding = createFixtureCharacter({
+        inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: [] },
+      });
+
+      const result = calculateCharacter(
+        wielding,
+        withSwordVector([{ skillId: 'STL', modifier: -1 }])
+      );
+
+      expect(result.skillBonuses.STL).toBe(1);
+    });
+
+    it('should leave the level alone while the bonus moves', () => {
+      const wielding = createFixtureCharacter({
+        inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: [] },
+      });
+
+      const bare = calculateCharacter(wielding, createFixtureConfig());
+      const armed = calculateCharacter(
+        wielding,
+        withSwordVector([{ skillId: 'STL', modifier: 3 }])
+      );
+
+      expect(armed.skillLevels.STL).toBe(bare.skillLevels.STL);
+      expect(armed.skillBonuses.STL).not.toBe(bare.skillBonuses.STL);
+    });
+
+    it('should compute a ruleset whose templates carry no vectors exactly as it did before', () => {
+      // The corpus is untouched by this ticket (v4 D7), so this is the state every stored ruleset is
+      // in: the sword still supplies its material's `STR +2` and nothing else
+      const wielding = createFixtureCharacter({
+        inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: [] },
+      });
+
+      const result = calculateCharacter(wielding, createFixtureConfig());
+
+      expect(result.statValues.STR).toBe(11);
+      expect(result.skillBonuses).toEqual({ STL: 2, ARC: 3 });
+    });
+
+    it('should survive a skill rename, because the vector holds the id', () => {
+      const config = withSwordVector([{ skillId: 'STL', modifier: 3 }]);
+      const renamed: Configuration = {
+        ...config,
+        skills: config.skills.map((skill) =>
+          skill.id === 'STL' ? { ...skill, name: 'Skulking' } : skill
+        ),
+      };
+      const wielding = createFixtureCharacter({
+        inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: [] },
+      });
+
+      const result = calculateCharacter(wielding, renamed);
+
+      expect(result.skillBonuses.STL).toBe(5);
+    });
+
+    it('should sum across every slot the ruleset has, whatever their names', () => {
+      const config = createFixtureConfig();
+      const vectored: Configuration = {
+        ...config,
+        items: config.items.map((item) => {
+          if (item.id === 'item-sword') {
+            return { ...item, skillBonuses: [{ skillId: 'STL', modifier: 3 }] };
+          }
+          if (item.id === 'item-cloak') {
+            return { ...item, skillBonuses: [{ skillId: 'STL', modifier: 1 }] };
+          }
+          return item;
+        }),
+      };
+      const kitted = createFixtureCharacter({
+        inventory: {
+          equippedItems: { main_hand: 'item-sword', cloak: 'item-cloak' },
+          miscItems: [],
+        },
+      });
+
+      const result = calculateCharacter(kitted, vectored);
+
+      // Cloak's Shadowweave also raises DEX by 4, so Stealth's level rises to 9 and its unaided
+      // bonus to 2 — the two gear rows add 4 on top of it
+      expect(result.skillLevels.STL).toBe(9);
+      expect(result.skillBonuses.STL).toBe(6);
     });
   });
 });

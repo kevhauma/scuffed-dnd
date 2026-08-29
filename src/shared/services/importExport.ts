@@ -485,6 +485,47 @@ function skillWeightShapeErrors(skill: Record<string, unknown>, path: string): s
   });
 }
 
+/**
+ * An item template's skill vector — the part of its shape a field table cannot express
+ * (v4 systems/11, TICKET-ITEM-01)
+ *
+ * A bonus is `{ skillId, modifier }`, keyed by skill **id** like a material tier's stat rows, so
+ * this crosses the reference-form boundary untranslated and a rename cannot orphan one.
+ *
+ * **Absent is valid and means the template moves no skill**, which is every template in a ruleset
+ * written before the item matrix existed — the field is additive-optional, so the check runs only on
+ * a vector that is actually there.
+ *
+ * **A stored zero is accepted rather than refused.** The editor prunes zero rows on save, because a
+ * sparse vector is the stored shape; but a zero contributes nothing and refusing an imported one
+ * would reject a file that plays identically. What is refused is a row the engine cannot read — a
+ * missing target, or a modifier that is not a finite number. Whether the skill *exists* is
+ * `engine/validator.ts`'s report, as it is for a material tier's stat.
+ *
+ * @param item - One element of `config.items`
+ * @param path - Where it sits, for the message — `items[2]`
+ * @returns The errors found, empty when the vector is sound or absent
+ */
+function itemSkillBonusShapeErrors(item: Record<string, unknown>, path: string): string[] {
+  const { skillBonuses } = item;
+  if (skillBonuses === undefined) return [];
+
+  if (!Array.isArray(skillBonuses)) {
+    return [`${path}.skillBonuses must be an array when present`];
+  }
+
+  return skillBonuses.flatMap((bonus: unknown, bonusIndex: number) => {
+    const at = `${path}.skillBonuses[${bonusIndex}]`;
+    if (!bonus || typeof bonus !== 'object') return [`${at} must be an object`];
+
+    const row = bonus as Record<string, unknown>;
+    return [
+      ...must(isNonEmptyText, 'must be a skill id')(row.skillId, `${at}.skillId`),
+      ...must(isFiniteNumber, 'must be a finite number')(row.modifier, `${at}.modifier`),
+    ];
+  });
+}
+
 /** Every glyph a placement may name */
 const GLYPH_VALUES = new Set<string>(GLYPH_NAMES);
 
@@ -737,7 +778,12 @@ const ENTITY_SPECS: Record<CollectionKey, EntitySpec> = {
       materialId: mayBe(isText, 'must be a string when present'),
       equipmentSlotType: mayBe(isText, 'must be a string when present'),
       materialLevel: mayBe(isFiniteNumber, 'must be a finite number when present'),
+      // Which shop sells the template (v4 systems/11, TICKET-ITEM-01). A User word checked for
+      // being a string and nothing more, like `Stat.group` and `Inlay.group` — the nine names the
+      // workbook happens to use are seed data, not a vocabulary this gate enforces
+      shop: mayBe(isText, 'must be a string when present'),
     },
+    custom: itemSkillBonusShapeErrors,
   },
 
   // A slot is identified by its `type` rather than by an id — that is the string an item names —

@@ -99,8 +99,14 @@ deleted here.
   case: report it the way `itemIssues` already reports a `materialLevel` that names no tier. (3)
   `Inlay.tiers` is stored in **insertion order**, not rung order — sort before displaying or
   looking up by position, as `InlayCard` does.
-- **Two clones become owed if this ticket adds a third caller.** `groupInlays`
-  (`config/inlays/useInlayManager.ts`) duplicates `groupStats` (`play/sheet/statGroups.ts`), and the
-  `modifiableStats` pair duplicates `useMaterialManager`'s. Both are second instances left standing
-  by the no-abstraction-before-the-third-caller rule; a third group-by-free-string list or a third
-  `modifiableStats` makes both extractions due.
+- ~~**Two clones become owed if this ticket adds a third caller.**~~ **One of the two was paid by
+  TICKET-ITEM-01 (2026-08-29).** The group-by-a-free-string mapper is now shared —
+  `groupByLabel` / `hasNamedGroups` in
+  [`client/components/shared/labelledGroups.ts`](../../../src/client/components/shared/labelledGroups.ts),
+  with three callers (`Stat.group`, `Inlay.group`, `Item.shop`) — so a fourth grouped list **uses**
+  it rather than owing anything. Still standing at two: the `modifiableStats` pair
+  (`useInlayManager` ↔ `useMaterialManager`), which ITEM-01 deliberately did not make a third of,
+  because *the skills a bonus may target* is `config.skills` and not the sort-and-filter expression
+  it resembles. **A third `modifiableStats` still makes that extraction due.** A fourth caller also
+  landed on the sparse rows editor, which is why it is `ValueRowsField` over `options` now rather
+  than `StatValueRowsField` over `Stat[]` — reuse it for a socket picker rather than copying it.

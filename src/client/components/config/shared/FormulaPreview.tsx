@@ -63,6 +63,15 @@ const DEFAULT_SAMPLE = 10;
 const UNINVESTED: Pick<Character, 'investedSkillPoints'> = { investedSkillPoints: {} };
 
 /**
+ * The equipment `calculateSkills` is given — none (TICKET-ITEM-01)
+ *
+ * {@link UNINVESTED}'s counterpart for the gear term, and stated as a named constant rather than an
+ * inline `{}` for the same reason the parameter is required: *this preview has no equipment* is a
+ * claim about what the number means, not an omission.
+ */
+const NO_GEAR: Record<string, number> = {};
+
+/**
  * Error kinds that cannot depend on the numbers going in (TICKET-FORM-09)
  *
  * A formula naming `skills.nope` names no skill the ruleset defines, and it will not acquire one
@@ -195,7 +204,9 @@ export function FormulaPreview({ formula, owner, config, className = '' }: Formu
         if (id !== undefined) statValues[id] = value;
       }
 
-      const { levels, bonuses } = calculateSkills(config, statValues, UNINVESTED);
+      // No gear either, for the same reason there is no investment: what a Player happens to be
+      // wielding is not a property of the ruleset being edited (TICKET-ITEM-01)
+      const { levels, bonuses } = calculateSkills(config, statValues, UNINVESTED, NO_GEAR);
 
       return evaluateFormulaString(formula, {
         variables: values,

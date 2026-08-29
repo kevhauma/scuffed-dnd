@@ -25,7 +25,7 @@ import {
   bonusToneStyles,
   containerStyles,
   penaltyToneStyles,
-} from './StatModifierBadges.style';
+} from './modifierBadges.style';
 
 export interface StatModifierBadgesProps {
   modifiers: StatModifier[];

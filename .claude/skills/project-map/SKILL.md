@@ -70,7 +70,7 @@ rather than a read-only config UI).
 | `/config/stats` | `routes/config/stats.tsx` | `StatsConfigPanel` — the unified Stat: invested, resource and derived alike, every field in one editor with drag/arrow reordering (TICKET-STAT-02). The flat point-budget field is gone — TICKET-RES-02 derives it |
 | `/config/materials` | `routes/config/materials.tsx` | `MaterialsConfigPanel` |
 | `/config/inlays` | `routes/config/inlays.tsx` | `InlaysConfigPanel` (TICKET-INL-01) — the gem families a composed item can be socketed with, each a ladder of `{statId, modifier}` tiers. `MaterialsConfigPanel`'s shape over the other crafting ingredient, so it sits beside it in the nav; families are listed under the headings their own `group` names |
-| `/config/items` | `routes/config/items.tsx` | `ItemsConfigPanel` + `EquipmentSlotsConfigPanel` |
+| `/config/items` | `routes/config/items.tsx` | `ItemsConfigPanel` + `EquipmentSlotsConfigPanel`. Since TICKET-ITEM-01 a template carries its own per-skill bonus vector and the shop that sells it, and the panel lists templates under the shop headings the ruleset's own words name — no `/config/shops` route, and a ruleset naming no shops keeps the flat grid it always had |
 | `/config/races` | `routes/config/races.tsx` | `RacesConfigPanel` — and, in its `headerExtra`, the ruleset's two **creature reference lists** (sizes and types) through `ReferenceListEditor` (TICKET-RACE-03). They live on this route rather than one of their own because they exist for the pickers on the race form; there is no `/config/creatures` and adding one would be a page with two word lists on it |
 | `/config/archetypes` | `routes/config/archetypes.tsx` | `ArchetypesConfigPanel` — what a character is good at growing: `main`/`sub`/`non` per stat, which selects a `point_buy` column (TICKET-ARC-01) |
 | `/config/rolls` | `routes/config/rolls.tsx` | `RollsConfigPanel` + `DiceLaddersConfigPanel` (TICKET-ROLL-05) — a roll is an input formula fed down a ladder; the two are separate entities, so two panels, like `/config/items` and `/config/skills` |
@@ -265,9 +265,9 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   the count**, so a pure-blood picked twice is two blocks and a character stored at a higher count is
   named and blended over one list. The one place the count is written — `MAX_RACE_COUNT` is
   gone, and `races.test.ts` fails if a former call site spells the number again.
-- `calculators/skillCalculator.ts` — `calculateSkills(config, statValues, character)` → `{ levels, bonuses, contributions }`, all keyed by skill id (TICKET-SKL-02; `contributions` added by TICKET-SKL-03 — one `SkillStatContribution` per weight row with `weight × statValue` **already multiplied**, so the sheet labels terms it never recomputes; empty for a level that failed). `level = ceil(Σ(weight × stat)) + invested`, `bonus = ceil(level / const.bonus_divider)` — **both halves round up** since TICKET-SKL-04, through `roundAwayFromZero` — the formula library's Excel `ROUNDUP`, which settles binary noise to 15 significant digits before rounding so a duo skill's `3.0000000000000004` cannot buy a whole level (the settle lives in that shared function, so a User formula spelling the same arithmetic agrees). Invested points are added **after** the level's round-up, so a bought point stays whole; the rounding is an engine rule rather than a ruleset dial (the ticket records why), while the divider is still read **by name** and falls back to Concept 05's seeded 5. TICKET-SKL-05's focus multiplier multiplies the weighted sum *inside* the round-up. A weight naming a stat that no longer exists contributes nothing; a stat whose own formula failed yields an `upstream` error naming it, with the original as `cause`. The invested term is 1:1 and **provisional** — TICKET-ARC-02 routes it through the point-buy curve.
+- `calculators/skillCalculator.ts` — `calculateSkills(config, statValues, character, gearBonuses)` → `{ levels, bonuses, contributions }`, all keyed by skill id (TICKET-SKL-02; `contributions` added by TICKET-SKL-03 — one `SkillStatContribution` per weight row with `weight × statValue` **already multiplied**, so the sheet labels terms it never recomputes; empty for a level that failed). `level = ceil(Σ(weight × stat)) + invested`, `bonus = ceil(level / const.bonus_divider) + Σ gear` — **both halves round up** since TICKET-SKL-04, through `roundAwayFromZero` — the formula library's Excel `ROUNDUP`, which settles binary noise to 15 significant digits before rounding so a duo skill's `3.0000000000000004` cannot buy a whole level (the settle lives in that shared function, so a User formula spelling the same arithmetic agrees). Invested points are added **after** the level's round-up, so a bought point stays whole; the rounding is an engine rule rather than a ruleset dial (the ticket records why), while the divider is still read **by name** and falls back to Concept 05's seeded 5. TICKET-SKL-05's focus multiplier multiplies the weighted sum *inside* the round-up. A weight naming a stat that no longer exists contributes nothing; a stat whose own formula failed yields an `upstream` error naming it, with the original as `cause`. The invested term is 1:1 and **provisional** — TICKET-ARC-02 routes it through the point-buy curve. **`gearBonuses` is a required fourth parameter** (TICKET-ITEM-01, on `statGain`'s precedent): the equipped templates' per-skill vector, already totalled by `equipmentBonusCalculator`, added to the **bonus** *outside* the round-up — put inside the divide it would be worth a fifth of itself, and put on the level it would be multiplied by focus picks it has nothing to do with. A caller with no gear passes a named empty map rather than relying on a default.
 - `calculators/rollCalculator.ts` — `calculateRollInputs(config, statValues, skills)` → `Record<rollId, FormulaResult>` (TICKET-ROLL-06). Each roll definition's input expression over the composed numbers — the value fed to the ladder. Replaced `combatSkillCalculator`, and the swap is the entity's argument: that produced a *bonus* added to a hand-typed pool, this produces the *input* a pool is derived from. Keyed by roll **id**; no equipment term (TICKET-MAT-02).
-- `calculators/equipmentBonusCalculator.ts` — `calculateEquipmentBonuses` (aggregates equipped items' material tier modifiers into one `StatModifier[]`, keyed by stat **id**) and `indexStatModifiers(modifiers)` → `Record<statId, number>` (any `StatModifier[]` as a per-stat lookup, for showing a stat's equipment contribution on its own).
+- `calculators/equipmentBonusCalculator.ts` — what equipped gear is worth, on **both** axes. `calculateEquipmentBonuses` aggregates equipped items' material tier modifiers into one `StatModifier[]`, keyed by stat **id**; `indexStatModifiers(modifiers)` → `Record<statId, number>` turns any `StatModifier[]` into a per-stat lookup, for showing a stat's equipment contribution on its own. Since TICKET-ITEM-01 `calculateEquipmentSkillBonuses` does the same for the *template's own* per-skill vector → `Record<skillId, number>`, walking **`config.equipmentSlots`** so the slot count is the ruleset's (TICKET-INV-04). **The two terms cannot double-count**: a material tier names a stat and a template names a skill, so no shape lets one modifier be both. **Both read one private `equippedTemplates` walk over `config.equipmentSlots`**, which is what stops them disagreeing about what is worn: the stat term walked `Object.values(equippedItems)` until ITEM-01, and a slot force-deleted through `useGuardedDelete`'s *Delete anyway* left the same item granting its material's stats and none of its skill vector. A retired slot equips nothing on either axis now.
 - `calculator.ts` — re-exports the calculators, plus **`calculateCharacter(character, config):
   CalculatedCharacter`**, the single composed entry point (equipment → stats → skills →
   roll inputs, in that order). Call it for any derived number; don't compose the calculators by hand.
@@ -283,9 +283,12 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   `stat` arm also walks **inlay tier grants** (`inlayBonusReferences`, beside
   `materialBonusReferences`), and there is an `inlay` kind that finds nothing **yet** — the socket
   naming a family is TICKET-INV-05's, so it is `dice-ladder`'s pre-ROLL-05 situation rather than an
-  oversight. **A new field on
+  oversight. Since TICKET-ITEM-01 the `skill` arm walks **item templates' bonus vectors**
+  (`itemSkillBonusReferences`) — a config→config reference, so deleting a skill that templates grant
+  is refused and names them. **A new field on
   `Character` that names a config entity by id belongs in a case here**, beside `raceIds`,
-  `archetypeId` and (since TICKET-SKL-05) `focusSkillIds` — the walker is what makes a delete
+  `archetypeId` and (since TICKET-SKL-05) `focusSkillIds` — and so does a new **config** field naming
+  another config entity. The walker is what makes a delete
   *guarded* rather than merely survivable, and a reference it cannot see is one a User is never
   warned about.
 - `validator.ts` — `validateConfiguration(config): ValidationReport` (cross-entity referential
@@ -857,6 +860,14 @@ stat" block with the no-stats empty state, taking the row's control as a render 
 stat block and the archetype affinity table are that shape, because the ruleset's stats decide what
 an entity has an opinion about. Reuse it for any future per-stat editor rather than copying the rows.
 
+**…and `ValueRowsField`** (CR-23, generalised by TICKET-ITEM-01) — its **sparse** sibling: rows the
+User adds, each naming something and a number. Four callers — a skill's governing weights, a material
+tier's modifiers, an inlay tier's grants, and an item template's per-skill vector — so it takes plain
+`options: RowOption[]` plus a `targetLabel` rather than `Stat[]`, with `statRowOptions(stats)`
+exported beside it so the three stat callers spell a stat one way. The two `register` calls belong to
+the caller, because the field-array path is part of the caller's form type. Reach for this for any
+future "add a row naming an entity and a number" editor.
+
 **`config/shared/` is cross-domain** (TICKET-REF-02): `useGuardedDelete` holds a delete the store
 refused, and `BlockedDeleteDialog` renders the reference list with a "Delete Anyway" force button.
 **Every config panel's delete goes through that pair** — a panel never derives references or
@@ -923,12 +934,14 @@ TICKET-RACE-01), `StatsSection` (one `SkillBreakdownRow` per stat in
 `order`, **plus** a `StatEditor` for each `isResource` stat and an `InvestedPointsEditor` for each
 non-derived one — the breakdown row owns the value and its error chip, the editor owns the current
 value, the points editor spends the level-derived pool; TICKET-STAT-03, TICKET-RES-02),
-**`statGroups.ts` + `StatGroupColumns`** (TICKET-STAT-04 — the sheet's *Physical* / *Mental* /
-*Vitals* columns: the pure mapper decides what the columns **are** from the distinct `Stat.group`
-values present, in the stats' own order, and the render-prop container **draws** them. Both
-`StatsSection` and `ResourcesSection` use the pair, so a group spanning the pool/stat split draws a
-column on each side; a ruleset naming no groups is one unlabelled column, which is the flat list
-the sheet has always shown. Reach for `groupStats` rather than re-deriving a column set),
+**`shared/labelledGroups.ts` + `StatGroupColumns`** (TICKET-STAT-04, shared by TICKET-ITEM-01 — the
+sheet's *Physical* / *Mental* / *Vitals* columns: the pure mapper decides what the columns **are**
+from the distinct `Stat.group` values present, in the stats' own order, and the render-prop container
+**draws** them. Both `StatsSection` and `ResourcesSection` use the pair, so a group spanning the
+pool/stat split draws a column on each side; a ruleset naming no groups is one unlabelled column,
+which is the flat list the sheet has always shown. The mapper itself moved to `components/shared/`
+when the items panel became its third caller — reach for `groupByLabel` rather than re-deriving a
+column set, and `StatGroup` here is just `LabelledGroup<StatBreakdown>`),
 **`investedContribution.ts`** (TICKET-ARC-04 — the *"invested 6 → +5.25"* breakdown term, shared by
 `StatsSection` and `ResourcesSection` for the same reason the pair above is. Since ARC-04 a gain is
 **not** a function of the spend — a main-tagged stat gains `0.75 × dream` and a sub-tagged one
@@ -996,9 +1009,21 @@ preview, because a previewed roll that differed from the recorded one is the exa
 sync and the play-mode config lock), `useAppHydration.ts` (the app-wide LocalStorage restore,
 called only by `RootLayout`), `StorageNotice.tsx` (the storage-unavailable message it drives) and
 `IncompatibleDataNotice.tsx` (the pre-v2-data refusal, with the backup offer and the two-step
-start-fresh — TICKET-IO-03), and `StatModifierBadges.tsx` (a material tier's modifiers as
+start-fresh — TICKET-IO-03), `StatModifierBadges.tsx` (a material or inlay tier's modifiers as
 forest/crimson chips; it takes the ruleset's stats too, because a modifier names its target by
-**id** and resolving that to an abbreviation belongs in one place — TICKET-MAT-01).
+**id** and resolving that to an abbreviation belongs in one place — TICKET-MAT-01) and its sibling
+`SkillBonusBadges.tsx` (an item template's skill vector, over the ruleset's skills — TICKET-ITEM-01).
+**Two components, one style module** (`modifierBadges.style.ts`): the two persisted rows name
+different entities, so one generic `{ targetId, modifier }` would let a material tier point at a
+skill — but a `+2` must not *look* different depending on which it is.
+
+**…and `labelledGroups.ts`** (TICKET-ITEM-01) — `groupByLabel(entries, labelOf)` +
+`hasNamedGroups`: splitting a list into the headings the **ruleset's own words** name, in
+first-appearance order, with a blank label reading as ungrouped. Three callers, which is why it is
+here: the sheet's stat columns (`Stat.group`), the inlay panel's gem headings (`Inlay.group`) and the
+items panel's shops (`Item.shop`). Generic over the member with the label read by a caller-supplied
+function, because those are three different fields. **A heading is a distinct value that is present,
+never a list the app knows** — reach for this rather than writing a fourth `Map` walk.
 
 **`auth/`** — signing in, barrelled by `auth/index.ts` (TICKET-AUTH-01, TICKET-AUTH-02). The one
 folder in `components/` with **no Zustand store behind it**, deliberately: a signed-in Account is a

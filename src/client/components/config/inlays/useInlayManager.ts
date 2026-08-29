@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { Inlay, InlayTier, Stat, StatModifier } from '#shared/types';
 import { useConfigStore } from '../../../stores/configStore';
+import { groupByLabel } from '../../shared/labelledGroups';
 import { useGuardedDelete } from '../shared/useGuardedDelete';
 
 export interface InlayFormData {
@@ -27,52 +28,6 @@ export interface InlayFormData {
 export interface TierFormData {
   tier: number;
   bonuses: StatModifier[];
-}
-
-/**
- * One heading of the panel's list, and the families listed under it
- *
- * Module-local: the panel reads it off this hook's return and TypeScript infers, so exporting it
- * would be supported API nothing consumes (the CR-39 rule).
- */
-interface InlayGroup {
-  /** The group's name, or `null` for the families the ruleset put in no group */
-  label: string | null;
-  inlays: Inlay[];
-}
-
-/**
- * Split families into their groups, in first-appearance order
- *
- * The sheet writes `### Common Gems` and `### Precious Gems` over its 25 families, and `group` is
- * where a User records that. **The headings are the distinct values present**, never a list of two
- * names the app knows: a ruleset that invents a third group gets a third heading, and one that
- * names none comes back as a single unlabelled list — which is exactly what the panel drew before
- * anything was grouped.
- *
- * A blank group is *ungrouped* rather than a group called `""`: the dialog trims one away, but an
- * imported file is untrusted and the shape gate accepts any string.
- *
- * @param inlays - The families to list, in the order the ruleset holds them
- * @returns One entry per distinct group, ungrouped families collected under a `null` label
- */
-function groupInlays(inlays: Inlay[]): InlayGroup[] {
-  const headings = new Map<string | null, Inlay[]>();
-
-  for (const inlay of inlays) {
-    const named = inlay.group?.trim();
-    const label = named ? named : null;
-    const listed = headings.get(label);
-
-    if (listed) {
-      listed.push(inlay);
-    } else {
-      headings.set(label, [inlay]);
-    }
-  }
-
-  const entries = [...headings.entries()];
-  return entries.map(([label, listed]) => ({ label, inlays: listed }));
 }
 
 export function useInlayManager() {
@@ -228,7 +183,10 @@ export function useInlayManager() {
   return {
     config,
     inlays,
-    inlayGroups: groupInlays(inlays),
+    // The sheet writes `### Common Gems` and `### Precious Gems` over its 25 families; the headings
+    // are the distinct values the ruleset actually carries, which is `shared/labelledGroups`'s one
+    // rule rather than this hook's copy of it (TICKET-ITEM-01 extracted the third caller)
+    inlayGroups: groupByLabel(inlays, (inlay) => inlay.group),
     stats,
     modifiableStats,
     isInlayDialogOpen,

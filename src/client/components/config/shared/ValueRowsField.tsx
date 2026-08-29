@@ -1,21 +1,28 @@
 /**
- * Stat Value Rows Field
+ * Value Rows Field
  *
- * A block of "rows the User adds, each naming a stat and a number": a skill's governing weights
- * (Concept 02) and a material tier's stat modifiers (Concept 09) are the same shape, and had the
- * same markup twice (CR-23).
+ * A block of "rows the User adds, each naming something and a number": a skill's governing weights
+ * (Concept 02), a material tier's stat modifiers (Concept 09), an inlay tier's stat grants
+ * (TICKET-INL-01) and an item template's per-skill vector (v4 systems/11, TICKET-ITEM-01) are the
+ * same shape, and had the same markup once per caller before CR-23 pulled it here.
+ *
+ * **What a row *targets* is the caller's, which is what TICKET-ITEM-01 changed.** It took `Stat[]`
+ * while every row named a stat; an item template's vector names a **skill**, and the fourth caller
+ * is what makes the stat-shaped prop a lie rather than a simplification. So the picker takes plain
+ * `{ value, label }` options and the caller says what it is offering — {@link statRowOptions} is
+ * here so the three stat callers still spell a stat one way.
  *
  * **The sibling of `StatRowsField`, not a replacement for it.** That one is a *dense* block — one
  * row per configured stat, no add or remove — because a race and an archetype cannot decline to
  * have an opinion about a stat that exists. These rows are *sparse and chosen*: a skill weighs the
- * two stats it weighs, and a material tier modifies the ones it modifies. Different shapes, two
+ * two stats it weighs, and a template moves the eight skills it moves. Different shapes, two
  * components.
  *
  * The two `register` calls belong to the caller, because the field-array path is part of the
  * caller's form type and nothing here can know it. Everything around them — the header, the Add
  * button, the guidance, the empty state, the per-row `aria-label`s — is the same either way.
  *
- * **Validates: Concept 02; Concept 09; Requirements 21.1-21.5**
+ * **Validates: Concept 02; Concept 09; v4 systems/10, systems/11; Requirements 21.1-21.5**
  */
 
 import type { ReactNode } from 'react';
@@ -26,22 +33,43 @@ import { Input } from '../../ui/Input/Input';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
 
-export interface StatValueRowsFieldProps {
+/** One entry a row's picker may name — the stored id, and how a User reads it */
+export interface RowOption {
+  value: string;
+  label: string;
+}
+
+/**
+ * The ruleset's stats as picker options, spelled the one way
+ *
+ * Three of this component's four callers offer stats, and `Name (ABBR)` is how a stat reads
+ * everywhere a modifier names one. Here rather than in each dialog so they cannot drift.
+ *
+ * @param stats - The stats a row may name, in the order to offer them
+ * @returns One option per stat, keyed by its id
+ */
+export function statRowOptions(stats: Stat[]): RowOption[] {
+  return stats.map((stat) => ({ value: stat.id, label: `${stat.name} (${stat.abbreviation})` }));
+}
+
+export interface ValueRowsFieldProps {
   /** What the block is called — "Governing stats", "Stat Bonuses/Penalties" */
   title: string;
   /** The Add button's label */
   addLabel: string;
   onAdd: () => void;
-  /** The stats a row may name; empty disables adding */
-  availableStats: Stat[];
+  /** What a row may name; empty disables adding */
+  options: RowOption[];
+  /** What the options are, for the picker's label — "Stat", "Skill" */
+  targetLabel: string;
   /** The field array's rows, in order — only their keys are read */
   rows: { id: string }[];
   onRemove: (index: number) => void;
-  /** How one row's stat picker registers, given its index */
-  registerStat: (index: number) => UseFormRegisterReturn;
+  /** How one row's target picker registers, given its index */
+  registerTarget: (index: number) => UseFormRegisterReturn;
   /** How one row's number box registers, given its index */
   registerValue: (index: number) => UseFormRegisterReturn;
-  /** What one row is called, for the stat picker's label — "bonus", "weight" */
+  /** What one row is called, for the target picker's label — "bonus", "weight" */
   rowNoun: string;
   /** What the number means, for its label — "Weight", "Modifier" */
   valueLabel: string;
@@ -53,26 +81,22 @@ export interface StatValueRowsFieldProps {
   children?: ReactNode;
 }
 
-export function StatValueRowsField({
+export function ValueRowsField({
   title,
   addLabel,
   onAdd,
-  availableStats,
+  options,
+  targetLabel,
   rows,
   onRemove,
-  registerStat,
+  registerTarget,
   registerValue,
   rowNoun,
   valueLabel,
   valuePlaceholder,
   valueStep,
   children,
-}: StatValueRowsFieldProps) {
-  const statOptions = availableStats.map((stat) => ({
-    value: stat.id,
-    label: `${stat.name} (${stat.abbreviation})`,
-  }));
-
+}: ValueRowsFieldProps) {
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center">
@@ -83,7 +107,7 @@ export function StatValueRowsField({
           type="button"
           variant="secondary"
           onClick={onAdd}
-          disabled={availableStats.length === 0}
+          disabled={options.length === 0}
           className="text-xs px-2 py-1"
         >
           {addLabel}
@@ -101,10 +125,10 @@ export function StatValueRowsField({
           */}
           <div className="flex-1">
             <Select
-              aria-label={`Stat for ${rowNoun} row ${index + 1}`}
-              options={statOptions}
+              aria-label={`${targetLabel} for ${rowNoun} row ${index + 1}`}
+              options={options}
               className="w-full"
-              {...registerStat(index)}
+              {...registerTarget(index)}
             />
           </div>
           <div className="flex-1">

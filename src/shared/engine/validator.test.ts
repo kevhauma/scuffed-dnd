@@ -224,6 +224,72 @@ describe('validateConfiguration', () => {
       expect(result.errors).toHaveLength(0);
     });
 
+    it('should validate an item template whose skill vector names real skills', () => {
+      const config = createMinimalConfig();
+      config.skills = [
+        {
+          id: 'STL',
+          name: 'Stealth',
+          description: '',
+          statWeights: [{ statId: 'STR', weight: 1 }],
+        },
+      ];
+      config.items = [
+        {
+          id: 'battleaxe',
+          name: 'Battleaxe',
+          description: '',
+          skillBonuses: [{ skillId: 'STL', modifier: -1 }],
+        },
+      ];
+
+      const result = validateConfiguration(config);
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('should detect a skill bonus naming a skill the ruleset does not define (TICKET-ITEM-01)', () => {
+      // It contributes nothing at all in `calculateEquipmentSkillBonuses`, so without the report
+      // the User's only clue is a bonus that quietly never applied
+      const config = createMinimalConfig();
+      config.items = [
+        {
+          id: 'battleaxe',
+          name: 'Battleaxe',
+          description: '',
+          skillBonuses: [{ skillId: 'GONE', modifier: 2 }],
+        },
+      ];
+
+      const result = validateConfiguration(config);
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].category).toBe('Reference Validation');
+      expect(result.errors[0].message).toContain('Battleaxe');
+      expect(result.errors[0].message).toContain('GONE');
+    });
+
+    it('should report each dangling row, since each one has to be repointed', () => {
+      const config = createMinimalConfig();
+      config.items = [
+        {
+          id: 'battleaxe',
+          name: 'Battleaxe',
+          description: '',
+          skillBonuses: [
+            { skillId: 'GONE', modifier: 2 },
+            { skillId: 'ALSO_GONE', modifier: -1 },
+          ],
+        },
+      ];
+
+      const result = validateConfiguration(config);
+
+      expect(result.errors).toHaveLength(2);
+    });
+
     it('should validate races with valid stat references', () => {
       const config = createMinimalConfig();
       config.stats = [...config.stats, stat('WIS', 'Wisdom', 'WIS')];

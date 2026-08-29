@@ -22,6 +22,15 @@ import type { FormulaError, FormulaResult } from '../../types/formula';
 import { formulaError, rootCause } from '../formula/errors';
 import { calculateSkills } from './skillCalculator';
 
+/**
+ * A character wielding nothing — what every case below the gear describe holds
+ *
+ * The gear term is a **required** fourth parameter (TICKET-ITEM-01) so that no production caller can
+ * grow a second default; a test still has to say which case it is making, and every row in this file
+ * except the gear describe is about the level and the bonus rather than about equipment.
+ */
+const NO_GEAR: Record<string, number> = {};
+
 /** The sample character's four stats, ids matching the sheet's names */
 const SAMPLE_STATS: Array<[id: string, abbreviation: string, value: number]> = [
   ['char', 'CHA', 39],
@@ -158,7 +167,8 @@ describe("Concept 02's verified table", () => {
   const { levels, bonuses } = calculateSkills(
     createConfig(skills),
     SAMPLE_VALUES,
-    createCharacter()
+    createCharacter(),
+    NO_GEAR
   );
 
   it.each(CASES)(
@@ -184,7 +194,8 @@ describe("Concept 02's verified table", () => {
     const { levels, bonuses } = calculateSkills(
       createConfig([persuasion]),
       SAMPLE_VALUES,
-      createCharacter({ persuasion: 1.5 })
+      createCharacter({ persuasion: 1.5 }),
+      NO_GEAR
     );
 
     expect(levels.persuasion).toBe(13.5);
@@ -199,7 +210,8 @@ describe("Concept 02's verified table", () => {
     const { levels, bonuses } = calculateSkills(
       createConfig([perception]),
       { char: 15 },
-      createCharacter()
+      createCharacter(),
+      NO_GEAR
     );
 
     expect(levels.perception).toBe(8);
@@ -223,7 +235,7 @@ describe('rounding up, twice (TICKET-SKL-04)', () => {
     const probed = skill('probe', 'Probe', [{ statId: 'char', weight }]);
     const config = createConfig([probed]);
     const character = createCharacter({ probe: invested });
-    const { levels, bonuses } = calculateSkills(config, { char: statValue }, character);
+    const { levels, bonuses } = calculateSkills(config, { char: statValue }, character, NO_GEAR);
 
     return { level: levels.probe, bonus: bonuses.probe };
   }
@@ -283,7 +295,7 @@ describe('rounding up, twice (TICKET-SKL-04)', () => {
     ]);
     const config = createConfig([duo]);
     const character = createCharacter();
-    const { levels } = calculateSkills(config, { char: 12, wis: 6 }, character);
+    const { levels } = calculateSkills(config, { char: 12, wis: 6 }, character, NO_GEAR);
 
     expect(levels.duo).toBe(3);
   });
@@ -305,7 +317,7 @@ describe('the bonus divider (Concept 05)', () => {
   it('moves every bonus when the constant is retuned, with nothing else touched', () => {
     // Concept 02's editing scenario: "make bonuses grow faster" is one constant, not 48 edits
     const config = createConfig([charm], { constants: [constant(2)] });
-    const { levels, bonuses } = calculateSkills(config, SAMPLE_VALUES, createCharacter());
+    const { levels, bonuses } = calculateSkills(config, SAMPLE_VALUES, createCharacter(), NO_GEAR);
 
     // Level 12 (ceil of 11.7) / 2 = 6, where the seeded 5 gives ceil(2.4) = 3. The dial is read
     // at 2 rather than the old 4 because rounding *up* makes 12 / 4 = 3 the same answer as the
@@ -315,14 +327,19 @@ describe('the bonus divider (Concept 05)', () => {
   });
 
   it('falls back to the seeded 5 when the ruleset defines no such constant', () => {
-    const { bonuses } = calculateSkills(createConfig([charm]), SAMPLE_VALUES, createCharacter());
+    const { bonuses } = calculateSkills(
+      createConfig([charm]),
+      SAMPLE_VALUES,
+      createCharacter(),
+      NO_GEAR
+    );
 
     expect(bonuses.charm).toBe(3);
   });
 
   it.each([0, -5, Number.NaN])('falls back to the seeded 5 rather than dividing by %s', (value) => {
     const config = createConfig([charm], { constants: [constant(value)] });
-    const { bonuses } = calculateSkills(config, SAMPLE_VALUES, createCharacter());
+    const { bonuses } = calculateSkills(config, SAMPLE_VALUES, createCharacter(), NO_GEAR);
 
     // Infinity or NaN would be a worse answer than the seed (Concept 00 §7)
     expect(bonuses.charm).toBe(3);
@@ -339,7 +356,8 @@ describe('weight rows', () => {
     const { levels, bonuses } = calculateSkills(
       createConfig([cooking]),
       SAMPLE_VALUES,
-      createCharacter()
+      createCharacter(),
+      NO_GEAR
     );
 
     // 15 × 0.2 + 10 × 0.1 = 4, already whole, so the round-up leaves it alone
@@ -352,7 +370,8 @@ describe('weight rows', () => {
     const { levels, bonuses } = calculateSkills(
       createConfig([unweighted]),
       SAMPLE_VALUES,
-      createCharacter({ lore: 12 })
+      createCharacter({ lore: 12 }),
+      NO_GEAR
     );
 
     expect(levels.lore).toBe(12);
@@ -365,7 +384,8 @@ describe('weight rows', () => {
     const { levels, bonuses } = calculateSkills(
       createConfig([skill('lore', 'Lore', [])]),
       SAMPLE_VALUES,
-      createCharacter()
+      createCharacter(),
+      NO_GEAR
     );
 
     expect(levels.lore).toBe(0);
@@ -377,7 +397,8 @@ describe('weight rows', () => {
     const { levels } = calculateSkills(
       createConfig([charm]),
       SAMPLE_VALUES,
-      createCharacter({ charm: 3 })
+      createCharacter({ charm: 3 }),
+      NO_GEAR
     );
 
     // ceil(11.7) + 3 = 15, where adding first and rounding after would also be 15 — the case that
@@ -393,7 +414,12 @@ describe('weight rows', () => {
       { statId: 'char', weight: 0.3 },
       { statId: 'gone', weight: 5 },
     ]);
-    const { levels } = calculateSkills(createConfig([charm]), SAMPLE_VALUES, createCharacter());
+    const { levels } = calculateSkills(
+      createConfig([charm]),
+      SAMPLE_VALUES,
+      createCharacter(),
+      NO_GEAR
+    );
 
     // The surviving row's 11.7, rounded up — the missing stat contributed nothing, not a 0 × 5
     expect(levels.charm).toBe(12);
@@ -409,7 +435,12 @@ describe('errors as values (Concept 00 §7)', () => {
     const charm = skill('charm', 'Charm', [{ statId: 'char', weight: 0.3 }]);
     const broken = formulaError('undefined-variable', 'Undefined variable: NOPE');
 
-    const { levels } = calculateSkills(createConfig([charm]), { char: broken }, createCharacter());
+    const { levels } = calculateSkills(
+      createConfig([charm]),
+      { char: broken },
+      createCharacter(),
+      NO_GEAR
+    );
 
     expect(levels.charm).toMatchObject({
       formulaError: true,
@@ -429,7 +460,8 @@ describe('errors as values (Concept 00 §7)', () => {
     const { levels, bonuses } = calculateSkills(
       createConfig([charm]),
       { char: broken },
-      createCharacter()
+      createCharacter(),
+      NO_GEAR
     );
 
     expect(bonuses.charm).toEqual(levels.charm);
@@ -445,7 +477,7 @@ describe('errors as values (Concept 00 §7)', () => {
       char: formulaError('undefined-variable', 'Undefined variable: NOPE'),
     };
 
-    const { levels } = calculateSkills(createConfig(skills), values, createCharacter());
+    const { levels } = calculateSkills(createConfig(skills), values, createCharacter(), NO_GEAR);
 
     expect(levels.charm).toMatchObject({ formulaError: true });
     expect(levels.brewing).toBe(5);
@@ -462,7 +494,8 @@ describe('the breakdown behind a level (TICKET-SKL-03)', () => {
     const { levels, contributions } = calculateSkills(
       createConfig([cooking]),
       SAMPLE_VALUES,
-      createCharacter()
+      createCharacter(),
+      NO_GEAR
     );
 
     expect(contributions.cooking).toEqual([
@@ -484,7 +517,7 @@ describe('the breakdown behind a level (TICKET-SKL-03)', () => {
     const config = createConfig([scouting]);
     const character = createCharacter();
 
-    const { levels, contributions } = calculateSkills(config, SAMPLE_VALUES, character);
+    const { levels, contributions } = calculateSkills(config, SAMPLE_VALUES, character, NO_GEAR);
 
     expect(contributions.scouting).toEqual([
       { statId: 'wis', weight: 0.3, statValue: 15, contribution: 4.5 },
@@ -498,7 +531,8 @@ describe('the breakdown behind a level (TICKET-SKL-03)', () => {
     const { levels, contributions } = calculateSkills(
       createConfig([persuasion]),
       SAMPLE_VALUES,
-      createCharacter({ persuasion: 1.5 })
+      createCharacter({ persuasion: 1.5 }),
+      NO_GEAR
     );
 
     expect(contributions.persuasion).toEqual([
@@ -517,7 +551,8 @@ describe('the breakdown behind a level (TICKET-SKL-03)', () => {
     const { contributions } = calculateSkills(
       createConfig([stale]),
       SAMPLE_VALUES,
-      createCharacter()
+      createCharacter(),
+      NO_GEAR
     );
 
     expect(contributions.stale).toEqual([
@@ -538,7 +573,8 @@ describe('the breakdown behind a level (TICKET-SKL-03)', () => {
     const { levels, contributions } = calculateSkills(
       createConfig([charm]),
       values,
-      createCharacter()
+      createCharacter(),
+      NO_GEAR
     );
 
     expect(levels.charm).toMatchObject({ formulaError: true });
@@ -553,7 +589,8 @@ describe('the breakdown behind a level (TICKET-SKL-03)', () => {
     const { contributions } = calculateSkills(
       createConfig([pure]),
       SAMPLE_VALUES,
-      createCharacter({ pure: 3 })
+      createCharacter({ pure: 3 }),
+      NO_GEAR
     );
 
     expect(contributions.pure).toEqual([]);
@@ -572,11 +609,11 @@ describe('the focus multiplier (TICKET-SKL-05)', () => {
     const picky = createCharacter({}, ['brewing', 'brewing', 'brewing']);
 
     // ceil(4.5) — the pre-focus answer, unchanged even for a character who has picked three times
-    expect(calculateSkills(undialled, SAMPLE_VALUES, picky).levels.brewing).toBe(5);
+    expect(calculateSkills(undialled, SAMPLE_VALUES, picky, NO_GEAR).levels.brewing).toBe(5);
   });
 
   it('computes a character with no picks at 0.9 everywhere', () => {
-    const { levels, focus } = calculateSkills(dialled, SAMPLE_VALUES, createCharacter());
+    const { levels, focus } = calculateSkills(dialled, SAMPLE_VALUES, createCharacter(), NO_GEAR);
 
     // 4.5 × 0.9 = 4.05, which rounds up to 5 — the same *level* as the unchosen ruleset above by
     // coincidence of the ceiling, and a different number underneath it
@@ -586,7 +623,12 @@ describe('the focus multiplier (TICKET-SKL-05)', () => {
 
   it('reproduces the three tiers on one skill: unchosen 0.9, chosen 2.1, chosen twice 3.3', () => {
     const picks = ['arcane', 'brewing', 'arcane'];
-    const { levels, focus } = calculateSkills(dialled, SAMPLE_VALUES, createCharacter({}, picks));
+    const { levels, focus } = calculateSkills(
+      dialled,
+      SAMPLE_VALUES,
+      createCharacter({}, picks),
+      NO_GEAR
+    );
 
     // Brewing named once: 4.5 × 2.1 = 9.45 → 10
     expect(focus.brewing?.multiplier).toBeCloseTo(2.1, 10);
@@ -601,7 +643,8 @@ describe('the focus multiplier (TICKET-SKL-05)', () => {
     const { levels } = calculateSkills(
       dialled,
       SAMPLE_VALUES,
-      createCharacter({ brewing: 3 }, ['brewing'])
+      createCharacter({ brewing: 3 }, ['brewing']),
+      NO_GEAR
     );
 
     /*
@@ -618,7 +661,8 @@ describe('the focus multiplier (TICKET-SKL-05)', () => {
     const { focus, contributions } = calculateSkills(
       dialled,
       SAMPLE_VALUES,
-      createCharacter({}, ['brewing'])
+      createCharacter({}, ['brewing']),
+      NO_GEAR
     );
 
     const weighted = contributions.brewing?.[0]?.contribution ?? 0;
@@ -634,7 +678,12 @@ describe('the focus multiplier (TICKET-SKL-05)', () => {
       wis: formulaError('undefined-variable', 'Undefined variable: NOPE'),
     };
 
-    const { focus, levels } = calculateSkills(dialled, values, createCharacter({}, ['brewing']));
+    const { focus, levels } = calculateSkills(
+      dialled,
+      values,
+      createCharacter({}, ['brewing']),
+      NO_GEAR
+    );
 
     expect(levels.brewing).toMatchObject({ formulaError: true });
     expect(focus.brewing).toBeUndefined();
@@ -646,9 +695,86 @@ describe('the focus multiplier (TICKET-SKL-05)', () => {
     const { levels } = calculateSkills(
       dialled,
       SAMPLE_VALUES,
-      createCharacter({}, ['nonesuch', 'nonesuch', 'nonesuch'])
+      createCharacter({}, ['nonesuch', 'nonesuch', 'nonesuch']),
+      NO_GEAR
     );
 
     expect(levels.brewing).toBe(5);
+  });
+});
+
+/**
+ * The gear term — `ROUNDUP(level / 5, 0) + gear` (v4 systems/06 gap 5, TICKET-ITEM-01)
+ *
+ * What the equipped templates are worth per skill arrives already totalled, so these cases are about
+ * exactly one thing: **where** it lands. On the bonus, outside the round-up, and never on the level.
+ */
+describe('the equipped templates skill bonus', () => {
+  // Charm off the verified table: 39 × 0.3 = 11.7, which rounds up to 12, and 12 / 5 rounds up to 3
+  const charm = skill('charm', 'Charm', [{ statId: 'char', weight: 0.3 }]);
+  const config = createConfig([charm]);
+
+  it('adds to the bonus and leaves the level alone', () => {
+    const { levels, bonuses } = calculateSkills(config, SAMPLE_VALUES, createCharacter(), {
+      charm: 2,
+    });
+
+    expect(levels.charm).toBe(12);
+    expect(bonuses.charm).toBe(5);
+  });
+
+  it('subtracts when the gear is a hindrance', () => {
+    const { levels, bonuses } = calculateSkills(config, SAMPLE_VALUES, createCharacter(), {
+      charm: -1,
+    });
+
+    expect(levels.charm).toBe(12);
+    expect(bonuses.charm).toBe(2);
+  });
+
+  it('lands outside the round-up rather than inside the divide', () => {
+    // ceil(12 / 5) + 2 = 5. Folded into the divide it would be ceil(14 / 5) = 3 — a whole point
+    // short, and silently, which is the ordering this criterion exists to pin
+    const { bonuses } = calculateSkills(config, SAMPLE_VALUES, createCharacter(), { charm: 2 });
+
+    expect(bonuses.charm).toBe(5);
+  });
+
+  it('is not multiplied by the focus picks, which belong to the level', () => {
+    const dialled = createConfig([charm], { constants: FOCUS_DIALS });
+
+    // Focus moves the level (11.7 × 2.1 = 24.57 → 25, so ceil(25 / 5) = 5) and the gear is added
+    // whole on top of the bonus that comes out
+    const { levels, bonuses } = calculateSkills(
+      dialled,
+      SAMPLE_VALUES,
+      createCharacter({}, ['charm']),
+      { charm: 2 }
+    );
+
+    expect(levels.charm).toBe(25);
+    expect(bonuses.charm).toBe(7);
+  });
+
+  it('leaves a skill no template names exactly as it was', () => {
+    const { bonuses } = calculateSkills(config, SAMPLE_VALUES, createCharacter(), {
+      somethingElse: 9,
+    });
+
+    expect(bonuses.charm).toBe(3);
+  });
+
+  it('computes a ruleset whose templates carry no vectors exactly as it did before', () => {
+    const { bonuses } = calculateSkills(config, SAMPLE_VALUES, createCharacter(), NO_GEAR);
+
+    expect(bonuses.charm).toBe(3);
+  });
+
+  it('reports a failed level rather than a confident total resting on nothing', () => {
+    const broken: FormulaError = formulaError('undefined-variable', 'Undefined variable: NOPE');
+
+    const { bonuses } = calculateSkills(config, { char: broken }, createCharacter(), { charm: 2 });
+
+    expect(bonuses.charm).toMatchObject({ formulaError: true });
   });
 });

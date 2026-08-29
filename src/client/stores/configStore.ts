@@ -1139,9 +1139,15 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const { config } = get();
     if (!config) return;
 
+    // The editor states an unset optional field as an explicit `undefined`, which is how
+    // `updateItem` is told to *clear* one. On the way in there is nothing to clear, so the empty key
+    // is dropped rather than stored — `addInlay`'s and `addRace`'s rule, owed here since
+    // TICKET-ITEM-01 gave a template a `shop` and a `skillBonuses` vector to leave unset
+    const seeded = mergeClearingAbsent(item, {});
+
     const updated = autoSave({
       ...config,
-      items: [...config.items, item],
+      items: [...config.items, seeded],
     });
     set({ config: updated });
   },

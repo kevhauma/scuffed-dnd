@@ -464,7 +464,33 @@ export interface InlayTier {
 }
 
 /**
+ * Skill modifier — what an item template does to one skill (v4 systems/11, TICKET-ITEM-01)
+ *
+ * {@link StatModifier}'s counterpart one entity over, and deliberately its exact shape: the new
+ * workbook's item matrix is a vector of small signed integers over the ruleset's *skills* (a wielded
+ * Battleaxe is Athletics +2, intimidation +3, Sneaking −1), where a material tier's vector is over
+ * stats. Two shapes rather than one generic `{ targetId, modifier }`, because the two name different
+ * entities and a single shape would let a material tier's row point at a skill.
+ *
+ * Keyed by **skill id**, like every other stored reference (TICKET-REF-01) and for the reason
+ * TICKET-MAT-01 moved material bonuses onto ids: renaming a skill cannot orphan a bonus, and there
+ * is nothing for `references.ts` to re-spell on the way in or out.
+ */
+export interface SkillModifier {
+  skillId: string; // References Skill.id
+  modifier: number; // Positive for bonus, negative for penalty
+}
+
+/**
  * Item - object with optional material and equipment slot
+ *
+ * **An item template is a per-skill bonus vector since TICKET-ITEM-01** (v4 systems/11). What it is
+ * *made of* still supplies its stat side — a material tier's modifiers, and TICKET-INV-05's inlay —
+ * so the template itself carries no stat column: the two halves target different entities and
+ * neither can claim the other's share.
+ *
+ * The old fused `materialId`/`materialLevel` pair — a template naming the instance it is made of —
+ * retires in TICKET-INV-05, not here. One reshape per ticket.
  */
 export interface Item {
   id: string;
@@ -474,6 +500,39 @@ export interface Item {
   materialId?: string;
   materialLevel?: number;
   equipmentSlotType?: string;
+  /**
+   * Which shop sells this template — the sheet's *Imperial Forge*, *Stones & Ores* (v4 systems/11).
+   *
+   * A **User-named free string** validated against nothing, exactly like {@link Stat.group} and
+   * {@link Inlay.group}: it decides which heading the items panel lists the template under and that
+   * is the whole of it. The workbook's nine shop names are seed data rather than a vocabulary the
+   * app knows (overview *Rulings — ticket review*: a heading the sheet happens to have is a default,
+   * not a rule), so a ruleset that invents a tenth gets a tenth heading.
+   *
+   * **Stored on the template rather than on a category record**, which is the smallest shape that
+   * says it: `categoryId` is itself a free string with no entity behind it, so the shop is the same
+   * kind of thing one level up. Minting an `ItemCategory` entity to hold the tag would be a second
+   * reshape and a new `Configuration` collection — TICKET-INV-05/ITEM-02's ground, not this
+   * ticket's.
+   *
+   * Absent means the template is in no shop, which is every template in a ruleset that never sorted
+   * its catalog — and such a ruleset groups by category exactly as it did before.
+   */
+  shop?: string;
+  /**
+   * What wielding this template does to the character's skills (v4 systems/11).
+   *
+   * **Sparse: only the skills it actually moves.** A zero contributes nothing, so storing one would
+   * be 48 rows of noise per template and would make every skill look referenced by every item. The
+   * editor prunes them on save; the import gate accepts a stored zero rather than refusing it, since
+   * a zero is harmless where a malformed row is not.
+   *
+   * Additive-optional — absent means none and stays absent, `constants`' rule — so a ruleset written
+   * before the item matrix existed round-trips without growing an empty array, and computes exactly
+   * as it does today. The bonuses reach the character's **skill bonus** (not the level) through
+   * `calculateEquipmentSkillBonuses`, summed across the equipped slots.
+   */
+  skillBonuses?: SkillModifier[];
 }
 
 /**

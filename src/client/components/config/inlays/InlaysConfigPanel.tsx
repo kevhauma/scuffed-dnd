@@ -83,7 +83,7 @@ export function InlaysConfigPanel() {
                   {group.label}
                 </Text>
               )}
-              {group.inlays.map((inlay) => (
+              {group.members.map((inlay) => (
                 <InlayCard
                   key={inlay.id}
                   inlay={inlay}

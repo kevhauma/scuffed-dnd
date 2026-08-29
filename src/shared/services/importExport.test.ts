@@ -845,6 +845,107 @@ describe('Import/Export Service', () => {
     });
   });
 
+  describe('item templates (v4 systems/11, TICKET-ITEM-01)', () => {
+    /** The ticket's own Battleaxe: a shop, and a vector over the fixture's one skill */
+    const battleaxe = {
+      id: 'battleaxe',
+      name: 'Battleaxe',
+      description: '',
+      shop: 'Imperial Forge',
+      skillBonuses: [{ skillId: 'MEL', modifier: 2 }],
+    };
+
+    const withItems = (items: unknown): Configuration =>
+      ({ ...validConfig, items }) as Configuration;
+
+    it('should accept a template with neither a shop nor a vector — both are additive', () => {
+      // Every template in the corpus, which this ticket leaves untouched (v4 D7)
+      const plain = withItems([{ id: 'axe', name: 'Axe', description: '' }]);
+
+      expect(validateConfigurationShape(plain).isValid).toBe(true);
+    });
+
+    it('should leave a plain template plain after a round-trip', () => {
+      const config = withItems([{ id: 'axe', name: 'Axe', description: '' }]);
+
+      const exported = serializeConfiguration(config);
+      const imported = importConfiguration(exported);
+
+      expect(imported.items[0]).not.toHaveProperty('shop');
+      expect(imported.items[0]).not.toHaveProperty('skillBonuses');
+    });
+
+    it('should round-trip a shop and a vector unchanged', () => {
+      const config = withItems([battleaxe]);
+
+      const exported = serializeConfiguration(config);
+      const imported = importConfiguration(exported);
+
+      expect(imported.items).toEqual([battleaxe]);
+    });
+
+    it('should keep a bonus spelled in skill ids on the wire, not in names', () => {
+      // Like a material tier's modifier, the row is already an id, so it crosses the
+      // reference-form boundary untranslated and a rename cannot orphan it
+      const config = withItems([battleaxe]);
+
+      const exported = serializeConfiguration(config);
+      const raw = JSON.parse(exported);
+
+      expect(raw.items[0].skillBonuses).toEqual([{ skillId: 'MEL', modifier: 2 }]);
+    });
+
+    it('should keep the vector pointing at the skill after it is renamed', () => {
+      const renamed: Configuration = {
+        ...withItems([battleaxe]),
+        skills: validConfig.skills.map((skill) => ({ ...skill, name: 'Cleaving' })),
+      };
+
+      const exported = serializeConfiguration(renamed);
+      const imported = importConfiguration(exported);
+
+      expect(imported.items[0].skillBonuses).toEqual([{ skillId: 'MEL', modifier: 2 }]);
+    });
+
+    it('should reject a skillBonuses that is not an array', () => {
+      const result = validateConfigurationShape(
+        withItems([{ ...battleaxe, skillBonuses: 'lots' }])
+      );
+
+      expect(result.errors).toContain('items[0].skillBonuses must be an array when present');
+    });
+
+    it('should reject a bonus that is not { skillId, modifier }', () => {
+      const badTarget = withItems([{ ...battleaxe, skillBonuses: [{ skillId: '', modifier: 1 }] }]);
+      const badNumber = withItems([
+        { ...battleaxe, skillBonuses: [{ skillId: 'MEL', modifier: 'a lot' }] },
+      ]);
+
+      expect(validateConfigurationShape(badTarget).errors).toContain(
+        'items[0].skillBonuses[0].skillId must be a skill id'
+      );
+      expect(validateConfigurationShape(badNumber).errors).toContain(
+        'items[0].skillBonuses[0].modifier must be a finite number'
+      );
+    });
+
+    it('should accept a stored zero rather than insisting the vector is sparse', () => {
+      // Sparseness is how the editor *writes* one; a zero contributes nothing and a file carrying
+      // it plays identically, so refusing it would reject a ruleset for tidiness
+      const withZero = withItems([
+        { ...battleaxe, skillBonuses: [{ skillId: 'MEL', modifier: 0 }] },
+      ]);
+
+      expect(validateConfigurationShape(withZero).isValid).toBe(true);
+    });
+
+    it('should reject a shop that is not a string', () => {
+      const result = validateConfigurationShape(withItems([{ ...battleaxe, shop: 7 }]));
+
+      expect(result.errors).toContain('items[0].shop must be a string when present');
+    });
+  });
+
   describe('roll definitions (TICKET-ROLL-05)', () => {
     const melee = {
       id: 'roll-melee',

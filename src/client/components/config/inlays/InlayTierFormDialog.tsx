@@ -18,7 +18,7 @@ import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
 import { Text } from '../../ui/Text/Text';
 import { FormDialogActions } from '../shared/FormDialogActions';
-import { StatValueRowsField } from '../shared/StatValueRowsField';
+import { statRowOptions, ValueRowsField } from '../shared/ValueRowsField';
 import type { TierFormData } from './useInlayManager';
 
 interface InlayTierFormDialogProps {
@@ -45,6 +45,7 @@ export function InlayTierFormDialog({
     control,
   } = form;
   const { fields, append, remove } = useFieldArray({ control, name: 'bonuses' });
+  const grantOptions = statRowOptions(modifiableStats);
 
   const handleAddBonus = () => {
     const firstStatId = modifiableStats[0]?.id ?? '';
@@ -77,14 +78,15 @@ export function InlayTierFormDialog({
           })}
         />
 
-        <StatValueRowsField
+        <ValueRowsField
           title="Stat Grants"
           addLabel="Add Grant"
           onAdd={handleAddBonus}
-          availableStats={modifiableStats}
+          options={grantOptions}
+          targetLabel="Stat"
           rows={fields}
           onRemove={remove}
-          registerStat={(index) => register(`bonuses.${index}.statId` as const)}
+          registerTarget={(index) => register(`bonuses.${index}.statId` as const)}
           registerValue={(index) => register(`bonuses.${index}.modifier`, { valueAsNumber: true })}
           rowNoun="grant"
           valueLabel="Modifier"
@@ -102,7 +104,7 @@ export function InlayTierFormDialog({
               No grants defined. Click 'Add Grant' to say what this tier is worth.
             </Text>
           )}
-        </StatValueRowsField>
+        </ValueRowsField>
 
         <FormDialogActions
           submitLabel={`${isEditing ? 'Update' : 'Add'} Tier`}

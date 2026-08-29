@@ -15,14 +15,15 @@
  * pool currently stands, which is player state and nothing else (TICKET-STAT-03).
  *
  * **The pools are laid out in the ruleset's own groups too** (TICKET-STAT-04), through the same
- * `statGroups.ts` the stats use. The sheet's *Vitals* column holds Health, Mana and Speed, and
- * this app puts the first two here and the third among the stats — so a group that spans the split
- * draws a column on each side rather than one section quietly swallowing the other's rows.
+ * `shared/labelledGroups.ts` the stats use. The sheet's *Vitals* column holds Health, Mana and
+ * Speed, and this app puts the first two here and the third among the stats — so a group that spans
+ * the split draws a column on each side rather than one section quietly swallowing the other's rows.
  *
  * **Validates: Concept 20; Requirements 11.3, 13.4, 14.1, 14.2, 14.3, 14.4, 16.6, 21.1-21.5**
  */
 
 import { Fragment } from 'react';
+import { groupByLabel } from '../../shared/labelledGroups';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 import { CountRow } from '../shared/CountRow';
@@ -30,7 +31,6 @@ import type { PointBudgetView } from '../shared/pointBudgetView';
 import { investedContribution } from './investedContribution';
 import { StatEditor } from './StatEditor';
 import { StatGroupColumns } from './StatGroupColumns';
-import { groupStats } from './statGroups';
 import type { StatBreakdown } from './useCharacterSheet';
 
 export interface ResourcesSectionProps {
@@ -54,7 +54,7 @@ export function ResourcesSection({
 }: ResourcesSectionProps) {
   if (resources.length === 0) return null;
 
-  const groups = groupStats(resources);
+  const groups = groupByLabel(resources, (resource) => resource.group);
 
   return (
     <Card className="p-6">
@@ -66,7 +66,7 @@ export function ResourcesSection({
         {(group) =>
           // A `Fragment` rather than a wrapper: `CountRow`'s `last:border-b-0` reads its
           // siblings, so boxing each pool would drop every row's rule
-          group.stats.map((resource) => (
+          group.members.map((resource) => (
             <Fragment key={resource.id}>
               <CountRow
                 name={resource.name}

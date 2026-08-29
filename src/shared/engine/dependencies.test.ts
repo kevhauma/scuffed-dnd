@@ -220,6 +220,71 @@ describe('findReferences', () => {
       expect(found.some((reference) => reference.field === 'focus skills')).toBe(true);
     });
 
+    it('finds an item template whose vector grants the skill (TICKET-ITEM-01)', () => {
+      // config→config, and the one arm the walker gained with the item matrix: without it a User
+      // deletes Athletics and every Battleaxe in the catalog silently grants nothing
+      const config = createConfig({
+        items: [
+          {
+            id: 'battleaxe',
+            name: 'Battleaxe',
+            description: '',
+            skillBonuses: [{ skillId: 'id-stl', modifier: -1 }],
+          },
+        ],
+      });
+
+      const found = findReferences({ kind: 'skill', id: 'id-stl' }, config, []);
+
+      expect(holders(found)).toContain('Item: Battleaxe');
+      expect(found.some((reference) => reference.field === 'skillBonuses')).toBe(true);
+    });
+
+    it('reports a template once however many of its rows name the skill', () => {
+      const config = createConfig({
+        items: [
+          {
+            id: 'battleaxe',
+            name: 'Battleaxe',
+            description: '',
+            skillBonuses: [
+              { skillId: 'id-stl', modifier: 2 },
+              { skillId: 'id-stl', modifier: -1 },
+            ],
+          },
+        ],
+      });
+
+      const found = findReferences({ kind: 'skill', id: 'id-stl' }, config, []);
+      const templates = found.filter((reference) => reference.holderKind === 'Item');
+
+      expect(templates).toHaveLength(1);
+    });
+
+    it('does not count a template whose vector names some other skill', () => {
+      const config = createConfig({
+        items: [
+          {
+            id: 'battleaxe',
+            name: 'Battleaxe',
+            description: '',
+            skillBonuses: [{ skillId: 'id-other', modifier: 2 }],
+          },
+        ],
+      });
+
+      const found = findReferences({ kind: 'skill', id: 'id-stl' }, config, []);
+
+      expect(holders(found)).not.toContain('Item: Battleaxe');
+    });
+
+    it('does not count a template with no vector at all', () => {
+      // Every template in the corpus, which this ticket leaves untouched (v4 D7)
+      const found = findReferences({ kind: 'skill', id: 'id-stl' }, createConfig(), []);
+
+      expect(holders(found)).not.toContain('Item: Axe');
+    });
+
     it('does not count a character who focuses some other skill', () => {
       const elsewhere = createCharacter({ investedSkillPoints: {}, focusSkillIds: ['id-other'] });
 

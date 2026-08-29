@@ -7,18 +7,25 @@
  * pickers and the description stay hand-built: `FormField` renders an `Input`, which a `Select`
  * and a `Textarea` are not.
  *
- * **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 21.1-21.5**
+ * **The skill vector is the same rows block every other bonus list uses** (TICKET-ITEM-01) — sparse
+ * and chosen, so a template names the eight skills it moves rather than all 48. `ValueRowsField`
+ * takes options rather than stats precisely so this dialog can offer skills.
+ *
+ * **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 21.1-21.5; v4 systems/11**
  */
 
 import { useEffect, useId } from 'react';
-import type { UseFormReturn } from 'react-hook-form';
+import { type UseFormReturn, useFieldArray } from 'react-hook-form';
 import type { EquipmentSlot, Material } from '#shared/types';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
 import { Label } from '../../ui/Label/Label';
 import { Select } from '../../ui/Select/Select';
+import { Text } from '../../ui/Text/Text';
 import { Textarea } from '../../ui/Textarea/Textarea';
 import { FormDialogActions } from '../shared/FormDialogActions';
+import type { RowOption } from '../shared/ValueRowsField';
+import { ValueRowsField } from '../shared/ValueRowsField';
 import type { ItemFormData } from './useItemManager';
 
 interface ItemFormDialogProps {
@@ -27,6 +34,8 @@ interface ItemFormDialogProps {
   form: UseFormReturn<ItemFormData>;
   materials: Material[];
   equipmentSlots: EquipmentSlot[];
+  /** The skills a bonus row may name — every skill the ruleset defines */
+  skillOptions: RowOption[];
   onClose: () => void;
   onSave: () => void;
 }
@@ -37,6 +46,7 @@ export function ItemFormDialog({
   form,
   materials,
   equipmentSlots,
+  skillOptions,
   onClose,
   onSave,
 }: ItemFormDialogProps) {
@@ -46,11 +56,18 @@ export function ItemFormDialog({
   const itemMaterialLevelId = useId();
 
   const {
+    control,
     register,
     watch,
     setValue,
     formState: { errors },
   } = form;
+  const { fields, append, remove } = useFieldArray({ control, name: 'skillBonuses' });
+
+  const handleAddBonus = () => {
+    const firstSkillId = skillOptions[0]?.value ?? '';
+    append({ skillId: firstSkillId, modifier: 0 });
+  };
 
   const selectedMaterialId = watch('materialId');
   const selectedMaterial = materials.find((m) => m.id === selectedMaterialId);
@@ -97,6 +114,14 @@ export function ItemFormDialog({
           {...register('categoryId')}
         />
 
+        {/* The shop is the User's own word, like the category above it: the workbook's nine names
+            are what its catalog happens to say, not a list this form offers */}
+        <FormField
+          label="Shop (optional)"
+          placeholder="e.g., Imperial Forge, General Store"
+          {...register('shop')}
+        />
+
         <div>
           <Label htmlFor={itemMaterialId}>Material (optional)</Label>
           <Select
@@ -137,6 +162,38 @@ export function ItemFormDialog({
             className="w-full mt-1"
           />
         </div>
+
+        <ValueRowsField
+          title="Skill Bonuses/Penalties"
+          addLabel="Add Skill Bonus"
+          onAdd={handleAddBonus}
+          options={skillOptions}
+          targetLabel="Skill"
+          rows={fields}
+          onRemove={remove}
+          registerTarget={(index) => register(`skillBonuses.${index}.skillId` as const)}
+          registerValue={(index) =>
+            register(`skillBonuses.${index}.modifier`, { valueAsNumber: true })
+          }
+          rowNoun="skill bonus"
+          valueLabel="Modifier"
+          valuePlaceholder="Modifier (+ or -)"
+        >
+          {skillOptions.length === 0 && (
+            <Text variant="body-small-secondary" className="italic">
+              This ruleset defines no skills yet, so there is nothing an item can make you better
+              at. Add skills first.
+            </Text>
+          )}
+
+          {fields.length === 0 && skillOptions.length > 0 && (
+            <Text variant="body-small-secondary" className="italic">
+              No skill bonuses. Click 'Add Skill Bonus' to say what wielding this changes — a
+              Battleaxe helps with Athletics and hinders Sneaking. Only the skills it moves are
+              stored; a bonus of 0 is dropped.
+            </Text>
+          )}
+        </ValueRowsField>
 
         <FormDialogActions
           submitLabel={isEditing ? 'Save Changes' : 'Add Item'}

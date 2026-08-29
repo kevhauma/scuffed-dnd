@@ -27,6 +27,8 @@ import type {
   Curve,
   DiceLadder,
   InlayTier,
+  Item,
+  Material,
   MaterialLevel,
   RollDefinition,
   Stat,
@@ -420,54 +422,124 @@ function inlayTierIssues(
 }
 
 /**
+ * How an item names itself in a report
+ *
+ * @param item - The template being checked
+ * @returns The entity fields every one of its issues carries
+ */
+function itemEntity(item: Item) {
+  return { entityType: 'item', entityId: item.id, entityName: item.name };
+}
+
+/**
+ * Where an item is worn, when the ruleset no longer has that slot
+ *
+ * @param item - The template being checked
+ * @param equipmentSlotTypes - The slot types the ruleset defines
+ * @returns One issue when the named slot is gone, none otherwise
+ */
+function itemSlotIssues(item: Item, equipmentSlotTypes: ReadonlySet<string>): ValidationIssue[] {
+  if (!item.equipmentSlotType || equipmentSlotTypes.has(item.equipmentSlotType)) return [];
+
+  return [
+    {
+      severity: 'error',
+      category: 'Reference Validation',
+      message: `Item "${item.name}" references non-existent equipment slot type: ${item.equipmentSlotType}`,
+      ...itemEntity(item),
+    },
+  ];
+}
+
+/**
+ * What an item is made of, when the ruleset no longer has it
+ *
+ * **A level on a material that is itself missing is not reported.** That would be two messages about
+ * one broken pointer, and the second names a rung of a material nobody can look at.
+ *
+ * @param item - The template being checked
+ * @param materialsById - The ruleset's materials
+ * @returns One issue per broken material or material-level reference
+ */
+function itemMaterialIssues(
+  item: Item,
+  materialsById: ReadonlyMap<string, Material>
+): ValidationIssue[] {
+  if (!item.materialId) return [];
+
+  const material = materialsById.get(item.materialId);
+  if (!material) {
+    return [
+      {
+        severity: 'error',
+        category: 'Reference Validation',
+        message: `Item "${item.name}" references non-existent material ID: ${item.materialId}`,
+        ...itemEntity(item),
+      },
+    ];
+  }
+
+  if (item.materialLevel === undefined) return [];
+
+  const levelExists = material.levels.some((level) => level.level === item.materialLevel);
+  if (levelExists) return [];
+
+  return [
+    {
+      severity: 'error',
+      category: 'Reference Validation',
+      message: `Item "${item.name}" references non-existent material level ${item.materialLevel} for material "${material.name}"`,
+      ...itemEntity(item),
+    },
+  ];
+}
+
+/**
+ * The template's own skill vector, where it names a skill that is gone
+ * (v4 systems/11, TICKET-ITEM-01)
+ *
+ * A bonus naming a skill the ruleset does not define contributes nothing at all in
+ * `calculateEquipmentSkillBonuses`, so without this the User's only clue would be a bonus that
+ * quietly never applied. **One issue per dangling row** rather than one per item, because the row is
+ * what has to be repointed.
+ *
+ * @param item - The template being checked
+ * @param skillIds - The ids the ruleset's skills carry
+ * @returns One issue per row naming a skill that does not exist
+ */
+function itemSkillBonusIssues(item: Item, skillIds: ReadonlySet<string>): ValidationIssue[] {
+  const dangling = (item.skillBonuses ?? []).filter((bonus) => !skillIds.has(bonus.skillId));
+
+  return dangling.map((bonus) => ({
+    severity: 'error',
+    category: 'Reference Validation',
+    message: `Item "${item.name}" grants a bonus to non-existent skill ID: ${bonus.skillId}`,
+    ...itemEntity(item),
+  }));
+}
+
+/**
  * Item references that point at nothing
  *
+ * Three independent questions — where it is worn, what it is made of, and what it makes you better
+ * at — so three checkers rather than one loop body carrying all of them (split under
+ * TICKET-ITEM-01, when the third pushed the single function past the complexity threshold).
+ *
  * @param config - The ruleset to check
- * @returns One issue per broken slot, material or material-level reference
+ * @returns One issue per broken slot, material, material-level or skill-bonus reference
  */
 function itemIssues(config: Configuration): ValidationIssue[] {
   const equipmentSlotTypes = new Set(config.equipmentSlots.map((slot) => slot.type));
   const materialsById = new Map(config.materials.map((material) => [material.id, material]));
-  const issues: ValidationIssue[] = [];
+  const skillIds = new Set(config.skills.map((skill) => skill.id));
 
-  for (const item of config.items) {
-    const entity = { entityType: 'item', entityId: item.id, entityName: item.name };
+  return config.items.flatMap((item) => {
+    const slotIssues = itemSlotIssues(item, equipmentSlotTypes);
+    const materialIssues = itemMaterialIssues(item, materialsById);
+    const skillBonusIssues = itemSkillBonusIssues(item, skillIds);
 
-    if (item.equipmentSlotType && !equipmentSlotTypes.has(item.equipmentSlotType)) {
-      issues.push({
-        severity: 'error',
-        category: 'Reference Validation',
-        message: `Item "${item.name}" references non-existent equipment slot type: ${item.equipmentSlotType}`,
-        ...entity,
-      });
-    }
-
-    if (item.materialId && !materialsById.has(item.materialId)) {
-      issues.push({
-        severity: 'error',
-        category: 'Reference Validation',
-        message: `Item "${item.name}" references non-existent material ID: ${item.materialId}`,
-        ...entity,
-      });
-    }
-
-    // A level on a material that is itself missing is already reported above; naming the level too
-    // would be two messages about one broken pointer
-    const material = item.materialId ? materialsById.get(item.materialId) : undefined;
-    if (material && item.materialLevel !== undefined) {
-      const levelExists = material.levels.some((level) => level.level === item.materialLevel);
-      if (!levelExists) {
-        issues.push({
-          severity: 'error',
-          category: 'Reference Validation',
-          message: `Item "${item.name}" references non-existent material level ${item.materialLevel} for material "${material.name}"`,
-          ...entity,
-        });
-      }
-    }
-  }
-
-  return issues;
+    return [...slotIssues, ...materialIssues, ...skillBonusIssues];
+  });
 }
 
 /**

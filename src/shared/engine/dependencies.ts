@@ -323,11 +323,37 @@ function characterFocusReferences(characters: Character[], skillId: string): Ent
 }
 
 /**
- * Everything pointing at a skill (Concept 02, TICKET-SKL-02, TICKET-SKL-05)
+ * Item templates whose skill vector names a skill (v4 systems/11, TICKET-ITEM-01)
+ *
+ * `inlayBonusReferences`' shape one entity over and pointing the other way: a template's bonus is a
+ * `{ skillId, modifier }` row keyed by **id**, so deleting a skill three templates grant has to be
+ * refused rather than merely survived — the alternative is a User deleting Athletics and every
+ * Battleaxe in the catalog silently granting nothing.
+ *
+ * This is a **config→config** reference, which is why it belongs here beside the two character arms
+ * rather than being left to the validator: `dependencies.ts` is the *before the fact* guard, and a
+ * reference it cannot see is one nobody is warned about.
+ *
+ * One reference per template however many of its rows name the skill — the dialog says *which item*,
+ * and a vector naming one skill twice would say it twice.
+ */
+function itemSkillBonusReferences(config: Configuration, skillId: string): EntityReference[] {
+  return config.items
+    .filter((item) => (item.skillBonuses ?? []).some((bonus) => bonus.skillId === skillId))
+    .map((item) => ({
+      holderKind: 'Item',
+      holderName: item.name,
+      field: 'skillBonuses',
+      holderId: item.id,
+    }));
+}
+
+/**
+ * Everything pointing at a skill (Concept 02, TICKET-SKL-02, TICKET-SKL-05, TICKET-ITEM-01)
  *
  * A `Skill` has no code, so nothing names it in the flat space and it has no own formula to
- * exclude: what points at it is a formula spelling `skills.<name>`, a character's investment, and —
- * since focus skills — a character's picks.
+ * exclude: what points at it is a formula spelling `skills.<name>`, an item template's bonus vector,
+ * a character's investment, and — since focus skills — a character's picks.
  */
 function skillEntityReferences(
   config: Configuration,
@@ -338,6 +364,7 @@ function skillEntityReferences(
 
   return [
     ...(skill ? formulaReferences(config, namesMember('skills', skillMemberName(skill)), id) : []),
+    ...itemSkillBonusReferences(config, id),
     ...characterSkillReferences(characters, id),
     ...characterFocusReferences(characters, id),
   ];

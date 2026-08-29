@@ -126,7 +126,8 @@ export interface StatBreakdown {
   abbreviation: string;
   /**
    * Which column of the sheet this stat is listed under, or undefined when the ruleset grouped it
-   * nowhere (TICKET-STAT-04). Presentation only — `statGroups.ts` is its only reader.
+   * nowhere (TICKET-STAT-04). Presentation only — the two sections read it through
+   * `shared/labelledGroups.ts`, and nothing else reads it at all.
    */
   group?: string;
   isResource: boolean;
