@@ -449,6 +449,29 @@ describe('findReferences', () => {
     );
   });
 
+  it('finds nothing pointing at a spell yet, which is the kind existing early (TICKET-SPL-01)', () => {
+    // `dice-ladder`'s and `inlay`'s situation on the day each was minted. Nothing in a ruleset
+    // names a spell — effect text is prose until TICKET-SPL-03 and no formula can reach one — so
+    // the guard has no possible referrer and always lets the delete through. The referrer arrives
+    // with TICKET-SPL-02's `Character.learnedSpellIds`, and this case is what turns red the day the
+    // arm is left empty behind it.
+    const config = createConfig({
+      spells: [
+        {
+          id: 'acid-splash',
+          name: 'Acid Splash',
+          manaCost: 90,
+          rangeTime: '60f',
+          effectTemplate: '',
+        },
+      ],
+    });
+
+    const found = findReferences({ kind: 'spell', id: 'acid-splash' }, config, [createCharacter()]);
+
+    expect(found).toEqual([]);
+  });
+
   it('finds a race on a character', () => {
     const found = findReferences({ kind: 'race', id: 'dwarf' }, createConfig(), [
       createCharacter(),
@@ -554,7 +577,7 @@ describe('findReferences', () => {
 
   it('finds an inlay through the character who socketed it (TICKET-INV-05)', () => {
     // The arm TICKET-INL-01 shipped empty, filled the moment something could point at a gem.
-    // `inlayReferenceArm.test.ts` is what makes leaving it empty a failure rather than a silence.
+    // `referenceArms.test.ts` is what makes leaving it empty a failure rather than a silence.
     const found = findReferences({ kind: 'inlay', id: 'diamond' }, createConfig(), [
       createCharacter(),
     ]);

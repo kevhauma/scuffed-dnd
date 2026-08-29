@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { Configuration, Curve, DiceLadder, InlayTier } from '../types/config';
+import type { Configuration, Curve, DiceLadder, InlayTier, Spell } from '../types/config';
 import { validateConfiguration } from './validator';
 
 /** A stat with the boring fields filled in */
@@ -1672,6 +1672,76 @@ describe('validateConfiguration', () => {
       const config = createMinimalConfig();
 
       expect(validateConfiguration(config).isValid).toBe(true);
+    });
+  });
+
+  describe('spells (v4 systems/13, TICKET-SPL-01)', () => {
+    /** A ruleset holding one spell, so each case says only what it is about */
+    function withSpells(spells: Spell[]): Configuration {
+      const config = createMinimalConfig();
+      config.spells = spells;
+      return config;
+    }
+
+    const acidSplash: Spell = {
+      id: 'acid-splash',
+      name: 'Acid Splash',
+      manaCost: 90,
+      rangeTime: '60f',
+      effectTemplate: 'lowers the endurance of creatures hit by 3',
+    };
+
+    it('should validate nothing when the ruleset names no spells', () => {
+      const config = createMinimalConfig();
+
+      expect(validateConfiguration(config).isValid).toBe(true);
+    });
+
+    it('should say nothing about a spell, which points at nothing yet', () => {
+      // Effect text is prose until TICKET-SPL-03's attachment point, and a cost is a bare number —
+      // so there is no reference here for the report to resolve
+      const report = validateConfiguration(withSpells([acidSplash]));
+
+      expect(report.isValid).toBe(true);
+      expect(report.errors).toEqual([]);
+      expect(report.warnings).toEqual([]);
+    });
+
+    it('should say nothing about a spell with no cost, no range and no effect', () => {
+      // All three absences are rows the source workbook actually has, so reporting any of them
+      // would put a permanent finding on a correctly imported compendium
+      const unstated: Spell = {
+        id: 'gap',
+        name: 'mighty fortress',
+        rangeTime: '',
+        effectTemplate: '',
+      };
+
+      const report = validateConfiguration(withSpells([unstated]));
+
+      expect(report.isValid).toBe(true);
+      expect(report.warnings).toEqual([]);
+      expect(report.information).toEqual([]);
+    });
+
+    it('should say nothing about two spells sharing a name, which the sheet does', () => {
+      // A `Skill`'s rule (TICKET-SKL-02): nothing reaches a spell from a formula, so two spellings
+      // of one name collide with nothing and are the User's to keep
+      const twin = { ...acidSplash, id: 'acid-splash-2', name: 'Acid Splash' };
+
+      const report = validateConfiguration(withSpells([acidSplash, twin]));
+
+      expect(report.isValid).toBe(true);
+    });
+
+    it('should report two spells sharing an id, which makes a delete ambiguous', () => {
+      const twin = { ...acidSplash, name: 'Acid Splash (variant)' };
+
+      const messages = validateConfiguration(withSpells([acidSplash, twin])).errors.map(
+        (issue) => issue.message
+      );
+
+      expect(messages.some((message) => message.includes('2 spells share the id'))).toBe(true);
     });
   });
 

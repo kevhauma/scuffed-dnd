@@ -26,6 +26,9 @@ vi.mock('../../components/config/materials/MaterialsConfigPanel', () => ({
 vi.mock('../../components/config/inlays/InlaysConfigPanel', () => ({
   InlaysConfigPanel: () => <div data-testid="inlays-config-panel" />,
 }));
+vi.mock('../../components/config/spells/SpellsConfigPanel', () => ({
+  SpellsConfigPanel: () => <div data-testid="spells-config-panel" />,
+}));
 vi.mock('../../components/config/items/ItemsConfigPanel', () => ({
   ItemsConfigPanel: () => <div data-testid="items-config-panel" />,
 }));
@@ -81,6 +84,7 @@ import { MaterialsConfig } from './materials';
 import { RacesConfig } from './races';
 import { RollsConfig } from './rolls';
 import { SkillsConfig } from './skills';
+import { SpellsConfig } from './spells';
 import { StatsConfig } from './stats';
 
 describe('configuration routes', () => {
@@ -166,12 +170,19 @@ describe('configuration routes', () => {
     expect(screen.getByTestId('dice-ladders-config-panel')).toBeDefined();
   });
 
+  it('/config/spells renders the spells panel', () => {
+    render(<SpellsConfig />);
+
+    expect(screen.getByTestId('spells-config-panel')).toBeDefined();
+  });
+
   it('no config route renders the scaffold placeholder copy', () => {
     for (const Page of [
       SkillsConfig,
       StatsConfig,
       MaterialsConfig,
       InlaysConfig,
+      SpellsConfig,
       ItemsConfig,
       EquipmentConfig,
       RacesConfig,

@@ -211,7 +211,8 @@ plus the entity arrays — `stats`, `skills`,
 `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
 `currencyTiers`, the optional `constants` (TICKET-CST-01), `curves` (TICKET-CRV-01),
 `archetypes` (TICKET-ARC-01), `diceLadders` (TICKET-ROLL-03), `rollDefinitions`
-(TICKET-ROLL-05) and `inlays` (TICKET-INL-01) — plus the two **word lists** `creatureSizes` and
+(TICKET-ROLL-05), `inlays` (TICKET-INL-01) and `spells` (TICKET-SPL-01) — plus the two **word
+lists** `creatureSizes` and
 `creatureTypes` (TICKET-RACE-03), which are `string[]` rather than entity arrays and are described
 under `Race` below.
 
@@ -350,6 +351,40 @@ other direction, `inlayBonusReferences`, makes deleting a stat a gem family gran
 **A rung is looked up by `InlayTier.tier`, never by array position.** `tiers` is stored in insertion
 order and a family may skip a rung (the sheet's Zircon has no tenth), so indexing reads the wrong row
 for a family edited out of order and *some* row for a rung that does not exist.
+
+**`Spell` is one entry of the compendium** (TICKET-SPL-01, v4 systems/13):
+`{ id, name, description?, manaCost?, rangeTime, effectTemplate }` on the optional
+`Configuration.spells`. Additive-optional and absent-means-none, `constants`' rule, so it needs no
+`SUPPORTED_SCHEMA_VERSION` bump; an `optional`-presence row in `ENTITY_SPECS` with no `custom`
+checker, since nothing about a spell is nested. Four rules, and three of them are about what the shape
+**permits**:
+
+- **`manaCost` is optional, and absent means the ruleset does not price the spell.** The workbook's
+  `mighty fortress` row has its mana and range **columns swapped**, so its cost cell holds `1 Mile`;
+  under v4 D1 that row is recorded as it stands, which a required `number` makes impossible — the
+  choice would be inventing a cost or dropping the spell, and *never invent a number to fill a
+  required field* is the compendium's own rule. Zircon's blank tenth tier is the same decision one
+  entity over. **This diverges from the ticket's to-be**, which wrote the field required; see its
+  implementation note 1. TICKET-SPL-02 decides what an unpriced spell costs to cast.
+- **`rangeTime` and `effectTemplate` are required strings whose empty value is a real state.** Six of
+  the sheet's range cells are blank and one effect cell is a live `#VERW!` error, which the corpus
+  records as an **empty template with a note** rather than as invented text. Nothing trims, defaults
+  or normalises either — the sheet spells one idea a dozen ways (`60f`, `60 Feet`, `120`, `touch`),
+  and deciding which of them mean the same thing is the User's edit.
+- **Effect text is raw until TICKET-SPL-03.** It becomes template text with formula placeholders at a
+  `spell-effect` attachment point ([v4 D4](../../../docs/v4.0_sheet_parity/overview.md#d4--spell-effect-text-goes-through-the-formula-engine));
+  until that exists, no surface may treat a `{` in it as syntax, and the editor is a plain `Textarea`
+  rather than a `FormulaEditor` — FORM-08's *every formula field ships a preview* lands with the
+  attachment point, since a preview of an expression the engine cannot scope can only be wrong.
+- **Two spells may share a name; two may not share an id.** Nothing reaches a spell from a formula,
+  so a name collides with nothing — a `Skill`'s rule since TICKET-SKL-02, and the sheet does repeat
+  itself. `engine/validator.ts` reports an id collision (`duplicateIdIssues`) and says nothing about a
+  name.
+
+`dependencies.ts` has a `spell` kind whose arm returns **nothing yet** — `dice-ladder`'s and
+`inlay`'s state on the day each was minted, since no ruleset field and no formula names a spell. The
+referrer is TICKET-SPL-02's `Character.learnedSpellIds`, and `shared/engine/referenceArms.test.ts`
+carries a vacuous row for it so that ticket cannot ship the arm empty behind the field.
 
 **`Item` is a template, and since TICKET-ITEM-01 it is a per-skill bonus vector** (v4 systems/11):
 `{ id, name, description, categoryId?, equipmentSlotType?, shop?, skillBonuses? }`. What a template

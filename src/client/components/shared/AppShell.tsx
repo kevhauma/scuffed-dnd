@@ -43,6 +43,9 @@ const CONFIG_NAV = [
   { to: '/config/races', label: 'Races' },
   { to: '/config/archetypes', label: 'Archetypes' },
   { to: '/config/rolls', label: 'Rolls' },
+  // After Rolls rather than beside Items: a spell is what a caster *does*, not something carried
+  // (v4 systems/13)
+  { to: '/config/spells', label: 'Spells' },
   { to: '/config/currency', label: 'Currency' },
   { to: '/config/constants', label: 'Constants' },
   { to: '/config/curves', label: 'Curves' },

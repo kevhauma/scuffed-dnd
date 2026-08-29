@@ -861,6 +861,11 @@ function duplicateIdIssues(config: Configuration): ValidationIssue[] {
       { entityType: 'material', entities: config.materials },
       { entityType: 'materialCategory', entities: config.materialCategories },
       { entityType: 'inlay', entities: config.inlays ?? [] },
+      // Ids only, deliberately: two spells may share a *name* (v4 systems/13, TICKET-SPL-01). The
+      // workbook spells several rows the same way, nothing reaches a spell from a formula, and a
+      // `Skill` already lives under that rule (TICKET-SKL-02) — so a name collision is the User's
+      // to keep and an id collision makes a delete hit whichever comes first
+      { entityType: 'spell', entities: config.spells ?? [] },
       { entityType: 'item', entities: config.items },
       { entityType: 'race', entities: config.races },
       { entityType: 'currencyTier', entities: config.currencyTiers },

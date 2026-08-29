@@ -53,6 +53,7 @@ import type {
   Race,
   RollDefinition,
   Skill,
+  Spell,
   Stat,
 } from '#shared/types/config';
 import { ApiError } from '../services/api';
@@ -246,6 +247,20 @@ interface ConfigState {
   addInlay: (inlay: Inlay) => void;
   updateInlay: (id: string, updates: Partial<Inlay>) => void;
   deleteInlay: (id: string, options?: DeleteOptions) => EntityReference[];
+
+  /**
+   * Spells CRUD (v4 systems/13, TICKET-SPL-01)
+   *
+   * `spells` is optional and absent means none, so `addSpell` creates the array rather than a fresh
+   * ruleset carrying an empty one — `constants`' and `inlays`' rule.
+   *
+   * The delete is guarded through the same surface as every other one and — like `deleteInlay`
+   * before TICKET-INV-05 — nothing can point at a spell yet, so it always succeeds. What gives the
+   * guard something to find is TICKET-SPL-02's `Character.learnedSpellIds`.
+   */
+  addSpell: (spell: Spell) => void;
+  updateSpell: (id: string, updates: Partial<Spell>) => void;
+  deleteSpell: (id: string, options?: DeleteOptions) => EntityReference[];
 
   // Items CRUD
   addItem: (item: Item) => void;
@@ -1132,6 +1147,44 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     guardedDelete(set, get, 'inlay', id, options, (config) => ({
       ...config,
       inlays: (config.inlays ?? []).filter((inlay) => inlay.id !== id),
+    })),
+
+  // Spells CRUD (v4 systems/13, TICKET-SPL-01)
+  addSpell: (spell: Spell) => {
+    const { config } = get();
+    if (!config) return;
+
+    // A spell leaves `description` and `manaCost` unset more often than not — the sheet has no
+    // description column at all, and one row's cost is unreadable — so the empty keys are dropped
+    // rather than stored, `addInlay`'s and `addRace`'s rule
+    const seeded = mergeClearingAbsent(spell, {});
+
+    const updated = autoSave({
+      ...config,
+      spells: [...(config.spells ?? []), seeded],
+    });
+    set({ config: updated });
+  },
+
+  updateSpell: (id: string, updates: Partial<Spell>) => {
+    const { config } = get();
+    if (!config) return;
+
+    // `mergeClearingAbsent` because two fields are optional: clearing the description or the mana
+    // cost in the panel has to delete the key rather than store `""` or `NaN`
+    const updated = autoSave({
+      ...config,
+      spells: (config.spells ?? []).map((spell) =>
+        spell.id === id ? mergeClearingAbsent(spell, updates) : spell
+      ),
+    });
+    set({ config: updated });
+  },
+
+  deleteSpell: (id: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, 'spell', id, options, (config) => ({
+      ...config,
+      spells: (config.spells ?? []).filter((spell) => spell.id !== id),
     })),
 
   // Items CRUD

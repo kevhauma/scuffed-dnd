@@ -24,6 +24,7 @@ import type {
   Race,
   RollDefinition,
   Skill,
+  Spell,
   Stat,
 } from '#shared/types/config';
 import * as storage from '../services/storage';
@@ -949,6 +950,117 @@ describe('ConfigStore', () => {
       );
 
       expect(importConfiguration(exported).inlays).toEqual([zircon]);
+    });
+  });
+
+  describe('Spells CRUD (v4 systems/13, TICKET-SPL-01)', () => {
+    /** A plain row of the workbook: priced, ranged, with effect text and no description */
+    const acidSplash: Spell = {
+      id: 'acid-splash',
+      name: 'Acid Splash',
+      manaCost: 90,
+      rangeTime: '60f',
+      effectTemplate: 'lowers the endurance of creatures hit by 3',
+    };
+
+    beforeEach(() => {
+      useConfigStore.getState().initializeConfig('Test');
+      vi.clearAllMocks();
+    });
+
+    it('should mint a fresh ruleset with no spells key at all', () => {
+      // Absent means none, like `constants`, `curves` and `inlays` — a fresh ruleset does not grow
+      // an empty array it would then round-trip
+      expect(useConfigStore.getState().config?.spells).toBeUndefined();
+    });
+
+    it('should add a spell and persist it', () => {
+      useConfigStore.getState().addSpell(acidSplash);
+
+      const { config } = useConfigStore.getState();
+      expect(config?.spells).toEqual([acidSplash]);
+      expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+
+    it('should drop an unstated description and cost on the way in rather than storing empty keys', () => {
+      const bare: Spell = { ...acidSplash, description: undefined, manaCost: undefined };
+
+      useConfigStore.getState().addSpell(bare);
+
+      const stored = useConfigStore.getState().config?.spells?.[0];
+      expect(stored).not.toHaveProperty('description');
+      expect(stored).not.toHaveProperty('manaCost');
+    });
+
+    it('should delete the cost key when the price is cleared', () => {
+      // The panel says *this ruleset does not price the spell* with an explicit `undefined`, and
+      // the action has to remove the key rather than leave it present and empty
+      useConfigStore.getState().addSpell(acidSplash);
+      vi.clearAllMocks();
+
+      useConfigStore.getState().updateSpell('acid-splash', { manaCost: undefined });
+
+      const stored = useConfigStore.getState().config?.spells?.[0];
+      expect(stored).not.toHaveProperty('manaCost');
+      expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+
+    it('should keep an empty range and an empty effect exactly as given', () => {
+      // Both are real states of the source workbook, and neither may be turned into a placeholder
+      const unstated: Spell = { ...acidSplash, rangeTime: '', effectTemplate: '' };
+
+      useConfigStore.getState().addSpell(unstated);
+
+      const stored = useConfigStore.getState().config?.spells?.[0];
+      expect(stored?.rangeTime).toBe('');
+      expect(stored?.effectTemplate).toBe('');
+    });
+
+    it('should edit a spell in place, leaving the rest of the compendium alone', () => {
+      const fireball: Spell = {
+        id: 'fireball',
+        name: 'Fireball',
+        manaCost: 150,
+        rangeTime: '150 Feet',
+        effectTemplate: 'takes 11 fire damage',
+      };
+      useConfigStore.getState().addSpell(acidSplash);
+      useConfigStore.getState().addSpell(fireball);
+
+      useConfigStore.getState().updateSpell('fireball', { manaCost: 180 });
+
+      const spells = useConfigStore.getState().config?.spells;
+      expect(spells?.[0]).toEqual(acidSplash);
+      expect(spells?.[1].manaCost).toBe(180);
+    });
+
+    it('should delete a spell, since nothing can point at one yet', () => {
+      useConfigStore.getState().addSpell(acidSplash);
+      vi.clearAllMocks();
+
+      const references = useConfigStore.getState().deleteSpell('acid-splash');
+
+      expect(references).toEqual([]);
+      expect(useConfigStore.getState().config?.spells).toEqual([]);
+      expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+
+    it('should round-trip an unpriced spell through export and import', () => {
+      // `mighty fortress`'s shape: the workbook has its mana and range columns swapped, so it has
+      // no readable cost and the compendium records the gap rather than inventing a number
+      const unpriced: Spell = {
+        id: 'mighty-fortress',
+        name: 'mighty fortress',
+        rangeTime: '270',
+        effectTemplate: '',
+      };
+      useConfigStore.getState().addSpell(unpriced);
+
+      const exported = JSON.stringify(
+        toStoredConfiguration(useConfigStore.getState().config as Configuration)
+      );
+
+      expect(importConfiguration(exported).spells).toEqual([unpriced]);
     });
   });
 

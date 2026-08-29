@@ -20,6 +20,7 @@ import { Route as ConfigIndexRouteImport } from './routes/config/index'
 import { Route as PlayCreateRouteImport } from './routes/play/create'
 import { Route as JoinCodeRouteImport } from './routes/join.$code'
 import { Route as ConfigStatsRouteImport } from './routes/config/stats'
+import { Route as ConfigSpellsRouteImport } from './routes/config/spells'
 import { Route as ConfigSkillsRouteImport } from './routes/config/skills'
 import { Route as ConfigRollsRouteImport } from './routes/config/rolls'
 import { Route as ConfigRacesRouteImport } from './routes/config/races'
@@ -86,6 +87,11 @@ const JoinCodeRoute = JoinCodeRouteImport.update({
 const ConfigStatsRoute = ConfigStatsRouteImport.update({
   id: '/config/stats',
   path: '/config/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfigSpellsRoute = ConfigSpellsRouteImport.update({
+  id: '/config/spells',
+  path: '/config/spells',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfigSkillsRoute = ConfigSkillsRouteImport.update({
@@ -167,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/config/races': typeof ConfigRacesRoute
   '/config/rolls': typeof ConfigRollsRoute
   '/config/skills': typeof ConfigSkillsRoute
+  '/config/spells': typeof ConfigSpellsRoute
   '/config/stats': typeof ConfigStatsRoute
   '/join/$code': typeof JoinCodeRoute
   '/play/create': typeof PlayCreateRoute
@@ -192,6 +199,7 @@ export interface FileRoutesByTo {
   '/config/races': typeof ConfigRacesRoute
   '/config/rolls': typeof ConfigRollsRoute
   '/config/skills': typeof ConfigSkillsRoute
+  '/config/spells': typeof ConfigSpellsRoute
   '/config/stats': typeof ConfigStatsRoute
   '/join/$code': typeof JoinCodeRoute
   '/play/create': typeof PlayCreateRoute
@@ -218,6 +226,7 @@ export interface FileRoutesById {
   '/config/races': typeof ConfigRacesRoute
   '/config/rolls': typeof ConfigRollsRoute
   '/config/skills': typeof ConfigSkillsRoute
+  '/config/spells': typeof ConfigSpellsRoute
   '/config/stats': typeof ConfigStatsRoute
   '/join/$code': typeof JoinCodeRoute
   '/play/create': typeof PlayCreateRoute
@@ -245,6 +254,7 @@ export interface FileRouteTypes {
     | '/config/races'
     | '/config/rolls'
     | '/config/skills'
+    | '/config/spells'
     | '/config/stats'
     | '/join/$code'
     | '/play/create'
@@ -270,6 +280,7 @@ export interface FileRouteTypes {
     | '/config/races'
     | '/config/rolls'
     | '/config/skills'
+    | '/config/spells'
     | '/config/stats'
     | '/join/$code'
     | '/play/create'
@@ -295,6 +306,7 @@ export interface FileRouteTypes {
     | '/config/races'
     | '/config/rolls'
     | '/config/skills'
+    | '/config/spells'
     | '/config/stats'
     | '/join/$code'
     | '/play/create'
@@ -321,6 +333,7 @@ export interface RootRouteChildren {
   ConfigRacesRoute: typeof ConfigRacesRoute
   ConfigRollsRoute: typeof ConfigRollsRoute
   ConfigSkillsRoute: typeof ConfigSkillsRoute
+  ConfigSpellsRoute: typeof ConfigSpellsRoute
   ConfigStatsRoute: typeof ConfigStatsRoute
   JoinCodeRoute: typeof JoinCodeRoute
   PlayCreateRoute: typeof PlayCreateRoute
@@ -406,6 +419,13 @@ declare module '@tanstack/react-router' {
       path: '/config/stats'
       fullPath: '/config/stats'
       preLoaderRoute: typeof ConfigStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/config/spells': {
+      id: '/config/spells'
+      path: '/config/spells'
+      fullPath: '/config/spells'
+      preLoaderRoute: typeof ConfigSpellsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/config/skills': {
@@ -513,6 +533,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConfigRacesRoute: ConfigRacesRoute,
   ConfigRollsRoute: ConfigRollsRoute,
   ConfigSkillsRoute: ConfigSkillsRoute,
+  ConfigSpellsRoute: ConfigSpellsRoute,
   ConfigStatsRoute: ConfigStatsRoute,
   JoinCodeRoute: JoinCodeRoute,
   PlayCreateRoute: PlayCreateRoute,

@@ -65,7 +65,7 @@ rather than a read-only config UI).
 |---|---|---|
 | `/` | `routes/index.tsx` | landing page, feature overview |
 | `/rulesets` | `routes/rulesets.tsx` | `RulesetsPanel` (components/rulesets/) — **Configuration mode's entry point** since TICKET-RUL-01: the two homes a ruleset can live in, *this browser* and *your account*, never merged (v3 Req 36.8). **Deliberately not protected** — signed out it is the local row plus a sign-in prompt (v3 Req 36.1) |
-| `/config` | `routes/config/index.tsx` | `ConfigDashboard` (components/config/dashboard/) — validation status, the "Validate Configuration" action, the `ConfigTransferPanel` (rename/export/import), and a card index of the twelve sections below |
+| `/config` | `routes/config/index.tsx` | `ConfigDashboard` (components/config/dashboard/) — validation status, the "Validate Configuration" action, the `ConfigTransferPanel` (rename/export/import), and a card index of the `/config/*` sections below |
 | `/config/skills` | `routes/config/skills.tsx` | `SkillsPanel` alone (main skills merged into stats — TICKET-STAT-01; the speciality panel became the weighted `SkillsPanel` — TICKET-SKL-02; the combat panel moved to `/config/rolls` as roll definitions — TICKET-ROLL-06) |
 | `/config/stats` | `routes/config/stats.tsx` | `StatsConfigPanel` — the unified Stat: invested, resource and derived alike, every field in one editor with drag/arrow reordering (TICKET-STAT-02). The flat point-budget field is gone — TICKET-RES-02 derives it |
 | `/config/materials` | `routes/config/materials.tsx` | `MaterialsConfigPanel` |
@@ -74,6 +74,7 @@ rather than a read-only config UI).
 | `/config/races` | `routes/config/races.tsx` | `RacesConfigPanel` — and, in its `headerExtra`, the ruleset's two **creature reference lists** (sizes and types) through `ReferenceListEditor` (TICKET-RACE-03). They live on this route rather than one of their own because they exist for the pickers on the race form; there is no `/config/creatures` and adding one would be a page with two word lists on it |
 | `/config/archetypes` | `routes/config/archetypes.tsx` | `ArchetypesConfigPanel` — what a character is good at growing: `main`/`sub`/`non` per stat, which selects a `point_buy` column (TICKET-ARC-01) |
 | `/config/rolls` | `routes/config/rolls.tsx` | `RollsConfigPanel` + `DiceLaddersConfigPanel` (TICKET-ROLL-05) — a roll is an input formula fed down a ladder; the two are separate entities, so two panels, like `/config/items` and `/config/skills` |
+| `/config/spells` | `routes/config/spells.tsx` | `SpellsConfigPanel` (TICKET-SPL-01) — the compendium: name, mana cost, range/time and raw effect text per spell. **The only config panel that narrows before it draws**, because the source workbook has 418 of them: `useSpellManager` filters by a name search and then slices one page of 25, and the header counts the whole match rather than the page. Copy that pair rather than a bespoke list the day another entity arrives in the hundreds |
 | `/config/currency` | `routes/config/currency.tsx` | `CurrencyConfigPanel` (which renders `ConversionCalculator` once tiers exist) |
 | `/config/constants` | `routes/config/constants.tsx` | `ConstantsConfigPanel` — named tunables (`const.*`), each card listing the formulas that name it |
 | `/config/curves` | `routes/config/curves.tsx` | `CurvesConfigPanel` — progressions as editable tables (`curve.*(x)`), with per-cell override highlighting and a regenerate action (TICKET-CRV-03) |
@@ -135,7 +136,7 @@ change also exists (v3 Req 33.8).
 
 | Store | Owns | Persists to |
 |---|---|---|
-| `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), skills, roll definitions, dice ladders, materials + categories, **inlays** (TICKET-INL-01 — gem families, whose tiers are written through `updateInlay` with the whole ladder, like a material's levels), items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
+| `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), skills, roll definitions, dice ladders, materials + categories, **inlays** (TICKET-INL-01 — gem families, whose tiers are written through `updateInlay` with the whole ladder, like a material's levels), **spells** (TICKET-SPL-01 — the compendium; `updateSpell` clears the optional `description` and `manaCost` through `mergeClearingAbsent`), items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
 | `useCharacterStore` (cont.) | `tableCharacter` + `tableSessionId` + `tableCharacterOwnerId` + `isActing` + `actionError`, and `openTableCharacter` / `closeTableCharacter` / `dismissActionError` (TICKET-PLY-01; `tableSessionId` is ROLL-07's, read by the session-scoped roll log; `tableCharacterOwnerId` is DM-01's, and is how the sheet tells the DM's view from the Player's without a second request) — **the one character open at a game session**, held apart from `characters` because that list is LocalStorage's and a session character must never land in it (v3 Req 36.2). Every existing write action keeps its signature and gains one line: `toTable(...)` sends the named intent to the server when the id is this one's, otherwise the Kernel rule runs locally. `selectCharacter(state, id)` is the exported reader both the sheet and the inventory panel use | server, via `services/characterSync.ts` |
 | `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `buildItem`, `discardItem` — four since TICKET-INV-06, where the derived Backpack collapsed `addMiscItem`/`removeMiscItem`/`moveItemToMisc`/`moveItemToEquipment` into them), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience` (the rule is the Kernel's `dmActions.ts` since TICKET-DM-01, not this store's), `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) — `setFocusSkills(characterId, focusSkillIds, config)` (TICKET-SKL-05 — the whole list of picks at once, refusing more than three or a skill the ruleset has not got, and *reporting* the refusal because the picker has nothing standing in front of it) — and the DM's six, `dmAwardExperience` / `dmDeductExperience` / `dmSetLevel` / `dmSetGrantedPoints` / `dmSetResource` / `dmSetDreamLevel` (TICKET-DM-01, TICKET-RES-04), which are **table-only** and named apart from the Player's own so no call site has to decide which act it is — `updateDreamLevel` is the local half of the last one, refused at a table exactly as `awardExperience` and `setPurse` are. `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
@@ -277,7 +278,12 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   stats the bonus has already moved, which makes double-counting structurally impossible rather
   than merely avoided.
 - `dependencies.ts` — **the reference walker** (TICKET-REF-02): `findReferences(target, config,
-  characters)` → `EntityReference[]`, one case per guarded-delete `ReferenceTargetKind`. Pure over
+  characters)` → `EntityReference[]`. **A `Record<ReferenceTargetKind, walker>` since
+  TICKET-SPL-01**, where it was a fifteen-arm `switch` with a `never` default before: each arm is a
+  named module-level function taking `(id, config, characters)`, `REFERENCE_WALKERS` maps the kind to
+  it, and `findReferences` is a lookup and a call. **Add a kind by adding a row** — the `Record` makes
+  a missing one *and* an invented one a compile error naming the key, where the `never` default caught
+  only the first and only at the bottom of a function. Pure over
   both stores' data; `configStore`'s delete actions call it. Answers "what points at this?"; the
   formula half goes through `validateFormula`, never substring matching. Since TICKET-INL-01 the
   `stat` arm also walks **inlay tier grants** (`inlayBonusReferences`, beside
@@ -285,9 +291,12 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   walk — `composedItemReferences(characters, field, names)` — because all three are pointed at from
   the same place by the same kind of reference: a `ComposedItem` in somebody's inventory naming its
   parts by id. That arm also filled the `inlay` kind INL-01 shipped deliberately empty, and
-  `shared/engine/inlayReferenceArm.test.ts` is what makes leaving it empty a **failure**: the
-  `switch`'s `never` default catches a missing *kind* and says nothing about a new *referrer* to an
-  existing one. Since TICKET-ITEM-01 the `skill` arm walks **item templates' bonus vectors**
+  `shared/engine/referenceArms.test.ts` is what makes leaving one empty a **failure**: the table's
+  exhaustiveness catches a missing *kind* and says nothing about a new *referrer* to an existing one,
+  so that file scans the source per (kind, field) pair and asserts the implication. It carries a
+  **vacuous row for `spell`**, armed for TICKET-SPL-02's `learnedSpellIds`, which is the same
+  arrangement INL-01 made for the socket. Since TICKET-ITEM-01 the `skill` arm walks **item
+  templates' bonus vectors**
   (`itemSkillBonusReferences`) — a config→config reference, so deleting a skill that templates grant
   is refused and names them. **A new field on
   `Character` that names a config entity by id belongs in a case here**, beside `raceIds`,

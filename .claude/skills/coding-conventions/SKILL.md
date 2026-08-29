@@ -211,12 +211,20 @@ Two families of judgement, both concrete here rather than generic.
   hand-written. A new section is `if (!config) return <NoConfigurationNotice />` followed by one
   `<ConfigPanelShell title description actions prerequisites headerExtra blocked onCloseBlocked>`,
   with the list, cards and dialogs as children and `ConfigEmptyState` where a list is empty. All
-  eleven config components compose it — copy
+  config components compose it — copy
   [RacesConfigPanel.tsx](../../../src/client/components/config/races/RacesConfigPanel.tsx).
   If a panel needs something the shell doesn't offer, pass it as `headerExtra` or a child —
   **never add a prop per panel.** The shell exists because eight panels copied the frame and
   `BaseSkillPanel` had already drifted from them (h3 against h4); a shell with a boolean per caller
   would hide that kind of difference instead of sharing the frame.
+- **A panel whose entity arrives in the hundreds narrows before it draws** (TICKET-SPL-01). Most
+  config sections list everything, because a ruleset has nine stats and a couple of dozen materials;
+  the spell compendium has 418 rows, and a flat list of them is a section nobody can find anything
+  in. The shape is a search box in `headerExtra` plus a page slice, both decided in the hook —
+  **filter first, then page**, so the header counts the whole match rather than the page, and typing
+  resets to page 1. Copy
+  [useSpellManager.ts](../../../src/client/components/config/spells/useSpellManager.ts); a panel with
+  four rows does not need it and should not grow it.
 - **Panels don't hold logic.** Store selectors, `react-hook-form` state, and handlers live in the
   `useXManager` hook; the panel destructures the hook and renders. **Every configuration domain now
   follows this** — the last exception, `FocusStatConfig`, was brought into line by TICKET-DX-03 and
@@ -325,6 +333,14 @@ should re-open it.
   where it is the subject: the composition tests name `build-1` because the indirection is the point,
   and `calculator.test.ts` does not because equipment bonuses are. A `holding(...)` / `wielder(...)`
   builder that derives the ids is better than either when a case needs several.
+- **A boundary suite is split per entity, not per layer** (TICKET-SPL-01). `importExport.test.ts`
+  grew one per-entity `describe` per shape ticket until it was 1,522 lines and sixteen blocks; it is
+  now `importExport.<collection>.test.ts` per entity, mirroring `ENTITY_SPECS`, with the service's
+  own contract — required fields, the collection tables, the version gate, the configuration-level
+  retired fields — left in the parent. Two rules make the split stay mechanical: **a whole
+  `describe` moves and a loose `it` does not**, and **a field retired from an *entity* goes with
+  that entity** rather than with the configuration's own retirements. A new `ENTITY_SPECS` row is a
+  new file.
 
 ## Verification
 

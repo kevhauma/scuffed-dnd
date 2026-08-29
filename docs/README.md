@@ -64,5 +64,5 @@ Added by [`v3.0_backend`](./v3.0_backend/overview.md): `SRV` (server runtime and
 `DM` (Dungeon Master controls), `LIVE` (WebSocket transport and live updates).
 
 Added by [`v4.0_sheet_parity`](./v4.0_sheet_parity/overview.md): `INL` (inlays — the socketable gems
-a composed item is made of, minted by TICKET-INL-01), plus `SPL` (spells and casting) and `PAS`
-(passive abilities), both still to be built.
+a composed item is made of, minted by TICKET-INL-01) and `SPL` (spells and casting, minted by
+TICKET-SPL-01), plus `PAS` (passive abilities), still to be built.

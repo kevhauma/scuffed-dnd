@@ -118,6 +118,19 @@ export interface Configuration {
    */
   inlays?: Inlay[];
   /**
+   * The spell compendium — name, mana cost, range/time and effect text (v4 systems/13,
+   * TICKET-SPL-01).
+   *
+   * Optional and **absent means none**, like `constants`, `curves` and `inlays`: a ruleset that
+   * knows no magic round-trips without growing an empty array. Purely additive, so it owes no
+   * `SUPPORTED_SCHEMA_VERSION` bump — nothing moved.
+   *
+   * Which spells a *Player* has unlocked is character state rather than ruleset data
+   * ([D5](../../../docs/v4.0_sheet_parity/overview.md#d5--what-is-deliberately-not-parity)) and
+   * lands in TICKET-SPL-02; the compendium is the whole of what a ruleset carries.
+   */
+  spells?: Spell[];
+  /**
    * The sizes a creature may be — `tiny`, `small`, `medium`, … (v4 systems/14, TICKET-RACE-03).
    *
    * The vocabulary a {@link Race.size} is picked from, and **the User's own words**: the workbook
@@ -470,6 +483,69 @@ export interface InlayTier {
   tier: number;
   /** What the tier grants, keyed by stat id like a material tier's (TICKET-MAT-01) */
   bonuses: StatModifier[];
+}
+
+/**
+ * Spell — one entry of the ruleset's compendium (v4 systems/13, TICKET-SPL-01)
+ *
+ * The new workbook's `background calculations spells ` tab: 418 rows of name, mana cost, range/time
+ * and effect text. This is the **ruleset's** half of that tab and the whole of it — the per-player
+ * `locked`/`Learned` column beside each row is character state, not configuration
+ * ([D5](../../../docs/v4.0_sheet_parity/overview.md#d5--what-is-deliberately-not-parity)), and it
+ * lands with the Spellbook in TICKET-SPL-02.
+ *
+ * **Nothing here is normalised.** The sheet's own spellings are wildly inconsistent and its rows
+ * carry genuine errors, and the milestone's rule is that the sheet wins (v4 D1): a spell with no
+ * range, no effect text or no readable cost is a spell the compendium records as it found it, and
+ * tidying one up is the User's edit rather than the importer's.
+ */
+export interface Spell {
+  id: string; // Stable identity — assigned on creation, never shown, never reused
+  name: string;
+  /**
+   * What the spell is, in the User's own words.
+   *
+   * Optional because the sheet has no such column — every imported spell arrives without one, and a
+   * required field would mean 418 empty strings. Absent means unsaid; `updateSpell` clears the key
+   * rather than storing `""`, {@link Stat.group}'s rule.
+   */
+  description?: string;
+  /**
+   * What casting it spends from the Mana pool.
+   *
+   * **Optional, and absent means the ruleset does not price this spell.** The sheet's costs run
+   * 60–360 in steps of 30 with a handful of outliers, and one row — `mighty fortress` — has its
+   * mana and range **columns swapped**, so its cost cell reads `1 Mile`. That row is recorded as it
+   * stands (v4 D1), which a required `number` makes impossible: the choice would be inventing a
+   * cost or dropping the spell, and *never invent a number to fill a required field* is the
+   * compendium's own rule. So the cost is absent there and the anomaly lives in the fragment's
+   * `notes`, exactly as Zircon's blank tenth tier is a gap rather than a zero (TICKET-INL-01).
+   *
+   * Casting reads it in TICKET-SPL-02, which decides what an unpriced spell costs to cast.
+   */
+  manaCost?: number;
+  /**
+   * How far it reaches and how long it takes, as one free-text phrase — `60f`, `Touch`, `1 mile`.
+   *
+   * **Free text on purpose.** The workbook spells the same idea a dozen ways (`60f`, `60 Feet`,
+   * `120`, `touch`/`Touch`, `self/focus`, `sight`, `on hit`, `/`) and leaves six cells blank; a
+   * parser here would have to decide which spellings are the same thing, which is the User's edit
+   * rather than a rule the app owns. The **empty string is legal** and is what those six blanks are.
+   */
+  rangeTime: string;
+  /**
+   * What the spell does, as text.
+   *
+   * Stored **raw** in this ticket. 326 of the sheet's 418 effect cells are formulas concatenating
+   * prose around computed numbers, and turning those into evaluated placeholders is TICKET-SPL-03's
+   * `spell-effect` attachment point (v4 D4) — until then this is a string nothing parses, so no
+   * surface may treat a `{` in it as syntax.
+   *
+   * **The empty string is legal and is a real state**: `Summon Lesser Demons`'s effect cell is a
+   * live `#VERW!` error in the workbook, and it lands here as an empty template with a note rather
+   * than as invented text.
+   */
+  effectTemplate: string;
 }
 
 /**

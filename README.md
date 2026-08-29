@@ -73,6 +73,8 @@ yarn build
 - Create stats with formula-based calculations
 - Build materials with bonuses and tiers
 - Catalogue gem inlays — families of socketable stones, in tiers of stat grants
+- Keep a spell compendium — cost, range and effect text per spell, searchable and paged so it stays
+  usable at four hundred of them
 - Design items and equipment systems
 - Configure races as stat blocks, with a creature type and size picked from your own lists
 - Set up multi-tier currency systems

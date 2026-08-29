@@ -800,6 +800,25 @@ const ENTITY_SPECS: Record<CollectionKey, EntitySpec> = {
     custom: inlayTierShapeErrors,
   },
 
+  // Optional and absent-means-none (v4 systems/13, TICKET-SPL-01), so a ruleset that knows no magic
+  // imports untouched. **Three of the five fields accept what looks like nothing on purpose**: the
+  // cost may be absent (one workbook row has its mana and range columns swapped, so it has no
+  // readable number and inventing one is worse than recording the gap), and `rangeTime` and
+  // `effectTemplate` accept the empty string, which is what the sheet's six blank range cells and
+  // its one `#VERW!` effect error land as. Nothing here parses the effect text — that is
+  // TICKET-SPL-03's attachment point, and a template is a string until then.
+  spells: {
+    presence: 'optional',
+    fields: {
+      id: must(isNonEmptyText, 'must be a non-empty string'),
+      name: must(isText, 'must be a string'),
+      description: mayBe(isText, 'must be a string when present'),
+      manaCost: mayBe(isFiniteNumber, 'must be a finite number when present'),
+      rangeTime: must(isText, 'must be a string'),
+      effectTemplate: must(isText, 'must be a string'),
+    },
+  },
+
   // Every reference is optional — an item may be plain — but a *present* one has to be a string,
   // or the reference checks in `engine/validator.ts` compare a number against a set of ids and
   // report nothing

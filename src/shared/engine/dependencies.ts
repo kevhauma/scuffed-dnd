@@ -10,8 +10,13 @@
  * the parser (`validateFormula`), never from substring matching, so `STR` inside `STRENGTH` is not
  * a reference and a code named in a comment-free expression is.
  *
- * References are reported in **display** terms — a skill by its code, a stat by its name-slug —
- * because that is the form the in-memory configuration is in (TICKET-REF-01).
+ * References are reported in **display** terms — a stat by its abbreviation or its name-slug, a skill
+ * by `skills.<name-slug>` — because that is the form the in-memory configuration is in
+ * (TICKET-REF-01). This line said *a skill by its code* until TICKET-SPL-01; a `Skill` lost its code
+ * in TICKET-SKL-02 and the last coded entity went with `CombatSkill` in TICKET-ROLL-06.
+ *
+ * The dispatch is a table, not a `switch` — see {@link REFERENCE_WALKERS} for why and for what
+ * adding a kind costs.
  *
  * **Validates: Concept 00 §6; spec §3.2; Requirements 2.5, 2.6, 18.1, 18.3**
  */
@@ -38,6 +43,7 @@ export type ReferenceTargetKind =
   | 'archetype'
   | 'item'
   | 'inlay'
+  | 'spell'
   | 'material'
   | 'material-category'
   | 'equipment-slot'
@@ -46,8 +52,10 @@ export type ReferenceTargetKind =
 /**
  * What is about to be deleted
  *
- * `id` is whatever the matching delete action takes: a **code** for the three skill kinds, a
- * **type** for an equipment slot, and the entity's `id` for everything else.
+ * `id` is whatever the matching delete action takes: a **type** for an equipment slot, and the
+ * entity's own `id` for everything else. It used to say *a code for the three skill kinds* as well;
+ * no entity is addressed by a code any more (TICKET-SKL-02 took a skill's, TICKET-ROLL-06 took the
+ * last of them with `CombatSkill`), so the exception is gone rather than merely unused.
  */
 export interface ReferenceTarget {
   kind: ReferenceTargetKind;
@@ -356,14 +364,16 @@ function itemSkillBonusReferences(config: Configuration, skillId: string): Entit
  * a character's investment, and — since focus skills — a character's picks.
  */
 function skillEntityReferences(
+  id: string,
   config: Configuration,
-  characters: Character[],
-  id: string
+  characters: Character[]
 ): EntityReference[] {
   const skill = config.skills.find((candidate) => candidate.id === id);
+  const memberName = skill ? skillMemberName(skill) : '';
+  const namesSkill = namesMember('skills', memberName);
 
   return [
-    ...(skill ? formulaReferences(config, namesMember('skills', skillMemberName(skill)), id) : []),
+    ...(skill ? formulaReferences(config, namesSkill, id) : []),
     ...itemSkillBonusReferences(config, id),
     ...characterSkillReferences(characters, id),
     ...characterFocusReferences(characters, id),
@@ -372,9 +382,9 @@ function skillEntityReferences(
 
 /** Everything pointing at a stat */
 function statReferences(
+  id: string,
   config: Configuration,
-  characters: Character[],
-  id: string
+  characters: Character[]
 ): EntityReference[] {
   const stat = config.stats.find((candidate) => candidate.id === id);
 
@@ -453,9 +463,9 @@ function composedItemReferences(
 
 /** Everything pointing at an equipment slot type */
 function equipmentSlotReferences(
+  type: string,
   config: Configuration,
-  characters: Character[],
-  type: string
+  characters: Character[]
 ): EntityReference[] {
   const items = config.items
     .filter((item) => item.equipmentSlotType === type)
@@ -478,6 +488,264 @@ function equipmentSlotReferences(
   return [...items, ...players];
 }
 
+/** Formulas naming a constant, which is the only thing that can point at one */
+function constantReferences(id: string, config: Configuration): EntityReference[] {
+  const constant = (config.constants ?? []).find((candidate) => candidate.id === id);
+  if (!constant) return [];
+
+  const namesConstant = namesMember('const', constant.name);
+  return formulaReferences(config, namesConstant, id);
+}
+
+/**
+ * Formulas naming a curve
+ *
+ * A call contributes a namespaced reference like any other, so the same matcher finds `curve.cr(x)`
+ * and `curve.point_buy.main_type(9)` alike (TICKET-CRV-01).
+ */
+function curveReferences(id: string, config: Configuration): EntityReference[] {
+  const curve = (config.curves ?? []).find((candidate) => candidate.id === id);
+  if (!curve) return [];
+
+  const namesCurve = namesMember('curve', curve.name);
+  return formulaReferences(config, namesCurve, id);
+}
+
+/** Formulas reading one value column of a curve (TICKET-CRV-03) */
+function curveColumnReferences(id: string, config: Configuration): EntityReference[] {
+  const owner = (config.curves ?? []).find((candidate) =>
+    candidate.columns.some((column) => column.id === id)
+  );
+  const column = owner?.columns.find((candidate) => candidate.id === id);
+  if (!owner || !column) return [];
+
+  const isOnlyColumn = owner.columns.length === 1;
+  const namesTheColumn = namesColumn(owner.name, column.name, isOnlyColumn);
+  return formulaReferences(config, namesTheColumn, id);
+}
+
+/** Characters whose lineage names a race */
+function raceReferences(
+  id: string,
+  _config: Configuration,
+  characters: Character[]
+): EntityReference[] {
+  return characters
+    .filter((character) => character.raceIds.includes(id))
+    .map((character) => ({
+      holderKind: 'Character',
+      holderName: character.name,
+      field: 'raceIds',
+      holderId: character.id,
+    }));
+}
+
+/**
+ * Characters who have taken an archetype (TICKET-ARC-01)
+ *
+ * Only a character holds one. No formula can name an archetype — affinity is read by the point-buy
+ * routing, not spelled in a formula string — so there is no namespace to scan the way `stat` and
+ * `constant` have.
+ */
+function archetypeReferences(
+  id: string,
+  _config: Configuration,
+  characters: Character[]
+): EntityReference[] {
+  return characters
+    .filter((character) => character.archetypeId === id)
+    .map((character) => ({
+      holderKind: 'Character',
+      holderName: character.name,
+      field: 'archetypeId',
+      holderId: character.id,
+    }));
+}
+
+/**
+ * Roll definitions that decompose down a ladder
+ *
+ * The guard TICKET-ROLL-03 deferred, arriving with the first thing that can point at a ladder. A
+ * definition names one by **id**, so no rename can defeat it, and there is no formula to scan: a
+ * ladder is not spelled in the formula space at all.
+ */
+function diceLadderReferences(id: string, config: Configuration): EntityReference[] {
+  return (config.rollDefinitions ?? [])
+    .filter((roll) => roll.ladderId === id)
+    .map((roll) => ({
+      holderKind: ROLL_HOLDER_KIND,
+      holderName: roll.name,
+      field: 'ladderId',
+      holderId: roll.id,
+    }));
+}
+
+/**
+ * Nothing points at a roll definition, and this says so rather than being forgotten
+ *
+ * No formula can name a roll — there is no `rolls` namespace, because a roll produces dice rather
+ * than a number, and a formula carries no randomness (spec §5). Roll history is session state in
+ * `useUIStore`, so it does not survive to hold a reference either. A roll is a leaf.
+ */
+function rollDefinitionReferences(): EntityReference[] {
+  return [];
+}
+
+/**
+ * Characters holding a build made from a template (TICKET-INV-05)
+ *
+ * A template is pointed at by the **builds made from it**, not by the slots directly:
+ * `equippedItems` holds `ComposedItem.id`s now, so a walk over it would compare a build's id
+ * against a template's and never match.
+ */
+function itemReferences(
+  id: string,
+  _config: Configuration,
+  characters: Character[]
+): EntityReference[] {
+  return composedItemReferences(
+    characters,
+    'inventory.composedItems[].templateId',
+    (composed) => composed.templateId === id
+  );
+}
+
+/**
+ * Characters holding a build socketed with a gem family (TICKET-INV-05)
+ *
+ * Filled by INV-05, which is what INL-01 shipped the kind for: a `ComposedItem` sockets a family by
+ * id, so deleting Diamond under a Player wearing a Diamond 4 axe has to be refused rather than
+ * silently emptying the socket. This is `dice-ladder`'s history repeating — ROLL-03 shipped that
+ * kind unguarded because a check with no possible referrer can never fire, and ROLL-05 filled it the
+ * moment something could point at one.
+ *
+ * The table's exhaustiveness catches a **missing kind** and not a **new referrer to an existing
+ * kind**, so leaving this returning nothing would have compiled, passed and orphaned every socket.
+ * `referenceArms.test.ts` is the check that would have failed instead.
+ */
+function inlayReferences(
+  id: string,
+  _config: Configuration,
+  characters: Character[]
+): EntityReference[] {
+  return composedItemReferences(
+    characters,
+    'inventory.composedItems[].inlayId',
+    (composed) => composed.inlayId === id
+  );
+}
+
+/**
+ * Nothing points at a spell **yet** (v4 systems/13, TICKET-SPL-01)
+ *
+ * `dice-ladder`'s and `inlay`'s state on the day their kinds were minted: the compendium is ruleset
+ * data that no formula spells and no other entity names, so a check here could not fire. The
+ * referrer arrives with TICKET-SPL-02's `Character.learnedSpellIds`, at which point deleting a spell
+ * three Players have learned must be refused rather than leaving three stale ids behind — and the
+ * table below cannot notice that on its own, because exhaustiveness is over *kinds*, not over
+ * referrers. The arm exists now so that ticket has a place to put the walk instead of a decision to
+ * make.
+ */
+function spellReferences(): EntityReference[] {
+  return [];
+}
+
+/**
+ * Characters holding a build made of a material (TICKET-INV-05)
+ *
+ * Was a walk over `config.items` until INV-05 retired the template's fused `materialId`. What a
+ * thing is made of is a fact about the built thing, so the holders are the Players who built one —
+ * the `inlay` arm's shape exactly, which is why they share a walk.
+ */
+function materialReferences(
+  id: string,
+  _config: Configuration,
+  characters: Character[]
+): EntityReference[] {
+  return composedItemReferences(
+    characters,
+    'inventory.composedItems[].materialId',
+    (composed) => composed.materialId === id
+  );
+}
+
+/** Materials filed under a category */
+function materialCategoryReferences(id: string, config: Configuration): EntityReference[] {
+  return config.materials
+    .filter((material) => material.categoryId === id)
+    .map((material) => ({
+      holderKind: 'Material',
+      holderName: material.name,
+      field: 'categoryId',
+      holderId: material.id,
+    }));
+}
+
+/** Material tiers priced in a currency tier */
+function currencyTierReferences(id: string, config: Configuration): EntityReference[] {
+  const levels = materialLevels(config);
+
+  return levels
+    .filter(({ level }) => level.value.tierId === id)
+    .map(({ materialId, materialName, level }) => ({
+      holderKind: 'Material',
+      holderName: `${materialName} — ${level.name}`,
+      field: `levels[${level.level}].value.tierId`,
+      holderId: materialId,
+    }));
+}
+
+/**
+ * One kind's walk: everything pointing at the entity that id names
+ *
+ * The arms take the id **first** so that the ones needing no configuration or no characters can be
+ * written with the parameters they actually use and still sit in the table unadapted.
+ */
+type ReferenceWalker = (
+  id: string,
+  config: Configuration,
+  characters: Character[]
+) => EntityReference[];
+
+/**
+ * One walk per {@link ReferenceTargetKind} — the dispatch table this was always written as
+ *
+ * It was a fifteen-case `switch` with a `never` default until TICKET-SPL-01, and the `switch` was
+ * the file's entire complexity: `findReferences` measured **24 cyclomatic** while every arm inside
+ * it measured one or two, so each new kind made the *dispatcher* more expensive rather than the
+ * walk. [TEST_STATUS.md](../../../TEST_STATUS.md)'s hotspot row named the trigger three tickets
+ * running — *a ticket that has to change `EntityReference`'s shape or the `ReferenceTargetKind`
+ * union* — and adding `spell` to the union is it.
+ *
+ * **The exhaustiveness is stronger than the `never` default it replaces, not weaker.** A `Record`
+ * keyed by the union refuses a literal that omits a kind *and* one that invents a key, both at the
+ * declaration and both naming the key — where the old default caught a missing case only at the
+ * bottom of a function, as a thrown error the type system merely predicted.
+ *
+ * What it still cannot catch is a **new referrer to an existing kind**: an arm that should have
+ * grown a walk and returned nothing instead type-checks perfectly. That is what
+ * `referenceArms.test.ts` exists for, and why {@link spellReferences} carries its handoff in
+ * prose rather than in a comment on a `case`.
+ */
+const REFERENCE_WALKERS: Record<ReferenceTargetKind, ReferenceWalker> = {
+  skill: skillEntityReferences,
+  stat: statReferences,
+  constant: constantReferences,
+  curve: curveReferences,
+  'curve-column': curveColumnReferences,
+  race: raceReferences,
+  archetype: archetypeReferences,
+  'dice-ladder': diceLadderReferences,
+  'roll-definition': rollDefinitionReferences,
+  item: itemReferences,
+  inlay: inlayReferences,
+  spell: spellReferences,
+  material: materialReferences,
+  'material-category': materialCategoryReferences,
+  'equipment-slot': equipmentSlotReferences,
+  'currency-tier': currencyTierReferences,
+};
+
 /**
  * Find everything that points at an entity
  *
@@ -491,147 +759,7 @@ export function findReferences(
   config: Configuration,
   characters: Character[] = []
 ): EntityReference[] {
-  switch (target.kind) {
-    case 'skill':
-      return skillEntityReferences(config, characters, target.id);
+  const walk = REFERENCE_WALKERS[target.kind];
 
-    case 'stat':
-      return statReferences(config, characters, target.id);
-
-    case 'constant': {
-      const constant = (config.constants ?? []).find((candidate) => candidate.id === target.id);
-      return constant
-        ? formulaReferences(config, namesMember('const', constant.name), target.id)
-        : [];
-    }
-
-    case 'curve': {
-      const curve = (config.curves ?? []).find((candidate) => candidate.id === target.id);
-      // A call contributes a namespaced reference like any other, so the same matcher finds
-      // `curve.cr(x)` and `curve.point_buy.main_type(9)` alike (TICKET-CRV-01)
-      return curve ? formulaReferences(config, namesMember('curve', curve.name), target.id) : [];
-    }
-
-    case 'curve-column': {
-      const owner = (config.curves ?? []).find((candidate) =>
-        candidate.columns.some((column) => column.id === target.id)
-      );
-      const column = owner?.columns.find((candidate) => candidate.id === target.id);
-      if (!owner || !column) return [];
-
-      return formulaReferences(
-        config,
-        namesColumn(owner.name, column.name, owner.columns.length === 1),
-        target.id
-      );
-    }
-
-    case 'race':
-      return characters
-        .filter((character) => character.raceIds.includes(target.id))
-        .map((character) => ({
-          holderKind: 'Character',
-          holderName: character.name,
-          field: 'raceIds',
-          holderId: character.id,
-        }));
-
-    case 'archetype':
-      // Only a character holds one (TICKET-ARC-01). No formula can name an archetype — affinity
-      // is read by the point-buy routing, not spelled in a formula string — so there is no
-      // namespace to scan the way `stat` and `constant` have.
-      return characters
-        .filter((character) => character.archetypeId === target.id)
-        .map((character) => ({
-          holderKind: 'Character',
-          holderName: character.name,
-          field: 'archetypeId',
-          holderId: character.id,
-        }));
-
-    case 'dice-ladder':
-      // The guard TICKET-ROLL-03 deferred, arriving with the first thing that can point at a
-      // ladder. A definition names one by **id**, so no rename can defeat it, and there is no
-      // formula to scan: a ladder is not spelled in the formula space at all.
-      return (config.rollDefinitions ?? [])
-        .filter((roll) => roll.ladderId === target.id)
-        .map((roll) => ({
-          holderKind: ROLL_HOLDER_KIND,
-          holderName: roll.name,
-          field: 'ladderId',
-          holderId: roll.id,
-        }));
-
-    case 'roll-definition':
-      // Deliberately nothing. No formula can name a roll — there is no `rolls` namespace, because
-      // a roll produces dice rather than a number, and a formula carries no randomness (spec §5).
-      // Roll history is session state in `useUIStore`, so it does not survive to hold a reference
-      // either. A roll is a leaf, and this case exists to say so rather than to be forgotten.
-      return [];
-
-    case 'item':
-      // A template is pointed at by the **builds made from it** (TICKET-INV-05), not by the slots
-      // directly: `equippedItems` holds `ComposedItem.id`s now, so a walk over it would compare a
-      // build's id against a template's and never match.
-      return composedItemReferences(
-        characters,
-        'inventory.composedItems[].templateId',
-        (composed) => composed.templateId === target.id
-      );
-
-    case 'inlay':
-      // Filled by TICKET-INV-05, which is what INL-01 shipped the kind for: a `ComposedItem` sockets
-      // a family by id, so deleting Diamond under a Player wearing a Diamond 4 axe has to be refused
-      // rather than silently emptying the socket. This is `dice-ladder`'s history repeating —
-      // ROLL-03 shipped that kind unguarded because a check with no possible referrer can never
-      // fire, and ROLL-05 filled it the moment something could point at one.
-      //
-      // The `switch`'s `never` default catches a **missing kind** and not a **new referrer to an
-      // existing kind**, so leaving this at `return []` would have compiled, passed and orphaned
-      // every socket. `inlayReferenceArm.test.ts` is the check that would have failed instead.
-      return composedItemReferences(
-        characters,
-        'inventory.composedItems[].inlayId',
-        (composed) => composed.inlayId === target.id
-      );
-
-    case 'material':
-      // Was a walk over `config.items` until TICKET-INV-05 retired the template's fused
-      // `materialId`. What a thing is made of is a fact about the built thing, so the holders are
-      // the Players who built one — the `inlay` arm's shape exactly, which is why they share a walk.
-      return composedItemReferences(
-        characters,
-        'inventory.composedItems[].materialId',
-        (composed) => composed.materialId === target.id
-      );
-
-    case 'material-category':
-      return config.materials
-        .filter((material) => material.categoryId === target.id)
-        .map((material) => ({
-          holderKind: 'Material',
-          holderName: material.name,
-          field: 'categoryId',
-          holderId: material.id,
-        }));
-
-    case 'equipment-slot':
-      return equipmentSlotReferences(config, characters, target.id);
-
-    case 'currency-tier':
-      return materialLevels(config)
-        .filter(({ level }) => level.value.tierId === target.id)
-        .map(({ materialId, materialName, level }) => ({
-          holderKind: 'Material',
-          holderName: `${materialName} — ${level.name}`,
-          field: `levels[${level.level}].value.tierId`,
-          holderId: materialId,
-        }));
-
-    default: {
-      // TypeScript exhaustiveness check — a new target kind is a new case, not a fallthrough
-      const _exhaustive: never = target.kind;
-      throw new Error(`Unknown reference target kind: ${_exhaustive}`);
-    }
-  }
+  return walk(target.id, config, characters);
 }
