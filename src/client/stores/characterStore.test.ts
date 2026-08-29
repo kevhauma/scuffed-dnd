@@ -1555,4 +1555,55 @@ describe('CharacterStore', () => {
       expect(storage.saveCharacters).not.toHaveBeenCalled();
     });
   });
+
+  describe('Dream level (TICKET-RES-04)', () => {
+    beforeEach(() => {
+      useCharacterStore.setState({
+        characters: [
+          {
+            id: 'char1',
+            name: 'Test',
+            configurationId: 'config1',
+            raceIds: [],
+            investedStatPoints: {},
+            investedSkillPoints: {},
+            currentResourceValues: {},
+            experience: 0,
+            inventory: { equippedItems: {}, miscItems: [] },
+            createdAt: '2024-01-01',
+            updatedAt: '2024-01-01',
+          },
+        ],
+        isLoaded: true,
+        actionError: null,
+      });
+      vi.clearAllMocks();
+    });
+
+    const storedOf = () => useCharacterStore.getState().characters[0].dreamLevel;
+
+    it('should write the level and persist it, from a character that never had one', () => {
+      expect(storedOf()).toBeUndefined();
+
+      useCharacterStore.getState().updateDreamLevel('char1', 3);
+
+      expect(storedOf()).toBe(3);
+      expect(storage.saveCharacters).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([0, -1, 1.5])('should refuse %s, writing nothing and saying why', (level) => {
+      // The Kernel's refusal, surfaced: a clamp would leave the Player believing it landed
+      useCharacterStore.getState().updateDreamLevel('char1', level);
+
+      expect(storedOf()).toBeUndefined();
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+      expect(useCharacterStore.getState().actionError).toContain('dream level');
+    });
+
+    it('should write nothing for an unknown character', () => {
+      useCharacterStore.getState().updateDreamLevel('nope', 4);
+
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -120,7 +120,8 @@ invisible rows forever. Two things follow:
 
 Two consequences worth holding on to before changing a persisted shape:
 
-- **A document change is not a migration.** Adding `grantedStatPoints` (DM-01) or `purse` (CUR-02)
+- **A document change is not a migration.** Adding `grantedStatPoints` (DM-01), `purse` (CUR-02) or
+  `dreamLevel` (RES-04)
   changes what is *inside* `character.data` and `ruleset.data`, which are `TEXT` columns. The rules
   in *Changing a persisted shape* below are the ones that apply — not a SQL file.
 
@@ -497,7 +498,7 @@ derived too** — TICKET-SKL-03 added `skillContributions`, one already-multipli
 redoing the arithmetic. When a surface needs to show how a number was reached, widen the calculator's
 return rather than recomputing the terms at the render site. If you find yourself wanting to store a
 computed number on `Character`, the answer is a recalculation call at read time instead. There are
-exactly **four** deliberate exceptions. `currentResourceValues` — the player's *current* HP/mana,
+exactly **five** deliberate exceptions. `currentResourceValues` — the player's *current* HP/mana,
 which is state, not derivation (its maximum is derived; its current value is not). **Only `isResource` stats appear
 there**, and the store action enforces it: a stat you cannot spend has no current distinct from
 its value, which is what v1 got wrong by giving every stat one.
@@ -558,6 +559,28 @@ derives it: *"the DM gave you three points"* is new information, the same test t
   through `validateStatAllocation`, never by arithmetic. Raising a grant is never refused.
 - **No `SUPPORTED_SCHEMA_VERSION` bump**, for `purse`'s reason: additive-optional, absent on every
   stored roster, and `CHARACTER_FIELDS` in `characterShape.ts` deliberately does not require it.
+
+And **`dreamLevel`** (TICKET-RES-04, v4 systems/02) — *"how far you stand in your dream"*, the new
+workbook's identity block. The fifth exception, on `experience`'s exact test: **nothing derives it**,
+and the archetype gains derive *from* it (a **main**-affinity stat's gain is the point-table value
+**× dream**, a **sub**-affinity stat's is **+ dream** even at zero points — TICKET-ARC-04).
+
+- **Optional, and absent means 1** — not 0, because the role is multiplicative and 1 is the neutral
+  value the sheet's own sample shows. **The default is the reader's rule, not a stored backfill**:
+  read it through `dreamLevelOf` in
+  [engine/dreamLevel.ts](../../../src/shared/engine/dreamLevel.ts), never `character.dreamLevel ?? 1`
+  at a call site, so the header, the gain formula and the DM's before/after cannot disagree. A stored
+  number is returned as it stands and never repaired — only the setter writes this field, so a clamp
+  in the reader would be a second rule competing silently with the refusal.
+- **The DM raises it, as an action** (User ruling, 2026-08-29): `setDreamLevel` in
+  [dmActions.ts](../../../src/shared/services/dmActions.ts), beside the experience pair, called by
+  `characterStore.dmSetDreamLevel` at a table and `updateDreamLevel` locally (signed out there is no
+  DM — `awardExperience`'s precedent). **Below 1 is refused and the refusal names the floor**, whole
+  numbers only; a clamp would silently zero every main-affinity gain.
+- **No `SUPPORTED_SCHEMA_VERSION` bump**, for `grantedStatPoints`' reason: additive-optional, absent
+  on every stored roster, and not in `CHARACTER_FIELDS`. v4.0's single milestone-wide bump
+  ([D6](../../../docs/v4.0_sheet_parity/overview.md#d6--no-backwards-compatibility-v40-is-a-clean-break-user-2026-08-29))
+  belongs to whichever reshaping ticket lands first; this is not one.
 
 **The point budget closes that chain** (TICKET-RES-02, TICKET-DM-01):
 `validateStatAllocation(character, config)` in

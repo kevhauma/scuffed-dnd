@@ -18,6 +18,10 @@
  *    one this ticket adds: **a `player` Member calling a DM route gets the same 404 a stranger
  *    does**, and the DM's own character gets no special path.
  *
+ * TICKET-RES-04 added an eighth: **a dream level is stored as typed** — the one `dm-set-*` whose
+ * payload is what lands on the document, because nothing derives it — and a `player` Member asking
+ * to raise their own gets the same indistinguishable 404 every other control here gives them.
+ *
  * **Against the real corpus throughout**, and against a Snapshot with a real XP ladder pinned into
  * it where a level has to be priced: the Ducklets `xp_thresholds` curve is TICKET-CRV-03's
  * placeholder single row, which genuinely cannot tell level 4 from level 1 — so it is the fixture
@@ -28,6 +32,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { calculateCharacterLevel } from '#shared/engine/characterSummary';
+import { dreamLevelOf } from '#shared/engine/dreamLevel';
 import { validateStatAllocation } from '#shared/engine/skillAllocation';
 import { buildCharacter } from '#shared/services/characterCreation';
 import {
@@ -58,6 +63,7 @@ import { snapshotOf } from '../sessions/sessionPayloads';
 import { dmAwardExperience } from './dmAwardExperience';
 import { dmDeductExperience } from './dmDeductExperience';
 import { dmGrantPoints } from './dmGrantPoints';
+import { dmSetDreamLevel } from './dmSetDreamLevel';
 import { dmSetLevel } from './dmSetLevel';
 import { dmSetResource } from './dmSetResource';
 import { listAdjustments } from './listAdjustments';
@@ -69,6 +75,7 @@ const ROUTES = {
   [DM_ACTION.SET_LEVEL]: dmSetLevel,
   [DM_ACTION.GRANT_POINTS]: dmGrantPoints,
   [DM_ACTION.SET_RESOURCE]: dmSetResource,
+  [DM_ACTION.SET_DREAM_LEVEL]: dmSetDreamLevel,
 } as const;
 
 /** Perform one DM adjustment, as somebody */
@@ -412,6 +419,68 @@ describe('setting a resource', () => {
 
       const stored = stateOf(database, row.id).currentResourceValues[(pool as Stat).id];
       expect(stored).toBeLessThan(9_999);
+    }));
+});
+
+describe('setting a dream level', () => {
+  it('stores the number that was typed — the one dm-set-* whose payload is what is written', () =>
+    withTestDatabase(async (database) => {
+      const { dm, row, session } = aTableWithACharacter(database);
+
+      const before = stateOf(database, row.id);
+      // Absent on a freshly built character: the neutral 1 is the reader's rule, not a backfill
+      expect(before.dreamLevel).toBeUndefined();
+      expect(dreamLevelOf(before)).toBe(1);
+
+      const accepted = await adjust(DM_ACTION.SET_DREAM_LEVEL, row.id, { dreamLevel: 3 }, dm);
+      expect(accepted.status).toBe(200);
+
+      expect(stateOf(database, row.id).dreamLevel).toBe(3);
+
+      const [event] = eventsOf(database, session.id);
+      expect(event.type).toBe(DM_ACTION.SET_DREAM_LEVEL);
+      expect(event.actorAccountId).toBe(dm.id);
+      expect(payloadOf(event)).toMatchObject({
+        characterId: row.id,
+        action: DM_ACTION.SET_DREAM_LEVEL,
+        before: 1,
+        after: 3,
+      });
+    }));
+
+  it('refuses a level below the floor, names it, and writes nothing at all', () =>
+    withTestDatabase(async (database) => {
+      const { dm, row, session } = aTableWithACharacter(database);
+
+      const refused = await adjust(DM_ACTION.SET_DREAM_LEVEL, row.id, { dreamLevel: 0 }, dm);
+
+      expect(refused.status).toBe(400);
+      expect(messageOf(refused.body)).toBe('A dream level cannot be below 1.');
+
+      expect(stateOf(database, row.id).dreamLevel).toBeUndefined();
+      expect(eventsOf(database, session.id)).toHaveLength(0);
+    }));
+
+  it('refuses a `player` Member with the same 404 a stranger gets, and changes nothing', () =>
+    withTestDatabase(async (database) => {
+      const { player, row, session } = aTableWithACharacter(database);
+      const stranger = seedAccount();
+
+      // The owner of the very character, asking to raise their own dream — the ruling put this
+      // action on the DM's side of the table, so the answer is the one an id nobody minted gets
+      const asPlayer = await adjust(DM_ACTION.SET_DREAM_LEVEL, row.id, { dreamLevel: 5 }, player);
+      const asNobodyReal = await adjust(
+        DM_ACTION.SET_DREAM_LEVEL,
+        'character-that-never-was',
+        { dreamLevel: 5 },
+        stranger
+      );
+
+      expect(asPlayer.status).toBe(404);
+      expect(asPlayer.body).toEqual(asNobodyReal.body);
+
+      expect(stateOf(database, row.id).dreamLevel).toBeUndefined();
+      expect(eventsOf(database, session.id)).toHaveLength(0);
     }));
 });
 

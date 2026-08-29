@@ -260,11 +260,13 @@ on every one of them, so internalise them before writing code:
    calculated maximum" can live in exactly one spot no caller can bypass.
 2. **Derived values are computed, never stored.** If you feel the urge to save a computed number
    onto `Character`, the answer is a `calculateCharacter()` call at read time instead. There are
-   exactly **four** sanctioned exceptions, and every one of them is genuine player state rather
+   exactly **five** sanctioned exceptions, and every one of them is genuine player state rather
    than a derivation somebody cached: `currentResourceValues` (current HP/mana — its maximum is
    derived, where it stands is a choice the Player made), `experience` (RES-01 — awarded at the
-   table; the **level** derives from it), `purse` (CUR-02) and `grantedStatPoints` (DM-01 — the
-   DM's handout, an *input* to the derived point pool rather than a stored budget). There is no
+   table; the **level** derives from it), `purse` (CUR-02), `grantedStatPoints` (DM-01 — the
+   DM's handout, an *input* to the derived point pool rather than a stored budget) and `dreamLevel`
+   (RES-04 — raised by the DM; the archetype's gains derive *from* it, and absent means 1 through
+   `dreamLevelOf`, never a `?? 1` at a call site). There is no
    stored level and no stored budget anywhere in the app.
 3. **All user-authored math goes through the formula engine.** See above.
 4. **Base components carry intrinsic styling only; feature components own layout.** See above.

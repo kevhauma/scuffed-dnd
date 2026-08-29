@@ -27,6 +27,7 @@ import {
   dmAwardExperience,
   dmDeductExperience,
   dmGrantPoints,
+  dmSetDreamLevel,
   dmSetLevel,
   dmSetResource,
   listAdjustments,
@@ -185,6 +186,9 @@ export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Respon
   'POST /api/characters/:id/dm-set-level': dmSetLevel,
   'POST /api/characters/:id/dm-grant-points': dmGrantPoints,
   'POST /api/characters/:id/dm-set-resource': dmSetResource,
+  // …and this body names a dream level and stores exactly that: player state nothing derives
+  // (TICKET-RES-04), which is why it is the one `dm-set-*` whose before/after is what was typed
+  'POST /api/characters/:id/dm-set-dream-level': dmSetDreamLevel,
   // …and what a Player reads back about their own sheet (v3 Req 42.7). A *read* rather than an
   // action, so it is a `GET` and its noun is what happened rather than what to do
   'GET /api/characters/:id/adjustments': listAdjustments,

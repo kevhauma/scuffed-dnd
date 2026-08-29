@@ -31,6 +31,7 @@ export interface SheetActions {
   handleAdjustPurse: (delta: number) => void;
   handleAwardExperience: (amount: number) => void;
   handleDeductExperience: (amount: number) => void;
+  handleSetDreamLevel: (level: number) => void;
   handleBack: () => void;
 }
 
@@ -58,6 +59,7 @@ export function useSheetActions(
   const adjustPurse = useCharacterStore((state) => state.adjustPurse);
   const awardExperience = useCharacterStore((state) => state.awardExperience);
   const deductExperience = useCharacterStore((state) => state.deductExperience);
+  const updateDreamLevel = useCharacterStore((state) => state.updateDreamLevel);
   const closeTableCharacter = useCharacterStore((state) => state.closeTableCharacter);
   const openLocalRuleset = useConfigStore((state) => state.openLocalRuleset);
 
@@ -124,6 +126,14 @@ export function useSheetActions(
       if (!character) return;
 
       deductExperience(character.id, amount);
+    },
+
+    // The whole number the Player typed, sent as typed: whether a dream level is allowed is the
+    // Kernel's answer, and at a table it is the DM's to set rather than this one's (TICKET-RES-04)
+    handleSetDreamLevel: (level: number) => {
+      if (!character) return;
+
+      updateDreamLevel(character.id, level);
     },
 
     /**

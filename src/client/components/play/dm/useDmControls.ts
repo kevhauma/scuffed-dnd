@@ -28,6 +28,8 @@ export interface DmControls {
   handleSetLevel: (level: number) => void;
   handleSetGrantedPoints: (points: number) => void;
   handleSetResource: (statId: string, value: number) => void;
+  /** Set how far the character stands in their dream — the DM's action (TICKET-RES-04) */
+  handleSetDreamLevel: (level: number) => void;
 }
 
 /**
@@ -48,6 +50,7 @@ export function useDmControls(characterId: string): DmControls {
   const dmSetLevel = useCharacterStore((state) => state.dmSetLevel);
   const dmSetGrantedPoints = useCharacterStore((state) => state.dmSetGrantedPoints);
   const dmSetResource = useCharacterStore((state) => state.dmSetResource);
+  const dmSetDreamLevel = useCharacterStore((state) => state.dmSetDreamLevel);
 
   return {
     // `accountId === null` is a browser that has not resolved its cookie yet, and answering *yes*
@@ -61,5 +64,6 @@ export function useDmControls(characterId: string): DmControls {
     handleSetLevel: (level: number) => dmSetLevel(characterId, level),
     handleSetGrantedPoints: (points: number) => dmSetGrantedPoints(characterId, points),
     handleSetResource: (statId: string, value: number) => dmSetResource(characterId, statId, value),
+    handleSetDreamLevel: (level: number) => dmSetDreamLevel(characterId, level),
   };
 }

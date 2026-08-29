@@ -57,13 +57,18 @@ export function describeAdjustment(
         ? `Granted stat points — ${before} → ${after}`
         : `Revoked stat points — ${before} → ${after}`;
 
+    case DM_ACTION.SET_DREAM_LEVEL:
+      // Unlike `dm-set-level` above, the number in the payload *is* what was stored — dream level is
+      // player state nothing derives (TICKET-RES-04)
+      return `Set the dream level — ${before} → ${after}`;
+
     case DM_ACTION.SET_RESOURCE:
       // The **ruleset's** spelling, falling back to the id: a stat deleted from the Snapshot since
       // still has a row in the log, and *"set stat 9f3c…"* is at least a true one
       return `Set ${statNames[adjustment.target] ?? adjustment.target} to ${after} — was ${before}`;
 
     default: {
-      // The wire says `DmAction`, so a value not handled above is a sixth action somebody added
+      // The wire says `DmAction`, so a value not handled above is a seventh action somebody added
       // without a sentence for it — a bug in this file, not a ruleset problem
       const _exhaustive: never = adjustment.action;
       return `Adjusted the sheet (${String(_exhaustive)})`;

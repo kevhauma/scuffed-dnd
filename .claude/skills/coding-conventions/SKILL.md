@@ -212,6 +212,13 @@ Two families of judgement, both concrete here rather than generic.
 - **Derived values are computed, never stored.** Anything downstream of a formula comes from
   `calculateCharacter()` (the one composed entry point) at read time — see the **data-model**
   skill for why `currentStatValues` is the one exception.
+- **An optional stored field's default belongs to a named reader in the Kernel, not to its call
+  sites.** `Character.dreamLevel` is optional and absent-means-1, and every consumer goes through
+  `dreamLevelOf` (TICKET-RES-04) rather than spelling `?? 1` — the header, the setter's before/after
+  and the gain formula that multiplies by it then cannot disagree about what an untouched character
+  is, and the day the neutral value is questioned there is one line to argue about. The reader
+  returns a stored number **as it stands**: the setter owns the floor, and a clamp in the reader
+  would be a second, silent rule competing with a refusal the Player was shown.
 - Session-only UI state (open dialogs, roll history, active mode) lives in `useUIStore`, not in
   the persisted stores.
 

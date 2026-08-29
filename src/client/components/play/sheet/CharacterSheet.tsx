@@ -48,6 +48,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     raceNames,
     archetypeName,
     level,
+    dreamLevel,
     experience,
     raceContributions,
     skills,
@@ -69,6 +70,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     handleAdjustPurse,
     handleAwardExperience,
     handleDeductExperience,
+    handleSetDreamLevel,
     handleBack,
   } = useCharacterSheet(characterId);
 
@@ -135,13 +137,16 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
         budget={budget}
         raceNames={raceNames}
         level={level}
+        dreamLevel={dreamLevel}
         experience={experience}
         archetypeName={archetypeName}
         onBack={handleBack}
-        // At a table experience and coin are the DM's (D9, v3 Req 42.5), so the Player's own sheet
-        // draws neither control — TICKET-DM-01 and TICKET-DM-02 bring them back on the DM's side
+        // At a table experience, coin and the dream level are the DM's (D9, v3 Req 42.5, the v4
+        // ruling), so the Player's own sheet draws none of those controls — TICKET-DM-01,
+        // TICKET-DM-02 and TICKET-RES-04 bring them back on the DM's side
         onAwardExperience={atTable ? undefined : handleAwardExperience}
         onDeductExperience={atTable ? undefined : handleDeductExperience}
+        onSetDreamLevel={atTable ? undefined : handleSetDreamLevel}
       />
 
       {/* Above the sheet rather than in the rail: it is the reason this reader has the page open,
@@ -152,6 +157,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
           characterName={character.name}
           experience={experience}
           budget={budget}
+          dreamLevel={dreamLevel}
           resources={resources}
           isBusy={dm.isBusy}
           onAwardExperience={dm.handleAwardExperience}
@@ -159,6 +165,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
           onSetLevel={dm.handleSetLevel}
           onSetGrantedPoints={dm.handleSetGrantedPoints}
           onSetResource={dm.handleSetResource}
+          onSetDreamLevel={dm.handleSetDreamLevel}
         />
       )}
 

@@ -137,7 +137,7 @@ change also exists (v3 Req 33.8).
 | `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), skills, roll definitions, dice ladders, materials + categories, items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
 | `useCharacterStore` (cont.) | `tableCharacter` + `tableSessionId` + `tableCharacterOwnerId` + `isActing` + `actionError`, and `openTableCharacter` / `closeTableCharacter` / `dismissActionError` (TICKET-PLY-01; `tableSessionId` is ROLL-07's, read by the session-scoped roll log; `tableCharacterOwnerId` is DM-01's, and is how the sheet tells the DM's view from the Player's without a second request) — **the one character open at a game session**, held apart from `characters` because that list is LocalStorage's and a session character must never land in it (v3 Req 36.2). Every existing write action keeps its signature and gains one line: `toTable(...)` sends the named intent to the server when the id is this one's, otherwise the Kernel rule runs locally. `selectCharacter(state, id)` is the exported reader both the sheet and the inventory panel use | server, via `services/characterSync.ts` |
-| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience` (the rule is the Kernel's `dmActions.ts` since TICKET-DM-01, not this store's), `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) — and the DM's five, `dmAwardExperience` / `dmDeductExperience` / `dmSetLevel` / `dmSetGrantedPoints` / `dmSetResource` (TICKET-DM-01), which are **table-only** and named apart from the Player's own so no call site has to decide which act it is. `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
+| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience` (the rule is the Kernel's `dmActions.ts` since TICKET-DM-01, not this store's), `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) — and the DM's six, `dmAwardExperience` / `dmDeductExperience` / `dmSetLevel` / `dmSetGrantedPoints` / `dmSetResource` / `dmSetDreamLevel` (TICKET-DM-01, TICKET-RES-04), which are **table-only** and named apart from the Player's own so no call site has to decide which act it is — `updateDreamLevel` is the local half of the last one, refused at a table exactly as `awardExperience` and `setPurse` are. `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
 | `useConfigStore` (cont.) | `source` + `openAccountRuleset(id)` / `openLocalRuleset()` (TICKET-RUL-02) — which home is open, and the two ways to change it. Opening one home reads nothing from the other | via `services/rulesetSync.ts` |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history, `storageFailure` and `saveConflict` (TICKET-RUL-02 — a *server* refusal, with the edit still on screen) | not persisted |
 
@@ -291,6 +291,12 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   normalize → format and falls back to a bare number for a ruleset with no currency at all. Conversion is arithmetic over a configured rate, **not** a
   user-authored expression, so it does not go through the formula engine. Unknown tiers and
   non-positive rates degrade rather than producing `NaN`/`Infinity`.
+- `dreamLevel.ts` (TICKET-RES-04) — `dreamLevelOf(character)` and `DEFAULT_DREAM_LEVEL`. **The one
+  reader of `Character.dreamLevel`**, which is optional and **absent means 1**: the neutral default
+  belongs here rather than to a backfill or to a `?? 1` at a call site, so the sheet's identity
+  block, the DM's before/after and TICKET-ARC-04's gain term (main × dream, sub + dream) cannot
+  disagree about what an untouched character is. A stored number comes back as it stands — only
+  `dmActions.setDreamLevel` writes the field, and it refuses below the floor rather than clamping.
 - `characterSummary.ts` — `calculateCharacterLevel(character, config)` and
   `toCharacterSummary(character, config)`. **The single definition of "level"**, and since
   TICKET-RES-01 it is a **reverse lookup on the `xp_thresholds` curve** — accumulated XP in, level
@@ -414,7 +420,10 @@ between the roots is exactly *"does this touch a browser API"*.
   `equip-item` is the route, and keeping them apart is what stopped `fallow` reporting six duplicate
   exports. Before/after is produced here because only this module knows what each action moved.
 - `dmActions.ts` — **every rule behind a write the *Dungeon Master* makes to a character**
-  (TICKET-DM-01): `addExperience`, `removeExperience`, `setLevelExperience`, `setGrantedPoints`.
+  (TICKET-DM-01): `addExperience`, `removeExperience`, `setLevelExperience`, `setGrantedPoints`, and
+  `setDreamLevel` (TICKET-RES-04 — the User ruled that the DM raises the dream level, on the surface
+  that already awards experience; below 1 is refused with the floor named, and the before comes from
+  `dreamLevelOf` so a character who never had one reports 1).
   `playerActions.ts`'s counterpart, with the same `PlayerActionResult` shape and the same
   names-describe-the-document rule (`DM_ACTION`'s values describe the act). **The local sheet calls
   it too** — signed out there is no DM, and the person awarding their own experience is the same act
@@ -598,10 +607,11 @@ each later ticket adds.
   is `routes/dm/`'s, with its own Event types. `playerRules.test.ts` is the provenance check — every
   handler here imports the Kernel's rules and **none** imports `#shared/engine/` directly, because
   that is where a second implementation starts.
-- `routes/dm/` (TICKET-DM-01) — **what the DM does to a character they do not own**, five writes and
+- `routes/dm/` (TICKET-DM-01) — **what the DM does to a character they do not own**, six writes and
   one read. Same shape as `routes/play/` with a different guard: `POST /api/characters/:id/<action>`
   where `<action>` is a `DM_ACTION` value — `dm-award-experience`, `dm-deduct-experience`,
-  `dm-set-level`, `dm-grant-points`, `dm-set-resource`. The **`dm-` prefix is load-bearing**: both
+  `dm-set-level`, `dm-grant-points`, `dm-set-resource`, `dm-set-dream-level` (TICKET-RES-04, the
+  sixth: the one `dm-set-*` whose body *is* what gets stored, because nothing derives a dream level). The **`dm-` prefix is load-bearing**: both
   kinds of Event share the `type` column, so a DM's *set-resource* and a Player's have to be tellable
   apart by a reader six months later. They reuse `playPayloads.applyPlayerAction` whole rather than
   growing a second pipeline — it is the same operation, and the guard is the difference. The guard is
@@ -831,8 +841,13 @@ threshold) — and **`useOpenTableCharacter`**, which reads a character that liv
 then its table's Snapshot, in that order, reporting while it does so the sheet waits rather than
 rendering *Different Ruleset Loaded* in between. **It asks the server nothing while nobody is signed
 in** (D6). The sheet renders a dismissible refusal banner from `actionError`, and at a table it draws
-**neither** the experience controls nor the purse — those are the DM's (D9), and an absent control
-says *not yours* where a disabled one says *not now*.
+**neither** the experience controls nor the purse nor the dream-level box — those are the DM's (D9
+and the v4 ruling), and an absent control says *not yours* where a disabled one says *not now*.
+`SheetHeader` is the identity block the workbook's `Character Sheet` A1:B6 prints: name, level,
+**dream level**, XP, races and archetype through `CharacterSummaryLine`, plus the two write controls
+above.
+
+**The sections `CharacterSheet` composes, in the order it draws them**, begin
 with `SheetHeader`, `RaceStatBlockSection` (the races' combined block, stated in absolutes —
 TICKET-RACE-01), `StatsSection` (one `SkillBreakdownRow` per stat in
 `order`, **plus** a `StatEditor` for each `isResource` stat and an `InvestedPointsEditor` for each
@@ -860,8 +875,11 @@ store's refusal, never a clamp. **Not drawn at a table** — a purse there is th
 TICKET-DM-02 is what gives them the control.
 
 `dm/` (TICKET-DM-01) holds the DM's half of a sheet, in its own folder because it is read by a
-different person: **`DmControlsPanel`** — experience, *set level to N*, the point grant and each
-resource pool, composed from **`AdjustmentField`** (one number and one button, three callers) and
+different person: **`DmControlsPanel`** — experience, *set level to N*, the point grant, the dream
+level (TICKET-RES-04) and each resource pool, composed from **`shared/AdjustmentField`** (one number
+and one button; four kinds of caller now, and `isBusy` is optional because the Player's own header
+borrows it where nothing is on a wire — **which is why it lives in `shared/` rather than here**: the
+moment `SheetHeader` needed it, `dm/` and `sheet/` would have imported each other) and
 the Player's own `ExperienceControl`, which is the same act with a different store action behind it.
 **`useDmControls`** answers *is this reader the DM* with a **comparison, not a request**: the server
 opens a character only to its owner or to its table's DM, so *at a table and not mine* has exactly

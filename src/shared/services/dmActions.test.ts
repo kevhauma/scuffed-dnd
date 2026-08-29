@@ -11,15 +11,26 @@
  * The fixture is small rather than the corpus, for the same reason it is there: every rule under
  * test is about one number or one curve.
  *
- * **Validates: v3 Req 42.1, 42.2, 42.3, 42.4**
+ * TICKET-RES-04 added the dream level's rules to the same list, and its cases are about the same two
+ * things: the before it reports for a character that has never had one, and the sentence a DM reads
+ * when they type a level below the floor.
+ *
+ * **Validates: v3 Req 42.1, 42.2, 42.3, 42.4; v4 systems/02 gap 2**
  */
 
 import { describe, expect, it } from 'vitest';
 import { calculateCharacterLevel } from '../engine/characterSummary';
+import { dreamLevelOf } from '../engine/dreamLevel';
 import { validateStatAllocation } from '../engine/skillAllocation';
 import type { Character } from '../types/character';
 import type { Configuration } from '../types/config';
-import { addExperience, removeExperience, setGrantedPoints, setLevelExperience } from './dmActions';
+import {
+  addExperience,
+  removeExperience,
+  setDreamLevel,
+  setGrantedPoints,
+  setLevelExperience,
+} from './dmActions';
 import { isRefusal, type PlayerActionChange, type PlayerActionResult } from './playerActions';
 
 /** A ruleset with one investable stat, five points a level, and a four-rung XP ladder */
@@ -227,5 +238,61 @@ describe('granting and revoking stat points', () => {
   it('refuses a fractional or negative grant in words', () => {
     expect(refusal(setGrantedPoints(aCharacter(), RULES, 1.5))).toContain('whole number');
     expect(refusal(setGrantedPoints(aCharacter(), RULES, -1))).toContain('cannot be negative');
+  });
+});
+
+describe('setting a dream level', () => {
+  it('reports 1 as the before for a character that has never had one, and writes what was typed', () => {
+    const untouched = aCharacter();
+    const result = setDreamLevel(untouched, 3);
+    const change = accepted(result);
+
+    expect(change.before).toBe(1);
+    expect(change.after).toBe(3);
+    expect(change.character.dreamLevel).toBe(3);
+    expect(dreamLevelOf(change.character)).toBe(3);
+  });
+
+  it('reports what the dream level was and what it is now', () => {
+    const dreaming = aCharacter({ dreamLevel: 2 });
+    const result = setDreamLevel(dreaming, 5);
+    const change = accepted(result);
+
+    expect(change.before).toBe(2);
+    expect(change.after).toBe(5);
+  });
+
+  it('refuses a level below the floor, naming it, and writes nothing', () => {
+    const dreaming = aCharacter({ dreamLevel: 3 });
+    const zeroed = setDreamLevel(dreaming, 0);
+    const negative = setDreamLevel(dreaming, -2);
+
+    expect(refusal(zeroed)).toBe('A dream level cannot be below 1.');
+    expect(refusal(negative)).toBe('A dream level cannot be below 1.');
+    // Refused rather than clamped to the floor — a 0 that quietly became a 1 would leave the DM
+    // believing they had set it back to neutral
+    expect(dreamLevelOf(dreaming)).toBe(3);
+  });
+
+  it('refuses a fractional level rather than rounding one', () => {
+    const result = setDreamLevel(aCharacter(), 1.5);
+
+    expect(refusal(result)).toBe('A dream level has to be a whole number.');
+  });
+
+  it('accepts the floor itself, so a raise can be taken back to neutral', () => {
+    const dreaming = aCharacter({ dreamLevel: 4 });
+    const result = setDreamLevel(dreaming, 1);
+    const change = accepted(result);
+
+    expect(change.after).toBe(1);
+    expect(change.character.dreamLevel).toBe(1);
+  });
+
+  it('leaves the character it was given untouched', () => {
+    const dreaming = aCharacter({ dreamLevel: 2 });
+    setDreamLevel(dreaming, 9);
+
+    expect(dreaming.dreamLevel).toBe(2);
   });
 });

@@ -53,6 +53,18 @@ All parity work lands in `shared/` and `client/`. This holds because of decision
 the existing route surface, that is a new decision recorded here first — not a judgement call made
 mid-ticket. Nothing scoped below is expected to need it.
 
+**Amendment (2026-08-29, TICKET-RES-04 — the first invocation).** *A new `DM_ACTION` value costs
+one handler module and one `PATTERN_ROUTES` line, and that is not the escape hatch.* The third
+bullet above reads as if a new DM action were free; it is not, because
+`src/server/routes/dm/dmRules.test.ts` asserts **one write module per `DM_ACTION` value**. Adding
+`dm-set-dream-level` therefore obliged `routes/dm/dmSetDreamLevel.ts`, its barrel line and a route
+pattern — the handler being nothing but `requireCharacterDM` plus a call into `dmActions.ts`, where
+the rule actually lives. This is the *existing* route surface being extended by its own convention
+rather than a new surface, so it is recorded as a named exception rather than a new decision:
+**`db/schema.ts` and the migrations are still untouched, and no socket message is added.** A ticket
+that needs more than a guard-plus-service handler under `src/server/` is still the escape hatch and
+still owes a decision here first.
+
 Document-shape changes follow the `data-model` skill's standing rule: **bump
 `SUPPORTED_SCHEMA_VERSION` or ship a conversion, never both.** Each ticket says which and why.
 Additive-optional fields (most of this milestone) need neither.
@@ -196,7 +208,7 @@ that pass.
 
 - [x] [TICKET-ROLL-08](./tickets/TICKET-ROLL-08-ladder-fractional-remainder.md) — The dice ladder's fractional remainder (systems/07) — **first**: the scalers arrive fractional, and the ladder has never seen a fraction. The scalers themselves are the data pass's
 - [x] [TICKET-STAT-04](./tickets/TICKET-STAT-04-stat-groups-and-flavour.md) — Stat groups on the character sheet (systems/03) — `Stat.group?` and the grouped columns; **APT is not renamed** (ticket-review ruling), the Temp column is not built and Speed stays a plain stat
-- [ ] [TICKET-RES-04](./tickets/TICKET-RES-04-dream-level-state-and-dm-action.md) — Dream level: player state, raised by the DM (systems/02) — **before ARC-04**, whose gain formula reads the field; the split that answers the first dependency the rulings introduced
+- [x] [TICKET-RES-04](./tickets/TICKET-RES-04-dream-level-state-and-dm-action.md) — Dream level: player state, raised by the DM (systems/02) — **before ARC-04**, whose gain formula reads the field; the split that answers the first dependency the rulings introduced
 - [ ] [TICKET-ARC-04](./tickets/TICKET-ARC-04-dream-amplified-gains.md) — Dream-amplified archetype gains (systems/05) — needs RES-04; the dream term in the gain formula and the fractional `main(0)` it exposes. Renames, taglines and the affinity matrix are the data pass's; the `point_buy` curve is untouched
 - [ ] [TICKET-RES-05](./tickets/TICKET-RES-05-shared-point-pool-and-readout.md) — One point pool for stats and skills, with the readout (systems/02) — independent of ARC-04; behavioural: skill investment stops being free
 - [ ] [TICKET-RACE-03](./tickets/TICKET-RACE-03-race-identity-and-blend-floor.md) — Race identity fields and the blend floor (systems/04, 14) — `type`/`size`/`challengeRate` over two Configuration reference lists, plus the `MAX(1, …)` floor; the 25-race catalog is the data pass's

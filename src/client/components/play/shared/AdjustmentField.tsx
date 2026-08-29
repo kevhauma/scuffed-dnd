@@ -3,7 +3,13 @@
  *
  * One number the Dungeon Master types and one button that sends it (TICKET-DM-01). The level, the
  * point grant and each resource pool are the same control with a different label, so they are the
- * same component — three callers, which is where the house rule says to share one.
+ * same component — three callers, which is where the house rule says to share one. TICKET-RES-04
+ * added dream level as the fourth, on this panel and on the Player's own header.
+ *
+ * **It lives in `play/shared/` rather than `play/dm/` because of that fourth caller**: the moment
+ * `SheetHeader` needed it, `sheet/` and `dm/` would have imported each other, and a shared control
+ * with callers on both sides belongs beside the other things both sides read
+ * (`CharacterSummaryLine`, `PointBudgetSummary`). Moved at RES-04's closeout review.
  *
  * **It decides nothing.** Whether a level is priceable, whether a revocation would leave the
  * character overspent and where a pool may stand are the Kernel's answers, reached through a store
@@ -33,8 +39,14 @@ export interface AdjustmentFieldProps {
    * a resource pool has no floor at all because it may go negative (Requirement 14.4).
    */
   min?: number;
-  /** True while a write is on the wire, so nothing can be sent twice */
-  isBusy: boolean;
+  /**
+   * True while a write is on the wire, so nothing can be sent twice
+   *
+   * **Optional, and absent means never busy**, since TICKET-RES-04 put this control on the local
+   * sheet too: a LocalStorage write is synchronous and has no in-flight state to guard, so requiring
+   * the prop there would only ever be a `false` typed at the call site.
+   */
+  isBusy?: boolean;
   onSubmit: (value: number) => void;
 }
 
@@ -43,7 +55,7 @@ export function AdjustmentField({
   actionLabel,
   current,
   min,
-  isBusy,
+  isBusy = false,
   onSubmit,
 }: AdjustmentFieldProps) {
   const [entry, setEntry] = useState('');

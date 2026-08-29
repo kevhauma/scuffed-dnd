@@ -23,6 +23,7 @@ import {
 import { calculateRaceStatBases } from '#shared/engine/calculators/statCalculator';
 import { calculateCharacterLevel } from '#shared/engine/characterSummary';
 import { rollPool } from '#shared/engine/dice/rollDefinition';
+import { DEFAULT_DREAM_LEVEL, dreamLevelOf } from '#shared/engine/dreamLevel';
 import { describeFormulaError, isFormulaError } from '#shared/engine/formula/errors';
 import { validateStatAllocation } from '#shared/engine/skillAllocation';
 import type { CalculatedCharacter, Character } from '#shared/types/character';
@@ -444,6 +445,13 @@ export function useCharacterSheet(characterId: string) {
       character && config ? calculateCharacterLevel(character, config) : undefined
     ),
     experience: character?.experience ?? 0,
+    /**
+     * How far this character stands in their dream (TICKET-RES-04)
+     *
+     * Read through the engine rather than with a `?? 1` here: absent-means-1 is one rule, and the
+     * gain formula that multiplies by it has to read the same number the header shows.
+     */
+    dreamLevel: character ? dreamLevelOf(character) : DEFAULT_DREAM_LEVEL,
     /** Spent, available and remaining at this level — null when there is no sheet to draw */
     budget,
     ...view,

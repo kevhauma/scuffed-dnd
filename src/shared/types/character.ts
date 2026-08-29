@@ -157,6 +157,31 @@ export interface Character {
    * clamped (v3 Req 42.4).
    */
   grantedStatPoints?: number;
+  /**
+   * How far the character stands in their dream — the new workbook's identity block
+   * (TICKET-RES-04, v4 systems/02 gap 2).
+   *
+   * *"Hoe ver je staat in je dream"*, and it is not decoration: the archetype gain formulas read it,
+   * a **main**-affinity stat multiplying its point-table value by it and a **sub**-affinity stat
+   * adding it, even at zero points (TICKET-ARC-04).
+   *
+   * ## Why it is stored at all
+   *
+   * The same test that admitted `experience`: **nothing derives it.** How far somebody is into their
+   * dream is decided at the table and computed from no other field — it is an *input* to derivation
+   * rather than a derivation, exactly as `grantedStatPoints` is an input to the point budget. That
+   * makes it the **fifth** sanctioned exception to *derived values are never stored*, beside
+   * `currentResourceValues`, `experience`, `purse` and `grantedStatPoints`.
+   *
+   * **The DM raises it, as an action** (User ruling, 2026-08-29), on the surface that already awards
+   * experience and sets level: `setDreamLevel` in
+   * [`dmActions.ts`](../services/dmActions.ts), refusing below the floor rather than clamping.
+   *
+   * **Optional, and absent means 1** — `purse`'s pattern, and 1 rather than 0 because the role is
+   * multiplicative. The default is the *reader's* rule rather than a stored backfill: read it with
+   * [`dreamLevelOf`](../engine/dreamLevel.ts), never `character.dreamLevel ?? 1` at a call site.
+   */
+  dreamLevel?: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -2,8 +2,8 @@
  * Dungeon Master Controls
  *
  * The powers a DM has over a character they do not own (TICKET-DM-01, v3 Req 42.1–42.5): experience,
- * the level it derives to, the extra stat points they have handed out, and where each resource pool
- * stands.
+ * the level it derives to, the extra stat points they have handed out, where each resource pool
+ * stands, and — since TICKET-RES-04 — how far they stand in their dream.
  *
  * **It is drawn only when the reader is the DM**, which the sheet decides — the server opens a
  * character to its owner or to the DM of its table and nobody else, so *at a table and not mine*
@@ -24,12 +24,13 @@
  * **Validates: v3 Req 42.1, 42.2, 42.3, 42.4, 42.5, 42.7; Requirements 21.1-21.5**
  */
 
+import { DEFAULT_DREAM_LEVEL } from '#shared/engine/dreamLevel';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
+import { AdjustmentField } from '../shared/AdjustmentField';
 import type { PointBudgetView } from '../shared/pointBudgetView';
 import { ExperienceControl } from '../sheet/ExperienceControl';
 import type { StatBreakdown } from '../sheet/useCharacterSheet';
-import { AdjustmentField } from './AdjustmentField';
 
 export interface DmControlsPanelProps {
   characterName: string;
@@ -37,6 +38,8 @@ export interface DmControlsPanelProps {
   experience: number;
   /** The pool, so a grant can be typed against a number rather than blind */
   budget: PointBudgetView | null;
+  /** Where the character's dream stands, so it is typed against a number too (TICKET-RES-04) */
+  dreamLevel: number;
   /** The `isResource` stats, in the ruleset's order */
   resources: StatBreakdown[];
   /** True while an adjustment is on the wire */
@@ -46,12 +49,14 @@ export interface DmControlsPanelProps {
   onSetLevel: (level: number) => void;
   onSetGrantedPoints: (points: number) => void;
   onSetResource: (statId: string, value: number) => void;
+  onSetDreamLevel: (level: number) => void;
 }
 
 export function DmControlsPanel({
   characterName,
   experience,
   budget,
+  dreamLevel,
   resources,
   isBusy,
   onAwardExperience,
@@ -59,6 +64,7 @@ export function DmControlsPanel({
   onSetLevel,
   onSetGrantedPoints,
   onSetResource,
+  onSetDreamLevel,
 }: DmControlsPanelProps) {
   return (
     <Card className="border-amber p-6">
@@ -105,6 +111,17 @@ export function DmControlsPanel({
           min={0}
           isBusy={isBusy}
           onSubmit={onSetGrantedPoints}
+        />
+
+        {/* Beside the level rather than among the pools: dream level is progression, and the sheet's
+            identity block shows the two together (TICKET-RES-04, v4 systems/02) */}
+        <AdjustmentField
+          label="Dream level"
+          actionLabel="Set dream level"
+          current={`${dreamLevel} now — their archetype's gains grow with it`}
+          min={DEFAULT_DREAM_LEVEL}
+          isBusy={isBusy}
+          onSubmit={onSetDreamLevel}
         />
 
         {resources.length > 0 && (

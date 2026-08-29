@@ -357,6 +357,9 @@ describe('a write to the character open at a table', () => {
     ['experience', () => useCharacterStore.getState().awardExperience('character-1', 100)],
     ['experience deducted', () => useCharacterStore.getState().deductExperience('character-1', 10)],
     ['a purse', () => useCharacterStore.getState().setPurse('character-1', 5)],
+    // TICKET-RES-04: the User's ruling put the dream level on the DM's side, so the Player's own
+    // action is refused at a table exactly as their experience and their purse are
+    ['a dream level', () => useCharacterStore.getState().updateDreamLevel('character-1', 3)],
   ])('refuses %s at a table, because it is the DM’s', (_name: string, run: () => void) => {
     // The sheet does not draw these controls, but the rule belongs to the store: falling through to
     // `characters.find(...)` would find nothing and no-op in silence, and the next surface to reach
@@ -450,6 +453,11 @@ describe("the DM's adjustments (TICKET-DM-01)", () => {
       DM_ACTION.SET_RESOURCE,
       () => useCharacterStore.getState().dmSetResource('character-1', 'stat-health', 12),
       { statId: 'stat-health', value: 12 },
+    ],
+    [
+      DM_ACTION.SET_DREAM_LEVEL,
+      () => useCharacterStore.getState().dmSetDreamLevel('character-1', 3),
+      { dreamLevel: 3 },
     ],
   ])('posts %s by name, with only what the server needs to be told', async (action, run, body) => {
     accepted(aCharacter({ experience: 300 }));

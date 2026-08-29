@@ -62,6 +62,13 @@ describe('describeAdjustment', () => {
     );
   });
 
+  it('should read a dream level as the number that was stored (TICKET-RES-04)', () => {
+    const event = adjustment(DM_ACTION.SET_DREAM_LEVEL, 1, 3);
+    const sentence = describeAdjustment(event, STAT_NAMES);
+
+    expect(sentence).toBe('Set the dream level — 1 → 3');
+  });
+
   it("should spell a pool by the ruleset's name for it", () => {
     expect(
       describeAdjustment(adjustment(DM_ACTION.SET_RESOURCE, 30, 12, 'stat-health'), STAT_NAMES)

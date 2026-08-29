@@ -29,15 +29,20 @@
  *   `setResourceValue` from `playerActions.ts` unchanged (v3 Req 42.5). Re-exporting it here would
  *   be a second name for one function.
  *
+ * **Dream level joined them in TICKET-RES-04**, and it is here rather than in `playerActions.ts`
+ * because the User ruled that the DM raises it — the same surface that awards experience and sets
+ * level ([systems/02](../../../docs/v4.0_sheet_parity/systems/02-progression-and-identity.md)).
+ *
  * The result type is `playerActions.ts`'s: an accepted change carries the character plus what the
  * value was and became, because every DM adjustment writes an Event with both (v3 Req 42.6), and a
  * refusal carries the sentence the surface shows. **Nothing here reads a clock** — `updatedAt` is
  * stamped by whichever root persists the result.
  *
- * **Validates: v3 Req 42.1, 42.2, 42.3, 42.4, 45.1; Requirements 21.1-21.5**
+ * **Validates: v3 Req 42.1, 42.2, 42.3, 42.4, 45.1; Requirements 21.1-21.5; v4 systems/02 gap 2**
  */
 
 import { experienceForLevel } from '../engine/characterSummary';
+import { DEFAULT_DREAM_LEVEL, dreamLevelOf } from '../engine/dreamLevel';
 import { isFormulaError } from '../engine/formula/errors';
 import { validateStatAllocation } from '../engine/skillAllocation';
 import type { Character } from '../types/character';
@@ -209,4 +214,39 @@ export function setGrantedPoints(
   }
 
   return { character: proposed, before, after: points };
+}
+
+/**
+ * Set how far a character stands in their dream (TICKET-RES-04, v4 systems/02 gap 2)
+ *
+ * **A total rather than a delta**, for {@link setGrantedPoints}'s reason: the DM sees the number on
+ * the sheet's identity block and types what it should be, so two adjustments across one evening
+ * cannot compound into a third value neither of them asked for.
+ *
+ * **Below {@link DEFAULT_DREAM_LEVEL} is refused and the refusal names the floor**, rather than
+ * clamped — the discipline every other adjustment here keeps. A dream level of 0 would silently zero
+ * every main-affinity gain the archetype formulas multiply by it (TICKET-ARC-04), which is precisely
+ * the kind of quiet write a clamp hides.
+ *
+ * **Whole numbers only**, like a level and like a grant: the workbook's sample is 1 and the sub
+ * -affinity term adds it straight onto a gain, so a fraction would be a new rule rather than a
+ * finer-grained one. There is no ruleset in the signature because there is no ruleset question — no
+ * curve prices it and no constant caps it, which is the whole difference between this and
+ * {@link setLevelExperience}.
+ *
+ * @param character Whose sheet
+ * @param level The dream level to put them at, whole and at least the floor
+ * @returns The character at that dream level, or the reason it was refused
+ */
+export function setDreamLevel(character: Character, level: number): PlayerActionResult {
+  if (!Number.isInteger(level)) return { refusal: 'A dream level has to be a whole number.' };
+
+  if (level < DEFAULT_DREAM_LEVEL) {
+    return { refusal: `A dream level cannot be below ${DEFAULT_DREAM_LEVEL}.` };
+  }
+
+  const before = dreamLevelOf(character);
+  const proposed: Character = { ...character, dreamLevel: level };
+
+  return { character: proposed, before, after: level };
 }

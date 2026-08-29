@@ -669,6 +669,14 @@ export const DM_ACTION = {
   GRANT_POINTS: 'dm-grant-points',
   /** Write where one of a Character's resource pools stands */
   SET_RESOURCE: 'dm-set-resource',
+  /**
+   * Set how far a Character stands in their dream — a total, not a delta (TICKET-RES-04)
+   *
+   * The sixth, and the first this namespace has gained since it was minted. It is a DM action rather
+   * than a Player one by the User's own ruling (2026-08-29): dream level is raised on the surface
+   * that awards experience and sets level.
+   */
+  SET_DREAM_LEVEL: 'dm-set-dream-level',
 } as const;
 
 export type DmAction = (typeof DM_ACTION)[keyof typeof DM_ACTION];
@@ -701,6 +709,18 @@ export interface LevelRequest {
 /** What a client sends to set the DM's point grant — the new total, never a delta */
 export interface GrantRequest {
   points: number;
+}
+
+/**
+ * What a client sends to set a Character's dream level (TICKET-RES-04)
+ *
+ * Spelled `dreamLevel` rather than `level` even though it is the only field in the body: this and
+ * {@link LevelRequest} are two bodies that mean opposite things — one is an instruction the server
+ * prices into experience, this one is the number that gets stored — and a shared field name would
+ * make a mis-routed body silently valid.
+ */
+export interface DreamLevelRequest {
+  dreamLevel: number;
 }
 
 /**

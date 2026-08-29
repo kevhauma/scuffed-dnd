@@ -1,8 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-29 (`npx vitest run`) at **TICKET-STAT-04 — stat groups on the character
-sheet**, the current count-setter at **3067**.
+_Last verified: 2026-08-29 (`npx vitest run`) at **TICKET-RES-04 — dream level, raised by the DM**,
+the current count-setter at **3088**.
 The checkpoints before it were
+**TICKET-STAT-04 — stat groups on the character sheet** at 3067,
 **TICKET-ROLL-08 — the dice ladder's fractional remainder**, v4.0's first shape-pass ticket, at
 3047,
 **TICKET-DM-01 — DM controls: experience, grants, resources** at
@@ -34,12 +35,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 3067
-- **Passing**: 3067 (100%)
+- **Total tests**: 3088
+- **Passing**: 3088 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **193 files**: `server` in node, everything else in happy-dom.
+Split across **194 files**: `server` in node, everything else in happy-dom.
 
 > **CHAR-04's recorded count was 26 low, and PLY-01 measured it rather than inheriting it.** This
 > file said 2801 across 174 files; `git stash` + a full run on `main` says **2827 across 176**. The
@@ -63,6 +64,43 @@ somewhere with a `window` in it.
 
 The split costs nothing and is right on its own terms besides — the server has no DOM, and a test
 environment that gives it one is an environment where a mistake reads as working code.
+
+## TICKET-RES-04 — twenty-one tests for one optional number, and where the default lives
+
+The **+21 over STAT-04** is TICKET-RES-04, across seven files and one new one. `dreamLevel.test.ts`
+(3, **193 → 194 files**) is the whole first criterion: *absent means 1* is a claim about a **reader**,
+not about stored data, so the case that matters asserts the number **and** that no key was written.
+`dmActions.test.ts` (+6) is the Kernel rule — the before a never-dreamed character reports, the
+refusal sentence with the floor in it, and *leaves the character it was given untouched*.
+`dm.test.ts` (+3) is the same three claims through a request against the real corpus, plus the
+`player`-Member 404 compared byte-for-byte with the never-minted-id answer. The client's five:
+`characterStore.test.ts` (+5, local write and the three refusals), `characterStore.table.test.ts`
+(+2 — one row in the *posts %s by name* table, one in the *refuses %s at a table* table),
+`DmControlsPanel.test.tsx` (+1) and `describeAdjustment.test.ts` (+1).
+
+**Two tables in the client tests took a row rather than a new case, and that is the design.** The
+store's DM actions are covered by an `it.each` over `[action, run, body]`, so a sixth adjustment
+costs one line and asserts the same thing the other five assert: nothing derived crosses the wire.
+`dmRules.test.ts` needed no edit at all and still tightened — it asserts *one write module per
+`DM_ACTION` value*, so adding the action without the route (or the route without the action) would
+have failed on the count.
+
+**`dreamLevel` is a stored field and it is still not a derived value.** It joins the sanctioned
+exceptions on `experience`'s test — nothing derives it, and TICKET-ARC-04's gains derive *from* it.
+The neutral 1 lives in `dreamLevelOf` rather than in a backfill or a `?? 1`, which is what lets the
+identity block, the Event's `before` and the coming gain term agree by construction. **No
+`SUPPORTED_SCHEMA_VERSION` bump**: additive-optional, absent on every stored roster, not in
+`CHARACTER_FIELDS`. v4.0's single milestone-wide bump (D6) still belongs to the first *reshaping*
+ticket.
+
+**`fallow` reported nothing of this ticket's.** `audit --base main` is **pass** with 0 introduced
+dead-code, complexity or duplication findings; the one dead-code row (`fallow` itself in
+`dependencies`) and the one complexity row are inherited. Four touched files come back Accelerating
+and are recorded below — `useCharacterSheet.ts` (14.7 → 18.4), `characterStore.ts` (15.4 → 17.3),
+`CharacterSheet.tsx` (7.8 → 9.2) and `SheetHeader.tsx` (3.1, a first row). None was reshaped here:
+each gained one field or one conditional, which is the reading the tag cannot make on its own — and
+`CharacterSheet.tsx` is the one to watch, because DM-01 already split two components out of it to
+bring it back under the threshold and this ticket added two more props to the same two call sites.
 
 ## TICKET-STAT-04 — twenty tests, three of them new files, and a clone caught the day it appeared
 
@@ -1340,14 +1378,15 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/client/components/sessions/SessionList.test.tsx` | 12.9 | TICKET-CHAR-04's run | 4 commits, 213 churn | ▲ **Accelerating — TICKET-PLY-01** (was 10.4 at CHAR-04) |
 | `src/client/components/sessions/SessionList.tsx` | 5.6 | TICKET-CHAR-04's run | 5 commits, 375 churn | ▼ Cooling — **cooled by TICKET-DM-01** (4.2 at CHAR-04, 6.4 at PLY-01; DM-01 passed one prop through) |
 | `src/server/repositories/characterRepository.ts` | 3.3 | TICKET-PLY-01's run | 4 commits, 252 churn | ─ Stable — **cooled by TICKET-DM-01**, which added no query at all: the DM's five writes reuse `recordPlayerAction` whole |
-| `src/client/stores/characterStore.ts` | 15.4 | TICKET-CUR-02's run | 5 commits, 1501 churn, 0.11 density, 27 fan-in | ▲ **Accelerating — TICKET-DM-01** (11.6 at ROLL-07, 13.4 at CUR-02, 15.4 now. Five consecutive tickets have added to it, and DM-01 added five actions — but it also moved the *experience* rules out into `shared/services/dmActions.ts`, so the density fell (0.12 → 0.11) while the churn rose. That is the direction to keep pushing: the store is a router with two destinations, and every rule still living in it is a rule the server cannot call) |
-| `src/client/components/play/sheet/CharacterSheet.tsx` | 7.8 | TICKET-CUR-02's run | 4 commits, 316 churn, 0.07 density | ▲ **Accelerating — TICKET-DM-01** (5.0 at CUR-02. Four tickets in a row have each added a conditional, and DM-01's two took it *over* `fallow`'s complexity threshold — 13 → 18 cyclomatic — so the same ticket split `SheetStatusNotice` and `SheetRefusalBanner` out and brought it back off the list. 256 → 168 lines. The next ticket to add a section here should extract before it adds: TICKET-DM-03's sidebar is the obvious place) |
-| `src/client/components/play/sheet/useCharacterSheet.ts` | 11.7 | TICKET-DM-01's run | 4 commits, 640 churn, 0.14 density, 15 fan-in | ▲ **Accelerating — TICKET-STAT-04** (11.7 at DM-01, 14.7 now). DM-01 touched it only to export `CharacterSheetStatus`, and STAT-04 added one carried-through field to `StatBreakdown` and one line to `buildView` — so the tag is still inherited rather than earned, and the density has not moved (0.14 at both). It is on the list because it is the sheet's real decision surface — 15 cyclomatic, above the threshold since before either ticket — and because 15 modules now read it. What would make it real is a ticket that puts a *decision* in `buildView` rather than a field |
+| `src/client/stores/characterStore.ts` | 17.3 | TICKET-CUR-02's run | 6 commits, 1324 added / 338 deleted, 0.11 density, 27 fan-in | ▲ **Accelerating — TICKET-RES-04** (11.6 at ROLL-07, 13.4 at CUR-02, 15.4 at DM-01, **17.3 now**). RES-04 added two actions — `updateDreamLevel` and `dmSetDreamLevel` — and no rule: both call the Kernel's `setDreamLevel`, and the second is one `adjustAtTable` line. Density unmoved at 0.11 across a sixth commit, which is the store growing as a router rather than as a rulebook. The earlier reading stands: (11.6 at ROLL-07, 13.4 at CUR-02, 15.4 at DM-01. Five consecutive tickets have added to it, and DM-01 added five actions — but it also moved the *experience* rules out into `shared/services/dmActions.ts`, so the density fell (0.12 → 0.11) while the churn rose. That is the direction to keep pushing: the store is a router with two destinations, and every rule still living in it is a rule the server cannot call) |
+| `src/client/components/play/sheet/CharacterSheet.tsx` | 9.2 | TICKET-CUR-02's run | 5 commits, 349 added / 118 deleted, 0.07 density, 5 fan-in | ▲ **Accelerating — TICKET-RES-04** (5.0 at CUR-02, 7.8 at DM-01, **9.2 now**). RES-04 passed two props through and added no branch, so the density held at 0.07 — but this is now five consecutive tickets each adding to the same two call sites, and DM-01 already had to split `SheetStatusNotice` and `SheetRefusalBanner` out to get it back under the complexity threshold. **The next ticket to add a section here extracts before it adds.** The DM-01 reading, unchanged: (5.0 at CUR-02. Four tickets in a row have each added a conditional, and DM-01's two took it *over* `fallow`'s complexity threshold — 13 → 18 cyclomatic — so the same ticket split `SheetStatusNotice` and `SheetRefusalBanner` out and brought it back off the list. 256 → 168 lines. The next ticket to add a section here should extract before it adds: TICKET-DM-03's sidebar is the obvious place) |
+| `src/client/components/play/sheet/useCharacterSheet.ts` | 18.4 | TICKET-DM-01's run | 5 commits, 552 added / 95 deleted, 0.14 density, 15 fan-in | ▲ **Accelerating — TICKET-RES-04** (11.7 at DM-01, 14.7 at STAT-04, **18.4 now** — the largest single jump this row has taken, on a fifth commit that added *one returned field*, `dreamLevel`, read through `dreamLevelOf`. The density is still 0.14 across all three measurements, so what is rising is churn, not difficulty). The STAT-04 reading, which still applies: (11.7 at DM-01, 14.7 then. DM-01 touched it only to export `CharacterSheetStatus`, and STAT-04 added one carried-through field to `StatBreakdown` and one line to `buildView` — so the tag is still inherited rather than earned, and the density has not moved (0.14 at both). It is on the list because it is the sheet's real decision surface — 15 cyclomatic, above the threshold since before either ticket — and because 15 modules now read it. What would make it real is a ticket that puts a *decision* in `buildView` rather than a field |
 | `src/client/services/characterSync.ts` | 4.2 | TICKET-DM-01's run | 3 commits, 279 churn, 0.05 density, 3 fan-in | ▲ **Accelerating — TICKET-DM-01** (crossed the three-commit floor across CHAR-04's creation, PLY-01's actions and DM-01's `fetchCharacterAdjustments`). The **shape** is what keeps it low: DM-01 widened `sendPlayerAction`'s action type rather than adding a second sender, so the module grew one read and no branches. The next ticket to add a destination here should ask whether it is widening or duplicating |
 | `src/server/routes/routeGuards.test.ts` | 10.9 | TICKET-DM-01's run | 3 commits, 209 churn | ▲ **Accelerating** — one line per new guard (GAM-03's `requireInvitee`, PLY-01's `requireCharacterPlayer`, DM-01's `requireCharacterDM`). That is the design working: the scan's corpus is every module defining a handler, so a new guard costs a name in a list. Worth watching only if a fourth ticket changes the *detector* rather than the list |
 | `src/client/stores/characterStore.table.test.ts` | 10.1 | TICKET-DM-01's run | 3 commits, 410 churn | ▲ **Accelerating** — PLY-01 created it, ROLL-07 and DM-01 each added a `describe`. It exists so `characterStore.test.ts` never has to change (the milestone's fifth Definition-of-Done rule), so growth here is the rule being honoured rather than a smell |
 | `src/client/components/play/sheet/CharacterSheet.test.tsx` | 7.5 | TICKET-DM-01's run | 3 commits, 1380 churn | ▲ **Accelerating** — 1,380 churn over three commits on a 1,400-line file is the number to notice. DM-01 added two cases and a `fetch` stub; what made the churn is that PLY-01 and CUR-02 each reshaped the fixtures. If a fourth ticket has to touch the fixtures again rather than add a case, split the local-mode cases from the at-a-table ones |
 | `src/client/components/sessions/SessionsPanel.tsx` | 3.1 | TICKET-CHAR-04's run | 4 commits, 76 churn, 0.03 density | ▲ **Accelerating — TICKET-CHAR-04** — re-measured at TICKET-GAM-03's closeout: a fourth commit and **one line** of churn, score unmoved at 3.1. The panel composes rather than does, so each new surface costs it a `<Panel …/>` and nothing else — the number to watch is the day one of them arrives with a branch |
+| `src/client/components/play/sheet/SheetHeader.tsx` | 3.1 | TICKET-RES-04's run | 3 commits, 116 added / 11 deleted, 0.04 density, 2 fan-in | ▲ **Accelerating — TICKET-RES-04** — a first row, crossing the three-commit floor here (PLY-01 made the experience controls optional, DM-01 reworked the back button and the budget, RES-04 added the dream level and its box). The numbers are the reassuring ones — 0.04 density, 2 dependents, 105 net lines — and the shape is why: the header takes props and renders, so each ticket costs it a field and a conditional. It earns watching for one specific thing, which is a *third* optional write control arriving; at that point the identity block wants its own controls row rather than a fourth `{onX && …}` |
 | `src/shared/services/importExport.ts` | 12.4 | TICKET-STAT-04's run | 3 commits, 985 churn, 0.16 density, 21 fan-in | ▲ **Accelerating** — inherited, not earned: STAT-04 added one `mayBe` line to the `stats` entity spec. It crossed the three-commit floor here and is worth watching for the reason the number says — 0.16 density across 21 dependents, the highest density of any file on this list. `ENTITY_SPECS` is a table, so v4.0's remaining shape tickets will each add rows to it; the day one adds a *branch* instead is the day to split the spec from the checker |
 | `src/server/db/schema.ts` | 6.2 | TICKET-GAM-03's closeout run | 6 commits, 399 churn, 0.04 density, 14 fan-in | ▲ **Accelerating** — six tickets from DB-01 to CHAR-04 have each added to the normalised half (DB-01, AUTH-01, IO-04, GAM-01, GAM-03, CHAR-04); GAM-03's own contribution was making `session_invite.code` nullable (migration `0004`). The density is the reassuring number — 0.04 across 14 dependents means the file is *growing* rather than getting harder, which is what a schema is supposed to do. It earns watching, not splitting: what would make it a problem is a ticket that reshapes an existing table rather than adding one |
 

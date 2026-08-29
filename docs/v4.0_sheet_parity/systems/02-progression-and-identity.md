@@ -69,16 +69,21 @@ the wizard may caption the two race slots as parents, and there are exactly two.
    [overview's ticket-review rulings](../overview.md#rulings-user-2026-08-29--ticket-review).
    Nothing about the arithmetic was ever in question: the constant is 30 in both workbooks and the
    sample agrees (Speed 20 → 1).
-2. **`Character.dreamLevel?`** — new optional player state, absent-means-1 (the sheet's sample and
-   its multiplicative role both point at 1 as the neutral value). **It is an input to derivation,
-   not a derived value**: `statGain` reads it (systems/05), so it joins the sanctioned stored
-   exceptions on the same test as `experience` — nothing derives it.
+2. **`Character.dreamLevel?`** — ~~new optional player state~~ **built by TICKET-RES-04**, optional
+   and absent-means-1 (the sheet's sample and its multiplicative role both point at 1 as the neutral
+   value). **It is an input to derivation, not a derived value**: `statGain` will read it
+   (systems/05, TICKET-ARC-04), so it joined the sanctioned stored exceptions on the same test as
+   `experience` — nothing derives it. Additive-optional, so **no schema bump**.
    **The DM raises it as an action** (User ruling, 2026-08-29), on the surface that already awards
-   experience and sets level: a pair in
+   experience and sets level: `setDreamLevel` in
    [`dmActions.ts`](../../../src/shared/services/dmActions.ts) beside `addExperience` /
-   `setLevelExperience`, called by `characterStore` in local mode and by `routes/dm/` on the
-   server, with the same refuse-rather-than-clamp discipline (below 1 is refused, naming the
-   floor). It earns a row in the DM's quick actions and the session roster, like a point grant.
+   `setLevelExperience`, reached by `characterStore.dmSetDreamLevel` → `POST
+   /api/characters/:id/dm-set-dream-level` at a table, and by `updateDreamLevel` locally (signed out
+   there is no DM — `awardExperience`'s precedent, and the browser-only path must not degrade).
+   Below 1 is refused with the floor named, never clamped. **The neutral 1 belongs to the reader**,
+   `dreamLevelOf` in [`engine/dreamLevel.ts`](../../../src/shared/engine/dreamLevel.ts), rather than
+   to a backfill or a `?? 1` at a call site. It has a row in the DM's controls panel and shows in the
+   sheet's identity block beside Level.
 3. **One pool for stats and skills** — today `validateStatAllocation` budgets stat points only and
    skill investment is unbudgeted. Parity makes `level × points_per_level + grants` the budget for
    the *sum* of `investedStatPoints` and `investedSkillPoints`. The refusal discipline is
@@ -88,8 +93,13 @@ the wizard may caption the two race slots as parents, and there are exactly two.
 
 ## Backend note
 
-`dreamLevel` lives inside `character.data`; its setter is a shared service the existing DM/player
-routes call. No schema, no route, no socket change.
+`dreamLevel` lives inside `character.data`; the rule that moves it is a shared service
+(`dmActions.setDreamLevel`). **No schema, no migration and no socket change** — but *one route
+module*, because `dmRules.test.ts` requires a write module per `DM_ACTION` value, so
+`dm-set-dream-level` costs `routes/dm/dmSetDreamLevel.ts` (a guard plus a call into the service)
+and a `PATTERN_ROUTES` line. Recorded as the named exception amending
+[D2](../overview.md#d2--the-backend-does-not-change); corrected at TICKET-RES-04's closeout, where
+the original "no route" claim turned out to be wrong.
 
 ## Open questions
 

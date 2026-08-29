@@ -65,6 +65,7 @@ function renderPanel() {
     onSetLevel: vi.fn(),
     onSetGrantedPoints: vi.fn(),
     onSetResource: vi.fn(),
+    onSetDreamLevel: vi.fn(),
   };
 
   render(
@@ -72,6 +73,7 @@ function renderPanel() {
       characterName="Quackers"
       experience={120}
       budget={BUDGET}
+      dreamLevel={2}
       resources={[HEALTH]}
       isBusy={false}
       {...handlers}
@@ -147,6 +149,17 @@ describe('the DM controls panel', () => {
     submit('Points granted', '5', 'Set grant');
 
     expect(handlers.onSetGrantedPoints).toHaveBeenCalledWith(5);
+  });
+
+  it('sends a dream level as the new total, and says where it stands now', () => {
+    const handlers = renderPanel();
+
+    // TICKET-RES-04: the DM raises it, and what the box holds is the number that gets stored
+    expect(screen.getByText(/2 now — their archetype's gains grow with it/)).not.toBeNull();
+
+    submit('Dream level', '3', 'Set dream level');
+
+    expect(handlers.onSetDreamLevel).toHaveBeenCalledWith(3);
   });
 
   it('names the pool it is setting, so one row cannot write another', () => {

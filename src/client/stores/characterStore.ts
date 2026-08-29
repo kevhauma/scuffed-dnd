@@ -15,7 +15,7 @@ import { buildCharacter } from '#shared/services/characterCreation';
 import { purseFromStoredWallet } from '#shared/services/characterShape';
 // The experience rules **moved** here from this module with TICKET-DM-01, rather than being copied
 // into a DM route — the same thing PLY-01 did to the sheet's other writes, and for the same reason
-import { addExperience, removeExperience } from '#shared/services/dmActions';
+import { addExperience, removeExperience, setDreamLevel } from '#shared/services/dmActions';
 // `addToPack` and `removeFromPack` are deliberately absent: the browser's pack has never had a rule
 // to share — its picker is built from the ruleset's item list — and the *server* is the side that
 // has to check, because a request is not a picker. See `addMiscItem` below.
@@ -36,6 +36,7 @@ import {
 } from '#shared/services/playerActions';
 import type {
   DmAction,
+  DreamLevelRequest,
   ExperienceRequest,
   GrantRequest,
   LevelRequest,
@@ -346,6 +347,22 @@ export interface CharacterState {
    */
   deductExperience: (characterId: string, amount: number) => void;
 
+  /**
+   * Set how far a character stands in their dream (TICKET-RES-04)
+   *
+   * **The local half of a DM action**, and it is here for the reason {@link awardExperience} is:
+   * signed out there is no DM, the Player keeps their own sheet, and the rule is the Kernel's either
+   * way. At a table it is refused with the same sentence the purse and experience are refused with —
+   * {@link dmSetDreamLevel} is the DM's route to the same field.
+   *
+   * A refusal is reported, because the box is one a Player types into and *below 1* is a thing they
+   * can genuinely type.
+   *
+   * Named `update…` beside the DM's `dmSet…` exactly as {@link updateCurrentStatValue} sits beside
+   * {@link dmSetResource}: one name per actor, one Kernel rule behind both.
+   */
+  updateDreamLevel: (characterId: string, level: number) => void;
+
   /*
    * The Dungeon Master's controls (TICKET-DM-01, v3 Req 42.1-42.4)
    *
@@ -368,6 +385,8 @@ export interface CharacterState {
   dmSetLevel: (characterId: string, level: number) => void;
   /** Set the extra spendable stat points the DM has handed out — a total, not a delta */
   dmSetGrantedPoints: (characterId: string, points: number) => void;
+  /** Set how far a character at the caller's table stands in their dream — a total, not a delta */
+  dmSetDreamLevel: (characterId: string, level: number) => void;
   /** Write where one of a character's resource pools stands, under the Player's own Kernel rule */
   dmSetResource: (characterId: string, statId: string, value: number) => void;
 }
@@ -957,6 +976,14 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     applyLocally(set, get, characterId, (character) => removeExperience(character, amount));
   },
 
+  updateDreamLevel: (characterId: string, level: number) => {
+    if (refuseAtTable(set, get, characterId, 'A dream level')) return;
+
+    applyLocally(set, get, characterId, (character) => setDreamLevel(character, level), {
+      reportRefusal: true,
+    });
+  },
+
   dmAwardExperience: (characterId: string, amount: number) => {
     adjustAtTable(set, get, characterId, DM_ACTION.AWARD_EXPERIENCE, {
       amount,
@@ -982,5 +1009,11 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
       statId,
       value,
     } satisfies ResourceValueRequest);
+  },
+
+  dmSetDreamLevel: (characterId: string, level: number) => {
+    adjustAtTable(set, get, characterId, DM_ACTION.SET_DREAM_LEVEL, {
+      dreamLevel: level,
+    } satisfies DreamLevelRequest);
   },
 }));
