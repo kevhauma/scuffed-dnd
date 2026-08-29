@@ -125,8 +125,8 @@ invisible rows forever. Two things follow:
 
 Two consequences worth holding on to before changing a persisted shape:
 
-- **A document change is not a migration.** Adding `grantedStatPoints` (DM-01), `purse` (CUR-02) or
-  `dreamLevel` (RES-04)
+- **A document change is not a migration.** Adding `grantedStatPoints` (DM-01), `purse` (CUR-02),
+  `dreamLevel` (RES-04) or `focusSkillIds` (SKL-05)
   changes what is *inside* `character.data` and `ruleset.data`, which are `TEXT` columns. The rules
   in *Changing a persisted shape* below are the ones that apply — not a SQL file.
 
@@ -217,7 +217,7 @@ below.
 **`Skill` is the sheet's Skill since TICKET-SKL-02**: `{ id, name, description, statWeights:
 [{ statId, weight }], category? }`. It replaced v1's `SpecialitySkill` outright — no `code`, no
 `maxBaseLevel`, no `bonusFormula`. The arithmetic is not per-skill any more: `level = ceil(Σ(weight ×
-stat value)) + invested` and `bonus = ceil(level / const.bonus_divider)` live once, in
+stat value) × focus) + invested` and `bonus = ceil(level / const.bonus_divider)` live once, in
 [skillCalculator.ts](../../../src/shared/engine/calculators/skillCalculator.ts), so a global rebalance is
 one constant rather than 48 formula edits. A weight row names a stat by **id**, so a rename cannot
 orphan it, and a formula reaches a skill as `skills.<name-slug>` (`.bonus` for the integer).
@@ -545,7 +545,8 @@ Identity rules that the rest of the app depends on:
 `Character` stores only what the player chose: `raceIds`, `investedStatPoints` (**keyed by stat
 id**, so a rename cannot orphan an allocation),
 `investedSkillPoints` (**keyed by skill id**, same reason — TICKET-SKL-02 replaced v1's
-code-keyed `specialitySkillBaseLevels`), `archetypeId`, `currentResourceValues`,
+code-keyed `specialitySkillBaseLevels`), `archetypeId`, `focusSkillIds` (**three picks, duplicates
+legal** — TICKET-SKL-05), `currentResourceValues`,
 `experience`,
 and an `Inventory` (`equippedItems: Record<slotType, itemId>` + `miscItems: itemId[]`). It carries
 `configurationId` so a character is always read against the ruleset it was built on.
@@ -658,6 +659,46 @@ fourth parameter is the level and is **required** so that no caller can grow a s
   on every stored roster, and not in `CHARACTER_FIELDS`. v4.0's single milestone-wide bump
   ([D6](../../../docs/v4.0_sheet_parity/overview.md#d6--no-backwards-compatibility-v40-is-a-clean-break-user-2026-08-29))
   belongs to whichever reshaping ticket lands first; this is not one.
+
+And **`focusSkillIds`** (TICKET-SKL-05, v4 systems/06) — the three **Focus skill** slots the new
+workbook's Setup form names. It is **not** a sixth exception to *derived values are never stored*,
+because it is not a number anything computes: it is a pick, like `raceIds` and `archetypeId` beside
+it. What it feeds is the skill level — each slot contributes `const.focus_chosen` to the skill it
+names and `const.focus_other` to every other, summed into one multiplier per skill (0.9 / 2.1 /
+**3.3** at the sheet's 1.5 / 0.3), applied *inside* `skillCalculator`'s round-up and *before* the
+invested points.
+
+- **A list, not a set, and slot order is what it stores.** Duplicates are legal and **stack** — the
+  sample character picked Arcane twice on purpose. Empty slots are **not** stored: a Player part-way
+  through choosing has fewer than three entries and the missing slots count as *other*, which is what
+  lets the sheet's picker fill them one at a time. `toFocusSlots` pads for a picker; nothing pads the
+  document.
+- **Optional, and absent means none — with exactly one spelling.** `focusPicksField` is what writes
+  it: an empty list stores **no field at all**, so a Player who cleared their last pick and one who
+  never made any are the same document and export identically. Read it through `focusPicksOf` in
+  [engine/focusSkills.ts](../../../src/shared/engine/focusSkills.ts) rather than `?? []` at a call
+  site. (Both halves were found by review: creation dropped an empty list while the sheet's picker
+  stored `[]`.) **Absent picks are not the neutral case**: against a ruleset that states the
+  dials, no picks computes every skill at **0.9**, which is the workbook's own arithmetic for a form
+  nobody filled in. What *is* neutral is a ruleset that states **neither dial** — each defaults to
+  `1 / FOCUS_SLOT_COUNT`, so three slots multiply by exactly 1 and every skill computes as it did
+  before focus existed.
+- **Two writes, one shape rule.** `focusPickRefusal` — at most three, every one a skill the ruleset
+  defines — is called by `characterCreationErrors` and by `playerActions.chooseFocusSkills`, so a
+  wizard and a live edit cannot disagree. *All three filled* is **creation's** rule and only when the
+  ruleset states a dial; the sheet's picker deliberately accepts fewer, because a character created
+  before this field existed has none.
+- **It is a guarded reference, like `raceIds`.** `dependencies.ts` walks it, so deleting a skill three
+  characters focus is refused rather than merely survived — and a stale focus id is worse than a stale
+  race id: `focusPickRefusal` refuses the *whole* list, so one dangling pick makes every slot
+  unwritable. **Any new `Character` field naming a config entity by id owes the walker a case.**
+- **It has to reach the server on creation, not only on the sheet.** `CharacterCreateRequest` carries
+  it and `creationDataFrom` reads it, because `POST /api/sessions/:id/characters` re-runs
+  `characterCreationErrors` against the Snapshot — a request that dropped the picks would be refused
+  for naming none. (It did, until review: the field-by-field request builder in `characterSync.ts` is
+  the place a new choice is most easily forgotten.)
+- **No `SUPPORTED_SCHEMA_VERSION` bump**, for `dreamLevel`'s reason: additive-optional, absent on
+  every stored roster, and not in `CHARACTER_FIELDS`.
 
 **The point budget closes that chain** (TICKET-RES-02, TICKET-DM-01, TICKET-RES-05):
 `validateStatAllocation(character, config)` in

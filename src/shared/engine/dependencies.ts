@@ -281,10 +281,31 @@ function characterSkillReferences(characters: Character[], skillId: string): Ent
 }
 
 /**
- * Everything pointing at a skill (Concept 02, TICKET-SKL-02)
+ * Characters who have made a skill one of their **focus** picks (TICKET-SKL-05)
+ *
+ * `raceIds`' arm, one entity over, and it guards something sharper than a dangling race does. A
+ * stale focus id is not merely inert: `focusPickRefusal` refuses the **whole list**, and the sheet's
+ * picker resends every stored pick on any change — so one deleted skill makes every slot unwritable
+ * with a message about a slot the Player did not touch, and the stale slot renders as a `Select`
+ * whose value matches no option.
+ */
+function characterFocusReferences(characters: Character[], skillId: string): EntityReference[] {
+  return characters
+    .filter((character) => (character.focusSkillIds ?? []).includes(skillId))
+    .map((character) => ({
+      holderKind: 'Character',
+      holderName: character.name,
+      field: 'focus skills',
+      holderId: character.id,
+    }));
+}
+
+/**
+ * Everything pointing at a skill (Concept 02, TICKET-SKL-02, TICKET-SKL-05)
  *
  * A `Skill` has no code, so nothing names it in the flat space and it has no own formula to
- * exclude: what points at it is a formula spelling `skills.<name>` and a character's investment.
+ * exclude: what points at it is a formula spelling `skills.<name>`, a character's investment, and —
+ * since focus skills — a character's picks.
  */
 function skillEntityReferences(
   config: Configuration,
@@ -296,6 +317,7 @@ function skillEntityReferences(
   return [
     ...(skill ? formulaReferences(config, namesMember('skills', skillMemberName(skill)), id) : []),
     ...characterSkillReferences(characters, id),
+    ...characterFocusReferences(characters, id),
   ];
 }
 

@@ -47,6 +47,7 @@ import {
   investSkillPoints,
   investStatPoints,
   resetResource,
+  setFocusSkills,
   setResource,
   stowItem,
   takeItem,
@@ -163,6 +164,7 @@ export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Respon
   // and what stops a client sending a field the engine owns.
   'POST /api/characters/:id/invest-stat-points': investStatPoints,
   'POST /api/characters/:id/invest-skill-points': investSkillPoints,
+  'POST /api/characters/:id/set-focus-skills': setFocusSkills,
   'POST /api/characters/:id/set-resource': setResource,
   'POST /api/characters/:id/adjust-resource': adjustResource,
   'POST /api/characters/:id/reset-resource': resetResource,

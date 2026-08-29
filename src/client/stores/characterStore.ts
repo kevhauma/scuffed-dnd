@@ -22,6 +22,7 @@ import { addExperience, removeExperience, setDreamLevel } from '#shared/services
 import {
   adjustPurseBy,
   adjustResourceValue,
+  chooseFocusSkills,
   emptySlot,
   equipToSlot,
   investInSkill,
@@ -38,6 +39,7 @@ import type {
   DmAction,
   DreamLevelRequest,
   ExperienceRequest,
+  FocusSkillsRequest,
   GrantRequest,
   LevelRequest,
   PlayerAction,
@@ -296,6 +298,20 @@ export interface CharacterState {
     points: number,
     config: Configuration
   ) => void;
+
+  /**
+   * Name the skills this character focuses on (TICKET-SKL-05)
+   *
+   * **The whole list at once**, because the multiplier is a sum over the three slots and does not
+   * care which slot a pick sits in — the picker sends what its boxes currently name, empties left
+   * out. The Kernel refuses more than three and any id the ruleset has not got; it does *not* insist
+   * on three, which is what lets a character created before focus skills fill their slots one at a
+   * time.
+   *
+   * `reportRefusal`, for the purse's reason: the picker is a set of open dropdowns with nothing
+   * standing in front of them, so a refusal has to be said out loud rather than snapping a box back.
+   */
+  setFocusSkills: (characterId: string, focusSkillIds: string[], config: Configuration) => void;
 
   /**
    * Set what the character is carrying, in the ruleset's base tier (Concept 16, TICKET-CUR-02)
@@ -933,6 +949,19 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     // so this takes a ruleset for exactly the reason `setInvestedStatPoints` does
     applyLocally(set, get, characterId, (character) =>
       investInSkill(character, config, skillId, points)
+    );
+  },
+
+  setFocusSkills: (characterId: string, focusSkillIds: string[], config: Configuration) => {
+    const body = { focusSkillIds } satisfies FocusSkillsRequest;
+    if (toTable(set, get, characterId, PLAYER_ACTION.SET_FOCUS_SKILLS, body)) return;
+
+    applyLocally(
+      set,
+      get,
+      characterId,
+      (character) => chooseFocusSkills(character, config, focusSkillIds),
+      { reportRefusal: true }
     );
   },
 

@@ -58,6 +58,35 @@ export function constantsNamespace(constants: Constant[] = []): NamespaceResolve
 }
 
 /**
+ * Read one constant by name for the engine's own arithmetic, or nothing when the ruleset has none
+ *
+ * {@link namedConstant} without the fallback, for the caller that has to tell *unset* from *set to
+ * the value the fallback would have been*. TICKET-SKL-05 is the first: a ruleset that states neither
+ * focus dial computes every skill exactly as it did before focus existed **and is not asked to pick
+ * any**, and "did the User set this" is not a question a defaulted number can answer.
+ *
+ * `namedConstant` is this plus `?? fallback`, so the resolution rule — first spelling wins, a
+ * property access is an error, a duplicate name means the same constant everywhere (CR-26) — is
+ * stated once for both.
+ *
+ * @param constants - The configuration's constants; absent is the same as none
+ * @param name - The constant's name, as a formula would spell it after `const.`
+ * @param accepts - What counts as usable, beyond being a finite number
+ * @returns The ruleset's number, or `undefined` when it states none this caller can use
+ */
+export function optionalConstant(
+  constants: Constant[] | undefined,
+  name: string,
+  accepts: (value: number) => boolean
+): number | undefined {
+  const value = constantsNamespace(constants).resolve(name);
+
+  const isUsable = typeof value === 'number' && Number.isFinite(value) && accepts(value);
+
+  return isUsable ? value : undefined;
+}
+
+/**
  * Read one constant by name for the engine's own arithmetic, with a seeded fallback
  *
  * The system's own numbers — `race_blend_divisor`, `bonus_divider`, `points_per_level` — are read
@@ -81,7 +110,7 @@ export function namedConstant(
   fallback: number,
   accepts: (value: number) => boolean
 ): number {
-  const value = constantsNamespace(constants).resolve(name);
+  const stated = optionalConstant(constants, name, accepts);
 
-  return typeof value === 'number' && Number.isFinite(value) && accepts(value) ? value : fallback;
+  return stated ?? fallback;
 }

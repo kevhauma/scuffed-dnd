@@ -1,7 +1,8 @@
 /**
  * Character Creation Wizard
  *
- * Four steps to a valid character. Layout and composition only — `useCharacterCreation` decides.
+ * Five steps to a valid character (TICKET-SKL-05 added the focus picks). Layout and composition only
+ * — `useCharacterCreation` decides.
  *
  * **Validates: Requirements 11.1-11.6, 21.1-21.5**
  */
@@ -10,6 +11,7 @@ import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 import { ArchetypeStep } from './ArchetypeStep';
+import { FocusStep } from './FocusStep';
 import { IdentityStep } from './IdentityStep';
 import { ReviewStep } from './ReviewStep';
 import { SkillAllocationStep } from './SkillAllocationStep';
@@ -34,6 +36,8 @@ export function CharacterCreationWizard() {
     races,
     raceBases,
     raceSlots,
+    focusSlots,
+    isFocusDialled,
     budget,
     gains,
     preview,
@@ -42,6 +46,7 @@ export function CharacterCreationWizard() {
     setInvestedStatPoints,
     setInvestedSkillPoints,
     setArchetypeId,
+    setFocusSkillAt,
     archetypes,
     selectedRaceNames,
     selectedArchetypeName,
@@ -128,7 +133,18 @@ export function CharacterCreationWizard() {
         />
       )}
 
+      {/* After the allocation step: what a focus pick multiplies is the weighted stat total, which
+          the stats above are what a Player has just been arranging (TICKET-SKL-05) */}
       {stepIndex === 3 && (
+        <FocusStep
+          skills={skills}
+          focusSlots={focusSlots}
+          isDialled={isFocusDialled}
+          onSelectFocusSkill={setFocusSkillAt}
+        />
+      )}
+
+      {stepIndex === 4 && (
         <ReviewStep
           config={config}
           stats={stats}

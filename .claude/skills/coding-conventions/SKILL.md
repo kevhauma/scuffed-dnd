@@ -26,6 +26,14 @@ lockfile. Always `yarn run check`.
 list. Concretely: engine code is pure (no React, no `localStorage`), services own persistence,
 stores own state + persistence calls, components own rendering, routes own params and composition.
 
+**A term a surface renders is reported by the engine, factor *and* contribution** (TICKET-SKL-05).
+When a derivation gains a multiplier or a scaler that a breakdown has to show, the calculator emits
+both the factor (`×2.1`) and what it did to that particular value (`+5.7`), because only the
+calculator holds the intermediate — a component given the factor alone must multiply to render the
+row, and a component that multiplies can disagree with the total it sits beside. The corollary is a
+display rule: a breakdown's rows must still **sum** to the number above them, so a multiplicative term
+is spelled as the difference it made rather than as a bare factor in a column of addends.
+
 ## Files and naming
 
 | Thing | Convention | Example |

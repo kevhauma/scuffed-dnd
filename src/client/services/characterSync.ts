@@ -171,6 +171,10 @@ export async function createSessionCharacter(
     investedStatPoints: data.investedStatPoints,
     archetypeId: data.archetypeId,
     investedSkillPoints: data.investedSkillPoints,
+    // Sent, because the server re-runs the creation rules against the Snapshot (TICKET-SKL-05): a
+    // request that dropped these would be refused for naming no focus skills by a wizard that
+    // named three, on any ruleset that states a focus dial
+    focusSkillIds: data.focusSkillIds,
   };
 
   try {

@@ -15,6 +15,7 @@
  */
 
 import { useNavigate } from '@tanstack/react-router';
+import { focusPicksOf, toFocusSlots } from '#shared/engine/focusSkills';
 import type { Character } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
 import { useCharacterStore } from '../../../stores/characterStore';
@@ -27,6 +28,8 @@ export interface SheetActions {
   handleResetStatValueToMax: (statId: string) => void;
   handleChangeInvestedPoints: (statId: string, points: number) => void;
   handleChangeInvestedSkillPoints: (skillId: string, points: number) => void;
+  /** Put a skill in one focus slot — the store sends all three, see below (TICKET-SKL-05) */
+  handleSelectFocusSkill: (slot: number, skillId: string) => void;
   handleSetPurse: (amount: number) => void;
   handleAdjustPurse: (delta: number) => void;
   handleAwardExperience: (amount: number) => void;
@@ -55,6 +58,7 @@ export function useSheetActions(
   const resetCurrentStatValueToMax = useCharacterStore((state) => state.resetCurrentStatValueToMax);
   const setInvestedStatPoints = useCharacterStore((state) => state.setInvestedStatPoints);
   const setInvestedSkillPoints = useCharacterStore((state) => state.setInvestedSkillPoints);
+  const setFocusSkills = useCharacterStore((state) => state.setFocusSkills);
   const setPurse = useCharacterStore((state) => state.setPurse);
   const adjustPurse = useCharacterStore((state) => state.adjustPurse);
   const awardExperience = useCharacterStore((state) => state.awardExperience);
@@ -99,6 +103,29 @@ export function useSheetActions(
       if (!character || !config) return;
 
       setInvestedSkillPoints(character.id, skillId, points, config);
+    },
+
+    /**
+     * Put a skill in one focus slot (TICKET-SKL-05)
+     *
+     * **Addressed by slot here and sent as a whole list**, which is the shape the two ends need: a
+     * picker changes one box, and the character stores the picks that were made with no sentinel for
+     * the ones that were not. The empties drop out on the way, so picks compact to the front — which
+     * changes nothing, because the multiplier is a sum over the slots and does not read their order.
+     *
+     * The slots are rebuilt from the stored picks rather than from the component's own state, for
+     * the reason every handler here takes the store's word: the character is the one copy, and a
+     * refused write must leave the boxes showing what is actually stored.
+     */
+    handleSelectFocusSkill: (slot: number, skillId: string) => {
+      if (!character || !config) return;
+
+      const picks = focusPicksOf(character);
+      const slots = toFocusSlots(picks);
+      slots[slot] = skillId;
+
+      const chosen = slots.filter((id) => id !== '');
+      setFocusSkills(character.id, chosen, config);
     },
 
     // Set and adjust are two intents rather than one plus arithmetic here: `-12` against a purse

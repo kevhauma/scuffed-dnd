@@ -15,6 +15,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { calculateCharacter, firstCalculationError } from '#shared/engine/calculator';
 import { calculateRaceStatBases } from '#shared/engine/calculators/statCalculator';
+import { focusDials, toFocusSlots } from '#shared/engine/focusSkills';
 import { describeFormulaError } from '#shared/engine/formula/errors';
 import { racesRequired, resolveRaces } from '#shared/engine/races';
 import type { StatAllocationResult } from '#shared/engine/skillAllocation';
@@ -35,7 +36,7 @@ import { useCharacterSubmit } from './useCharacterSubmit';
 /**
  * The wizard's steps, in order — exposed to callers as the hook's `steps`
  */
-const CREATION_STEPS = ['Identity', 'Archetype', 'Stats', 'Review'] as const;
+const CREATION_STEPS = ['Identity', 'Archetype', 'Stats', 'Focus', 'Review'] as const;
 
 /**
  * The choices the engine reads — everything a Player picks that changes a number
@@ -48,6 +49,8 @@ interface EngineInputs {
   investedStatPoints: Record<string, number>;
   investedSkillPoints: Record<string, number>;
   archetypeId?: string;
+  /** The three Setup picks, empties left out — they multiply every skill (TICKET-SKL-05) */
+  focusSkillIds: string[];
 }
 
 /**
@@ -94,6 +97,8 @@ export interface CharacterCreationFormData {
   investedSkillPoints: Record<string, number>;
   /** Empty until the Player picks one — the form binds a string, the character stores an id */
   archetypeId: string;
+  /** One entry per focus slot, `''` for an unfilled one — the *form's* shape (TICKET-SKL-05) */
+  focusSkillIds: string[];
 }
 
 /**
@@ -182,6 +187,67 @@ function raceSlotsFor(config: Configuration | null, picked: string[]): string[] 
   return Array.from({ length: required }, (_, index) => picked[index] ?? '');
 }
 
+/**
+ * Everything the focus step needs, read off the ruleset and the picks (TICKET-SKL-05)
+ *
+ * One value rather than four bindings in the hook body, for `raceSlotsFor`'s reason: the hook's body
+ * is the tree `fallow` measures, and every one of these is a pure function of two things it already
+ * has. The whole focus half of the wizard's state is one call and one destructure.
+ */
+interface FocusStepState {
+  /** One entry per slot, `''` where nothing is picked — what the step renders */
+  slots: string[];
+  /** The filled slots, duplicates kept — what the character is created with */
+  chosen: string[];
+  /** Whether the ruleset states either dial — the step's caption reads it */
+  isDialled: boolean;
+  /** Whether this ruleset asks for picks at all: it states a dial *and* it has skills to pick */
+  isAsked: boolean;
+}
+
+/**
+ * Read the focus half of the wizard's state
+ *
+ * @param config The open ruleset, or null before one is loaded
+ * @param picked What the form holds, which may be shorter than the slot count
+ * @returns The slots, the picks, and whether this ruleset asks for any
+ */
+function focusStateFor(config: Configuration | null, picked: string[]): FocusStepState {
+  const slots = toFocusSlots(picked);
+  const chosen = slots.filter((skillId) => skillId !== '');
+  const dials = focusDials(config?.constants);
+  const skills = config?.skills ?? [];
+
+  return { slots, chosen, isDialled: dials.stated, isAsked: dials.stated && skills.length > 0 };
+}
+
+/**
+ * Why the focus step cannot be left, or null when it can (TICKET-SKL-05)
+ *
+ * **All three slots, and only when the ruleset asks for them** — the archetype step's rule, and
+ * `characterCreation.ts`'s `focusErrors` is where it actually lives, so the step and the server
+ * **refuse the same character**. Not in the same words, deliberately: this one counts the slots the
+ * Player is looking at (*"3 focus skills — 1 chosen"*) where the Kernel, which has no step in front
+ * of it, states the rule (*"A character in this ruleset names 3 focus skills."*). Whether a character
+ * is legal is one answer; how it is worded belongs to the surface saying it. A ruleset that states
+ * neither focus dial multiplies
+ * everything by 1, so demanding three picks that change nothing would be a rule a Player cannot act
+ * on; a ruleset with no skills has nothing to pick either. Both of those are `isAsked`.
+ *
+ * Outside the hook for `raceSlotsFor`'s reason — the hook's body is the tree `fallow` measures, and
+ * this is a pure function of three values it already has.
+ *
+ * @param slots The pickers the step is rendering
+ * @param chosen The filled ones, duplicates kept
+ * @param isAsked Whether this ruleset asks for focus picks at all
+ * @returns The sentence, or null when the step may be left
+ */
+function focusStepError(slots: string[], chosen: string[], isAsked: boolean): string | null {
+  if (!isAsked || chosen.length === slots.length) return null;
+
+  return `This ruleset asks a character to name ${slots.length} focus skills — ${chosen.length} chosen.`;
+}
+
 export function useCharacterCreation() {
   const navigate = useNavigate();
 
@@ -200,6 +266,7 @@ export function useCharacterCreation() {
       investedStatPoints: {},
       investedSkillPoints: {},
       archetypeId: '',
+      focusSkillIds: [],
     },
   });
 
@@ -222,6 +289,9 @@ export function useCharacterCreation() {
   /** The filled slots, in slot order and duplicates kept — what the character is created with */
   const chosenRaceIds = raceSlots.filter((raceId) => raceId !== '');
 
+  /** The slots, the picks in them, and whether this ruleset asks for any (TICKET-SKL-05) */
+  const focus = focusStateFor(config, values.focusSkillIds);
+
   /**
    * The choices the engine reads, stable while their content is (CR-14)
    *
@@ -233,6 +303,7 @@ export function useCharacterCreation() {
     investedStatPoints: values.investedStatPoints,
     investedSkillPoints: values.investedSkillPoints,
     archetypeId: values.archetypeId || undefined,
+    focusSkillIds: focus.chosen,
   });
 
   // Resolved through the Kernel's own lookup so a race picked in two slots is two blocks here as
@@ -341,6 +412,20 @@ export function useCharacterCreation() {
   };
 
   /**
+   * Put a skill in one focus slot (TICKET-SKL-05)
+   *
+   * `setRaceAt`'s shape, for its reason: the same skill may fill every slot, so *is it already
+   * picked* stopped being a question with an answer, and a slot holds exactly one skill so replacing
+   * it is the only edit there is. The form keeps the empties — a Player who fills the third slot
+   * first should watch their choice stay in the third box.
+   */
+  const setFocusSkillAt = (index: number, skillId: string) => {
+    const filled = [...focus.slots];
+    filled[index] = skillId;
+    form.setValue('focusSkillIds', filled);
+  };
+
+  /**
    * The review step's numbers, from the one composed calculator — the wizard does no arithmetic
    */
   const preview: CalculatedCharacter | null = useMemo(() => {
@@ -421,6 +506,7 @@ export function useCharacterCreation() {
     0: identityStepError(),
     1: archetypeStepError(),
     2: allocationStepError(allocation, budget),
+    3: focusStepError(focus.slots, focus.chosen, focus.isAsked),
   };
   const stepError = stepErrorsByStep[stepIndex] ?? null;
 
@@ -472,6 +558,8 @@ export function useCharacterCreation() {
     races,
     raceBases,
     raceSlots,
+    focusSlots: focus.slots,
+    isFocusDialled: focus.isDialled,
     // `allocation` stays local: the step renders `budget`, and re-exporting the raw engine result
     // through the play barrel would offer supported API nothing consumes
     budget,
@@ -482,6 +570,7 @@ export function useCharacterCreation() {
     setInvestedStatPoints,
     setInvestedSkillPoints,
     setArchetypeId,
+    setFocusSkillAt,
     archetypes,
     selectedRaceNames,
     selectedArchetypeName,

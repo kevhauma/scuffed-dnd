@@ -171,6 +171,21 @@ export function idFrom(value: unknown, field: string): string {
 }
 
 /**
+ * A field that has to be a list of non-empty string ids (TICKET-SKL-05)
+ *
+ * {@link idFrom} for the action that names several at once. **Only the shape**: whether the list is
+ * too long, or names something this ruleset does not have, is the Kernel's answer — the same split
+ * {@link numberFrom} draws between *is this a number* and *is this number allowed*.
+ */
+export function idListFrom(value: unknown, field: string): string[] {
+  const isList = Array.isArray(value) && value.every((id) => typeof id === 'string' && id !== '');
+
+  if (!isList) throw badRequest(`${field} has to be a list of ids.`);
+
+  return value as string[];
+}
+
+/**
  * A field that has to be a real number
  *
  * **Checked here rather than left to the Kernel**, for `characterPayloads`' reason: a `NaN` reaching

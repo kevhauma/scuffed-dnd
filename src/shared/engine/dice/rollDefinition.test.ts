@@ -75,6 +75,7 @@ function createCharacter(rollInputs: Record<string, FormulaResult>): CalculatedC
     skillLevels: {},
     skillBonuses: {},
     skillContributions: {},
+    skillFocus: {},
     rollInputs,
     equipmentBonuses: [],
   };

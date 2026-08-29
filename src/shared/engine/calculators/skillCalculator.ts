@@ -1,10 +1,11 @@
 /**
  * Skill Calculator
  *
- * A skill's two numbers (Concept 02, TICKET-SKL-02; rounding per TICKET-SKL-04):
+ * A skill's two numbers (Concept 02, TICKET-SKL-02; rounding per TICKET-SKL-04, focus per
+ * TICKET-SKL-05):
  *
  * ```
- * level = ceil(Σ (weight × stat value)) + invested
+ * level = ceil(Σ (weight × stat value) × focus) + invested
  * bonus = ceil(level / const.bonus_divider)
  * ```
  *
@@ -29,6 +30,26 @@
  * **Invested points land after the ceil**, exactly as the sheet has them: a bought point is a whole
  * point, never a fraction spent rounding the derived part up.
  *
+ * ## The focus multiplier is inside the round-up (TICKET-SKL-05)
+ *
+ * `focus` is the character's three Setup picks summed into one factor per skill — 0.9 unchosen, 2.1
+ * chosen once, 3.3 chosen twice at the sheet's dials — and it belongs *inside* the `ROUNDUP` and
+ * *before* the invested points, which is the order the cells have and the order that changes the
+ * answer: `ceil(5.2 × 2.1) + 3` is 14 where `ceil(5.2) × 2.1 + 3` is 15.6 and
+ * `ceil((5.2 + 3) × 2.1)` is 18. The rule itself, the two constants and *absent means neutral* are
+ * [`focusSkills.ts`](../focusSkills.ts)'s; this module multiplies by what it is told.
+ *
+ * The multiplication makes the round-up's float settling load-bearing rather than merely correct:
+ * `roundAwayFromZero` settles to 15 significant digits before it rounds, and a fractional multiplier
+ * over fractional weights is exactly the arithmetic that lands on `3.0000000000000004`.
+ *
+ * **The level can still render fractional, and that is deliberate.** `invested` is added *after* the
+ * ceil, so 1.5 invested points show as `13.5`. Every path that writes an investment refuses a
+ * non-integer (`pointsRefusal`), so the only fractional levels in the app are the golden suite's
+ * `+1.5` row — Concept 02's own open question about what a starting pick is worth. Moving the ceil
+ * outside the `+ invested` would round a number the workbook does not round, to tidy a case the
+ * workbook does not have.
+ *
  * **This is an engine rule, not a per-ruleset dial** — the decision TICKET-SKL-04 was asked to make
  * and record. A rounding mode is not a balance knob the way `bonus_divider` is: no ruleset asks for
  * *half* a rounding, an imported ruleset plays whatever the engine does either way (v4
@@ -47,9 +68,14 @@
  * **Validates: Concept 02; Concept 05; Concept 00 §7; v4 systems/06 gap 3**
  */
 
-import type { Character, SkillStatContribution } from '../../types/character';
+import type {
+  Character,
+  SkillFocusContribution,
+  SkillStatContribution,
+} from '../../types/character';
 import type { Configuration, Skill } from '../../types/config';
 import type { FormulaResult } from '../../types/formula';
+import { type FocusDials, focusDials, focusMultiplier, focusPicksOf } from '../focusSkills';
 import { namedConstant } from '../formula/constants';
 import { asNumber, formulaError, isFormulaError, withSource } from '../formula/errors';
 import { roundAwayFromZero } from '../formula/functions';
@@ -74,6 +100,16 @@ export interface CalculatedSkills {
    * be computed, and half a sum is more misleading than none (Concept 00 §7).
    */
   contributions: Record<string, SkillStatContribution[]>;
+  /**
+   * Each skill's focus multiplier and what it added, keyed by skill id (TICKET-SKL-05)
+   *
+   * The term that turns the weight rows above into the number the level rounds up from: with it, the
+   * breakdown sums to the pre-rounding total again, which is what {@link contributions} promises and
+   * what a multiplier applied silently would have quietly broken.
+   *
+   * Absent for a skill whose level failed, exactly as its contributions are empty.
+   */
+  focus: Record<string, SkillFocusContribution>;
 }
 
 /**
@@ -97,9 +133,10 @@ function bonusDivider(config: Configuration): number {
 /**
  * One skill's level from its weight rows
  *
- * `ceil(Σ weight × stat) + invested` (TICKET-SKL-04). The **weighted sum alone is what rounds** —
- * the invested points are added to the whole number that comes out, which is why they are summed
- * separately from the rows rather than seeded into the total.
+ * `ceil(Σ (weight × stat) × focus) + invested` (TICKET-SKL-04, TICKET-SKL-05). The **weighted sum
+ * times the focus multiplier is what rounds** — the invested points are added to the whole number
+ * that comes out, which is why they are summed separately from the rows rather than seeded into the
+ * total.
  *
  * A weight naming a stat the ruleset no longer defines contributes nothing rather than poisoning
  * the level — the same rule the composition applies to a dangling race entry (TICKET-REF-02). A
@@ -116,8 +153,13 @@ function levelOf(
   skill: Skill,
   statValues: Record<string, FormulaResult>,
   statNames: ReadonlyMap<string, string>,
-  invested: number
-): { level: FormulaResult; contributions: SkillStatContribution[] } {
+  invested: number,
+  multiplier: number
+): {
+  level: FormulaResult;
+  contributions: SkillStatContribution[];
+  focus?: SkillFocusContribution;
+} {
   let weighted = 0;
   const contributions: SkillStatContribution[] = [];
 
@@ -140,12 +182,19 @@ function levelOf(
     contributions.push({ statId, weight, statValue: value, contribution });
   }
 
-  // The sheet's `ROUNDUP((primary + secondary) × focus, 0) + investedPoints`. **TICKET-SKL-05's
-  // focus multiplier multiplies `weighted` on this line, inside the round-up** — the seat is left
-  // open deliberately, so the multiplier arrives as one term rather than as a rewrite of the shape.
-  const level = roundAwayFromZero(weighted) + invested;
+  // The sheet's `ROUNDUP((primary + secondary) × focus, 0) + investedPoints`, in that order — the
+  // multiplier inside the round-up and the invested points outside it (TICKET-SKL-05)
+  const scaled = weighted * multiplier;
+  const level = roundAwayFromZero(scaled) + invested;
 
-  return { level, contributions };
+  return {
+    level,
+    contributions,
+    // Spelled as *what it added* rather than left for a surface to re-derive: `weighted` only exists
+    // here, and a breakdown that showed `×2.1` without it would list terms that no longer sum to the
+    // number above them
+    focus: { multiplier, contribution: scaled - weighted },
+  };
 }
 
 /**
@@ -166,27 +215,36 @@ function levelOf(
 export function calculateSkills(
   config: Configuration,
   statValues: Record<string, FormulaResult>,
-  character: Pick<Character, 'investedSkillPoints'>
+  character: Pick<Character, 'investedSkillPoints' | 'focusSkillIds'>
 ): CalculatedSkills {
   const divider = bonusDivider(config);
   const statNames = new Map(config.stats.map((stat) => [stat.id, stat.name]));
 
+  // Both read once for the whole character rather than per skill: the dials are the ruleset's and
+  // the picks are the character's, and neither is a property of any one row (TICKET-SKL-05)
+  const dials: FocusDials = focusDials(config.constants);
+  const picks = focusPicksOf(character);
+
   const levels: Record<string, FormulaResult> = {};
   const bonuses: Record<string, FormulaResult> = {};
   const contributions: Record<string, SkillStatContribution[]> = {};
+  const focus: Record<string, SkillFocusContribution> = {};
 
   for (const skill of config.skills) {
+    const multiplier = focusMultiplier(skill.id, picks, dials);
     const computed = levelOf(
       skill,
       statValues,
       statNames,
-      character.investedSkillPoints[skill.id] ?? 0
+      character.investedSkillPoints[skill.id] ?? 0,
+      multiplier
     );
     const level = isFormulaError(computed.level)
       ? withSource(computed.level, { kind: 'skill', id: skill.id, name: skill.name })
       : computed.level;
     levels[skill.id] = level;
     contributions[skill.id] = computed.contributions;
+    if (computed.focus) focus[skill.id] = computed.focus;
 
     // A level that failed has no bonus either, and the bonus says the same thing rather than a
     // confident 0 (Concept 00 §7)
@@ -194,5 +252,5 @@ export function calculateSkills(
     bonuses[skill.id] = numeric === undefined ? level : roundAwayFromZero(numeric / divider);
   }
 
-  return { levels, bonuses, contributions };
+  return { levels, bonuses, contributions, focus };
 }

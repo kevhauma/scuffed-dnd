@@ -198,10 +198,14 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
  *
  * Every row type — skill breakdown, stat editor, combat skill — is the one element carrying the
  * separator border, so that is what identifies the row rather than a test-only attribute.
+ *
+ * **All the matches rather than the only one** since TICKET-SKL-05: the focus picker lists every
+ * skill by name in three dropdowns, so a skill's name appears four times on the page and the row is
+ * the match that sits inside one.
  */
 function rowFor(label: string | RegExp): HTMLElement {
-  const cell = screen.getByText(label);
-  const row = cell.closest('div.border-b');
+  const cells = screen.getAllByText(label);
+  const row = cells.map((cell) => cell.closest('div.border-b')).find((found) => found !== null);
   if (!row) throw new Error(`No row found for ${label}`);
   return row as HTMLElement;
 }
@@ -550,6 +554,78 @@ describe('CharacterSheet', () => {
    * `calculateCharacter` rather than against literals wherever the number is the engine's, so a
    * change to the derivation moves the expectation with it instead of pinning a stale figure.
    */
+  /**
+   * The focus picker (TICKET-SKL-05)
+   *
+   * The sheet's half of the workbook's Setup form. What is worth pinning here is that a **duplicate
+   * pick visibly stacks** — the mechanic is invisible otherwise — and that the write goes through the
+   * store like every other edit on this page.
+   */
+  describe('the focus skills picker', () => {
+    /** The fixture's ruleset with the sheet's own dials set — their values are the data pass's */
+    function withFocusDials(): Configuration {
+      const config = createConfig();
+
+      return {
+        ...config,
+        constants: [
+          ...(config.constants ?? []),
+          {
+            id: 'fc',
+            name: 'focus_chosen',
+            displayName: 'Focus chosen',
+            description: '',
+            value: 1.5,
+          },
+          {
+            id: 'fo',
+            name: 'focus_other',
+            displayName: 'Focus other',
+            description: '',
+            value: 0.3,
+          },
+        ],
+      };
+    }
+
+    const focusSlots = () => screen.queryAllByLabelText(/^Focus \d+$/) as HTMLSelectElement[];
+
+    it('should write a pick through the store and show what it multiplies by', () => {
+      useConfigStore.setState({ config: withFocusDials(), isLoaded: true });
+      render(<CharacterSheet characterId="char1" />);
+
+      const [first] = focusSlots();
+      fireEvent.change(first as HTMLSelectElement, { target: { value: 'STL' } });
+
+      // Through the store, which is the only thing that persists (the hard rule)
+      expect(useCharacterStore.getState().characters[0].focusSkillIds).toEqual(['STL']);
+      // 1.5 + 0.3 + 0.3 — one slot filled, the other two still naming something else
+      expect(screen.getByText('× 2.1')).toBeDefined();
+    });
+
+    it('should stack a duplicate pick, which is the whole of the mechanic', () => {
+      useConfigStore.setState({ config: withFocusDials(), isLoaded: true });
+      useCharacterStore.setState({
+        characters: [createCharacter({ focusSkillIds: ['STL', 'STL'] })],
+      });
+      render(<CharacterSheet characterId="char1" />);
+
+      // Both filled slots say the same thing, because both slots are naming the same skill
+      expect(screen.getAllByText('× 3.3')).toHaveLength(2);
+      // …and the skill's own row carries the multiplier as a term that keeps the breakdown summing:
+      // DEX 6 × 0.5 = 3, and 3 × 3.3 − 3 = +6.9
+      expect(within(rowFor(/Stealth/)).getByText('focus × 3.3 +6.9')).toBeDefined();
+    });
+
+    it('should say a pick changes nothing on a ruleset that states no dials', () => {
+      render(<CharacterSheet characterId="char1" />);
+
+      expect(screen.getByText(/changes no number yet/)).toBeDefined();
+      // No `focus ×1 +0` row on forty-eight skills to say only that a feature exists
+      expect(within(rowFor(/Stealth/)).queryByText(/focus ×/)).toBeNull();
+    });
+  });
+
   describe('the skills grid (TICKET-SKL-03)', () => {
     it('should show a weight row as the stat times its weight, already multiplied', () => {
       const expected = calculateCharacter(createCharacter(), createConfig());

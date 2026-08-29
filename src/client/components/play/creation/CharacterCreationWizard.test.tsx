@@ -609,6 +609,8 @@ describe('CharacterCreationWizard', () => {
     // Labelled by name alone — a `Skill` has no code to bracket (TICKET-SKL-02)
     fireEvent.change(screen.getByLabelText('Stealth'), { target: { value: '1' } });
     next();
+    // Focus — this fixture states neither focus dial, so the step asks for nothing (TICKET-SKL-05)
+    next();
 
     const expected = calculateCharacter(
       {
@@ -650,6 +652,7 @@ describe('CharacterCreationWizard', () => {
     fillIdentity();
     next(); // Archetype — the fixture defines none, so nothing to pick
     next(); // Stats — nothing entered
+    next(); // Focus — the fixture states no focus dials, so nothing to pick (TICKET-SKL-05)
     next(); // Review
 
     expect(screen.queryByText(/formula that does not evaluate/)).toBeNull();
@@ -671,6 +674,7 @@ describe('CharacterCreationWizard', () => {
     next();
     fireEvent.change(screen.getByLabelText(/Strength \(STR\)/), { target: { value: '5' } });
     next();
+    next(); // Focus — nothing to pick on a ruleset that states no dials (TICKET-SKL-05)
 
     fireEvent.click(screen.getByRole('button', { name: 'Create Character' }));
 
@@ -703,6 +707,105 @@ describe('CharacterCreationWizard', () => {
         params: { id: characters[0].id },
       })
     );
+  });
+
+  /**
+   * The focus step (TICKET-SKL-05)
+   *
+   * The source workbook's Setup form names three focus skills, so the wizard asks for three — but
+   * only where the ruleset states a dial for them to be worth anything, which is the archetype
+   * step's rule and its reasoning.
+   */
+  describe('the focus step', () => {
+    /** The fixture's ruleset with the sheet's own dials set — the values are the data pass's */
+    function withFocusDials(): Configuration {
+      const config = createConfig();
+
+      return {
+        ...config,
+        skills: [
+          ...config.skills,
+          { id: 'ALC', name: 'Alchemy', description: '', statWeights: [] },
+        ],
+        constants: [
+          ...(config.constants ?? []),
+          {
+            id: 'fc',
+            name: 'focus_chosen',
+            displayName: 'Focus chosen',
+            description: '',
+            value: 1.5,
+          },
+          {
+            id: 'fo',
+            name: 'focus_other',
+            displayName: 'Focus other',
+            description: '',
+            value: 0.3,
+          },
+        ],
+      };
+    }
+
+    /** The step's pickers, one per focus slot */
+    const focusSlots = () => screen.queryAllByLabelText(/^Focus \d+$/) as HTMLSelectElement[];
+
+    function toFocusStep() {
+      fillIdentity();
+      next();
+      next();
+      next();
+    }
+
+    it('should draw three pickers and refuse to leave until all three are filled', () => {
+      useConfigStore.setState({ config: withFocusDials(), isLoaded: true });
+      render(<CharacterCreationWizard />);
+      toFocusStep();
+
+      expect(focusSlots()).toHaveLength(3);
+      expect(screen.getByText(/3 focus skills — 0 chosen/)).toBeDefined();
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', true);
+
+      // The same skill in two slots is legal and is how a character specialises twice over
+      const [one, two, three] = focusSlots();
+      fireEvent.change(one as HTMLSelectElement, { target: { value: 'STL' } });
+      fireEvent.change(two as HTMLSelectElement, { target: { value: 'ALC' } });
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', true);
+
+      fireEvent.change(three as HTMLSelectElement, { target: { value: 'STL' } });
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', false);
+    });
+
+    it('should carry the picks, duplicates kept, onto the created character', async () => {
+      useConfigStore.setState({ config: withFocusDials(), isLoaded: true });
+      render(<CharacterCreationWizard />);
+      toFocusStep();
+
+      const [one, two, three] = focusSlots();
+      fireEvent.change(one as HTMLSelectElement, { target: { value: 'STL' } });
+      fireEvent.change(two as HTMLSelectElement, { target: { value: 'ALC' } });
+      fireEvent.change(three as HTMLSelectElement, { target: { value: 'STL' } });
+      next();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Create Character' }));
+
+      await waitFor(() => expect(useCharacterStore.getState().characters).toHaveLength(1));
+      expect(useCharacterStore.getState().characters[0].focusSkillIds).toEqual([
+        'STL',
+        'ALC',
+        'STL',
+      ]);
+    });
+
+    it('should ask for nothing on a ruleset that states neither dial', () => {
+      // Every multiplier is exactly 1 there, so three picks would change no number — and a step
+      // that stopped a Player over a choice they cannot feel is a rule they cannot act on
+      render(<CharacterCreationWizard />);
+      toFocusStep();
+
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveProperty('disabled', false);
+      expect(screen.getByText(/change no number yet/)).toBeDefined();
+    });
   });
 
   it('should render an explanatory state and no form without a configuration', () => {

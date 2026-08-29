@@ -17,7 +17,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Character } from '../../types/character';
-import type { Configuration, Skill, Stat } from '../../types/config';
+import type { Configuration, Constant, Skill, Stat } from '../../types/config';
 import type { FormulaError, FormulaResult } from '../../types/formula';
 import { formulaError, rootCause } from '../formula/errors';
 import { calculateSkills } from './skillCalculator';
@@ -67,7 +67,10 @@ function createConfig(skills: Skill[], overrides: Partial<Configuration> = {}): 
   };
 }
 
-function createCharacter(investedSkillPoints: Record<string, number> = {}): Character {
+function createCharacter(
+  investedSkillPoints: Record<string, number> = {},
+  focusSkillIds?: string[]
+): Character {
   return {
     id: 'char1',
     name: 'Sample',
@@ -80,8 +83,21 @@ function createCharacter(investedSkillPoints: Record<string, number> = {}): Char
     inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
+    // Absent unless a test names picks, which is what an untouched character is (TICKET-SKL-05)
+    ...(focusSkillIds ? { focusSkillIds } : {}),
   };
 }
+
+/**
+ * The sheet's own focus dials, as this ticket's fixture rather than as seed data
+ *
+ * *Enhanced scaling* holds chosen **1.5** / others **0.3**; under v4 D7 the corpus gets them in the
+ * data pass, so the engine's tests carry their own copy — which is what the criterion asks for.
+ */
+const FOCUS_DIALS: Constant[] = [
+  { id: 'fc', name: 'focus_chosen', displayName: 'Focus chosen', description: '', value: 1.5 },
+  { id: 'fo', name: 'focus_other', displayName: 'Focus other', description: '', value: 0.3 },
+];
 
 /** The sample character's composed stat values, which the calculator takes as given */
 const SAMPLE_VALUES: Record<string, FormulaResult> = Object.fromEntries(
@@ -541,5 +557,98 @@ describe('the breakdown behind a level (TICKET-SKL-03)', () => {
     );
 
     expect(contributions.pure).toEqual([]);
+  });
+});
+
+describe('the focus multiplier (TICKET-SKL-05)', () => {
+  /** Brewing at the concept page's weights: Wis 15 × 0.3 = 4.5 before anything multiplies it */
+  const brewing = skill('brewing', 'Brewing', [{ statId: 'wis', weight: 0.3 }]);
+  const arcane = skill('arcane', 'Arcane', [{ statId: 'wis', weight: 0.3 }]);
+
+  const dialled = createConfig([brewing, arcane], { constants: FOCUS_DIALS });
+
+  it('leaves every skill exactly as it was for a ruleset that states neither dial', () => {
+    const undialled = createConfig([brewing]);
+    const picky = createCharacter({}, ['brewing', 'brewing', 'brewing']);
+
+    // ceil(4.5) — the pre-focus answer, unchanged even for a character who has picked three times
+    expect(calculateSkills(undialled, SAMPLE_VALUES, picky).levels.brewing).toBe(5);
+  });
+
+  it('computes a character with no picks at 0.9 everywhere', () => {
+    const { levels, focus } = calculateSkills(dialled, SAMPLE_VALUES, createCharacter());
+
+    // 4.5 × 0.9 = 4.05, which rounds up to 5 — the same *level* as the unchosen ruleset above by
+    // coincidence of the ceiling, and a different number underneath it
+    expect(focus.brewing?.multiplier).toBeCloseTo(0.9, 10);
+    expect(levels.brewing).toBe(5);
+  });
+
+  it('reproduces the three tiers on one skill: unchosen 0.9, chosen 2.1, chosen twice 3.3', () => {
+    const picks = ['arcane', 'brewing', 'arcane'];
+    const { levels, focus } = calculateSkills(dialled, SAMPLE_VALUES, createCharacter({}, picks));
+
+    // Brewing named once: 4.5 × 2.1 = 9.45 → 10
+    expect(focus.brewing?.multiplier).toBeCloseTo(2.1, 10);
+    expect(levels.brewing).toBe(10);
+
+    // Arcane named twice — duplicates stack: 4.5 × 3.3 = 14.85 → 15
+    expect(focus.arcane?.multiplier).toBeCloseTo(3.3, 10);
+    expect(levels.arcane).toBe(15);
+  });
+
+  it('adds invested points after the multiplied-and-ceiled term, which changes the answer', () => {
+    const { levels } = calculateSkills(
+      dialled,
+      SAMPLE_VALUES,
+      createCharacter({ brewing: 3 }, ['brewing'])
+    );
+
+    /*
+     * `ceil(4.5 × 2.1) + 3` = 13, and every other order of the same three operations gives
+     * something else:
+     *   invested inside the multiply — ceil((4.5 + 3) × 2.1) = 16
+     *   rounded before the multiply  — ceil(4.5) × 2.1 + 3    = 13.5
+     * which is what makes this row a check on the *order* rather than on the arithmetic.
+     */
+    expect(levels.brewing).toBe(13);
+  });
+
+  it('reports what the multiplier added, so the breakdown still sums to what rounds', () => {
+    const { focus, contributions } = calculateSkills(
+      dialled,
+      SAMPLE_VALUES,
+      createCharacter({}, ['brewing'])
+    );
+
+    const weighted = contributions.brewing?.[0]?.contribution ?? 0;
+
+    expect(weighted).toBe(4.5);
+    // 4.5 × 2.1 − 4.5 = 4.95: the term a surface renders as `focus × 2.1  +4.95`
+    expect(focus.brewing?.contribution).toBeCloseTo(4.95, 10);
+  });
+
+  it('leaves a failed skill without a focus term, as it leaves it without contributions', () => {
+    const values = {
+      ...SAMPLE_VALUES,
+      wis: formulaError('undefined-variable', 'Undefined variable: NOPE'),
+    };
+
+    const { focus, levels } = calculateSkills(dialled, values, createCharacter({}, ['brewing']));
+
+    expect(levels.brewing).toMatchObject({ formulaError: true });
+    expect(focus.brewing).toBeUndefined();
+  });
+
+  it('ignores a pick naming a skill the ruleset does not define', () => {
+    // Refused at every write, so this is a hand-edited file rather than a state the app makes —
+    // and it multiplies nothing, because the calculator walks the ruleset's skills
+    const { levels } = calculateSkills(
+      dialled,
+      SAMPLE_VALUES,
+      createCharacter({}, ['nonesuch', 'nonesuch', 'nonesuch'])
+    );
+
+    expect(levels.brewing).toBe(5);
   });
 });

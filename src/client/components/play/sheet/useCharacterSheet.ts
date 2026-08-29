@@ -24,6 +24,7 @@ import { calculateRaceStatBases } from '#shared/engine/calculators/statCalculato
 import { calculateCharacterLevel } from '#shared/engine/characterSummary';
 import { rollPool } from '#shared/engine/dice/rollDefinition';
 import { DEFAULT_DREAM_LEVEL, dreamLevelOf } from '#shared/engine/dreamLevel';
+import { focusDials, focusPicksOf, toFocusSlots } from '#shared/engine/focusSkills';
 import { describeFormulaError, isFormulaError } from '#shared/engine/formula/errors';
 import { resolveRaces } from '#shared/engine/races';
 import { validateStatAllocation } from '#shared/engine/skillAllocation';
@@ -34,6 +35,7 @@ import { useConfigStore } from '../../../stores/configStore';
 import type { DerivedValue } from '../shared/derivedValue';
 import { toDerivedValue } from '../shared/derivedValue';
 import { toPointBudgetView } from '../shared/pointBudgetView';
+import { readable } from '../shared/readableNumber';
 import { useSheetActions } from './useSheetActions';
 
 /**
@@ -86,6 +88,20 @@ export interface SkillBreakdown {
    * failed — see `CalculatedSkills.contributions`.
    */
   statContributions: SkillStatContributionView[];
+}
+
+/**
+ * One of the three focus slots, as the picker draws it (TICKET-SKL-05)
+ *
+ * The multiplier travels with the slot rather than being looked up beside it, because that is what
+ * makes a **duplicate pick visibly stack**: two slots naming Arcane both read `×3.3`, which is the
+ * whole of what the sheet's Setup form is saying.
+ */
+export interface FocusSlotView {
+  /** The skill this slot names, or `''` when it is empty */
+  skillId: string;
+  /** What that skill's multiplier comes to once every slot is counted — null for an empty slot */
+  multiplier: number | null;
 }
 
 /** A weight row's share of a skill's level, spelled for display */
@@ -202,6 +218,16 @@ interface CharacterSheetView {
   archetypeName?: string;
   raceContributions: RaceContribution[];
   skills: SkillBreakdown[];
+  /** One entry per focus slot, filled or not (TICKET-SKL-05) */
+  focusSlots: FocusSlotView[];
+  /**
+   * Whether this ruleset states either focus dial
+   *
+   * What the picker says out loud: with neither `focus_chosen` nor `focus_other` set every
+   * multiplier is exactly 1, so a pick is stored and changes no number — which a Player choosing one
+   * deserves to be told rather than left to infer from a sheet that did not move.
+   */
+  isFocusDialled: boolean;
   stats: StatBreakdown[];
   /** Sum of the stats flagged as counting toward the character's total */
   statTotal: number;
@@ -212,6 +238,8 @@ const EMPTY_VIEW: CharacterSheetView = {
   raceNames: [],
   raceContributions: [],
   skills: [],
+  focusSlots: [],
+  isFocusDialled: false,
   stats: [],
   statTotal: 0,
   rollGroups: [],
@@ -305,6 +333,34 @@ function resolveStatus(
 }
 
 /**
+ * The focus multiplier as a breakdown row, or nothing when focus is not in play (TICKET-SKL-05)
+ *
+ * `focus ×2.1  +5.7` — the multiplier in the label and **what it added** as the value, which is the
+ * only form that keeps a breakdown adding up: the rows above it are `weight × stat` terms, and a
+ * bare `×2.1` in a column of addends would be read as one.
+ *
+ * **Nothing at all for a ruleset that states neither dial**, rather than a row worth zero. There the
+ * multiplier is exactly 1 by construction and focus is a mechanic the ruleset does not play — a
+ * `focus ×1 +0` on all forty-eight rows is noise that says only that a feature exists.
+ *
+ * @param calculated The engine's result, which did the multiplication
+ * @param skillId Which skill's row
+ * @param isDialled Whether the ruleset states either focus factor
+ * @returns The one row, or none
+ */
+function focusRows(
+  calculated: CalculatedCharacter,
+  skillId: string,
+  isDialled: boolean
+): SkillStatContributionView[] {
+  const focus = calculated.skillFocus[skillId];
+
+  if (!isDialled || focus === undefined) return [];
+
+  return [{ label: `focus × ${readable(focus.multiplier)}`, value: focus.contribution }];
+}
+
+/**
  * Assemble the rendered view from the engine's output
  *
  * Only called once the character, the configuration and the calculation are all known good, so
@@ -338,6 +394,12 @@ function buildView(
   const orderedStats = [...config.stats].sort((a, b) => a.order - b.order);
   const abbreviationById = new Map(config.stats.map((stat) => [stat.id, stat.abbreviation]));
 
+  // The picks as stored, read through the engine's one reader so an untouched character means the
+  // same *none* here as it does in the calculator (TICKET-SKL-05)
+  const focusPicks = focusPicksOf(character);
+  const focusSlots = toFocusSlots(focusPicks);
+  const isFocusDialled = focusDials(config.constants).stated;
+
   return {
     raceNames: races.map((race) => race.name),
     archetypeName: archetype?.name,
@@ -362,11 +424,25 @@ function buildView(
       total: toDerivedValue(calculated.skillLevels[skill.id]),
       // The calculator did the multiplication; all that happens here is spelling the stat, the
       // same reason `raceContributions` pairs an id with its abbreviation
-      statContributions: (calculated.skillContributions[skill.id] ?? []).map((row) => ({
-        label: `${abbreviationById.get(row.statId) ?? row.statId} × ${row.weight}`,
-        value: row.contribution,
-      })),
+      statContributions: [
+        ...(calculated.skillContributions[skill.id] ?? []).map((row) => ({
+          label: `${abbreviationById.get(row.statId) ?? row.statId} × ${row.weight}`,
+          value: row.contribution,
+        })),
+        // The focus multiplier, spelled as what it *added* so the terms still sum to the number the
+        // level rounds up from (TICKET-SKL-05). Both halves come from the calculator; a row worth
+        // nothing — no dials, or no stat weights to multiply — is dropped by `CountRow`'s own filter
+        ...focusRows(calculated, skill.id, isFocusDialled),
+      ],
     })),
+
+    focusSlots: focusSlots.map((skillId) => {
+      const focus = calculated.skillFocus[skillId];
+
+      return { skillId, multiplier: focus?.multiplier ?? null };
+    }),
+
+    isFocusDialled,
 
     // One row per stat, invested or derived (TICKET-STAT-01), in the order the User arranged them
     // in the stats panel (TICKET-STAT-03). `current` is meaningful only for a resource.

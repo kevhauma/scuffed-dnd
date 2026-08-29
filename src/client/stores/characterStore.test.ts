@@ -1260,6 +1260,41 @@ describe('CharacterStore', () => {
       expect(useCharacterStore.getState().characters[0].investedSkillPoints).toEqual({ STL: 3 });
       expect(storage.saveCharacters).not.toHaveBeenCalled();
     });
+
+    /**
+     * The focus picks, written by the same store and refused by the same Kernel (TICKET-SKL-05)
+     *
+     * The sheet's picker has nothing standing in front of it — three open dropdowns — so what this
+     * pins is that persistence is the *store's*: the component names a slot and the store is what
+     * writes LocalStorage, or refuses and says why.
+     */
+    describe('setFocusSkills', () => {
+      it('should write the picks and persist through the store', () => {
+        const picks = ['STL', 'ALC', 'STL'];
+
+        useCharacterStore.getState().setFocusSkills('char1', picks, budgetConfig);
+
+        expect(useCharacterStore.getState().characters[0].focusSkillIds).toEqual(picks);
+        expect(storage.saveCharacters).toHaveBeenCalled();
+      });
+
+      it('should refuse a fourth pick, name it, and write nothing', () => {
+        useCharacterStore
+          .getState()
+          .setFocusSkills('char1', ['STL', 'STL', 'STL', 'ALC'], budgetConfig);
+
+        expect(useCharacterStore.getState().characters[0].focusSkillIds).toBeUndefined();
+        expect(useCharacterStore.getState().actionError).toMatch(/4 were named/);
+        expect(storage.saveCharacters).not.toHaveBeenCalled();
+      });
+
+      it('should refuse a skill the ruleset does not have', () => {
+        useCharacterStore.getState().setFocusSkills('char1', ['nonesuch'], budgetConfig);
+
+        expect(useCharacterStore.getState().characters[0].focusSkillIds).toBeUndefined();
+        expect(useCharacterStore.getState().actionError).toMatch(/not a skill/i);
+      });
+    });
   });
 
   /**

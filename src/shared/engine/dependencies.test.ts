@@ -208,6 +208,43 @@ describe('findReferences', () => {
       expect(holders(found)).toEqual(['Roll Definition: Melee']);
     });
 
+    it('finds a character who made the skill a focus pick (TICKET-SKL-05)', () => {
+      // A stale focus id is worse than a dangling race id: `focusPickRefusal` refuses the whole
+      // list, so the sheet's picker — which resends every stored pick — fails on a slot the Player
+      // did not touch. The delete has to be guarded, not merely survivable.
+      const focused = createCharacter({ investedSkillPoints: {}, focusSkillIds: ['id-stl'] });
+
+      const found = findReferences({ kind: 'skill', id: 'id-stl' }, createConfig(), [focused]);
+
+      expect(holders(found)).toContain('Character: Aria');
+      expect(found.some((reference) => reference.field === 'focus skills')).toBe(true);
+    });
+
+    it('does not count a character who focuses some other skill', () => {
+      const elsewhere = createCharacter({ investedSkillPoints: {}, focusSkillIds: ['id-other'] });
+
+      const found = findReferences({ kind: 'skill', id: 'id-stl' }, createConfig(), [elsewhere]);
+
+      expect(holders(found)).not.toContain('Character: Aria');
+    });
+
+    it('reports a character who both invested in a skill and focused it once per field', () => {
+      // Two different reasons the delete is unsafe, and a User deciding whether to force it wants
+      // both — the same list would be wrong to de-duplicate by holder
+      const both = createCharacter({
+        investedSkillPoints: { 'id-stl': 2 },
+        focusSkillIds: ['id-stl', 'id-stl'],
+      });
+
+      const found = findReferences({ kind: 'skill', id: 'id-stl' }, createConfig(), [both]);
+      const fields = found.map((reference) => reference.field);
+
+      expect(fields).toContain('invested skill points');
+      expect(fields).toContain('focus skills');
+      // Once per field, not once per slot: two slots naming one skill are one reason
+      expect(fields.filter((field) => field === 'focus skills')).toHaveLength(1);
+    });
+
     it('does not count a code that merely appears inside a longer identifier', () => {
       const config = createConfig({
         stats: [

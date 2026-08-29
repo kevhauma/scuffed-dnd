@@ -48,6 +48,7 @@ import { snapshotOf } from '../sessions/sessionPayloads';
 import { adjustResource } from './adjustResource';
 import { equipItem } from './equipItem';
 import { investStatPoints } from './investStatPoints';
+import { setFocusSkills } from './setFocusSkills';
 import { setResource } from './setResource';
 import { takeItem } from './takeItem';
 import { wearItem } from './wearItem';
@@ -60,6 +61,7 @@ const ROUTES = {
   [PLAYER_ACTION.EQUIP_ITEM]: equipItem,
   [PLAYER_ACTION.WEAR_ITEM]: wearItem,
   [PLAYER_ACTION.TAKE_ITEM]: takeItem,
+  [PLAYER_ACTION.SET_FOCUS_SKILLS]: setFocusSkills,
 } as const;
 
 /** Perform one action, as somebody */
@@ -259,6 +261,68 @@ describe('spending points at a table', () => {
       expect(fractional.status).toBe(400);
       expect(negative.status).toBe(400);
       expect(messageOf(negative.body)).toContain('below 0');
+    }));
+});
+
+describe('choosing focus skills at a table (TICKET-SKL-05)', () => {
+  it('stores the three picks, duplicates and all, and logs what they were', () =>
+    withTestDatabase(async (database) => {
+      const { player, rules, row, session } = aTableWithACharacter(database);
+      const [first, second] = rules.skills;
+      // The sample character's own shape: two different skills and one of them twice
+      const picks = [first?.id ?? '', second?.id ?? '', first?.id ?? ''];
+
+      const accepted = await act(
+        PLAYER_ACTION.SET_FOCUS_SKILLS,
+        row.id,
+        {
+          focusSkillIds: picks,
+        },
+        player
+      );
+
+      expect(accepted.status).toBe(200);
+      expect(accepted.body.character.focusSkillIds).toEqual(picks);
+      expect(stateOf(database, row.id).focusSkillIds).toEqual(picks);
+
+      const [event] = eventsOf(database, session.id);
+      expect(payloadOf(event as { payload: string }).after).toBe(picks.join(', '));
+    }));
+
+  it('refuses a skill the Snapshot does not have, writing neither the character nor the log', () =>
+    withTestDatabase(async (database) => {
+      const { player, row, session } = aTableWithACharacter(database);
+
+      const refused = await act(
+        PLAYER_ACTION.SET_FOCUS_SKILLS,
+        row.id,
+        {
+          focusSkillIds: ['nonesuch'],
+        },
+        player
+      );
+
+      expect(refused.status).toBe(400);
+      expect(messageOf(refused.body)).toMatch(/not a skill/i);
+      expect(stateOf(database, row.id).focusSkillIds).toBeUndefined();
+      expect(eventsOf(database, session.id)).toHaveLength(0);
+    }));
+
+  it('refuses a body that is not a list of ids before the Kernel is asked', () =>
+    withTestDatabase(async (database) => {
+      const { player, row } = aTableWithACharacter(database);
+
+      const refused = await act(
+        PLAYER_ACTION.SET_FOCUS_SKILLS,
+        row.id,
+        {
+          focusSkillIds: 'arcane',
+        },
+        player
+      );
+
+      expect(refused.status).toBe(400);
+      expect(messageOf(refused.body)).toContain('list of ids');
     }));
 });
 

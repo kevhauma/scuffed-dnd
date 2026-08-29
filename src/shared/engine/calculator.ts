@@ -89,6 +89,7 @@ export function calculateCharacter(
     levels: skillLevels,
     bonuses: skillBonuses,
     contributions: skillContributions,
+    focus: skillFocus,
   } = calculateSkills(config, statValues, character);
 
   // 4. Roll inputs — each definition's expression over the stats and skills already computed
@@ -105,6 +106,7 @@ export function calculateCharacter(
     skillLevels,
     skillBonuses,
     skillContributions,
+    skillFocus,
     rollInputs,
     equipmentBonuses,
   };

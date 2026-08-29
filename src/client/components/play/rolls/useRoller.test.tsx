@@ -87,6 +87,7 @@ function createCalculated(rollInputs: Record<string, FormulaResult>): Calculated
     skillLevels: {},
     skillBonuses: {},
     skillContributions: {},
+    skillFocus: {},
     rollInputs,
     equipmentBonuses: [],
   };

@@ -16,12 +16,14 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { focusPicksOf } from '../engine/focusSkills';
 import type { Character } from '../types/character';
 import type { Configuration } from '../types/config';
 import {
   addToPack,
   adjustPurseBy,
   adjustResourceValue,
+  chooseFocusSkills,
   emptySlot,
   equipToSlot,
   investInSkill,
@@ -257,6 +259,52 @@ describe('investing points', () => {
     investInStat(character, RULES, 'stat-str', 1);
 
     expect(character.investedStatPoints['stat-str']).toBe(3);
+  });
+});
+
+describe('choosing focus skills (TICKET-SKL-05)', () => {
+  it('reports the picks before and after, joined', () => {
+    const already = aCharacter({ focusSkillIds: ['skill-stealth'] });
+    const picks = ['skill-stealth', 'skill-alchemy', 'skill-stealth'];
+
+    const change = accepted(chooseFocusSkills(already, RULES, picks));
+
+    expect(change.before).toBe('skill-stealth');
+    expect(change.after).toBe('skill-stealth, skill-alchemy, skill-stealth');
+    expect(change.character.focusSkillIds).toEqual(picks);
+  });
+
+  it('takes fewer than three, which is how a slot gets filled one at a time', () => {
+    // The rule the sheet's picker needs: a character created before focus skills existed has none,
+    // and demanding all three here would leave them no way in
+    const change = accepted(chooseFocusSkills(aCharacter(), RULES, ['skill-stealth']));
+
+    expect(change.character.focusSkillIds).toEqual(['skill-stealth']);
+  });
+
+  it('takes an empty list, and clearing removes the field rather than storing []', () => {
+    // *None* has one spelling on the document — the field is not there — so a Player who gave up
+    // their last focus and one who never picked any are the same character (`focusPicksField`)
+    const already = aCharacter({ focusSkillIds: ['skill-stealth'] });
+
+    const cleared = accepted(chooseFocusSkills(already, RULES, [])).character;
+
+    expect(cleared).not.toHaveProperty('focusSkillIds');
+    expect(focusPicksOf(cleared)).toEqual([]);
+  });
+
+  it('refuses a fourth pick rather than trimming it, and says so', () => {
+    const four = ['skill-stealth', 'skill-stealth', 'skill-stealth', 'skill-alchemy'];
+
+    expect(refusal(chooseFocusSkills(aCharacter(), RULES, four))).toMatch(/4 were named/);
+  });
+
+  it('refuses a skill this ruleset does not have, leaving the character untouched', () => {
+    const already = aCharacter({ focusSkillIds: ['skill-stealth'] });
+    const result = chooseFocusSkills(already, RULES, ['skill-stealth', 'nonesuch']);
+
+    expect(refusal(result)).toMatch(/not a skill/i);
+    expect(already.focusSkillIds).toEqual(['skill-stealth']);
   });
 });
 

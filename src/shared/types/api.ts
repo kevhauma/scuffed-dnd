@@ -480,6 +480,15 @@ export interface CharacterCreateRequest {
   /** Required when the Snapshot defines any archetypes, and refused when it defines none */
   archetypeId?: string;
   investedSkillPoints: Record<string, number>;
+  /**
+   * The three focus picks, empties left out (TICKET-SKL-05)
+   *
+   * Optional on the wire for the reason it is optional on `Character` — a Snapshot that states
+   * neither focus dial asks for none — but **a wizard that collected three has to send them**: the
+   * server re-runs `characterCreationErrors` against the Snapshot, so a body that dropped them would
+   * be refused for naming no focus skills by a Player who named three.
+   */
+  focusSkillIds?: string[];
 }
 
 /**
@@ -537,6 +546,8 @@ export const PLAYER_ACTION = {
   INVEST_STAT_POINTS: 'invest-stat-points',
   /** Put points into one skill — no budget exists to refuse it, only the shape of the number */
   INVEST_SKILL_POINTS: 'invest-skill-points',
+  /** Name the skills this character focuses on — all three slots at once (TICKET-SKL-05) */
+  SET_FOCUS_SKILLS: 'set-focus-skills',
   /** Write where a resource pool stands */
   SET_RESOURCE: 'set-resource',
   /** Move a resource pool by a delta — Concept 20's quick entry */
@@ -569,6 +580,16 @@ export interface StatPointsRequest {
 export interface SkillPointsRequest {
   skillId: string;
   points: number;
+}
+
+/**
+ * What a client sends to name its focus skills — the whole list, never one slot (TICKET-SKL-05)
+ *
+ * The slots are positional and duplicates are legal, so this is a list rather than a set; what may be
+ * in it is the Kernel's `focusPickRefusal`.
+ */
+export interface FocusSkillsRequest {
+  focusSkillIds: string[];
 }
 
 /** What a client sends to write where a pool stands */

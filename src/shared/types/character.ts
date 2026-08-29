@@ -25,6 +25,23 @@ export interface SkillStatContribution {
 }
 
 /**
+ * What a skill's focus multiplier did to its weighted sum (TICKET-SKL-05)
+ *
+ * Both halves, because neither answers the question alone: the **multiplier** is what the Player
+ * chose (0.9 unchosen, 2.1 chosen once, 3.3 chosen twice at the sheet's dials) and the
+ * **contribution** is what that did to this particular skill, which is the only form a breakdown row
+ * can add up. A surface renders `focus ×2.1  +5.7` from the pair and multiplies nothing itself —
+ * `weighted × multiplier` is the derivation, and a component that recomputed it could disagree with
+ * the level it sits beside, exactly as {@link SkillStatContribution} argues one row up.
+ */
+export interface SkillFocusContribution {
+  /** The summed per-slot factor — 0.9, 2.1, 3.3 at `focus_chosen` 1.5 / `focus_other` 0.3 */
+  multiplier: number;
+  /** `weighted × multiplier − weighted` — this multiplier's share of the pre-rounding total */
+  contribution: number;
+}
+
+/**
  * Character - player's in-game persona with stats, skills, and equipment
  */
 export interface Character {
@@ -186,6 +203,37 @@ export interface Character {
    * [`dreamLevelOf`](../engine/dreamLevel.ts), never `character.dreamLevel ?? 1` at a call site.
    */
   dreamLevel?: number;
+  /**
+   * The skills this character has made their focus — three slots, duplicates legal
+   * (TICKET-SKL-05, v4 systems/06 gap 2).
+   *
+   * The new workbook's Setup form has three **Focus skill** slots and the sample character picked
+   * Arcane, Summening and *Arcane again*: each slot contributes `const.focus_chosen` to the skill it
+   * names and `const.focus_other` to every other, and the sum multiplies that skill's weighted stat
+   * total. At the sheet's 1.5 / 0.3 that is 0.9 unchosen, 2.1 chosen once, **3.3 chosen twice** —
+   * duplicates stack, which is why this is a list of ids and not a set.
+   *
+   * ## Why it is stored, and why the *reader* owns the default
+   *
+   * Nothing derives it: which three skills a Player specialised in is a choice made at the table, an
+   * *input* to derivation rather than a derivation — the same test that admitted `dreamLevel`. It is
+   * not a sixth exception to *derived values are never stored*, though, because it is not a number
+   * anything else computes; it is a pick, like {@link Character.raceIds} and
+   * {@link Character.archetypeId} beside it.
+   *
+   * **Optional, and absent means none** — `purse`'s and `dreamLevel`'s pattern. A roster written
+   * before this field round-trips without growing one and computes every skill at the *unchosen*
+   * multiplier (0.9 at the sheet's dials), which is the sheet's own arithmetic for a Setup form
+   * nobody filled in rather than a neutral 1. Read it with
+   * [`focusPicksOf`](../engine/focusSkills.ts), never `character.focusSkillIds ?? []` at a call site.
+   *
+   * **Slot order is meaningful and empties are not stored.** The list holds the picks that were made,
+   * in slot order; a Player part-way through choosing has fewer than three and the missing slots
+   * count as *other*, which is what makes the sheet's picker usable one slot at a time. More than
+   * three, or an id this ruleset does not define, is refused by the write rather than trimmed by the
+   * reader (`focusPickRefusal`).
+   */
+  focusSkillIds?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -228,6 +276,15 @@ export interface CalculatedCharacter extends Character {
    */
   skillContributions: Record<string, SkillStatContribution[]>;
   /**
+   * Each skill's focus multiplier and what it contributed, keyed by skill id (TICKET-SKL-05)
+   *
+   * Beside {@link skillContributions} rather than inside it because it is a different kind of term:
+   * a weight row *adds* and this one *multiplies*, and the two only read as one list once the
+   * calculator has spelled the multiplication out. Absent for a skill whose level failed, for
+   * `skillContributions`' reason — half a breakdown is more misleading than none.
+   */
+  skillFocus: Record<string, SkillFocusContribution>;
+  /**
    * Each roll's **input** — the number fed to its dice ladder — keyed by roll id (Concept 08).
    *
    * Replaced `combatSkillBonuses` in TICKET-ROLL-06, and the swap is the entity's whole argument:
@@ -249,6 +306,15 @@ export interface CharacterCreationData {
   /** The archetype the Player picked — the wizard's third step (TICKET-ARC-03) */
   archetypeId?: string;
   investedSkillPoints: Record<string, number>;
+  /**
+   * The focus skills the Player picked — the wizard's fourth step (TICKET-SKL-05)
+   *
+   * Optional here as it is on {@link Character}: a ruleset with no skills has none to pick, and a
+   * ruleset that states neither focus dial has three picks that would change nothing. What the
+   * *wizard* insists on is `characterCreation.ts`'s `focusErrors`, so the step and the server refuse
+   * the same character.
+   */
+  focusSkillIds?: string[];
 }
 
 /**

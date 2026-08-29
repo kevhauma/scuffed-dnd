@@ -76,9 +76,9 @@ code, docs, and tickets. Capitalised **User** and **Player** always mean the per
 | **Material / Material Level** | A substance (iron, mithril) with tiers; each tier carries skill bonuses/penalties and a monetary value. |
 | **Item / Equipment Slot** | An item optionally has a material and a slot type (helmet, main hand). Equipping it applies the material's bonuses. |
 | **Race** | A lineage, stored as an **absolute stat block** rather than a set of bonuses (TICKET-RACE-01), plus an optional creature `type` / `size` / `challengeRate` (TICKET-RACE-03). A Character has **exactly as many as the ruleset says** — `const.race_count`, defaulting to the sheet's 2 (TICKET-RACE-04) — and the blocks **blend** rather than stack. The same race may fill every slot; that is what a pure-blood is. |
-| **Focus Stat** | The one skill a character specialises in, granting bonus levels. |
+| **Focus Skill** | One of **three** skills a Character names, each multiplying that skill's growth — a duplicate pick stacking (TICKET-SKL-05, v4 systems/06). Not to be confused with the **Focus Stat**, a flat bonus on one skill that v2.0 **retired** (TICKET-ARC-03) and replaced with the Archetype; the two share a word and nothing else. |
 | **Currency Tier** | A level in the money system (copper/silver/gold) with conversion rates. |
-| **Character** | A Player's persona: chosen races, allocated skill levels, focus stat, inventory, and current stat values. Everything else about it is computed. |
+| **Character** | A Player's persona: chosen races, an archetype, points allocated to stats and skills, three focus skills, inventory, and current stat values. Everything else about it is computed. |
 
 One rule to burn in early: **skill codes are unique across all three skill kinds** (main,
 speciality, combat), because they all share one formula namespace — a formula just says `MEL` and

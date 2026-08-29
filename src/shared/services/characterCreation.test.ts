@@ -263,6 +263,80 @@ describe('characterCreationErrors', () => {
     );
   });
 
+  describe('focus skills (TICKET-SKL-05)', () => {
+    /** A ruleset that plays with focus: three skills to pick from, and both dials set */
+    function focusRuleset(): Configuration {
+      return ruleset({
+        skills: [
+          { id: 'arcane', name: 'Arcane', description: '', statWeights: [] },
+          { id: 'brewing', name: 'Brewing', description: '', statWeights: [] },
+        ],
+        constants: [
+          {
+            id: 'fc',
+            name: 'focus_chosen',
+            displayName: 'Focus chosen',
+            description: '',
+            value: 1.5,
+          },
+          {
+            id: 'fo',
+            name: 'focus_other',
+            displayName: 'Focus other',
+            description: '',
+            value: 0.3,
+          },
+        ],
+      });
+    }
+
+    it('asks for all three only when the ruleset states a focus dial', () => {
+      const config = focusRuleset();
+
+      expect(characterCreationErrors(choices(), config)[0]).toMatch(/3 focus skills/);
+      const three = choices({ focusSkillIds: ['arcane', 'brewing', 'arcane'] });
+      expect(characterCreationErrors(three, config)).toEqual([]);
+
+      // …and a ruleset that states neither dial multiplies everything by 1, so demanding three
+      // picks would be a rule nobody could act on — `archetypeErrors`' shape and its reasoning
+      const undialled = ruleset({
+        skills: [{ id: 'arcane', name: 'Arcane', description: '', statWeights: [] }],
+      });
+      expect(characterCreationErrors(choices(), undialled)).toEqual([]);
+    });
+
+    it('takes duplicates, which is how a character specialises twice over', () => {
+      const stacked = choices({ focusSkillIds: ['arcane', 'arcane', 'arcane'] });
+
+      expect(characterCreationErrors(stacked, focusRuleset())).toEqual([]);
+    });
+
+    it('refuses a fourth pick rather than trimming it', () => {
+      const four = choices({ focusSkillIds: ['arcane', 'arcane', 'arcane', 'brewing'] });
+
+      expect(characterCreationErrors(four, focusRuleset())[0]).toMatch(/4 were named/);
+    });
+
+    it('refuses a pick naming a skill the ruleset does not have', () => {
+      const phantom = choices({ focusSkillIds: ['arcane', 'nonesuch', 'brewing'] });
+
+      expect(characterCreationErrors(phantom, focusRuleset())[0]).toMatch(/not a skill/i);
+    });
+
+    it('stores the picks it was given, and stores nothing at all for none', () => {
+      const picks = ['arcane', 'brewing', 'arcane'];
+      const config = focusRuleset();
+
+      expect(buildCharacter(choices({ focusSkillIds: picks }), config, IDENTITY)).toMatchObject({
+        focusSkillIds: picks,
+      });
+      // Absent means none, and so does empty — one spelling of *none*, not two
+      expect(buildCharacter(choices({ focusSkillIds: [] }), config, IDENTITY)).not.toHaveProperty(
+        'focusSkillIds'
+      );
+    });
+  });
+
   it('refuses points put into a skill the ruleset does not have', () => {
     // Nothing else looks at the skill map — `skillCalculator` reads it straight into a level — so
     // an unknown id would raise the level of nothing and sit on the sheet forever

@@ -77,7 +77,7 @@ rather than a read-only config UI).
 | `/config/constants` | `routes/config/constants.tsx` | `ConstantsConfigPanel` — named tunables (`const.*`), each card listing the formulas that name it |
 | `/config/curves` | `routes/config/curves.tsx` | `CurvesConfigPanel` — progressions as editable tables (`curve.*(x)`), with per-cell override highlighting and a regenerate action (TICKET-CRV-03) |
 | `/play` | `routes/play/index.tsx` | `CharacterList` — the play-mode entry point |
-| `/play/create` | `routes/play/create.tsx` | `CharacterCreationWizard` — the four-step wizard |
+| `/play/create` | `routes/play/create.tsx` | `CharacterCreationWizard` — the five-step wizard |
 | `/play/character/$id` | `routes/play/character.$id.tsx` | `CharacterSheet` — takes the route param as `characterId`. **Serves both homes since TICKET-PLY-01**: a character in this browser, or one at a game session, which `useOpenTableCharacter` reads from the server along with its table's Snapshot. Deliberately **not** protected — the local half is play mode, and the server refuses the read anyway |
 | `/signin` | `routes/signin.tsx` | `AuthForm` in sign-in mode (TICKET-AUTH-01). A page rather than a dialog because TICKET-AUTH-03 sends an unauthenticated visitor here and returns them |
 | `/signup` | `routes/signup.tsx` | `AuthForm` in sign-up mode — carries the "there is no password reset" warning (v3 Req 30.10). **Honours `?redirect=` since TICKET-GAM-02**, which it never did: an invitee without an account is the common case for an invitation, and they used to create one and land on the home page with the invitation gone |
@@ -137,7 +137,7 @@ change also exists (v3 Req 33.8).
 | `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), skills, roll definitions, dice ladders, materials + categories, items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
 | `useCharacterStore` (cont.) | `tableCharacter` + `tableSessionId` + `tableCharacterOwnerId` + `isActing` + `actionError`, and `openTableCharacter` / `closeTableCharacter` / `dismissActionError` (TICKET-PLY-01; `tableSessionId` is ROLL-07's, read by the session-scoped roll log; `tableCharacterOwnerId` is DM-01's, and is how the sheet tells the DM's view from the Player's without a second request) — **the one character open at a game session**, held apart from `characters` because that list is LocalStorage's and a session character must never land in it (v3 Req 36.2). Every existing write action keeps its signature and gains one line: `toTable(...)` sends the named intent to the server when the id is this one's, otherwise the Kernel rule runs locally. `selectCharacter(state, id)` is the exported reader both the sheet and the inventory panel use | server, via `services/characterSync.ts` |
-| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience` (the rule is the Kernel's `dmActions.ts` since TICKET-DM-01, not this store's), `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) — and the DM's six, `dmAwardExperience` / `dmDeductExperience` / `dmSetLevel` / `dmSetGrantedPoints` / `dmSetResource` / `dmSetDreamLevel` (TICKET-DM-01, TICKET-RES-04), which are **table-only** and named apart from the Player's own so no call site has to decide which act it is — `updateDreamLevel` is the local half of the last one, refused at a table exactly as `awardExperience` and `setPurse` are. `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
+| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `addMiscItem`, `removeMiscItem`, `moveItemToMisc`, `moveItemToEquipment`), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience` (the rule is the Kernel's `dmActions.ts` since TICKET-DM-01, not this store's), `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) — `setFocusSkills(characterId, focusSkillIds, config)` (TICKET-SKL-05 — the whole list of picks at once, refusing more than three or a skill the ruleset has not got, and *reporting* the refusal because the picker has nothing standing in front of it) — and the DM's six, `dmAwardExperience` / `dmDeductExperience` / `dmSetLevel` / `dmSetGrantedPoints` / `dmSetResource` / `dmSetDreamLevel` (TICKET-DM-01, TICKET-RES-04), which are **table-only** and named apart from the Player's own so no call site has to decide which act it is — `updateDreamLevel` is the local half of the last one, refused at a table exactly as `awardExperience` and `setPurse` are. `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
 | `useConfigStore` (cont.) | `source` + `openAccountRuleset(id)` / `openLocalRuleset()` (TICKET-RUL-02) — which home is open, and the two ways to change it. Opening one home reads nothing from the other | via `services/rulesetSync.ts` |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history, `storageFailure` and `saveConflict` (TICKET-RUL-02 — a *server* refusal, with the edit still on screen) | not persisted |
 
@@ -198,7 +198,10 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   accepts)` (CR-26) — **the one way the engine reads its own numbers** (`race_blend_divisor`,
   `bonus_divider`, `points_per_level`): it routes through the resolver above, so a duplicate name
   means the same constant here as in a formula, and falls back to the seed when the value is
-  absent or unusable. Never a bare `constants.find(...)`.
+  absent or unusable. Never a bare `constants.find(...)`. Since TICKET-SKL-05 it is
+  `optionalConstant(constants, name, accepts) ?? fallback` — reach for the optional one when *unset*
+  has to be told from *set to what the fallback would have been* (the focus dials, where absent means
+  the ruleset does not play with focus at all).
 - `formula/stats.ts` — `statsNamespace(stats, values)` → the `stats.*` resolver (TICKET-STAT-01).
   Resolution is by the stat's **name slug**, not its abbreviation; a stat with no value *yet* comes
   back as a `not-evaluable` error rather than as absent, which is what lets the composition decide
@@ -275,7 +278,11 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
 - `dependencies.ts` — **the reference walker** (TICKET-REF-02): `findReferences(target, config,
   characters)` → `EntityReference[]`, one case per guarded-delete `ReferenceTargetKind`. Pure over
   both stores' data; `configStore`'s delete actions call it. Answers "what points at this?"; the
-  formula half goes through `validateFormula`, never substring matching.
+  formula half goes through `validateFormula`, never substring matching. **A new field on
+  `Character` that names a config entity by id belongs in a case here**, beside `raceIds`,
+  `archetypeId` and (since TICKET-SKL-05) `focusSkillIds` — the walker is what makes a delete
+  *guarded* rather than merely survivable, and a reference it cannot see is one a User is never
+  warned about.
 - `validator.ts` — `validateConfiguration(config): ValidationReport` (cross-entity referential
   integrity: formula refs, equipment slot types, material categories, circular formulas). It is
   the *after the fact* report — `dependencies.ts` is the *before the fact* guard, and both stay:
@@ -310,6 +317,19 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   block, the DM's before/after and TICKET-ARC-04's gain term (main × dream, sub + dream) cannot
   disagree about what an untouched character is. A stored number comes back as it stands — only
   `dmActions.setDreamLevel` writes the field, and it refuses below the floor rather than clamping.
+- `focusSkills.ts` (TICKET-SKL-05) — the three **focus picks** that multiply a skill's growth.
+  `focusDials(constants)` reads `const.focus_chosen` / `const.focus_other` and reports whether either
+  was `stated`; `focusMultiplier(skillId, picks, dials)` sums one factor per slot (0.9 unchosen, 2.1
+  chosen once, **3.3 chosen twice** at the sheet's 1.5 / 0.3 — duplicates stack, which is why the
+  picks are a list); `focusPicksOf(character)` is **the one reader of `Character.focusSkillIds`**
+  (absent means none, `dreamLevel.ts`'s pattern); `toFocusSlots(picks)` pads to `FOCUS_SLOT_COUNT`
+  for a picker; `focusPickRefusal(picks, config)` is **the one rule both writes share** — at most
+  three, every one a skill the ruleset has — and `focusPicksField(picks)` is the one spelling of
+  *none*, returning `{}` for an empty list so a character who cleared their last pick and one who
+  never made any are the same document (a caller **replacing** picks drops the old key first).
+  **Absent dials are neutral by arithmetic rather than by a
+  branch**: each defaults to `1 / FOCUS_SLOT_COUNT`, so a ruleset that states neither multiplies by
+  exactly 1. Three slots is an engine constant, not yet a dial (the ticket says when it becomes one).
 - `characterSummary.ts` — `calculateCharacterLevel(character, config)` and
   `toCharacterSummary(character, config)`. **The single definition of "level"**, and since
   TICKET-RES-01 it is a **reverse lookup on the `xp_thresholds` curve** — accumulated XP in, level
@@ -440,7 +460,10 @@ between the roots is exactly *"does this touch a browser API"*.
   (TICKET-PLY-01): `investInStat`, `investInSkill` (both budgeted against the one pool since
   TICKET-RES-05, through one shared `affordabilityRefusal` that **names the overspend** and lets any
   change *lowering* the total spend through, so an over-budget sheet can always be refunded),
-  `setResourceValue`, `adjustResourceValue`,
+  `chooseFocusSkills` (TICKET-SKL-05 — the **whole list** of picks rather than one slot, because the
+  multiplier is a sum over the slots and a slot-addressed write would need an empty-slot sentinel
+  stored on the character; what may be in it is `focusSkills.focusPickRefusal`, the same call
+  `characterCreationErrors` makes), `setResourceValue`, `adjustResourceValue`,
   `resetResourceToMax`, `equipToSlot`, `emptySlot`, `moveItemToMisc`, `moveItemToEquipment`,
   `addToPack`, `removeFromPack`. Each takes a `Character` (and the ruleset where the rule needs
   one) and answers `PlayerActionResult` — either the new character **plus what the value was and
@@ -625,8 +648,8 @@ each later ticket adds.
   inside it**, because a roll's rule is the dice engine and that folder's scan forbids reaching one.
   The log is the first read of the `event` table, keyed `(session, seq)` — the index LIVE-03 replays
   from, so that ticket adds no schema.
-- `routes/play/` (TICKET-PLY-01) — **the writes a Player makes at a table**, eleven of them, one
-  module each, all `POST /api/characters/:id/<action>` where `<action>` **is** the `PLAYER_ACTION`
+- `routes/play/` (TICKET-PLY-01) — **the writes a Player makes at a table**, twelve of them since
+  TICKET-SKL-05's `set-focus-skills`, one module each, all `POST /api/characters/:id/<action>` where `<action>` **is** the `PLAYER_ACTION`
   value. That one string is the path, the Event's `type` and the client's call, which is what keeps
   a route, a log entry and a store action from drifting into three names for one act. Each module is
   a guard, a body read and one Kernel call; everything they share is `playPayloads.ts` —
@@ -855,17 +878,22 @@ fourth: hold a half-typed number, **commit on blur or Enter**, never per keystro
 `allowRelative` for Concept 20's `+12` / `-7` quick entry. Every editable number on a play surface
 goes through it — reach for it rather than re-rolling a draft `useState`.
 `characters/` holds `CharacterList` + `CharacterCard` + `useCharacterListManager`.
-`creation/` holds the four-step wizard: `CharacterCreationWizard` dispatches on a step index and
-the four step components (`IdentityStep`, `ArchetypeStep`, `SkillAllocationStep`, `ReviewStep` — in
-that order since TICKET-ARC-03, the archetype coming *before* allocation because it decides what a
-point buys)
+`creation/` holds the five-step wizard: `CharacterCreationWizard` dispatches on a step index and
+the five step components (`IdentityStep`, `ArchetypeStep`, `SkillAllocationStep`, `FocusStep`,
+`ReviewStep` — the archetype before allocation since TICKET-ARC-03 because it decides what a point
+buys, and `FocusStep` after it since TICKET-SKL-05 because what a focus pick multiplies is the
+weighted stat total the Player has just arranged)
 are pure props — all state, validation and the submit live in `useCharacterCreation`. That is the
 multi-step pattern to copy. `IdentityStep` renders **one `Select` per race slot** since
 TICKET-RACE-04 — as many as `racesRequired(config)` says, numbered rather than captioned, each
 fillable with a race another slot already holds — because a checkbox list cannot express the
 pure-blood that replaced `Empty`. `SkillAllocationStep` takes points for the **invested** stats and the
 ruleset's skills — one budget over both cards since TICKET-RES-05 — and previews the derived stats
-read-only off the same `calculateCharacter` result the review step uses.
+read-only off the same `calculateCharacter` result the review step uses. `FocusStep` renders **one
+`Select` per focus slot** (TICKET-SKL-05), `IdentityStep`'s shape and for its reason — the same skill
+may fill every slot, and duplicates are what stack. It keeps `Select`'s disabled placeholder, where
+the sheet's own picker offers an explicit *No focus*: an empty slot is a step error during creation
+and a choice afterwards.
 `sheet/` holds the character sheet: `CharacterSheet` (composition only since **DM-01**, which moved
 the six dead-end notices to **`SheetStatusNotice`** and the refusal banner to
 **`SheetRefusalBanner`** — `fallow` measured the DM panel and the adjustment log pushing that
@@ -909,7 +937,13 @@ the points invested. It takes the sheet's `budget` since TICKET-RES-05 and carri
 beside it any more: RES-05's refund rule means the Kernel honours a `−` in every state, so a
 disabled one was the UI refusing what the rule allows. **It rounds nothing** — its `ceilLevel` helper
 went with TICKET-SKL-04, which moved the level's ceiling into `skillCalculator`, so a level arrives
-whole and a term keeps its fraction) and `RollsSection` as pure props. **`RollsSection`** (TICKET-ROLL-06) groups
+whole and a term keeps its fraction. Since TICKET-SKL-05 a breakdown can carry a `focus × 2.1 +5.7`
+term — the multiplier **and what it contributed**, both from `CalculatedCharacter.skillFocus`, so the
+terms still sum to the number the level rounds up from; omitted entirely for a ruleset with no focus
+dials), **`FocusSkillsSection`** (TICKET-SKL-05 — the sheet's half of the workbook's Setup form:
+three `Select`s, each showing the multiplier its skill comes to, so two slots naming one skill both
+read `× 3.3` and the stacking is visible rather than stated. Every write goes through
+`characterStore.setFocusSkills`) and `RollsSection` as pure props. **`RollsSection`** (TICKET-ROLL-06) groups
 by `category` and labels each button with the **pool** rather than a bonus — `Roll 1D20 + 1D12 +
 1D6 + 1` — which is the whole ticket in one line: raise a stat and the label changes, because the
 dice are derived from the character.

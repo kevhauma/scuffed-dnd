@@ -355,6 +355,129 @@ describe('the Kernel’s own rules, applied server-side', () => {
         (await create(session.id, validBody(session, { raceIds: ['not-a-race'] }), player)).status
       ).toBe(400);
     }));
+
+  /**
+   * The focus picks have to *reach* the server (TICKET-SKL-05)
+   *
+   * The route runs `characterCreationErrors` against the Snapshot, so on a ruleset that states a
+   * focus dial a body that dropped the picks is refused for naming none — by a wizard that named
+   * three. The first pass shipped exactly that: `createSessionCharacter` built the request field by
+   * field and left the new one out, which made creation at such a table **impossible** rather than
+   * merely lossy. These cases are what would have caught it.
+   */
+  describe('focus skills', () => {
+    /** The corpus with the sheet's own dials pinned onto the Snapshot — the data pass owns their values */
+    function aDialledTable(database: Database) {
+      const dm = seedAccount();
+      const player = seedAccount();
+      const ruleset = seedRuleset(database, { owner: dm });
+      const document = JSON.parse(ruleset.data) as Configuration;
+
+      const dialled: Configuration = {
+        ...document,
+        constants: [
+          ...(document.constants ?? []),
+          {
+            id: 'fc',
+            name: 'focus_chosen',
+            displayName: 'Focus chosen',
+            description: '',
+            value: 1.5,
+          },
+          {
+            id: 'fo',
+            name: 'focus_other',
+            displayName: 'Focus other',
+            description: '',
+            value: 0.3,
+          },
+        ],
+      };
+
+      const { session } = seedSession(database, {
+        dm,
+        from: ruleset,
+        snapshot: JSON.stringify(dialled),
+      });
+      seedMember(database, { session, account: player });
+
+      return { player, session };
+    }
+
+    /** Three picks off the Snapshot's own skill list, the middle one repeated */
+    function stackedPicks(session: GameSessionRow): string[] {
+      const [first, second] = rulesOf(session).skills;
+      if (!first || !second) throw new Error('the corpus should have skills');
+
+      return [first.id, second.id, second.id];
+    }
+
+    it('should store the picks the wizard sent, duplicates kept', () =>
+      withTestDatabase(async (database) => {
+        const { player, session } = aDialledTable(database);
+        const focusSkillIds = stackedPicks(session);
+
+        const created = await create(session.id, validBody(session, { focusSkillIds }), player);
+
+        expect(created.status).toBe(200);
+        expect(created.body.character.focusSkillIds).toEqual(focusSkillIds);
+      }));
+
+    it('should refuse a body with none when the Snapshot states a dial', () =>
+      withTestDatabase(async (database) => {
+        const { player, session } = aDialledTable(database);
+
+        const refused = await create(session.id, validBody(session), player);
+
+        expect(refused.status).toBe(400);
+        expect(messageOf(refused.body)).toContain('3 focus skills');
+      }));
+
+    it('should refuse a fourth pick and a skill the Snapshot does not have', () =>
+      withTestDatabase(async (database) => {
+        const { player, session } = aDialledTable(database);
+        const [one, two, three] = stackedPicks(session);
+        const four = [one as string, two as string, three as string, one as string];
+
+        const tooMany = await create(
+          session.id,
+          validBody(session, { focusSkillIds: four }),
+          player
+        );
+        const phantom = await create(
+          session.id,
+          validBody(session, { focusSkillIds: [one as string, two as string, 'not-a-skill'] }),
+          player
+        );
+
+        expect(tooMany.status).toBe(400);
+        expect(messageOf(tooMany.body)).toContain('4 were named');
+        expect(phantom.status).toBe(400);
+        expect(messageOf(phantom.body)).toMatch(/not a skill/i);
+      }));
+
+    it('should refuse a body whose picks are not a list of ids', () =>
+      withTestDatabase(async (database) => {
+        const { player, session } = aDialledTable(database);
+        const body = { ...validBody(session), focusSkillIds: 'arcane' } as unknown;
+
+        const refused = await create(session.id, body as Partial<CharacterCreateRequest>, player);
+
+        expect(refused.status).toBe(400);
+        expect(messageOf(refused.body)).toContain('list of ids');
+      }));
+
+    it('should ask for none on the corpus, which states no dials', () =>
+      withTestDatabase(async (database) => {
+        const { player, session } = aTable(database);
+
+        const created = await create(session.id, validBody(session), player);
+
+        expect(created.status).toBe(200);
+        // Absent stays absent: the field is not grown by a ruleset that never asked for it
+        expect(created.body.character.focusSkillIds).toBeUndefined();
+      }));
+  });
 });
 
 describe('reading a table’s characters', () => {

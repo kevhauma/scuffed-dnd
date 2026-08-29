@@ -37,6 +37,7 @@
  */
 
 import { calculateCharacter } from '../engine/calculator';
+import { focusPickRefusal, focusPicksField, focusPicksOf } from '../engine/focusSkills';
 import { asNumber, isFormulaError } from '../engine/formula/errors';
 import { validateStatAllocation } from '../engine/skillAllocation';
 import type { ActionValue } from '../types/api';
@@ -217,6 +218,52 @@ export function investInSkill(
   if (unaffordable) return { refusal: unaffordable };
 
   return { character: proposed, before, after: points };
+}
+
+/**
+ * Choose the skills this character focuses on (TICKET-SKL-05)
+ *
+ * **The whole list, not one slot**, because the multiplier is a sum over the slots and therefore
+ * indifferent to which slot a pick sits in: a slot-addressed write would need an empty-slot sentinel
+ * stored on the character to say *slot 2 is filled and slot 1 is not*, which is a shape the field
+ * does not have and nothing would read. The picker sends what the three boxes currently name, with
+ * the empty ones left out, so the picks compact to the front.
+ *
+ * **What may be stored is [`focusPickRefusal`](../engine/focusSkills.ts)'s** — at most three, every
+ * one a skill this ruleset defines — the same call `characterCreationErrors` makes, so a live edit and
+ * a creation cannot disagree. It deliberately does *not* insist on three: a character created before
+ * focus skills existed has none, and this is the affordance that lets them fill the slots one at a
+ * time (the ticket's own note).
+ *
+ * **Clearing the last pick removes the field rather than storing `[]`** — `focusPicksField`'s rule,
+ * which is the same one `buildCharacter` follows, so a character who gave up their focus and one who
+ * never had any are the same document. The old key is dropped before the new one is spread, because
+ * an absent field spread over a present one leaves it exactly where it was.
+ *
+ * `before` and `after` are the picks joined, which is the readable form of a list in an Event log
+ * whose values are a number, an id or nothing.
+ *
+ * @param character Whose sheet
+ * @param config The ruleset they play by — the browser's, or a session's Snapshot
+ * @param focusSkillIds The skills now named, in slot order
+ * @returns The character with the picks applied, or the reason they were refused
+ */
+export function chooseFocusSkills(
+  character: Character,
+  config: Configuration,
+  focusSkillIds: string[]
+): PlayerActionResult {
+  const refusal = focusPickRefusal(focusSkillIds, config);
+  if (refusal) return { refusal };
+
+  const previous = focusPicksOf(character);
+  const before = previous.join(', ');
+  const after = focusSkillIds.join(', ');
+
+  const { focusSkillIds: _replaced, ...withoutPicks } = character;
+  const updated: Character = { ...withoutPicks, ...focusPicksField(focusSkillIds) };
+
+  return { character: updated, before, after };
 }
 
 /**

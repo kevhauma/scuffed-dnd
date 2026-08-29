@@ -100,6 +100,11 @@ export function creationDataFrom(body: CharacterCreateRequest): CharacterCreatio
     investedStatPoints: pointMap(sent.investedStatPoints, 'investedStatPoints'),
     archetypeId: optionalString(sent.archetypeId, 'archetypeId'),
     investedSkillPoints: pointMap(sent.investedSkillPoints, 'investedSkillPoints'),
+    // Absent stays absent (TICKET-SKL-05): a Snapshot that states neither focus dial asks for no
+    // picks, so an empty list and a missing field are one thing here as they are on the document.
+    // How many there may be and whether they name real skills is the Kernel's
+    // (`focusPickRefusal`, through `characterCreationErrors`); this only says it is a list of ids.
+    focusSkillIds: optionalIdList(sent.focusSkillIds, 'focusSkillIds'),
   };
 }
 
@@ -127,6 +132,13 @@ function idList(value: unknown, field: string): string[] {
   }
 
   return value as string[];
+}
+
+/** {@link idList} for a field that may be absent — a list of ids when it is there at all */
+function optionalIdList(value: unknown, field: string): string[] | undefined {
+  if (value === undefined) return undefined;
+
+  return idList(value, field);
 }
 
 /**

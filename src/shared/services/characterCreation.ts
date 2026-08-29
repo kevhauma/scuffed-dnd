@@ -26,6 +26,12 @@
  */
 
 import { calculateCharacter } from '../engine/calculator';
+import {
+  FOCUS_SLOT_COUNT,
+  focusDials,
+  focusPickRefusal,
+  focusPicksField,
+} from '../engine/focusSkills';
 import { asNumber } from '../engine/formula/errors';
 import { racesRequired } from '../engine/races';
 import { type StatAllocationResult, validateStatAllocation } from '../engine/skillAllocation';
@@ -70,6 +76,9 @@ export function buildCharacter(
     investedStatPoints: data.investedStatPoints,
     archetypeId: data.archetypeId,
     investedSkillPoints: data.investedSkillPoints,
+    // Absent stays absent (TICKET-SKL-05), and so does empty — the rule is `focusPicksField`'s, so
+    // this and the sheet's picker cannot store two spellings of *none*
+    ...focusPicksField(data.focusSkillIds),
     currentResourceValues: {},
     // A fresh character has earned nothing, which the seeded curve reads as level 1 (TICKET-RES-01)
     experience: 0,
@@ -120,7 +129,7 @@ function seedResources(character: Character, config: Configuration): Record<stri
  * same thing a moment earlier, so nobody ever read the refusal. A *server* refusing a request has
  * nobody standing beside it, so it has to say which rule was broken.
  *
- * Three rules, and they are the three the wizard enforces:
+ * Four rules, and they are the four the wizard enforces:
  *
  * - **A blend is exactly what the ruleset's {@link racesRequired} says** (TICKET-RACE-04), and the
  *   refusal names the number so a Player who sent three to a two-slot ruleset is told which rule
@@ -131,6 +140,9 @@ function seedResources(character: Character, config: Configuration): Record<stri
  * - **An archetype is required when the ruleset defines any**, and refused when it does not name
  *   one this ruleset has. A ruleset with no archetypes leaves the field empty, the same way
  *   TICKET-ARC-03 kept it optional on the type.
+ * - **The focus skills are three when the ruleset plays with focus at all** (TICKET-SKL-05), and
+ *   never more than three or a skill this ruleset has not got — see {@link focusErrors} for which
+ *   half of that is creation's rule and which half belongs to the field.
  * - **The allocation has to be affordable**, which is `validateStatAllocation`'s verdict and not a
  *   second opinion — the same call the level-up spend makes, so creation and levelling cannot
  *   disagree about what a point costs. Since TICKET-RES-05 that verdict covers the **skill** boxes
@@ -163,6 +175,7 @@ export function characterCreationErrors(
   }
 
   errors.push(...archetypeErrors(data, config));
+  errors.push(...focusErrors(data, config));
 
   // **A skill id this ruleset does not have**, which nothing else looks at. Since TICKET-RES-05
   // `validateStatAllocation` prices the skill boxes too, but only the ones the ruleset defines —
@@ -219,6 +232,43 @@ function allocationRefusal(allocation: StatAllocationResult): string {
   return budget === undefined
     ? 'This ruleset cannot say how many points a new character has to spend.'
     : `That allocation spends ${allocation.pointsSpent} points and the budget is ${budget}.`;
+}
+
+/**
+ * Whether the focus picks are ones this ruleset accepts (TICKET-SKL-05)
+ *
+ * Two rules, and the split between them is the ticket's decision about *who insists on three*:
+ *
+ * - **What may be stored at all** is {@link focusPickRefusal}'s — at most three, every one naming a
+ *   skill this ruleset has — and it is the same call the sheet's picker makes, so a live edit and a
+ *   creation cannot disagree about a legal set of picks.
+ * - **All three slots must be filled**, and that rule is *creation's* rather than the field's. The
+ *   sheet's Setup form always names three, so a character built today names three; a character built
+ *   before focus existed names none and fills its slots on the sheet one at a time, which a rule on
+ *   the field would have made impossible.
+ *
+ * **Required only when the ruleset states a focus dial**, which is `archetypeErrors`' shape and its
+ * reasoning: with neither `focus_chosen` nor `focus_other` set, every multiplier is exactly 1 and
+ * three picks would change nothing — demanding a choice nobody can feel is a rule a Player cannot
+ * act on. A ruleset with no skills is the same case for the same reason: there is nothing to pick.
+ *
+ * @param data The Player's choices
+ * @param config The ruleset they were made against
+ * @returns The refusal, or nothing
+ */
+function focusErrors(data: CharacterCreationData, config: Configuration): string[] {
+  const picks = data.focusSkillIds ?? [];
+
+  const refusal = focusPickRefusal(picks, config);
+  if (refusal) return [refusal];
+
+  const dials = focusDials(config.constants);
+  const skills = config.skills ?? [];
+  const isAsked = dials.stated && skills.length > 0;
+
+  if (!isAsked || picks.length === FOCUS_SLOT_COUNT) return [];
+
+  return [`A character in this ruleset names ${FOCUS_SLOT_COUNT} focus skills.`];
 }
 
 /**

@@ -15,6 +15,7 @@ import { useDmControls } from '../dm/useDmControls';
 import { InventoryPanel } from '../inventory/InventoryPanel';
 import { RollHistoryPanel } from '../rolls/RollHistoryPanel';
 import { useRoller } from '../rolls/useRoller';
+import { FocusSkillsSection } from './FocusSkillsSection';
 import { PurseSection } from './PurseSection';
 import { RaceStatBlockSection } from './RaceStatBlockSection';
 import { ResourcesSection } from './ResourcesSection';
@@ -52,6 +53,8 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     experience,
     raceContributions,
     skills,
+    focusSlots,
+    isFocusDialled,
     stats,
     statTotal,
     budget,
@@ -66,6 +69,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     purse,
     handleChangeInvestedPoints,
     handleChangeInvestedSkillPoints,
+    handleSelectFocusSkill,
     handleSetPurse,
     handleAdjustPurse,
     handleAwardExperience,
@@ -231,6 +235,15 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
           {atTable && <AdjustmentLog adjustments={adjustments} statNames={statNames} />}
         </div>
       </div>
+
+      {/* Above the grid it changes, as the workbook has it: the Setup tab's three picks decide what
+          every row of the skills table is multiplied by (TICKET-SKL-05) */}
+      <FocusSkillsSection
+        skills={skills}
+        slots={focusSlots}
+        isDialled={isFocusDialled}
+        onSelectFocusSkill={handleSelectFocusSkill}
+      />
 
       {/* The same `budget` the stats above spend from — one pool for both since TICKET-RES-05 */}
       <SkillsSection
