@@ -205,7 +205,8 @@ homes**, by
 [`createFreshConfiguration`](../../../src/shared/services/freshConfiguration.ts) in the Kernel, which
 both `useConfigStore.initializeConfig` and `POST /api/rulesets` call (v3 Req 33.3).
 
-A `Configuration` is: id, name, version, **`schemaVersion: 9`**, timestamps,
+A `Configuration` is: id, name, version, **`schemaVersion: 10`** (raised from 9 by TICKET-INV-05,
+which is v4.0's one bump — see the clean-break section below), timestamps,
 plus the entity arrays — `stats`, `skills`,
 `materials`, `materialCategories`, `items`, `equipmentSlots`, `races`,
 `currencyTiers`, the optional `constants` (TICKET-CST-01), `curves` (TICKET-CRV-01),
@@ -231,6 +232,13 @@ without growing an empty array; every reader writes `config.constants ?? []`.
 and `validateConfigurationShape()` errors when an imported file still carries one — importing a ruleset
 that plays differently from the one the User exported is worse than refusing it. Add to that map
 when you delete a persisted field, and bump `SUPPORTED_SCHEMA_VERSION` in the same change.
+
+**A field retired from an *entity* goes on that collection's `EntitySpec.retired`** (TICKET-INV-05)
+— the same sentence one level down, keyed by field name and reported as `items[0].materialId is no
+longer a field — <replacement>`. It lives beside the fields that took the job over rather than in the
+configuration-level map, and it is walked by `collectionShapeErrors`, which was already walking the
+entries; a second pass over the same collections would be a second place to forget one. The worked
+example is `items.retired`, which names the fused `materialId` / `materialLevel` pair.
 
 The same rule applies inside an entity. `updateStat` merges through `mergeClearingAbsent`
 (TICKET-STAT-02), so a patch setting `min`, `max` or `formula` to `undefined` **deletes** the key
@@ -334,15 +342,19 @@ the *same* `{ statId, modifier }` row a material tier holds, keyed by stat **id*
   express. A tier's rung must be a whole number from 1 up and unique within the family; *contiguous*
   is deliberately not checked, since inventing that rule means inventing the missing row.
 
-The **socket** that names a family from an item — `inlayId` + `inlayLevel`, the way `Item` already
-names `materialId` + `materialLevel` — and the engine term that adds a tier's row to an equipped
-item's bonuses are TICKET-INV-05's. Until then nothing points at an inlay, so `dependencies.ts`'s
-`inlay` case finds nothing and the delete always succeeds; what it *does* already walk is the other
-direction — `inlayBonusReferences` makes deleting a stat a gem family grants refuse.
+The **socket** that names a family — `inlayId` + `inlayLevel` — landed in TICKET-INV-05, on the
+character's `ComposedItem` rather than on the item template (see *Composed items* under `Character`).
+`dependencies.ts`'s `inlay` case walks it, so deleting a gem a Player has socketed is refused; the
+other direction, `inlayBonusReferences`, makes deleting a stat a gem family grants refuse.
+
+**A rung is looked up by `InlayTier.tier`, never by array position.** `tiers` is stored in insertion
+order and a family may skip a rung (the sheet's Zircon has no tenth), so indexing reads the wrong row
+for a family edited out of order and *some* row for a rung that does not exist.
 
 **`Item` is a template, and since TICKET-ITEM-01 it is a per-skill bonus vector** (v4 systems/11):
-`{ id, name, description, categoryId?, materialId?, materialLevel?, equipmentSlotType?, shop?,
-skillBonuses? }`. What a template *is* moves skills; what it is *made of* moves stats. Four rules:
+`{ id, name, description, categoryId?, equipmentSlotType?, shop?, skillBonuses? }`. What a template
+*is* moves skills; what it is *made of* is a fact about the thing a Player **built** and lives on the
+`ComposedItem` (TICKET-INV-05 retired the fused `materialId` / `materialLevel` pair). Four rules:
 
 - **`skillBonuses?: SkillModifier[]` is sparse and keyed by skill id.** `SkillModifier` is
   `{ skillId, modifier }` — `StatModifier`'s shape one entity over, and deliberately a **second type**
@@ -377,8 +389,10 @@ The engine term is `calculateEquipmentSkillBonuses` (`calculators/equipmentBonus
 which walks **`config.equipmentSlots`** — one, six and twelve slots are all ordinary (TICKET-INV-04)
 — and sums into the skill's **bonus**, outside the round-up: `ceil(level / bonus_divider) + Σ gear`.
 `calculateEquipmentBonuses` walks the same list, so an item worn in a slot the User force-deleted
-grants nothing on either axis rather than half of itself.
-The fused `materialId` / `materialLevel` pair retires in TICKET-INV-05, not here.
+grants nothing on either axis rather than half of itself. Both terms read **composed items** since
+TICKET-INV-05: `equippedCompositions` resolves each filled slot to `{ template, materialBonuses,
+inlayBonuses }`, and the stat term sums the two tier rows while the skill term reads the template's
+vector.
 
 **`Race` is a stat block, not a bag of bonuses** (TICKET-RACE-01):
 `{ id, name, description, statValues: Record<statId, number> }`, holding the **absolute** value a
@@ -477,6 +491,13 @@ one line plus a `schemaVersion: N` sweep over the test fixtures, `scripts/build-
 **and `examples/demo-ruleset.json`**. The last two have their own guards — `sheetImport.test.ts`
 and `exampleRuleset.test.ts` — so forgetting them fails the suite rather than shipping a corpus the
 app refuses to import; that is what caught them on TICKET-RES-01.
+
+**v4.0 bumps once, not per reshape**
+([D6](../../../docs/v4.0_sheet_parity/overview.md#d6--no-backwards-compatibility-v40-is-a-clean-break-user-2026-08-29)),
+and **TICKET-INV-05 landed it: 9 → 10.** Every later v4.0 ticket inherits the number rather than
+raising its own — landing the milestone in pieces makes the tree briefly unreadable to old data
+either way, so a version per ticket would buy nothing. The rule *above* still governs the sweep: the
+bump is one line plus the four other places that spell it.
 There is deliberately **no migration path**: the ruleset is regenerable from
 [`docs/imports/`](../../../docs/imports/README.md), and the notice offers a backup before anything
 is cleared.
@@ -621,8 +642,34 @@ id**, so a rename cannot orphan an allocation),
 code-keyed `specialitySkillBaseLevels`), `archetypeId`, `focusSkillIds` (**three picks, duplicates
 legal** — TICKET-SKL-05), `currentResourceValues`,
 `experience`,
-and an `Inventory` (`equippedItems: Record<slotType, itemId>` + `miscItems: itemId[]`). It carries
-`configurationId` so a character is always read against the ruleset it was built on.
+and an `Inventory` (`equippedItems: Record<slotType, composedItemId>` + `miscItems: composedItemId[]`
++ `composedItems: ComposedItem[]`). It carries `configurationId` so a character is always read against
+the ruleset it was built on.
+
+### Composed items — what a Player built (TICKET-INV-05, v4 systems/12)
+
+`ComposedItem` is `{ id, templateId, materialId?, materialLevel?, inlayId?, inlayLevel? }`, and it is
+the thing an inventory actually holds: **`equippedItems` and `miscItems` name a `ComposedItem.id`,
+not an `Item.id`.** The shape of those two collections did not change, only what the id resolves to.
+
+- **It stores links, never numbers.** No stat row, no skill row, no display name. Every number is read
+  off the parts at calculation time, which is why retuning Iron Ore tier 10 relabels every axe made of
+  it on the next read instead of rewriting none of them — *derived values are computed, never stored*
+  applied to an aggregate.
+- **All four part links are optional, and the field tolerates while the action insists.** A rope has no
+  metal in it; `Character.focusSkillIds` is the same split (optional on the type, three required by
+  `characterCreationErrors`). Requiring a material tier is TICKET-INV-06's build action's job.
+- **A part the ruleset no longer defines contributes nothing** — a dangling `templateId` drops the
+  whole build from both equipment terms, a dangling tier drops only that tier's rows. An `inlayLevel`
+  naming a rung the family *skips* (the sheet's Zircon has no tenth) is the same case; reporting it to
+  the Player is the picker's job, not the engine's.
+- **A build is in at most one place.** `equipToSlot` takes it out of the pack and out of any other slot
+  (`wearingOnly`); `emptySlot` and `removeFromPack` **destroy** the record, `moveItemToMisc` keeps it.
+  Under the old model an id could legitimately be in two places, because it named a shared template.
+- **The id is minted by the caller** — `crypto.randomUUID()` in the store, the same in the route —
+  for `CharacterIdentity`'s reason: `shared/` reaches for no global.
+- **`isReadableCharacter` requires `inventory.composedItems`**, which is what routes a roster written
+  before builds to `IncompatibleDataNotice` rather than silently stripping every Player's gear.
 
 **`equippedItems` has no fixed key set, and no code may assume one** (TICKET-INV-04). A ruleset's
 equipment slots are User-built — the list is CRUD in `EquipmentSlotsConfigPanel`, the board is a
@@ -852,13 +899,15 @@ current is **kept** and flagged (`StatBreakdown.isOverMax`), never rewritten. Wr
 resolves it, the next time the Player touches the pool. Nothing in the app may reconcile the two
 behind their back.
 
-The same holds for equipment: `equipItem(characterId, slotType, itemId, config)` and
-`moveItemToEquipment(characterId, itemId, slotType, config)` take the `Configuration` and refuse
-any item whose `Item.equipmentSlotType` does not equal the target slot — including an item with no
-slot type and one the ruleset does not define (Req 12.3). All six inventory actions go through one
-`patchInventory(set, get, characterId, update)` helper; returning the inventory unchanged is how an
-action declines. Equipping triggers no recalculation — derived values read `equippedItems` at read
-time.
+The same holds for equipment: `equipItem(characterId, slotType, composedId, config)` and
+`moveItemToEquipment(characterId, composedId, slotType, config)` take the `Configuration` and refuse
+any build whose **template's** `equipmentSlotType` does not equal the target slot — including a
+template with no slot type, one the ruleset does not define, and (since TICKET-INV-05) **a build this
+character does not have**. Every inventory action is a Kernel call now: `addMiscItem` mints a
+`ComposedItem` through `addToPack` and `removeMiscItem` unmakes one through `removeFromPack`, where
+the pair used to patch the inventory in place — how a build is made and unmade is a rule the server
+has to agree with, not a picker convenience, and `patchInventory` was deleted with its last caller.
+Equipping triggers no recalculation — derived values read `equippedItems` at read time.
 
 ## Changing a persisted shape
 

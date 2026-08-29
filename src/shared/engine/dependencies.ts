@@ -16,7 +16,7 @@
  * **Validates: Concept 00 §6; spec §3.2; Requirements 2.5, 2.6, 18.1, 18.3**
  */
 
-import type { Character } from '../types/character';
+import type { Character, ComposedItem } from '../types/character';
 import type { Configuration, MaterialLevel } from '../types/config';
 import { skillMemberName, statMemberName } from './formula/references';
 import { validateFormula } from './formula/validator';
@@ -415,18 +415,38 @@ function statReferences(
   return [...formulas, ...modifiers, ...players];
 }
 
-/** Everything pointing at an item */
-function itemReferences(characters: Character[], id: string): EntityReference[] {
+/**
+ * Characters who have **built** something out of the target (v4 systems/12, TICKET-INV-05)
+ *
+ * The one arm behind three guarded deletes — a material, a template and an inlay — because since
+ * INV-05 all three are pointed at from the same place by the same kind of reference: a
+ * `ComposedItem` in somebody's inventory, naming its parts by id. Three copies of this walk would
+ * be three chances for one of them to go missing, which is precisely the failure the `inlay` arm's
+ * empty `return []` was one ticket away from becoming permanent.
+ *
+ * **One reference per character however many of their builds name the target.** The dialog says
+ * *which Player is holding it*, and a Player with six Iron Ore axes would say it six times.
+ *
+ * `field` is spelled as the path on the document — `inventory.composedItems[].materialId` — the way
+ * `levels[].bonuses` and `tiers[].bonuses` are, so the User is told which link is the one blocking
+ * the delete rather than merely that "the inventory" is.
+ *
+ * @param characters - The characters built on the configuration
+ * @param field - The path on the composed record that points at the target
+ * @param names - Whether one composed record points at it
+ * @returns One reference per character holding at least one such build
+ */
+function composedItemReferences(
+  characters: Character[],
+  field: string,
+  names: (composed: ComposedItem) => boolean
+): EntityReference[] {
   return characters
-    .filter(
-      (character) =>
-        Object.values(character.inventory.equippedItems).includes(id) ||
-        character.inventory.miscItems.includes(id)
-    )
+    .filter((character) => character.inventory.composedItems.some(names))
     .map((character) => ({
       holderKind: 'Character',
       holderName: character.name,
-      field: 'inventory',
+      field,
       holderId: character.id,
     }));
 }
@@ -550,26 +570,40 @@ export function findReferences(
       return [];
 
     case 'item':
-      return itemReferences(characters, target.id);
+      // A template is pointed at by the **builds made from it** (TICKET-INV-05), not by the pack
+      // directly: `equippedItems` and `miscItems` hold `ComposedItem.id`s now, so a walk over those
+      // two would compare a build's id against a template's and never match.
+      return composedItemReferences(
+        characters,
+        'inventory.composedItems[].templateId',
+        (composed) => composed.templateId === target.id
+      );
 
     case 'inlay':
-      // Deliberately nothing **yet** (TICKET-INL-01). The socket that names a family — an item's
-      // `inlayId`, the way it already names a `materialId` — is TICKET-INV-05's, and this is the
-      // `dice-ladder` situation exactly: ROLL-03 shipped that kind unguarded because a check with no
-      // possible referrer can never fire, and ROLL-05 filled it in the moment something could point
-      // at one. The kind exists now so the panel wires the same guarded-delete surface every other
-      // panel uses, rather than growing a second delete path to convert later.
-      return [];
+      // Filled by TICKET-INV-05, which is what INL-01 shipped the kind for: a `ComposedItem` sockets
+      // a family by id, so deleting Diamond under a Player wearing a Diamond 4 axe has to be refused
+      // rather than silently emptying the socket. This is `dice-ladder`'s history repeating —
+      // ROLL-03 shipped that kind unguarded because a check with no possible referrer can never
+      // fire, and ROLL-05 filled it the moment something could point at one.
+      //
+      // The `switch`'s `never` default catches a **missing kind** and not a **new referrer to an
+      // existing kind**, so leaving this at `return []` would have compiled, passed and orphaned
+      // every socket. `inlayReferenceArm.test.ts` is the check that would have failed instead.
+      return composedItemReferences(
+        characters,
+        'inventory.composedItems[].inlayId',
+        (composed) => composed.inlayId === target.id
+      );
 
     case 'material':
-      return config.items
-        .filter((item) => item.materialId === target.id)
-        .map((item) => ({
-          holderKind: 'Item',
-          holderName: item.name,
-          field: 'materialId',
-          holderId: item.id,
-        }));
+      // Was a walk over `config.items` until TICKET-INV-05 retired the template's fused
+      // `materialId`. What a thing is made of is a fact about the built thing, so the holders are
+      // the Players who built one — the `inlay` arm's shape exactly, which is why they share a walk.
+      return composedItemReferences(
+        characters,
+        'inventory.composedItems[].materialId',
+        (composed) => composed.materialId === target.id
+      );
 
     case 'material-category':
       return config.materials

@@ -49,7 +49,7 @@ const storedConfig = {
   id: 'config1',
   name: 'Stored Config',
   version: '1.0',
-  schemaVersion: 9,
+  schemaVersion: 10,
   stats: [],
   skills: [],
   materials: [],
@@ -71,7 +71,7 @@ const storedCharacter = {
   investedSkillPoints: {},
   currentResourceValues: {},
   experience: 0,
-  inventory: { equippedItems: {}, miscItems: [] },
+  inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
   createdAt: '2024-01-01',
   updatedAt: '2024-01-01',
 } satisfies Character;

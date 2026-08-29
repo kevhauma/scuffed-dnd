@@ -198,6 +198,32 @@ function withGear(document: Configuration): Configuration {
   return { ...document, items: [...document.items, HELMET, CIRCLET] };
 }
 
+/**
+ * Build a template into the character's pack, and hand back the id the pack now holds
+ *
+ * **Every equipment case starts here since TICKET-INV-05.** A slot holds a `ComposedItem.id` rather
+ * than a catalog id, and `equipToSlot` refuses one the character does not have — so equipping is now
+ * something a Player does to a thing they built, and the two steps are what the surface does too.
+ * The id is minted by the *server* (`takeItem`), which is why it is read back out rather than named.
+ *
+ * @param characterId - Whose pack
+ * @param templateId - Which of the Snapshot's templates to build
+ * @param as - The account making the request
+ * @returns The new build's id
+ */
+async function build(
+  characterId: string,
+  templateId: string,
+  as: CallOptions['as']
+): Promise<string> {
+  const taken = await act(PLAYER_ACTION.TAKE_ITEM, characterId, { itemId: templateId }, as);
+  const built = taken.body.character.inventory.composedItems.at(-1);
+
+  expect(built?.templateId, `taking ${templateId} did not build one`).toBe(templateId);
+
+  return built?.id as string;
+}
+
 describe('spending points at a table', () => {
   it('refuses a spend the budget cannot pay for, with the reason, on a request the UI cannot make', () =>
     withTestDatabase(async (database) => {
@@ -425,24 +451,23 @@ describe('moving a resource at a table', () => {
 });
 
 describe('carrying and wearing things at a table', () => {
-  it('puts an item in the slot it declares', () =>
+  it('puts a build in the slot its template declares', () =>
     withTestDatabase(async (database) => {
       const { player, row } = aTableWithACharacter(database, { snapshot: withGear });
+      const helm = await build(row.id, HELMET.id, player);
 
       const equipped = await act(
         PLAYER_ACTION.EQUIP_ITEM,
         row.id,
-        { equipmentSlotType: HELMET.equipmentSlotType, itemId: HELMET.id },
+        { equipmentSlotType: HELMET.equipmentSlotType, itemId: helm },
         player
       );
 
       expect(equipped.status).toBe(200);
-      expect(equipped.body.character.inventory.equippedItems[HELMET.equipmentSlotType]).toBe(
-        HELMET.id
-      );
+      expect(equipped.body.character.inventory.equippedItems[HELMET.equipmentSlotType]).toBe(helm);
     }));
 
-  it('refuses an item whose slot type is a different one', () =>
+  it('refuses a build whose template declares a different slot', () =>
     withTestDatabase(async (database) => {
       const { player, rules, row } = aTableWithACharacter(database, { snapshot: withGear });
       const otherSlot = rules.equipmentSlots.find(
@@ -451,10 +476,11 @@ describe('carrying and wearing things at a table', () => {
 
       expect(otherSlot, 'this ruleset should define more than one slot').toBeDefined();
 
+      const helm = await build(row.id, HELMET.id, player);
       const refused = await act(
         PLAYER_ACTION.EQUIP_ITEM,
         row.id,
-        { equipmentSlotType: otherSlot, itemId: HELMET.id },
+        { equipmentSlotType: otherSlot, itemId: helm },
         player
       );
 
@@ -462,17 +488,18 @@ describe('carrying and wearing things at a table', () => {
       expect(messageOf(refused.body)).toContain('does not go in that slot');
     }));
 
-  it('refuses an item with no slot type at all', () =>
+  it('refuses a build whose template declares no slot type at all', () =>
     withTestDatabase(async (database) => {
       const { player, rules, row } = aTableWithACharacter(database, { snapshot: withGear });
       const loose = rules.items.find((candidate) => candidate.equipmentSlotType === undefined);
 
       expect(loose, 'the corpus should define at least one unequippable item').toBeDefined();
 
+      const rope = await build(row.id, loose?.id as string, player);
       const refused = await act(
         PLAYER_ACTION.EQUIP_ITEM,
         row.id,
-        { equipmentSlotType: HELMET.equipmentSlotType, itemId: loose?.id },
+        { equipmentSlotType: HELMET.equipmentSlotType, itemId: rope },
         player
       );
 
@@ -483,11 +510,12 @@ describe('carrying and wearing things at a table', () => {
   it('refuses a slot the Snapshot does not define', () =>
     withTestDatabase(async (database) => {
       const { player, row } = aTableWithACharacter(database, { snapshot: withGear });
+      const helm = await build(row.id, HELMET.id, player);
 
       const refused = await act(
         PLAYER_ACTION.EQUIP_ITEM,
         row.id,
-        { equipmentSlotType: 'a-slot-this-ruleset-retired', itemId: HELMET.id },
+        { equipmentSlotType: 'a-slot-this-ruleset-retired', itemId: helm },
         player
       );
 
@@ -495,29 +523,81 @@ describe('carrying and wearing things at a table', () => {
       expect(messageOf(refused.body)).toContain('no such equipment slot');
     }));
 
+  it('refuses a build this character does not have (TICKET-INV-05)', () =>
+    withTestDatabase(async (database) => {
+      // An id here named a catalog template, which every character could equip by definition; it
+      // names one Player's build now, and a request naming somebody else's is refused by the Kernel
+      const { player, row } = aTableWithACharacter(database, { snapshot: withGear });
+
+      const refused = await act(
+        PLAYER_ACTION.EQUIP_ITEM,
+        row.id,
+        { equipmentSlotType: HELMET.equipmentSlotType, itemId: 'build-somebody-elses' },
+        player
+      );
+
+      expect(refused.status).toBe(400);
+      expect(messageOf(refused.body)).toContain('no such item');
+    }));
+
   it('swaps a slot occupant back into the pack rather than losing it', () =>
     withTestDatabase(async (database) => {
       const { player, row } = aTableWithACharacter(database, { snapshot: withGear });
+      const helm = await build(row.id, HELMET.id, player);
 
       await act(
         PLAYER_ACTION.EQUIP_ITEM,
         row.id,
-        { equipmentSlotType: HELMET.equipmentSlotType, itemId: HELMET.id },
+        { equipmentSlotType: HELMET.equipmentSlotType, itemId: helm },
         player
       );
-      await act(PLAYER_ACTION.TAKE_ITEM, row.id, { itemId: CIRCLET.id }, player);
+      const circlet = await build(row.id, CIRCLET.id, player);
       const worn = await act(
         PLAYER_ACTION.WEAR_ITEM,
         row.id,
-        { equipmentSlotType: HELMET.equipmentSlotType, itemId: CIRCLET.id },
+        { equipmentSlotType: HELMET.equipmentSlotType, itemId: circlet },
         player
       );
 
       expect(worn.status).toBe(200);
-      expect(worn.body.character.inventory.equippedItems[HELMET.equipmentSlotType]).toBe(
-        CIRCLET.id
+      expect(worn.body.character.inventory.equippedItems[HELMET.equipmentSlotType]).toBe(circlet);
+      expect(worn.body.character.inventory.miscItems).toEqual([helm]);
+    }));
+
+  it('equips into an occupied slot without orphaning what it displaces (the INV-05 review)', () =>
+    withTestDatabase(async (database) => {
+      // **`equip-item` into a full slot was the one path nothing covered**, and it was where the
+      // displaced build went nowhere: out of `equippedItems`, never into `miscItems`, still in
+      // `composedItems` — undeletable material, invisible to the Player. The UI reaches this slot
+      // through `wear-item`, which is why only the route could show it.
+      const { player, row } = aTableWithACharacter(database, { snapshot: withGear });
+      const helm = await build(row.id, HELMET.id, player);
+      const circlet = await build(row.id, CIRCLET.id, player);
+
+      await act(
+        PLAYER_ACTION.EQUIP_ITEM,
+        row.id,
+        { equipmentSlotType: HELMET.equipmentSlotType, itemId: helm },
+        player
       );
-      expect(worn.body.character.inventory.miscItems).toEqual([HELMET.id]);
+      const swapped = await act(
+        PLAYER_ACTION.EQUIP_ITEM,
+        row.id,
+        { equipmentSlotType: HELMET.equipmentSlotType, itemId: circlet },
+        player
+      );
+
+      expect(swapped.status).toBe(200);
+
+      const { equippedItems, miscItems, composedItems } = swapped.body.character.inventory;
+
+      expect(equippedItems[HELMET.equipmentSlotType]).toBe(circlet);
+      expect(miscItems).toEqual([helm]);
+      // Every build the character holds is worn or carried — the invariant, over the whole inventory
+      // rather than over the one record this case moved
+      expect([...Object.values(equippedItems), ...miscItems].sort()).toEqual(
+        composedItems.map((held) => held.id).sort()
+      );
     }));
 
   it('refuses an item the Snapshot does not define', () =>
@@ -707,20 +787,23 @@ describe('the Event log', () => {
         snapshot: withGear,
       });
       const [pool] = resourceStats(rules);
+      const helm = await build(row.id, HELMET.id, player);
 
       await act(PLAYER_ACTION.SET_RESOURCE, row.id, { statId: pool.id, value: 0 }, player);
       await act(
         PLAYER_ACTION.EQUIP_ITEM,
         row.id,
-        { equipmentSlotType: HELMET.equipmentSlotType, itemId: HELMET.id },
+        { equipmentSlotType: HELMET.equipmentSlotType, itemId: helm },
         player
       );
 
       const events = eventsOf(database, session.id);
 
+      // The build is an accepted action too, so it is the first thing in the log
       expect(events.map((row) => [row.seq, row.type])).toEqual([
-        [1, PLAYER_ACTION.SET_RESOURCE],
-        [2, PLAYER_ACTION.EQUIP_ITEM],
+        [1, PLAYER_ACTION.TAKE_ITEM],
+        [2, PLAYER_ACTION.SET_RESOURCE],
+        [3, PLAYER_ACTION.EQUIP_ITEM],
       ]);
     }));
 });

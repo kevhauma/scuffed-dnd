@@ -239,11 +239,101 @@ export interface Character {
 }
 
 /**
- * Inventory - character's collection of equipment slots and items
+ * One thing a Player has built, as **links to what it is made of** (v4 systems/12, TICKET-INV-05)
+ *
+ * The sheet's Item selecter picks three columns — a template, a material tier, an optional inlay
+ * tier — and the thing that comes out is what goes in the Backpack. This is that thing, and the
+ * User's ruling (overview *Rulings 2026-08-29*) is where it lives: **in the Player's inventory**,
+ * not in the ruleset's catalog.
+ *
+ * ## Nothing about its bonuses is stored
+ *
+ * Not a stat row, not a skill row, not the display phrase. Every number it is worth is read from the
+ * parts at calculation time (`calculateEquipmentBonuses` /`calculateEquipmentSkillBonuses`), which is
+ * the whole reason the record holds references rather than values: retuning Iron Ore tier 10
+ * relabels every axe made of it on the next read instead of rewriting none of them. That is
+ * *derived values are computed, never stored* applied to an aggregate rather than to a field.
+ *
+ * ## Why the material is optional when the sheet always picks one
+ *
+ * The triple's third column is optional by the sheet's own hand — "with empty inlay" is a row it
+ * writes — and the **first two are optional here too**, which diverges from TICKET-INV-05's to-be
+ * and is recorded on that ticket. Two reasons: `Item.materialId` and `Item.materialLevel` were
+ * *already* optional on the template this record inherits them from, so keeping them optional moves
+ * the fields without also changing what a ruleset may say; and a rope is a legal thing to carry,
+ * with no metal in it and no tier to name.
+ *
+ * The split is `Character.focusSkillIds`' exactly: **the field tolerates, the action insists.** Three
+ * focus picks are optional on the type and required by `characterCreationErrors`; a material tier is
+ * optional here and required by TICKET-INV-06's build action, which is the surface that actually
+ * offers the picker.
+ *
+ * ## A part the ruleset no longer defines contributes nothing
+ *
+ * A `materialLevel` naming no tier, an `inlayLevel` naming a rung the family skips (the sheet's
+ * Zircon has no tenth — TICKET-INL-01), a `templateId` the User deleted: each contributes zero
+ * rather than throwing or inventing a target, which is the rule every dangling reference in this
+ * model already follows. *Reporting* an absent rung to the Player is TICKET-INV-06's picker refusal,
+ * where the Player can act on it.
+ */
+export interface ComposedItem {
+  /**
+   * Stable identity, minted by whoever builds it — **this is what the inventory names**.
+   *
+   * `equippedItems` and `miscItems` hold these ids rather than `Item.id`s, which is what makes two
+   * Battleaxes at different tiers two different things a Player can wear and drop independently.
+   * Minted by the caller rather than here or in a Kernel rule, for `CharacterIdentity`'s reason: the
+   * browser mints its own and the server mints its own, and `shared/` reaches for no global.
+   */
+  id: string;
+  /** Which `Item` template this was built from — the shape of the thing */
+  templateId: string;
+  /** Which `Material` family it is made of, when it is made of one */
+  materialId?: string;
+  /** Which rung of that family — a `MaterialLevel.level`, not an index into `levels` */
+  materialLevel?: number;
+  /** Which `Inlay` family is socketed into it; absent is the sheet's "with empty inlay" */
+  inlayId?: string;
+  /** Which rung of that family — an `InlayTier.tier`, unique within the family (TICKET-INL-01) */
+  inlayLevel?: number;
+}
+
+/**
+ * Inventory — what the character has built, and where each of those things is
+ *
+ * **Three collections since TICKET-INV-05, and the two older ones changed meaning rather than
+ * shape.** `equippedItems` and `miscItems` held `Item.id`s — catalog templates — and now hold
+ * {@link ComposedItem.id}s. The shape is untouched (`Record<slotType, id>` and `id[]`), which is why
+ * this was the smaller of the two homes the ticket weighed: everything that walks a slot or a pack
+ * still walks the same structure, and only what the id *resolves to* moved.
+ *
+ * **A build is worn or carried — never both, and never neither.** Both halves are enforced by the
+ * actions in [`playerActions.ts`](../services/playerActions.ts) rather than by this type: `wearingOnly`
+ * and the pack filter keep a build out of two places at once, and every action that removes one from
+ * a slot puts it somewhere — the pack (`moveItemToMisc`, `equipToSlot`'s displaced occupant) or out
+ * of existence (`emptySlot`, `removeFromPack`, which delete the record too).
+ *
+ * **"In neither" is a defect, not a spare state**, and an earlier draft of this note had it the other
+ * way round — which is precisely what let `equipToSlot` ship orphaning the build it displaced. A
+ * record nothing wears and nothing carries is invisible to every surface *and* still counted by
+ * `composedItemReferences`, so it makes the material it was made of undeletable with a refusal naming
+ * a Player who cannot see the thing.
+ *
+ * **What could make it legal is TICKET-INV-06**, and only by removing the other half: if the Backpack
+ * becomes *derived* — every build that is not worn — then `miscItems` stops being stored and "carried"
+ * stops being a place a record can fail to be in. That is the ticket to revisit
+ * `emptySlot` / `removeFromPack`'s destruction in, since a derived Backpack makes *unequipped* and
+ * *discarded* different things again.
+ *
+ * A **dangling** id is a different matter and stays tolerated: the engine drops what it cannot
+ * resolve, for the reason `equippedItems` never enforced that its items existed — a rule that refused
+ * would turn a stale id into an unopenable sheet.
  */
 export interface Inventory {
-  equippedItems: Record<string, string>; // equipmentSlotType -> itemId
-  miscItems: string[]; // Array of itemIds
+  equippedItems: Record<string, string>; // equipmentSlotType -> ComposedItem.id
+  miscItems: string[]; // ComposedItem.ids
+  /** Everything the character has built, worn or carried, keyed by nothing — see {@link ComposedItem.id} */
+  composedItems: ComposedItem[];
 }
 
 /**

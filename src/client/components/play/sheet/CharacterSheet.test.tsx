@@ -43,7 +43,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 9,
+    schemaVersion: 10,
     stats: [
       {
         id: 'STR',
@@ -186,7 +186,7 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     investedSkillPoints: { STL: 3 },
     currentResourceValues: { health: 60, mana: 30 },
     experience: 900,
-    inventory: { equippedItems: {}, miscItems: [] },
+    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     ...overrides,
@@ -283,8 +283,6 @@ describe('CharacterSheet', () => {
             id: 'cloak',
             name: 'Fur Cloak',
             description: '',
-            materialId: 'fur',
-            materialLevel: 1,
             equipmentSlotType: 'cloak',
           },
         ],
@@ -294,7 +292,17 @@ describe('CharacterSheet', () => {
     });
     useCharacterStore.setState({
       characters: [
-        createCharacter({ inventory: { equippedItems: { cloak: 'cloak' }, miscItems: [] } }),
+        createCharacter({
+          // A Fur 1 cloak the Player built — the material link lives on the build since
+          // TICKET-INV-05, and the sheet reads the tier's rows through it
+          inventory: {
+            equippedItems: { cloak: 'build-cloak' },
+            miscItems: [],
+            composedItems: [
+              { id: 'build-cloak', templateId: 'cloak', materialId: 'fur', materialLevel: 1 },
+            ],
+          },
+        }),
       ],
       isLoaded: true,
     });

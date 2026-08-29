@@ -42,7 +42,7 @@ function uploaded(overrides: Partial<CharacterDocument> = {}): CharacterDocument
       investedSkillPoints: {},
       currentResourceValues: {},
       experience: 0,
-      inventory: { equippedItems: {}, miscItems: [] },
+      inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
       createdAt: '2026-01-01',
       updatedAt: '2026-01-01',
     },

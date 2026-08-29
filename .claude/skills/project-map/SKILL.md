@@ -267,7 +267,7 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   gone, and `races.test.ts` fails if a former call site spells the number again.
 - `calculators/skillCalculator.ts` — `calculateSkills(config, statValues, character, gearBonuses)` → `{ levels, bonuses, contributions }`, all keyed by skill id (TICKET-SKL-02; `contributions` added by TICKET-SKL-03 — one `SkillStatContribution` per weight row with `weight × statValue` **already multiplied**, so the sheet labels terms it never recomputes; empty for a level that failed). `level = ceil(Σ(weight × stat)) + invested`, `bonus = ceil(level / const.bonus_divider) + Σ gear` — **both halves round up** since TICKET-SKL-04, through `roundAwayFromZero` — the formula library's Excel `ROUNDUP`, which settles binary noise to 15 significant digits before rounding so a duo skill's `3.0000000000000004` cannot buy a whole level (the settle lives in that shared function, so a User formula spelling the same arithmetic agrees). Invested points are added **after** the level's round-up, so a bought point stays whole; the rounding is an engine rule rather than a ruleset dial (the ticket records why), while the divider is still read **by name** and falls back to Concept 05's seeded 5. TICKET-SKL-05's focus multiplier multiplies the weighted sum *inside* the round-up. A weight naming a stat that no longer exists contributes nothing; a stat whose own formula failed yields an `upstream` error naming it, with the original as `cause`. The invested term is 1:1 and **provisional** — TICKET-ARC-02 routes it through the point-buy curve. **`gearBonuses` is a required fourth parameter** (TICKET-ITEM-01, on `statGain`'s precedent): the equipped templates' per-skill vector, already totalled by `equipmentBonusCalculator`, added to the **bonus** *outside* the round-up — put inside the divide it would be worth a fifth of itself, and put on the level it would be multiplied by focus picks it has nothing to do with. A caller with no gear passes a named empty map rather than relying on a default.
 - `calculators/rollCalculator.ts` — `calculateRollInputs(config, statValues, skills)` → `Record<rollId, FormulaResult>` (TICKET-ROLL-06). Each roll definition's input expression over the composed numbers — the value fed to the ladder. Replaced `combatSkillCalculator`, and the swap is the entity's argument: that produced a *bonus* added to a hand-typed pool, this produces the *input* a pool is derived from. Keyed by roll **id**; no equipment term (TICKET-MAT-02).
-- `calculators/equipmentBonusCalculator.ts` — what equipped gear is worth, on **both** axes. `calculateEquipmentBonuses` aggregates equipped items' material tier modifiers into one `StatModifier[]`, keyed by stat **id**; `indexStatModifiers(modifiers)` → `Record<statId, number>` turns any `StatModifier[]` into a per-stat lookup, for showing a stat's equipment contribution on its own. Since TICKET-ITEM-01 `calculateEquipmentSkillBonuses` does the same for the *template's own* per-skill vector → `Record<skillId, number>`, walking **`config.equipmentSlots`** so the slot count is the ruleset's (TICKET-INV-04). **The two terms cannot double-count**: a material tier names a stat and a template names a skill, so no shape lets one modifier be both. **Both read one private `equippedTemplates` walk over `config.equipmentSlots`**, which is what stops them disagreeing about what is worn: the stat term walked `Object.values(equippedItems)` until ITEM-01, and a slot force-deleted through `useGuardedDelete`'s *Delete anyway* left the same item granting its material's stats and none of its skill vector. A retired slot equips nothing on either axis now.
+- `calculators/equipmentBonusCalculator.ts` — what equipped gear is worth, on **both** axes. `calculateEquipmentBonuses` aggregates each worn build's **material tier row plus its inlay tier row** into one `StatModifier[]`, keyed by stat **id** (TICKET-INV-05 added the inlay half; the workbook puts Mana and Speed on the gem table alone, though nothing here knows that — it adds whatever rows each tier has); `indexStatModifiers(modifiers)` → `Record<statId, number>` turns any `StatModifier[]` into a per-stat lookup, for showing a stat's equipment contribution on its own. Since TICKET-ITEM-01 `calculateEquipmentSkillBonuses` does the same for the *template's own* per-skill vector → `Record<skillId, number>`, walking **`config.equipmentSlots`** so the slot count is the ruleset's (TICKET-INV-04). **The two terms cannot double-count**: a tier names a stat and a template names a skill, so no shape lets one modifier be both. **Both read one private `equippedCompositions` walk over `config.equipmentSlots`** (`equippedTemplates` until INV-05), which is what stops them disagreeing about what is worn: the stat term walked `Object.values(equippedItems)` until ITEM-01, and a slot force-deleted through `useGuardedDelete`'s *Delete anyway* left the same item granting its material's stats and none of its skill vector. A retired slot equips nothing on either axis now, and neither does a build whose *template* the ruleset has dropped — a build whose **tier** is missing keeps its skill vector and loses only that tier's stat rows. `materialTierOf` / `inlayTierOf` look a rung up by its **number**, never by array position: `Inlay.tiers` is insertion-ordered and a family may skip a rung.
 - `calculator.ts` — re-exports the calculators, plus **`calculateCharacter(character, config):
   CalculatedCharacter`**, the single composed entry point (equipment → stats → skills →
   roll inputs, in that order). Call it for any derived number; don't compose the calculators by hand.
@@ -281,9 +281,13 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   both stores' data; `configStore`'s delete actions call it. Answers "what points at this?"; the
   formula half goes through `validateFormula`, never substring matching. Since TICKET-INL-01 the
   `stat` arm also walks **inlay tier grants** (`inlayBonusReferences`, beside
-  `materialBonusReferences`), and there is an `inlay` kind that finds nothing **yet** — the socket
-  naming a family is TICKET-INV-05's, so it is `dice-ladder`'s pre-ROLL-05 situation rather than an
-  oversight. Since TICKET-ITEM-01 the `skill` arm walks **item templates' bonus vectors**
+  `materialBonusReferences`). Since TICKET-INV-05 the `item`, `material` and `inlay` arms are one
+  walk — `composedItemReferences(characters, field, names)` — because all three are pointed at from
+  the same place by the same kind of reference: a `ComposedItem` in somebody's inventory naming its
+  parts by id. That arm also filled the `inlay` kind INL-01 shipped deliberately empty, and
+  `shared/engine/inlayReferenceArm.test.ts` is what makes leaving it empty a **failure**: the
+  `switch`'s `never` default catches a missing *kind* and says nothing about a new *referrer* to an
+  existing one. Since TICKET-ITEM-01 the `skill` arm walks **item templates' bonus vectors**
   (`itemSkillBonusReferences`) — a config→config reference, so deleting a skill that templates grant
   is refused and names them. **A new field on
   `Character` that names a config entity by id belongs in a case here**, beside `raceIds`,
@@ -473,7 +477,11 @@ between the roots is exactly *"does this touch a browser API"*.
   stored on the character; what may be in it is `focusSkills.focusPickRefusal`, the same call
   `characterCreationErrors` makes), `setResourceValue`, `adjustResourceValue`,
   `resetResourceToMax`, `equipToSlot`, `emptySlot`, `moveItemToMisc`, `moveItemToEquipment`,
-  `addToPack`, `removeFromPack`. Each takes a `Character` (and the ruleset where the rule needs
+  `addToPack`, `removeFromPack`. **The five inventory actions speak `ComposedItem.id`s since
+  TICKET-INV-05**, `addToPack` excepted — it takes a *template* id plus a caller-minted build id and
+  mints the record. A build is in at most one place (`wearingOnly`), dropping destroys it and stowing
+  keeps it (`takeOff` is the shared half of that pair), and `removeFromPack` takes exactly the build
+  named where v1.0 took every copy. Each takes a `Character` (and the ruleset where the rule needs
   one) and answers `PlayerActionResult` — either the new character **plus what the value was and
   became**, or a `refusal` sentence. Moved out of `characterStore` so the server could call the same
   rules rather than a second copy (D5); the store's actions are now three lines each. **The names
@@ -990,8 +998,13 @@ adjustment answer landing last is dropped rather than showing a log an entry sho
 `dm-set-level` reads as the **experience** it wrote and never as a level.
 
 `inventory/` holds `InventoryPanel` (mounted by the sheet, taking only a `characterId`) with
-`EquipmentSlotRow`, `MiscItemRow` and `useInventoryManager`. Equipping needs no recalculation call:
-`calculateCharacter` reads `inventory.equippedItems` at render time.
+`EquipmentDoll`, `EquipmentSlotTile`, `MiscItemRow` and `useInventoryManager`. Equipping needs no
+recalculation call: `calculateCharacter` reads `inventory.equippedItems` at render time. Since
+TICKET-INV-05 those ids name the character's **builds**, so the hook resolves each one to a
+`CarriedBuild` (`{ build, item }`) — the id an equip or a drop names, and the template the row is
+spelled and slot-matched by — and hands the whole record down, which is what INV-06's display phrase
+will read. The pack picker still offers *templates*, because building one is what taking a thing
+means; the three-column builder and the Backpack are TICKET-INV-06's.
 `rolls/` holds `useRoller`, `RollBreakdown` and `RollHistoryPanel`.
 The roll button and the last result live in `RollsSection`; the history is its own panel.
 **`useRoller` branches on where the character lives** (TICKET-ROLL-07). A **local** character rolls

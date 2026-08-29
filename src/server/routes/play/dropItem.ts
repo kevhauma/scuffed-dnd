@@ -1,8 +1,14 @@
 /**
- * `POST /api/characters/:id/drop-item` — take an item out of the pack (TICKET-PLY-01)
+ * `POST /api/characters/:id/drop-item` — put a built item down for good (TICKET-PLY-01)
  *
- * **Every copy of it goes**, which is v1.0's behaviour rather than a decision taken here: the pack
- * is a list of ids with no quantities, so nothing distinguishes two identical entries.
+ * **`itemId` is a `ComposedItem.id` since TICKET-INV-05**, and **exactly the build named goes** —
+ * where this said *every copy of it goes*, because the pack was a list of catalog ids with no
+ * quantities and nothing distinguished two identical entries. A build has its own identity, so two
+ * ropes are two things and dropping one leaves its twin alone.
+ *
+ * Dropping **destroys** the record rather than merely unlisting it: a build that is nowhere is not
+ * stored, or the inventory fills with things nobody can see whose materials nobody can delete. The
+ * rule and its reasoning live on `removeFromPack`.
  *
  * **Validates: v3 Req 41.4, 45.1; Requirement 12.2**
  */

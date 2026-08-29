@@ -41,7 +41,7 @@ import { focusPickRefusal, focusPicksField, focusPicksOf } from '../engine/focus
 import { asNumber, isFormulaError } from '../engine/formula/errors';
 import { validateStatAllocation } from '../engine/skillAllocation';
 import type { ActionValue } from '../types/api';
-import type { Character, Inventory } from '../types/character';
+import type { Character, ComposedItem, Inventory } from '../types/character';
 import type { Configuration } from '../types/config';
 
 /** An accepted action: the character as it now is, and what changed */
@@ -442,31 +442,53 @@ export function resetResourceToMax(
 }
 
 /**
- * Whether an item may occupy an equipment slot (Requirement 12.3)
+ * The build an inventory id names, or nothing when this character has no such thing
  *
- * An item goes in the slot type it declares, and only that one. An item the ruleset does not define,
- * and one with no `equipmentSlotType` at all, fit nowhere — a strict equality against the declared
- * type covers both.
+ * Every id in `equippedItems` and `miscItems` is a {@link ComposedItem.id} since TICKET-INV-05, so
+ * *what is this* is a lookup on the character rather than on the ruleset. The template it was built
+ * from is the ruleset's business, one step further on.
+ */
+function buildOf(character: Character, composedId: string): ComposedItem | undefined {
+  return character.inventory.composedItems.find((record) => record.id === composedId);
+}
+
+/**
+ * Whether a built item may occupy an equipment slot (Requirement 12.3)
+ *
+ * A build goes in the slot type its **template** declares, and only that one. A template the ruleset
+ * does not define, and one with no `equipmentSlotType` at all, fit nowhere — a strict equality
+ * against the declared type covers both.
  *
  * **The slot has to exist too**, which the browser's store never checked because its own dropdowns
- * are built from the ruleset's slot list. A request is not a dropdown, and an item still naming a
+ * are built from the ruleset's slot list. A request is not a dropdown, and a template still naming a
  * slot type the ruleset has since deleted would otherwise be equippable into a slot no surface can
  * show.
+ *
+ * **And the character has to actually have the thing** (TICKET-INV-05). That is new, and it is not
+ * strictness for its own sake: an id here used to name a catalog template, which every character
+ * could equip by definition, and now it names one Player's build. A request naming somebody else's
+ * axe — or an id nobody's — would otherwise fill a slot with a record the inventory does not hold,
+ * which every reader would resolve to nothing.
  */
 function slotRefusal(
+  character: Character,
   config: Configuration,
   equipmentSlotType: string,
-  itemId: string
+  composedId: string
 ): string | null {
   if (!config.equipmentSlots.some((slot) => slot.type === equipmentSlotType)) {
     return 'This ruleset has no such equipment slot.';
   }
 
-  const item = config.items.find((candidate) => candidate.id === itemId);
+  const composed = buildOf(character, composedId);
 
-  if (!item) return 'This ruleset has no such item.';
-  if (item.equipmentSlotType !== equipmentSlotType) {
-    return `${item.name} does not go in that slot.`;
+  if (!composed) return 'This character has no such item.';
+
+  const template = config.items.find((candidate) => candidate.id === composed.templateId);
+
+  if (!template) return 'This ruleset has no such item.';
+  if (template.equipmentSlotType !== equipmentSlotType) {
+    return `${template.name} does not go in that slot.`;
   }
 
   return null;
@@ -482,38 +504,131 @@ function withoutSlot(
   );
 }
 
+/**
+ * The slot map with one build worn in `equipmentSlotType` and **nowhere else** (TICKET-INV-05)
+ *
+ * A build is one thing, so it is worn in at most one slot and never worn and carried at the same
+ * time. Under the old model an id could legitimately be in two places at once, because it named a
+ * catalog *template*: two of a thing were the same id twice and indistinguishable. A build has its
+ * own identity, so the same id in two slots is one object in two places — and the pack half of that
+ * is not hypothetical, it is what equipping something you were already carrying used to leave behind.
+ *
+ * The **caller** drops it from `miscItems`; this drops it from any slot it was already in.
+ */
+function wearingOnly(
+  equippedItems: Inventory['equippedItems'],
+  equipmentSlotType: string,
+  composedId: string
+): Inventory['equippedItems'] {
+  const elsewhere = Object.entries(equippedItems).filter(([, id]) => id !== composedId);
+  const slots = Object.fromEntries(elsewhere);
+
+  return { ...slots, [equipmentSlotType]: composedId };
+}
+
+/**
+ * The builds a character keeps, with one forgotten (TICKET-INV-05)
+ *
+ * Reached by the two actions that **destroy** a thing rather than move it — dropping what is worn,
+ * and taking something out of the pack. Leaving the record behind would be an orphan: a build in
+ * `composedItems` that nothing wears and nothing carries, invisible to every surface and still
+ * blocking the delete of the material it was made of.
+ */
+function withoutBuild(inventory: Inventory, composedId: string): ComposedItem[] {
+  return inventory.composedItems.filter((record) => record.id !== composedId);
+}
+
 /** The character with a replacement inventory */
 function withInventory(character: Character, inventory: Inventory): Character {
   return { ...character, inventory };
 }
 
 /**
- * Put an item in an equipment slot (Requirement 12.3)
+ * Take whatever is in a slot off, and do one thing with what came off
+ *
+ * **The two ways to empty a slot differ only in where the build goes** — destroyed, or into the
+ * pack — and everything else about them is the same four lines: read the occupant, refuse an empty
+ * slot, clear the slot, report `before` and a `null` after. That was a near-duplicate before
+ * TICKET-INV-05 and a literal one after it, because dropping gained a second collection to touch.
+ *
+ * Extracted to delete an actual clone rather than in anticipation of a third caller, which is the
+ * distinction the no-abstraction-before-the-third-caller rule draws.
+ *
+ * @param character Whose sheet
+ * @param equipmentSlotType Which slot to empty
+ * @param place What to do with the build that came off, as the inventory fields it replaces
+ * @returns The character with the slot empty, or the reason it was refused
+ */
+function takeOff(
+  character: Character,
+  equipmentSlotType: string,
+  place: (inventory: Inventory, composedId: string) => Partial<Inventory>
+): PlayerActionResult {
+  const { inventory } = character;
+  const before = inventory.equippedItems[equipmentSlotType] ?? null;
+
+  if (before === null) return { refusal: 'There is nothing in that slot.' };
+
+  const placed = place(inventory, before);
+
+  return {
+    character: withInventory(character, {
+      ...inventory,
+      equippedItems: withoutSlot(inventory.equippedItems, equipmentSlotType),
+      ...placed,
+    }),
+    before,
+    after: null,
+  };
+}
+
+/**
+ * Put a built item in an equipment slot (Requirement 12.3)
+ *
+ * ## Whatever it displaces goes into the pack
+ *
+ * **Not destroyed, and not left nowhere** (the TICKET-INV-05 review's blocking find). This wrote the
+ * new occupant into the slot and did nothing at all with the old one, which was harmless while an id
+ * named a catalog *template* — the displaced id still named something the ruleset defined, and the
+ * Player had lost nothing. Once the id names a **build**, the same code leaves a record in
+ * `composedItems` that nothing wears and nothing carries: invisible to every surface, and still
+ * counted by `composedItemReferences`, so the material it was made of becomes **permanently
+ * undeletable** with a refusal naming a Player who cannot see the thing.
+ *
+ * Of the two honest answers — destroy it, as {@link emptySlot} does, or stow it, as
+ * {@link moveItemToEquipment} does — **stow is the right one here**: the Player asked to put
+ * something *on*, not to throw away what they were wearing, and losing a build as a side effect of
+ * equipping another is data loss nobody asked for. Destruction stays where it is explicit.
  *
  * @param character Whose sheet
  * @param config The ruleset they play by
  * @param equipmentSlotType Which slot
- * @param itemId What to put in it
+ * @param composedId Which of the character's builds to put in it
  * @returns The character wearing it, or the reason it was refused
  */
 export function equipToSlot(
   character: Character,
   config: Configuration,
   equipmentSlotType: string,
-  itemId: string
+  composedId: string
 ): PlayerActionResult {
-  const wrongSlot = slotRefusal(config, equipmentSlotType, itemId);
+  const wrongSlot = slotRefusal(character, config, equipmentSlotType, composedId);
   if (wrongSlot) return { refusal: wrongSlot };
 
-  const before = character.inventory.equippedItems[equipmentSlotType] ?? null;
+  const { equippedItems, miscItems } = character.inventory;
+  const displaced = equippedItems[equipmentSlotType] ?? null;
+  // Putting something on takes it out of the pack — see {@link wearingOnly} — and whatever it
+  // displaced goes in, so a build is worn or carried and never neither
+  const remaining = miscItems.filter((id) => id !== composedId);
 
   return {
     character: withInventory(character, {
       ...character.inventory,
-      equippedItems: { ...character.inventory.equippedItems, [equipmentSlotType]: itemId },
+      equippedItems: wearingOnly(equippedItems, equipmentSlotType, composedId),
+      miscItems: displaced === null ? remaining : [...remaining, displaced],
     }),
-    before,
-    after: itemId,
+    before: displaced,
+    after: composedId,
   };
 }
 
@@ -523,23 +638,19 @@ export function equipToSlot(
  * The counterpart of {@link moveItemToMisc}, which keeps it. Both exist because taking a helmet off
  * and putting it in the pack are different things to do with it.
  *
+ * **Dropping now destroys the build as well as emptying the slot** (TICKET-INV-05). The record was a
+ * catalog id and is a thing the Player made; a thing that is nowhere is not stored, or the pack and
+ * the slots would slowly fill with builds nobody can see and every material they name would be
+ * undeletable.
+ *
  * @param character Whose sheet
  * @param equipmentSlotType Which slot
  * @returns The character with the slot empty, or the reason it was refused
  */
 export function emptySlot(character: Character, equipmentSlotType: string): PlayerActionResult {
-  const before = character.inventory.equippedItems[equipmentSlotType] ?? null;
-
-  if (before === null) return { refusal: 'There is nothing in that slot.' };
-
-  return {
-    character: withInventory(character, {
-      ...character.inventory,
-      equippedItems: withoutSlot(character.inventory.equippedItems, equipmentSlotType),
-    }),
-    before,
-    after: null,
-  };
+  return takeOff(character, equipmentSlotType, (inventory, composedId) => ({
+    composedItems: withoutBuild(inventory, composedId),
+  }));
 }
 
 /**
@@ -553,107 +664,128 @@ export function moveItemToMisc(
   character: Character,
   equipmentSlotType: string
 ): PlayerActionResult {
-  const before = character.inventory.equippedItems[equipmentSlotType] ?? null;
-
-  if (before === null) return { refusal: 'There is nothing in that slot.' };
-
-  return {
-    character: withInventory(character, {
-      equippedItems: withoutSlot(character.inventory.equippedItems, equipmentSlotType),
-      miscItems: [...character.inventory.miscItems, before],
-    }),
-    before,
-    after: null,
-  };
+  return takeOff(character, equipmentSlotType, (inventory, composedId) => ({
+    miscItems: [...inventory.miscItems, composedId],
+  }));
 }
 
 /**
- * Put an item in the pack
+ * Take a template into the pack as a new **build** (v4 systems/12, TICKET-INV-05)
  *
- * **The ruleset has to define it**, which the browser's store never checked because its own picker
- * is built from the ruleset's item list. A request is not a picker, and a pack holding an id nothing
- * can resolve is a row every surface renders as a blank.
+ * **The ruleset has to define the template**, which the browser's store never checked because its
+ * own picker is built from the ruleset's item list. A request is not a picker, and a pack holding an
+ * id nothing can resolve is a row every surface renders as a blank.
+ *
+ * ## What changed, and what deliberately did not
+ *
+ * This used to append a *catalog id* to `miscItems`. It now mints a {@link ComposedItem} and appends
+ * **its** id, because that is what the pack holds: two Battleaxes at two tiers are two things a
+ * Player wears and drops independently, which a shared catalog id cannot express.
+ *
+ * The build it mints names **no material and no inlay**, and that is the boundary with
+ * TICKET-INV-06 rather than an omission. The three-column picker — template, material tier, inlay
+ * tier — with its refusals for an unknown id and an absent rung is that ticket's surface and its
+ * action; this is the same *take an item* the app has always had, writing the shape the new model
+ * stores it in. `ComposedItem` leaves both links optional precisely so this stays honest: a build
+ * with no metal in it is a rope, not a half-written record.
+ *
+ * **The id is passed in**, for `CharacterIdentity`'s reason: the browser mints its own and the
+ * server mints its own, and nothing in `shared/` reaches for a global.
  *
  * @param character Whose sheet
  * @param config The ruleset they play by
- * @param itemId What to pick up
+ * @param templateId Which template to build from
+ * @param composedId The identity the new build carries, minted by the caller
  * @returns The character carrying it, or the reason it was refused
  */
 export function addToPack(
   character: Character,
   config: Configuration,
-  itemId: string
+  templateId: string,
+  composedId: string
 ): PlayerActionResult {
-  if (!config.items.some((item) => item.id === itemId)) {
+  if (!config.items.some((item) => item.id === templateId)) {
     return { refusal: 'This ruleset has no such item.' };
   }
+
+  const built: ComposedItem = { id: composedId, templateId };
 
   return {
     character: withInventory(character, {
       ...character.inventory,
-      miscItems: [...character.inventory.miscItems, itemId],
+      miscItems: [...character.inventory.miscItems, composedId],
+      composedItems: [...character.inventory.composedItems, built],
     }),
     before: null,
-    after: itemId,
+    after: composedId,
   };
 }
 
 /**
- * Take an item out of the pack
+ * Take a built item out of the pack, destroying it
  *
- * **Every copy of it goes**, which is v1.0's behaviour rather than a decision taken here: the pack
- * is a list of ids with no quantities, so a character carrying two of something has two identical
- * entries and nothing distinguishes them. Quantities are their own feature.
+ * **One build goes, not every copy**, which is TICKET-INV-05 answering a question v1.0 could not.
+ * The pack held catalog ids with no quantities, so two of a thing were two identical entries that
+ * nothing could tell apart and a removal took both; a build has its own identity, so removing one
+ * removes exactly the one asked for and leaves its twin alone.
  *
  * @param character Whose sheet
- * @param itemId What to put down
+ * @param composedId Which build to put down
  * @returns The character without it, or the reason it was refused
  */
-export function removeFromPack(character: Character, itemId: string): PlayerActionResult {
-  if (!character.inventory.miscItems.includes(itemId)) {
+export function removeFromPack(character: Character, composedId: string): PlayerActionResult {
+  const { inventory } = character;
+
+  if (!inventory.miscItems.includes(composedId)) {
     return { refusal: 'That is not in the pack.' };
   }
 
+  // Filtered by **id**, not by position: a build id is unique by construction, so *the one named* and
+  // *every one that matches* are the same set. The first draft found an index and filtered by it,
+  // which was the old "remove one copy of a repeated template" story left standing after the thing
+  // it worked around had gone — and it read as though a duplicate were possible.
   return {
     character: withInventory(character, {
-      ...character.inventory,
-      miscItems: character.inventory.miscItems.filter((id) => id !== itemId),
+      ...inventory,
+      miscItems: inventory.miscItems.filter((id) => id !== composedId),
+      composedItems: withoutBuild(inventory, composedId),
     }),
-    before: itemId,
+    before: composedId,
     after: null,
   };
 }
 
 /**
- * Move an item out of the pack and into an equipment slot
+ * Move a built item out of the pack and into an equipment slot
  *
  * A slot holds one item, so whatever was in it swaps back into the pack rather than vanishing.
  *
+ * ## This and {@link equipToSlot} became the same act, and this is the same code
+ *
+ * They were genuinely different under the old model: *equip* wrote a catalog id into a slot and
+ * never touched the pack, *wear* took an id **out** of the pack and stowed what it displaced. Both
+ * halves of that difference were consequences of an id naming a shared template, and neither
+ * survives the composed record — `slotRefusal` requires a build the character actually holds, so the
+ * thing being put on is always already worn or carried, and the displaced build always has to go
+ * somewhere. Fixing the orphan in `equipToSlot` (see its note) made the two bodies identical.
+ *
+ * So there is **one implementation and two names**, rather than two bodies that would drift. The two
+ * names are kept because `PLAYER_ACTION.EQUIP_ITEM` and `WEAR_ITEM` are the *act* vocabulary the
+ * routes and the Event log speak — retiring one is a decision about the API surface, and
+ * TICKET-INV-06 is where the inventory's surface is being rethought anyway. The argument order
+ * differs because the callers' does; that is the whole of what this wrapper is for.
+ *
  * @param character Whose sheet
  * @param config The ruleset they play by
- * @param itemId What to put on
+ * @param composedId Which build to put on
  * @param equipmentSlotType Where
  * @returns The character wearing it, or the reason it was refused
  */
 export function moveItemToEquipment(
   character: Character,
   config: Configuration,
-  itemId: string,
+  composedId: string,
   equipmentSlotType: string
 ): PlayerActionResult {
-  const wrongSlot = slotRefusal(config, equipmentSlotType, itemId);
-  if (wrongSlot) return { refusal: wrongSlot };
-
-  const { equippedItems, miscItems } = character.inventory;
-  const displaced = equippedItems[equipmentSlotType];
-  const remaining = miscItems.filter((id) => id !== itemId);
-
-  return {
-    character: withInventory(character, {
-      equippedItems: { ...equippedItems, [equipmentSlotType]: itemId },
-      miscItems: displaced ? [...remaining, displaced] : remaining,
-    }),
-    before: displaced ?? null,
-    after: itemId,
-  };
+  return equipToSlot(character, config, equipmentSlotType, composedId);
 }

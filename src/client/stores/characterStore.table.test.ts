@@ -38,7 +38,7 @@ const RULES = {
   id: 'config-1',
   name: 'Test',
   version: '1.0',
-  schemaVersion: 9,
+  schemaVersion: 10,
   stats: [
     {
       id: 'stat-health',
@@ -72,7 +72,7 @@ function aCharacter(overrides: Partial<Character> = {}): Character {
     investedSkillPoints: {},
     currentResourceValues: { 'stat-health': 30 },
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [] },
+    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
     ...overrides,
@@ -265,7 +265,7 @@ describe('a write to the character open at a table', () => {
     ],
     [
       PLAYER_ACTION.TAKE_ITEM,
-      () => useCharacterStore.getState().addMiscItem('character-1', 'item-1'),
+      () => useCharacterStore.getState().addMiscItem('character-1', 'item-1', RULES),
       { itemId: 'item-1' },
     ],
     [

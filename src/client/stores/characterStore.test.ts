@@ -5,7 +5,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Character, CharacterCreationData } from '#shared/types/character';
+import type { Character, CharacterCreationData, ComposedItem } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
 import * as storage from '../services/storage';
 import { useCharacterStore } from './characterStore';
@@ -47,7 +47,7 @@ describe('CharacterStore', () => {
           investedSkillPoints: {},
           currentResourceValues: {},
           experience: 0,
-          inventory: { equippedItems: {}, miscItems: [] },
+          inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
           createdAt: '2024-01-01T00:00:00.000Z',
           updatedAt: '2024-01-01T00:00:00.000Z',
         },
@@ -68,7 +68,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 9,
+      schemaVersion: 10,
       stats: [
         {
           id: 'STR',
@@ -225,6 +225,8 @@ describe('CharacterStore', () => {
       expect(character.inventory).toEqual({
         equippedItems: {},
         miscItems: [],
+        // A fresh character has built nothing (TICKET-INV-05)
+        composedItems: [],
       });
     });
 
@@ -420,7 +422,7 @@ describe('CharacterStore', () => {
         investedSkillPoints: {},
         currentResourceValues: {},
         experience: 0,
-        inventory: { equippedItems: {}, miscItems: [] },
+        inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
       };
@@ -469,7 +471,7 @@ describe('CharacterStore', () => {
         investedSkillPoints: {},
         currentResourceValues: {},
         experience: 0,
-        inventory: { equippedItems: {}, miscItems: [] },
+        inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
       };
@@ -494,7 +496,7 @@ describe('CharacterStore', () => {
         investedSkillPoints: {},
         currentResourceValues: {},
         experience: 0,
-        inventory: { equippedItems: {}, miscItems: [] },
+        inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
       };
@@ -515,6 +517,16 @@ describe('CharacterStore', () => {
     let character: Character;
 
     /**
+     * One build per template, with the build's id matching the template's (TICKET-INV-05)
+     *
+     * A slot and a pack hold `ComposedItem.id`s now. The ids are made to agree so each case below
+     * still reads as *equip `item-1` into the helmet* — the build layer is not what they are about.
+     */
+    const INVENTORY_BUILDS: ComposedItem[] = ['item-1', 'item-2', 'item-gloves', 'item-loose'].map(
+      (id) => ({ id, templateId: id })
+    );
+
+    /**
      * `item-1` and `item-2` are helmets; `item-gloves` belongs to another slot and `item-loose`
      * declares no slot at all — the two cases Requirement 12.3 has to refuse.
      */
@@ -522,7 +534,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 9,
+      schemaVersion: 10,
       stats: [],
       skills: [],
       materials: [],
@@ -553,7 +565,7 @@ describe('CharacterStore', () => {
         investedSkillPoints: {},
         currentResourceValues: {},
         experience: 0,
-        inventory: { equippedItems: {}, miscItems: [] },
+        inventory: { equippedItems: {}, miscItems: [], composedItems: INVENTORY_BUILDS },
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
       };
@@ -577,6 +589,7 @@ describe('CharacterStore', () => {
               inventory: {
                 equippedItems: { helmet: 'item-1' },
                 miscItems: [],
+                composedItems: INVENTORY_BUILDS,
               },
             },
           ],
@@ -624,6 +637,7 @@ describe('CharacterStore', () => {
               inventory: {
                 equippedItems: { helmet: 'item-1' },
                 miscItems: [],
+                composedItems: INVENTORY_BUILDS,
               },
             },
           ],
@@ -639,12 +653,25 @@ describe('CharacterStore', () => {
     });
 
     describe('addMiscItem', () => {
-      it('should add item to miscellaneous inventory', () => {
-        useCharacterStore.getState().addMiscItem('char-1', 'item-1');
+      it('should build the template into a new composed item (TICKET-INV-05)', () => {
+        // Taking a thing mints a `ComposedItem` and puts *its* id in the pack, rather than
+        // appending the catalog id a second time — the rule is the Kernel's, so the server agrees
+        useCharacterStore.getState().addMiscItem('char-1', 'item-1', inventoryConfig);
 
         const updated = useCharacterStore.getState().characters[0];
-        expect(updated.inventory.miscItems).toContain('item-1');
+        const built = updated.inventory.composedItems.at(-1);
+
+        expect(built?.templateId).toBe('item-1');
+        expect(updated.inventory.miscItems).toEqual([built?.id]);
         expect(storage.saveCharacters).toHaveBeenCalled();
+      });
+
+      it('should refuse a template the ruleset does not define', () => {
+        useCharacterStore.getState().addMiscItem('char-1', 'ghost-item', inventoryConfig);
+
+        const updated = useCharacterStore.getState().characters[0];
+        expect(updated.inventory.miscItems).toEqual([]);
+        expect(storage.saveCharacters).not.toHaveBeenCalled();
       });
     });
 
@@ -657,6 +684,7 @@ describe('CharacterStore', () => {
               inventory: {
                 equippedItems: {},
                 miscItems: ['item-1', 'item-2'],
+                composedItems: INVENTORY_BUILDS,
               },
             },
           ],
@@ -667,6 +695,8 @@ describe('CharacterStore', () => {
 
         const updated = useCharacterStore.getState().characters[0];
         expect(updated.inventory.miscItems).toEqual(['item-2']);
+        // The build goes with it: a thing that is nowhere is not stored (TICKET-INV-05)
+        expect(updated.inventory.composedItems.map((build) => build.id)).not.toContain('item-1');
         expect(storage.saveCharacters).toHaveBeenCalled();
       });
     });
@@ -680,6 +710,7 @@ describe('CharacterStore', () => {
               inventory: {
                 equippedItems: { helmet: 'item-1' },
                 miscItems: [],
+                composedItems: INVENTORY_BUILDS,
               },
             },
           ],
@@ -704,6 +735,7 @@ describe('CharacterStore', () => {
               inventory: {
                 equippedItems: {},
                 miscItems: ['item-1'],
+                composedItems: INVENTORY_BUILDS,
               },
             },
           ],
@@ -725,7 +757,11 @@ describe('CharacterStore', () => {
           characters: [
             {
               ...character,
-              inventory: { equippedItems: {}, miscItems: ['item-gloves'] },
+              inventory: {
+                equippedItems: {},
+                miscItems: ['item-gloves'],
+                composedItems: INVENTORY_BUILDS,
+              },
             },
           ],
           isLoaded: true,
@@ -745,7 +781,11 @@ describe('CharacterStore', () => {
           characters: [
             {
               ...character,
-              inventory: { equippedItems: { helmet: 'item-1' }, miscItems: ['item-2'] },
+              inventory: {
+                equippedItems: { helmet: 'item-1' },
+                miscItems: ['item-2'],
+                composedItems: INVENTORY_BUILDS,
+              },
             },
           ],
           isLoaded: true,
@@ -773,7 +813,7 @@ describe('CharacterStore', () => {
       id: 'config-1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 9,
+      schemaVersion: 10,
       stats: [
         {
           id: 'STR',
@@ -829,7 +869,7 @@ describe('CharacterStore', () => {
         investedSkillPoints: {},
         currentResourceValues: { health: 100, mana: 50 },
         experience: 0,
-        inventory: { equippedItems: {}, miscItems: [] },
+        inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
       };
@@ -1023,7 +1063,7 @@ describe('CharacterStore', () => {
     id: 'config-1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 9,
+    schemaVersion: 10,
     stats: [
       {
         id: 'STR',
@@ -1100,7 +1140,7 @@ describe('CharacterStore', () => {
             investedSkillPoints: {},
             currentResourceValues: {},
             experience: 300,
-            inventory: { equippedItems: {}, miscItems: [] },
+            inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
             createdAt: '2024-01-01T00:00:00.000Z',
             updatedAt: '2024-01-01T00:00:00.000Z',
           },
@@ -1193,7 +1233,7 @@ describe('CharacterStore', () => {
             currentResourceValues: {},
             // Level 2 against the shared fixture curve, so the pool is 10 and 3 of it is spent
             experience: 300,
-            inventory: { equippedItems: {}, miscItems: [] },
+            inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01',
           },
@@ -1316,7 +1356,7 @@ describe('CharacterStore', () => {
             investedSkillPoints: {},
             currentResourceValues: {},
             experience: 0,
-            inventory: { equippedItems: {}, miscItems: [] },
+            inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01',
           },
@@ -1417,7 +1457,7 @@ describe('CharacterStore', () => {
             investedSkillPoints: {},
             currentResourceValues: {},
             experience: 0,
-            inventory: { equippedItems: {}, miscItems: [] },
+            inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01',
             ...(wallet ? { wallet } : {}),
@@ -1481,7 +1521,7 @@ describe('CharacterStore', () => {
             investedSkillPoints: { STL: 3 },
             currentResourceValues: {},
             experience: 0,
-            inventory: { equippedItems: {}, miscItems: [] },
+            inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01',
           },
@@ -1529,7 +1569,7 @@ describe('CharacterStore', () => {
             investedSkillPoints: {},
             currentResourceValues: {},
             experience: 500,
-            inventory: { equippedItems: {}, miscItems: [] },
+            inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01',
           },
@@ -1656,7 +1696,7 @@ describe('CharacterStore', () => {
             investedSkillPoints: {},
             currentResourceValues: {},
             experience: 0,
-            inventory: { equippedItems: {}, miscItems: [] },
+            inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01',
           },

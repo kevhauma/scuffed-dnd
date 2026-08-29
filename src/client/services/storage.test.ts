@@ -61,7 +61,7 @@ describe('Storage Service', () => {
         id: 'test-config',
         name: 'Test Config',
         version: '1.0.0',
-        schemaVersion: 9,
+        schemaVersion: 10,
         stats: [],
         skills: [],
         materials: [],
@@ -86,7 +86,7 @@ describe('Storage Service', () => {
         id: 'test-config',
         name: 'Test Config',
         version: '1.0.0',
-        schemaVersion: 9,
+        schemaVersion: 10,
         stats: [],
         skills: [],
         materials: [],
@@ -119,7 +119,7 @@ describe('Storage Service', () => {
         id: 'test-config',
         name: 'Test Config',
         version: '1.0.0',
-        schemaVersion: 9,
+        schemaVersion: 10,
         stats: [],
         skills: [],
         materials: [],
@@ -151,7 +151,7 @@ describe('Storage Service', () => {
         id: 'test-config',
         name: 'Test Config',
         version: '1.0.0',
-        schemaVersion: 9,
+        schemaVersion: 10,
         stats: [],
         skills: [],
         materials: [],
@@ -195,7 +195,7 @@ describe('Storage Service', () => {
           investedSkillPoints: {},
           currentResourceValues: {},
           experience: 0,
-          inventory: { equippedItems: {}, miscItems: [] },
+          inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-01T00:00:00Z',
         },
@@ -238,7 +238,7 @@ describe('Storage Service', () => {
           investedSkillPoints: {},
           currentResourceValues: {},
           experience: 0,
-          inventory: { equippedItems: {}, miscItems: [] },
+          inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-01T00:00:00Z',
         },
@@ -368,6 +368,9 @@ describe('Storage Service', () => {
           investedStatPoints: { 'id-str': 5 },
           currentResourceValues: {},
           experience: 0,
+          // Readable means readable *by this build*, and since TICKET-INV-05 that includes the
+          // inventory's third collection — see the composed-items case below
+          inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
         },
       ]);
       localStorage.setItem('dnd_builder_characters', raw);
@@ -408,6 +411,9 @@ describe('Storage Service', () => {
           investedStatPoints: { 'id-str': 5 },
           currentResourceValues: {},
           experience: 0,
+          // Readable means readable *by this build*, and since TICKET-INV-05 that includes the
+          // inventory's third collection — see the composed-items case below
+          inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
         },
       ]);
       localStorage.setItem('dnd_builder_characters', raw);
@@ -426,11 +432,32 @@ describe('Storage Service', () => {
             investedStatPoints: { 'id-str': 5 },
             currentResourceValues: {},
             experience: 0,
+            inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
           },
         ])
       );
 
       expect(loadCharacters().map((character) => character.id)).toEqual(['new']);
+    });
+
+    it('refuses a roster written before composed items (TICKET-INV-05, v4 D6)', () => {
+      // v4.0's clean break reaching the roster. Such a character's `equippedItems` holds *template*
+      // ids, which resolve to builds nobody has — an ordinary-looking sheet with every Player's gear
+      // silently gone. Refusing routes it to `IncompatibleDataNotice` and a backup instead.
+      const raw = JSON.stringify([
+        {
+          id: 'v3',
+          name: 'Aria',
+          investedStatPoints: { 'id-str': 5 },
+          currentResourceValues: {},
+          experience: 0,
+          inventory: { equippedItems: { head: 'item-helm' }, miscItems: [] },
+        },
+      ]);
+      localStorage.setItem('dnd_builder_characters', raw);
+
+      expect(() => loadCharacters()).toThrow(StorageSchemaError);
+      expect(localStorage.getItem('dnd_builder_characters')).toBe(raw);
     });
 
     it('leaves the refused ruleset byte-identical in storage (TICKET-IO-03)', () => {
@@ -473,7 +500,7 @@ describe('Storage Service', () => {
       id: 'test-config',
       name: 'Test Config',
       version: '1.0.0',
-      schemaVersion: 9,
+      schemaVersion: 10,
       stats: [
         {
           id: 'id-str',

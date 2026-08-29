@@ -23,7 +23,7 @@ function stored(overrides: Partial<Character> = {}): Character {
     investedSkillPoints: {},
     currentResourceValues: {},
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [] },
+    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
@@ -60,6 +60,19 @@ describe('isReadableCharacter', () => {
     // TICKET-CUR-02's purse is deliberately optional: a purse nobody has touched is not the same as
     // an empty one, and requiring it would make a stored roster unreadable for want of a new field
     expect(isReadableCharacter(stored({ purse: undefined }))).toBe(true);
+  });
+
+  it('refuses one written before composed items, so a v3 roster meets the notice (TICKET-INV-05)', () => {
+    // v4.0's clean break reaching the roster (D6). Such a character's `equippedItems` holds
+    // *template* ids, which read as builds nobody has — an ordinary-looking sheet with every
+    // Player's gear silently gone. Refusing routes it to `IncompatibleDataNotice` and a backup.
+    const beforeBuilds = stored({
+      inventory: { equippedItems: {}, miscItems: [] } as never,
+    });
+
+    const readable = isReadableCharacter(beforeBuilds);
+
+    expect(readable).toBe(false);
   });
 
   it('accepts one still carrying the retired per-tier wallet', () => {
@@ -143,13 +156,81 @@ describe('uploadedCharacterErrors', () => {
       expect(errors.join(' ')).toContain('c.inventory');
     });
 
-    it('requires the inventory’s own two halves', () => {
+    it('requires all three of the inventory’s collections', () => {
       expect(
         uploadedCharacterErrors({ ...stored(), inventory: { miscItems: [] } }, 'c').join(' ')
       ).toContain('equippedItems');
       expect(
         uploadedCharacterErrors({ ...stored(), inventory: { equippedItems: {} } }, 'c').join(' ')
       ).toContain('miscItems');
+      const withoutBuilds = { ...stored(), inventory: { equippedItems: {}, miscItems: [] } };
+      const missingThird = uploadedCharacterErrors(withoutBuilds, 'c');
+
+      expect(missingThird.join(' ')).toContain('composedItems');
+    });
+
+    it.each([
+      // The two required halves: without them the record is a row nothing can equip or price
+      ['no id', [{ templateId: 'axe' }]],
+      ['no templateId', [{ id: 'build-1' }]],
+      ['an empty id', [{ id: '', templateId: 'axe' }]],
+      // A rung that is not a finite number would compare against `MaterialLevel.level` and quietly
+      // match nothing while looking like a build the Player made
+      ['a null material rung', [{ id: 'b', templateId: 'axe', materialLevel: null }]],
+      ['a NaN inlay rung', [{ id: 'b', templateId: 'axe', inlayLevel: Number.NaN }]],
+      ['an inlay id that is a number', [{ id: 'b', templateId: 'axe', inlayId: 7 }]],
+      ['a build that is not an object at all', ['axe']],
+    ])('refuses a composed record with %s (TICKET-INV-05)', (_label, composedItems: unknown[]) => {
+      const uploaded = {
+        ...stored(),
+        inventory: { equippedItems: {}, miscItems: [], composedItems },
+      };
+
+      const errors = uploadedCharacterErrors(uploaded, 'c');
+
+      expect(errors).not.toEqual([]);
+    });
+
+    it('accepts a build with neither material nor inlay — the sheet’s plain rope', () => {
+      const rope = {
+        ...stored(),
+        inventory: {
+          equippedItems: {},
+          miscItems: ['build-1'],
+          composedItems: [{ id: 'build-1', templateId: 'item-rope' }],
+        },
+      };
+
+      const errors = uploadedCharacterErrors(rope, 'c');
+
+      expect(errors).toEqual([]);
+    });
+
+    it('round-trips a full triple through JSON and past the gate', () => {
+      const built = {
+        ...stored(),
+        inventory: {
+          equippedItems: { main_hand: 'build-1' },
+          miscItems: [],
+          composedItems: [
+            {
+              id: 'build-1',
+              templateId: 'item-battleaxe',
+              materialId: 'mat-iron-ore',
+              materialLevel: 10,
+              inlayId: 'inlay-diamond',
+              inlayLevel: 4,
+            },
+          ],
+        },
+      };
+
+      const written = JSON.stringify(built);
+      const read = JSON.parse(written) as Character;
+      const errors = uploadedCharacterErrors(read, 'characters[0]');
+
+      expect(read.inventory.composedItems).toEqual(built.inventory.composedItems);
+      expect(errors).toEqual([]);
     });
 
     it('requires raceIds to be a list of ids', () => {
@@ -181,11 +262,15 @@ describe('uploadedCharacterErrors', () => {
     function wearing(count: number): Character {
       const entries = Array.from({ length: count }, (_, index) => [
         `slot_${index}`,
-        `item-${index}`,
+        `build-${index}`,
       ]);
       const equippedItems = Object.fromEntries(entries);
+      const composedItems = Array.from({ length: count }, (_, index) => ({
+        id: `build-${index}`,
+        templateId: `item-${index}`,
+      }));
 
-      return stored({ inventory: { equippedItems, miscItems: [] } });
+      return stored({ inventory: { equippedItems, miscItems: [], composedItems } });
     }
 
     it('carries a one-slot and a twelve-slot kit through JSON and past the gate', () => {

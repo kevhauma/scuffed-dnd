@@ -5,6 +5,8 @@
  * - Formula references point to existing skills
  * - Equipment slot types referenced by items exist
  * - Material categories referenced by materials exist
+ *   (what an item is *made of* is no longer among these — TICKET-INV-05 moved the material link off
+ *   the template and onto a character's composed record, which is player state rather than ruleset)
  * - No circular dependencies in formulas
  * - Currency tier references are valid
  * - Curve tables are readable — unique, sorted keys with a value per column (Concept 06)
@@ -28,7 +30,6 @@ import type {
   DiceLadder,
   InlayTier,
   Item,
-  Material,
   MaterialLevel,
   RollDefinition,
   Stat,
@@ -452,49 +453,6 @@ function itemSlotIssues(item: Item, equipmentSlotTypes: ReadonlySet<string>): Va
 }
 
 /**
- * What an item is made of, when the ruleset no longer has it
- *
- * **A level on a material that is itself missing is not reported.** That would be two messages about
- * one broken pointer, and the second names a rung of a material nobody can look at.
- *
- * @param item - The template being checked
- * @param materialsById - The ruleset's materials
- * @returns One issue per broken material or material-level reference
- */
-function itemMaterialIssues(
-  item: Item,
-  materialsById: ReadonlyMap<string, Material>
-): ValidationIssue[] {
-  if (!item.materialId) return [];
-
-  const material = materialsById.get(item.materialId);
-  if (!material) {
-    return [
-      {
-        severity: 'error',
-        category: 'Reference Validation',
-        message: `Item "${item.name}" references non-existent material ID: ${item.materialId}`,
-        ...itemEntity(item),
-      },
-    ];
-  }
-
-  if (item.materialLevel === undefined) return [];
-
-  const levelExists = material.levels.some((level) => level.level === item.materialLevel);
-  if (levelExists) return [];
-
-  return [
-    {
-      severity: 'error',
-      category: 'Reference Validation',
-      message: `Item "${item.name}" references non-existent material level ${item.materialLevel} for material "${material.name}"`,
-      ...itemEntity(item),
-    },
-  ];
-}
-
-/**
  * The template's own skill vector, where it names a skill that is gone
  * (v4 systems/11, TICKET-ITEM-01)
  *
@@ -521,24 +479,26 @@ function itemSkillBonusIssues(item: Item, skillIds: ReadonlySet<string>): Valida
 /**
  * Item references that point at nothing
  *
- * Three independent questions — where it is worn, what it is made of, and what it makes you better
- * at — so three checkers rather than one loop body carrying all of them (split under
- * TICKET-ITEM-01, when the third pushed the single function past the complexity threshold).
+ * **Two questions since TICKET-INV-05, where there were three.** *What is it made of* left with the
+ * fused `materialId` / `materialLevel` pair: a template names no material any more, so there is no
+ * material reference on a `Configuration` to dangle. The equivalent question is now asked of a
+ * **character's** composed record, and a broken part there is answered by the engine granting
+ * nothing (`equipmentBonusCalculator`) and by TICKET-INV-06's picker refusing the rung — neither of
+ * which this report can see, because `validateConfiguration` reads a ruleset and a build is player
+ * state.
  *
  * @param config - The ruleset to check
- * @returns One issue per broken slot, material, material-level or skill-bonus reference
+ * @returns One issue per broken slot or skill-bonus reference
  */
 function itemIssues(config: Configuration): ValidationIssue[] {
   const equipmentSlotTypes = new Set(config.equipmentSlots.map((slot) => slot.type));
-  const materialsById = new Map(config.materials.map((material) => [material.id, material]));
   const skillIds = new Set(config.skills.map((skill) => skill.id));
 
   return config.items.flatMap((item) => {
     const slotIssues = itemSlotIssues(item, equipmentSlotTypes);
-    const materialIssues = itemMaterialIssues(item, materialsById);
     const skillBonusIssues = itemSkillBonusIssues(item, skillIds);
 
-    return [...slotIssues, ...materialIssues, ...skillBonusIssues];
+    return [...slotIssues, ...skillBonusIssues];
   });
 }
 

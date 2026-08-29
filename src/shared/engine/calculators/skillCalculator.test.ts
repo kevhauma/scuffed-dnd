@@ -61,7 +61,7 @@ function createConfig(skills: Skill[], overrides: Partial<Configuration> = {}): 
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 9,
+    schemaVersion: 10,
     stats: SAMPLE_STATS.map(([id, abbreviation]) => stat(id, abbreviation)),
     skills,
     materials: [],
@@ -89,7 +89,7 @@ function createCharacter(
     investedSkillPoints,
     currentResourceValues: {},
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [] },
+    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     // Absent unless a test names picks, which is what an untouched character is (TICKET-SKL-05)

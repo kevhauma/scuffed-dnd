@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { Character } from '../types/character';
+import type { Character, ComposedItem, Inventory } from '../types/character';
 import type { Archetype, Configuration, Curve, SkillModifier } from '../types/config';
 import { calculateCharacter, calculateCharacterStats, firstCalculationError } from './calculator';
 import { isFormulaError } from './formula/errors';
@@ -26,7 +26,7 @@ describe('calculateCharacterStats', () => {
       investedSkillPoints: {},
       currentResourceValues: {},
       experience: 0,
-      inventory: { equippedItems: {}, miscItems: [] },
+      inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -35,7 +35,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 9,
+      schemaVersion: 10,
       stats: [
         {
           id: 'STR',
@@ -132,7 +132,7 @@ describe('calculateCharacterStats', () => {
       investedSkillPoints: {},
       currentResourceValues: {},
       experience: 0,
-      inventory: { equippedItems: {}, miscItems: [] },
+      inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -141,7 +141,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 9,
+      schemaVersion: 10,
       stats: [
         {
           id: 'STR',
@@ -227,7 +227,7 @@ describe('calculateCharacterStats', () => {
       investedSkillPoints: {},
       currentResourceValues: {},
       experience: 0,
-      inventory: { equippedItems: {}, miscItems: [] },
+      inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01',
     };
@@ -236,7 +236,7 @@ describe('calculateCharacterStats', () => {
       id: 'config1',
       name: 'Test Config',
       version: '1.0',
-      schemaVersion: 9,
+      schemaVersion: 10,
       stats: [
         {
           id: 'STR',
@@ -291,7 +291,7 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
     id: 'config1',
     name: 'Fixture Config',
     version: '1.0',
-    schemaVersion: 9,
+    schemaVersion: 10,
     stats: [
       {
         id: 'STR',
@@ -436,24 +436,18 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
         id: 'item-sword',
         name: 'Sword',
         description: '',
-        materialId: 'mat-steel',
-        materialLevel: 1,
         equipmentSlotType: 'main_hand',
       },
       {
         id: 'item-cloak',
         name: 'Cloak',
         description: '',
-        materialId: 'mat-shadow',
-        materialLevel: 1,
         equipmentSlotType: 'cloak',
       },
       {
         id: 'item-charm',
         name: 'Charm',
         description: '',
-        materialId: 'mat-keen',
-        materialLevel: 1,
         equipmentSlotType: 'trinket',
       },
     ],
@@ -483,7 +477,32 @@ function createFixtureConfig(overrides: Partial<Configuration> = {}): Configurat
   };
 }
 
-function createFixtureCharacter(overrides: Partial<Character> = {}): Character {
+/**
+ * What the fixture character has built — one per template, at the tier that used to be fused on
+ *
+ * TICKET-INV-05 moved the material link off the template and onto the thing a Player made, so the
+ * `mat-steel` a sword used to *be* is now the sword this character *forged*. **The build's id is the
+ * template's id**, which is a readability choice rather than a rule: every case below says
+ * `equippedItems: { main_hand: 'item-sword' }` and means the obvious thing, with the build layer
+ * kept out of the way of what each case is actually about.
+ */
+const FIXTURE_BUILDS: ComposedItem[] = [
+  { id: 'item-sword', templateId: 'item-sword', materialId: 'mat-steel', materialLevel: 1 },
+  { id: 'item-cloak', templateId: 'item-cloak', materialId: 'mat-shadow', materialLevel: 1 },
+  { id: 'item-charm', templateId: 'item-charm', materialId: 'mat-keen', materialLevel: 1 },
+];
+
+/**
+ * The fixture character, with the inventory **merged** rather than replaced
+ *
+ * A case says which slots are filled and which builds are carried; what those builds are made of is
+ * {@link FIXTURE_BUILDS}' business and would be noise in every one of them.
+ */
+function createFixtureCharacter(
+  overrides: Partial<Omit<Character, 'inventory'>> & { inventory?: Partial<Inventory> } = {}
+): Character {
+  const { inventory, ...rest } = overrides;
+
   return {
     id: 'char1',
     name: 'Fixture Character',
@@ -493,10 +512,15 @@ function createFixtureCharacter(overrides: Partial<Character> = {}): Character {
     investedSkillPoints: { STL: 2, ARC: 1 },
     currentResourceValues: { health: 40 },
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
-    ...overrides,
+    ...rest,
+    inventory: {
+      equippedItems: {},
+      miscItems: [],
+      composedItems: FIXTURE_BUILDS,
+      ...inventory,
+    },
   };
 }
 
@@ -669,8 +693,6 @@ describe('calculateCharacter', () => {
           id: 'item-fur-cloak',
           name: 'Fur Cloak',
           description: '',
-          materialId: 'mat-fur',
-          materialLevel: 1,
           equipmentSlotType: 'cloak',
         },
       ],
@@ -682,7 +704,18 @@ describe('calculateCharacter', () => {
     });
     const equipped = {
       ...unarmoured,
-      inventory: { equippedItems: { cloak: 'item-fur-cloak' }, miscItems: [] },
+      inventory: {
+        equippedItems: { cloak: 'build-fur-cloak' },
+        miscItems: [],
+        composedItems: [
+          {
+            id: 'build-fur-cloak',
+            templateId: 'item-fur-cloak',
+            materialId: 'mat-fur',
+            materialLevel: 1,
+          },
+        ],
+      },
     };
 
     expect(calculateCharacter(unarmoured, config).statValues.mana).toBe(10);
@@ -696,10 +729,9 @@ describe('calculateCharacter', () => {
     // number is computed at read time, so unequipping needs no recalculation call at all
     const config = createFixtureConfig();
     const bare = createFixtureCharacter();
-    const equipped = {
-      ...bare,
-      inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: [] },
-    };
+    const equipped = createFixtureCharacter({
+      inventory: { equippedItems: { main_hand: 'item-sword' } },
+    });
 
     const before = calculateCharacter(bare, config);
     const during = calculateCharacter(equipped, config);

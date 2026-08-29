@@ -71,7 +71,7 @@ describe('ConfigStore', () => {
         id: 'test-id',
         name: 'Loaded Config',
         version: '1.0.0',
-        schemaVersion: 9,
+        schemaVersion: 10,
         stats: [],
         skills: [],
         materials: [],
@@ -555,9 +555,8 @@ describe('ConfigStore', () => {
         name: 'Sword',
         description: 'A sharp blade',
         categoryId: 'weapons',
-        materialId: 'iron',
-        materialLevel: 1,
         equipmentSlotType: 'main_hand',
+        shop: 'Imperial Forge',
       };
 
       useConfigStore.getState().addItem(item);
@@ -591,17 +590,17 @@ describe('ConfigStore', () => {
         name: 'Sword',
         description: 'A sharp blade',
         equipmentSlotType: 'main_hand',
-        materialId: 'iron',
+        shop: 'Imperial Forge',
       });
 
       useConfigStore.getState().updateItem('sword', {
         equipmentSlotType: undefined,
-        materialId: undefined,
+        shop: undefined,
       });
 
       const item = useConfigStore.getState().config?.items[0];
       expect(item).not.toHaveProperty('equipmentSlotType');
-      expect(item).not.toHaveProperty('materialId');
+      expect(item).not.toHaveProperty('shop');
     });
 
     it('should delete item', () => {
@@ -1319,7 +1318,7 @@ describe('ConfigStore', () => {
           id: 'config1',
           name: 'Test',
           version: '1.0',
-          schemaVersion: 9,
+          schemaVersion: 10,
           stats: [
             {
               id: 'id-str',
@@ -1379,7 +1378,7 @@ describe('ConfigStore', () => {
             investedSkillPoints: {},
             currentResourceValues: {},
             experience: 0,
-            inventory: { equippedItems: {}, miscItems: [] },
+            inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01',
           },

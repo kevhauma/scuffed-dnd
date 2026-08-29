@@ -130,6 +130,10 @@ export function serializeConfiguration(config: Configuration): string {
  * field was authored against rules this build no longer applies, and silently dropping it would
  * import a ruleset that plays differently from the one the User exported. Naming the replacement
  * is the difference between "your file is wrong" and "here is where that number went now".
+ *
+ * These are the **configuration's own** keys. A field retired from an *entity* is recorded on that
+ * collection's {@link EntitySpec.retired} instead, so the retirement sits beside the fields that
+ * replaced it and is walked by the checker that was already walking the entries.
  */
 const RETIRED_FIELDS: Record<string, string> = {
   mainSkillPointBudget:
@@ -153,6 +157,28 @@ function retiredFieldErrors(config: Record<string, unknown>): string[] {
       ([field, replacement]) =>
         `Field '${field}' is no longer part of a configuration — ${replacement}`
     );
+}
+
+/**
+ * Errors for any retired field one entity still carries
+ *
+ * {@link retiredFieldErrors}' sentence, one entity kind down, so a file whose items still fuse a
+ * material tier is told where that pair went rather than reading a bare unknown-field silence.
+ * Phrased with the path so the User can find the row.
+ *
+ * @param record The entry as it arrived
+ * @param path Where it sits — `items[2]`
+ * @param retired The collection's retired fields and their replacements
+ * @returns One error per retired field present on this entry
+ */
+function retiredEntityFieldErrors(
+  record: Record<string, unknown>,
+  path: string,
+  retired: Record<string, string>
+): string[] {
+  return Object.entries(retired)
+    .filter(([field]) => record[field] !== undefined)
+    .map(([field, replacement]) => `${path}.${field} is no longer a field — ${replacement}`);
 }
 
 /** What a name a formula spells must look like — shared by constants and curve columns */
@@ -619,6 +645,15 @@ interface EntitySpec {
    * malformed rather than twice.
    */
   unique?: { field: string; message: string };
+  /**
+   * Fields this entity used to carry, and what replaced each (TICKET-INV-05)
+   *
+   * {@link RETIRED_FIELDS} one level down — see its note for why a retirement is reported rather
+   * than ignored. Recorded here rather than in that table because the replacement is described
+   * best beside the fields that took the job over, and because the entries are already being
+   * walked: a second pass over the same collections is a second place to forget one.
+   */
+  retired?: Record<string, string>;
   /** What a table cannot say: nested arrays, and lengths measured against another field */
   custom?: (entry: Record<string, unknown>, path: string) => string[];
 }
@@ -775,13 +810,21 @@ const ENTITY_SPECS: Record<CollectionKey, EntitySpec> = {
       name: must(isText, 'must be a string'),
       description: must(isText, 'must be a string'),
       categoryId: mayBe(isText, 'must be a string when present'),
-      materialId: mayBe(isText, 'must be a string when present'),
       equipmentSlotType: mayBe(isText, 'must be a string when present'),
-      materialLevel: mayBe(isFiniteNumber, 'must be a finite number when present'),
       // Which shop sells the template (v4 systems/11, TICKET-ITEM-01). A User word checked for
       // being a string and nothing more, like `Stat.group` and `Inlay.group` — the nine names the
       // workbook happens to use are seed data, not a vocabulary this gate enforces
       shop: mayBe(isText, 'must be a string when present'),
+    },
+    // The fused instance, retired by TICKET-INV-05. A v4.0 file never reaches this — the version
+    // gate refuses it first (D6's clean break) — so what this catches is a hand-edited or
+    // hand-merged file claiming the current version while still fusing a tier onto a template, and
+    // the point is that it is told where the pair went instead of importing an item made of nothing.
+    retired: {
+      materialId:
+        "what a thing is made of belongs to the built thing now, so a character's inventory carries the material link on its composed item rather than the template carrying it (TICKET-INV-05)",
+      materialLevel:
+        "the material tier moved with the material — it is 'materialLevel' on a composed item in a character's inventory (TICKET-INV-05)",
     },
     custom: itemSkillBonusShapeErrors,
   },
@@ -1030,6 +1073,8 @@ function collectionShapeErrors(entries: unknown[], field: string, spec: EntitySp
         seen.add(value);
       }
     }
+
+    if (spec.retired) errors.push(...retiredEntityFieldErrors(record, path, spec.retired));
 
     errors.push(...(spec.custom?.(record, path) ?? []));
   });

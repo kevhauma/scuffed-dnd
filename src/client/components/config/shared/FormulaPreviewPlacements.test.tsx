@@ -63,7 +63,7 @@ const config: Configuration = {
   id: 'config1',
   name: 'Test Config',
   version: '1.0',
-  schemaVersion: 9,
+  schemaVersion: 10,
   stats: [stat('str-id', 'Strength', 'STR'), stat('cha-id', 'Charisma', 'CHA')],
   skills: [
     {

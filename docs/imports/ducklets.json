@@ -2,7 +2,7 @@
   "id": "ducklets-sheet-import",
   "name": "Ducklets (sheet import)",
   "version": "2.0.0",
-  "schemaVersion": 9,
+  "schemaVersion": 10,
   "createdAt": "2026-08-09T00:00:00.000Z",
   "updatedAt": "2026-08-09T00:00:00.000Z",
   "stats": [

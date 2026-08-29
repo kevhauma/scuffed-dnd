@@ -12,7 +12,7 @@
  * gate on the same number without one importing the other — and so a test that mocks one service
  * cannot change what the other considers current.
  */
-export const SUPPORTED_SCHEMA_VERSION = 9;
+export const SUPPORTED_SCHEMA_VERSION = 10;
 
 /**
  * Main configuration object containing all user-defined game rules
@@ -39,7 +39,16 @@ export interface Configuration {
    * **The v2.0 milestone bumps this on every reshape**, by the User's decision (2026-08-09): the
    * persisted shape is not stable until the milestone lands, and a build that cannot read stored
    * data must say so through IO-03's notice rather than crash on a field that moved. `9` is the
-   * last bump the milestone plans — DX-04 is a parity gate, not a reshape.
+   * last bump *that* milestone planned — DX-04 is a parity gate, not a reshape.
+   *
+   * **`10` is v4.0's one bump, raised by TICKET-INV-05** — the milestone's first genuine document
+   * reshape, retiring `Item.materialId` / `Item.materialLevel` in favour of the composed record in a
+   * character's inventory. v4.0 is a **clean break**
+   * ([D6](../../../docs/v4.0_sheet_parity/overview.md#d6--no-backwards-compatibility-v40-is-a-clean-break-user-2026-08-29)):
+   * where the `data-model` skill offers *bump* or *ship a conversion*, this milestone always bumps,
+   * and it bumps **once** — whichever ticket lands the first reshape raises the number and every
+   * later v4.0 ticket inherits it rather than adding its own. TICKET-DX-09 proves the break complete
+   * rather than raising it again.
    */
   schemaVersion: typeof SUPPORTED_SCHEMA_VERSION;
   stats: Stat[];
@@ -482,23 +491,28 @@ export interface SkillModifier {
 }
 
 /**
- * Item - object with optional material and equipment slot
+ * Item — a **template**: the shape of a thing, not a thing (v4 systems/12, TICKET-INV-05)
  *
  * **An item template is a per-skill bonus vector since TICKET-ITEM-01** (v4 systems/11). What it is
- * *made of* still supplies its stat side — a material tier's modifiers, and TICKET-INV-05's inlay —
- * so the template itself carries no stat column: the two halves target different entities and
- * neither can claim the other's share.
+ * *made of* supplies its stat side — a material tier's modifiers plus an inlay tier's — and that
+ * lives on the `ComposedItem` in a Player's inventory ([character.ts](./character.ts)) rather than
+ * here: the two halves target different entities and neither can claim the other's share.
  *
- * The old fused `materialId`/`materialLevel` pair — a template naming the instance it is made of —
- * retires in TICKET-INV-05, not here. One reshape per ticket.
+ * **The fused `materialId` / `materialLevel` pair is gone** (TICKET-INV-05). v1.0 read the sheet's
+ * "iron 1 empty rapier" as a *template naming the instance it is made of*, which made the catalog
+ * the cross-product of every template and every tier and made "Battleaxe" unrepresentable without
+ * choosing a metal first. A carried thing is a triple — template + material tier + optional inlay
+ * tier — and a triple is a fact about what a Player built, so it is stored on the Player. Retiring
+ * the pair is a **clean break** with no conversion
+ * ([D6](../../../docs/v4.0_sheet_parity/overview.md#d6--no-backwards-compatibility-v40-is-a-clean-break-user-2026-08-29));
+ * `SUPPORTED_SCHEMA_VERSION` rose to 10 for it and `importExport.ts` names the replacement for a
+ * file that still carries either field.
  */
 export interface Item {
   id: string;
   name: string;
   description: string;
   categoryId?: string;
-  materialId?: string;
-  materialLevel?: number;
   equipmentSlotType?: string;
   /**
    * Which shop sells this template — the sheet's *Imperial Forge*, *Stones & Ores* (v4 systems/11).

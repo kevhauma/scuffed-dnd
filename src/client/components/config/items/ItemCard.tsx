@@ -1,51 +1,34 @@
 /**
  * Item Card Component
  *
- * Displays an item with its material, equipment slot, category and shop information, plus the
- * per-skill vector wielding it applies (TICKET-ITEM-01).
+ * Displays a **template** — its equipment slot, category and shop, plus the per-skill vector
+ * wielding it applies (TICKET-ITEM-01).
  *
- * **The two bonus lists say different things and are labelled apart.** *Skill Bonuses* are the
- * template's own — what holding this makes you better and worse at — while *Bonuses* are the
- * material tier's, and belong to what it is made of rather than to what it is.
+ * **What it is made of is not on the card any more** (TICKET-INV-05). A template named a material
+ * tier until v4.0, and the card showed that tier's stat bonuses under a second heading; both went
+ * with the fused pair. What a thing is made of is a fact about the thing a Player *built*, so the
+ * material tier, the inlay tier and the stat bonuses they add up to belong to the composed item on a
+ * character sheet — TICKET-INV-06's surface.
  *
- * **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 7.6, 21.1-21.5; v4 systems/11**
+ * **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 7.6, 21.1-21.5; v4 systems/11, systems/12**
  */
 
-import type { EquipmentSlot, Item, Material, Skill, Stat } from '#shared/types';
+import type { EquipmentSlot, Item, Skill } from '#shared/types';
 import { SkillBonusBadges } from '../../shared/SkillBonusBadges';
-import { StatModifierBadges } from '../../shared/StatModifierBadges';
 import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 
 interface ItemCardProps {
   item: Item;
-  materials: Material[];
   equipmentSlots: EquipmentSlot[];
-  /** The ruleset's stats, for spelling the material bonuses' targets (TICKET-MAT-01) */
-  stats: Stat[];
   /** The ruleset's skills, for spelling the template's own bonuses (TICKET-ITEM-01) */
   skills: Skill[];
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-export function ItemCard({
-  item,
-  materials,
-  equipmentSlots,
-  stats,
-  skills,
-  onEdit,
-  onDelete,
-}: ItemCardProps) {
-  const material = item.materialId ? materials.find((m) => m.id === item.materialId) : null;
-
-  const materialLevel =
-    material && item.materialLevel
-      ? material.levels.find((l) => l.level === item.materialLevel)
-      : null;
-
+export function ItemCard({ item, equipmentSlots, skills, onEdit, onDelete }: ItemCardProps) {
   const equipmentSlot = item.equipmentSlotType
     ? equipmentSlots.find((s) => s.type === item.equipmentSlotType)
     : null;
@@ -96,16 +79,6 @@ export function ItemCard({
           </div>
         )}
 
-        {/* Material */}
-        {material && materialLevel && (
-          <div className="flex items-center gap-2">
-            <Text variant="body-small-secondary">Material:</Text>
-            <span className="text-xs px-2 py-1 bg-amber/10 border border-amber rounded">
-              {material.name} - {materialLevel.name}
-            </span>
-          </div>
-        )}
-
         {/* Equipment Slot */}
         {equipmentSlot && (
           <div className="flex items-center gap-2">
@@ -116,23 +89,13 @@ export function ItemCard({
           </div>
         )}
 
-        {/* The template's own skill vector */}
+        {/* The template's own skill vector — the only bonus list a template has since INV-05 */}
         {item.skillBonuses && item.skillBonuses.length > 0 && (
           <div>
             <Text variant="body-small-secondary" className="mb-1">
               Skill Bonuses:
             </Text>
             <SkillBonusBadges bonuses={item.skillBonuses} skills={skills} />
-          </div>
-        )}
-
-        {/* Material Bonuses */}
-        {materialLevel && materialLevel.bonuses.length > 0 && (
-          <div>
-            <Text variant="body-small-secondary" className="mb-1">
-              Bonuses:
-            </Text>
-            <StatModifierBadges modifiers={materialLevel.bonuses} stats={stats} />
           </div>
         )}
       </div>

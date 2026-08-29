@@ -16,10 +16,13 @@ import { purseFromStoredWallet } from '#shared/services/characterShape';
 // The experience rules **moved** here from this module with TICKET-DM-01, rather than being copied
 // into a DM route — the same thing PLY-01 did to the sheet's other writes, and for the same reason
 import { addExperience, removeExperience, setDreamLevel } from '#shared/services/dmActions';
-// `addToPack` and `removeFromPack` are deliberately absent: the browser's pack has never had a rule
-// to share — its picker is built from the ruleset's item list — and the *server* is the side that
-// has to check, because a request is not a picker. See `addMiscItem` below.
+// `addToPack` and `removeFromPack` joined the list with TICKET-INV-05, having been deliberately
+// absent before it: the browser's pack had no rule to share — its picker is built from the ruleset's
+// item list — so it appended an id and left the checking to the server. Taking something now *mints
+// a `ComposedItem`* and putting it down *destroys one*, and how a build is made and unmade is a rule
+// rather than a picker convenience, so both sides ask the Kernel for it.
 import {
+  addToPack,
   adjustPurseBy,
   adjustResourceValue,
   chooseFocusSkills,
@@ -31,6 +34,7 @@ import {
   moveItemToEquipment,
   moveItemToMisc,
   type PlayerActionResult,
+  removeFromPack,
   resetResourceToMax,
   setPurseAmount,
   setResourceValue,
@@ -47,7 +51,7 @@ import type {
   SheetAction,
 } from '#shared/types/api';
 import { DM_ACTION, PLAYER_ACTION } from '#shared/types/api';
-import type { Character, CharacterCreationData, Inventory } from '#shared/types/character';
+import type { Character, CharacterCreationData } from '#shared/types/character';
 import type { Configuration, CurrencyTier } from '#shared/types/config';
 import {
   ACTION_OUTCOME,
@@ -243,7 +247,9 @@ export interface CharacterState {
     config: Configuration
   ) => void;
   unequipItem: (characterId: string, equipmentSlotType: string) => void;
-  addMiscItem: (characterId: string, itemId: string) => void;
+  /** Build one of the ruleset's templates into the pack — `itemId` is an `Item.id` */
+  addMiscItem: (characterId: string, itemId: string, config: Configuration) => void;
+  /** Put one build down for good — `itemId` is a `ComposedItem.id` */
   removeMiscItem: (characterId: string, itemId: string) => void;
   moveItemToMisc: (characterId: string, equipmentSlotType: string) => void;
   moveItemToEquipment: (
@@ -436,35 +442,6 @@ export function selectCharacter(state: CharacterState, characterId: string): Cha
   if (local) return local;
 
   return state.tableCharacter?.id === characterId ? state.tableCharacter : null;
-}
-
-/**
- * Apply a change to one character's inventory, then stamp and persist
- *
- * Every inventory action is the same three steps — find the character, replace its `Inventory`,
- * save — differing only in how the new inventory is derived. That difference is the `update`
- * callback; returning the inventory unchanged is how an action declines to do anything.
- */
-function patchInventory(
-  set: (partial: Partial<CharacterState>) => void,
-  get: () => CharacterState,
-  characterId: string,
-  update: (inventory: Inventory) => Inventory
-): void {
-  const { characters } = get();
-
-  const updated = autoSave(
-    characters.map((char) => {
-      if (char.id !== characterId) return char;
-
-      const inventory = update(char.inventory);
-      if (inventory === char.inventory) return char;
-
-      return updateTimestamp({ ...char, inventory });
-    })
-  );
-
-  set({ characters: updated });
 }
 
 /** Zustand's partial setter, as every helper here takes it */
@@ -832,28 +809,27 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     applyLocally(set, get, characterId, (character) => emptySlot(character, equipmentSlotType));
   },
 
-  // Add item to miscellaneous inventory
-  addMiscItem: (characterId: string, itemId: string) => {
+  // Build a template into the pack (TICKET-INV-05)
+  addMiscItem: (characterId: string, itemId: string, config: Configuration) => {
     if (toTable(set, get, characterId, PLAYER_ACTION.TAKE_ITEM, { itemId })) return;
 
-    // **No Kernel call, because there is no shared rule to share.** The browser's picker is built
-    // from the ruleset's item list, so this has never checked anything; the *server* does check,
-    // because a request is not a picker (`playerActions.takeItem`). A server that is stricter than
-    // its client is the right direction for the two to differ in.
-    patchInventory(set, get, characterId, (inventory) => ({
-      ...inventory,
-      miscItems: [...inventory.miscItems, itemId],
-    }));
+    // **A Kernel call now, where there used to be none.** This appended a catalog id and left every
+    // check to the server, on the grounds that a picker had already made the choice legal. Taking
+    // something is no longer an append: it mints a `ComposedItem` and puts *its* id in the pack, and
+    // what a fresh build looks like is a rule the server must agree with rather than a shape two
+    // sides each write out. The id is this side's to mint, as `createCharacter`'s is.
+    applyLocally(set, get, characterId, (character) => {
+      const composedId = crypto.randomUUID();
+
+      return addToPack(character, config, itemId, composedId);
+    });
   },
 
-  // Remove item from miscellaneous inventory
+  // Take a build out of the pack, destroying it
   removeMiscItem: (characterId: string, itemId: string) => {
     if (toTable(set, get, characterId, PLAYER_ACTION.DROP_ITEM, { itemId })) return;
 
-    patchInventory(set, get, characterId, (inventory) => ({
-      ...inventory,
-      miscItems: inventory.miscItems.filter((id) => id !== itemId),
-    }));
+    applyLocally(set, get, characterId, (character) => removeFromPack(character, itemId));
   },
 
   // Move equipped item to miscellaneous inventory

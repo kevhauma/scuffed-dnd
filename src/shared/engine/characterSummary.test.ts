@@ -27,7 +27,7 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     investedSkillPoints: {},
     currentResourceValues: {},
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [] },
+    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-02',
     ...overrides,
@@ -66,7 +66,7 @@ function createConfig(curves: Curve[] = [xpCurve()]): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 9,
+    schemaVersion: 10,
     stats: [],
     skills: [],
     materials: [],
@@ -144,7 +144,14 @@ describe('calculateCharacterLevel', () => {
     const kitted = createCharacter({
       raceIds: ['elf', 'human'],
       experience: 900,
-      inventory: { equippedItems: { main_hand: 'item-sword' }, miscItems: ['item-cloak'] },
+      inventory: {
+        equippedItems: { main_hand: 'build-sword' },
+        miscItems: ['build-cloak'],
+        composedItems: [
+          { id: 'build-sword', templateId: 'item-sword' },
+          { id: 'build-cloak', templateId: 'item-cloak' },
+        ],
+      },
     });
 
     expect(calculateCharacterLevel(kitted, createConfig())).toBe(

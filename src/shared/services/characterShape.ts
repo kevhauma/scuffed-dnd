@@ -40,6 +40,13 @@ import type { CurrencyTier } from '../types/config';
  * through every range check and returns the first row — a confident **level 1** — and an award
  * computes `undefined + n` and persists `NaN`.
  *
+ * **`inventory.composedItems` joined it with TICKET-INV-05**, which is v4.0's clean break reaching
+ * the roster: a character written before composed items has an `equippedItems` full of *template*
+ * ids, and reading one as a build's id equips nothing while looking like an ordinary empty sheet.
+ * Refusing here is what routes such a roster to `IncompatibleDataNotice` — a backup and a fresh
+ * start — instead of quietly stripping every Player's gear
+ * ([D6](../../../docs/v4.0_sheet_parity/overview.md#d6--no-backwards-compatibility-v40-is-a-clean-break-user-2026-08-29)).
+ *
  * Checked here rather than left to the schemaVersion gate because that gate reads the
  * *Configuration*: a characters key beside a fresh or absent config never meets it
  * (TICKET-IO-03 implementation note 5).
@@ -51,7 +58,8 @@ export function isReadableCharacter(character: Character | null | undefined): bo
   return (
     character?.investedStatPoints !== undefined &&
     character?.currentResourceValues !== undefined &&
-    Number.isFinite(character?.experience)
+    Number.isFinite(character?.experience) &&
+    Array.isArray(character?.inventory?.composedItems)
   );
 }
 
@@ -76,16 +84,66 @@ function isIdList(value: unknown): boolean {
   return Array.isArray(value) && value.every((id: unknown) => typeof id === 'string');
 }
 
-/** The inventory's two halves: what is equipped, and what is merely carried */
+/** A required identity — the two fields a build cannot be resolved without */
+function isIdentity(value: unknown): boolean {
+  return typeof value === 'string' && value !== '';
+}
+
+/**
+ * One optional link to a part: the family it names, and the rung of that family
+ *
+ * The material half and the inlay half of a build read identically — an id and a number, both
+ * optional, both meaningless alone — so they are asked the same question rather than spelled out
+ * twice. A rung that is not a finite number is refused because `materialTierOf` compares it against
+ * `MaterialLevel.level`, where a `null` would silently match nothing while looking like a build the
+ * Player made.
+ */
+function isPartReference(id: unknown, rung: unknown): boolean {
+  const named = id === undefined || typeof id === 'string';
+  const numbered = rung === undefined || (typeof rung === 'number' && Number.isFinite(rung));
+
+  return named && numbered;
+}
+
+/**
+ * One built thing, as a request body has it (v4 systems/12, TICKET-INV-05)
+ *
+ * Every field a reader dereferences, and no more. The **id and the template are required** because
+ * the two are what the rest of the inventory and the engine resolve through — a record with neither
+ * is a row nothing can equip, drop or price. The **material and inlay links are optional in pairs**,
+ * matching `ComposedItem` — see {@link isPartReference}.
+ *
+ * Whether the ids name anything *this ruleset has* is not asked here, for `uploadedCharacterErrors`'
+ * standing reason: a stale part contributes nothing rather than crashing, and the ruleset a
+ * character is read against is not the one it was written against.
+ */
+function isComposedItem(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+
+  const record = value as Record<string, unknown>;
+
+  return (
+    isIdentity(record.id) &&
+    isIdentity(record.templateId) &&
+    isPartReference(record.materialId, record.materialLevel) &&
+    isPartReference(record.inlayId, record.inlayLevel)
+  );
+}
+
+/** The inventory's three collections: what is equipped, what is carried, and what was built */
 const INVENTORY_FIELDS: Record<string, { accepts: (value: unknown) => boolean; rule: string }> = {
   equippedItems: { accepts: isIdMap, rule: 'must be an object keyed by equipment slot type' },
-  miscItems: { accepts: isIdList, rule: 'must be an array of item ids' },
+  miscItems: { accepts: isIdList, rule: 'must be an array of composed item ids' },
+  composedItems: {
+    accepts: (value) => Array.isArray(value) && value.every(isComposedItem),
+    rule: 'must be an array of { id, templateId, materialId?, materialLevel?, inlayId?, inlayLevel? } records',
+  },
 };
 
-/** The inventory: what is equipped, keyed by slot type, and what is merely carried */
+/** The inventory: what is equipped, keyed by slot type, what is carried, and what was built */
 function inventoryErrors(value: unknown, path: string): string[] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return [`${path} must be an { equippedItems, miscItems } object`];
+    return [`${path} must be an { equippedItems, miscItems, composedItems } object`];
   }
 
   const inventory = value as Record<string, unknown>;

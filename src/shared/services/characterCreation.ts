@@ -82,7 +82,7 @@ export function buildCharacter(
     currentResourceValues: {},
     // A fresh character has earned nothing, which the seeded curve reads as level 1 (TICKET-RES-01)
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [] },
+    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
     createdAt: identity.now,
     updatedAt: identity.now,
   };

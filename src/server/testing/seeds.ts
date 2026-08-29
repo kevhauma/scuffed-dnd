@@ -97,8 +97,13 @@ function corpusObject(): Configuration {
  *
  * Read from the corpus rather than restated, so bumping `SUPPORTED_SCHEMA_VERSION` and regenerating
  * `ducklets.json` cannot leave the fixtures claiming the old one.
+ *
+ * **Exported since TICKET-INV-05**, because that is exactly what it failed to prevent:
+ * `rulesetRepository.test.ts` was inserting its own row with a hand-written `schemaVersion: 9`
+ * beside a `data` document the bump had moved to 10, and asserting the 9 back. A test that restates
+ * the number cannot be protected by a helper it does not call.
  */
-function corpusSchemaVersion(): number {
+export function corpusSchemaVersion(): number {
   return corpusObject().schemaVersion ?? 1;
 }
 
@@ -429,7 +434,7 @@ function plainCharacter(id: string, name: string, sessionId: string): Character 
     investedSkillPoints: {},
     currentResourceValues: {},
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [] },
+    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
     createdAt: new Date(SEEDED_AT).toISOString(),
     updatedAt: new Date(SEEDED_AT).toISOString(),
   };

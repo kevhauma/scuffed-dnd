@@ -1,7 +1,8 @@
 /**
  * Item Form Dialog Component
  *
- * Dialog for creating and editing items with material and equipment slot assignment.
+ * Dialog for creating and editing item **templates** — what a thing is, where it is worn, and what
+ * wielding it does to the bearer's skills.
  *
  * The text fields are on `FormField` and the footer on `FormDialogActions` since CR-23. The
  * pickers and the description stay hand-built: `FormField` renders an `Input`, which a `Select`
@@ -11,12 +12,17 @@
  * and chosen, so a template names the eight skills it moves rather than all 48. `ValueRowsField`
  * takes options rather than stats precisely so this dialog can offer skills.
  *
- * **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 21.1-21.5; v4 systems/11**
+ * **The material pair is gone** (TICKET-INV-05). This dialog picked a material and then a tier of
+ * it, which made the catalog the cross-product of every template and every metal — the fused-instance
+ * reading v4.0 retires. What a thing is made of is chosen when a Player *builds* one, so that picker
+ * belongs to TICKET-INV-06's builder rather than to the ruleset's catalog.
+ *
+ * **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 21.1-21.5; v4 systems/11, systems/12**
  */
 
-import { useEffect, useId } from 'react';
+import { useId } from 'react';
 import { type UseFormReturn, useFieldArray } from 'react-hook-form';
-import type { EquipmentSlot, Material } from '#shared/types';
+import type { EquipmentSlot } from '#shared/types';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
 import { Label } from '../../ui/Label/Label';
@@ -32,7 +38,6 @@ interface ItemFormDialogProps {
   isOpen: boolean;
   isEditing: boolean;
   form: UseFormReturn<ItemFormData>;
-  materials: Material[];
   equipmentSlots: EquipmentSlot[];
   /** The skills a bonus row may name — every skill the ruleset defines */
   skillOptions: RowOption[];
@@ -44,7 +49,6 @@ export function ItemFormDialog({
   isOpen,
   isEditing,
   form,
-  materials,
   equipmentSlots,
   skillOptions,
   onClose,
@@ -52,14 +56,10 @@ export function ItemFormDialog({
 }: ItemFormDialogProps) {
   const itemDescriptionId = useId();
   const itemEquipmentSlotId = useId();
-  const itemMaterialId = useId();
-  const itemMaterialLevelId = useId();
 
   const {
     control,
     register,
-    watch,
-    setValue,
     formState: { errors },
   } = form;
   const { fields, append, remove } = useFieldArray({ control, name: 'skillBonuses' });
@@ -68,20 +68,6 @@ export function ItemFormDialog({
     const firstSkillId = skillOptions[0]?.value ?? '';
     append({ skillId: firstSkillId, modifier: 0 });
   };
-
-  const selectedMaterialId = watch('materialId');
-  const selectedMaterial = materials.find((m) => m.id === selectedMaterialId);
-
-  // Reset material level when material changes
-  useEffect(() => {
-    if (selectedMaterialId && selectedMaterial) {
-      const currentLevel = watch('materialLevel');
-      const validLevel = selectedMaterial.levels.find((l) => l.level === currentLevel);
-      if (!validLevel && selectedMaterial.levels.length > 0) {
-        setValue('materialLevel', selectedMaterial.levels[0].level);
-      }
-    }
-  }, [selectedMaterialId, selectedMaterial, watch, setValue]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,34 +107,6 @@ export function ItemFormDialog({
           placeholder="e.g., Imperial Forge, General Store"
           {...register('shop')}
         />
-
-        <div>
-          <Label htmlFor={itemMaterialId}>Material (optional)</Label>
-          <Select
-            id={itemMaterialId}
-            {...register('materialId')}
-            options={[
-              { value: '', label: 'None' },
-              ...materials.map((m) => ({ value: m.id, label: m.name })),
-            ]}
-            className="w-full mt-1"
-          />
-        </div>
-
-        {selectedMaterial && selectedMaterial.levels.length > 0 && (
-          <div>
-            <Label htmlFor={itemMaterialLevelId}>Material Level</Label>
-            <Select
-              id={itemMaterialLevelId}
-              {...register('materialLevel', { valueAsNumber: true })}
-              options={selectedMaterial.levels.map((l) => ({
-                value: l.level.toString(),
-                label: `Level ${l.level}: ${l.name}`,
-              }))}
-              className="w-full mt-1"
-            />
-          </div>
-        )}
 
         <div>
           <Label htmlFor={itemEquipmentSlotId}>Equipment Slot (optional)</Label>

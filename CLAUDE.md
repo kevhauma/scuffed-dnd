@@ -129,7 +129,11 @@ acceptance criteria.
   pair): both invest actions ask `validateStatAllocation` the same question, an unaffordable spend on
   either side is refused **with the overspend named**, and a change that *lowers* the total spend is
   never refused — otherwise a character built while skill investment was free could be told they are
-  over budget with no way to act on it.
+  over budget with no way to act on it. **`Character.inventory.composedItems` is not a sixth
+  exception** (TICKET-INV-05): a `ComposedItem` is a set of *links* — a template, a material tier, an
+  optional inlay tier — and every number it is worth is read off those parts at calculation time, so
+  retuning Iron Ore tier 10 relabels every axe made of it on the next read. It is the derived-values
+  rule applied to an aggregate rather than an exception to it.
 - **All user-authored math goes through the formula engine** (`parseFormula` → `validateFormula` →
   `evaluateFormula`). No `eval`, no `new Function`, no hand-rolled arithmetic parsing.
 - **Base components (`components/ui/`) carry intrinsic styling only** — no margin, flex/grid,

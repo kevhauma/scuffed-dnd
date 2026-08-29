@@ -59,13 +59,22 @@ export function EquipmentSlotTile({
 }: EquipmentSlotTileProps) {
   const selectId = useId();
 
-  const filled = slot.item !== null;
+  const filled = slot.equipped !== null;
+
+  // A build the ruleset can no longer name — its template was deleted under the Player — is still
+  // *in* the slot and still says so, the way `MiscItemRow` names an unresolvable carried one. The
+  // engine grants nothing for it; hiding it would leave a slot that reads empty and cannot be filled.
+  const wornLabel = slot.equipped?.item?.name ?? 'Unknown item';
 
   // Whatever is in the slot stays in the list, so the control shows it as the current value and
-  // swapping is one gesture rather than unequip-then-equip
+  // swapping is one gesture rather than unequip-then-equip. The values are `ComposedItem.id`s since
+  // TICKET-INV-05 — one Player's builds rather than the catalog's templates.
   const options = [
-    ...(slot.item ? [{ value: slot.item.id, label: slot.item.name }] : []),
-    ...slot.candidates.map((item) => ({ value: item.id, label: item.name })),
+    ...(slot.equipped ? [{ value: slot.equipped.build.id, label: wornLabel }] : []),
+    ...slot.candidates.map((carried) => ({
+      value: carried.build.id,
+      label: carried.item?.name ?? 'Unknown item',
+    })),
   ];
 
   // A tile with nothing to choose is not a control, and must not light up like one
@@ -85,7 +94,7 @@ export function EquipmentSlotTile({
 
       {filled ? (
         <span className="text-center font-body text-xs font-semibold leading-tight text-parchment-50">
-          {slot.item?.name}
+          {wornLabel}
         </span>
       ) : (
         // The picture already says "empty" to anyone who can see it; this is the same fact for
@@ -99,13 +108,13 @@ export function EquipmentSlotTile({
         <Select
           id={selectId}
           aria-label={`Equip into ${slot.name}`}
-          value={slot.item?.id ?? ''}
+          value={slot.equipped?.build.id ?? ''}
           placeholder="Empty"
           options={options}
           onChange={(event) => {
-            const itemId = event.target.value;
-            if (itemId === '') onUnequip(slot.type);
-            else onEquip(slot.type, itemId);
+            const composedId = event.target.value;
+            if (composedId === '') onUnequip(slot.type);
+            else onEquip(slot.type, composedId);
           }}
           // Laid over the whole tile and made invisible: the box is the button. `inset-0` and the
           // sizing are the caller's positioning, which is what `className` is for.

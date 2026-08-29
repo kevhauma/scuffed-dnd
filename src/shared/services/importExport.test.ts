@@ -1159,6 +1159,73 @@ describe('Import/Export Service', () => {
       expect(validateConfigurationShape(validConfig).isValid).toBe(true);
       expect('mainSkillPointBudget' in validConfig).toBe(false);
     });
+
+    describe('a field retired from an entity rather than from the configuration (TICKET-INV-05)', () => {
+      // The fused `materialId` / `materialLevel` pair. A v4.0 file never reaches this — the version
+      // gate refuses anything not on schema 10 first (D6's clean break) — so what these cases pin is
+      // the *hand-edited* file that claims the current version while still fusing a tier onto a
+      // template: it is told where the pair went rather than importing an item made of nothing.
+      const fused = (retired: Record<string, unknown>): Configuration =>
+        ({
+          ...validConfig,
+          items: [{ id: 'axe', name: 'Axe', description: '', ...retired }],
+        }) as Configuration;
+
+      it('should reject an item still carrying the fused materialId', () => {
+        const stale = fused({ materialId: 'mat-iron' });
+
+        const result = validateConfigurationShape(stale);
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors.join(' ')).toContain('items[0].materialId');
+      });
+
+      it('should reject the tier half on its own too', () => {
+        const stale = fused({ materialLevel: 2 });
+
+        const result = validateConfigurationShape(stale);
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors.join(' ')).toContain('items[0].materialLevel');
+      });
+
+      it('should name what replaced the pair, not just refuse it', () => {
+        const stale = fused({ materialId: 'mat-iron' });
+
+        const result = validateConfigurationShape(stale);
+        const errors = result.errors.join(' ');
+
+        expect(errors).toContain('composed item');
+        expect(errors).toContain('TICKET-INV-05');
+      });
+
+      it('should reject a retired entity field whatever its value, including zero', () => {
+        // `materialLevel: 0` was never meaningful, but a falsy value must not slip past the
+        // presence check — the same rule the configuration-level cases above pin
+        const stale = fused({ materialLevel: 0 });
+
+        const result = validateConfigurationShape(stale);
+
+        expect(result.isValid).toBe(false);
+      });
+
+      it('should refuse the import outright rather than dropping the fields', () => {
+        // Silently dropping them would import a catalog that plays differently from the one the
+        // User exported: every item made of iron would become an item made of nothing
+        const stale = fused({ materialId: 'mat-iron' });
+        const text = JSON.stringify(stale);
+
+        expect(() => importConfiguration(text)).toThrow(ValidationError);
+      });
+
+      it('should accept a template on the current shape, which fuses nothing', () => {
+        const current = fused({});
+
+        const result = validateConfigurationShape(current);
+
+        expect(result.isValid).toBe(true);
+      });
+    });
   });
 
   describe('constants round-trip (TICKET-CST-01)', () => {

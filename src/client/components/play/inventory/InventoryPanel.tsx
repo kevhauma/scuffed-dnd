@@ -6,7 +6,13 @@
  *
  * Equipping changes what the rest of the sheet shows: `calculateCharacter` reads
  * `inventory.equippedItems` at render time, so no recalculation is triggered from here
- * (Requirements 13.1, 13.3, 13.5).
+ * (Requirements 13.1, 13.3, 13.5). Since TICKET-INV-05 those ids name the character's **builds**,
+ * and the tiers each build is made of are read at that same moment — so retuning a material moves
+ * every sheet wearing it without anything here being told.
+ *
+ * **The picker still offers templates**, because building one is what putting a thing in your pack
+ * means; the three-column builder that also picks a material and an inlay tier is TICKET-INV-06's,
+ * as is the Backpack that will replace this flat pack list.
  *
  * **Validates: Requirements 12.1, 12.2, 12.4, 12.5, 12.6, 13.1, 13.3, 13.5, 21.1-21.5**
  */
@@ -73,11 +79,7 @@ export function InventoryPanel({ characterId }: InventoryPanelProps) {
         <Text variant="body-small-secondary">Nothing carried.</Text>
       ) : (
         miscItems.map((entry) => (
-          <MiscItemRow
-            key={`${entry.item?.id ?? 'unknown'}-${entry.index}`}
-            entry={entry}
-            onRemove={handleRemoveItem}
-          />
+          <MiscItemRow key={entry.build.id} entry={entry} onRemove={handleRemoveItem} />
         ))
       )}
 

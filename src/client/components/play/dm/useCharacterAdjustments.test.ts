@@ -42,7 +42,7 @@ function aCharacter(updatedAt: string): Character {
     investedSkillPoints: {},
     currentResourceValues: {},
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [] },
+    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt,
   };

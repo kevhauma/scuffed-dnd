@@ -1,7 +1,12 @@
 /**
  * Items Configuration Panel
  *
- * Manages items with filtering, material assignment, and equipment slot selection.
+ * Manages item **templates** with filtering, shop grouping and equipment slot selection.
+ *
+ * **What a thing is made of is not configured here since TICKET-INV-05** (v4 systems/12). The panel
+ * assigned a material and a tier to each template, which made "Battleaxe" unrepresentable without
+ * first choosing a metal; the composition is a Player's build now, so the material picker lives on
+ * TICKET-INV-06's builder and this panel defines shapes.
  *
  * **Slots are defined in `EquipmentSlotsConfigPanel`, not here** (CR-20). This panel used to carry
  * its own slot list, its own "Add Equipment Slot" button and its own dialog, all of it a second
@@ -34,9 +39,7 @@ export function ItemsConfigPanel() {
     config,
     filteredItems,
     shopGroups,
-    materials,
     equipmentSlots,
-    stats,
     skills,
     skillOptions,
     itemCategories,
@@ -61,16 +64,15 @@ export function ItemsConfigPanel() {
   return (
     <ConfigPanelShell
       title="Items"
-      description="Define items, what they are made of, and where they are worn"
+      description="Define item templates, what wielding them changes, and where they are worn"
       actions={
         <Button variant="primary" onClick={handleAddItem}>
           Add Item
         </Button>
       }
       prerequisites={[
-        ...(materials.length === 0
-          ? ['No materials configured yet. Add materials first to assign them to items.']
-          : []),
+        // The materials prerequisite went with the fused pair (TICKET-INV-05): a template names no
+        // material, so a ruleset with no materials at all can still have a complete item catalog
         ...(equipmentSlots.length === 0
           ? [
               'No equipment slots configured yet. Add them under Configuration → Equipment to make items equippable.',
@@ -134,9 +136,7 @@ export function ItemsConfigPanel() {
                     <ItemCard
                       key={item.id}
                       item={item}
-                      materials={materials}
                       equipmentSlots={equipmentSlots}
-                      stats={stats}
                       skills={skills}
                       onEdit={handleEditItem}
                       onDelete={handleDeleteItem}
@@ -154,7 +154,6 @@ export function ItemsConfigPanel() {
         isOpen={isItemDialogOpen}
         isEditing={!!editingItemId}
         form={itemForm}
-        materials={materials}
         equipmentSlots={equipmentSlots}
         skillOptions={skillOptions}
         onClose={() => setIsItemDialogOpen(false)}

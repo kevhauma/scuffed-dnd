@@ -10,7 +10,7 @@
 
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Character } from '#shared/types/character';
+import type { Character, ComposedItem, Inventory } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
 
 const navigate = vi.fn();
@@ -36,7 +36,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 9,
+    schemaVersion: 10,
     stats: [
       {
         id: 'STR',
@@ -116,22 +116,8 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     ],
     materialCategories: [{ id: 'metal', name: 'Metal', description: '' }],
     items: [
-      {
-        id: 'helm',
-        name: 'Iron Helm',
-        description: '',
-        equipmentSlotType: 'helmet',
-        materialId: 'iron',
-        materialLevel: 1,
-      },
-      {
-        id: 'blade',
-        name: 'Steel Blade',
-        description: '',
-        equipmentSlotType: 'main_hand',
-        materialId: 'steel',
-        materialLevel: 1,
-      },
+      { id: 'helm', name: 'Iron Helm', description: '', equipmentSlotType: 'helmet' },
+      { id: 'blade', name: 'Steel Blade', description: '', equipmentSlotType: 'main_hand' },
       { id: 'rope', name: 'Rope', description: '' },
     ],
     equipmentSlots: [
@@ -146,7 +132,25 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
   };
 }
 
-function createCharacter(overrides: Partial<Character> = {}): Character {
+/**
+ * What the fixture character has built, one per template in the ruleset above
+ *
+ * TICKET-INV-05 moved the material link off the template and onto the thing a Player made — an Iron
+ * Helm is a *helm built out of Iron 1* now — so the stat bonuses these cases read come from here.
+ * **The build's id is the template's id**, a readability choice rather than a rule: every case says
+ * `miscItems: ['helm']` and means the obvious thing.
+ */
+const BUILDS: ComposedItem[] = [
+  { id: 'helm', templateId: 'helm', materialId: 'iron', materialLevel: 1 },
+  { id: 'blade', templateId: 'blade', materialId: 'steel', materialLevel: 1 },
+  { id: 'rope', templateId: 'rope' },
+];
+
+function createCharacter(
+  overrides: Partial<Omit<Character, 'inventory'>> & { inventory?: Partial<Inventory> } = {}
+): Character {
+  const { inventory, ...rest } = overrides;
+
   return {
     id: 'char1',
     name: 'Aria',
@@ -156,10 +160,10 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     investedSkillPoints: {},
     currentResourceValues: { health: 50 },
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
-    ...overrides,
+    ...rest,
+    inventory: { equippedItems: {}, miscItems: [], composedItems: BUILDS, ...inventory },
   };
 }
 
@@ -322,7 +326,13 @@ describe('InventoryPanel', () => {
     expect(within(rowFor('no slot')).getByText('Rope')).toBeDefined();
   });
 
-  it('should add an item from the ruleset to the pack', () => {
+  it('should build a template from the ruleset into the pack (TICKET-INV-05)', () => {
+    // The picker still offers *templates*, because building one is what taking a thing means; what
+    // lands in the pack is a new `ComposedItem` whose id nothing outside the character has seen
+    useCharacterStore.setState({
+      characters: [createCharacter({ inventory: { composedItems: [] } })],
+    });
+
     render(<InventoryPanel characterId="char1" />);
 
     fireEvent.change(screen.getByLabelText('Add an item to the pack'), {
@@ -330,7 +340,10 @@ describe('InventoryPanel', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Add to Pack' }));
 
-    expect(inventory().miscItems).toEqual(['rope']);
+    const built = inventory();
+
+    expect(built.composedItems).toEqual([{ id: expect.any(String), templateId: 'rope' }]);
+    expect(built.miscItems).toEqual([built.composedItems[0].id]);
   });
 
   it('should move an item from a slot back to the pack and in again', () => {
@@ -367,6 +380,10 @@ describe('InventoryPanel', () => {
   });
 
   it('should persist through the store rather than storage directly', () => {
+    useCharacterStore.setState({
+      characters: [createCharacter({ inventory: { composedItems: [] } })],
+    });
+
     render(<InventoryPanel characterId="char1" />);
 
     fireEvent.change(screen.getByLabelText('Add an item to the pack'), {
@@ -374,7 +391,10 @@ describe('InventoryPanel', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Add to Pack' }));
 
-    expect(useCharacterStore.getState().characters[0].inventory.miscItems).toEqual(['rope']);
+    const stored = useCharacterStore.getState().characters[0].inventory;
+
+    expect(stored.miscItems).toHaveLength(1);
+    expect(stored.composedItems[0].templateId).toBe('rope');
   });
 });
 
@@ -415,11 +435,15 @@ describe('a ruleset’s slot count', () => {
       equipmentSlotType: type,
     }));
     const carried = items.map((item) => item.id);
+    // One build per template, with the build's id matching the template's — the pack holds builds
+    const composedItems = items.map((item) => ({ id: item.id, templateId: item.id }));
 
     useConfigStore.setState({ config: createConfig({ equipmentSlots, items }), isLoaded: true });
     useConfigStore.getState().seedEquipmentLayout();
     useCharacterStore.setState({
-      characters: [createCharacter({ inventory: { equippedItems: {}, miscItems: carried } })],
+      characters: [
+        createCharacter({ inventory: { equippedItems: {}, miscItems: carried, composedItems } }),
+      ],
       isLoaded: true,
     });
   }

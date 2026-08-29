@@ -38,9 +38,19 @@ describe('ItemsConfigPanel', () => {
     expect(screen.queryByRole('button', { name: 'Add Equipment Slot' })).toBeNull();
   });
 
-  it('shows warning when no materials configured', () => {
+  it('no longer asks for materials before a template can be defined (TICKET-INV-05)', () => {
+    // A template names no material since the fused pair retired, so a ruleset with no materials at
+    // all can have a complete item catalog — the prerequisite went with the picker it pointed at
     render(<ItemsConfigPanel />);
-    expect(screen.getByText(/No materials configured yet/)).toBeDefined();
+    expect(screen.queryByText(/No materials configured yet/)).toBeNull();
+  });
+
+  it('offers no material picker in the form (TICKET-INV-05)', () => {
+    render(<ItemsConfigPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add Item' }));
+
+    // What a thing is made of is chosen when a Player builds one — TICKET-INV-06's builder
+    expect(screen.queryByLabelText(/^Material/)).toBeNull();
   });
 
   it('points at the equipment page when no equipment slots are configured', () => {
@@ -86,7 +96,7 @@ describe('ItemsConfigPanel', () => {
         id: 'config1',
         name: 'Test Config',
         version: '1.0',
-        schemaVersion: 9,
+        schemaVersion: 10,
         stats: [],
         skills: SKILLS,
         materials: [],

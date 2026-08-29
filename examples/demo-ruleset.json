@@ -2,7 +2,7 @@
   "id": "demo-ruleset-0001",
   "name": "Emberfall Demo Ruleset",
   "version": "1.0.0",
-  "schemaVersion": 9,
+  "schemaVersion": 10,
   "skills": [
     {
       "id": "skill-stealth",
@@ -290,8 +290,6 @@
       "name": "Longsword",
       "description": "A dependable double-edged blade.",
       "categoryId": "cat-metal",
-      "materialId": "mat-battle-metal",
-      "materialLevel": 2,
       "equipmentSlotType": "main_hand"
     },
     {
@@ -299,8 +297,6 @@
       "name": "Hunting Bow",
       "description": "A shortbow strung for the chase.",
       "categoryId": "cat-wood",
-      "materialId": "mat-heartwood",
-      "materialLevel": 2,
       "equipmentSlotType": "main_hand"
     },
     {
@@ -308,8 +304,6 @@
       "name": "Leather Jerkin",
       "description": "Light armour that doesn't slow you down.",
       "categoryId": "cat-leather",
-      "materialId": "mat-beast-hide",
-      "materialLevel": 2,
       "equipmentSlotType": "chest"
     },
     {
@@ -317,8 +311,6 @@
       "name": "Iron Helm",
       "description": "A plain but sturdy helmet.",
       "categoryId": "cat-metal",
-      "materialId": "mat-battle-metal",
-      "materialLevel": 1,
       "equipmentSlotType": "head"
     },
     {
@@ -326,8 +318,6 @@
       "name": "Wooden Buckler",
       "description": "A small round shield of pine.",
       "categoryId": "cat-wood",
-      "materialId": "mat-heartwood",
-      "materialLevel": 1,
       "equipmentSlotType": "off_hand"
     },
     {
@@ -335,8 +325,6 @@
       "name": "Traveler's Boots",
       "description": "Broken-in rawhide boots, quiet on the road.",
       "categoryId": "cat-leather",
-      "materialId": "mat-beast-hide",
-      "materialLevel": 1,
       "equipmentSlotType": "feet"
     },
     {

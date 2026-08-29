@@ -26,7 +26,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 9,
+    schemaVersion: 10,
     stats: [
       {
         id: 'id-str',
@@ -112,7 +112,7 @@ function createCharacter(): Character {
     investedSkillPoints: { 'id-stl': 3 },
     currentResourceValues: {},
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [] },
+    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
   };
@@ -527,7 +527,7 @@ describe('the rename test (Concept 00 §6)', () => {
   it('leaves a link-shaped reference alone — it already points at an id', () => {
     const config = createConfig({
       races: [{ id: 'race1', name: 'Dwarf', description: '', statValues: {} }],
-      items: [{ id: 'item1', name: 'Axe', description: '', materialId: 'mat1' }],
+      items: [{ id: 'item1', name: 'Axe', description: '', equipmentSlotType: 'main_hand' }],
     });
 
     const renamed = rename(config, (current) => ({
@@ -536,7 +536,9 @@ describe('the rename test (Concept 00 §6)', () => {
     }));
 
     expect(renamed.races[0].id).toBe('race1');
-    expect(renamed.items[0].materialId).toBe('mat1');
+    // A slot type, since TICKET-INV-05 retired the template's `materialId` — the point is
+    // unchanged: a link-shaped field is copied across verbatim rather than re-spelled
+    expect(renamed.items[0].equipmentSlotType).toBe('main_hand');
   });
 });
 

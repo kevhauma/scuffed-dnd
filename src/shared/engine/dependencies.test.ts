@@ -16,7 +16,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 9,
+    schemaVersion: 10,
     stats: [
       {
         id: 'id-str',
@@ -97,12 +97,19 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
       },
     ],
     materialCategories: [{ id: 'metal', name: 'Metal', description: '' }],
+    inlays: [
+      {
+        id: 'diamond',
+        name: 'Diamond',
+        description: '',
+        tiers: [{ tier: 1, bonuses: [{ statId: 'id-str', modifier: 4 }] }],
+      },
+    ],
     items: [
       {
         id: 'axe',
         name: 'Axe',
         description: '',
-        materialId: 'iron',
         equipmentSlotType: 'main_hand',
       },
     ],
@@ -132,7 +139,22 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     investedSkillPoints: { STL: 2 },
     currentResourceValues: { 'id-hp': 30 },
     experience: 0,
-    inventory: { equippedItems: { main_hand: 'axe' }, miscItems: [] },
+    // One build — an Iron 1 Axe with a Diamond 1 inlay — worn in the one slot. All three guarded
+    // deletes this file exercises reach the character through it (TICKET-INV-05).
+    inventory: {
+      equippedItems: { main_hand: 'build-axe' },
+      miscItems: [],
+      composedItems: [
+        {
+          id: 'build-axe',
+          templateId: 'axe',
+          materialId: 'iron',
+          materialLevel: 1,
+          inlayId: 'diamond',
+          inlayLevel: 1,
+        },
+      ],
+    },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     ...overrides,
@@ -156,6 +178,7 @@ describe('findReferences', () => {
         'Roll Definition: Melee',
         'Race: Dwarf',
         'Material: Iron',
+        'Inlay: Diamond',
         'Character: Aria',
       ]);
     });
@@ -327,6 +350,7 @@ describe('findReferences', () => {
         ],
         races: [],
         materials: [],
+        inlays: [],
       });
 
       expect(findReferences({ kind: 'stat', id: 'id-str' }, config, [])).toEqual([]);
@@ -481,22 +505,99 @@ describe('findReferences', () => {
     ).toEqual([]);
   });
 
-  it('finds an item in an inventory, equipped or loose', () => {
+  it('finds an item template through the builds made from it, equipped or loose', () => {
+    // `equippedItems` and `miscItems` hold `ComposedItem.id`s since TICKET-INV-05, so the walk is
+    // over `composedItems[].templateId` and a build in the pack counts exactly as a worn one does
+    const loose = createCharacter({
+      inventory: {
+        equippedItems: {},
+        miscItems: ['build-axe'],
+        composedItems: [{ id: 'build-axe', templateId: 'axe' }],
+      },
+    });
+
     const equipped = findReferences({ kind: 'item', id: 'axe' }, createConfig(), [
       createCharacter(),
     ]);
-    const loose = findReferences({ kind: 'item', id: 'axe' }, createConfig(), [
-      createCharacter({ inventory: { equippedItems: {}, miscItems: ['axe'] } }),
-    ]);
+    const carried = findReferences({ kind: 'item', id: 'axe' }, createConfig(), [loose]);
 
     expect(holders(equipped)).toEqual(['Character: Aria']);
-    expect(holders(loose)).toEqual(['Character: Aria']);
+    expect(holders(carried)).toEqual(['Character: Aria']);
+    expect(equipped[0].field).toBe('inventory.composedItems[].templateId');
   });
 
-  it('finds a material on an item', () => {
-    expect(holders(findReferences({ kind: 'material', id: 'iron' }, createConfig(), []))).toEqual([
-      'Item: Axe',
+  it('finds nothing for a template nobody has built', () => {
+    const unbuilt = createConfig({
+      items: [{ id: 'spare', name: 'Spare', description: '' }],
+    });
+
+    const builder = createCharacter();
+    const found = findReferences({ kind: 'item', id: 'spare' }, unbuilt, [builder]);
+
+    expect(found).toEqual([]);
+  });
+
+  it('finds a material through the character who built something out of it (TICKET-INV-05)', () => {
+    // Was a walk over `config.items` until the fused pair retired: a template names no material, so
+    // the holder is the Player whose axe is made of it
+    const found = findReferences({ kind: 'material', id: 'iron' }, createConfig(), [
+      createCharacter(),
     ]);
+
+    expect(holders(found)).toEqual(['Character: Aria']);
+    expect(found[0].field).toBe('inventory.composedItems[].materialId');
+  });
+
+  it('finds nothing for a material nobody has built with', () => {
+    const found = findReferences({ kind: 'material', id: 'iron' }, createConfig(), []);
+
+    expect(found).toEqual([]);
+  });
+
+  it('finds an inlay through the character who socketed it (TICKET-INV-05)', () => {
+    // The arm TICKET-INL-01 shipped empty, filled the moment something could point at a gem.
+    // `inlayReferenceArm.test.ts` is what makes leaving it empty a failure rather than a silence.
+    const found = findReferences({ kind: 'inlay', id: 'diamond' }, createConfig(), [
+      createCharacter(),
+    ]);
+
+    expect(holders(found)).toEqual(['Character: Aria']);
+    expect(found[0].field).toBe('inventory.composedItems[].inlayId');
+  });
+
+  it('finds nothing for an inlay nobody has socketed', () => {
+    const emptySocket = createCharacter({
+      inventory: {
+        equippedItems: { main_hand: 'build-axe' },
+        miscItems: [],
+        composedItems: [
+          { id: 'build-axe', templateId: 'axe', materialId: 'iron', materialLevel: 1 },
+        ],
+      },
+    });
+
+    const found = findReferences({ kind: 'inlay', id: 'diamond' }, createConfig(), [emptySocket]);
+
+    expect(found).toEqual([]);
+  });
+
+  it('names a Player once however many builds of theirs point at the same part', () => {
+    const hoarder = createCharacter({
+      inventory: {
+        equippedItems: { main_hand: 'build-1' },
+        miscItems: ['build-2', 'build-3'],
+        composedItems: [1, 2, 3].map((n) => ({
+          id: `build-${n}`,
+          templateId: 'axe',
+          materialId: 'iron',
+          materialLevel: 1,
+        })),
+      },
+    });
+
+    const found = findReferences({ kind: 'material', id: 'iron' }, createConfig(), [hoarder]);
+
+    expect(found).toHaveLength(1);
   });
 
   it('finds a material category on a material', () => {
@@ -533,6 +634,7 @@ describe('findReferences', () => {
       stats: [],
       races: [],
       materials: [],
+      inlays: [],
       items: [],
     });
 

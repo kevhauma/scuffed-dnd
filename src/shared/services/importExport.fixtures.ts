@@ -19,7 +19,7 @@ export function makeValidConfiguration(): Configuration {
     id: 'test-config',
     name: 'Test Config',
     version: '1.0.0',
-    schemaVersion: 9,
+    schemaVersion: 10,
     stats: [
       {
         id: 'STR',

@@ -31,7 +31,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 9,
+    schemaVersion: 10,
     stats: [
       {
         id: 'STR',
@@ -622,7 +622,7 @@ describe('CharacterCreationWizard', () => {
         investedSkillPoints: { STL: 1 },
         currentResourceValues: {},
         experience: 0,
-        inventory: { equippedItems: {}, miscItems: [] },
+        inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
         createdAt: '',
         updatedAt: '',
       },
@@ -687,7 +687,11 @@ describe('CharacterCreationWizard', () => {
       configurationId: 'config1',
     });
     // Empty inventory — slots come from the configuration, not from the character (Req 11.6)
-    expect(characters[0].inventory).toEqual({ equippedItems: {}, miscItems: [] });
+    expect(characters[0].inventory).toEqual({
+      equippedItems: {},
+      miscItems: [],
+      composedItems: [],
+    });
 
     // …and the result is a v2 character: points keyed by stat *id*, resources seeded to their
     // calculated maximum, and nothing left of the v1 main-skill map (TICKET-STAT-01, STAT-03)

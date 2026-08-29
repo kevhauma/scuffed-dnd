@@ -306,6 +306,13 @@ should re-open it.
   The React 19 + Vitest hooks-dispatcher failures were fixed by TICKET-DX-01; a failing or
   newly-skipped test is a regression, not background noise. Never skip a test to make a run look
   clean.
+- **When a reshape puts a new id layer under an existing one, let the fixture's ids agree**
+  (TICKET-INV-05). `equippedItems` came to hold a `ComposedItem.id` where it held an `Item.id`, and
+  the fixtures that keep reading `{ main_hand: 'item-sword' }` — with a build whose `id` *is*
+  `item-sword` — are the ones whose cases still say what they are about. Spell the new layer out only
+  where it is the subject: the composition tests name `build-1` because the indirection is the point,
+  and `calculator.test.ts` does not because equipment bonuses are. A `holding(...)` / `wielder(...)`
+  builder that derives the ids is better than either when a case needs several.
 
 ## Verification
 

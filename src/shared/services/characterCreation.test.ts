@@ -50,7 +50,7 @@ describe('buildCharacter', () => {
       investedStatPoints: { a: 1 },
       // A fresh character has earned nothing, which the seeded curve reads as level 1
       experience: 0,
-      inventory: { equippedItems: {}, miscItems: [] },
+      inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
       createdAt: IDENTITY.now,
       updatedAt: IDENTITY.now,
     });

@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { serializeConfiguration } from '#shared/services/importExport';
 import type { Configuration } from '#shared/types/config';
 import type { Database } from '../db/client';
-import { realRulesetJson, withTestDatabase } from '../testing';
+import { corpusSchemaVersion, realRulesetJson, withTestDatabase } from '../testing';
 import {
   findRuleset,
   insertRuleset,
@@ -39,7 +39,9 @@ function storeDucklets(database: Database, id = 'r1', owner = 'a1') {
       id,
       ownerAccountId: owner,
       name: 'Ducklets',
-      schemaVersion: 9,
+      // Read from the corpus rather than restated (TICKET-INV-05): the column and the `data`
+      // document have to agree, and a literal here silently stopped agreeing at the 9 → 10 bump
+      schemaVersion: corpusSchemaVersion(),
       data: ducklets,
       now: 1_700_000_000_000,
     },
@@ -97,7 +99,9 @@ describe('rulesetRepository', () => {
 
     it('keeps the schema version as a real column, because the server gates on it', () =>
       withTestDatabase((database) => {
-        expect(storeDucklets(database).schemaVersion).toBe(9);
+        // The column and the document it describes, asserted against each other rather than against
+        // a literal — the point of the column is that it answers for the `data` beside it
+        expect(storeDucklets(database).schemaVersion).toBe(corpusSchemaVersion());
       }));
   });
 

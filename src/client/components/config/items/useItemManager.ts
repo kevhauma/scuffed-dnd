@@ -13,7 +13,12 @@
  * shop that sells it. Both are edited here; the vector is stored **sparsely**, so the save path
  * prunes rows worth nothing rather than writing 48 zeroes per template.
  *
- * **Validates: Requirements 7.1, 7.2, 7.3, 7.4; v4 systems/11**
+ * **Materials are not this hook's either, since TICKET-INV-05** (v4 systems/12). The form carried a
+ * `materialId` and a `materialLevel` and wrote them onto the template; both retired with the fused
+ * pair, because what a thing is made of is a fact about the thing a Player *built*. So the ruleset's
+ * material list is no longer read here at all — TICKET-INV-06's builder is where a tier is picked.
+ *
+ * **Validates: Requirements 7.1, 7.2, 7.3, 7.4; v4 systems/11, systems/12**
  */
 
 import { useState } from 'react';
@@ -30,8 +35,6 @@ export interface ItemFormData {
   categoryId: string;
   /** Which shop sells this template; blank means it is in no shop */
   shop: string;
-  materialId: string;
-  materialLevel: number;
   equipmentSlotType: string;
   /** What wielding it does to each skill it moves — sparse once saved */
   skillBonuses: SkillModifier[];
@@ -43,8 +46,6 @@ const EMPTY_ITEM_FORM: ItemFormData = {
   description: '',
   categoryId: '',
   shop: '',
-  materialId: '',
-  materialLevel: 1,
   equipmentSlotType: '',
   skillBonuses: [],
 };
@@ -96,11 +97,8 @@ export function useItemManager() {
   const itemForm = useForm<ItemFormData>({ defaultValues: EMPTY_ITEM_FORM });
 
   const items = config?.items || [];
-  const materials = config?.materials || [];
   /** Read-only: which slots an item may be assigned to, and how to spell the one it has */
   const equipmentSlots = config?.equipmentSlots || [];
-  // For spelling a material tier's stat modifiers on the item card (TICKET-MAT-01)
-  const stats = config?.stats || [];
   // The skills a template's vector may target, and how to spell the ones it moves (TICKET-ITEM-01).
   // **Every** skill, unfiltered: a skill is a skill, and there is no derived-stat equivalent here to
   // keep off the picker — which is why this is not a third `modifiableStats`
@@ -130,8 +128,6 @@ export function useItemManager() {
       description: item.description,
       categoryId: item.categoryId || '',
       shop: item.shop ?? '',
-      materialId: item.materialId || '',
-      materialLevel: item.materialLevel || 1,
       equipmentSlotType: item.equipmentSlotType || '',
       skillBonuses: item.skillBonuses ?? [],
     });
@@ -156,8 +152,6 @@ export function useItemManager() {
       // key, so clearing the shop leaves no `"shop": ""` behind — `useInlayManager`'s rule for a
       // heading, and `addItem` runs the same cleaner on the way in
       shop: shop === '' ? undefined : shop,
-      materialId: data.materialId || undefined,
-      materialLevel: data.materialId ? data.materialLevel : undefined,
       equipmentSlotType: data.equipmentSlotType || undefined,
       skillBonuses: bonuses,
     };
@@ -181,8 +175,6 @@ export function useItemManager() {
     // than leaving an empty shop standing. The headings are whatever the ruleset's own words are —
     // `shared/labelledGroups`, the same rule the sheet's stat columns and the gem panel use
     shopGroups: groupByLabel(filteredItems, (item) => item.shop),
-    materials,
-    stats,
     skills,
     skillOptions,
     equipmentSlots,

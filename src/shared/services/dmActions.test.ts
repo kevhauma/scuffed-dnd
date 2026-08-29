@@ -38,7 +38,7 @@ const RULES = {
   id: 'config-1',
   name: 'Test',
   version: '1.0',
-  schemaVersion: 9,
+  schemaVersion: 10,
   stats: [
     {
       id: 'stat-str',
@@ -105,7 +105,7 @@ function aCharacter(overrides: Partial<Character> = {}): Character {
     investedSkillPoints: {},
     currentResourceValues: {},
     experience: 0,
-    inventory: { equippedItems: {}, miscItems: [] },
+    inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
     ...overrides,

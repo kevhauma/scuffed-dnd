@@ -32,7 +32,7 @@ function createMinimalConfig(): Configuration {
     id: 'test-config',
     name: 'Test Configuration',
     version: '1.0.0',
-    schemaVersion: 9,
+    schemaVersion: 10,
     stats: [
       stat('STR', 'Strength', 'STR'),
       stat('DEX', 'Dexterity', 'DEX'),
@@ -186,35 +186,15 @@ describe('validateConfiguration', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should validate items with valid equipment slot and material references', () => {
+    it('should validate items with a valid equipment slot reference', () => {
       const config = createMinimalConfig();
       config.equipmentSlots = [{ type: 'helmet', name: 'Helmet', description: '' }];
-      config.materialCategories = [{ id: 'metals', name: 'Metals', description: '' }];
-      config.currencyTiers = [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 1 }];
-      config.materials = [
-        {
-          id: 'iron',
-          name: 'Iron',
-          description: '',
-          categoryId: 'metals',
-          levels: [
-            {
-              level: 1,
-              name: 'Iron',
-              bonuses: [],
-              value: { tierId: 'gold', amount: 10 },
-            },
-          ],
-        },
-      ];
       config.items = [
         {
-          id: 'iron-helmet',
-          name: 'Iron Helmet',
+          id: 'helmet',
+          name: 'Helmet',
           description: '',
           equipmentSlotType: 'helmet',
-          materialId: 'iron',
-          materialLevel: 1,
         },
       ];
 
@@ -689,61 +669,19 @@ describe('validateConfiguration', () => {
       expect(result.errors[0].message).toContain('nonexistent');
     });
 
-    it('should detect invalid material reference in item', () => {
+    it('reports nothing about what an item is made of, which is no longer a ruleset fact', () => {
+      // TICKET-INV-05 retired the template's fused `materialId` / `materialLevel`, so the two cases
+      // that used to live here — a dangling material and a dangling tier — have no `Configuration`
+      // reference left to dangle. The same question is asked of a *character's* composed record, and
+      // answered by the engine granting nothing and by INV-06's picker refusing the rung; neither is
+      // visible to a report that reads a ruleset.
       const config = createMinimalConfig();
-      config.items = [
-        {
-          id: 'sword',
-          name: 'Sword',
-          description: '',
-          materialId: 'nonexistent',
-        },
-      ];
+      config.items = [{ id: 'sword', name: 'Sword', description: '' }];
 
       const result = validateConfiguration(config);
 
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors[0].message).toContain('Sword');
-      expect(result.errors[0].message).toContain('nonexistent');
-    });
-
-    it('should detect invalid material level in item', () => {
-      const config = createMinimalConfig();
-      config.materialCategories = [{ id: 'metals', name: 'Metals', description: '' }];
-      config.currencyTiers = [{ id: 'gold', name: 'Gold', order: 0, conversionToNext: 1 }];
-      config.materials = [
-        {
-          id: 'iron',
-          name: 'Iron',
-          description: '',
-          categoryId: 'metals',
-          levels: [
-            {
-              level: 1,
-              name: 'Iron',
-              bonuses: [],
-              value: { tierId: 'gold', amount: 10 },
-            },
-          ],
-        },
-      ];
-      config.items = [
-        {
-          id: 'sword',
-          name: 'Sword',
-          description: '',
-          materialId: 'iron',
-          materialLevel: 99, // Non-existent level
-        },
-      ];
-
-      const result = validateConfiguration(config);
-
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors[0].message).toContain('Sword');
-      expect(result.errors[0].message).toContain('level 99');
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
     });
 
     it('should detect a dangling stat reference in material bonuses (TICKET-MAT-01)', () => {

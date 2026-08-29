@@ -44,7 +44,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
     id: 'config1',
     name: 'Test Config',
     version: '1.0',
-    schemaVersion: 9,
+    schemaVersion: 10,
     stats: [
       stat({ id: 'str-id', name: 'Strength', abbreviation: 'STR', order: 0 }),
       stat({ id: 'dex-id', name: 'Dexterity', abbreviation: 'DEX', order: 1 }),
@@ -195,7 +195,7 @@ describe('ArchetypesConfigPanel', () => {
             investedSkillPoints: {},
             currentResourceValues: {},
             experience: 0,
-            inventory: { equippedItems: {}, miscItems: [] },
+            inventory: { equippedItems: {}, miscItems: [], composedItems: [] },
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01',
           },
