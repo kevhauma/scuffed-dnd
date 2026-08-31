@@ -21,6 +21,7 @@ import { focusPicksOf } from '../engine/focusSkills';
 import type { Character, ComposedItem } from '../types/character';
 import type { Configuration } from '../types/config';
 import {
+  addLearnedSpell,
   adjustPurseBy,
   adjustResourceValue,
   chooseFocusSkills,
@@ -32,9 +33,11 @@ import {
   isRefusal,
   type PlayerActionChange,
   type PlayerActionResult,
+  removeLearnedSpell,
   resetResourceToMax,
   setPurseAmount,
   setResourceValue,
+  spendSpellCost,
   unequipSlot,
 } from './playerActions';
 
@@ -111,6 +114,26 @@ const RULES = {
     { type: 'feet', name: 'Feet', description: '' },
   ],
   races: [],
+  // Three spells, and the middle one is **unpriced on purpose** — the sheet's `mighty fortress` has
+  // its mana and range columns swapped, so its cost cell reads `1 Mile` and the compendium records
+  // no number at all (TICKET-SPL-01). Casting it is the case that proves the app never invents one.
+  spells: [
+    {
+      id: 'spell-bolt',
+      name: 'Firebolt',
+      rangeTime: '120 Feet',
+      effectTemplate: 'deals damage',
+      manaCost: 10,
+    },
+    { id: 'spell-fortress', name: 'mighty fortress', rangeTime: '270', effectTemplate: '' },
+    {
+      id: 'spell-storm',
+      name: 'Meteor Storm',
+      rangeTime: '1 mile',
+      effectTemplate: '',
+      manaCost: 100,
+    },
+  ],
   currencyTiers: [],
   // A budget of five, so a spend can be both affordable and unaffordable here. `points_per_level`
   // and the `xp_thresholds` curve are both required for a level to be *priceable* at all — without
@@ -700,5 +723,137 @@ describe('building a thing', () => {
 
     expect(after.inventory.equippedItems).toEqual({});
     expect(after.inventory.composedItems).toEqual([]);
+  });
+});
+
+describe('learning and unlearning spells (TICKET-SPL-02)', () => {
+  it('puts a spell in the book, reporting it as something that came into being', () => {
+    const change = accepted(addLearnedSpell(aCharacter(), RULES, 'spell-bolt'));
+
+    expect(change.character.learnedSpellIds).toEqual(['spell-bolt']);
+    expect(change.before).toBeNull();
+    expect(change.after).toBe('spell-bolt');
+  });
+
+  it('gates nothing — no level, no skill, no archetype', () => {
+    // The User's ruling: spells unlock manually, exactly as the workbook does it. A character with
+    // nothing spent and no experience learns as readily as one at level 20.
+    const novice = aCharacter({ experience: 0, investedStatPoints: {} });
+
+    expect(isRefusal(addLearnedSpell(novice, RULES, 'spell-storm'))).toBe(false);
+  });
+
+  it('refuses a spell this ruleset does not have', () => {
+    expect(refusal(addLearnedSpell(aCharacter(), RULES, 'spell-ghost'))).toBe(
+      'This ruleset has no such spell.'
+    );
+  });
+
+  it('refuses a second copy rather than storing an id nothing could tell apart', () => {
+    const knows = aCharacter({ learnedSpellIds: ['spell-bolt'] });
+
+    expect(refusal(addLearnedSpell(knows, RULES, 'spell-bolt'))).toBe(
+      'Firebolt is already in this Spellbook.'
+    );
+  });
+
+  it('takes a spell back out again, leaving the others where they were', () => {
+    const knows = aCharacter({ learnedSpellIds: ['spell-bolt', 'spell-storm'] });
+    const change = accepted(removeLearnedSpell(knows, 'spell-bolt'));
+
+    expect(change.character.learnedSpellIds).toEqual(['spell-storm']);
+    expect(change.before).toBe('spell-bolt');
+    expect(change.after).toBeNull();
+  });
+
+  it('round-trips to the document it started from, field and all', () => {
+    // *None* has one spelling: the field is not there. A character who forgot their last spell and
+    // one who never learned any have to be the same document, or an export tells them apart.
+    const learned = accepted(addLearnedSpell(aCharacter(), RULES, 'spell-bolt')).character;
+    const forgotten = accepted(removeLearnedSpell(learned, 'spell-bolt')).character;
+
+    expect('learnedSpellIds' in forgotten).toBe(false);
+  });
+
+  it('clears an id the ruleset has lost, which is the one thing it exists for', () => {
+    // Deleting a learned spell is refused by the dependency walker, so this state arrives from a
+    // force-delete — and consulting the compendium here would make the leftover unclearable
+    const stale = aCharacter({ learnedSpellIds: ['spell-ghost'] });
+
+    expect('learnedSpellIds' in accepted(removeLearnedSpell(stale, 'spell-ghost')).character).toBe(
+      false
+    );
+  });
+
+  it('refuses to forget a spell that was never in the book', () => {
+    expect(refusal(removeLearnedSpell(aCharacter(), 'spell-bolt'))).toBe(
+      'That spell is not in this Spellbook.'
+    );
+  });
+});
+
+describe('casting (TICKET-SPL-02)', () => {
+  /** A caster who knows Firebolt (10) and Meteor Storm (100), with 30 in the pool */
+  function aCaster(): Character {
+    return aCharacter({ learnedSpellIds: ['spell-bolt', 'spell-fortress', 'spell-storm'] });
+  }
+
+  it('moves the pool by exactly the mana cost, through the resource action', () => {
+    const change = accepted(spendSpellCost(aCaster(), RULES, 'spell-bolt', 'stat-health'));
+
+    expect(change.character.currentResourceValues['stat-health']).toBe(20);
+    expect(change.before).toBe(30);
+    expect(change.after).toBe(20);
+  });
+
+  it('refuses a cast the pool cannot pay for, naming the shortfall (User ruling, 2026-08-31)', () => {
+    // The decision this ticket put to the User: refuse rather than let the pool go negative. It
+    // departs from `setResourceValue`, which is deliberately open at the bottom — a Player *writing*
+    // a pool has said what the number is, where a Player casting has asked whether they can.
+    const spent = spendSpellCost(aCaster(), RULES, 'spell-storm', 'stat-health');
+
+    expect(refusal(spent)).toBe(
+      'Meteor Storm costs 100 and Health is at 30 — 70 short. Nothing was spent.'
+    );
+  });
+
+  it('leaves the pool exactly where it was when the cast is refused', () => {
+    const caster = aCaster();
+
+    spendSpellCost(caster, RULES, 'spell-storm', 'stat-health');
+
+    expect(caster.currentResourceValues['stat-health']).toBe(30);
+  });
+
+  it('refuses a spell the ruleset does not price rather than casting it for nothing', () => {
+    // `mighty fortress`'s swapped columns. *Never invent a number to fill a required field* leaves
+    // refusing as the only honest answer — a 0 here would be a cost nobody authored.
+    expect(refusal(spendSpellCost(aCaster(), RULES, 'spell-fortress', 'stat-health'))).toBe(
+      'This ruleset does not price mighty fortress, so there is nothing to spend.'
+    );
+  });
+
+  it('refuses a spell that is not in the book, which the Spellbook never offers', () => {
+    expect(refusal(spendSpellCost(aCharacter(), RULES, 'spell-bolt', 'stat-health'))).toBe(
+      'Firebolt is not in this Spellbook, so it cannot be cast.'
+    );
+  });
+
+  it('refuses a spell this ruleset does not have', () => {
+    expect(refusal(spendSpellCost(aCaster(), RULES, 'spell-ghost', 'stat-health'))).toBe(
+      'This ruleset has no such spell.'
+    );
+  });
+
+  it('refuses a stat that is not a pool, in the same words every resource action uses', () => {
+    expect(refusal(spendSpellCost(aCaster(), RULES, 'spell-bolt', 'stat-str'))).toBe(
+      'Strength is not a pool, so it has no current value.'
+    );
+  });
+
+  it('refuses a stat this ruleset has never had', () => {
+    expect(refusal(spendSpellCost(aCaster(), RULES, 'spell-bolt', 'stat-mana'))).toBe(
+      'This ruleset has no such stat.'
+    );
   });
 });

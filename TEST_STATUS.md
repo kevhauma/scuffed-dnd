@@ -1,8 +1,9 @@
 # Test Status
 
-_Last verified: 2026-08-29 (`npx vitest run`) at **TICKET-SPL-01 — spells: the entity and its
-panel**, the current count-setter at **3496**.
+_Last verified: 2026-08-31 (`npx vitest run`) at **TICKET-SPL-02 — learned spells, the Spellbook
+and casting**, the current count-setter at **3550**.
 The checkpoints before it were
+**TICKET-SPL-01 — spells: the entity and its panel** at 3496,
 **TICKET-INV-06 — the item builder and the Backpack** at 3448,
 **TICKET-INV-05 — composed items: the record and the engine** at 3423,
 **TICKET-ITEM-01 — item templates target skills, grouped into shops** at 3379,
@@ -47,12 +48,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 3496
-- **Passing**: 3496 (100%)
+- **Total tests**: 3550
+- **Passing**: 3550 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **213 files**: `server` in node, everything else in happy-dom.
+Split across **215 files**: `server` in node, everything else in happy-dom.
 
 > **Coverage arrived, and the suite did not change to make room for it.** Every `.test.ts` and
 > `.test.tsx` still runs — the count above is unmoved. What is scoped is the *threshold*:
@@ -83,6 +84,41 @@ Split across **213 files**: `server` in node, everything else in happy-dom.
 > racing across the two projects, not a coverage change; three consecutive clean runs agree on
 > 98.83/95.58/98.71 to the digit. **A coverage number that disagrees wildly with the last one is a
 > corrupt run — re-run it before believing it.** `yarn run test` is unaffected.
+
+> **TICKET-SPL-02 — learned spells, the Spellbook and casting: +54 tests, +2 files
+> (3496 → 3550).** The two new files are `shared/engine/spellbook.test.ts` (**8** — the absent
+> default, the compendium-ordered filter, and the id the ruleset has lost) and
+> `client/components/play/spells/SpellbookPanel.test.tsx` (**16**, the whole loop through the real
+> store: search → learn → read → cast → watch the pool). The other **+30** are
+> `playerActions.test.ts` (17, the three Kernel rules and every refusal as a sentence),
+> `characterStore.test.ts` (7), `play.test.ts` (6, the routes at a table) and
+> `dependencies.test.ts` (+1 net — the vacuous spell case became two real ones).
+>
+> **`referenceArms.test.ts` fired, and it is the first time one of its rows has.** SPL-01 wrote the
+> `spell` row against a field that did not exist yet, spelled out of `systems/13-spells.md`, with a
+> note saying a scan cannot notice a rename. Adding `Character.learnedSpellIds` turned that row red
+> — *expected true to be false* — on the same run that added the field and **before** the walker arm
+> was filled in. The mechanism worked exactly as written: the arm could not ship empty behind the
+> field.
+>
+> **The browser check found a bug the suite did not, and the fix came with its own case.** The panel
+> hid itself on `hasCompendium`, which is right for a ruleset with no magic and wrong for the one
+> arrangement that matters: force-deleting the last spell a Player had learned empties the
+> compendium *and* leaves them an id, so the row that exists to be cleared became unreachable. It is
+> `hasSpells` now — a compendium **or** a book — and `SpellbookPanel.test.tsx` pins it. Neither the
+> Kernel tests nor the store tests could have caught it; the panel's own gate was the thing at
+> fault.
+>
+> **`fallow` reports the `learnSpell`/`unlearnSpell` pair as a clone group, and it stays.** Every
+> module in `routes/play/` is a guard, a body read and one Kernel call, and
+> `playerRules.test.ts` asserts one module per `PLAYER_ACTION` value — `equipItem` and `unequipItem`
+> are the same thirteen lines and would report identically in a diff that touched both. The
+> reasoning is recorded in `unlearnSpell.ts`'s header rather than left for the next reader to
+> re-derive.
+>
+> **No `SUPPORTED_SCHEMA_VERSION` bump, and none owed.** `Character.learnedSpellIds?` is
+> additive-optional and absent means none, so a stored roster round-trips without growing the key —
+> and D6's one bump for the milestone (9 → 10, at INV-05) still stands.
 
 > **TICKET-SPL-01 — spells: the entity and its panel: +48 tests, +12 files (3448 → 3496).** The
 > file count is the interesting half and almost none of it is new coverage: **eleven of the twelve

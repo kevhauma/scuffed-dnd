@@ -25,6 +25,7 @@ import type { Character, ComposedItem } from '../types/character';
 import type { Configuration, MaterialLevel } from '../types/config';
 import { skillMemberName, statMemberName } from './formula/references';
 import { validateFormula } from './formula/validator';
+import { learnedSpellIdsOf } from './spellbook';
 
 /**
  * The kinds of entity a delete can target
@@ -636,18 +637,36 @@ function inlayReferences(
 }
 
 /**
- * Nothing points at a spell **yet** (v4 systems/13, TICKET-SPL-01)
+ * Characters who have learned a spell (v4 systems/13, TICKET-SPL-02)
  *
- * `dice-ladder`'s and `inlay`'s state on the day their kinds were minted: the compendium is ruleset
- * data that no formula spells and no other entity names, so a check here could not fire. The
- * referrer arrives with TICKET-SPL-02's `Character.learnedSpellIds`, at which point deleting a spell
- * three Players have learned must be refused rather than leaving three stale ids behind — and the
- * table below cannot notice that on its own, because exhaustiveness is over *kinds*, not over
- * referrers. The arm exists now so that ticket has a place to put the walk instead of a decision to
- * make.
+ * **The handoff SPL-01 wrote this arm for.** It returned nothing then, because a compendium entry
+ * was ruleset data no formula spelled and no other entity named — `dice-ladder`'s and `inlay`'s state
+ * on the day their kinds were minted. `Character.learnedSpellIds` is the referrer, and it arrives
+ * with exactly the failure that prose predicted: deleting a spell three Players have learned would
+ * leave three ids naming nothing, which `spellbookOf` draws as three rows the Players did not ask
+ * for.
+ *
+ * The table below could not have caught the omission — its exhaustiveness is over *kinds*, not over
+ * referrers, so an arm that should have grown a walk and returned nothing instead type-checks
+ * perfectly. `referenceArms.test.ts` is the check that would have failed.
+ *
+ * **The reference is not what makes a stale id survivable.** A User may still force the delete
+ * through, and `spellbookOf` resolves the leftover to a row with no spell behind it rather than
+ * crashing — the guard is the ordinary path, and the tolerant read is the one after it.
  */
-function spellReferences(): EntityReference[] {
-  return [];
+function spellReferences(
+  id: string,
+  _config: Configuration,
+  characters: Character[]
+): EntityReference[] {
+  return characters
+    .filter((character) => learnedSpellIdsOf(character).includes(id))
+    .map((character) => ({
+      holderKind: 'Character',
+      holderName: character.name,
+      field: 'learnedSpellIds',
+      holderId: character.id,
+    }));
 }
 
 /**

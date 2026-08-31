@@ -43,14 +43,17 @@ import { previewInvite, redeemInvite } from '../routes/invites';
 import {
   adjustResource,
   buildItem,
+  castSpell,
   dropItem,
   equipItem,
   investSkillPoints,
   investStatPoints,
+  learnSpell,
   resetResource,
   setFocusSkills,
   setResource,
   unequipItem,
+  unlearnSpell,
 } from '../routes/play';
 import { listRolls, rollDice } from '../routes/rolls';
 import {
@@ -170,6 +173,13 @@ export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Respon
   'POST /api/characters/:id/unequip-item': unequipItem,
   'POST /api/characters/:id/build-item': buildItem,
   'POST /api/characters/:id/drop-item': dropItem,
+  // Spells unlock by hand and a cast is a resource spend (TICKET-SPL-02) — three more of the same
+  // kind of write, which is why they need no new surface: `learn`/`unlearn` set the sheet's own
+  // `locked`/`Learned` flag, and `cast-spell` ends in the same `adjustResourceValue` the two
+  // resource routes above reach
+  'POST /api/characters/:id/learn-spell': learnSpell,
+  'POST /api/characters/:id/unlearn-spell': unlearnSpell,
+  'POST /api/characters/:id/cast-spell': castSpell,
   // The dice are the server's (TICKET-ROLL-07). Beside the ten above because it is the same kind
   // of request — a Player acting on their own character — even though it writes an Event and not
   // the sheet. The path names the **character**, not the session, so a request cannot disagree with

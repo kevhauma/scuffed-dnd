@@ -15,6 +15,7 @@ import { useDmControls } from '../dm/useDmControls';
 import { InventoryPanel } from '../inventory/InventoryPanel';
 import { RollHistoryPanel } from '../rolls/RollHistoryPanel';
 import { useRoller } from '../rolls/useRoller';
+import { SpellbookPanel } from '../spells/SpellbookPanel';
 import { FocusSkillsSection } from './FocusSkillsSection';
 import { PurseSection } from './PurseSection';
 import { RaceStatBlockSection } from './RaceStatBlockSection';
@@ -209,6 +210,11 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
             bottom unreachable. */}
         <div className="space-y-4">
           <InventoryPanel characterId={characterId} />
+
+          {/* Beside the kit rather than under the stats: what a caster reaches for mid-fight is the
+              spell and the pool it costs, which is the same column as the rack and the purse. Draws
+              nothing at all on a ruleset that knows no magic (TICKET-SPL-02). */}
+          <SpellbookPanel characterId={characterId} />
 
           {/* Coin sits beside the equipment, as it does on the sheet (`Q18:S23`, right of the
               `M3:O15` boxes) — what you are carrying, in one column. Not at a table: a purse there

@@ -232,6 +232,19 @@ existing roll surface).
   wire it to `learnedSpellIds` or to a signature-spell concept. It is recorded here so the next
   workbook revision has something to land against.
 - **Effect scaling** — the references are read from the formulas, above.
+- **An unaffordable cast is refused, with the shortfall named** (User, 2026-08-31, TICKET-SPL-02) —
+  *"Fireball costs 150 and Mana is at 100 — 50 short. Nothing was spent."* This is deliberately
+  **not** `setResourceValue`'s behaviour, which is open at the bottom so a table can track bleeding
+  out (Req 14.4): a Player *writing* a pool has said what the number is, where a Player *casting*
+  has asked whether they can. Two neighbours follow from rules already on the books — an **unpriced**
+  spell (`mighty fortress`) cannot be cast, because inventing a 0 would be inventing a number; and
+  an **unlearned** one cannot, which is the Spellbook's filter enforced a second time for requests.
+- **The Player names the pool at cast time** (same ruling) — nothing in a `Configuration` says which
+  resource casting draws on, so `cast-spell` carries a `statId` and the Spellbook shows a *Cast from*
+  selector only when the ruleset has more than one resource. Matching a stat *named* Mana was
+  rejected: it hard-codes an English spelling into the engine and breaks on a rename — or on a
+  ruleset written in Dutch, as this workbook is. A `Configuration.castingResourceStatId?` is where
+  this goes if the ruleset should ever decide instead.
 
 ## Open questions
 

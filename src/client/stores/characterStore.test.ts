@@ -1683,4 +1683,154 @@ describe('CharacterStore', () => {
       expect(storage.saveCharacters).not.toHaveBeenCalled();
     });
   });
+
+  /**
+   * Spells and casting (TICKET-SPL-02)
+   *
+   * The Kernel's rules are pinned in `playerActions.test.ts`; what this pins is the half only the
+   * store has — that a learn, an unlearn and a cast each **persist**, that a refusal writes nothing
+   * and reaches `actionError`, and that the three go through the store rather than through a
+   * component reaching for LocalStorage.
+   */
+  describe('Spells (TICKET-SPL-02)', () => {
+    /** One pool at 30, and a compendium with a cheap spell and one nothing can afford */
+    const castingConfig = {
+      id: 'config1',
+      name: 'Test',
+      version: '1.0',
+      schemaVersion: 10,
+      stats: [
+        {
+          id: 'mana',
+          name: 'Mana',
+          abbreviation: 'MAN',
+          description: '',
+          order: 0,
+          countsTowardTotal: false,
+          isResource: true,
+          rounding: 'none',
+          formula: '100',
+        },
+      ],
+      skills: [],
+      materials: [],
+      materialCategories: [],
+      items: [],
+      equipmentSlots: [],
+      races: [],
+      spells: [
+        {
+          id: 'bolt',
+          name: 'Firebolt',
+          manaCost: 10,
+          rangeTime: '120 Feet',
+          effectTemplate: 'deals damage',
+        },
+        {
+          id: 'storm',
+          name: 'Meteor Storm',
+          manaCost: 400,
+          rangeTime: '1 mile',
+          effectTemplate: '',
+        },
+      ],
+      currencyTiers: [],
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+    } as unknown as Configuration;
+
+    beforeEach(() => {
+      useCharacterStore.setState({
+        characters: [
+          {
+            id: 'char1',
+            name: 'Test',
+            configurationId: 'config1',
+            raceIds: [],
+            investedStatPoints: {},
+            investedSkillPoints: {},
+            currentResourceValues: { mana: 30 },
+            experience: 0,
+            inventory: { equippedItems: {}, composedItems: [] },
+            createdAt: '2024-01-01',
+            updatedAt: '2024-01-01',
+          },
+        ],
+        isLoaded: true,
+        actionError: null,
+      });
+      vi.clearAllMocks();
+    });
+
+    const storedOf = () => useCharacterStore.getState().characters[0];
+
+    it('should learn a spell and persist it, from a character who knew none', () => {
+      expect(storedOf().learnedSpellIds).toBeUndefined();
+
+      useCharacterStore.getState().learnSpell('char1', 'bolt', castingConfig);
+
+      expect(storedOf().learnedSpellIds).toEqual(['bolt']);
+      expect(storage.saveCharacters).toHaveBeenCalledTimes(1);
+    });
+
+    it('should round-trip a learn and an unlearn back to a character with no field', () => {
+      useCharacterStore.getState().learnSpell('char1', 'bolt', castingConfig);
+      useCharacterStore.getState().unlearnSpell('char1', 'bolt');
+
+      expect('learnedSpellIds' in storedOf()).toBe(false);
+      expect(storage.saveCharacters).toHaveBeenCalledTimes(2);
+    });
+
+    it('should refuse a second copy, write nothing and say why', () => {
+      useCharacterStore.getState().learnSpell('char1', 'bolt', castingConfig);
+      vi.clearAllMocks();
+
+      useCharacterStore.getState().learnSpell('char1', 'bolt', castingConfig);
+
+      expect(storedOf().learnedSpellIds).toEqual(['bolt']);
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+      expect(useCharacterStore.getState().actionError).toContain('already in this Spellbook');
+    });
+
+    it('should let a Player unlearn an id the ruleset has lost', () => {
+      // The validation finding a force-deleted spell leaves behind. `unlearnSpell` takes no ruleset
+      // precisely so this state is clearable rather than permanent.
+      useCharacterStore.setState({
+        characters: [{ ...storedOf(), learnedSpellIds: ['deleted-under-them'] }],
+      });
+
+      useCharacterStore.getState().unlearnSpell('char1', 'deleted-under-them');
+
+      expect('learnedSpellIds' in storedOf()).toBe(false);
+      expect(storage.saveCharacters).toHaveBeenCalledTimes(1);
+    });
+
+    it('should cast, moving the pool by exactly the mana cost', () => {
+      useCharacterStore.getState().learnSpell('char1', 'bolt', castingConfig);
+      vi.clearAllMocks();
+
+      useCharacterStore.getState().castSpell('char1', 'bolt', 'mana', castingConfig);
+
+      expect(storedOf().currentResourceValues.mana).toBe(20);
+      expect(storage.saveCharacters).toHaveBeenCalledTimes(1);
+    });
+
+    it('should refuse a cast the pool cannot pay for, naming the shortfall', () => {
+      useCharacterStore.getState().learnSpell('char1', 'storm', castingConfig);
+      vi.clearAllMocks();
+
+      useCharacterStore.getState().castSpell('char1', 'storm', 'mana', castingConfig);
+
+      expect(storedOf().currentResourceValues.mana).toBe(30);
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+      expect(useCharacterStore.getState().actionError).toContain('370 short');
+    });
+
+    it('should write nothing for an unknown character', () => {
+      useCharacterStore.getState().learnSpell('nope', 'bolt', castingConfig);
+      useCharacterStore.getState().castSpell('nope', 'bolt', 'mana', castingConfig);
+
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+  });
 });

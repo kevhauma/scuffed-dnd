@@ -53,3 +53,7 @@ export * from './sheet/StatEditor';
 export * from './sheet/StatGroupColumns';
 export * from './sheet/StatsSection';
 export * from './sheet/useCharacterSheet';
+export * from './spells/SpellbookPanel';
+export * from './spells/SpellbookRow';
+export * from './spells/SpellLearner';
+export * from './spells/useSpellbook';

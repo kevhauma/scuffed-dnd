@@ -29,6 +29,10 @@
  * old name a lie. The mechanism moved with the dispatcher: an arm is a named function now rather than
  * a `case` body, so the scan reads the walker table for the kind's function and then that function's
  * body.
+ *
+ * **TICKET-SPL-02 is the first time a row here has actually fired.** `Character.learnedSpellIds`
+ * landed and this file went red on the same run, before the `spell` arm had been written — which is
+ * the whole point of writing a row against a field that does not exist yet.
  */
 
 import { readFileSync } from 'node:fs';
@@ -62,17 +66,16 @@ const ARMS = [
     kind: 'spell',
     field: 'learnedSpellIds',
     /**
-     * TICKET-SPL-02's field. Vacuous today, which is exactly the state INL-01 shipped `inlay` in:
-     * the row is here so the ticket that adds the field cannot ship the arm empty behind it.
+     * `Character.learnedSpellIds` names a spell by id (TICKET-SPL-02).
      *
-     * **The spelling is load-bearing, and it is a guess.** TICKET-SPL-01 read it off
-     * `docs/v4.0_sheet_parity/systems/13-spells.md` rather than off a type that exists. Name the
-     * field anything else — `knownSpellIds`, or a `spellbook: { spellId }[]` — and this row stays
-     * green *and vacuous* while the arm stays empty, which is the exact failure this file exists to
-     * prevent. **A scan cannot notice a rename**: whoever names the field changes this string and
-     * its `live` flag in the same commit, or the guard silently stops guarding.
+     * **The row did its job**, which is worth recording because it is the first time one of these
+     * has. It was written vacuous by SPL-01 against a field that did not exist yet, spelled out of
+     * `docs/v4.0_sheet_parity/systems/13-spells.md`; SPL-02 added the field, and this file failed on
+     * the very run that added it — *expected true to be false* — before the arm was filled in. That
+     * is the whole design: a scan cannot notice a rename, so the guard depends on the field arriving
+     * under the spelling written here, and it did.
      */
-    live: false,
+    live: true,
   },
 ] as const;
 
@@ -138,9 +141,10 @@ describe('the arms of findReferences', () => {
   });
 
   it.each(ARMS)('is not left empty while a persisted shape names $field', ({ kind, field }) => {
-    // The implication, in one line. While nothing names the field this passes vacuously, which is
-    // the state INL-01 shipped `inlay` in and SPL-01 ships `spell` in; the moment `Character`,
-    // `ComposedItem` or anything else in `shared/types/` names one, the arm has to answer for it.
+    // The implication, in one line. While nothing names the field it passes vacuously, which is the
+    // state INL-01 shipped `inlay` in and SPL-01 shipped `spell` in; the moment `Character`,
+    // `ComposedItem` or anything else in `shared/types/` names one, the arm has to answer for it —
+    // and both rows are past that point now, so both are load-bearing rather than waiting.
     const names = character.includes(field) || config.includes(field);
     const answers = armBody(walker, kind).includes(field);
 

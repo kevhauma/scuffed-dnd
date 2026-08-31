@@ -46,9 +46,10 @@ import { inlayTierOf, materialTierOf, wornBuildIds } from '../engine/composedIte
 import { focusPickRefusal, focusPicksField, focusPicksOf } from '../engine/focusSkills';
 import { asNumber, isFormulaError } from '../engine/formula/errors';
 import { validateStatAllocation } from '../engine/skillAllocation';
+import { learnedSpellIdsOf } from '../engine/spellbook';
 import type { ActionValue } from '../types/api';
 import type { Character, ComposedItem, Inventory } from '../types/character';
-import type { Configuration } from '../types/config';
+import type { Configuration, Spell, Stat } from '../types/config';
 
 /** An accepted action: the character as it now is, and what changed */
 export interface PlayerActionChange {
@@ -336,14 +337,22 @@ function maxOf(character: Character, config: Configuration, statId: string): num
   }
 }
 
-/** The stat a resource action names, when the ruleset has one and it really is a pool */
-function resourceRefusal(config: Configuration, statId: string): string | null {
+/**
+ * The stat a resource action names, or the sentence saying why there isn't one
+ *
+ * **The pool itself rather than a bare refusal**, since TICKET-SPL-02: a cast that cannot be paid for
+ * names the pool it could not pay from (*"Mana is at 40"*), and looking the same stat up a second
+ * time for its name is how two readings of one id start to disagree. The union is `Stat | string`
+ * rather than the tagged shape {@link PlayerActionResult} uses because `typeof` narrows it at the
+ * call site with no guard of its own — three call sites, one line each.
+ */
+function poolFor(config: Configuration, statId: string): Stat | string {
   const stat = config.stats.find((candidate) => candidate.id === statId);
 
   if (!stat) return 'This ruleset has no such stat.';
   if (!stat.isResource) return `${stat.name} is not a pool, so it has no current value.`;
 
-  return null;
+  return stat;
 }
 
 /**
@@ -374,8 +383,8 @@ export function setResourceValue(
 ): PlayerActionResult {
   if (!Number.isFinite(value)) return { refusal: 'That is not a number.' };
 
-  const wrongStat = resourceRefusal(config, statId);
-  if (wrongStat) return { refusal: wrongStat };
+  const pool = poolFor(config, statId);
+  if (typeof pool === 'string') return { refusal: pool };
 
   const max = maxOf(character, config, statId);
   const after = max === undefined ? value : Math.min(value, max);
@@ -433,8 +442,8 @@ export function resetResourceToMax(
   config: Configuration,
   statId: string
 ): PlayerActionResult {
-  const wrongStat = resourceRefusal(config, statId);
-  if (wrongStat) return { refusal: wrongStat };
+  const pool = poolFor(config, statId);
+  if (typeof pool === 'string') return { refusal: pool };
 
   const max = maxOf(character, config, statId);
 
@@ -790,4 +799,161 @@ export function discardBuild(
     before: composedId,
     after: null,
   };
+}
+
+/** The compendium entry an id names, or nothing when this ruleset has no such spell */
+function spellOf(config: Configuration, spellId: string): Spell | undefined {
+  return (config.spells ?? []).find((candidate) => candidate.id === spellId);
+}
+
+/**
+ * Unlock one spell — the sheet's `locked` → `Learned` flag (v4 systems/13 gap 2)
+ *
+ * **Nothing gates it.** Spells unlock manually by the User's own ruling (2026-08-29): no level, no
+ * skill and no archetype is consulted, because the workbook consults none. The two things refused
+ * are the two that would leave the document saying something untrue — a spell this ruleset does not
+ * have, and one already in the book.
+ *
+ * **The duplicate is a refusal rather than a no-op**, which is `investInStat`'s discipline applied
+ * to a list: the list is read positionally by nothing, so a second entry would be invisible on the
+ * page and undeletable by one unlearn. A Player who taps *Learn* twice is told the second one landed
+ * nowhere instead of quietly carrying two ids they cannot tell apart.
+ *
+ * @param character Whose Spellbook
+ * @param config The ruleset holding the compendium
+ * @param spellId Which spell to unlock
+ * @returns The character knowing it, or the reason it was refused
+ */
+export function addLearnedSpell(
+  character: Character,
+  config: Configuration,
+  spellId: string
+): PlayerActionResult {
+  const spell = spellOf(config, spellId);
+
+  if (!spell) return { refusal: 'This ruleset has no such spell.' };
+
+  const learned = learnedSpellIdsOf(character);
+
+  if (learned.includes(spellId)) {
+    return { refusal: `${spell.name} is already in this Spellbook.` };
+  }
+
+  return {
+    character: { ...character, learnedSpellIds: [...learned, spellId] },
+    before: null,
+    after: spellId,
+  };
+}
+
+/**
+ * Lock one spell back up (v4 systems/13 gap 2)
+ *
+ * {@link addLearnedSpell}'s counterpart, and it differs in one deliberate way: **the ruleset is not
+ * consulted at all.** An id naming a spell the User force-deleted is exactly the id a Player most
+ * needs to remove — `spellbookOf` draws it as a row with nothing behind it — so demanding that the
+ * compendium still have it would make the one finding this action exists to clear unclearable.
+ *
+ * **Clearing the last spell removes the field rather than storing `[]`**, which is
+ * `focusPicksField`'s rule stated inline: *none* has one spelling on the document, so a character who
+ * forgot their last spell and one who never learned any are the same document. The old key is dropped
+ * before the new one is written, because an absent field spread over a present one leaves it exactly
+ * where it was.
+ *
+ * @param character Whose Spellbook
+ * @param spellId Which spell to forget
+ * @returns The character without it, or the reason it was refused
+ */
+export function removeLearnedSpell(character: Character, spellId: string): PlayerActionResult {
+  const learned = learnedSpellIdsOf(character);
+
+  if (!learned.includes(spellId)) {
+    return { refusal: 'That spell is not in this Spellbook.' };
+  }
+
+  const remaining = learned.filter((candidate) => candidate !== spellId);
+  const { learnedSpellIds: _replaced, ...withoutSpells } = character;
+
+  return {
+    character:
+      remaining.length > 0 ? { ...withoutSpells, learnedSpellIds: remaining } : withoutSpells,
+    before: spellId,
+    after: null,
+  };
+}
+
+/**
+ * Cast a learned spell, spending its mana cost from one pool (v4 systems/13 gap 3)
+ *
+ * **A resource spend, not a roll.** The whole casting economy is the Mana pool the sheet already
+ * has, so this ends in {@link adjustResourceValue} — the same arithmetic a hand-typed deduction goes
+ * through, which is what *no new arithmetic path* means. Whatever the effect text says about dice
+ * stays a Player-driven roll on the existing roll surface, and server-resolved rolls are untouched.
+ *
+ * ## The Player names the pool, because no ruleset says which one casting draws on
+ *
+ * The workbook's caster spends Mana, and *Mana* is a stat that ruleset happens to define — a name a
+ * User may change, translate or not have at all. Matching one by its spelling would be the engine
+ * hard-coding a word, so the choice is the request's (User ruling, 2026-08-31) and `statId` is
+ * checked as a pool exactly as `setResourceValue`'s is.
+ *
+ * ## Four refusals, and the shortfall is named
+ *
+ * A spell this ruleset does not have; one that is not in the book (the Spellbook offers only learned
+ * spells, so this is the second line of defence a request has to meet); one the ruleset does not
+ * **price**, because *never invent a number to fill a required field* leaves refusing as the only
+ * honest answer for `mighty fortress`'s swapped columns; and one the pool cannot pay for.
+ *
+ * **Insufficient mana is a refusal, not a pool that goes negative** (User ruling, 2026-08-31). That
+ * departs from {@link setResourceValue}, which is deliberately open at the bottom so a table can
+ * track bleeding out, and the difference is who is asking: a Player *writing* a pool has said what
+ * the number is, where a Player casting has asked whether they can — and a cast that half-landed
+ * would leave a table believing a spell went off. `setPurseAmount`'s reasoning, and its sentence
+ * shape.
+ *
+ * @param character Whose sheet
+ * @param config The ruleset they play by
+ * @param spellId Which learned spell to cast
+ * @param statId Which pool the mana comes off
+ * @returns The character with the pool spent, or the reason the cast was refused
+ */
+export function spendSpellCost(
+  character: Character,
+  config: Configuration,
+  spellId: string,
+  statId: string
+): PlayerActionResult {
+  const spell = spellOf(config, spellId);
+
+  if (!spell) return { refusal: 'This ruleset has no such spell.' };
+
+  const learned = learnedSpellIdsOf(character);
+
+  if (!learned.includes(spellId)) {
+    return { refusal: `${spell.name} is not in this Spellbook, so it cannot be cast.` };
+  }
+
+  const cost = spell.manaCost;
+
+  if (cost === undefined) {
+    return { refusal: `This ruleset does not price ${spell.name}, so there is nothing to spend.` };
+  }
+
+  const pool = poolFor(config, statId);
+  if (typeof pool === 'string') return { refusal: pool };
+
+  const current = character.currentResourceValues[statId] ?? 0;
+  const left = current - cost;
+
+  if (left < 0) {
+    const shortfall = short(left);
+
+    return {
+      refusal:
+        `${spell.name} costs ${cost} and ${pool.name} is at ${current} — ${shortfall} short. ` +
+        'Nothing was spent.',
+    };
+  }
+
+  return adjustResourceValue(character, config, statId, -cost);
 }

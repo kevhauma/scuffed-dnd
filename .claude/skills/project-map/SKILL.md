@@ -139,7 +139,7 @@ change also exists (v3 Req 33.8).
 | `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), skills, roll definitions, dice ladders, materials + categories, **inlays** (TICKET-INL-01 — gem families, whose tiers are written through `updateInlay` with the whole ladder, like a material's levels), **spells** (TICKET-SPL-01 — the compendium; `updateSpell` clears the optional `description` and `manaCost` through `mergeClearingAbsent`), items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
 | `useCharacterStore` (cont.) | `tableCharacter` + `tableSessionId` + `tableCharacterOwnerId` + `isActing` + `actionError`, and `openTableCharacter` / `closeTableCharacter` / `dismissActionError` (TICKET-PLY-01; `tableSessionId` is ROLL-07's, read by the session-scoped roll log; `tableCharacterOwnerId` is DM-01's, and is how the sheet tells the DM's view from the Player's without a second request) — **the one character open at a game session**, held apart from `characters` because that list is LocalStorage's and a session character must never land in it (v3 Req 36.2). Every existing write action keeps its signature and gains one line: `toTable(...)` sends the named intent to the server when the id is this one's, otherwise the Kernel rule runs locally. `selectCharacter(state, id)` is the exported reader both the sheet and the inventory panel use | server, via `services/characterSync.ts` |
-| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `buildItem`, `discardItem` — four since TICKET-INV-06, where the derived Backpack collapsed `addMiscItem`/`removeMiscItem`/`moveItemToMisc`/`moveItemToEquipment` into them), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience` (the rule is the Kernel's `dmActions.ts` since TICKET-DM-01, not this store's), `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) — `setFocusSkills(characterId, focusSkillIds, config)` (TICKET-SKL-05 — the whole list of picks at once, refusing more than three or a skill the ruleset has not got, and *reporting* the refusal because the picker has nothing standing in front of it) — and the DM's six, `dmAwardExperience` / `dmDeductExperience` / `dmSetLevel` / `dmSetGrantedPoints` / `dmSetResource` / `dmSetDreamLevel` (TICKET-DM-01, TICKET-RES-04), which are **table-only** and named apart from the Player's own so no call site has to decide which act it is — `updateDreamLevel` is the local half of the last one, refused at a table exactly as `awardExperience` and `setPurse` are. `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
+| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `buildItem`, `discardItem` — four since TICKET-INV-06, where the derived Backpack collapsed `addMiscItem`/`removeMiscItem`/`moveItemToMisc`/`moveItemToEquipment` into them), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience` (the rule is the Kernel's `dmActions.ts` since TICKET-DM-01, not this store's), `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) — `setFocusSkills(characterId, focusSkillIds, config)` (TICKET-SKL-05 — the whole list of picks at once, refusing more than three or a skill the ruleset has not got, and *reporting* the refusal because the picker has nothing standing in front of it) — `learnSpell(characterId, spellId, config)` / `unlearnSpell(characterId, spellId)` / `castSpell(characterId, spellId, statId, config)` (TICKET-SPL-02 — all three *report* their refusals, `unlearnSpell` takes no ruleset so a force-deleted spell stays clearable, and a cast is a mana spend that ends in the ordinary resource action) — and the DM's six, `dmAwardExperience` / `dmDeductExperience` / `dmSetLevel` / `dmSetGrantedPoints` / `dmSetResource` / `dmSetDreamLevel` (TICKET-DM-01, TICKET-RES-04), which are **table-only** and named apart from the Player's own so no call site has to decide which act it is — `updateDreamLevel` is the local half of the last one, refused at a table exactly as `awardExperience` and `setPurse` are. `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
 | `useConfigStore` (cont.) | `source` + `openAccountRuleset(id)` / `openLocalRuleset()` (TICKET-RUL-02) — which home is open, and the two ways to change it. Opening one home reads nothing from the other | via `services/rulesetSync.ts` |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history, `storageFailure` and `saveConflict` (TICKET-RUL-02 — a *server* refusal, with the edit still on screen) | not persisted |
 
@@ -293,9 +293,10 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   parts by id. That arm also filled the `inlay` kind INL-01 shipped deliberately empty, and
   `shared/engine/referenceArms.test.ts` is what makes leaving one empty a **failure**: the table's
   exhaustiveness catches a missing *kind* and says nothing about a new *referrer* to an existing one,
-  so that file scans the source per (kind, field) pair and asserts the implication. It carries a
-  **vacuous row for `spell`**, armed for TICKET-SPL-02's `learnedSpellIds`, which is the same
-  arrangement INL-01 made for the socket. Since TICKET-ITEM-01 the `skill` arm walks **item
+  so that file scans the source per (kind, field) pair and asserts the implication. **Its `spell` row
+  is the first that has ever fired**: SPL-01 wrote it vacuous against `learnedSpellIds`, a spelling
+  read out of `systems/13-spells.md` rather than off a type, and SPL-02 adding the field turned the
+  file red on that same run — before the arm was written. Both rows are load-bearing now. Since TICKET-ITEM-01 the `skill` arm walks **item
   templates' bonus vectors**
   (`itemSkillBonusReferences`) — a config→config reference, so deleting a skill that templates grant
   is refused and names them. **A new field on
@@ -351,6 +352,17 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   **Absent dials are neutral by arithmetic rather than by a
   branch**: each defaults to `1 / FOCUS_SLOT_COUNT`, so a ruleset that states neither multiplies by
   exactly 1. Three slots is an engine constant, not yet a dial (the ticket says when it becomes one).
+- `spellbook.ts` (TICKET-SPL-02) — the **read side of `Character.learnedSpellIds`**:
+  `learnedSpellIdsOf(character)` is the one reader of the optional field (absent means none,
+  `focusPicksOf`'s and `dreamLevelOf`'s pattern, and it never de-duplicates or trims — every write
+  refuses a duplicate, so a repeat came from a hand-edited file), and `spellbookOf(character, config)`
+  is the **sheet's own `FILTER`**: the learned subset in **compendium order** (so a book reads the
+  same way down every page and a spell does not move when another is learned), with any id the
+  ruleset has lost appended after it as a `SpellbookEntry` whose `spell` is `null`. **Nothing is
+  pruned on read** — the guard in `dependencies.ts` refuses the delete that would create such an id,
+  and drawing the leftover is what lets a Player clear one that was forced through. There is no
+  `learnedSpellsField` counterpart to `focusPicksField`: only `removeLearnedSpell` can empty the
+  list, so *none has one spelling* is stated at that one write.
 - `composedItems.ts` (TICKET-INV-06) — the **read side of a `ComposedItem`**: `materialTierOf` /
   `inlayTierOf` (a rung is found **by its number**, never by array position — neither ladder is kept
   dense or sorted), `composedItemLabel` (the derived display phrase, the sheet's own
@@ -494,7 +506,18 @@ between the roots is exactly *"does this touch a browser API"*.
   multiplier is a sum over the slots and a slot-addressed write would need an empty-slot sentinel
   stored on the character; what may be in it is `focusSkills.focusPickRefusal`, the same call
   `characterCreationErrors` makes), `setResourceValue`, `adjustResourceValue`,
-  `resetResourceToMax`, `equipToSlot`, `unequipSlot`, `composeBuild`, `discardBuild`. **The four
+  `resetResourceToMax`, `equipToSlot`, `unequipSlot`, `composeBuild`, `discardBuild`,
+  `addLearnedSpell` / `removeLearnedSpell` / `spendSpellCost` (TICKET-SPL-02 — the last is a **mana
+  spend, not a roll**: it ends in `adjustResourceValue(…, -manaCost)`, so there is no second
+  arithmetic path, and the pool comes from the request because no ruleset field says which resource
+  casting draws on. It refuses four things, each with its own sentence — a spell the ruleset has not
+  got, one not in the book, one the ruleset does not **price** (`mighty fortress`'s swapped columns:
+  a 0 would be an invented number), and one the pool cannot pay for, **named to the point**. That
+  last one deliberately parts from `setResourceValue`, which stays open at the bottom for Req 14.4;
+  `removeLearnedSpell` takes no ruleset at all, so a force-deleted spell is still clearable).
+  `poolFor(config, statId)` is the shared *is this a pool* lookup behind the three resource actions
+  and the cast, returning the `Stat` or the sentence — a `Stat | string` union `typeof` narrows,
+  which is what lets a refusal name the pool without looking it up twice. **The four
   inventory actions speak `ComposedItem.id`s since TICKET-INV-05**, `composeBuild` excepted — it takes
   the whole record to make, identity included, and checks all three picks (a template the ruleset
   has, a material at a rung its family actually holds, and a gem the same or no gem at all), refusing
@@ -685,8 +708,9 @@ each later ticket adds.
   inside it**, because a roll's rule is the dice engine and that folder's scan forbids reaching one.
   The log is the first read of the `event` table, keyed `(session, seq)` — the index LIVE-03 replays
   from, so that ticket adds no schema.
-- `routes/play/` (TICKET-PLY-01) — **the writes a Player makes at a table**, twelve of them since
-  TICKET-SKL-05's `set-focus-skills`, one module each, all `POST /api/characters/:id/<action>` where `<action>` **is** the `PLAYER_ACTION`
+- `routes/play/` (TICKET-PLY-01) — **the writes a Player makes at a table**, thirteen of them since
+  TICKET-SPL-02's `learn-spell` / `unlearn-spell` / `cast-spell`,
+  one module each, all `POST /api/characters/:id/<action>` where `<action>` **is** the `PLAYER_ACTION`
   value. That one string is the path, the Event's `type` and the client's call, which is what keeps
   a route, a log entry and a store action from drifting into three names for one act. Each module is
   a guard, a body read and one Kernel call; everything they share is `playPayloads.ts` —
@@ -1032,6 +1056,24 @@ has* lives, sorted by rung number because neither ladder is stored sorted. **The
 not stored**: `backpackOf` is everything built and not worn, so equipping takes a row out of the bag
 and unequipping puts it back without either control touching a list (`MiscItemRow` was renamed
 `BackpackRow` here, and `Inventory.miscItems` deleted).
+
+`spells/` holds `SpellbookPanel` (TICKET-SPL-02 — mounted by the sheet beside the inventory, taking
+only a `characterId`) with `SpellbookRow`, `SpellLearner` and `useSpellbook`. **The book is the
+sheet's own `FILTER`**, derived by `spellbookOf` rather than read, so learning a spell puts it in the
+book and takes it out of the picker with neither control touching the other — `InventoryPanel`'s
+Backpack one entity over. Three things worth knowing before touching it:
+
+- **The panel draws on `hasSpells`, a compendium *or* a book** — not on the compendium alone. A
+  ruleset with no magic draws nothing, but force-deleting the last spell a Player had learned empties
+  the compendium *and* leaves them an id, and gating on the compendium made that leftover
+  unclearable. The browser check found it; `SpellbookPanel.test.tsx` pins it.
+- **A row whose spell the ruleset has lost is drawn, not dropped** — *"A spell this ruleset no longer
+  has"*, with *Cast* gone and *Unlearn* kept. `CarriedBuild.item`'s precedent for a dangling link.
+- **The pool selector is per panel, not per row**, and appears only when the ruleset has more than
+  one resource: *which pool am I casting out of* is a fact about the session rather than about one
+  spell, and no ruleset field answers it (the User's ruling — the Player names it at cast time).
+  `SpellLearner` searches rather than pages, unlike `useSpellManager` over the same 418 rows,
+  because a Player already knows the spell's name; the match cap is **stated** rather than silent.
 `rolls/` holds `useRoller`, `RollBreakdown` and `RollHistoryPanel`.
 The roll button and the last result live in `RollsSection`; the history is its own panel.
 **`useRoller` branches on where the character lives** (TICKET-ROLL-07). A **local** character rolls

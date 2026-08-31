@@ -28,6 +28,7 @@ import { addExperience, removeExperience, setDreamLevel } from '#shared/services
 // and the one thing `fallow` cannot check here, since a Zustand action is a property rather than an
 // export (the TICKET-INV-06 review's finding).
 import {
+  addLearnedSpell,
   adjustPurseBy,
   adjustResourceValue,
   chooseFocusSkills,
@@ -38,12 +39,15 @@ import {
   investInStat,
   isRefusal,
   type PlayerActionResult,
+  removeLearnedSpell,
   resetResourceToMax,
   setPurseAmount,
   setResourceValue,
+  spendSpellCost,
   unequipSlot,
 } from '#shared/services/playerActions';
 import type {
+  CastSpellRequest,
   DmAction,
   DreamLevelRequest,
   ExperienceRequest,
@@ -53,6 +57,7 @@ import type {
   PlayerAction,
   ResourceValueRequest,
   SheetAction,
+  SpellRequest,
 } from '#shared/types/api';
 import { DM_ACTION, PLAYER_ACTION } from '#shared/types/api';
 import type { Character, CharacterCreationData, ComposedItem } from '#shared/types/character';
@@ -324,6 +329,32 @@ export interface CharacterState {
    * standing in front of them, so a refusal has to be said out loud rather than snapping a box back.
    */
   setFocusSkills: (characterId: string, focusSkillIds: string[], config: Configuration) => void;
+
+  // Spells (TICKET-SPL-02) — a hand-set flag and a mana spend, the sheet's own Spellbook
+  /**
+   * Unlock one spell, refusing a duplicate and a spell the ruleset does not have
+   *
+   * **Refusals are reported here**, unlike most of this side: the Spellbook's picker offers only
+   * unlearned spells, but nothing stands between a stale render and a second tap — and *"already in
+   * this Spellbook"* is a sentence a Player can act on where a silent no-op is not.
+   */
+  learnSpell: (characterId: string, spellId: string, config: Configuration) => void;
+  /**
+   * Lock one back up — and the one way to clear an id the ruleset has lost
+   *
+   * Takes no `Configuration` because the rule consults none: a spell the User force-deleted is
+   * exactly the id a Player most needs to remove.
+   */
+  unlearnSpell: (characterId: string, spellId: string) => void;
+  /**
+   * Cast a learned spell, spending its mana cost from the pool named
+   *
+   * The pool is a parameter because no ruleset field says which resource casting draws on (the
+   * User's ruling): the Spellbook picks it, and a ruleset with exactly one resource picks itself.
+   * An unaffordable cast is **refused with the shortfall named** rather than taking the pool
+   * negative.
+   */
+  castSpell: (characterId: string, spellId: string, statId: string, config: Configuration) => void;
 
   /**
    * Set what the character is carrying, in the ruleset's base tier (Concept 16, TICKET-CUR-02)
@@ -934,6 +965,43 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
       get,
       characterId,
       (character) => chooseFocusSkills(character, config, focusSkillIds),
+      { reportRefusal: true }
+    );
+  },
+
+  learnSpell: (characterId: string, spellId: string, config: Configuration) => {
+    const body = { spellId } satisfies SpellRequest;
+    if (toTable(set, get, characterId, PLAYER_ACTION.LEARN_SPELL, body)) return;
+
+    applyLocally(
+      set,
+      get,
+      characterId,
+      (character) => addLearnedSpell(character, config, spellId),
+      { reportRefusal: true }
+    );
+  },
+
+  unlearnSpell: (characterId: string, spellId: string) => {
+    const body = { spellId } satisfies SpellRequest;
+    if (toTable(set, get, characterId, PLAYER_ACTION.UNLEARN_SPELL, body)) return;
+
+    applyLocally(set, get, characterId, (character) => removeLearnedSpell(character, spellId), {
+      reportRefusal: true,
+    });
+  },
+
+  castSpell: (characterId: string, spellId: string, statId: string, config: Configuration) => {
+    const body = { spellId, statId } satisfies CastSpellRequest;
+    if (toTable(set, get, characterId, PLAYER_ACTION.CAST_SPELL, body)) return;
+
+    // Reported without question: an unaffordable cast is the refusal this action exists to make
+    // visible, and a Player told nothing would read the unmoved pool as a control that is broken
+    applyLocally(
+      set,
+      get,
+      characterId,
+      (character) => spendSpellCost(character, config, spellId, statId),
       { reportRefusal: true }
     );
   },

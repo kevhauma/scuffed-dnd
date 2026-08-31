@@ -129,6 +129,15 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
   };
 }
 
+/** One compendium entry, shared by the two spell cases so they cannot drift apart */
+const SPELL = {
+  id: 'acid-splash',
+  name: 'Acid Splash',
+  manaCost: 90,
+  rangeTime: '60f',
+  effectTemplate: '',
+};
+
 function createCharacter(overrides: Partial<Character> = {}): Character {
   return {
     id: 'char1',
@@ -449,23 +458,23 @@ describe('findReferences', () => {
     );
   });
 
-  it('finds nothing pointing at a spell yet, which is the kind existing early (TICKET-SPL-01)', () => {
-    // `dice-ladder`'s and `inlay`'s situation on the day each was minted. Nothing in a ruleset
-    // names a spell — effect text is prose until TICKET-SPL-03 and no formula can reach one — so
-    // the guard has no possible referrer and always lets the delete through. The referrer arrives
-    // with TICKET-SPL-02's `Character.learnedSpellIds`, and this case is what turns red the day the
-    // arm is left empty behind it.
-    const config = createConfig({
-      spells: [
-        {
-          id: 'acid-splash',
-          name: 'Acid Splash',
-          manaCost: 90,
-          rangeTime: '60f',
-          effectTemplate: '',
-        },
-      ],
-    });
+  it('finds a character who has learned a spell (TICKET-SPL-02)', () => {
+    // The referrer SPL-01 predicted, arrived. Deleting a spell three Players have learned would
+    // leave three ids naming nothing, which `spellbookOf` draws as three rows they did not ask for
+    // — so the delete is refused naming the character, and forcing it is the User's own decision.
+    const config = createConfig({ spells: [SPELL] });
+    const caster = createCharacter({ learnedSpellIds: ['acid-splash'] });
+
+    const found = findReferences({ kind: 'spell', id: 'acid-splash' }, config, [caster]);
+
+    expect(holders(found)).toEqual(['Character: Aria']);
+    expect(found[0]?.field).toBe('learnedSpellIds');
+  });
+
+  it('finds nothing pointing at a spell nobody has learned', () => {
+    // Nothing in a *ruleset* names a spell — effect text is prose until TICKET-SPL-03 and no formula
+    // can reach one — so a compendium entry no Player has switched on deletes freely
+    const config = createConfig({ spells: [SPELL] });
 
     const found = findReferences({ kind: 'spell', id: 'acid-splash' }, config, [createCharacter()]);
 

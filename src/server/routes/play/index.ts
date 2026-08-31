@@ -1,7 +1,7 @@
 /**
  * The player-action routes (TICKET-PLY-01)
  *
- * Ten writes a Player makes to their own sheet, one module each, all under
+ * Thirteen writes a Player makes to their own sheet, one module each, all under
  * `POST /api/characters/:id/<action>` where `<action>` is a value of `PLAYER_ACTION`. The path, the
  * Event's `type` and the client's call all spell the intent the same way, which is what lets the log
  * say *what happened* rather than that something did.
@@ -16,12 +16,15 @@
 
 export * from './adjustResource';
 export * from './buildItem';
+export * from './castSpell';
 export * from './dropItem';
 export * from './equipItem';
 export * from './investSkillPoints';
 export * from './investStatPoints';
+export * from './learnSpell';
 export * from './playPayloads';
 export * from './resetResource';
 export * from './setFocusSkills';
 export * from './setResource';
 export * from './unequipItem';
+export * from './unlearnSpell';

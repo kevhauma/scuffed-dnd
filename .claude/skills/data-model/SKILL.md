@@ -126,7 +126,7 @@ invisible rows forever. Two things follow:
 Two consequences worth holding on to before changing a persisted shape:
 
 - **A document change is not a migration.** Adding `grantedStatPoints` (DM-01), `purse` (CUR-02),
-  `dreamLevel` (RES-04) or `focusSkillIds` (SKL-05)
+  `dreamLevel` (RES-04), `focusSkillIds` (SKL-05) or `learnedSpellIds` (SPL-02)
   changes what is *inside* `character.data` and `ruleset.data`, which are `TEXT` columns. The rules
   in *Changing a persisted shape* below are the ones that apply — not a SQL file.
 
@@ -681,7 +681,8 @@ Identity rules that the rest of the app depends on:
 id**, so a rename cannot orphan an allocation),
 `investedSkillPoints` (**keyed by skill id**, same reason — TICKET-SKL-02 replaced v1's
 code-keyed `specialitySkillBaseLevels`), `archetypeId`, `focusSkillIds` (**three picks, duplicates
-legal** — TICKET-SKL-05), `currentResourceValues`,
+legal** — TICKET-SKL-05), `learnedSpellIds` (**the ids that are on**, duplicates refused —
+TICKET-SPL-02), `currentResourceValues`,
 `experience`,
 and an `Inventory` (`equippedItems: Record<slotType, composedItemId>` + `composedItems:
 ComposedItem[]` — **two collections since TICKET-INV-06**, where the third, `miscItems`, was deleted
@@ -875,6 +876,39 @@ invested points.
   the place a new choice is most easily forgotten.)
 - **No `SUPPORTED_SCHEMA_VERSION` bump**, for `dreamLevel`'s reason: additive-optional, absent on
   every stored roster, and not in `CHARACTER_FIELDS`.
+
+And **`learnedSpellIds`** (TICKET-SPL-02, v4 systems/13) — which spells this character has unlocked,
+by id. The workbook carries a per-player `locked`/`Learned` flag beside all 418 compendium rows and
+its `Spellbook` sheet is one `FILTER` down to the `learned` ones; the app stores **the ids that are
+on** rather than a state per row, so a ruleset that grows a spell does not grow a field on every
+character who will never cast it. Like `focusSkillIds`, it is a **pick** rather than a sixth
+exception to *derived values are never stored*.
+
+- **Optional, absent means none, read through `learnedSpellIdsOf`** in
+  [engine/spellbook.ts](../../../src/shared/engine/spellbook.ts) — never `?? []` at a call site.
+  Unlike `focusSkillIds` there is no `…Field` helper, because only one write can empty the list:
+  `removeLearnedSpell` drops the key inline when the last spell goes, so a Player who forgot their
+  last spell and one who never learned any are the same document.
+- **The Spellbook is derived, never stored** — `spellbookOf(character, config)` is the sheet's own
+  `FILTER`, returning the learned subset in **compendium order** (the sheet's table order, so a book
+  reads the same way down every page) with any id the ruleset has lost appended after it as an entry
+  whose `spell` is `null`. It is not pruned on read: silently dropping an id would be a repair
+  nobody asked for and nobody could see, and the row is what makes the leftover clearable.
+- **Guarded, like `raceIds` and `focusSkillIds`.** `dependencies.ts`'s `spell` arm walks it, so
+  deleting a spell three Players have learned is refused naming them. This is the arm SPL-01 shipped
+  vacuous and `referenceArms.test.ts` armed — the row went red on the run that added this field,
+  before the walk was written, which is the first time that check has fired.
+- **Duplicates are refused at the write, not de-duplicated on read.** `addLearnedSpell` refuses a
+  spell already in the book (unlike `focusSkillIds`, where repeats are the mechanic), so a repeat in
+  a stored list came from a hand-edited file and is left alone.
+- **Casting spends through the ordinary resource action.** `spendSpellCost` ends in
+  `adjustResourceValue(…, -manaCost)`, so a cast and a hand-typed deduction move a pool by the same
+  arithmetic. **The pool is named by the caller** — no ruleset field says which resource casting
+  draws on (User ruling) — and an unaffordable cast is **refused with the shortfall named** rather
+  than taking the pool negative, which is where it deliberately parts from `setResourceValue`.
+- **No `SUPPORTED_SCHEMA_VERSION` bump**, for `dreamLevel`'s and `focusSkillIds`' reason:
+  additive-optional, absent on every stored roster, not in `CHARACTER_FIELDS`, and not in
+  `CharacterCreateRequest` either — a spell is learned after creation, never during it.
 
 **The point budget closes that chain** (TICKET-RES-02, TICKET-DM-01, TICKET-RES-05):
 `validateStatAllocation(character, config)` in

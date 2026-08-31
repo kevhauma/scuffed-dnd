@@ -48,12 +48,15 @@ import { archiveSession } from '../sessions/archiveSession';
 import { snapshotOf } from '../sessions/sessionPayloads';
 import { adjustResource } from './adjustResource';
 import { buildItem } from './buildItem';
+import { castSpell } from './castSpell';
 import { dropItem } from './dropItem';
 import { equipItem } from './equipItem';
 import { investStatPoints } from './investStatPoints';
+import { learnSpell } from './learnSpell';
 import { setFocusSkills } from './setFocusSkills';
 import { setResource } from './setResource';
 import { unequipItem } from './unequipItem';
+import { unlearnSpell } from './unlearnSpell';
 
 /** Every route in this folder, keyed by the action it performs — so a case can drive any of them */
 const ROUTES = {
@@ -65,6 +68,9 @@ const ROUTES = {
   [PLAYER_ACTION.BUILD_ITEM]: buildItem,
   [PLAYER_ACTION.DROP_ITEM]: dropItem,
   [PLAYER_ACTION.SET_FOCUS_SKILLS]: setFocusSkills,
+  [PLAYER_ACTION.LEARN_SPELL]: learnSpell,
+  [PLAYER_ACTION.UNLEARN_SPELL]: unlearnSpell,
+  [PLAYER_ACTION.CAST_SPELL]: castSpell,
 } as const;
 
 /** Perform one action, as somebody */
@@ -218,6 +224,58 @@ function withGear(document: Configuration): Configuration {
     ...document,
     items: [...document.items, HELMET, CIRCLET],
     materials: [...document.materials, METAL],
+  };
+}
+
+/**
+ * Two spells and a pool to pay for them, pinned onto a Snapshot (TICKET-SPL-02)
+ *
+ * The corpus has no compendium at all: the 418-row fragment is the **data pass's**
+ * ([D7](../../../../docs/v4.0_sheet_parity/overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)),
+ * and this milestone's shape pass ships no sheet data. So the spell cases pin what they need onto
+ * the Snapshot, exactly as the equipment cases pin their two templates.
+ *
+ * **The pool is pinned too, and that is not laziness.** Every one of the corpus's own resources is
+ * derived from stats a fresh character has spent nothing on, so they all seed at 0 — a perfectly
+ * ordinary ruleset in which *every* cast is refused for want of mana, and therefore one that cannot
+ * tell an accepted cast from a refused one. `MANA_POOL` is a flat 250 so the difference is visible;
+ * everything else the cases read, including the guards and the Event log, is still the real thing.
+ *
+ * `CANTRIP` costs 1 and `RITUAL` costs more than the pool holds, so the two outcomes are the
+ * fixture's own arithmetic rather than a coincidence of the corpus.
+ */
+const MANA_POOL = {
+  id: 'stat-test-mana',
+  name: 'Test Mana',
+  abbreviation: 'TSTMANA',
+  description: '',
+  order: 99,
+  countsTowardTotal: false,
+  isResource: true,
+  rounding: 'none',
+  formula: '250',
+};
+const CANTRIP = {
+  id: 'spell-test-cantrip',
+  name: 'Test Cantrip',
+  manaCost: 1,
+  rangeTime: '60f',
+  effectTemplate: '',
+};
+const RITUAL = {
+  id: 'spell-test-ritual',
+  name: 'Test Ritual',
+  manaCost: 1_000_000,
+  rangeTime: 'touch',
+  effectTemplate: '',
+};
+
+/** A Snapshot with {@link MANA_POOL} among its stats and the two spells in its compendium */
+function withMagic(document: Configuration): Configuration {
+  return {
+    ...document,
+    stats: [...document.stats, MANA_POOL as Stat],
+    spells: [...(document.spells ?? []), CANTRIP, RITUAL],
   };
 }
 
@@ -675,6 +733,143 @@ describe('carrying and wearing things at a table', () => {
       expect(dropped.status).toBe(200);
       expect(backpackAt(dropped.body, geared)).toEqual([]);
       expect(dropped.body.character.inventory.composedItems.map((held) => held.id)).toEqual([helm]);
+    }));
+});
+
+describe('spells and casting at a table (TICKET-SPL-02)', () => {
+  /** A table whose Snapshot knows two spells and has a pool to pay for them */
+  function aCastersTable(database: Database) {
+    return aTableWithACharacter(database, { snapshot: withMagic });
+  }
+
+  it('learns a spell, logging it as something that came into being on this sheet', () =>
+    withTestDatabase(async (database) => {
+      const { player, row, session } = aCastersTable(database);
+
+      const accepted = await act(
+        PLAYER_ACTION.LEARN_SPELL,
+        row.id,
+        { spellId: CANTRIP.id },
+        player
+      );
+
+      expect(accepted.status).toBe(200);
+      expect(stateOf(database, row.id).learnedSpellIds).toEqual([CANTRIP.id]);
+
+      const [event] = eventsOf(database, session.id);
+      const payload = payloadOf(event as { payload: string });
+
+      expect(payload.target).toBe(CANTRIP.id);
+      expect(payload.before).toBeNull();
+      expect(payload.after).toBe(CANTRIP.id);
+    }));
+
+  it('refuses a spell the Snapshot does not have, writing neither the sheet nor the log', () =>
+    withTestDatabase(async (database) => {
+      const { player, row, session } = aCastersTable(database);
+
+      const refused = await act(PLAYER_ACTION.LEARN_SPELL, row.id, { spellId: 'nonesuch' }, player);
+
+      expect(refused.status).toBe(400);
+      expect(messageOf(refused.body)).toContain('no such spell');
+      expect(stateOf(database, row.id).learnedSpellIds).toBeUndefined();
+      expect(eventsOf(database, session.id)).toHaveLength(0);
+    }));
+
+  it('unlearns back to a sheet with no field at all', () =>
+    withTestDatabase(async (database) => {
+      const { player, row } = aCastersTable(database);
+
+      await act(PLAYER_ACTION.LEARN_SPELL, row.id, { spellId: CANTRIP.id }, player);
+      const forgotten = await act(
+        PLAYER_ACTION.UNLEARN_SPELL,
+        row.id,
+        { spellId: CANTRIP.id },
+        player
+      );
+
+      expect(forgotten.status).toBe(200);
+      expect('learnedSpellIds' in stateOf(database, row.id)).toBe(false);
+    }));
+
+  it('casts, taking the cost off the pool the request named and logging both numbers', () =>
+    withTestDatabase(async (database) => {
+      const { player, row, session } = aCastersTable(database);
+      const statId = MANA_POOL.id;
+
+      await act(PLAYER_ACTION.LEARN_SPELL, row.id, { spellId: CANTRIP.id }, player);
+
+      // Read rather than restated: the Kernel seeds a fresh character's pools *at* their maxima, so
+      // what the row is holding is the ceiling this spend comes off
+      const before = stateOf(database, row.id).currentResourceValues[statId] ?? 0;
+
+      const cast = await act(
+        PLAYER_ACTION.CAST_SPELL,
+        row.id,
+        { spellId: CANTRIP.id, statId },
+        player
+      );
+
+      expect(cast.status).toBe(200);
+      expect(stateOf(database, row.id).currentResourceValues[statId]).toBe(
+        before - CANTRIP.manaCost
+      );
+
+      const events = eventsOf(database, session.id);
+      const payload = payloadOf(events.at(-1) as { payload: string });
+
+      expect(payload.target).toBe(CANTRIP.id);
+      expect(payload.before).toBe(before);
+      expect(payload.after).toBe(before - CANTRIP.manaCost);
+    }));
+
+  it('refuses a cast the pool cannot pay for, naming the shortfall and moving nothing', () =>
+    withTestDatabase(async (database) => {
+      // The User's ruling: refuse rather than let a pool go negative on a cast, which is where this
+      // deliberately differs from `set-resource` — that route is open at the bottom (Req 14.4)
+      const { player, row, session } = aCastersTable(database);
+      const statId = MANA_POOL.id;
+
+      await act(PLAYER_ACTION.LEARN_SPELL, row.id, { spellId: RITUAL.id }, player);
+      const before = stateOf(database, row.id).currentResourceValues[statId];
+
+      const refused = await act(
+        PLAYER_ACTION.CAST_SPELL,
+        row.id,
+        { spellId: RITUAL.id, statId },
+        player
+      );
+
+      expect(refused.status).toBe(400);
+      expect(messageOf(refused.body)).toContain('short');
+      expect(stateOf(database, row.id).currentResourceValues[statId]).toBe(before);
+      // One event, for the learn — the refused cast wrote nothing
+      expect(eventsOf(database, session.id)).toHaveLength(1);
+    }));
+
+  it('refuses a spell the character has not learned, which no surface offers', () =>
+    withTestDatabase(async (database) => {
+      const { player, row } = aCastersTable(database);
+
+      const refused = await act(
+        PLAYER_ACTION.CAST_SPELL,
+        row.id,
+        { spellId: CANTRIP.id, statId: MANA_POOL.id },
+        player
+      );
+
+      expect(refused.status).toBe(400);
+      expect(messageOf(refused.body)).toContain('not in this Spellbook');
+    }));
+
+  it('refuses a body with no pool named before the Kernel is asked', () =>
+    withTestDatabase(async (database) => {
+      const { player, row } = aCastersTable(database);
+
+      const refused = await act(PLAYER_ACTION.CAST_SPELL, row.id, { spellId: CANTRIP.id }, player);
+
+      expect(refused.status).toBe(400);
+      expect(messageOf(refused.body)).toContain('statId');
     }));
 });
 

@@ -587,6 +587,20 @@ export const PLAYER_ACTION = {
   BUILD_ITEM: 'build-item',
   /** Destroy a build the character is not wearing */
   DROP_ITEM: 'drop-item',
+  /** Unlock one spell — the sheet's `locked` → `Learned` flag, set by hand (TICKET-SPL-02) */
+  LEARN_SPELL: 'learn-spell',
+  /** Lock one back up, which is also how a Player clears an id the ruleset has lost */
+  UNLEARN_SPELL: 'unlearn-spell',
+  /**
+   * Cast a learned spell — a **resource spend**, never a roll (TICKET-SPL-02)
+   *
+   * The mana comes off the pool the request names, because nothing in a ruleset says which of its
+   * resources casting draws on (the User's ruling, 2026-08-31: the Player picks at cast time). The
+   * spend itself is `adjustResourceValue`'s, so a cast and a hand-typed deduction move the pool by
+   * the same arithmetic. Whatever the effect text says about dice stays a Player-driven roll on the
+   * existing roll surface — server-resolved rolls are untouched by this action.
+   */
+  CAST_SPELL: 'cast-spell',
 } as const;
 
 export type PlayerAction = (typeof PLAYER_ACTION)[keyof typeof PLAYER_ACTION];
@@ -644,6 +658,24 @@ export interface EquipmentSlotRequest {
 /** What a client sends to put a build down — `itemId` is a `ComposedItem.id` */
 export interface ItemRequest {
   itemId: string;
+}
+
+/** What a client sends to learn or unlearn one spell — a `Spell.id` in the ruleset's compendium */
+export interface SpellRequest {
+  spellId: string;
+}
+
+/**
+ * What a client sends to cast one spell (TICKET-SPL-02)
+ *
+ * **Two ids, because a cast names its pool.** No ruleset field says which resource casting draws on
+ * (the User's ruling: the Player picks at cast time), so the request carries the choice rather than
+ * the server inferring one — and `statId` is checked as a pool the same way `set-resource`'s is.
+ */
+export interface CastSpellRequest {
+  spellId: string;
+  /** Which resource pool the mana comes off */
+  statId: string;
 }
 
 /**

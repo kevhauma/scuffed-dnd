@@ -234,6 +234,36 @@ export interface Character {
    * reader (`focusPickRefusal`).
    */
   focusSkillIds?: string[];
+  /**
+   * The spells this character has unlocked, by **id** (TICKET-SPL-02, v4 systems/13 gap 2).
+   *
+   * The workbook's spells tab carries a per-player `locked`/`Learned` flag beside every one of its
+   * 418 rows, and its `Spellbook` sheet is one `FILTER` of that table down to the `learned` ones.
+   * This is that flag, stored the way the app stores every pick — as the ids that are *on*, rather
+   * than as a state per compendium row, so a ruleset that grows a spell does not grow a field on
+   * every character who will never cast it.
+   *
+   * **Spells unlock manually** (User ruling, 2026-08-29): no rule derives this, nothing gates it on
+   * a level or a skill. It is a hand-set flag, which is exactly what the sheet does — and it is why
+   * this is not a sixth exception to *derived values are never stored*, any more than
+   * {@link Character.focusSkillIds} is: it is a **pick**, not a number something else computes.
+   *
+   * **Optional, and absent means none** — `purse`'s and `focusSkillIds`' pattern, and it is the
+   * sheet's own default (`locked`). A roster written before this field round-trips without growing
+   * one. The default belongs to the *reader*: read it with
+   * [`learnedSpellIdsOf`](../engine/spellbook.ts), never `character.learnedSpellIds ?? []` at a call
+   * site.
+   *
+   * **A stale id is a state to report, not a crash.** Deleting a learned spell is refused by the
+   * dependency walker, so an id naming nothing arrives only from a force-delete or a hand-edited
+   * file; `spellbookOf` resolves it to a row with no spell behind it, which the Spellbook draws as a
+   * finding the Player can unlearn. Nothing prunes the list on read — silently dropping an id would
+   * be a repair nobody asked for and nobody could see.
+   *
+   * The Setup tab's *Chosen abiltie* box is deliberately **not** modelled here or anywhere: it is a
+   * placeholder the workbook has not filled in (User ruling, same date).
+   */
+  learnedSpellIds?: string[];
   createdAt: string;
   updatedAt: string;
 }
