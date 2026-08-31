@@ -9,6 +9,7 @@ export * from './affinityGroups';
 export * from './equipmentGrid';
 export * from './IncompatibleDataNotice';
 export * from './labelledGroups';
+export * from './ResolvedTemplate';
 export * from './readableMoment';
 export * from './SaveConflictBanner';
 export * from './SkillBonusBadges';

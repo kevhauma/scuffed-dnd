@@ -28,6 +28,7 @@
 import type { Configuration, Skill, Stat } from '../../types/config';
 import type { FormulaToken } from './parser';
 import { tokenizeFormula } from './parser';
+import { mapTemplateFormulas } from './template';
 
 /**
  * The reference spaces a token can be resolved in
@@ -497,6 +498,26 @@ function translateConfiguration(
           rollDefinitions: config.rollDefinitions.map((roll) => ({
             ...roll,
             input: translateFormula(roll.input, index),
+          })),
+        }
+      : {}),
+    /*
+     * A spell's effect is **prose with formulas in it** (TICKET-SPL-03), and the formulas inside it
+     * are references like any other — so renaming Wisdom re-spells all 326 effects that read it,
+     * exactly as it re-spells every stat formula and every roll input.
+     *
+     * `mapTemplateFormulas` is what keeps this line one line: it walks the placeholders and leaves
+     * the prose byte-identical, so this module never learns the template grammar and `template.ts`
+     * never learns about ids. Translating the whole string instead would tokenize the prose — a
+     * spell effect saying *"gains STR"* would have the word rewritten into a uuid.
+     */
+    ...(config.spells
+      ? {
+          spells: config.spells.map((spell) => ({
+            ...spell,
+            effectTemplate: mapTemplateFormulas(spell.effectTemplate, (source) =>
+              translateFormula(source, index)
+            ),
           })),
         }
       : {}),

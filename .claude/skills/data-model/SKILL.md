@@ -371,20 +371,36 @@ checker, since nothing about a spell is nested. Four rules, and three of them ar
   records as an **empty template with a note** rather than as invented text. Nothing trims, defaults
   or normalises either — the sheet spells one idea a dozen ways (`60f`, `60 Feet`, `120`, `touch`),
   and deciding which of them mean the same thing is the User's edit.
-- **Effect text is raw until TICKET-SPL-03.** It becomes template text with formula placeholders at a
-  `spell-effect` attachment point ([v4 D4](../../../docs/v4.0_sheet_parity/overview.md#d4--spell-effect-text-goes-through-the-formula-engine));
-  until that exists, no surface may treat a `{` in it as syntax, and the editor is a plain `Textarea`
-  rather than a `FormulaEditor` — FORM-08's *every formula field ships a preview* lands with the
-  attachment point, since a preview of an expression the engine cannot scope can only be wrong.
+- **Effect text is a template** since TICKET-SPL-03 — prose with `{formula}` placeholders, evaluated
+  per caster at the `spell-effect` attachment point
+  ([v4 D4](../../../docs/v4.0_sheet_parity/overview.md#d4--spell-effect-text-goes-through-the-formula-engine)).
+  The field's **type did not change** and neither did the schema version: it is the same `string`,
+  and what moved is who reads it. Three consequences for anyone reshaping a spell:
+  - **It has two forms, like every other formula.** `translateConfiguration` walks it through
+    `mapTemplateFormulas`, so the *placeholders* are id-resolved on the way to storage while the
+    prose round-trips byte-for-byte. A rename re-spells 326 effects; nothing hand-edits one. A whole
+    string translation would tokenize the sentence and rewrite the word `STR` in *"gains STR"* into a
+    uuid.
+  - **It is a guarded reference.** `dependencies.ts`'s `formulaSources` lists it fourth, so a stat
+    read only by Fireball blocks that stat's delete — and `formulaReferences` dedupes by holder and
+    field, because a spell is the first holder that can carry more than one formula.
+  - **`engine/validator.ts` reports a placeholder that cannot resolve**, one issue per placeholder,
+    quoting it. Prose reports nothing, which is what keeps the 92 plain-text effects quiet.
+  The editor is still a `Textarea` — the field is not a formula — and FORM-08's *every formula field
+  ships a preview* is paid by `TemplatePreview`. The grammar for a transcriber is
+  [`spell-template-grammar.md`](../../../docs/v4.0_sheet_parity/spell-template-grammar.md).
 - **Two spells may share a name; two may not share an id.** Nothing reaches a spell from a formula,
   so a name collides with nothing — a `Skill`'s rule since TICKET-SKL-02, and the sheet does repeat
   itself. `engine/validator.ts` reports an id collision (`duplicateIdIssues`) and says nothing about a
   name.
 
-`dependencies.ts` has a `spell` kind whose arm returns **nothing yet** — `dice-ladder`'s and
-`inlay`'s state on the day each was minted, since no ruleset field and no formula names a spell. The
-referrer is TICKET-SPL-02's `Character.learnedSpellIds`, and `shared/engine/referenceArms.test.ts`
-carries a vacuous row for it so that ticket cannot ship the arm empty behind the field.
+`dependencies.ts` reaches a spell **from two directions now**, and it reached it from neither when
+the kind was minted — `dice-ladder`'s and `inlay`'s state on their own first day. The `spell` arm
+walks `Character.learnedSpellIds` (TICKET-SPL-02), so deleting a spell Players have learned is
+refused naming them; and a spell is itself a **formula holder** since TICKET-SPL-03, so a stat its
+effect reads cannot be deleted either. `shared/engine/referenceArms.test.ts` carried a vacuous row
+against the first of those before the field existed, and **it fired** — red on the run that added
+`learnedSpellIds`, before the walk was written.
 
 **`Item` is a template, and since TICKET-ITEM-01 it is a per-skill bonus vector** (v4 systems/11):
 `{ id, name, description, categoryId?, equipmentSlotType?, shop?, skillBonuses? }`. What a template

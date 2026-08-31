@@ -24,6 +24,7 @@
 import type { Character, ComposedItem } from '../types/character';
 import type { Configuration, MaterialLevel } from '../types/config';
 import { skillMemberName, statMemberName } from './formula/references';
+import { templateFormulas } from './formula/template';
 import { validateFormula } from './formula/validator';
 import { learnedSpellIdsOf } from './spellbook';
 
@@ -181,6 +182,28 @@ function formulaSources(config: Configuration): { reference: EntityReference; fo
       },
       formula: roll.input,
     })),
+    /*
+     * A spell effect's placeholders are user-authored formula text (TICKET-SPL-03), so a stat read
+     * only by Fireball still blocks that stat's delete — the effect would otherwise start rendering
+     * an error chip in the middle of a sentence the moment somebody opened their Spellbook.
+     *
+     * **One entry per placeholder**, which is why {@link formulaReferences} dedupes: a template
+     * naming Wisdom twice is one spell to list, not two rows saying the same thing. That is
+     * `composedItemReferences`' rule (one reference per holder however many of its parts match)
+     * arriving at the formula walk, and it is new here — the other three holders carry exactly one
+     * formula each, so the question had never come up.
+     */
+    ...(config.spells ?? []).flatMap((spell) =>
+      templateFormulas(spell.effectTemplate).map((formula) => ({
+        reference: {
+          holderKind: 'Spell',
+          holderName: spell.name,
+          field: 'effectTemplate',
+          holderId: spell.id,
+        },
+        formula,
+      }))
+    ),
   ];
 }
 
@@ -189,15 +212,27 @@ function formulaSources(config: Configuration): { reference: EntityReference; fo
  *
  * `ownId` is the target's stable id, matched against `holderId`, so the exclusion survives a
  * rename (TICKET-REF-01) rather than depending on a spelling.
+ *
+ * **One row per holder, however many of its formulas match** (TICKET-SPL-03). A spell effect is the
+ * first holder that can carry more than one — 326 of the workbook's read two or three cells in a
+ * sentence — and *"Spell Fireball (effectTemplate)"* listed twice tells a reader nothing the first
+ * row did not. Keyed on holder **and field** rather than holder alone, so an entity that ever grows
+ * a second formula-bearing field still reports both.
  */
 function formulaReferences(
   config: Configuration,
   names: ReferenceMatcher,
   ownId: string
 ): EntityReference[] {
-  return formulaSources(config)
-    .filter(({ reference, formula }) => reference.holderId !== ownId && names(formula))
-    .map(({ reference }) => reference);
+  const found = new Map<string, EntityReference>();
+
+  for (const { reference, formula } of formulaSources(config)) {
+    if (reference.holderId === ownId || !names(formula)) continue;
+
+    found.set(`${reference.holderId}.${reference.field}`, reference);
+  }
+
+  return [...found.values()];
 }
 
 /** Every material level in the configuration, paired with the material that holds it */

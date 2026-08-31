@@ -24,7 +24,7 @@ import type { RegenerationReport } from '#shared/engine/curveGenerator';
 import { flagColumnAsOverridden } from '#shared/engine/curveGenerator';
 import { type EntityReference, findReferences } from '#shared/engine/dependencies';
 import { validateFormulaChange } from '#shared/engine/formula/formulaChange';
-import { scopeFor } from '#shared/engine/formula/scoping';
+import { FORMULA_OWNER, scopeFor } from '#shared/engine/formula/scoping';
 import type { Curve, CurveColumn } from '#shared/types';
 import type { UniquenessRefusal } from '../../../stores/configStore';
 import { useConfigStore } from '../../../stores/configStore';
@@ -97,7 +97,7 @@ export function useCurveManager() {
    * `key` and the constants — a generator runs per row with nothing else in hand (Concept 06).
    */
   const generatorVariables = useMemo(
-    () => (config ? [...scopeFor(config, 'curve-generator').codes] : []),
+    () => (config ? [...scopeFor(config, FORMULA_OWNER.CURVE_GENERATOR).codes] : []),
     [config]
   );
 
@@ -220,7 +220,7 @@ export function useCurveManager() {
     // A generator naming a constant that isn't there would otherwise persist and only surface as
     // a failed cell after the User presses Regenerate
     const validation = validateFormulaChange(config, {
-      owner: 'curve-generator',
+      owner: FORMULA_OWNER.CURVE_GENERATOR,
       id: columnId ?? name,
       formula: generator,
       ...(columnId ? { previousId: columnId } : {}),

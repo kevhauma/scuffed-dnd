@@ -32,7 +32,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { validateFormulaChange } from '#shared/engine/formula/formulaChange';
-import { scopeFor } from '#shared/engine/formula/scoping';
+import { FORMULA_OWNER, scopeFor } from '#shared/engine/formula/scoping';
 import type { Stat, StatRounding } from '#shared/types';
 import { useConfigStore } from '../../../stores/configStore';
 import { useEntityDialog } from '../shared/useEntityDialog';
@@ -157,7 +157,7 @@ export function useStatManager() {
   // table — today they would agree either way, but a new row in `LEGACY_CODE_SCOPES` should not
   // be able to make them disagree (TICKET-FORM-08).
   const availableSkillCodes = config
-    ? Array.from(scopeFor(config, 'stat').codes)
+    ? Array.from(scopeFor(config, FORMULA_OWNER.STAT).codes)
     : ([] as string[]);
 
   const handleAdd = () => {
@@ -273,7 +273,7 @@ export function useStatManager() {
     if (!formula) return null;
 
     const validation = validateFormulaChange(config, {
-      owner: 'stat',
+      owner: FORMULA_OWNER.STAT,
       id,
       formula,
       previousId: dialog.editingId ?? undefined,

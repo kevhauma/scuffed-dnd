@@ -14,7 +14,7 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { scopeFor } from '#shared/engine/formula/scoping';
+import { FORMULA_OWNER, scopeFor } from '#shared/engine/formula/scoping';
 import type { Configuration, Stat } from '#shared/types/config';
 
 vi.mock('../../../services/storage', () => ({
@@ -171,8 +171,8 @@ describe('RollsConfigPanel', () => {
 
     // Whatever `scoping.ts` says a roll input may name is what the editor completes — the list is
     // read from `scopeFor`, not mapped from `config.stats` beside it
-    const granted = Array.from(scopeFor(createConfig(), 'roll-input').codes).filter((code) =>
-      code.startsWith('ST')
+    const granted = Array.from(scopeFor(createConfig(), FORMULA_OWNER.ROLL_INPUT).codes).filter(
+      (code) => code.startsWith('ST')
     );
     expect(granted).toEqual(['STR']);
     for (const code of granted) {

@@ -16,10 +16,31 @@ import { skillMemberName, statMemberName } from './references';
  * Where a formula is attached. One row of the scoping tables below.
  *
  * This milestone's slice of the Concept 00 §5 context table — the attachment points that exist
- * today. Later tickets add rows (constants-as-formulas); they do not add branches. A row goes when
- * the thing it describes does — `combat-skill` left with the entity in TICKET-ROLL-06.
+ * today. Later tickets add rows; they do not add branches. A row goes when the thing it describes
+ * does — `combat-skill` left with the entity in TICKET-ROLL-06.
+ *
+ * **A const object since TICKET-SPL-03**, which is CLAUDE.md's *no bare string-union types* rule
+ * being paid rather than swept: the union was one of the pre-existing dozen, this ticket adds a
+ * member to it, and *converted when touched* is the standing bargain. The values are unchanged, so
+ * nothing persisted moves — an owner is a compile-time routing key that never reaches a document.
  */
-export type FormulaOwner = 'stat' | 'curve-generator' | 'roll-input';
+export const FORMULA_OWNER = {
+  /** A derived stat's own formula (Concept 00 §5) */
+  STAT: 'stat',
+  /** A curve column's generator (Concept 06, TICKET-CRV-02) */
+  CURVE_GENERATOR: 'curve-generator',
+  /** A roll's input expression (Concept 08, TICKET-ROLL-05) */
+  ROLL_INPUT: 'roll-input',
+  /**
+   * One placeholder inside a spell's effect template (v4 D4, TICKET-SPL-03)
+   *
+   * The attachment point is the **placeholder**, not the template: the prose around it is not a
+   * formula and never reaches a scope. See [`template.ts`](./template.ts) for the grammar.
+   */
+  SPELL_EFFECT: 'spell-effect',
+} as const;
+
+export type FormulaOwner = (typeof FORMULA_OWNER)[keyof typeof FORMULA_OWNER];
 
 /**
  * Every namespace the engine knows about, regardless of context.
@@ -79,6 +100,23 @@ export const NAMESPACE_SCOPES: Record<FormulaOwner, readonly FormulaNamespace[]>
   // kind of thing. `stats.dex + skills.dodging.bonus` is the shape Concept 08's editing scenarios
   // are written in.
   'roll-input': ['stats', 'skills', 'const', 'curve'],
+  /*
+   * A placeholder inside a spell's effect text (v4 D4, TICKET-SPL-03) — the same four `roll-input`
+   * sees, and for the same reason: an effect is another *reading* of the caster.
+   *
+   * The set is not a guess. The xlsx's own formulas were read cell by cell (v4 systems/13): Acid
+   * Splash reaches a **final stat** (`Calcu!R7`, Wis), Aid reaches a **skill bonus** and a **skill
+   * level** in one sentence (`Calcu!M30+1`, `Calcu!F20`), and the scalers those sit on are
+   * constants and curves. `skills` therefore has to include its `.bonus` reading, which it already
+   * does — that is TICKET-SKL-02's surface, not something this row adds.
+   *
+   * **`skills` is safe here where it is a cycle on `stat`** (CR-02's finding). A stat reading a
+   * skill is a cycle across the calculator's own pipeline, because skills are computed *from*
+   * finished stat values. A spell effect is read at **display** time, after both passes have run,
+   * and nothing in the ruleset can reference a spell — so there is no edge back and no fixed point
+   * to find. It is `roll-input`'s position exactly.
+   */
+  'spell-effect': ['stats', 'skills', 'const', 'curve'],
 };
 
 /**
@@ -95,6 +133,9 @@ const LEGACY_CODE_SCOPES: Record<FormulaOwner, readonly 'stat'[]> = {
   // A generator sees no skill at all — it fills a table, not a character (TICKET-CRV-02)
   'curve-generator': [],
   'roll-input': ['stat'],
+  // The sheet's own effect formulas read stat *cells*, and `WIS` is how this app spells one in the
+  // flat space — so a transcriber may write either `{WIS}` or `{stats.wisdom}` (TICKET-SPL-03)
+  'spell-effect': ['stat'],
 };
 
 /**
@@ -109,6 +150,10 @@ const CONTEXT_CODES: Record<FormulaOwner, readonly string[]> = {
   'curve-generator': ['KEY'],
   // A roll input is handed nothing of its own — everything it reads is the character (Concept 08)
   'roll-input': [],
+  // Nor is a spell effect: everything a placeholder reads is the caster (TICKET-SPL-03). A spell's
+  // own mana cost is deliberately not bound here — it is a number on the row rather than a term in
+  // the effect, and binding it would invite an effect that scales off its own price.
+  'spell-effect': [],
 };
 
 /**

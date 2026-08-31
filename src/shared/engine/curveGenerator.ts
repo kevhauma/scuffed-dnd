@@ -22,6 +22,7 @@ import { isFormulaError } from './formula/errors';
 import { evaluateFormulaString } from './formula/evaluator';
 import type { NamespaceSource } from './formula/namespaces';
 import { namespacesFor } from './formula/namespaces';
+import { FORMULA_OWNER } from './formula/scoping';
 
 /** One cell whose generator could not produce a number */
 export interface CellError {
@@ -99,7 +100,7 @@ function generateCell(
 ): number | FormulaError {
   const context: FormulaContext = {
     variables: { KEY: key },
-    namespaces: namespacesFor(source, 'curve-generator'),
+    namespaces: namespacesFor(source, FORMULA_OWNER.CURVE_GENERATOR),
   };
 
   return evaluateFormulaString(generator, context);

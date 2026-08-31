@@ -352,6 +352,20 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   **Absent dials are neutral by arithmetic rather than by a
   branch**: each defaults to `1 / FOCUS_SLOT_COUNT`, so a ruleset that states neither multiplies by
   exactly 1. Three slots is an engine constant, not yet a dial (the ticket says when it becomes one).
+- `formula/template.ts` (TICKET-SPL-03) — **prose with formulas in it**, which is what a spell
+  effect is (v4 D4). The grammar is the whole module: `{` opens a placeholder, the next `}` closes
+  it, everything else is text kept byte-for-byte, and **three states are text rather than syntax** —
+  no braces, an unclosed `{`, an empty `{}` (braces kept). `parseTemplate` splits;
+  `templateFormulas` lists the sources (for the validator and the delete guard);
+  `mapTemplateFormulas` rewrites the placeholders and leaves the prose alone (which is how
+  `references.ts` translates a template without learning the grammar); `resolveTemplate` evaluates
+  each one against a `FormulaContext`. **There is no arithmetic in it** — not a `+`, not a
+  `Number()` — and its one engine call is `evaluateFormulaString`, which is what makes *no second
+  evaluator* checkable rather than intended. `parseTemplate` carries **two cursors**, one for where
+  the prose run began and one for where to search: a single cursor silently deleted everything
+  before a `{}`, which is why that function has a test rather than an obvious implementation. The
+  transcriber's page is
+  [`docs/v4.0_sheet_parity/spell-template-grammar.md`](../../../docs/v4.0_sheet_parity/spell-template-grammar.md).
 - `spellbook.ts` (TICKET-SPL-02) — the **read side of `Character.learnedSpellIds`**:
   `learnedSpellIdsOf(character)` is the one reader of the optional field (absent means none,
   `focusPicksOf`'s and `dreamLevelOf`'s pattern, and it never de-duplicates or trims — every write
@@ -498,6 +512,13 @@ between the roots is exactly *"does this touch a browser API"*.
   own. Entity ids are **kept** — they only have to be unique within a document, and regenerating
   them would mean re-implementing `references.ts`; what is replaced is the ruleset's own id, which
   is the one identity that leaves the document.
+- `formula/scoping.ts` — which references a formula may use, as data. **`FormulaOwner` is a const
+  object since TICKET-SPL-03** (`FORMULA_OWNER.STAT` / `.CURVE_GENERATOR` / `.ROLL_INPUT` /
+  `.SPELL_EFFECT`) — the *no bare string-union types* rule paid on a union this ticket added a member
+  to. `spell-effect` sees exactly what `roll-input` sees (`stats`, `skills` including `.bonus`,
+  `const`, `curve`, plus stat abbreviations), read off the xlsx's own effect formulas; `skills` is
+  safe there where it is a cycle on `stat`, because an effect is read at **display** time after both
+  calculator passes and nothing in a ruleset can reference a spell.
 - `playerActions.ts` — **every rule behind a write a Player makes to their own sheet**
   (TICKET-PLY-01): `investInStat`, `investInSkill` (both budgeted against the one pool since
   TICKET-RES-05, through one shared `affordabilityRefusal` that **names the overspend** and lets any
@@ -892,6 +913,15 @@ User-authored formula field: editable sample values plus a fixed 1–50 level la
 formula, its `FormulaOwner` and the `Configuration` so it scopes and resolves exactly as the saved
 formula will. Every formula field renders it; never a bare `FormulaEditor` (CLAUDE.md).
 
+**And `TemplatePreview` beside it** (TICKET-SPL-03), for a field that is prose with `{placeholders}`
+in it rather than one formula — it shows one resolved **sentence** instead of one number and a
+ladder, validates **per placeholder**, and is what the spells panel's *Effect* box renders. The two
+are siblings rather than one component with a flag, because they draw different things; what they
+share lives in **`formulaSamples.ts`** (`previewInputs`, `useFormulaSamples` — the boxes, the skill
+derivation and the one evaluation) and **`SampleInputs.tsx`** (the boxes themselves), so neither can
+disagree with the other or with the value at play time. The resolved sentence is drawn by
+`components/shared/ResolvedTemplate`, which a Player's Spellbook renders too.
+
 **`config/shared/StatRowsField`** (TICKET-ARC-01) is the "one row per configured stat" block, with
 the empty state for a ruleset that has none. A race's stat block and an archetype's affinity table
 both render it, passing their own control as a render prop — the shape exists because the ruleset's
@@ -1058,7 +1088,13 @@ and unequipping puts it back without either control touching a list (`MiscItemRo
 `BackpackRow` here, and `Inventory.miscItems` deleted).
 
 `spells/` holds `SpellbookPanel` (TICKET-SPL-02 — mounted by the sheet beside the inventory, taking
-only a `characterId`) with `SpellbookRow`, `SpellLearner` and `useSpellbook`. **The book is the
+only a `characterId`) with `SpellbookRow`, `SpellLearner` and `useSpellbook`. **Each row's effect is
+resolved for the caster** (TICKET-SPL-03): `useSpellbookRows` runs `calculateCharacter` once and
+evaluates every learned spell's placeholders through `resolveTemplate` at the `spell-effect` owner,
+handing `SpellbookRow` segments rather than a string — drawn by `ResolvedTemplate`, the same
+component the config panel's preview uses, so an author and a Player read one sentence. It supplies
+**`statVariables` as well as the namespaces**, because `scoping.ts` puts stat abbreviations in scope
+there and a code the scope allows but the context cannot resolve is CR-02's bug. **The book is the
 sheet's own `FILTER`**, derived by `spellbookOf` rather than read, so learning a spell puts it in the
 book and takes it out of the picker with neither control touching the other — `InventoryPanel`'s
 Backpack one entity over. Three things worth knowing before touching it:

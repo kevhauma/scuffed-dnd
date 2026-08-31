@@ -10,6 +10,10 @@
  * list, so learning a spell puts it in the book and takes it out of the search with neither control
  * touching the other. `InventoryPanel`'s Backpack for the same reason.
  *
+ * **Each row's effect is resolved for this caster** (TICKET-SPL-03) — the hook evaluates the
+ * template's placeholders against the character's finished stats and skills, so *"takes 11 fire
+ * damage"* is 11 for them and re-reads itself the moment anything upstream moves.
+ *
  * ## The pool selector, and why it is here rather than on each row
  *
  * Nothing in a ruleset says which resource casting draws on (User ruling, 2026-08-31: the Player
@@ -38,7 +42,7 @@ export function SpellbookPanel({ characterId }: SpellbookPanelProps) {
 
   const {
     hasSpells,
-    book,
+    rows,
     pools,
     chosenPool,
     setPoolId,
@@ -92,13 +96,14 @@ export function SpellbookPanel({ characterId }: SpellbookPanelProps) {
         </Text>
       )}
 
-      {book.length === 0 ? (
+      {rows.length === 0 ? (
         <Text variant="body-small-secondary">No spells learned yet.</Text>
       ) : (
-        book.map((entry) => (
+        rows.map(({ entry, effect }) => (
           <SpellbookRow
             key={entry.spellId}
             entry={entry}
+            effect={effect}
             canCast={chosenPool !== null}
             onCast={handleCast}
             onUnlearn={handleUnlearn}

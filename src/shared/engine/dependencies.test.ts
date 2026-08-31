@@ -129,7 +129,7 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
   };
 }
 
-/** One compendium entry, shared by the two spell cases so they cannot drift apart */
+/** One compendium entry, shared by the spell cases so they cannot drift apart */
 const SPELL = {
   id: 'acid-splash',
   name: 'Acid Splash',
@@ -361,7 +361,10 @@ describe('findReferences', () => {
         inlays: [],
       });
 
-      expect(findReferences({ kind: 'stat', id: 'id-str' }, config, [])).toEqual([]);
+      // The base fixture has five other referrers to Strength, so the claim is about the *spell*
+      expect(holders(findReferences({ kind: 'stat', id: 'id-str' }, config, []))).not.toContain(
+        'Spell: Acid Splash'
+      );
     });
 
     it('reports nothing for a roll, which nothing can name (TICKET-ROLL-06)', () => {
@@ -455,6 +458,52 @@ describe('findReferences', () => {
 
     expect(findReferences({ kind: 'inlay', id: 'zircon' }, config, [createCharacter()])).toEqual(
       []
+    );
+  });
+
+  it('finds a spell whose effect reads a stat (TICKET-SPL-03)', () => {
+    // A placeholder is user-authored formula text, so a stat read only by Fireball still blocks
+    // that stat's delete — the effect would otherwise chip mid-sentence in every Spellbook
+    const config = createConfig({
+      spells: [{ ...SPELL, effectTemplate: 'takes {stats.strength} fire damage' }],
+    });
+
+    const found = findReferences({ kind: 'stat', id: 'id-str' }, config, []);
+
+    expect(holders(found)).toContain('Spell: Acid Splash');
+  });
+
+  it('lists a spell once however many of its placeholders name the target', () => {
+    // One row per holder: *"Spell Acid Splash (effectTemplate)"* twice tells a reader nothing the
+    // first row did not. A spell is the first holder that can carry more than one formula.
+    const config = createConfig({
+      spells: [{ ...SPELL, effectTemplate: '{stats.strength} and {stats.strength} and {STR}' }],
+    });
+
+    const found = findReferences({ kind: 'stat', id: 'id-str' }, config, []);
+
+    expect(found.filter((reference) => reference.holderKind === 'Spell')).toHaveLength(1);
+  });
+
+  it('finds a spell whose effect reads a skill', () => {
+    const config = createConfig({
+      spells: [{ ...SPELL, effectTemplate: 'for {skills.stealth.level} rounds' }],
+    });
+
+    const found = findReferences({ kind: 'skill', id: 'id-stl' }, config, []);
+
+    expect(holders(found)).toContain('Spell: Acid Splash');
+  });
+
+  it('does not block a delete on prose that merely contains a stat code', () => {
+    // The other half of *the splitter never sees the sentence*: `STR` in "gains STR" is a word
+    const config = createConfig({
+      spells: [{ ...SPELL, effectTemplate: 'the target gains STR for an hour' }],
+    });
+
+    // The base fixture has five other referrers to Strength, so the claim is about the *spell*
+    expect(holders(findReferences({ kind: 'stat', id: 'id-str' }, config, []))).not.toContain(
+      'Spell: Acid Splash'
     );
   });
 

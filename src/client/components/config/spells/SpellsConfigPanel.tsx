@@ -132,6 +132,10 @@ export function SpellsConfigPanel() {
         isOpen={isSpellDialogOpen}
         isEditing={!!editingSpellId}
         form={spellForm}
+        // The ruleset the effect's placeholders are scoped and previewed against (TICKET-SPL-03).
+        // The shell above only renders when there is one, so this is never null by the time the
+        // dialog can open.
+        config={config}
         onClose={closeSpellDialog}
         onSave={handleSaveSpell}
       />

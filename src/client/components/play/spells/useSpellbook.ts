@@ -17,9 +17,17 @@
  * **Validates: v4 systems/13 gaps 2, 3; Requirements 21.1-21.5**
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { calculateCharacter } from '#shared/engine/calculator';
+import { statVariables } from '#shared/engine/calculators/statCalculator';
+import { namespacesFor } from '#shared/engine/formula/namespaces';
+import { FORMULA_OWNER } from '#shared/engine/formula/scoping';
+import type { ResolvedSegment } from '#shared/engine/formula/template';
+import { resolveTemplate } from '#shared/engine/formula/template';
 import { learnedSpellIdsOf, type SpellbookEntry, spellbookOf } from '#shared/engine/spellbook';
-import type { Spell, Stat } from '#shared/types/config';
+import type { Character } from '#shared/types/character';
+import type { Configuration, Spell, Stat } from '#shared/types/config';
+import type { FormulaContext } from '#shared/types/formula';
 import { selectCharacter, useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
 
@@ -57,6 +65,103 @@ function castingPools(stats: Stat[], currents: Record<string, number>): CastingP
     .map((stat) => ({ id: stat.id, name: stat.name, current: currents[stat.id] ?? 0 }));
 }
 
+/**
+ * One row of the Spellbook, with its effect worked out for this caster (TICKET-SPL-03)
+ *
+ * The `entry` is the sheet's `FILTER` (which spell, and whether the ruleset still has it) and
+ * `effect` is v4 D4's half — the same shape `ResolvedTemplate` draws in the config panel's preview,
+ * so an author and a Player read one sentence rather than two spellings of one.
+ */
+interface SpellbookRowEntry {
+  entry: SpellbookEntry;
+  effect: ResolvedSegment[];
+}
+
+/**
+ * Every learned spell's effect, resolved against what this character actually is
+ *
+ * **Derived at read time, like every other number on the sheet.** The caster's finished stats and
+ * skills go in and a sentence comes out, so retuning a stat re-reads every effect on the next
+ * render — nothing is stored and nothing is invalidated.
+ *
+ * The namespaces are `namespacesFor`'s at the **`spell-effect`** attachment point, which is what
+ * makes this the same reading `scoping.ts` allows and `TemplatePreview` previews: a placeholder the
+ * scope forbids resolves to an error value here rather than to a number the panel never showed.
+ *
+ * @param book - The learned entries, in compendium order
+ * @param character - Whose sheet
+ * @param config - The ruleset they play by
+ * @returns One row per entry, its effect resolved
+ */
+function resolvedBook(
+  book: SpellbookEntry[],
+  character: Character,
+  config: Configuration
+): SpellbookRowEntry[] {
+  const calculated = calculateCharacter(character, config);
+  const namespaces = namespacesFor(
+    {
+      ...config,
+      statValues: calculated.statValues,
+      skillLevels: calculated.skillLevels,
+      skillBonuses: calculated.skillBonuses,
+    },
+    FORMULA_OWNER.SPELL_EFFECT
+  );
+
+  /*
+   * **Both spaces, not just the namespaces.** `scoping.ts` puts stat abbreviations in scope at this
+   * attachment point — the sheet's own effect formulas read stat *cells*, so a transcriber may
+   * write `{WIS}` — and a code the scope allows but the context cannot resolve is exactly CR-02's
+   * bug: a placeholder that validates, previews and then errors at the table. `statVariables` is
+   * the same call `rollCalculator` makes for the same reason.
+   */
+  const context: FormulaContext = {
+    variables: statVariables(config.stats, calculated.statValues),
+    namespaces,
+  };
+
+  return book.map((entry) => {
+    const template = entry.spell?.effectTemplate ?? '';
+    const effect = template === '' ? [] : resolveTemplate(template, context);
+
+    return { entry, effect };
+  });
+}
+
+/**
+ * The Spellbook as the panel draws it — the filter and the resolution, both memoised
+ *
+ * **Extracted from {@link useSpellbook} because `fallow` said so**, and the finding was fair: adding
+ * the resolution took that hook to 12 cyclomatic and 16 cognitive, and most of the weight was two
+ * memos each repeating the same *have we got a character and a ruleset* guard. Lifting the pair out
+ * leaves the caller reading as a list of what it offers.
+ *
+ * **Both halves are memoised, and for a reason rather than by habit.** Resolving runs
+ * `calculateCharacter` — the whole sheet — once per render, and a Player with forty spells learned
+ * would pay for it on every keystroke in the search box. `book` is memoised too so `rows` can depend
+ * on it **honestly**: rebuilt each render it would be a new array every time and defeat the second
+ * memo, which is the shape a suppression comment would have papered over.
+ *
+ * @param character Whose Spellbook, or `null` before one is open
+ * @param config The ruleset they play by, or `null` before one is loaded
+ * @returns One row per learned spell, its effect resolved; empty when either is missing
+ */
+function useSpellbookRows(
+  character: Character | null,
+  config: Configuration | null
+): SpellbookRowEntry[] {
+  const book: SpellbookEntry[] = useMemo(
+    () => (character === null || config === null ? [] : spellbookOf(character, config)),
+    [character, config]
+  );
+
+  return useMemo(
+    () => (character === null || config === null ? [] : resolvedBook(book, character, config)),
+    [book, character, config]
+  );
+}
+
 export function useSpellbook(characterId: string) {
   const config = useConfigStore((state) => state.config);
   // Wherever it lives (TICKET-PLY-01) — a character at a table is not in the browser's own list
@@ -70,8 +175,7 @@ export function useSpellbook(characterId: string) {
   const [poolId, setPoolId] = useState(NOTHING);
 
   const compendium = config?.spells ?? [];
-  const book: SpellbookEntry[] =
-    character === null || config === null ? [] : spellbookOf(character, config);
+  const rows = useSpellbookRows(character, config);
 
   const pools = castingPools(config?.stats ?? [], character?.currentResourceValues ?? {});
 
@@ -123,9 +227,12 @@ export function useSpellbook(characterId: string) {
      * hiding the panel there would leave the Player holding an id no surface shows and no control
      * can clear. The lost-spell row exists to be cleared; this is what keeps it reachable.
      */
-    hasSpells: compendium.length > 0 || book.length > 0,
-    /** The learned subset, compendium order, with a lost id drawn as a row rather than dropped */
-    book,
+    hasSpells: compendium.length > 0 || rows.length > 0,
+    /**
+     * The learned subset, compendium order, with a lost id drawn as a row rather than dropped —
+     * each row carrying its effect **resolved for this caster** (TICKET-SPL-03)
+     */
+    rows,
     /** Every resource stat, for the pool selector */
     pools,
     /** The pool a cast will spend from, or `null` on a ruleset with no resources to spend */

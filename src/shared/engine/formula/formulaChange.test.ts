@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Configuration, Stat } from '../../types/config';
 import { validateFormulaChange } from './formulaChange';
+import { FORMULA_OWNER } from './scoping';
 
 function createConfig(overrides: Partial<Configuration> = {}): Configuration {
   return {
@@ -110,7 +111,7 @@ describe('validateFormulaChange', () => {
     });
 
     const result = validateFormulaChange(config, {
-      owner: 'stat',
+      owner: FORMULA_OWNER.STAT,
       id: 'MEL',
       formula: 'MEL + 1',
       previousId: 'MEL',
@@ -128,7 +129,7 @@ describe('validateFormulaChange', () => {
     });
 
     const result = validateFormulaChange(config, {
-      owner: 'stat',
+      owner: FORMULA_OWNER.STAT,
       id: 'RNG',
       formula: 'MEL + 1',
       previousId: 'RNG',
@@ -147,7 +148,7 @@ describe('validateFormulaChange', () => {
 
     // As it stands the configuration is acyclic — the cycle only exists after the edit
     const before = validateFormulaChange(config, {
-      owner: 'stat',
+      owner: FORMULA_OWNER.STAT,
       id: 'RNG',
       formula: 'DEX + 1',
       previousId: 'RNG',
@@ -155,7 +156,7 @@ describe('validateFormulaChange', () => {
     expect(before.isValid).toBe(true);
 
     const after = validateFormulaChange(config, {
-      owner: 'stat',
+      owner: FORMULA_OWNER.STAT,
       id: 'RNG',
       formula: 'MEL',
       previousId: 'RNG',
@@ -166,7 +167,7 @@ describe('validateFormulaChange', () => {
 
   it('should accept a formula that legitimately references several stats', () => {
     const result = validateFormulaChange(createConfig(), {
-      owner: 'stat',
+      owner: FORMULA_OWNER.STAT,
       id: 'armour',
       formula: 'STR * 2 + DEX + CON / 2',
     });
@@ -180,7 +181,7 @@ describe('validateFormulaChange', () => {
     // Skills are computed from the finished stat values, so `calculateStatValues` has no skill
     // resolver — this used to validate, preview a real number, save, and then error on the sheet
     const result = validateFormulaChange(createConfig(), {
-      owner: 'stat',
+      owner: FORMULA_OWNER.STAT,
       id: 'RNG',
       formula: 'DEX + skills.stealth',
     });
@@ -192,7 +193,7 @@ describe('validateFormulaChange', () => {
   it('should still accept a roll input referencing a skill, which is honoured (CR-02)', () => {
     // The same reference at the attachment point whose calculator *does* get skill values
     const result = validateFormulaChange(createConfig(), {
-      owner: 'roll-input',
+      owner: FORMULA_OWNER.ROLL_INPUT,
       id: 'roll-stealth',
       formula: 'DEX + skills.stealth',
     });
@@ -202,7 +203,7 @@ describe('validateFormulaChange', () => {
 
   it('should refuse a formula referencing an undefined code, naming the code', () => {
     const result = validateFormulaChange(createConfig(), {
-      owner: 'stat',
+      owner: FORMULA_OWNER.STAT,
       id: 'mana',
       formula: 'WIS * 5',
     });
@@ -214,7 +215,7 @@ describe('validateFormulaChange', () => {
   it('should refuse a curve generator naming a stat, which is not in scope for it', () => {
     // A generator fills a table, not a character — the scope table's narrowest row
     const result = validateFormulaChange(createConfig(), {
-      owner: 'curve-generator',
+      owner: FORMULA_OWNER.CURVE_GENERATOR,
       id: 'xp_required',
       formula: 'STR + 1',
     });
@@ -225,7 +226,7 @@ describe('validateFormulaChange', () => {
 
   it('should refuse an unparseable formula', () => {
     const result = validateFormulaChange(createConfig(), {
-      owner: 'stat',
+      owner: FORMULA_OWNER.STAT,
       id: 'health',
       formula: 'STR * * 2',
       previousId: 'health',
@@ -237,7 +238,7 @@ describe('validateFormulaChange', () => {
 
   it('should refuse an empty formula', () => {
     const result = validateFormulaChange(createConfig(), {
-      owner: 'stat',
+      owner: FORMULA_OWNER.STAT,
       id: 'health',
       formula: '   ',
       previousId: 'health',
@@ -255,7 +256,7 @@ describe('validateFormulaChange', () => {
     });
 
     const result = validateFormulaChange(config, {
-      owner: 'stat',
+      owner: FORMULA_OWNER.STAT,
       id: 'AGI',
       formula: 'DEX / 2',
       previousId: 'MEL',
@@ -269,7 +270,7 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
   describe('the three scoping errors', () => {
     it('names a namespace the engine has never heard of', () => {
       const result = validateFormulaChange(createConfig(), {
-        owner: 'stat',
+        owner: FORMULA_OWNER.STAT,
         id: 'armour',
         formula: 'wibble.thing + 1',
       });
@@ -281,7 +282,7 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
     it('names a real namespace that is out of scope at this attachment point', () => {
       // `stats` is available to stats and combat skills, not to a curve generator
       const result = validateFormulaChange(createConfig(), {
-        owner: 'curve-generator',
+        owner: FORMULA_OWNER.CURVE_GENERATOR,
         id: 'xp_required',
         formula: 'stats.health + 1',
       });
@@ -292,7 +293,7 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
 
     it('names a member the namespace does not provide', () => {
       const result = validateFormulaChange(createConfig(), {
-        owner: 'stat',
+        owner: FORMULA_OWNER.STAT,
         id: 'armour',
         formula: 'stats.nonexistent + 1',
       });
@@ -303,7 +304,7 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
 
     it('distinguishes the three from each other in one formula', () => {
       const result = validateFormulaChange(createConfig(), {
-        owner: 'curve-generator',
+        owner: FORMULA_OWNER.CURVE_GENERATOR,
         id: 'xp_required',
         formula: 'wibble.a + stats.health + const.nope',
       });
@@ -319,7 +320,7 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
 
     it('accepts an in-scope namespace and member', () => {
       const result = validateFormulaChange(createConfig(), {
-        owner: 'stat',
+        owner: FORMULA_OWNER.STAT,
         id: 'armour',
         // `health` is a stat in the base config, and stats are in scope for a stat formula
         formula: 'stats.health + 1',
@@ -333,7 +334,7 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
     it('reports every member of an entity-less namespace as unknown', () => {
       // `const` is in scope for a stat, but this ruleset defines no constants
       const result = validateFormulaChange(createConfig(), {
-        owner: 'stat',
+        owner: FORMULA_OWNER.STAT,
         id: 'armour',
         formula: 'const.bonus_divider',
       });
@@ -346,7 +347,7 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
   describe('cycle detection across namespaced references', () => {
     it('blocks a self-reference written in namespaced syntax, naming the path', () => {
       const result = validateFormulaChange(createConfig(), {
-        owner: 'stat',
+        owner: FORMULA_OWNER.STAT,
         id: 'health',
         formula: 'stats.health + 1',
         previousId: 'health',
@@ -386,7 +387,7 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
       });
 
       const result = validateFormulaChange(config, {
-        owner: 'stat',
+        owner: FORMULA_OWNER.STAT,
         id: 'armour',
         formula: 'stats.health + 1',
         previousId: 'armour',
@@ -401,7 +402,7 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
     it('leaves an acyclic chain written in namespaced syntax alone', () => {
       // A stat reading another stat is a chain, not a cycle
       const result = validateFormulaChange(createConfig(), {
-        owner: 'stat',
+        owner: FORMULA_OWNER.STAT,
         id: 'RNG',
         formula: 'stats.health + 1',
       });
@@ -429,7 +430,7 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
       });
 
       const result = validateFormulaChange(config, {
-        owner: 'roll-input',
+        owner: FORMULA_OWNER.ROLL_INPUT,
         id: 'roll-stealth',
         formula: 'skills.stealth * 2',
         previousId: 'roll-stealth',
@@ -443,7 +444,7 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
   describe('legacy bare-code scoping', () => {
     it('still lets a stat name another stat by its abbreviation', () => {
       const result = validateFormulaChange(createConfig(), {
-        owner: 'stat',
+        owner: FORMULA_OWNER.STAT,
         id: 'armour',
         formula: 'STR * 2',
       });
@@ -454,7 +455,7 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
     it('refuses any formula naming a skill by a bare code (TICKET-SKL-02)', () => {
       // v1 gave a speciality skill a 3-letter code in this flat space. A `Skill` has none, so the
       // spelling is undefined for every attachment point rather than merely out of scope for some.
-      for (const owner of ['stat', 'roll-input'] as const) {
+      for (const owner of [FORMULA_OWNER.STAT, FORMULA_OWNER.ROLL_INPUT]) {
         const result = validateFormulaChange(createConfig(), {
           owner,
           id: 'armour',
@@ -468,7 +469,7 @@ describe('Namespace scoping (TICKET-FORM-04)', () => {
 
     it('still lets a formula name a stat by its abbreviation', () => {
       const result = validateFormulaChange(createConfig(), {
-        owner: 'stat',
+        owner: FORMULA_OWNER.STAT,
         id: 'RNG',
         formula: 'DEX + CON',
       });
@@ -516,7 +517,7 @@ describe('Cycle detection with ids that are not the formula spelling (CR-01)', (
 
   it('refuses a stat that names itself by its slug', () => {
     const result = validateFormulaChange(uuidConfig('1', '1'), {
-      owner: 'stat',
+      owner: FORMULA_OWNER.STAT,
       id: ALPHA_ID,
       formula: 'stats.alpha * 2',
       previousId: ALPHA_ID,
@@ -528,7 +529,7 @@ describe('Cycle detection with ids that are not the formula spelling (CR-01)', (
 
   it('refuses a stat that names itself by its abbreviation', () => {
     const result = validateFormulaChange(uuidConfig('1', '1'), {
-      owner: 'stat',
+      owner: FORMULA_OWNER.STAT,
       id: ALPHA_ID,
       formula: 'ALP + 1',
       previousId: ALPHA_ID,
@@ -540,7 +541,7 @@ describe('Cycle detection with ids that are not the formula spelling (CR-01)', (
 
   it('refuses a mutual cycle and names both stats', () => {
     const result = validateFormulaChange(uuidConfig('stats.beta + 1', '1'), {
-      owner: 'stat',
+      owner: FORMULA_OWNER.STAT,
       id: BETA_ID,
       formula: 'stats.alpha + 1',
       previousId: BETA_ID,
@@ -554,7 +555,7 @@ describe('Cycle detection with ids that are not the formula spelling (CR-01)', (
 
   it('still accepts an acyclic chain between the same stats', () => {
     const result = validateFormulaChange(uuidConfig('1', '1'), {
-      owner: 'stat',
+      owner: FORMULA_OWNER.STAT,
       id: BETA_ID,
       formula: 'stats.alpha + ALP',
       previousId: BETA_ID,
@@ -576,7 +577,7 @@ describe('Cycle detection with ids that are not the formula spelling (CR-01)', (
         ],
       },
       {
-        owner: 'stat',
+        owner: FORMULA_OWNER.STAT,
         id: ALPHA_ID,
         formula: 'const.alpha * 2',
         previousId: ALPHA_ID,

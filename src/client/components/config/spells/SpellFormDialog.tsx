@@ -10,31 +10,40 @@
  * data it exists for. Blank is stored as blank (or as absent, for the two optional fields); nothing
  * here trims a range or invents a cost.
  *
- * **The effect box is a plain `Textarea`, not a `FormulaEditor`, and that is deliberate.** Effect
- * text becomes template text with formula placeholders in TICKET-SPL-03, at a `spell-effect`
- * attachment point that does not exist yet
- * ([v4 D4](../../../../../docs/v4.0_sheet_parity/overview.md#d4--spell-effect-text-goes-through-the-formula-engine));
- * until it does, this field holds prose that nothing parses. The standing rule — *every field a User
- * types a formula into ships a `FormulaPreview`* (TICKET-FORM-08) — lands on SPL-03 with the
- * attachment point, and shipping a preview of an expression the engine cannot yet scope would be a
- * preview that can only be wrong.
+ * **The effect box stays a `Textarea` and gains a preview** (TICKET-SPL-03). SPL-01 left it a plain
+ * box because the `spell-effect` attachment point did not exist yet and a preview of an expression
+ * the engine could not scope would be a preview that can only be wrong; the point exists now, so
+ * the standing rule — *every field a User types a formula into ships a preview* (TICKET-FORM-08) —
+ * is paid here.
  *
- * **Validates: v4 systems/13; Requirements 21.1-21.5**
+ * It is a `Textarea` rather than a `FormulaEditor` because the field is **not a formula**: it is
+ * prose with `{placeholders}` in it (v4 D4), and `FormulaEditor` validates its whole value as one
+ * expression — pointed at a sentence it would report every English word as an undefined variable.
+ * The preview does the splitting, and the rule's real requirement — never a formula field without a
+ * window onto what it computes — is met by {@link TemplatePreview}.
+ *
+ * **Validates: v4 systems/13; v4 D4; Requirements 16.4, 21.1-21.5**
  */
 
 import { useId } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
+import { FORMULA_OWNER } from '#shared/engine/formula/scoping';
+import type { Configuration } from '#shared/types/config';
 import { Dialog } from '../../ui/Dialog/Dialog';
 import { FormField } from '../../ui/FormField/FormField';
 import { Label } from '../../ui/Label/Label';
+import { Text } from '../../ui/Text/Text';
 import { Textarea } from '../../ui/Textarea/Textarea';
 import { FormDialogActions } from '../shared/FormDialogActions';
+import { TemplatePreview } from '../shared/TemplatePreview';
 import type { SpellFormData } from './useSpellManager';
 
 interface SpellFormDialogProps {
   isOpen: boolean;
   isEditing: boolean;
   form: UseFormReturn<SpellFormData>;
+  /** The ruleset the placeholders are scoped against */
+  config: Configuration;
   onClose: () => void;
   onSave: () => void;
 }
@@ -43,6 +52,7 @@ export function SpellFormDialog({
   isOpen,
   isEditing,
   form,
+  config,
   onClose,
   onSave,
 }: SpellFormDialogProps) {
@@ -51,8 +61,13 @@ export function SpellFormDialog({
 
   const {
     register,
+    watch,
     formState: { errors },
   } = form;
+
+  // Watched rather than read once: the preview is the point of the field, and a preview that
+  // updated on blur would answer a question the User had already stopped asking
+  const effectTemplate = watch('effectTemplate');
 
   return (
     <Dialog
@@ -105,8 +120,19 @@ export function SpellFormDialog({
           <Textarea
             id={effectId}
             rows={4}
+            placeholder="A {WIS}-foot-radius sphere takes {skills.fire.bonus} fire damage"
             className="w-full mt-1"
             {...register('effectTemplate')}
+          />
+          <Text variant="caption" as="p" className="mt-1">
+            Prose, with a formula in braces wherever a number is computed — an unclosed brace is
+            just text.
+          </Text>
+          <TemplatePreview
+            template={effectTemplate}
+            owner={FORMULA_OWNER.SPELL_EFFECT}
+            config={config}
+            className="mt-2"
           />
         </div>
 

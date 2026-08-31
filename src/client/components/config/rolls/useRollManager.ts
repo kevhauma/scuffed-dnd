@@ -14,7 +14,7 @@
 
 import { useForm } from 'react-hook-form';
 import { validateFormulaChange } from '#shared/engine/formula/formulaChange';
-import { scopeFor } from '#shared/engine/formula/scoping';
+import { FORMULA_OWNER, scopeFor } from '#shared/engine/formula/scoping';
 import type { RollCategory, RollDefinition } from '#shared/types';
 import { useConfigStore } from '../../../stores/configStore';
 import { useEntityDialog } from '../shared/useEntityDialog';
@@ -57,7 +57,7 @@ export function useRollManager() {
   // `LEGACY_CODE_SCOPES` or `CONTEXT_CODES` for `roll-input` should not be able to make the
   // editor suggest a different set from the one the validator accepts.
   const availableSkillCodes = config
-    ? Array.from(scopeFor(config, 'roll-input').codes)
+    ? Array.from(scopeFor(config, FORMULA_OWNER.ROLL_INPUT).codes)
     : ([] as string[]);
 
   /** The ladder a roll names, or undefined when it points at one that is gone */
@@ -98,7 +98,7 @@ export function useRollManager() {
 
     // Refuse the save if the input would not compute (Req 16.5, 16.6)
     const validation = validateFormulaChange(config, {
-      owner: 'roll-input',
+      owner: FORMULA_OWNER.ROLL_INPUT,
       id,
       formula: data.input,
       previousId: dialog.editingId ?? undefined,

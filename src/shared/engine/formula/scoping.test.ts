@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Configuration } from '../../types/config';
-import { KNOWN_NAMESPACES, NAMESPACE_SCOPES, scopeFor } from './scoping';
+import { FORMULA_OWNER, KNOWN_NAMESPACES, NAMESPACE_SCOPES, scopeFor } from './scoping';
 
 function createConfig(overrides: Partial<Configuration> = {}): Configuration {
   return {
@@ -71,8 +71,15 @@ describe('formula scoping tables', () => {
   it('declares a namespace row for every attachment point', () => {
     // No skill row since TICKET-SKL-02 (a `Skill` carries weight rows rather than a formula, so it
     // is not an attachment point at all) and no combat-skill row since TICKET-ROLL-06 took the
-    // entity — a row goes when the thing it describes does
-    expect(Object.keys(NAMESPACE_SCOPES).sort()).toEqual(['curve-generator', 'roll-input', 'stat']);
+    // entity — a row goes when the thing it describes does. `spell-effect` arrived with
+    // TICKET-SPL-03, which is a row *added* rather than a branch, as the module header promises.
+    //
+    // Read off `FORMULA_OWNER` rather than written out, since TICKET-SPL-03 made the union a const
+    // object: a spelling typed twice is a spelling that can differ, and the table this asserts on
+    // is keyed by the very type being listed.
+    const owners = Object.values(FORMULA_OWNER);
+
+    expect(Object.keys(NAMESPACE_SCOPES).sort()).toEqual([...owners].sort());
   });
 
   it('only lists namespaces the engine knows about', () => {
@@ -88,7 +95,9 @@ describe('formula scoping tables', () => {
     // back undefined and silently turn every reference into "Unknown member".
     const config = createConfig();
     for (const namespace of KNOWN_NAMESPACES) {
-      const owner = NAMESPACE_SCOPES.stat.includes(namespace) ? 'stat' : 'roll-input';
+      const owner = NAMESPACE_SCOPES.stat.includes(namespace)
+        ? FORMULA_OWNER.STAT
+        : FORMULA_OWNER.ROLL_INPUT;
       const scope = scopeFor(config, owner);
       expect(scope.namespaces[namespace], `${namespace} has no member source`).toBeDefined();
     }
@@ -98,25 +107,25 @@ describe('formula scoping tables', () => {
 describe('scopeFor', () => {
   it('gives a stat the stat abbreviations only (Requirement 3.2)', () => {
     // Every stat, derived ones included — a derived stat is readable from another formula
-    const scope = scopeFor(createConfig(), 'stat');
+    const scope = scopeFor(createConfig(), FORMULA_OWNER.STAT);
     expect(Array.from(scope.codes).sort()).toEqual(['DEX', 'HEA', 'STR']);
   });
 
   it('gives a roll input the stat abbreviations only (Requirement 5.4)', () => {
     // v1 put speciality codes in this flat space, and TICKET-ROLL-06 took the combat codes out of
     // it too — a skill is reached as `skills.<name>` and the bare space is stats alone.
-    const scope = scopeFor(createConfig(), 'roll-input');
+    const scope = scopeFor(createConfig(), FORMULA_OWNER.ROLL_INPUT);
     expect(Array.from(scope.codes).sort()).toEqual(['DEX', 'HEA', 'STR']);
   });
 
   it('exposes every stat by its slug as a member of the stats namespace', () => {
-    const scope = scopeFor(createConfig(), 'stat');
+    const scope = scopeFor(createConfig(), FORMULA_OWNER.STAT);
     expect(Array.from(scope.namespaces.stats ?? [])).toEqual(['strength', 'dexterity', 'health']);
   });
 
   it('exposes each skill by its name slug as a member of the skills namespace (TICKET-SKL-02)', () => {
     // Not the 3-letter code v1 published here — a skill is spelled `skills.stealth` now
-    const scope = scopeFor(createConfig(), 'roll-input');
+    const scope = scopeFor(createConfig(), FORMULA_OWNER.ROLL_INPUT);
     expect(Array.from(scope.namespaces.skills ?? [])).toEqual(['stealth']);
   });
 
@@ -124,28 +133,48 @@ describe('scopeFor', () => {
     // Skills are computed *from* the finished stat values, so `calculateStatValues` has no skill
     // resolver to offer. Leaving `skills` in the row let a formula validate and preview with a
     // real number and then error `Unknown namespace: skills` every time the sheet computed it.
-    const scope = scopeFor(createConfig(), 'stat');
+    const scope = scopeFor(createConfig(), FORMULA_OWNER.STAT);
     expect(scope.namespaces.skills).toBeUndefined();
     expect(scope.namespaces.stats).toBeDefined();
   });
 
   it('provides const and curve with no members when the ruleset has neither', () => {
-    const scope = scopeFor(createConfig(), 'stat');
+    const scope = scopeFor(createConfig(), FORMULA_OWNER.STAT);
     expect(scope.namespaces.const?.size).toBe(0);
     expect(scope.namespaces.curve?.size).toBe(0);
   });
 
   it('gives a roll input everything a character is, like a derived stat (TICKET-ROLL-05)', () => {
     const config = createConfig();
-    const scope = scopeFor(config, 'roll-input');
+    const scope = scopeFor(config, FORMULA_OWNER.ROLL_INPUT);
 
     // A roll is another reading of the character, so it sees the same set a derived stat does
     expect(Object.keys(scope.namespaces).sort()).toEqual(['const', 'curve', 'skills', 'stats']);
-    expect([...scope.codes]).toEqual([...scopeFor(config, 'stat').codes]);
+    expect([...scope.codes]).toEqual([...scopeFor(config, FORMULA_OWNER.STAT).codes]);
+  });
+
+  it('gives a spell effect everything a caster is, like a roll input (TICKET-SPL-03)', () => {
+    // An effect is another *reading* of the caster, so the row is `roll-input`'s exactly — and
+    // `skills` is safe here where it is a cycle on `stat` (CR-02), because an effect is read at
+    // display time, after both calculator passes, and nothing in a ruleset can reference a spell
+    const config = createConfig();
+    const scope = scopeFor(config, FORMULA_OWNER.SPELL_EFFECT);
+
+    expect(Object.keys(scope.namespaces).sort()).toEqual(['const', 'curve', 'skills', 'stats']);
+    expect([...scope.codes]).toEqual([...scopeFor(config, FORMULA_OWNER.ROLL_INPUT).codes]);
+  });
+
+  it('gives a spell effect the stat abbreviations, because the sheet writes cells', () => {
+    // The workbook's own effect formulas read stat cells, so a transcriber may write `{WIS}` — and
+    // a code in scope that no context resolves is CR-02's bug, which is why `useSpellbook` and the
+    // preview both supply `statVariables`
+    const scope = scopeFor(createConfig(), FORMULA_OWNER.SPELL_EFFECT);
+
+    expect(Array.from(scope.codes).sort()).toEqual(['DEX', 'HEA', 'STR']);
   });
 
   it('gives a curve generator the row key and the constants, and nothing else (TICKET-CRV-02)', () => {
-    const scope = scopeFor(createConfig({}), 'curve-generator');
+    const scope = scopeFor(createConfig({}), FORMULA_OWNER.CURVE_GENERATOR);
 
     // `key` as the User writes it; the parser normalises bare identifiers to uppercase
     expect(scope.codes.has('KEY')).toBe(true);

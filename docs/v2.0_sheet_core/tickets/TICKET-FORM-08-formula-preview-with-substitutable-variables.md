@@ -179,3 +179,21 @@ takes it to the rest.
   `<form onSubmit={onSave}>`, so pressing Enter while typing a sample value saved the entity. A
   bug this ticket introduced with `StatFormDialog` and FORM-09 multiplied by three before fixing
   it in the one place it belongs.
+
+- **TICKET-SPL-03 extended it, which is what this ticket's standing rule asks for.** *Every field a
+  User types a formula into ships a preview* met a field that is **not a formula**: a spell effect
+  is prose with `{placeholders}` in it (v4 D4), so its preview shows one resolved **sentence** where
+  this one shows one number and a nine-level ladder. Nine sentences in a table answers nothing that
+  one does not.
+  - The extension is a **sibling component**, `config/shared/TemplatePreview.tsx`, rather than a
+    flag on this one. A boolean selecting between two renderings would be a prop named after one
+    caller, which the house rules refuse.
+  - **What they share is shared**: the sample boxes, the skill derivation and the evaluation moved
+    to `config/shared/formulaSamples.ts` (`previewInputs`, `useFormulaSamples`) and
+    `config/shared/SampleInputs.tsx`. Both previews compute their numbers there, so there is no
+    second evaluator and the two cannot disagree about what a stat at 10 gives. **No test of this
+    component changed**, which is the evidence the split was behaviour-preserving.
+  - The effect field stays a `Textarea` rather than becoming a `FormulaEditor`: that primitive
+    validates its whole value as one expression and, pointed at a sentence, reports every English
+    word as an undefined variable. *Never a bare `FormulaEditor`* means *never a formula field
+    without a window onto what it computes*, and `TemplatePreview` is that window.

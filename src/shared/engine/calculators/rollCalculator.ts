@@ -18,6 +18,7 @@ import type { FormulaContext, FormulaResult } from '../../types/formula';
 import { isFormulaError, withSource } from '../formula/errors';
 import { evaluateFormulaString } from '../formula/evaluator';
 import { namespacesFor } from '../formula/namespaces';
+import { FORMULA_OWNER } from '../formula/scoping';
 import type { CalculatedSkills } from './skillCalculator';
 import { statVariables } from './statCalculator';
 
@@ -54,7 +55,7 @@ export function calculateRollInputs(
         skillLevels: skills.levels,
         skillBonuses: skills.bonuses,
       },
-      'roll-input'
+      FORMULA_OWNER.ROLL_INPUT
     ),
   };
 

@@ -568,6 +568,62 @@ describe('toStoredConfiguration / toDisplayConfiguration', () => {
   });
 });
 
+describe('a spell effect template (TICKET-SPL-03)', () => {
+  /** A ruleset whose one spell reads Strength twice — once bare, once dotted */
+  function withSpell(effectTemplate: string): Configuration {
+    return createConfig({
+      spells: [{ id: 'id-fireball', name: 'Fireball', rangeTime: '150 Feet', effectTemplate }],
+    });
+  }
+
+  it('stores its placeholders as ids and leaves the prose exactly as written', () => {
+    const stored = toStoredConfiguration(
+      withSpell('a {STR}-foot sphere, centered on  a point, takes {stats.dexterity} damage')
+    );
+
+    // The namespace survives and only the *member* becomes an id, which is `toStoredFormula`'s
+    // own rule rather than anything this ticket decided — a bare code has no prefix to keep
+    expect(stored.spells?.[0].effectTemplate).toBe(
+      'a {[id-str]}-foot sphere, centered on  a point, takes {stats.[id-dex]} damage'
+    );
+  });
+
+  it('round-trips through JSON back to what it was', () => {
+    const config = withSpell('takes {STR} damage');
+    const stored = toStoredConfiguration(config);
+
+    expect(toDisplayConfiguration(JSON.parse(JSON.stringify(stored)) as Configuration)).toEqual(
+      config
+    );
+  });
+
+  it('re-spells every effect when a stat is renamed — the whole point of storing ids', () => {
+    const stored = toStoredConfiguration(withSpell('takes {STR} damage'));
+    const renamed = {
+      ...stored,
+      stats: stored.stats.map((stat) =>
+        stat.id === 'id-str' ? { ...stat, abbreviation: 'STG' } : stat
+      ),
+    };
+
+    expect(toDisplayConfiguration(renamed).spells?.[0].effectTemplate).toBe('takes {STG} damage');
+  });
+
+  it('does not tokenize the prose — a sentence containing a stat code is left alone', () => {
+    // The failure this guards against: translating the whole string would see the *word* `STR` in
+    // "gains STR" and rewrite it into a uuid, corrupting an English sentence into a reference
+    const stored = toStoredConfiguration(withSpell('the target gains STR and DEX for an hour'));
+
+    expect(stored.spells?.[0].effectTemplate).toBe('the target gains STR and DEX for an hour');
+  });
+
+  it('leaves a ruleset with no compendium without one', () => {
+    // `spells` is optional and absent means none — writing `spells: []` on the way through would
+    // put a key on every ruleset that has never known magic
+    expect('spells' in toStoredConfiguration(createConfig())).toBe(false);
+  });
+});
+
 describe('ensureReferenceIds', () => {
   it('mints an id for an entity that predates them and leaves the rest alone', () => {
     const config = createConfig();

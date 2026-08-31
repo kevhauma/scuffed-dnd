@@ -1697,14 +1697,72 @@ describe('validateConfiguration', () => {
       expect(validateConfiguration(config).isValid).toBe(true);
     });
 
-    it('should say nothing about a spell, which points at nothing yet', () => {
-      // Effect text is prose until TICKET-SPL-03's attachment point, and a cost is a bare number —
-      // so there is no reference here for the report to resolve
+    it('should say nothing about a spell whose effect is plain prose', () => {
+      // 92 of the workbook's 418 effects have no placeholder at all, so a report that found
+      // anything to say here would put a permanent finding on most of the compendium
       const report = validateConfiguration(withSpells([acidSplash]));
 
       expect(report.isValid).toBe(true);
       expect(report.errors).toEqual([]);
       expect(report.warnings).toEqual([]);
+    });
+
+    it('should say nothing about a placeholder that resolves (TICKET-SPL-03)', () => {
+      const templated = { ...acidSplash, effectTemplate: 'lowers endurance by {STR}' };
+
+      expect(validateConfiguration(withSpells([templated])).isValid).toBe(true);
+    });
+
+    it('should report a placeholder naming a stat the ruleset does not have', () => {
+      // The placeholder is quoted because a sentence with three of them has to say which
+      const broken = { ...acidSplash, effectTemplate: 'lowers endurance by {stats.nonesuch}' };
+
+      const messages = validateConfiguration(withSpells([broken])).errors.map(
+        (issue) => issue.message
+      );
+
+      expect(messages).toContain(
+        'Spell "Acid Splash" effect {stats.nonesuch}: Unknown member: stats.nonesuch'
+      );
+    });
+
+    it('should report every broken placeholder, not only the first', () => {
+      // A User fixing one at a time would otherwise meet the same dialog three times
+      const broken = { ...acidSplash, effectTemplate: '{stats.a} and {stats.b} and {STR}' };
+
+      const messages = validateConfiguration(withSpells([broken])).errors.map(
+        (issue) => issue.message
+      );
+
+      expect(messages.filter((message) => message.startsWith('Spell "Acid Splash"'))).toHaveLength(
+        2
+      );
+    });
+
+    it('should not read the prose as a formula', () => {
+      // The whole reason the split lives in `template.ts`: handed this sentence, `validateFormula`
+      // would report every English word as an undefined variable
+      const wordy = {
+        ...acidSplash,
+        effectTemplate: 'The target is knocked prone and gains STR for an hour.',
+      };
+
+      expect(validateConfiguration(withSpells([wordy])).isValid).toBe(true);
+    });
+
+    it('should not let a spell effect create a circular dependency (TICKET-SPL-03)', () => {
+      // The cycle-safety half of the new attachment point. Nothing in a ruleset can reference a
+      // spell, and an effect is read at display time after both calculator passes — so a spell
+      // reading a derived stat that reads another stat closes no loop, whatever it names.
+      const config = withSpells([{ ...acidSplash, effectTemplate: '{stats.constitution} damage' }]);
+      config.stats = config.stats.map((candidate) =>
+        candidate.id === 'CON' ? { ...candidate, formula: 'STR * 2' } : candidate
+      );
+
+      const report = validateConfiguration(config);
+
+      expect(report.errors.filter((issue) => issue.category === 'Circular Dependency')).toEqual([]);
+      expect(report.isValid).toBe(true);
     });
 
     it('should say nothing about a spell with no cost, no range and no effect', () => {

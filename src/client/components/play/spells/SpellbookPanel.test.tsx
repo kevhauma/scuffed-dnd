@@ -55,7 +55,14 @@ function createConfig(overrides: Partial<Configuration> = {}): Configuration {
         formula: '100',
       },
     ],
-    skills: [],
+    skills: [
+      {
+        id: 'skill-fire',
+        name: 'Fire',
+        description: '',
+        statWeights: [{ statId: 'mana', weight: 0.1 }],
+      },
+    ],
     materials: [],
     materialCategories: [],
     items: [],
@@ -200,6 +207,73 @@ describe('SpellbookPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Unlearn' }));
 
     expect('learnedSpellIds' in stored()).toBe(false);
+  });
+
+  describe('the effect, resolved for this caster (TICKET-SPL-03)', () => {
+    it('fills a placeholder in from the character rather than showing the template', () => {
+      // Mana derives to 100, so `{stats.mana}` reads 100 *for them* — that is the whole of v4 D4
+      const templated = createConfig({
+        spells: [
+          {
+            id: 'bolt',
+            name: 'Firebolt',
+            manaCost: 10,
+            rangeTime: '120 Feet',
+            effectTemplate: 'a {stats.mana}-foot line takes damage',
+          },
+        ],
+      });
+
+      drawSpellbook(templated, createCharacter({ learnedSpellIds: ['bolt'] }));
+
+      expect(screen.getByText('100')).toBeDefined();
+      expect(screen.queryByText(/\{stats\.mana\}/)).toBeNull();
+    });
+
+    it('reads a stat by its bare abbreviation, as the sheet writes a cell', () => {
+      const templated = createConfig({
+        spells: [
+          {
+            id: 'bolt',
+            name: 'Firebolt',
+            manaCost: 10,
+            rangeTime: '120 Feet',
+            effectTemplate: 'takes {MAN} damage',
+          },
+        ],
+      });
+
+      drawSpellbook(templated, createCharacter({ learnedSpellIds: ['bolt'] }));
+
+      expect(screen.getByText('100')).toBeDefined();
+    });
+
+    it('chips one number and keeps the rest of the sentence', () => {
+      // Errors are values (Concept 00 §7): a stat the ruleset lost costs the reader that number
+      // and not the sentence around it
+      const templated = createConfig({
+        spells: [
+          {
+            id: 'bolt',
+            name: 'Firebolt',
+            manaCost: 10,
+            rangeTime: '120 Feet',
+            effectTemplate: 'deals {stats.gone} damage in a fiery burst',
+          },
+        ],
+      });
+
+      const { container } = drawSpellbook(
+        templated,
+        createCharacter({ learnedSpellIds: ['bolt'] })
+      );
+
+      // Read off the container rather than by text node: the sentence is deliberately split into
+      // spans so a chip can sit inside it, which is the whole point of the rendering
+      expect(container.textContent).toContain('deals ');
+      expect(container.textContent).toContain(' damage in a fiery burst');
+      expect(screen.getByRole('img', { name: /stats\.gone/ })).toBeDefined();
+    });
   });
 
   it('says a spell is unpriced rather than showing it as free', () => {

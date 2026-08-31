@@ -35,6 +35,7 @@ import { evaluateFormulaString } from '../formula/evaluator';
 import { roundAwayFromZero } from '../formula/functions';
 import type { NamespaceSource } from '../formula/namespaces';
 import { namespacesFor } from '../formula/namespaces';
+import { FORMULA_OWNER } from '../formula/scoping';
 import { raceCount } from '../races';
 import { affinityFor, statGain } from './pointBuy';
 
@@ -350,7 +351,7 @@ export function calculateStatValues(
       // The flat space is stat abbreviations now that stats are the invested atom. It is still
       // deprecated: TICKET-SKL-02 and TICKET-ROLL-05 move the last callers onto `stats.*`.
       variables: statVariables(stats, values),
-      namespaces: namespacesFor({ ...source, stats, statValues: values }, 'stat'),
+      namespaces: namespacesFor({ ...source, stats, statValues: values }, FORMULA_OWNER.STAT),
     };
 
     const remaining: Stat[] = [];

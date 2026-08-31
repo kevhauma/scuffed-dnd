@@ -55,26 +55,108 @@ transcribes them into template syntax. No second evaluator, no regex arithmetic.
 
 ## Acceptance criteria
 
-- [ ] The four confirmed sample shapes resolve against fixtures of the ticket's own — a flat
+- [x] The four confirmed sample shapes resolve against fixtures of the ticket's own — a flat
       computed number (cure wounds "equal to 5"), two numbers in one sentence (Fireball's
       "55-foot-radius … 11 fire damage"), a final-stat read (Acid Splash on Wis), and a
       skill-bonus-plus-level read (Aid) — engine tests. Their real texts pin once the data pass
       transcribes them.
-- [ ] A placeholder referencing a deleted stat or skill renders an error chip inside otherwise-
+      → One `describe` per shape in
+      [template.test.ts](../../../src/shared/engine/formula/template.test.ts), each resolved through
+      `namespacesFor` at the **`spell-effect`** owner so what they prove is what a Player reads
+      rather than what a hand-made resolver would give.
+- [x] A placeholder referencing a deleted stat or skill renders an error chip inside otherwise-
       intact text — errors as values, pinned.
-- [ ] All user-authored math goes through `parseFormula` → `validateFormula` →
+      → `resolveTemplate` returns the error as a **value**, `ResolvedTemplate` draws it as an
+      `ErrorChip` with `describeFormulaError`'s wording, and the sentence around it renders
+      normally. Pinned in the engine (*"costs the reader that number and not the sentence"*) and on
+      the Spellbook (*"chips one number and keeps the rest of the sentence"*).
+- [x] All user-authored math goes through `parseFormula` → `validateFormula` →
       `evaluateFormula` — the template splitter contains no arithmetic of its own, asserted by
       review and by tests over operator-bearing placeholders.
-- [ ] The effect field renders `FormulaPreview` with the `spell-effect` owner — never a bare
+      → `template.ts` contains no `+`, no `Number()`, no operator regex; its one engine call is
+      `evaluateFormulaString`. Six operator-bearing cases pin it — precedence, parentheses, unary
+      minus, a power, a function call and a two-argument function — each a number a
+      string-substituting splitter would get silently wrong, plus one asserting that no expression
+      spans the prose *between* two placeholders.
+- [x] The effect field renders `FormulaPreview` with the `spell-effect` owner — never a bare
       `FormulaEditor`; any preview extension is noted on FORM-08.
-- [ ] The template grammar is documented where a transcriber will find it — one page the data pass
+      → It renders **`TemplatePreview`**, which is the extension FORM-08's rule anticipates and
+      which is noted there. The field stays a `Textarea` rather than becoming a `FormulaEditor`
+      because it is **not a formula**: `FormulaEditor` validates its whole value as one expression,
+      and pointed at a sentence it reports every English word as an undefined variable. What the
+      rule actually requires — never a formula field without a window onto what it computes — is
+      met.
+- [x] The template grammar is documented where a transcriber will find it — one page the data pass
       can convert 326 cells against without reading the parser.
-- [ ] Unit tests cover: parse/resolve round-trips, each namespace reference kind (`stats.x`,
+      → [`spell-template-grammar.md`](../spell-template-grammar.md), beside the systems docs: the
+      grammar in three sentences, the mechanical `& cell &` → `{…}` conversion with the three cell
+      kinds the xlsx actually reaches, what a placeholder may contain, the three text-not-syntax
+      cases, and the four rules. It names the **lower-case function** trap up front, which is the
+      likeliest mechanical mistake in 326 rows.
+- [x] Unit tests cover: parse/resolve round-trips, each namespace reference kind (`stats.x`,
       `skills.y`, `skills.y.bonus`, `const.z`), the error chip, and cycle safety at the new
       attachment point (`scoping.ts`'s existing discipline).
-- [ ] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions`
+      → All five, plus the bare `<ABBREVIATION>` spelling the sheet's own cells use. Cycle safety
+      is pinned in `validator.test.ts`: a spell reading a derived stat that reads another stat
+      reports no circular dependency, because an effect is read at display time after both
+      calculator passes and nothing in a ruleset can reference a spell — `roll-input`'s position,
+      not `stat`'s (CR-02).
+- [x] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions`
       skill, plus a live browser check of a resolved Spellbook entry and the preview (ask the
       User first).
+      → `npx vitest run` 3600/3600, `npx tsc --noEmit` at its 2-error baseline, `yarn run check`
+      clean. `fallow audit --base main`: **no dead code introduced** (two exports it flagged —
+      `DEFAULT_SAMPLE` and `SpellbookRowEntry` — are module-local now) and **no complexity finding
+      on a function this ticket added or grew** (it flagged `useSpellbook` at 12 cyclomatic / 16
+      cognitive; `useSpellbookRows` is the extraction that answers it). **Six touched files came
+      back Accelerating** and each has a row in [TEST_STATUS.md](../../../TEST_STATUS.md), one of
+      them a first row. Verification ran in this session rather than through the subagent, and the
+      conventions pass by reading the diff against the house rules. Browser check: see below.
+
+## Decisions this ticket made
+
+The ticket assigns the grammar (*"this ticket's to define and document"*); these are the calls, so
+the data pass meets them as decisions rather than as accidents.
+
+- **`{formula}` — braces, not brackets.** `[` is taken: the *stored* form of a formula spells every
+  reference as `[uuid]` (TICKET-REF-01), so `[[…]]` would collide with the one syntax that has to
+  survive a round trip. Braces turn the sheet's `"text " & cell & " text"` into `text {cell} text`
+  by mechanical substitution, which is what 326 rows need.
+- **Three states are text, not syntax**: a template with no braces, an unclosed `{`, and an empty
+  `{}` (braces kept). All three are forgiving on purpose — the 92 plain-text effects need no
+  conversion, and a half-typed placeholder shows prose rather than an error that will go away on
+  the next keystroke.
+- **No escape for a literal `{…}` pair.** Braces do not occur in the workbook's prose, and an
+  escape nobody needs is an abstraction before its first caller. Doubling is the obvious extension
+  if one is ever wanted; the grammar page says so.
+- **`spell-effect` sees what `roll-input` sees** — `stats`, `skills` (with `.bonus`), `const`,
+  `curve`, plus stat abbreviations in the flat space. Read off the xlsx's own formulas rather than
+  guessed, and safe where the same set is a cycle on `stat`.
+
+## Browser check
+
+Driven on the browser ruleset SPL-02 left behind — one derived resource, `Mana` at a flat 250.
+
+1. **The preview resolves while typing.** `a {MANA / 5}-foot-radius sphere takes {MANA} fire damage`
+   drew a `MANA` sample box and read *"a 2-foot-radius sphere takes 10 fire damage"* at the default
+   10 — the division done by the engine, two placeholders in one sentence, the prose untouched.
+2. **It re-resolves on a sample change.** `MANA` → 250 gave *"a 50-foot-radius sphere takes 250 fire
+   damage"*.
+3. **A broken placeholder names itself and chips in place.** `{stats.nonesuch}` drew
+   *"{stats.nonesuch}: Unknown member: stats.nonesuch"* above, and the sentence rendered as
+   *"takes ⟨chip⟩ damage"* with the prose either side intact.
+4. **The template round-tripped through the store** — saved, listed, reopened with the braces as
+   written.
+5. **The Spellbook resolves it for the caster.** Learned on Quackers, the row reads *"a 50-foot-radius
+   sphere, centered on a point, takes 25 fire damage"* — 250/5 and 250/10 off their **derived** Mana,
+   which is a different number from the preview's hand-set sample and the whole of what D4 promises.
+6. **The delete guard names the new referrer.** Deleting `Mana` is refused with
+   *"Spell: Fireball (effectTemplate)"* beside the character.
+7. **The validation report finds a broken placeholder**: *`Spell "Fireball" effect {stats.nonesuch}:
+   Unknown member: stats.nonesuch`*, and reports nothing at all once the template is sound.
+
+Zero console errors on a fresh tab. (An old tab held a stale `hasCompendium is not defined` from an
+HMR state mid-session; the identifier is gone from `src/` and a clean load has nothing to say.)
 
 ## Notes
 

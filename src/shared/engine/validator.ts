@@ -39,7 +39,8 @@ import type { ValidationIssue, ValidationReport } from '../types/validation';
 import { cellKey, isWithinLayout } from './equipmentLayout';
 import { buildReferenceResolver, skillMemberName, statMemberName } from './formula/references';
 import type { FormulaScope } from './formula/scoping';
-import { scopeFor } from './formula/scoping';
+import { FORMULA_OWNER, scopeFor } from './formula/scoping';
+import { templateFormulas } from './formula/template';
 import type { FormulaDependency } from './formula/validator';
 import {
   toFormulaDependency,
@@ -112,6 +113,7 @@ const ISSUE_SOURCES: readonly ((config: Configuration) => ValidationIssue[])[] =
   curveIssues,
   diceLadderIssues,
   rollDefinitionIssues,
+  spellEffectIssues,
 ];
 
 /**
@@ -922,7 +924,7 @@ function groupBy<T>(entities: readonly T[], keyOf: (entity: T) => string): Map<s
  * @returns Every curve's errors and warnings
  */
 function curveIssues(config: Configuration): ValidationIssue[] {
-  const generatorScope = scopeFor(config, 'curve-generator');
+  const generatorScope = scopeFor(config, FORMULA_OWNER.CURVE_GENERATOR);
 
   return (config.curves ?? []).flatMap((curve) => [
     ...curveTableErrors(curve, generatorScope),
@@ -955,12 +957,48 @@ function diceLadderIssues(config: Configuration): ValidationIssue[] {
  * @returns Every roll's errors
  */
 function rollDefinitionIssues(config: Configuration): ValidationIssue[] {
-  const rollScope = scopeFor(config, 'roll-input');
+  const rollScope = scopeFor(config, FORMULA_OWNER.ROLL_INPUT);
   const ladderIds = new Set((config.diceLadders ?? []).map((ladder) => ladder.id));
 
   return (config.rollDefinitions ?? []).flatMap((roll) =>
     rollDefinitionErrors(roll, rollScope, ladderIds)
   );
+}
+
+/**
+ * Placeholders in a spell effect that would not compute (v4 systems/13 gap 4, TICKET-SPL-03)
+ *
+ * A spell effect is prose, and the **placeholders inside it** are formulas judged against their own
+ * row of the scoping table — `templateFormulas` is what separates the two, so the prose is never
+ * handed to a validator that would report every English word as an undefined variable.
+ *
+ * **Every placeholder is reported, not just the first**, because a sentence reading two cells can be
+ * wrong about both and a User fixing one at a time would meet the same dialog twice. The message
+ * quotes the placeholder's own source: a spell named once with three of them needs to say *which*.
+ *
+ * A spell with no placeholders — 92 of the workbook's 418 effects are plain text — produces nothing
+ * at all, which is why this cannot make the corpus noisier than it was.
+ *
+ * @param config - The ruleset to check
+ * @returns One issue per error in a placeholder
+ */
+function spellEffectIssues(config: Configuration): ValidationIssue[] {
+  const scope = scopeFor(config, FORMULA_OWNER.SPELL_EFFECT);
+
+  return (config.spells ?? []).flatMap((spell) => {
+    const placeholders = templateFormulas(spell.effectTemplate);
+
+    return placeholders.flatMap((source) =>
+      validateFormula(source, scope.codes, scope).errors.map((error) => ({
+        severity: 'error' as const,
+        category: 'Formula Validation',
+        message: `Spell "${spell.name}" effect {${source}}: ${error}`,
+        entityType: 'spell',
+        entityId: spell.id,
+        entityName: spell.name,
+      }))
+    );
+  });
 }
 
 /**

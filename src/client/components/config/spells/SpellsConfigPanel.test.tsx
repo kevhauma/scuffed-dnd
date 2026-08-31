@@ -223,6 +223,86 @@ describe('SpellsConfigPanel', () => {
     });
   });
 
+  describe('the effect preview (TICKET-SPL-03)', () => {
+    /** A stat and a skill, so a placeholder has something to resolve against */
+    const CASTER: Partial<Configuration> = {
+      stats: [
+        {
+          id: 'stat-wis',
+          name: 'Wisdom',
+          abbreviation: 'WIS',
+          description: '',
+          order: 0,
+          countsTowardTotal: true,
+          isResource: false,
+          rounding: 'none',
+        },
+      ],
+      skills: [
+        {
+          id: 'skill-fire',
+          name: 'Fire',
+          description: '',
+          statWeights: [{ statId: 'stat-wis', weight: 1 }],
+        },
+      ],
+    };
+
+    it('should show nothing for prose with no placeholder in it', () => {
+      // 92 of the workbook's 418 effects are plain text, and a preview of a sentence that computes
+      // nothing is a box saying the sentence back
+      loadRuleset(CASTER);
+      render(<SpellsConfigPanel />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Add Spell' }));
+      fireEvent.change(screen.getByLabelText(/^Effect/), {
+        target: { value: 'The target falls prone.' },
+      });
+
+      expect(screen.queryByText('Preview')).toBeNull();
+    });
+
+    it('should resolve a placeholder at the sample values, in the sentence', () => {
+      // The boxes default to 10, so Wisdom 10 → Fire level 10
+      loadRuleset(CASTER);
+      render(<SpellsConfigPanel />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Add Spell' }));
+      fireEvent.change(screen.getByLabelText(/^Effect/), {
+        target: { value: 'a {WIS}-foot sphere takes {skills.fire.level} damage' },
+      });
+
+      expect(screen.getByText('Preview')).toBeDefined();
+      expect(screen.getByText('a')).toBeDefined();
+      expect(screen.getAllByText('10').length).toBeGreaterThan(0);
+    });
+
+    it('should re-resolve when the User changes a sample value', () => {
+      loadRuleset(CASTER);
+      render(<SpellsConfigPanel />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Add Spell' }));
+      fireEvent.change(screen.getByLabelText(/^Effect/), {
+        target: { value: 'takes {WIS} damage' },
+      });
+      fireEvent.change(screen.getByLabelText('WIS'), { target: { value: '42' } });
+
+      expect(screen.getByText('42')).toBeDefined();
+    });
+
+    it('should name a placeholder the ruleset cannot resolve, quoting which one', () => {
+      loadRuleset(CASTER);
+      render(<SpellsConfigPanel />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Add Spell' }));
+      fireEvent.change(screen.getByLabelText(/^Effect/), {
+        target: { value: 'takes {stats.nonesuch} damage' },
+      });
+
+      expect(screen.getByText(/\{stats\.nonesuch\}/)).toBeDefined();
+    });
+  });
+
   it('should add a spell through the store', async () => {
     render(<SpellsConfigPanel />);
 

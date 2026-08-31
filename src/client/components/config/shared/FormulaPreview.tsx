@@ -18,21 +18,14 @@
  * **Validates: Concept 00 §5, §7; Requirements 3.1, 3.2, 3.3, 16.4, 21.1-21.5**
  */
 
-import { useId, useMemo, useState } from 'react';
-import { calculateSkills } from '#shared/engine/calculators/skillCalculator';
+import { useCallback, useMemo } from 'react';
 import { asNumber, isFormulaError } from '#shared/engine/formula/errors';
-import { evaluateFormulaString } from '#shared/engine/formula/evaluator';
-import { namespacesFor } from '#shared/engine/formula/namespaces';
-import { skillMemberName, statMemberName } from '#shared/engine/formula/references';
 import type { FormulaOwner } from '#shared/engine/formula/scoping';
 import { scopeFor } from '#shared/engine/formula/scoping';
 import { validateFormula } from '#shared/engine/formula/validator';
-import type { Character } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
 import type { FormulaErrorKind, FormulaResult } from '#shared/types/formula';
 import { Card } from '../../ui/Card/Card';
-import { Input } from '../../ui/Input/Input';
-import { Label } from '../../ui/Label/Label';
 import { Text } from '../../ui/Text/Text';
 import {
   captionStyles,
@@ -41,6 +34,8 @@ import {
   resultCellStyles,
   tableStyles,
 } from './FormulaPreview.style';
+import { previewInputs, useFormulaSamples } from './formulaSamples';
+import { SampleInputs } from './SampleInputs';
 
 /**
  * The levels the ladder walks (TICKET-FORM-08)
@@ -50,26 +45,6 @@ import {
  * lives, then out to 50 to show what the formula does to a monster.
  */
 const LADDER_LEVELS = [1, 2, 3, 4, 5, 10, 15, 20, 50] as const;
-
-/** What an unset sample box holds */
-const DEFAULT_SAMPLE = 10;
-
-/**
- * The character `calculateSkills` is given, so a previewed skill is its weights and nothing else
- *
- * A ruleset is being edited here, not played: the preview's claim is "at these stats, this
- * formula computes X", and someone's invested points would make that claim about one character.
- */
-const UNINVESTED: Pick<Character, 'investedSkillPoints'> = { investedSkillPoints: {} };
-
-/**
- * The equipment `calculateSkills` is given — none (TICKET-ITEM-01)
- *
- * {@link UNINVESTED}'s counterpart for the gear term, and stated as a named constant rather than an
- * inline `{}` for the same reason the parameter is required: *this preview has no equipment* is a
- * claim about what the number means, not an omission.
- */
-const NO_GEAR: Record<string, number> = {};
 
 /**
  * Error kinds that cannot depend on the numbers going in (TICKET-FORM-09)
@@ -99,66 +74,7 @@ export interface FormulaPreviewProps {
   className?: string;
 }
 
-/**
- * The inputs a formula reads, as one box each
- *
- * A stat reachable two ways — bare `STR` and dotted `stats.strength` — is **one** input, keyed by
- * the abbreviation. That is what stops the same stat getting two boxes that disagree.
- *
- * **A `skills.<name>` reference contributes the stats it is weighted on** (TICKET-SKL-02), because
- * that is what it is made of: a skill has no value of its own to offer a box for, and offering
- * none at all would be worse than either — `calculateSkills` skips a weight whose stat is absent
- * from `statValues`, so the level would quietly drop those terms and the preview would show a
- * confident wrong number. Naming the stats keeps the promise the module header makes: a preview
- * and the real thing cannot disagree.
- *
- * @param config - The ruleset, for the dotted-spelling → abbreviation mapping
- * @param referencedVariables - The bare codes the validator found
- * @param namespacedReferences - The dotted references the validator found
- * @returns The abbreviations to offer a box for, in the order they were first seen
- */
-function previewInputs(
-  config: Configuration,
-  referencedVariables: string[],
-  namespacedReferences: { namespace: string; member: string }[]
-): string[] {
-  const inputs: string[] = [];
-  const add = (code: string) => {
-    if (code && !inputs.includes(code)) inputs.push(code);
-  };
-  const addStatById = (statId: string) => {
-    const stat = config.stats.find((candidate) => candidate.id === statId);
-    if (stat) add(stat.abbreviation.toUpperCase());
-  };
-
-  for (const code of referencedVariables) add(code);
-
-  for (const reference of namespacedReferences) {
-    if (reference.namespace === 'stats') {
-      const stat = config.stats.find((candidate) => statMemberName(candidate) === reference.member);
-      if (stat) add(stat.abbreviation.toUpperCase());
-      continue;
-    }
-
-    if (reference.namespace === 'skills') {
-      const skill = config.skills.find(
-        (candidate) => skillMemberName(candidate) === reference.member
-      );
-      for (const { statId } of skill?.statWeights ?? []) addStatById(statId);
-    }
-  }
-
-  return inputs;
-}
-
 export function FormulaPreview({ formula, owner, config, className = '' }: FormulaPreviewProps) {
-  // Kept across edits, so refining a formula does not reset the numbers the User set up. An input
-  // that has never been touched simply has no entry and reads as the default.
-  const [samples, setSamples] = useState<Record<string, number>>({});
-
-  // The boxes are generated, so their ids are too — two previews on one page must not collide
-  const fieldPrefix = useId();
-
   const scope = useMemo(() => scopeFor(config, owner), [config, owner]);
 
   const validation = useMemo(
@@ -174,59 +90,19 @@ export function FormulaPreview({ formula, owner, config, className = '' }: Formu
     [config, validation]
   );
 
-  /**
-   * Evaluate the formula with every input held at the given values
-   *
-   * The one place this component produces a number. Values go in twice — as bare `variables` and
-   * as `statValues` keyed by stat id — so the two spellings of the same stat read the same box.
-   *
-   * **Skills follow from the stats rather than getting boxes of their own** (TICKET-SKL-02). A
-   * skill's level is `Σ(weight × stat) + invested`, so once the sample stats are chosen the skill
-   * levels are decided too — a box for `skills.stealth` could only disagree with them. They come
-   * from `calculateSkills`, the same function the sheet reads, over a character who has invested
-   * nothing: the preview answers "what does this formula compute at these stats", and a Player's
-   * investment is not a property of the ruleset being edited.
-   *
-   * They are supplied for **every** owner, which is safe because `namespacesFor` gates on
-   * `scoping.ts` — an owner whose row has no `skills` gets no resolver for it no matter what is
-   * handed in. That gate is what CR-02 turned into the truth: the `stat` row used to list
-   * `skills`, so this preview vouched for a formula the sheet could never compute.
-   */
-  const evaluateAt = useMemo(() => {
-    const byAbbreviation = new Map(
-      config.stats.map((stat) => [stat.abbreviation.toUpperCase(), stat.id])
-    );
+  // The boxes, what they hold and how to evaluate at them all belong to `useFormulaSamples`
+  // (TICKET-SPL-03), so this component and `TemplatePreview` cannot produce different numbers for
+  // the same ruleset
+  const { values, setSample, fieldPrefix, evaluate } = useFormulaSamples(config, owner, inputs);
 
-    return (values: Record<string, number>): FormulaResult => {
-      const statValues: Record<string, FormulaResult> = {};
-      for (const [code, value] of Object.entries(values)) {
-        const id = byAbbreviation.get(code);
-        if (id !== undefined) statValues[id] = value;
-      }
-
-      // No gear either, for the same reason there is no investment: what a Player happens to be
-      // wielding is not a property of the ruleset being edited (TICKET-ITEM-01)
-      const { levels, bonuses } = calculateSkills(config, statValues, UNINVESTED, NO_GEAR);
-
-      return evaluateFormulaString(formula, {
-        variables: values,
-        namespaces: namespacesFor(
-          { ...config, statValues, skillLevels: levels, skillBonuses: bonuses },
-          owner
-        ),
-      });
-    };
-  }, [config, formula, owner]);
-
-  /** The sample values as they stand, with untouched inputs at the default */
-  const currentSamples = useMemo(
-    () => Object.fromEntries(inputs.map((code) => [code, samples[code] ?? DEFAULT_SAMPLE])),
-    [inputs, samples]
+  const evaluateAt = useCallback(
+    (at: Record<string, number>) => evaluate(formula, at),
+    [evaluate, formula]
   );
 
   const sampleResult = useMemo(
-    () => (validation?.isValid ? evaluateAt(currentSamples) : undefined),
-    [validation, evaluateAt, currentSamples]
+    () => (validation?.isValid ? evaluateAt(values) : undefined),
+    [validation, evaluateAt, values]
   );
 
   /**
@@ -265,34 +141,12 @@ export function FormulaPreview({ formula, owner, config, className = '' }: Formu
         </Text>
       ) : (
         <>
-          {inputs.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
-              {inputs.map((code) => (
-                <div key={code} className="flex items-center gap-2">
-                  <Label htmlFor={`${fieldPrefix}-${code}`} className="w-12 font-mono">
-                    {code}
-                  </Label>
-                  <Input
-                    id={`${fieldPrefix}-${code}`}
-                    type="number"
-                    // These boxes live inside the owning dialog's form. Enter in one would
-                    // otherwise submit it, so typing a sample value would save the entity.
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') event.preventDefault();
-                    }}
-                    value={currentSamples[code]}
-                    onChange={(event) =>
-                      setSamples((previous) => ({
-                        ...previous,
-                        [code]: Number(event.target.value) || 0,
-                      }))
-                    }
-                    className="flex-1 text-sm"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
+          <SampleInputs
+            inputs={inputs}
+            values={values}
+            onChange={setSample}
+            fieldPrefix={fieldPrefix}
+          />
 
           {structuralError !== null ? (
             // Said once rather than nine times: this is the answer at every level

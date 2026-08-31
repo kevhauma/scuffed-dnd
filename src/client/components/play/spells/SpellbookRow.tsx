@@ -4,11 +4,15 @@
  * One learned spell as the workbook's `Spellbook` sheet lays it out: name, mana cost, range/time and
  * effect — plus the two controls the app adds, *Cast* and *Unlearn* (v4 systems/13, TICKET-SPL-02).
  *
- * **The effect is stored text and is rendered as text.** 326 of the sheet's 418 effect cells are
- * formulas concatenating prose around computed numbers, and turning those into evaluated
- * placeholders is TICKET-SPL-03's `spell-effect` attachment point (v4 D4). Until then nothing here
- * may treat a `{` in the string as syntax — which is why this draws the raw value rather than
- * reaching for the formula engine.
+ * **The effect is resolved for this caster** (TICKET-SPL-03). 326 of the sheet's 418 effect cells
+ * are formulas concatenating prose around computed numbers, so an effect is template text whose
+ * `{placeholders}` are evaluated against the character reading it (v4 D4) — *"a 55-foot-radius
+ * sphere … takes 11 fire damage"* is 11 **for them**. The resolution is the hook's; this component
+ * is handed segments and hands them to `ResolvedTemplate`, the one rendering the config panel's
+ * preview also uses, so what an author saw is what a Player reads.
+ *
+ * A placeholder that cannot be worked out — a stat the ruleset lost — becomes an error chip inside
+ * an otherwise intact sentence rather than blanking the row (Concept 00 §7).
  *
  * **A row whose spell the ruleset has lost is still a row.** `spellbookOf` resolves such an id to an
  * entry with no spell behind it rather than dropping it, and drawing it is what makes it clearable:
@@ -18,12 +22,22 @@
  * **Validates: v4 systems/13 gaps 2, 3; Requirements 21.1-21.5**
  */
 
+import type { ResolvedSegment } from '#shared/engine/formula/template';
 import type { SpellbookEntry } from '#shared/engine/spellbook';
+import { ResolvedTemplate } from '../../shared/ResolvedTemplate';
 import { Button } from '../../ui/Button/Button';
 import { Text } from '../../ui/Text/Text';
 
 export interface SpellbookRowProps {
   entry: SpellbookEntry;
+  /**
+   * The effect with its placeholders filled in for this caster, or none when there is nothing to say
+   *
+   * Passed in rather than resolved here for the reason `CarriedBuild.label` is: the numbers come
+   * from the character, the component draws a row, and a component that reached for the engine
+   * would be a second place deciding what a spell does.
+   */
+  effect: ResolvedSegment[];
   /** Whether there is a pool to spend from — `false` disables *Cast* rather than hiding it */
   canCast: boolean;
   onCast: (spellId: string) => void;
@@ -35,7 +49,7 @@ function costLabel(manaCost: number | undefined): string {
   return manaCost === undefined ? 'unpriced' : `${manaCost} mana`;
 }
 
-export function SpellbookRow({ entry, canCast, onCast, onUnlearn }: SpellbookRowProps) {
+export function SpellbookRow({ entry, effect, canCast, onCast, onUnlearn }: SpellbookRowProps) {
   const { spell } = entry;
 
   return (
@@ -72,11 +86,7 @@ export function SpellbookRow({ entry, canCast, onCast, onUnlearn }: SpellbookRow
         </div>
       </div>
 
-      {spell && spell.effectTemplate !== '' && (
-        <Text variant="body-small-secondary" className="mt-1">
-          {spell.effectTemplate}
-        </Text>
-      )}
+      {effect.length > 0 && <ResolvedTemplate segments={effect} className="mt-1" />}
     </div>
   );
 }
