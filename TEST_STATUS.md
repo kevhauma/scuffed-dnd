@@ -54,6 +54,36 @@ CR-08, CR-20) at 1674._
 
 Split across **213 files**: `server` in node, everything else in happy-dom.
 
+> **Coverage arrived, and the suite did not change to make room for it.** Every `.test.ts` and
+> `.test.tsx` still runs — the count above is unmoved. What is scoped is the *threshold*:
+> `yarn run coverage` (off unless asked for) reports on `shared/engine/` and
+> `client/components/ui/` alone, all four metrics at 100%. Every other directory is **absent** from
+> `coverage.include` rather than set to a low number, because a 0 threshold reads as a target met
+> rather than a question still open — those are still to be decided.
+>
+> It is **red on purpose**: **98.83% statements, 95.58% branches, 98.71% functions**, and that gap
+> is the backlog rather than a regression. `shared/engine/` is already at 100% on statements,
+> functions and lines; **branches are the whole engine-side gap**, worst at `formula/namespaces.ts`
+> (54.54%), `races.ts` (84.61%) and `formula/functions.ts` (88.88%). The component side is
+> `ValidationReport.tsx` (71.42% functions), `FormulaEditor.tsx` (60%) and `Dialog.tsx` (80%
+> branches).
+>
+> `boundaryFixtures/` is excluded: those modules are deliberate import violations that exist to be
+> *parsed* by dependency-cruiser and never executed, so they would price 100% as unreachable rather
+> than merely unmet.
+>
+> **`client/components/ui/index.ts` reads 0%, and the reason is that nothing imports it.** Every
+> consumer imports the component directly, so the barrel is dead code rather than untested code —
+> a `fallow dead-code` finding that coverage happened to surface first. Deleting it is a ticket.
+>
+> **`--coverage` is intermittently flaky on Windows, and the failures are loud.** Two runs in eight
+> came back wrong: one died with `ENOENT … coverage/.tmp/coverage-145.json` mid-write, and one
+> reported **30.28%** with `Dialog.tsx` and `FormulaEditor.tsx` each appearing **twice** — once
+> near-100% and once at 0% — while files that had just read 100% read 0. Both are the v8 provider
+> racing across the two projects, not a coverage change; three consecutive clean runs agree on
+> 98.83/95.58/98.71 to the digit. **A coverage number that disagrees wildly with the last one is a
+> corrupt run — re-run it before believing it.** `yarn run test` is unaffected.
+
 > **TICKET-SPL-01 — spells: the entity and its panel: +48 tests, +12 files (3448 → 3496).** The
 > file count is the interesting half and almost none of it is new coverage: **eleven of the twelve
 > new files are `importExport.test.ts` splitting per entity**, which this ticket owed by name (see

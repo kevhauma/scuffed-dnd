@@ -18,3 +18,6 @@ data/
 *.db
 *.db-wal
 *.db-shm
+
+# `yarn run coverage`'s text + html report
+coverage/

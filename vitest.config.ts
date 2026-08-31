@@ -42,6 +42,20 @@
  * changed is how long a deliberately expensive operation is allowed to take. Scoped to the server
  * project because that is where the hashing, the migrations and the 306 KB corpus live — the app
  * project stays at the default, where five seconds is a generous budget for rendering a component.
+ *
+ * ## Everything runs; two directories are held to 100%
+ *
+ * The suite is unchanged — every `.test.ts` and `.test.tsx` runs. What is scoped is the
+ * *threshold*: `coverage.include` names exactly the two directories that have earned a target,
+ * `shared/engine/` (the rules themselves) and `client/components/ui/` (whose rendered markup is a
+ * unit). Every other directory is **absent** from that list rather than set to a low number,
+ * because a threshold of 0 reads as a target met rather than a question still open. Deciding one
+ * means adding its glob.
+ *
+ * A consequence worth knowing when reading the report: the feature-component tests run too, and
+ * what they render counts. A base component can therefore sit at 100% on the strength of the
+ * panels that use it rather than its own test file — the number answers *is this code exercised*,
+ * not *is this code tested directly*.
  */
 import viteReact from '@vitejs/plugin-react'
 import tsconfigPaths from 'vite-tsconfig-paths'
@@ -57,6 +71,30 @@ const shared = {
 
 const config = defineConfig({
   test: {
+    // Off unless asked for: `yarn run coverage` passes --coverage. `include` widens the report
+    // past the files a test happened to load, so an untested module reads as 0% rather than
+    // disappearing — which is the question coverage is being asked here.
+    //
+    // Scoped to the two roots that are held to 100%: the engine (the rules themselves) and the
+    // base components (whose rendered markup is a unit). Every other directory is deliberately
+    // absent rather than set to a low number — its threshold is undecided, and a threshold of 0
+    // reads as a target rather than an open question. Widen `include` when one is decided.
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      include: ['src/shared/engine/**/*.{ts,tsx}', 'src/client/components/ui/**/*.{ts,tsx}'],
+      // `boundaryFixtures/` modules exist to be *parsed* by dependency-cruiser — each one is a
+      // deliberate import violation that `architecture/boundaries.test.ts` proves is caught.
+      // Nothing ever executes one, so they are permanently 0% and would price the target as
+      // unreachable rather than merely unmet.
+      exclude: ['src/**/*.test.{ts,tsx}', 'src/**/boundaryFixtures/**'],
+      thresholds: {
+        lines: 100,
+        functions: 100,
+        branches: 100,
+        statements: 100,
+      },
+    },
     projects: [
       {
         ...shared,
