@@ -26,30 +26,49 @@ import type { Configuration, MaterialLevel } from '../types/config';
 import { skillMemberName, statMemberName } from './formula/references';
 import { templateFormulas } from './formula/template';
 import { validateFormula } from './formula/validator';
+import { heldPassiveIdsOf } from './passives';
 import { learnedSpellIdsOf } from './spellbook';
 
 /**
  * The kinds of entity a delete can target
  *
  * One row per guarded delete action.
+ *
+ * **A const object since TICKET-PAS-01**, which is CLAUDE.md's *no bare string-union types* rule
+ * paid on the converted-when-touched bargain — the same trade TICKET-SPL-03 made on `FormulaOwner`
+ * one commit earlier, and for the same trigger: this ticket adds a member. Three things follow, and
+ * they are why the rule exists rather than decoration. A rename is **one edit** here instead of
+ * seventeen scattered literals. The set **exists at runtime**, so `REFERENCE_WALKERS`' exhaustiveness
+ * and a caller's spelling are checked against one declaration. And grepping `REFERENCE_TARGET_KIND`
+ * finds every use, where grepping `'stat'` finds every coincidence — which in this file is a great
+ * many, since `stat` is also a namespace, a `FormulaSource.kind` and half the corpus.
+ *
+ * The values are unchanged, so nothing persisted moves: a kind is a compile-time routing key that
+ * never reaches a document.
  */
+export const REFERENCE_TARGET_KIND = {
+  CONSTANT: 'constant',
+  CURVE: 'curve',
+  CURVE_COLUMN: 'curve-column',
+  SKILL: 'skill',
+  DICE_LADDER: 'dice-ladder',
+  ROLL_DEFINITION: 'roll-definition',
+  STAT: 'stat',
+  RACE: 'race',
+  ARCHETYPE: 'archetype',
+  ITEM: 'item',
+  INLAY: 'inlay',
+  SPELL: 'spell',
+  /** A passive ability somebody can be handed (TICKET-PAS-01) */
+  PASSIVE: 'passive',
+  MATERIAL: 'material',
+  MATERIAL_CATEGORY: 'material-category',
+  EQUIPMENT_SLOT: 'equipment-slot',
+  CURRENCY_TIER: 'currency-tier',
+} as const;
+
 export type ReferenceTargetKind =
-  | 'constant'
-  | 'curve'
-  | 'curve-column'
-  | 'skill'
-  | 'dice-ladder'
-  | 'roll-definition'
-  | 'stat'
-  | 'race'
-  | 'archetype'
-  | 'item'
-  | 'inlay'
-  | 'spell'
-  | 'material'
-  | 'material-category'
-  | 'equipment-slot'
-  | 'currency-tier';
+  (typeof REFERENCE_TARGET_KIND)[keyof typeof REFERENCE_TARGET_KIND];
 
 /**
  * What is about to be deleted
@@ -200,6 +219,24 @@ function formulaSources(config: Configuration): { reference: EntityReference; fo
           holderName: spell.name,
           field: 'effectTemplate',
           holderId: spell.id,
+        },
+        formula,
+      }))
+    ),
+    /*
+     * A passive's effect is the same kind of text at the same attachment point (TICKET-PAS-01): two
+     * of the workbook's 26 read `perception level × 10` and `× 5`, so deleting the skill they read
+     * has to be refused here exactly as deleting a stat Fireball reads is. The catalog is small and
+     * the number of templating rows is two — which is precisely why it would have been easy to leave
+     * out, and why the sheet's two senses would then have started chipping in silence.
+     */
+    ...(config.passives ?? []).flatMap((passive) =>
+      templateFormulas(passive.effectText).map((formula) => ({
+        reference: {
+          holderKind: 'Passive',
+          holderName: passive.name,
+          field: 'effectText',
+          holderId: passive.id,
         },
         formula,
       }))
@@ -705,6 +742,38 @@ function spellReferences(
 }
 
 /**
+ * Characters who have been handed a passive (v4 systems/14, TICKET-PAS-01)
+ *
+ * {@link spellReferences}' shape one entity over, and written **filled** rather than empty because
+ * the field that points at it lands in the same ticket — `Character.passiveIds` and
+ * `Configuration.passives` arrive together, so there is no window in which this could be vacuous.
+ * That is the difference from `inlay` and `spell`, both of which were minted a ticket ahead of their
+ * referrer and both of which `referenceArms.test.ts` had to hold to account.
+ *
+ * What it prevents is the reason the handout is worth guarding at all: nothing *derives* a passive,
+ * so an id naming nothing is not a value that recomputes to zero — it is a row on somebody's sheet
+ * reading *"a passive this ruleset no longer has"*, which only a revoke can clear.
+ *
+ * **The reference is not what makes a stale id survivable.** A User may still force the delete
+ * through, and `passivesOf` resolves the leftover to a row with no passive behind it rather than
+ * crashing — the guard is the ordinary path, and the tolerant read is the one after it.
+ */
+function passiveReferences(
+  id: string,
+  _config: Configuration,
+  characters: Character[]
+): EntityReference[] {
+  return characters
+    .filter((character) => heldPassiveIdsOf(character).includes(id))
+    .map((character) => ({
+      holderKind: 'Character',
+      holderName: character.name,
+      field: 'passiveIds',
+      holderId: character.id,
+    }));
+}
+
+/**
  * Characters holding a build made of a material (TICKET-INV-05)
  *
  * Was a walk over `config.items` until INV-05 retired the template's fused `materialId`. What a
@@ -782,22 +851,23 @@ type ReferenceWalker = (
  * prose rather than in a comment on a `case`.
  */
 const REFERENCE_WALKERS: Record<ReferenceTargetKind, ReferenceWalker> = {
-  skill: skillEntityReferences,
-  stat: statReferences,
-  constant: constantReferences,
-  curve: curveReferences,
-  'curve-column': curveColumnReferences,
-  race: raceReferences,
-  archetype: archetypeReferences,
-  'dice-ladder': diceLadderReferences,
-  'roll-definition': rollDefinitionReferences,
-  item: itemReferences,
-  inlay: inlayReferences,
-  spell: spellReferences,
-  material: materialReferences,
-  'material-category': materialCategoryReferences,
-  'equipment-slot': equipmentSlotReferences,
-  'currency-tier': currencyTierReferences,
+  [REFERENCE_TARGET_KIND.SKILL]: skillEntityReferences,
+  [REFERENCE_TARGET_KIND.STAT]: statReferences,
+  [REFERENCE_TARGET_KIND.CONSTANT]: constantReferences,
+  [REFERENCE_TARGET_KIND.CURVE]: curveReferences,
+  [REFERENCE_TARGET_KIND.CURVE_COLUMN]: curveColumnReferences,
+  [REFERENCE_TARGET_KIND.RACE]: raceReferences,
+  [REFERENCE_TARGET_KIND.ARCHETYPE]: archetypeReferences,
+  [REFERENCE_TARGET_KIND.DICE_LADDER]: diceLadderReferences,
+  [REFERENCE_TARGET_KIND.ROLL_DEFINITION]: rollDefinitionReferences,
+  [REFERENCE_TARGET_KIND.ITEM]: itemReferences,
+  [REFERENCE_TARGET_KIND.INLAY]: inlayReferences,
+  [REFERENCE_TARGET_KIND.SPELL]: spellReferences,
+  [REFERENCE_TARGET_KIND.PASSIVE]: passiveReferences,
+  [REFERENCE_TARGET_KIND.MATERIAL]: materialReferences,
+  [REFERENCE_TARGET_KIND.MATERIAL_CATEGORY]: materialCategoryReferences,
+  [REFERENCE_TARGET_KIND.EQUIPMENT_SLOT]: equipmentSlotReferences,
+  [REFERENCE_TARGET_KIND.CURRENCY_TIER]: currencyTierReferences,
 };
 
 /**

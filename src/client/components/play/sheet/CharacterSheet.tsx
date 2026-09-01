@@ -13,6 +13,7 @@ import { DmControlsPanel } from '../dm/DmControlsPanel';
 import { useCharacterAdjustments } from '../dm/useCharacterAdjustments';
 import { useDmControls } from '../dm/useDmControls';
 import { InventoryPanel } from '../inventory/InventoryPanel';
+import { PassivesPanel } from '../passives/PassivesPanel';
 import { RollHistoryPanel } from '../rolls/RollHistoryPanel';
 import { useRoller } from '../rolls/useRoller';
 import { SpellbookPanel } from '../spells/SpellbookPanel';
@@ -68,6 +69,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     handleResetStatValueToMax,
     currencyTiers,
     purse,
+    adjustmentNames,
     handleChangeInvestedPoints,
     handleChangeInvestedSkillPoints,
     handleSelectFocusSkill,
@@ -116,10 +118,6 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
   // different readings of one list, and which side a stat falls on is the sheet's decision
   const resources = stats.filter((stat) => stat.isResource);
   const plainStats = stats.filter((stat) => !stat.isResource);
-
-  // How the log spells a stat it names. Built from the same list the sections render, so an
-  // adjustment and the row it moved cannot disagree about what the stat is called.
-  const statNames = Object.fromEntries(stats.map((stat) => [stat.id, stat.name]));
 
   /*
    * The sheet is laid out the way the source spreadsheet's `Charactersheet` tab is: the
@@ -216,6 +214,13 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
               nothing at all on a ruleset that knows no magic (TICKET-SPL-02). */}
           <SpellbookPanel characterId={characterId} />
 
+          {/* Under the Spellbook because it is the other list of *what this character is* rather
+              than what they carry (v4 systems/14). **Who may change it is the reader**: locally the
+              Player hands abilities to themselves, because signed out there is no DM; at a table the
+              handout is the DM's alone, so a Player sees the list with no controls and the DM sees
+              it with them (TICKET-PAS-01). Draws nothing on a ruleset naming no passives. */}
+          <PassivesPanel characterId={characterId} atTable={atTable} />
+
           {/* Coin sits beside the equipment, as it does on the sheet (`Q18:S23`, right of the
               `M3:O15` boxes) — what you are carrying, in one column. Not at a table: a purse there
               is the DM's to change (D9, v3 Req 42.5), and TICKET-DM-02 is what gives them the
@@ -238,7 +243,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
 
           {/* v3 Req 42.7's second half: a Player reads the Events that changed their own sheet.
               At a table only — a local character has no DM and no Event log to project. */}
-          {atTable && <AdjustmentLog adjustments={adjustments} statNames={statNames} />}
+          {atTable && <AdjustmentLog adjustments={adjustments} names={adjustmentNames} />}
         </div>
       </div>
 

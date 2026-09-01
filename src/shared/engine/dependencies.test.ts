@@ -138,6 +138,13 @@ const SPELL = {
   effectTemplate: '',
 };
 
+/** One catalog entry, shared by the passive cases so they cannot drift apart */
+const PASSIVE = {
+  id: 'blindsight',
+  name: 'Blindsight',
+  effectText: '',
+};
+
 function createCharacter(overrides: Partial<Character> = {}): Character {
   return {
     id: 'char1',
@@ -528,6 +535,63 @@ describe('findReferences', () => {
     const found = findReferences({ kind: 'spell', id: 'acid-splash' }, config, [createCharacter()]);
 
     expect(found).toEqual([]);
+  });
+
+  it('finds a character who has been handed a passive (TICKET-PAS-01)', () => {
+    // Unlike the spell arm, this one is born live: the catalog and the holder's list land in the
+    // same ticket, so there is no window in which the guard could be vacuous
+    const config = createConfig({ passives: [PASSIVE] });
+    const holder = createCharacter({ passiveIds: ['blindsight'] });
+
+    const found = findReferences({ kind: 'passive', id: 'blindsight' }, config, [holder]);
+
+    expect(holders(found)).toEqual(['Character: Aria']);
+    expect(found[0]?.field).toBe('passiveIds');
+  });
+
+  it('finds nothing pointing at a passive nobody holds', () => {
+    const config = createConfig({ passives: [PASSIVE] });
+
+    const found = findReferences({ kind: 'passive', id: 'blindsight' }, config, [
+      createCharacter(),
+    ]);
+
+    expect(found).toEqual([]);
+  });
+
+  it('finds a passive whose effect reads a skill (TICKET-PAS-01)', () => {
+    // Two of the workbook's 26 template exactly like a spell effect — Blindsight reads
+    // `perception level * 10` — so deleting the skill they read has to be refused here too
+    const config = createConfig({
+      passives: [{ ...PASSIVE, effectText: 'blindsight out to {skills.stealth.level * 10} feet' }],
+    });
+
+    const found = findReferences({ kind: 'skill', id: 'id-stl' }, config, []);
+
+    expect(holders(found)).toContain('Passive: Blindsight');
+    expect(found.find((reference) => reference.holderKind === 'Passive')?.field).toBe('effectText');
+  });
+
+  it('finds a passive whose effect reads a stat by its bare abbreviation', () => {
+    const config = createConfig({
+      passives: [{ ...PASSIVE, effectText: 'you resist {STR} points of poison' }],
+    });
+
+    expect(holders(findReferences({ kind: 'stat', id: 'id-str' }, config, []))).toContain(
+      'Passive: Blindsight'
+    );
+  });
+
+  it('does not read prose in a passive effect as a reference', () => {
+    // `mapTemplateFormulas`' promise checked from the guard's side: the word STR in a sentence is a
+    // word, and only what is inside braces reaches the parser
+    const config = createConfig({
+      passives: [{ ...PASSIVE, effectText: 'the holder gains STR against poison' }],
+    });
+
+    expect(holders(findReferences({ kind: 'stat', id: 'id-str' }, config, []))).not.toContain(
+      'Passive: Blindsight'
+    );
   });
 
   it('finds a race on a character', () => {

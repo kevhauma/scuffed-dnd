@@ -30,6 +30,16 @@ export interface DmControls {
   handleSetResource: (statId: string, value: number) => void;
   /** Set how far the character stands in their dream — the DM's action (TICKET-RES-04) */
   handleSetDreamLevel: (level: number) => void;
+  /**
+   * Hand this character a passive ability, and take one back (TICKET-PAS-01)
+   *
+   * Here rather than in `useSheetActions` because at a table these are the **only** doors: there is
+   * no player route to `Character.passiveIds`, so a Player asking is refused by the server rather
+   * than merely undrawn. The sheet hands this pair to `PassivesPanel` when the reader is the DM and
+   * the Player's own pair when the character is local.
+   */
+  handleGrantPassive: (passiveId: string) => void;
+  handleRevokePassive: (passiveId: string) => void;
 }
 
 /**
@@ -51,6 +61,8 @@ export function useDmControls(characterId: string): DmControls {
   const dmSetGrantedPoints = useCharacterStore((state) => state.dmSetGrantedPoints);
   const dmSetResource = useCharacterStore((state) => state.dmSetResource);
   const dmSetDreamLevel = useCharacterStore((state) => state.dmSetDreamLevel);
+  const dmGrantPassive = useCharacterStore((state) => state.dmGrantPassive);
+  const dmRevokePassive = useCharacterStore((state) => state.dmRevokePassive);
 
   return {
     // `accountId === null` is a browser that has not resolved its cookie yet, and answering *yes*
@@ -65,5 +77,7 @@ export function useDmControls(characterId: string): DmControls {
     handleSetGrantedPoints: (points: number) => dmSetGrantedPoints(characterId, points),
     handleSetResource: (statId: string, value: number) => dmSetResource(characterId, statId, value),
     handleSetDreamLevel: (level: number) => dmSetDreamLevel(characterId, level),
+    handleGrantPassive: (passiveId: string) => dmGrantPassive(characterId, passiveId),
+    handleRevokePassive: (passiveId: string) => dmRevokePassive(characterId, passiveId),
   };
 }

@@ -24,7 +24,7 @@ import {
   removeCurveRow,
 } from '#shared/engine/curveTable';
 import type { EntityReference, ReferenceTargetKind } from '#shared/engine/dependencies';
-import { findReferences } from '#shared/engine/dependencies';
+import { findReferences, REFERENCE_TARGET_KIND } from '#shared/engine/dependencies';
 import {
   cellKey,
   clampEquipmentLayout,
@@ -50,6 +50,7 @@ import type {
   Item,
   Material,
   MaterialCategory,
+  Passive,
   Race,
   RollDefinition,
   Skill,
@@ -261,6 +262,20 @@ interface ConfigState {
   addSpell: (spell: Spell) => void;
   updateSpell: (id: string, updates: Partial<Spell>) => void;
   deleteSpell: (id: string, options?: DeleteOptions) => EntityReference[];
+
+  /**
+   * The passive-ability catalog — resistances, immunities and senses (v4 systems/14, TICKET-PAS-01)
+   *
+   * `passives` is optional and absent means none, so `addPassive` creates the array rather than a
+   * fresh ruleset carrying an empty one — `constants`', `inlays`' and `spells`' rule.
+   *
+   * **The delete has something to find from the first day**, unlike `deleteSpell` and `deleteInlay`
+   * before it: `Character.passiveIds` lands in the same ticket, so a passive somebody holds is
+   * refused immediately rather than after the next one.
+   */
+  addPassive: (passive: Passive) => void;
+  updatePassive: (id: string, updates: Partial<Passive>) => void;
+  deletePassive: (id: string, options?: DeleteOptions) => EntityReference[];
 
   // Items CRUD
   addItem: (item: Item) => void;
@@ -987,7 +1002,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
 
   deleteStat: (id: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'stat', id, options, (config) => ({
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.STAT, id, options, (config) => ({
       ...config,
       stats: config.stats.filter((stat) => stat.id !== id),
     })),
@@ -1042,7 +1057,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
 
   deleteSkill: (id: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'skill', id, options, (config) => ({
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.SKILL, id, options, (config) => ({
       ...config,
       skills: config.skills.filter((skill) => skill.id !== id),
     })),
@@ -1073,7 +1088,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
 
   deleteMaterialCategory: (id: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'material-category', id, options, (config) => ({
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.MATERIAL_CATEGORY, id, options, (config) => ({
       ...config,
       materialCategories: config.materialCategories.filter((category) => category.id !== id),
     })),
@@ -1104,7 +1119,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
 
   deleteMaterial: (id: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'material', id, options, (config) => ({
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.MATERIAL, id, options, (config) => ({
       ...config,
       materials: config.materials.filter((material) => material.id !== id),
     })),
@@ -1144,7 +1159,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
 
   deleteInlay: (id: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'inlay', id, options, (config) => ({
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.INLAY, id, options, (config) => ({
       ...config,
       inlays: (config.inlays ?? []).filter((inlay) => inlay.id !== id),
     })),
@@ -1182,9 +1197,43 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
 
   deleteSpell: (id: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'spell', id, options, (config) => ({
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.SPELL, id, options, (config) => ({
       ...config,
       spells: (config.spells ?? []).filter((spell) => spell.id !== id),
+    })),
+
+  // Passives CRUD (v4 systems/14, TICKET-PAS-01)
+  addPassive: (passive: Passive) => {
+    const { config } = get();
+    if (!config) return;
+
+    const updated = autoSave({
+      ...config,
+      passives: [...(config.passives ?? []), passive],
+    });
+    set({ config: updated });
+  },
+
+  updatePassive: (id: string, updates: Partial<Passive>) => {
+    const { config } = get();
+    if (!config) return;
+
+    // A plain spread rather than `mergeClearingAbsent`: a passive has no optional field, so there is
+    // nothing a save can be asking to *clear* — and reaching for the clearing merge here would be
+    // machinery answering a question this entity does not raise
+    const updated = autoSave({
+      ...config,
+      passives: (config.passives ?? []).map((passive) =>
+        passive.id === id ? { ...passive, ...updates } : passive
+      ),
+    });
+    set({ config: updated });
+  },
+
+  deletePassive: (id: string, options?: DeleteOptions) =>
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.PASSIVE, id, options, (config) => ({
+      ...config,
+      passives: (config.passives ?? []).filter((passive) => passive.id !== id),
     })),
 
   // Items CRUD
@@ -1219,7 +1268,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
 
   deleteItem: (id: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'item', id, options, (config) => ({
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.ITEM, id, options, (config) => ({
       ...config,
       items: config.items.filter((item) => item.id !== id),
     })),
@@ -1250,7 +1299,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
 
   deleteEquipmentSlot: (type: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'equipment-slot', type, options, (config) => ({
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.EQUIPMENT_SLOT, type, options, (config) => ({
       ...config,
       equipmentSlots: config.equipmentSlots.filter((slot) => slot.type !== type),
     })),
@@ -1363,7 +1412,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
 
   deleteRace: (id: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'race', id, options, (config) => ({
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.RACE, id, options, (config) => ({
       ...config,
       races: config.races.filter((race) => race.id !== id),
     })),
@@ -1421,7 +1470,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
 
   deleteArchetype: (id: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'archetype', id, options, (config) => ({
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.ARCHETYPE, id, options, (config) => ({
       ...config,
       archetypes: (config.archetypes ?? []).filter((archetype) => archetype.id !== id),
     })),
@@ -1452,7 +1501,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
 
   deleteCurrencyTier: (id: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'currency-tier', id, options, (config) => ({
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.CURRENCY_TIER, id, options, (config) => ({
       ...config,
       currencyTiers: config.currencyTiers.filter((tier) => tier.id !== id),
     })),
@@ -1493,7 +1542,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
 
   deleteConstant: (id: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'constant', id, options, (config) => ({
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.CONSTANT, id, options, (config) => ({
       ...config,
       constants: (config.constants ?? []).filter((constant) => constant.id !== id),
     })),
@@ -1534,7 +1583,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
 
   deleteCurve: (id: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'curve', id, options, (config) => ({
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.CURVE, id, options, (config) => ({
       ...config,
       curves: (config.curves ?? []).filter((curve) => curve.id !== id),
     })),
@@ -1543,7 +1592,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     editCurve(set, get, curveId, (curve) => addColumnToCurve(curve, column)),
 
   deleteCurveColumn: (curveId: string, columnId: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'curve-column', columnId, options, (config) => ({
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.CURVE_COLUMN, columnId, options, (config) => ({
       ...config,
       curves: (config.curves ?? []).map((curve) =>
         curve.id === curveId ? removeCurveColumn(curve, columnId) : curve
@@ -1616,7 +1665,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
 
   deleteDiceLadder: (id: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'dice-ladder', id, options, (config) => ({
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.DICE_LADDER, id, options, (config) => ({
       ...config,
       diceLadders: (config.diceLadders ?? []).filter((ladder) => ladder.id !== id),
     })),
@@ -1648,7 +1697,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   },
 
   deleteRollDefinition: (id: string, options?: DeleteOptions) =>
-    guardedDelete(set, get, 'roll-definition', id, options, (config) => ({
+    guardedDelete(set, get, REFERENCE_TARGET_KIND.ROLL_DEFINITION, id, options, (config) => ({
       ...config,
       rollDefinitions: (config.rollDefinitions ?? []).filter((roll) => roll.id !== id),
     })),

@@ -364,6 +364,13 @@ describe('a write to the character open at a table', () => {
     // TICKET-RES-04: the User's ruling put the dream level on the DM's side, so the Player's own
     // action is refused at a table exactly as their experience and their purse are
     ['a dream level', () => useCharacterStore.getState().updateDreamLevel('character-1', 3)],
+    // TICKET-PAS-01: a passive is somebody else's decision about your character, so at a table there
+    // is no player route to the field at all — the local action has nowhere to send it
+    [
+      'a passive granted',
+      () => useCharacterStore.getState().grantPassive('character-1', 'p1', RULES),
+    ],
+    ['a passive revoked', () => useCharacterStore.getState().revokePassive('character-1', 'p1')],
   ])('refuses %s at a table, because it is the DM’s', (_name: string, run: () => void) => {
     // The sheet does not draw these controls, but the rule belongs to the store: falling through to
     // `characters.find(...)` would find nothing and no-op in silence, and the next surface to reach
@@ -462,6 +469,16 @@ describe("the DM's adjustments (TICKET-DM-01)", () => {
       DM_ACTION.SET_DREAM_LEVEL,
       () => useCharacterStore.getState().dmSetDreamLevel('character-1', 3),
       { dreamLevel: 3 },
+    ],
+    [
+      DM_ACTION.GRANT_PASSIVE,
+      () => useCharacterStore.getState().dmGrantPassive('character-1', 'passive-blindsight'),
+      { passiveId: 'passive-blindsight' },
+    ],
+    [
+      DM_ACTION.REVOKE_PASSIVE,
+      () => useCharacterStore.getState().dmRevokePassive('character-1', 'passive-blindsight'),
+      { passiveId: 'passive-blindsight' },
     ],
   ])('posts %s by name, with only what the server needs to be told', async (action, run, body) => {
     accepted(aCharacter({ experience: 300 }));

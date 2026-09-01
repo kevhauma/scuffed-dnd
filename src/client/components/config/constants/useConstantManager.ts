@@ -19,7 +19,11 @@
 
 import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
-import { type EntityReference, findReferences } from '#shared/engine/dependencies';
+import {
+  type EntityReference,
+  findReferences,
+  REFERENCE_TARGET_KIND,
+} from '#shared/engine/dependencies';
 import type { Constant } from '#shared/types';
 import { useConfigStore } from '../../../stores/configStore';
 import { useEntityDialog } from '../shared/useEntityDialog';
@@ -69,7 +73,7 @@ export function useConstantManager() {
     return new Map(
       constants.map((constant) => [
         constant.id,
-        findReferences({ kind: 'constant', id: constant.id }, config),
+        findReferences({ kind: REFERENCE_TARGET_KIND.CONSTANT, id: constant.id }, config),
       ])
     );
   }, [config, constants]);

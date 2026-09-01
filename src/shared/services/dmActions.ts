@@ -32,21 +32,27 @@
  * **Dream level joined them in TICKET-RES-04**, and it is here rather than in `playerActions.ts`
  * because the User ruled that the DM raises it — the same surface that awards experience and sets
  * level ([systems/02](../../../docs/v4.0_sheet_parity/systems/02-progression-and-identity.md)).
+ * **The passive handout joined them in TICKET-PAS-01** for the same reason: a passive ability is
+ * somebody else's decision about your character, and at a table there is no player route to the
+ * field at all
+ * ([systems/14](../../../docs/v4.0_sheet_parity/systems/14-passives-and-reference-tables.md)).
  *
  * The result type is `playerActions.ts`'s: an accepted change carries the character plus what the
  * value was and became, because every DM adjustment writes an Event with both (v3 Req 42.6), and a
  * refusal carries the sentence the surface shows. **Nothing here reads a clock** — `updatedAt` is
  * stamped by whichever root persists the result.
  *
- * **Validates: v3 Req 42.1, 42.2, 42.3, 42.4, 45.1; Requirements 21.1-21.5; v4 systems/02 gap 2**
+ * **Validates: v3 Req 42.1, 42.2, 42.3, 42.4, 45.1; Requirements 21.1-21.5; v4 systems/02 gap 2;
+ * v4 systems/14**
  */
 
 import { experienceForLevel } from '../engine/characterSummary';
 import { DEFAULT_DREAM_LEVEL, dreamLevelOf } from '../engine/dreamLevel';
 import { isFormulaError } from '../engine/formula/errors';
+import { heldPassiveIdsOf } from '../engine/passives';
 import { validateStatAllocation } from '../engine/skillAllocation';
 import type { Character } from '../types/character';
-import type { Configuration } from '../types/config';
+import type { Configuration, Passive } from '../types/config';
 import type { PlayerActionResult } from './playerActions';
 
 /**
@@ -249,4 +255,97 @@ export function setDreamLevel(character: Character, level: number): PlayerAction
   const proposed: Character = { ...character, dreamLevel: level };
 
   return { character: proposed, before, after: level };
+}
+
+/** The catalog entry an id names, or nothing when this ruleset has no such passive */
+function passiveOf(config: Configuration, passiveId: string): Passive | undefined {
+  return (config.passives ?? []).find((candidate) => candidate.id === passiveId);
+}
+
+/**
+ * Hand a character a passive ability (v4 systems/14, TICKET-PAS-01)
+ *
+ * **The whole of what the sheet's table can do today.** Nothing in the workbook grants a passive —
+ * Setup says *"Passive abilites: Coming soon"*, races reference none and items reference none — so
+ * there is no rule to consult and nothing to gate on: a passive is handed out by somebody deciding
+ * to, which is what this is (overview D5, and the reason no `sourceKind` exists to hang a future
+ * automatic grant on).
+ *
+ * `addLearnedSpell`'s shape, one entity over — **including its name**, which is the house rule that
+ * a Kernel rule is called after what it does to the *document* and the action after what the person
+ * *did*: this is `addHeldPassive`, and `dm-grant-passive` is the act. One spelling for both would be
+ * a duplicate export `fallow` reports and an `export *` can resolve ambiguously. Its two refusals
+ * are that function's for its reasons: **the duplicate is a refusal rather than a no-op**, because
+ * the list is read positionally by nothing, so a second entry would be invisible on the page and
+ * undeletable by one revoke.
+ *
+ * ## Why it is a DM action and not a Player one
+ *
+ * A passive is somebody else's decision about your character, which is the same test experience and
+ * the dream level meet. **At a table there is no player route to this field at all** — the only door
+ * is `requireCharacterDM`. On a *local* sheet the Player writes it themselves, because signed out
+ * there is no DM and one person plays both parts; that is `updateDreamLevel`'s split exactly, and
+ * the store refuses the local write the moment the character sits at a session.
+ *
+ * @param character Whose sheet
+ * @param config The ruleset holding the catalog — the browser's, or a session's Snapshot
+ * @param passiveId Which passive to hand out
+ * @returns The character holding it, or the reason it was refused
+ */
+export function addHeldPassive(
+  character: Character,
+  config: Configuration,
+  passiveId: string
+): PlayerActionResult {
+  const passive = passiveOf(config, passiveId);
+
+  if (!passive) return { refusal: 'This ruleset has no such passive ability.' };
+
+  const held = heldPassiveIdsOf(character);
+
+  if (held.includes(passiveId)) {
+    return { refusal: `${character.name} already has ${passive.name}.` };
+  }
+
+  return {
+    character: { ...character, passiveIds: [...held, passiveId] },
+    before: null,
+    after: passiveId,
+  };
+}
+
+/**
+ * Take a passive ability back (v4 systems/14, TICKET-PAS-01)
+ *
+ * {@link addHeldPassive}'s counterpart, and it differs in one deliberate way: **the ruleset is not
+ * consulted at all.** An id naming a passive the User force-deleted is exactly the id most in need
+ * of removing — `passivesOf` draws it as a row with nothing behind it — so demanding that the
+ * catalog still have it would make the one finding this action exists to clear unclearable. That is
+ * `removeLearnedSpell`'s reasoning, and it is why this signature has no `Configuration` in it.
+ *
+ * **Taking the last one removes the field rather than storing `[]`**, `focusPicksField`'s rule:
+ * *none* has one spelling on the document, so a character who lost their last passive and one who
+ * never had any are the same document. The old key is dropped before the new one is written, because
+ * an absent field spread over a present one leaves it exactly where it was.
+ *
+ * @param character Whose sheet
+ * @param passiveId Which passive to take back
+ * @returns The character without it, or the reason it was refused
+ */
+export function removeHeldPassive(character: Character, passiveId: string): PlayerActionResult {
+  const held = heldPassiveIdsOf(character);
+
+  if (!held.includes(passiveId)) {
+    return { refusal: `${character.name} does not have that passive ability.` };
+  }
+
+  const remaining = held.filter((candidate) => candidate !== passiveId);
+  const { passiveIds: _replaced, ...withoutPassives } = character;
+
+  return {
+    character:
+      remaining.length > 0 ? { ...withoutPassives, passiveIds: remaining } : withoutPassives,
+    before: passiveId,
+    after: null,
+  };
 }

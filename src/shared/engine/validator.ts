@@ -114,6 +114,7 @@ const ISSUE_SOURCES: readonly ((config: Configuration) => ValidationIssue[])[] =
   diceLadderIssues,
   rollDefinitionIssues,
   spellEffectIssues,
+  passiveEffectIssues,
 ];
 
 /**
@@ -868,6 +869,12 @@ function duplicateIdIssues(config: Configuration): ValidationIssue[] {
       // `Skill` already lives under that rule (TICKET-SKL-02) — so a name collision is the User's
       // to keep and an id collision makes a delete hit whichever comes first
       { entityType: 'spell', entities: config.spells ?? [] },
+      // Ids only for the same reason (v4 systems/14, TICKET-PAS-01), and this catalog genuinely
+      // needs it: the workbook's poison-resistance ladder appears **twice**, rows 7–10 and 15–18,
+      // with slightly different immunity wording. Those are four legitimate duplicate *names* the
+      // data pass records as it found them — and four ids that must still be distinct, or revoking
+      // one would revoke whichever came first
+      { entityType: 'passive', entities: config.passives ?? [] },
       { entityType: 'item', entities: config.items },
       { entityType: 'race', entities: config.races },
       { entityType: 'currencyTier', entities: config.currencyTiers },
@@ -996,6 +1003,41 @@ function spellEffectIssues(config: Configuration): ValidationIssue[] {
         entityType: 'spell',
         entityId: spell.id,
         entityName: spell.name,
+      }))
+    );
+  });
+}
+
+/**
+ * Placeholders in a passive's effect that would not compute (v4 systems/14, TICKET-PAS-01)
+ *
+ * {@link spellEffectIssues}' rule over the other templating entity, at the same attachment point:
+ * two of the workbook's 26 passives read a skill level, so a passive can be as broken as a spell and
+ * in exactly the same way.
+ *
+ * **Deliberately a second function rather than a shared one parameterised over the collection.**
+ * This is the *second* instance, and the house rule is to abstract on the third — the two differ
+ * only in which array and which field, so a generic version would be an abstraction with one shape
+ * to serve and nothing yet to learn from. The day a third templating entity arrives, this pair and
+ * `dependencies.ts`'s `formulaSources` rows are the ones to fold together.
+ *
+ * @param config - The ruleset to check
+ * @returns One issue per error in a placeholder
+ */
+function passiveEffectIssues(config: Configuration): ValidationIssue[] {
+  const scope = scopeFor(config, FORMULA_OWNER.SPELL_EFFECT);
+
+  return (config.passives ?? []).flatMap((passive) => {
+    const placeholders = templateFormulas(passive.effectText);
+
+    return placeholders.flatMap((source) =>
+      validateFormula(source, scope.codes, scope).errors.map((error) => ({
+        severity: 'error' as const,
+        category: 'Formula Validation',
+        message: `Passive "${passive.name}" effect {${source}}: ${error}`,
+        entityType: 'passive',
+        entityId: passive.id,
+        entityName: passive.name,
       }))
     );
   });

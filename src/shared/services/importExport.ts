@@ -819,6 +819,20 @@ const ENTITY_SPECS: Record<CollectionKey, EntitySpec> = {
     },
   },
 
+  // Optional and absent-means-none (v4 systems/14, TICKET-PAS-01), so a ruleset that names no
+  // passives imports untouched. **Two fields, because the sheet's tab has two columns** — there is
+  // no cost, category or prerequisite to check for. `effectText` accepts the empty string, as a
+  // spell's effect does: a passive somebody has named but not yet described is a real row, and
+  // nothing here parses the template (that is `engine/validator.ts`'s report, per placeholder).
+  passives: {
+    presence: 'optional',
+    fields: {
+      id: must(isNonEmptyText, 'must be a non-empty string'),
+      name: must(isText, 'must be a string'),
+      effectText: must(isText, 'must be a string'),
+    },
+  },
+
   // Every reference is optional — an item may be plain — but a *present* one has to be a string,
   // or the reference checks in `engine/validator.ts` compare a number against a set of ids and
   // report nothing

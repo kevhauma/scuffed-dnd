@@ -18,16 +18,13 @@
  */
 
 import { useMemo, useState } from 'react';
-import { calculateCharacter } from '#shared/engine/calculator';
-import { statVariables } from '#shared/engine/calculators/statCalculator';
-import { namespacesFor } from '#shared/engine/formula/namespaces';
 import { FORMULA_OWNER } from '#shared/engine/formula/scoping';
 import type { ResolvedSegment } from '#shared/engine/formula/template';
 import { resolveTemplate } from '#shared/engine/formula/template';
 import { learnedSpellIdsOf, type SpellbookEntry, spellbookOf } from '#shared/engine/spellbook';
+import { templateContextFor } from '#shared/engine/templateContext';
 import type { Character } from '#shared/types/character';
 import type { Configuration, Spell, Stat } from '#shared/types/config';
-import type { FormulaContext } from '#shared/types/formula';
 import { selectCharacter, useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
 
@@ -84,9 +81,12 @@ interface SpellbookRowEntry {
  * skills go in and a sentence comes out, so retuning a stat re-reads every effect on the next
  * render — nothing is stored and nothing is invalidated.
  *
- * The namespaces are `namespacesFor`'s at the **`spell-effect`** attachment point, which is what
+ * The context is `templateContextFor`'s at the **`spell-effect`** attachment point, which is what
  * makes this the same reading `scoping.ts` allows and `TemplatePreview` previews: a placeholder the
  * scope forbids resolves to an error value here rather than to a number the panel never showed.
+ * That helper is where the *both spaces* rule lives — namespaces **and** the flat stat
+ * abbreviations, CR-02's bug — extracted at TICKET-PAS-01 when passives became its second caller
+ * rather than copied into a second hook.
  *
  * @param book - The learned entries, in compendium order
  * @param character - Whose sheet
@@ -98,28 +98,7 @@ function resolvedBook(
   character: Character,
   config: Configuration
 ): SpellbookRowEntry[] {
-  const calculated = calculateCharacter(character, config);
-  const namespaces = namespacesFor(
-    {
-      ...config,
-      statValues: calculated.statValues,
-      skillLevels: calculated.skillLevels,
-      skillBonuses: calculated.skillBonuses,
-    },
-    FORMULA_OWNER.SPELL_EFFECT
-  );
-
-  /*
-   * **Both spaces, not just the namespaces.** `scoping.ts` puts stat abbreviations in scope at this
-   * attachment point — the sheet's own effect formulas read stat *cells*, so a transcriber may
-   * write `{WIS}` — and a code the scope allows but the context cannot resolve is exactly CR-02's
-   * bug: a placeholder that validates, previews and then errors at the table. `statVariables` is
-   * the same call `rollCalculator` makes for the same reason.
-   */
-  const context: FormulaContext = {
-    variables: statVariables(config.stats, calculated.statValues),
-    namespaces,
-  };
+  const context = templateContextFor(character, config, FORMULA_OWNER.SPELL_EFFECT);
 
   return book.map((entry) => {
     const template = entry.spell?.effectTemplate ?? '';

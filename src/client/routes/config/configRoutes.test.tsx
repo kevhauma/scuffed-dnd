@@ -29,6 +29,9 @@ vi.mock('../../components/config/inlays/InlaysConfigPanel', () => ({
 vi.mock('../../components/config/spells/SpellsConfigPanel', () => ({
   SpellsConfigPanel: () => <div data-testid="spells-config-panel" />,
 }));
+vi.mock('../../components/config/passives/PassivesConfigPanel', () => ({
+  PassivesConfigPanel: () => <div data-testid="passives-config-panel" />,
+}));
 vi.mock('../../components/config/items/ItemsConfigPanel', () => ({
   ItemsConfigPanel: () => <div data-testid="items-config-panel" />,
 }));
@@ -81,6 +84,7 @@ import { ConfigIndex } from './index';
 import { InlaysConfig } from './inlays';
 import { ItemsConfig } from './items';
 import { MaterialsConfig } from './materials';
+import { PassivesConfig } from './passives';
 import { RacesConfig } from './races';
 import { RollsConfig } from './rolls';
 import { SkillsConfig } from './skills';
@@ -176,6 +180,12 @@ describe('configuration routes', () => {
     expect(screen.getByTestId('spells-config-panel')).toBeDefined();
   });
 
+  it('/config/passives renders the passives panel', () => {
+    render(<PassivesConfig />);
+
+    expect(screen.getByTestId('passives-config-panel')).toBeDefined();
+  });
+
   it('no config route renders the scaffold placeholder copy', () => {
     for (const Page of [
       SkillsConfig,
@@ -183,6 +193,7 @@ describe('configuration routes', () => {
       MaterialsConfig,
       InlaysConfig,
       SpellsConfig,
+      PassivesConfig,
       ItemsConfig,
       EquipmentConfig,
       RacesConfig,

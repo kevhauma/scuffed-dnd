@@ -131,6 +131,19 @@ export interface Configuration {
    */
   spells?: Spell[];
   /**
+   * The passive abilities a character can be handed — resistances, immunities, senses
+   * (v4 systems/14, TICKET-PAS-01).
+   *
+   * Optional and **absent means none**, like `constants`, `inlays` and `spells`: a ruleset that
+   * names no passives round-trips without growing an empty array. Purely additive, so it owes no
+   * `SUPPORTED_SCHEMA_VERSION` bump — nothing moved.
+   *
+   * Which passives a *character* holds is player state rather than ruleset data
+   * ([D5](../../../docs/v4.0_sheet_parity/overview.md#d5--what-is-deliberately-not-parity)) and
+   * lives on {@link Character.passiveIds}; the catalog is the whole of what a ruleset carries.
+   */
+  passives?: Passive[];
+  /**
    * The sizes a creature may be — `tiny`, `small`, `medium`, … (v4 systems/14, TICKET-RACE-03).
    *
    * The vocabulary a {@link Race.size} is picked from, and **the User's own words**: the workbook
@@ -546,6 +559,48 @@ export interface Spell {
    * than as invented text.
    */
   effectTemplate: string;
+}
+
+/**
+ * Passive — one entry of the ruleset's passive-ability catalog (v4 systems/14, TICKET-PAS-01)
+ *
+ * The new workbook's `Background refernces abilities: passive` tab: 26 rows of a name and what the
+ * ability does, and **no other columns**. Resistance tiers for magic, poison and psychic damage, a
+ * block of condition immunities, and three senses — Blindsight, darkvision, False appearance.
+ *
+ * ## Two fields, because the sheet has two columns
+ *
+ * There is no cost, no duration, no category and no prerequisite, so there is no field for one. The
+ * catalog is a **reference table** the sheet has not wired into anything yet — Setup says *"Passive
+ * abilites: Coming soon"*, no race references a passive and no item does either — and v4.0 builds
+ * exactly that and stops (overview D5). Wiring passives to races or items waits for the sheet to do
+ * it first, and a speculative `sourceKind` here would be an option before its first caller.
+ *
+ * ## Its effect is prose that may compute
+ *
+ * Two of the 26 cells are live formulas: Blindsight's range is `perception level × 10` feet and
+ * darkvision's is `× 5`, both reading the same engine cell a spell effect does. So
+ * {@link Passive.effectText} is template text at the **same attachment point** spells use
+ * (`FORMULA_OWNER.SPELL_EFFECT`, TICKET-SPL-03) rather than a new one: the reference set is
+ * identical — final stats, skill levels and skill bonuses, constants and curves — and the ticket's
+ * own instruction is to reuse where it does not differ.
+ */
+export interface Passive {
+  id: string; // Stable identity — assigned on creation, never shown, never reused
+  name: string;
+  /**
+   * What the ability does, as prose with `{formula}` placeholders wherever a number is computed.
+   *
+   * **The empty string is legal**, as it is on {@link Spell.effectTemplate}: a passive somebody has
+   * named but not yet described is a real row, and 24 of the sheet's 26 are plain text with no
+   * placeholder in them at all — the grammar is forgiving about that on purpose (see
+   * [`template.ts`](../engine/formula/template.ts)).
+   *
+   * Named `effectText` rather than `effectTemplate` because that is what the ticket and
+   * [systems/14](../../../docs/v4.0_sheet_parity/systems/14-passives-and-reference-tables.md) call
+   * it; it is the same kind of field as a spell's and goes through the same three functions.
+   */
+  effectText: string;
 }
 
 /**

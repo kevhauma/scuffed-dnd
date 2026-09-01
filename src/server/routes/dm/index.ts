@@ -1,7 +1,7 @@
 /**
  * The Dungeon Master's controls (TICKET-DM-01)
  *
- * Six writes a DM makes to a Character in their session and one read of what they have done, all
+ * Eight writes a DM makes to a Character in their session and one read of what they have done, all
  * under `POST /api/characters/:id/<action>` where `<action>` is a value of `DM_ACTION` — the same
  * shape `routes/play/` has, because it is the same kind of request with a different guard in front
  * of it.
@@ -18,8 +18,10 @@
 
 export * from './dmAwardExperience';
 export * from './dmDeductExperience';
+export * from './dmGrantPassive';
 export * from './dmGrantPoints';
 export * from './dmPayloads';
+export * from './dmRevokePassive';
 export * from './dmSetDreamLevel';
 export * from './dmSetLevel';
 export * from './dmSetResource';

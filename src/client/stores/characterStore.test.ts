@@ -1833,4 +1833,109 @@ describe('CharacterStore', () => {
       expect(storage.saveCharacters).not.toHaveBeenCalled();
     });
   });
+  describe('the passive handout (TICKET-PAS-01)', () => {
+    /** A ruleset with a two-entry catalog — a plain line and a templated sense */
+    const catalogConfig = {
+      id: 'config1',
+      name: 'Test',
+      version: '1.0',
+      schemaVersion: 10,
+      stats: [],
+      skills: [],
+      materials: [],
+      materialCategories: [],
+      items: [],
+      equipmentSlots: [],
+      races: [],
+      currencyTiers: [],
+      passives: [
+        { id: 'blindsight', name: 'Blindsight', effectText: 'out to {PER} feet' },
+        { id: 'charmed', name: 'Charm immunity', effectText: 'You cannot be charmed.' },
+      ],
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-01',
+    } as unknown as Configuration;
+
+    beforeEach(() => {
+      useCharacterStore.setState({
+        characters: [
+          {
+            id: 'char1',
+            name: 'Test',
+            configurationId: 'config1',
+            raceIds: [],
+            investedStatPoints: {},
+            investedSkillPoints: {},
+            currentResourceValues: {},
+            experience: 0,
+            inventory: { equippedItems: {}, composedItems: [] },
+            createdAt: '2024-01-01',
+            updatedAt: '2024-01-01',
+          },
+        ],
+        isLoaded: true,
+        actionError: null,
+      });
+      vi.clearAllMocks();
+    });
+
+    const held = () => useCharacterStore.getState().characters[0];
+
+    it('should hand a passive to a character who had none, and persist it', () => {
+      // Locally the Player is their own DM — signed out there is nobody else to hand it to them,
+      // which is `updateDreamLevel`'s and `awardExperience`'s split
+      expect(held().passiveIds).toBeUndefined();
+
+      useCharacterStore.getState().grantPassive('char1', 'blindsight', catalogConfig);
+
+      expect(held().passiveIds).toEqual(['blindsight']);
+      expect(storage.saveCharacters).toHaveBeenCalledTimes(1);
+    });
+
+    it('should round-trip a grant and a revoke back to a character with no field', () => {
+      useCharacterStore.getState().grantPassive('char1', 'blindsight', catalogConfig);
+      useCharacterStore.getState().revokePassive('char1', 'blindsight');
+
+      expect('passiveIds' in held()).toBe(false);
+    });
+
+    it('should report a duplicate rather than adding a second entry', () => {
+      useCharacterStore.getState().grantPassive('char1', 'charmed', catalogConfig);
+      vi.clearAllMocks();
+
+      useCharacterStore.getState().grantPassive('char1', 'charmed', catalogConfig);
+
+      expect(held().passiveIds).toEqual(['charmed']);
+      expect(useCharacterStore.getState().actionError).toContain('already has Charm immunity');
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+
+    it('should report a passive the ruleset does not have', () => {
+      useCharacterStore.getState().grantPassive('char1', 'nonesuch', catalogConfig);
+
+      expect(useCharacterStore.getState().actionError).toContain('no such passive');
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+
+    it('should revoke an id the ruleset has lost, taking no ruleset to do it', () => {
+      // The force-delete case, and the whole reason the revoke is its own action: a whole-list write
+      // validating every id would refuse the very edit that clears the stale one
+      useCharacterStore.setState({
+        characters: [{ ...held(), passiveIds: ['deleted-under-them'] }],
+      });
+      vi.clearAllMocks();
+
+      useCharacterStore.getState().revokePassive('char1', 'deleted-under-them');
+
+      expect('passiveIds' in held()).toBe(false);
+      expect(storage.saveCharacters).toHaveBeenCalledTimes(1);
+    });
+
+    it('should write nothing for an unknown character', () => {
+      useCharacterStore.getState().grantPassive('nope', 'charmed', catalogConfig);
+      useCharacterStore.getState().revokePassive('nope', 'charmed');
+
+      expect(storage.saveCharacters).not.toHaveBeenCalled();
+    });
+  });
 });

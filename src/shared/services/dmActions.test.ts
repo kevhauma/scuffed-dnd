@@ -15,7 +15,12 @@
  * things: the before it reports for a character that has never had one, and the sentence a DM reads
  * when they type a level below the floor.
  *
- * **Validates: v3 Req 42.1, 42.2, 42.3, 42.4; v4 systems/02 gap 2**
+ * **TICKET-PAS-01 added the passive handout**, whose cases are about a third thing neither of those
+ * raises: *none* has one spelling on the document, so revoking the last passive has to leave the
+ * field absent rather than an empty array — and the revoke has to work on an id the catalog has lost,
+ * which is what makes its signature ruleset-free.
+ *
+ * **Validates: v3 Req 42.1, 42.2, 42.3, 42.4; v4 systems/02 gap 2; v4 systems/14**
  */
 
 import { describe, expect, it } from 'vitest';
@@ -26,7 +31,9 @@ import type { Character } from '../types/character';
 import type { Configuration } from '../types/config';
 import {
   addExperience,
+  addHeldPassive,
   removeExperience,
+  removeHeldPassive,
   setDreamLevel,
   setGrantedPoints,
   setLevelExperience,
@@ -321,5 +328,90 @@ describe('setting a dream level', () => {
     setDreamLevel(dreaming, 9);
 
     expect(dreaming.dreamLevel).toBe(2);
+  });
+});
+
+describe('handing out and taking back a passive ability', () => {
+  /** The ruleset above plus a two-entry catalog — the two shapes the source tab holds */
+  const WITH_PASSIVES = {
+    ...RULES,
+    passives: [
+      {
+        id: 'passive-blindsight',
+        name: 'Blindsight',
+        effectText: 'Blindsight out to {skills.stealth.level * 10} feet.',
+      },
+      { id: 'passive-charmed', name: 'Charm immunity', effectText: 'You cannot be charmed.' },
+    ],
+  } as unknown as Configuration;
+
+  it('reports the id that came onto the sheet, and leaves everything else alone', () => {
+    const change = accepted(addHeldPassive(aCharacter(), WITH_PASSIVES, 'passive-blindsight'));
+
+    expect(change.before).toBeNull();
+    expect(change.after).toBe('passive-blindsight');
+    expect(change.character.passiveIds).toEqual(['passive-blindsight']);
+    expect(change.character.experience).toBe(0);
+  });
+
+  it('appends rather than replacing, so a second handout keeps the first', () => {
+    const held = aCharacter({ passiveIds: ['passive-blindsight'] });
+    const change = accepted(addHeldPassive(held, WITH_PASSIVES, 'passive-charmed'));
+
+    expect(change.character.passiveIds).toEqual(['passive-blindsight', 'passive-charmed']);
+  });
+
+  it('refuses a passive this ruleset does not have', () => {
+    const result = addHeldPassive(aCharacter(), WITH_PASSIVES, 'passive-nonesuch');
+
+    expect(refusal(result)).toBe('This ruleset has no such passive ability.');
+  });
+
+  it('refuses a duplicate by name rather than quietly adding a second entry', () => {
+    // A no-op would leave a DM believing the second tap landed, and a second entry would be a row
+    // no single revoke could remove
+    const held = aCharacter({ passiveIds: ['passive-charmed'] });
+    const result = addHeldPassive(held, WITH_PASSIVES, 'passive-charmed');
+
+    expect(refusal(result)).toBe('Quackers already has Charm immunity.');
+  });
+
+  it('takes one back and reports which', () => {
+    const held = aCharacter({ passiveIds: ['passive-blindsight', 'passive-charmed'] });
+    const change = accepted(removeHeldPassive(held, 'passive-blindsight'));
+
+    expect(change.before).toBe('passive-blindsight');
+    expect(change.after).toBeNull();
+    expect(change.character.passiveIds).toEqual(['passive-charmed']);
+  });
+
+  it('removes the field entirely when the last one goes, rather than storing an empty array', () => {
+    // *None* has one spelling on the document, so a character who lost their last passive and one
+    // who never had any are the same character — `focusPicksField`'s rule
+    const held = aCharacter({ passiveIds: ['passive-charmed'] });
+    const change = accepted(removeHeldPassive(held, 'passive-charmed'));
+
+    expect('passiveIds' in change.character).toBe(false);
+  });
+
+  it('takes back an id the ruleset has lost, because it consults no ruleset at all', () => {
+    // The whole reason the revoke is its own action rather than half of a whole-list write: a
+    // force-deleted passive is exactly the id most in need of removing
+    const held = aCharacter({ passiveIds: ['passive-gone'] });
+    const change = accepted(removeHeldPassive(held, 'passive-gone'));
+
+    expect('passiveIds' in change.character).toBe(false);
+  });
+
+  it('refuses to take back one the character does not have', () => {
+    const result = removeHeldPassive(aCharacter(), 'passive-charmed');
+
+    expect(refusal(result)).toBe('Quackers does not have that passive ability.');
+  });
+
+  it('hands nothing out on a ruleset with no catalog', () => {
+    const result = addHeldPassive(aCharacter(), RULES, 'passive-charmed');
+
+    expect(refusal(result)).toBe('This ruleset has no such passive ability.');
   });
 });

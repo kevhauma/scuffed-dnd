@@ -264,6 +264,40 @@ export interface Character {
    * placeholder the workbook has not filled in (User ruling, same date).
    */
   learnedSpellIds?: string[];
+  /**
+   * The passive abilities this character has been handed, by **id** (TICKET-PAS-01,
+   * v4 systems/14).
+   *
+   * The workbook's `Background refernces abilities: passive` tab is a reference table of 26
+   * resistances, immunities and senses, and **nothing in the sheet grants one** — Setup says
+   * *"Passive abilites: Coming soon"*, races reference none and items reference none
+   * ([D5](../../../docs/v4.0_sheet_parity/overview.md#d5--what-is-deliberately-not-parity)). So this
+   * is the whole of what a passive can be today: a name somebody wrote on the character, which is
+   * what the sheet's table can do and nothing more.
+   *
+   * **A pick, not a sixth exception to *derived values are never stored*** —
+   * {@link Character.learnedSpellIds}' and {@link Character.focusSkillIds}' argument exactly. It is a
+   * list of links to ruleset entities, not a number anything else computes.
+   *
+   * ## Who writes it
+   *
+   * **The DM, at a table** (`dm-grant-passive` / `dm-revoke-passive`); **the Player, on their own
+   * local sheet**, where there is no DM and the same person plays both parts —
+   * {@link Character.dreamLevel}'s split precisely, down to the local write being refused the moment
+   * the character sits at a session. There is no player *route*, so at a table the only door is the
+   * DM's guard.
+   *
+   * **Optional, and absent means none** — `purse`'s, `focusSkillIds`' and `learnedSpellIds`' pattern.
+   * A roster written before this field round-trips without growing one. The default belongs to the
+   * *reader*: read it with [`heldPassiveIdsOf`](../engine/passives.ts), never
+   * `character.passiveIds ?? []` at a call site.
+   *
+   * **A stale id is a state to report, not a crash.** Deleting a held passive is refused by the
+   * dependency walker, so an id naming nothing arrives only from a force-delete or a hand-edited
+   * file; `passivesOf` resolves it to a row with no passive behind it, which the sheet draws so the
+   * holder can have it revoked. Nothing prunes the list on read.
+   */
+  passiveIds?: string[];
   createdAt: string;
   updatedAt: string;
 }

@@ -15,7 +15,13 @@ import { buildCharacter } from '#shared/services/characterCreation';
 import { purseFromStoredWallet } from '#shared/services/characterShape';
 // The experience rules **moved** here from this module with TICKET-DM-01, rather than being copied
 // into a DM route — the same thing PLY-01 did to the sheet's other writes, and for the same reason
-import { addExperience, removeExperience, setDreamLevel } from '#shared/services/dmActions';
+import {
+  addExperience,
+  addHeldPassive,
+  removeExperience,
+  removeHeldPassive,
+  setDreamLevel,
+} from '#shared/services/dmActions';
 // `composeBuild` and `discardBuild` joined the list with TICKET-INV-05 (as `addToPack` and
 // `removeFromPack`), having been deliberately absent before it: the browser's pack had no rule to
 // share — its picker is built from the ruleset's item list — so it appended an id and left the
@@ -54,6 +60,7 @@ import type {
   FocusSkillsRequest,
   GrantRequest,
   LevelRequest,
+  PassiveRequest,
   PlayerAction,
   ResourceValueRequest,
   SheetAction,
@@ -435,6 +442,27 @@ export interface CharacterState {
    */
   updateDreamLevel: (characterId: string, level: number) => void;
 
+  /**
+   * Hand this character a passive ability (TICKET-PAS-01)
+   *
+   * **The local half of a DM action**, {@link updateDreamLevel}'s split exactly: signed out there is
+   * no DM and the Player keeps their own sheet, so the same Kernel rule runs here — and at a table it
+   * is refused, because a passive there is somebody else's decision and
+   * {@link dmGrantPassive} is the door. There is no player *route*, so the refusal is not merely a
+   * UI courtesy: nothing on this side has anywhere to send it.
+   *
+   * A refusal is reported. The picker offers only ungranted passives, but nothing stands between a
+   * stale render and a second tap, and *"already has Blindsight"* is a sentence somebody can act on.
+   */
+  grantPassive: (characterId: string, passiveId: string, config: Configuration) => void;
+  /**
+   * Take a passive back — and the one way to clear an id the ruleset has lost
+   *
+   * Takes no `Configuration` because the rule consults none: a passive the User force-deleted is
+   * exactly the id most in need of removing. `unlearnSpell`'s signature, for its reason.
+   */
+  revokePassive: (characterId: string, passiveId: string) => void;
+
   /*
    * The Dungeon Master's controls (TICKET-DM-01, v3 Req 42.1-42.4)
    *
@@ -459,6 +487,10 @@ export interface CharacterState {
   dmSetGrantedPoints: (characterId: string, points: number) => void;
   /** Set how far a character at the caller's table stands in their dream — a total, not a delta */
   dmSetDreamLevel: (characterId: string, level: number) => void;
+  /** Hand a character at the caller's table a passive ability (TICKET-PAS-01) */
+  dmGrantPassive: (characterId: string, passiveId: string) => void;
+  /** Take one back — the pair rather than one whole-list write, so a lost id stays clearable */
+  dmRevokePassive: (characterId: string, passiveId: string) => void;
   /** Write where one of a character's resource pools stands, under the Player's own Kernel rule */
   dmSetResource: (characterId: string, statId: string, value: number) => void;
 }
@@ -1060,6 +1092,30 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     });
   },
 
+  grantPassive: (characterId: string, passiveId: string, config: Configuration) => {
+    // A passive at a table is the DM's to hand out (v4 systems/14) — there is no player route, so
+    // this refuses rather than sending, `updateDreamLevel`'s branch one field over
+    if (refuseAtTable(set, get, characterId, 'A passive ability')) return;
+
+    applyLocally(
+      set,
+      get,
+      characterId,
+      (character) => addHeldPassive(character, config, passiveId),
+      {
+        reportRefusal: true,
+      }
+    );
+  },
+
+  revokePassive: (characterId: string, passiveId: string) => {
+    if (refuseAtTable(set, get, characterId, 'A passive ability')) return;
+
+    applyLocally(set, get, characterId, (character) => removeHeldPassive(character, passiveId), {
+      reportRefusal: true,
+    });
+  },
+
   dmAwardExperience: (characterId: string, amount: number) => {
     adjustAtTable(set, get, characterId, DM_ACTION.AWARD_EXPERIENCE, {
       amount,
@@ -1091,5 +1147,17 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     adjustAtTable(set, get, characterId, DM_ACTION.SET_DREAM_LEVEL, {
       dreamLevel: level,
     } satisfies DreamLevelRequest);
+  },
+
+  dmGrantPassive: (characterId: string, passiveId: string) => {
+    adjustAtTable(set, get, characterId, DM_ACTION.GRANT_PASSIVE, {
+      passiveId,
+    } satisfies PassiveRequest);
+  },
+
+  dmRevokePassive: (characterId: string, passiveId: string) => {
+    adjustAtTable(set, get, characterId, DM_ACTION.REVOKE_PASSIVE, {
+      passiveId,
+    } satisfies PassiveRequest);
   },
 }));

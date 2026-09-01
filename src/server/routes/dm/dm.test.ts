@@ -43,7 +43,7 @@ import {
   type PlayerActionEvent,
 } from '#shared/types/api';
 import type { Character } from '#shared/types/character';
-import type { Configuration, Curve, Stat } from '#shared/types/config';
+import type { Configuration, Curve, Passive, Stat } from '#shared/types/config';
 import { findCharacter, insertUnseatedCharacter } from '../../repositories/characterRepository';
 import { eventsSince } from '../../repositories/eventRepository';
 import {
@@ -62,7 +62,9 @@ import { investStatPoints } from '../play/investStatPoints';
 import { snapshotOf } from '../sessions/sessionPayloads';
 import { dmAwardExperience } from './dmAwardExperience';
 import { dmDeductExperience } from './dmDeductExperience';
+import { dmGrantPassive } from './dmGrantPassive';
 import { dmGrantPoints } from './dmGrantPoints';
+import { dmRevokePassive } from './dmRevokePassive';
 import { dmSetDreamLevel } from './dmSetDreamLevel';
 import { dmSetLevel } from './dmSetLevel';
 import { dmSetResource } from './dmSetResource';
@@ -76,6 +78,8 @@ const ROUTES = {
   [DM_ACTION.GRANT_POINTS]: dmGrantPoints,
   [DM_ACTION.SET_RESOURCE]: dmSetResource,
   [DM_ACTION.SET_DREAM_LEVEL]: dmSetDreamLevel,
+  [DM_ACTION.GRANT_PASSIVE]: dmGrantPassive,
+  [DM_ACTION.REVOKE_PASSIVE]: dmRevokePassive,
 } as const;
 
 /** Perform one DM adjustment, as somebody */
@@ -480,6 +484,169 @@ describe('setting a dream level', () => {
       expect(asPlayer.body).toEqual(asNobodyReal.body);
 
       expect(stateOf(database, row.id).dreamLevel).toBeUndefined();
+      expect(eventsOf(database, session.id)).toHaveLength(0);
+    }));
+});
+
+describe('handing out a passive ability', () => {
+  /** A Snapshot carrying a two-entry catalog, since the corpus has none yet (overview D7) */
+  const CATALOG: Passive[] = [
+    {
+      id: 'passive-blindsight',
+      name: 'Blindsight',
+      effectText: 'blindsight out to {PER} feet',
+    },
+    { id: 'passive-charmed', name: 'Charm immunity', effectText: 'You cannot be charmed.' },
+  ];
+
+  const withPassives = (document: Configuration): Configuration => ({
+    ...document,
+    passives: CATALOG,
+  });
+
+  it('stores the id and logs which ability it was', () =>
+    withTestDatabase(async (database) => {
+      const { dm, row, session } = aTableWithACharacter(database, { snapshot: withPassives });
+
+      expect(stateOf(database, row.id).passiveIds).toBeUndefined();
+
+      const accepted = await adjust(
+        DM_ACTION.GRANT_PASSIVE,
+        row.id,
+        { passiveId: 'passive-blindsight' },
+        dm
+      );
+      expect(accepted.status).toBe(200);
+
+      expect(stateOf(database, row.id).passiveIds).toEqual(['passive-blindsight']);
+
+      const [event] = eventsOf(database, session.id);
+      expect(event.type).toBe(DM_ACTION.GRANT_PASSIVE);
+      expect(event.actorAccountId).toBe(dm.id);
+      expect(payloadOf(event)).toMatchObject({
+        characterId: row.id,
+        action: DM_ACTION.GRANT_PASSIVE,
+        target: 'passive-blindsight',
+        before: null,
+        after: 'passive-blindsight',
+      });
+    }));
+
+  it('takes one back, and the Event mirrors the grant', () =>
+    withTestDatabase(async (database) => {
+      const { dm, row, session } = aTableWithACharacter(database, { snapshot: withPassives });
+
+      await adjust(DM_ACTION.GRANT_PASSIVE, row.id, { passiveId: 'passive-charmed' }, dm);
+      const accepted = await adjust(
+        DM_ACTION.REVOKE_PASSIVE,
+        row.id,
+        { passiveId: 'passive-charmed' },
+        dm
+      );
+
+      expect(accepted.status).toBe(200);
+      // The field goes rather than becoming `[]` — *none* has one spelling on the document
+      expect(stateOf(database, row.id).passiveIds).toBeUndefined();
+
+      const events = eventsOf(database, session.id);
+      expect(payloadOf(events[1])).toMatchObject({
+        action: DM_ACTION.REVOKE_PASSIVE,
+        target: 'passive-charmed',
+        before: 'passive-charmed',
+        after: null,
+      });
+    }));
+
+  it('refuses a passive the Snapshot does not have, and writes nothing', () =>
+    withTestDatabase(async (database) => {
+      const { dm, row, session } = aTableWithACharacter(database, { snapshot: withPassives });
+
+      const refused = await adjust(
+        DM_ACTION.GRANT_PASSIVE,
+        row.id,
+        { passiveId: 'passive-nonesuch' },
+        dm
+      );
+
+      expect(refused.status).toBe(400);
+      expect(messageOf(refused.body)).toBe('This ruleset has no such passive ability.');
+      expect(stateOf(database, row.id).passiveIds).toBeUndefined();
+      expect(eventsOf(database, session.id)).toHaveLength(0);
+    }));
+
+  it('refuses a duplicate rather than storing a second entry', () =>
+    withTestDatabase(async (database) => {
+      const { dm, row } = aTableWithACharacter(database, { snapshot: withPassives });
+
+      await adjust(DM_ACTION.GRANT_PASSIVE, row.id, { passiveId: 'passive-charmed' }, dm);
+      const refused = await adjust(
+        DM_ACTION.GRANT_PASSIVE,
+        row.id,
+        { passiveId: 'passive-charmed' },
+        dm
+      );
+
+      expect(refused.status).toBe(400);
+      expect(messageOf(refused.body)).toContain('already has Charm immunity');
+      expect(stateOf(database, row.id).passiveIds).toEqual(['passive-charmed']);
+    }));
+
+  it('lets the DM revoke an id the Snapshot has lost, because the rule consults no ruleset', () =>
+    withTestDatabase(async (database) => {
+      // The force-delete case, reached through a request: a whole-list write validating every id
+      // would refuse the very edit that clears the stale one. Seeded as a second character rather
+      // than by editing the first, so the stale id is genuinely in the stored document.
+      const { dm, player, session, character } = aTableWithACharacter(database, {
+        snapshot: withPassives,
+      });
+
+      const haunted = seedCharacter(database, {
+        id: 'character-holding-a-ghost',
+        session,
+        owner: player,
+        name: 'Haunted',
+        data: JSON.stringify({
+          ...character,
+          id: 'character-holding-a-ghost',
+          passiveIds: ['passive-gone'],
+        }),
+      });
+
+      const accepted = await adjust(
+        DM_ACTION.REVOKE_PASSIVE,
+        haunted.id,
+        { passiveId: 'passive-gone' },
+        dm
+      );
+
+      expect(accepted.status).toBe(200);
+      expect(stateOf(database, haunted.id).passiveIds).toBeUndefined();
+    }));
+
+  it('refuses the character’s own Player with the same 404 a stranger gets', () =>
+    withTestDatabase(async (database) => {
+      // *A Player cannot self-grant* is this: there is no player route to the field at all, so the
+      // owner of the sheet asking is answered exactly as an id nobody minted is
+      const { player, row, session } = aTableWithACharacter(database, { snapshot: withPassives });
+      const stranger = seedAccount();
+
+      const asPlayer = await adjust(
+        DM_ACTION.GRANT_PASSIVE,
+        row.id,
+        { passiveId: 'passive-charmed' },
+        player
+      );
+      const asNobodyReal = await adjust(
+        DM_ACTION.GRANT_PASSIVE,
+        'character-that-never-was',
+        { passiveId: 'passive-charmed' },
+        stranger
+      );
+
+      expect(asPlayer.status).toBe(404);
+      expect(asPlayer.body).toEqual(asNobodyReal.body);
+
+      expect(stateOf(database, row.id).passiveIds).toBeUndefined();
       expect(eventsOf(database, session.id)).toHaveLength(0);
     }));
 });

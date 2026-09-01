@@ -54,6 +54,11 @@ const CONFIG_SECTIONS = [
     label: 'Spells',
     description: 'The compendium a caster draws from',
   },
+  {
+    to: '/config/passives',
+    label: 'Passives',
+    description: 'Resistances, immunities and senses a character can be handed',
+  },
   { to: '/config/currency', label: 'Currency', description: 'Currency tiers and conversion rates' },
   {
     to: '/config/constants',

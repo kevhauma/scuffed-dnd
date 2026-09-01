@@ -112,9 +112,23 @@ already, and the values never leave that component's props. The moment a second 
 of those strings, it becomes a const object like everything else.
 
 The rule applies to **new and reshaped** sets. Roughly a dozen bare unions predate it
-(`StatRounding`, `RollCategory`, `StatAffinity`, `CurveInterpolation`, `FormulaOwner`,
-`ValidationSeverity`, …); convert one when you are already changing it, not as drive-by work, and
-don't report the untouched ones as findings.
+(`StatRounding`, `RollCategory`, `StatAffinity`, `CurveInterpolation`, `ValidationSeverity`, …);
+convert one when you are already changing it, not as drive-by work, and don't report the untouched
+ones as findings.
+
+**Two have since been paid, back to back, and both were paid for the same trigger — a ticket adding
+a member.** `FormulaOwner` → `FORMULA_OWNER` (TICKET-SPL-03, adding `spell-effect`) and
+`ReferenceTargetKind` → `REFERENCE_TARGET_KIND` (TICKET-PAS-01, adding `passive`). That is what
+*converted when touched* means in practice: not *when you happen to read it*, but **when your diff
+reshapes the set**. Two things the second conversion learned that the first did not have to:
+
+- **Do the whole sweep in the same change.** Seventeen `guardedDelete` call sites, two
+  `findReferences` ones and the walker table's keys all moved together; half a conversion is worse
+  than none, because a grep for the constant then finds a subset and reads as complete.
+- **A test that greps source is coupled to the source's punctuation.** `referenceArms.test.ts` reads
+  `REFERENCE_WALKERS` as *text* to prove each arm was written; computed keys would have made every
+  row of that guard pass by matching nothing. Converting a set means checking whether anything
+  **scans** for its old spelling — the compiler will not tell you.
 
 ## Design principles
 

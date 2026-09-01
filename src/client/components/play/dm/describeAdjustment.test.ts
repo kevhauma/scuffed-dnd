@@ -31,7 +31,13 @@ function adjustment(
   };
 }
 
-const STAT_NAMES = { 'stat-health': 'Health' };
+/**
+ * How this ruleset spells the entities an adjustment can name
+ *
+ * **One map across both kinds since TICKET-PAS-01** — stats and passives — because every id here is
+ * a UUID and a second parameter would exist only because two panels minted them.
+ */
+const STAT_NAMES = { 'stat-health': 'Health', 'passive-blindsight': 'Blindsight' };
 
 describe('describeAdjustment', () => {
   it('should name the amount awarded as well as the totals either side of it', () => {
@@ -81,5 +87,36 @@ describe('describeAdjustment', () => {
     expect(
       describeAdjustment(adjustment(DM_ACTION.SET_RESOURCE, 30, 12, 'stat-gone'), STAT_NAMES)
     ).toContain('stat-gone');
+  });
+
+  it('should name the passive that was handed out, not a number (TICKET-PAS-01)', () => {
+    // Neither before nor after is a number here — they are the id and `null` — so a sentence built
+    // from `amount()` would have read both as 0 and said nothing true
+    const granted = adjustment(
+      DM_ACTION.GRANT_PASSIVE,
+      null,
+      'passive-blindsight',
+      'passive-blindsight'
+    );
+
+    expect(describeAdjustment(granted, STAT_NAMES)).toBe('Granted the passive Blindsight');
+  });
+
+  it('should name the passive that was taken back', () => {
+    const revoked = adjustment(
+      DM_ACTION.REVOKE_PASSIVE,
+      'passive-blindsight',
+      null,
+      'passive-blindsight'
+    );
+
+    expect(describeAdjustment(revoked, STAT_NAMES)).toBe('Took back the passive Blindsight');
+  });
+
+  it('should fall back to the id for a passive the ruleset has since lost', () => {
+    // A row in the log outlives the entity it names, and *"granted 9f3c…"* is at least a true line
+    const granted = adjustment(DM_ACTION.GRANT_PASSIVE, null, 'passive-gone', 'passive-gone');
+
+    expect(describeAdjustment(granted, STAT_NAMES)).toBe('Granted the passive passive-gone');
   });
 });

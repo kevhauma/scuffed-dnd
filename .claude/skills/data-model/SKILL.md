@@ -402,6 +402,20 @@ effect reads cannot be deleted either. `shared/engine/referenceArms.test.ts` car
 against the first of those before the field existed, and **it fired** — red on the run that added
 `learnedSpellIds`, before the walk was written.
 
+**`Passive` is the same story told forwards** (TICKET-PAS-01, v4 systems/14):
+`{ id, name, effectText }` and nothing else, because the source tab has two columns and nothing in the
+sheet grants a passive yet (v4 D5) — no cost, no category, no `sourceKind` for an automatic grant
+that does not exist. Its `effectText` is prose with `{formula}` placeholders at the **same attachment
+point a spell effect uses** (`FORMULA_OWNER.SPELL_EFFECT`, reused rather than a `passive-effect` row
+minted: two of the workbook's 26 read a skill level, which that scope already covers). So it is a
+formula holder in `dependencies.ts`, a translated field in `references.ts`, and a reported one in
+`validator.ts` — wherever a spell's template is, a passive's is beside it. Its `passive` walker arm
+was written **filled**, unlike `inlay`'s and `spell`'s, because `Character.passiveIds` lands in the
+same ticket; the third `referenceArms.test.ts` row is there for the next referrer rather than this
+one. **Duplicate names are legal and expected** — the sheet's poison-resistance ladder appears twice,
+four rows — while duplicate **ids** are a `duplicateIdIssues` error, because a revoke addresses by
+id.
+
 **`Item` is a template, and since TICKET-ITEM-01 it is a per-skill bonus vector** (v4 systems/11):
 `{ id, name, description, categoryId?, equipmentSlotType?, shop?, skillBonuses? }`. What a template
 *is* moves skills; what it is *made of* is a fact about the thing a Player **built** and lives on the
@@ -698,7 +712,8 @@ id**, so a rename cannot orphan an allocation),
 `investedSkillPoints` (**keyed by skill id**, same reason — TICKET-SKL-02 replaced v1's
 code-keyed `specialitySkillBaseLevels`), `archetypeId`, `focusSkillIds` (**three picks, duplicates
 legal** — TICKET-SKL-05), `learnedSpellIds` (**the ids that are on**, duplicates refused —
-TICKET-SPL-02), `currentResourceValues`,
+TICKET-SPL-02), `passiveIds` (**what the DM handed them**, duplicates refused — TICKET-PAS-01),
+`currentResourceValues`,
 `experience`,
 and an `Inventory` (`equippedItems: Record<slotType, composedItemId>` + `composedItems:
 ComposedItem[]` — **two collections since TICKET-INV-06**, where the third, `miscItems`, was deleted
@@ -925,6 +940,33 @@ exception to *derived values are never stored*.
 - **No `SUPPORTED_SCHEMA_VERSION` bump**, for `dreamLevel`'s and `focusSkillIds`' reason:
   additive-optional, absent on every stored roster, not in `CHARACTER_FIELDS`, and not in
   `CharacterCreateRequest` either — a spell is learned after creation, never during it.
+
+And **`passiveIds`** (TICKET-PAS-01, v4 systems/14) — which passive abilities this character has been
+handed, by id. `learnedSpellIds`' shape one entity over, and a **pick** for its reason rather than a
+sixth exception to *derived values are never stored*. What differs is only who writes it:
+
+- **Optional, absent means none, read through `heldPassiveIdsOf`** in
+  [engine/passives.ts](../../../src/shared/engine/passives.ts) — never `?? []` at a call site. Like
+  `learnedSpellIds` there is no `…Field` helper: only `removeHeldPassive` can empty the list and it
+  drops the key inline, so *none* has one spelling on the document.
+- **The list a sheet reads is derived** — `passivesOf(character, config)` resolves the ids against
+  the catalog in **catalog order**, appending any id the ruleset has lost as an entry whose `passive`
+  is `null`; `grantablePassives` is the complement, which is what the picker offers. Nothing is
+  pruned on read, so a force-deleted passive stays visible and therefore revocable.
+- **Two writers, and which one depends on where the character lives.** At a table it is the **DM's
+  alone** — `dm-grant-passive` / `dm-revoke-passive` behind `requireCharacterDM`, with **no player
+  route to the field at all**. On a local sheet the **Player** writes it, because signed out there is
+  no DM and the same person plays both parts; `characterStore.grantPassive` / `revokePassive` refuse
+  the moment the character sits at a session. That is `dreamLevel`'s split exactly.
+- **Two actions rather than one whole-list write**, and the reason is the stale id: `removeHeldPassive`
+  takes **no `Configuration`**, so a passive the User force-deleted can still be taken back. A
+  `set-passives` validating every id it was handed would refuse the very edit that clears it — the
+  trap `focusPickRefusal` sets for `set-focus-skills`.
+- **Guarded.** `dependencies.ts`'s `passive` arm walks it, so deleting a passive somebody holds is
+  refused naming them — **live from the first day**, unlike `spell` and `inlay`, because the catalog
+  and the holder's list land in one ticket. A passive is *also* a formula holder, so a skill its
+  effect reads cannot be deleted either.
+- **No `SUPPORTED_SCHEMA_VERSION` bump**, for the three reasons above it.
 
 **The point budget closes that chain** (TICKET-RES-02, TICKET-DM-01, TICKET-RES-05):
 `validateStatAllocation(character, config)` in

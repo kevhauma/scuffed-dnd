@@ -75,6 +75,8 @@ yarn build
 - Catalogue gem inlays — families of socketable stones, in tiers of stat grants
 - Keep a spell compendium — cost, range and effect text per spell, searchable and paged so it stays
   usable at four hundred of them
+- Catalogue passive abilities — resistances, immunities and senses, whose effect text may compute
+  from the holder's own stats and skills
 - Design items and equipment systems
 - Configure races as stat blocks, with a creature type and size picked from your own lists
 - Set up multi-tier currency systems
@@ -83,6 +85,7 @@ yarn build
 - Create characters with your custom system
 - Build items out of a template, a material tier and an optional gem, and wear them
 - Manage inventory and equipment — the Backpack is everything you have built and are not wearing
+- Hold passive abilities, their effect text worked out for your own character
 - Track stats and skill progression
 - Roll combat skills with dice simulation
 - All data stored locally in browser

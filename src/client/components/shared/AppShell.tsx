@@ -46,6 +46,9 @@ const CONFIG_NAV = [
   // After Rolls rather than beside Items: a spell is what a caster *does*, not something carried
   // (v4 systems/13)
   { to: '/config/spells', label: 'Spells' },
+  // Beside Spells because it is the other catalog of *things a character has rather than carries*
+  // — and, like Spells, nothing about it is wired into races or items yet (v4 systems/14, D5)
+  { to: '/config/passives', label: 'Passives' },
   { to: '/config/currency', label: 'Currency' },
   { to: '/config/constants', label: 'Constants' },
   { to: '/config/curves', label: 'Curves' },

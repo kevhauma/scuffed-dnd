@@ -65,4 +65,5 @@ Added by [`v3.0_backend`](./v3.0_backend/overview.md): `SRV` (server runtime and
 
 Added by [`v4.0_sheet_parity`](./v4.0_sheet_parity/overview.md): `INL` (inlays — the socketable gems
 a composed item is made of, minted by TICKET-INL-01) and `SPL` (spells and casting, minted by
-TICKET-SPL-01), plus `PAS` (passive abilities), still to be built.
+TICKET-SPL-01), plus `PAS` (passive abilities — the catalog and the DM's handout, minted by
+TICKET-PAS-01).

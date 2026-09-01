@@ -32,6 +32,7 @@ import type { CalculatedCharacter, Character } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
 import { selectCharacter, useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
+import { adjustmentNamesFrom } from '../dm/adjustmentNames';
 import type { DerivedValue } from '../shared/derivedValue';
 import { toDerivedValue } from '../shared/derivedValue';
 import { toPointBudgetView } from '../shared/pointBudgetView';
@@ -550,6 +551,8 @@ export function useCharacterSheet(characterId: string) {
     currencyTiers: config?.currencyTiers ?? [],
     // Absent means none, so the sheet renders 0 without the character growing a field it never had
     purse: character?.purse ?? 0,
+    /** How the adjustment log spells each entity it names — see `dm/adjustmentNames.ts` */
+    adjustmentNames: adjustmentNamesFrom(config, view.stats),
     ...actions,
   };
 }

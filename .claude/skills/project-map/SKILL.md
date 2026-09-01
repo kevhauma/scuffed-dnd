@@ -75,6 +75,7 @@ rather than a read-only config UI).
 | `/config/archetypes` | `routes/config/archetypes.tsx` | `ArchetypesConfigPanel` — what a character is good at growing: `main`/`sub`/`non` per stat, which selects a `point_buy` column (TICKET-ARC-01) |
 | `/config/rolls` | `routes/config/rolls.tsx` | `RollsConfigPanel` + `DiceLaddersConfigPanel` (TICKET-ROLL-05) — a roll is an input formula fed down a ladder; the two are separate entities, so two panels, like `/config/items` and `/config/skills` |
 | `/config/spells` | `routes/config/spells.tsx` | `SpellsConfigPanel` (TICKET-SPL-01) — the compendium: name, mana cost, range/time and raw effect text per spell. **The only config panel that narrows before it draws**, because the source workbook has 418 of them: `useSpellManager` filters by a name search and then slices one page of 25, and the header counts the whole match rather than the page. Copy that pair rather than a bespoke list the day another entity arrives in the hundreds |
+| `/config/passives` | `routes/config/passives.tsx` | `PassivesConfigPanel` (TICKET-PAS-01) — the passive-ability catalog: a name and an effect, and **nothing else**, because the source tab has two columns and nothing in the sheet grants a passive yet (v4 D5). Beside `/config/spells` in the nav as the other catalog of *what a character is* rather than what they carry, and **deliberately without that panel's search and pager**: 26 rows fit on a screen, and narrowing a list a User can already read is controls for their own sake |
 | `/config/currency` | `routes/config/currency.tsx` | `CurrencyConfigPanel` (which renders `ConversionCalculator` once tiers exist) |
 | `/config/constants` | `routes/config/constants.tsx` | `ConstantsConfigPanel` — named tunables (`const.*`), each card listing the formulas that name it |
 | `/config/curves` | `routes/config/curves.tsx` | `CurvesConfigPanel` — progressions as editable tables (`curve.*(x)`), with per-cell override highlighting and a regenerate action (TICKET-CRV-03) |
@@ -136,10 +137,10 @@ change also exists (v3 Req 33.8).
 
 | Store | Owns | Persists to |
 |---|---|---|
-| `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), skills, roll definitions, dice ladders, materials + categories, **inlays** (TICKET-INL-01 — gem families, whose tiers are written through `updateInlay` with the whole ladder, like a material's levels), **spells** (TICKET-SPL-01 — the compendium; `updateSpell` clears the optional `description` and `manaCost` through `mergeClearingAbsent`), items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
+| `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), skills, roll definitions, dice ladders, materials + categories, **inlays** (TICKET-INL-01 — gem families, whose tiers are written through `updateInlay` with the whole ladder, like a material's levels), **spells** (TICKET-SPL-01 — the compendium; `updateSpell` clears the optional `description` and `manaCost` through `mergeClearingAbsent`), **passives** (TICKET-PAS-01 — the catalog; `updatePassive` is a plain spread rather than `mergeClearingAbsent`, because a passive has no optional field for a save to be clearing), items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
 | `useCharacterStore` (cont.) | `tableCharacter` + `tableSessionId` + `tableCharacterOwnerId` + `isActing` + `actionError`, and `openTableCharacter` / `closeTableCharacter` / `dismissActionError` (TICKET-PLY-01; `tableSessionId` is ROLL-07's, read by the session-scoped roll log; `tableCharacterOwnerId` is DM-01's, and is how the sheet tells the DM's view from the Player's without a second request) — **the one character open at a game session**, held apart from `characters` because that list is LocalStorage's and a session character must never land in it (v3 Req 36.2). Every existing write action keeps its signature and gains one line: `toTable(...)` sends the named intent to the server when the id is this one's, otherwise the Kernel rule runs locally. `selectCharacter(state, id)` is the exported reader both the sheet and the inventory panel use | server, via `services/characterSync.ts` |
-| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `buildItem`, `discardItem` — four since TICKET-INV-06, where the derived Backpack collapsed `addMiscItem`/`removeMiscItem`/`moveItemToMisc`/`moveItemToEquipment` into them), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience` (the rule is the Kernel's `dmActions.ts` since TICKET-DM-01, not this store's), `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) — `setFocusSkills(characterId, focusSkillIds, config)` (TICKET-SKL-05 — the whole list of picks at once, refusing more than three or a skill the ruleset has not got, and *reporting* the refusal because the picker has nothing standing in front of it) — `learnSpell(characterId, spellId, config)` / `unlearnSpell(characterId, spellId)` / `castSpell(characterId, spellId, statId, config)` (TICKET-SPL-02 — all three *report* their refusals, `unlearnSpell` takes no ruleset so a force-deleted spell stays clearable, and a cast is a mana spend that ends in the ordinary resource action) — and the DM's six, `dmAwardExperience` / `dmDeductExperience` / `dmSetLevel` / `dmSetGrantedPoints` / `dmSetResource` / `dmSetDreamLevel` (TICKET-DM-01, TICKET-RES-04), which are **table-only** and named apart from the Player's own so no call site has to decide which act it is — `updateDreamLevel` is the local half of the last one, refused at a table exactly as `awardExperience` and `setPurse` are. `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
+| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `buildItem`, `discardItem` — four since TICKET-INV-06, where the derived Backpack collapsed `addMiscItem`/`removeMiscItem`/`moveItemToMisc`/`moveItemToEquipment` into them), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience` (the rule is the Kernel's `dmActions.ts` since TICKET-DM-01, not this store's), `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) — `setFocusSkills(characterId, focusSkillIds, config)` (TICKET-SKL-05 — the whole list of picks at once, refusing more than three or a skill the ruleset has not got, and *reporting* the refusal because the picker has nothing standing in front of it) — `learnSpell(characterId, spellId, config)` / `unlearnSpell(characterId, spellId)` / `castSpell(characterId, spellId, statId, config)` (TICKET-SPL-02 — all three *report* their refusals, `unlearnSpell` takes no ruleset so a force-deleted spell stays clearable, and a cast is a mana spend that ends in the ordinary resource action) — `grantPassive(characterId, passiveId, config)` / `revokePassive(characterId, passiveId)` (TICKET-PAS-01 — the **local** half of the passive handout, refused at a table because there is no player route to the field; `revokePassive` takes no ruleset, so a force-deleted passive stays clearable) — and the DM's eight, `dmAwardExperience` / `dmDeductExperience` / `dmSetLevel` / `dmSetGrantedPoints` / `dmSetResource` / `dmSetDreamLevel` / `dmGrantPassive` / `dmRevokePassive` (TICKET-DM-01, TICKET-RES-04, TICKET-PAS-01), which are **table-only** and named apart from the Player's own so no call site has to decide which act it is — `updateDreamLevel` and `grantPassive`/`revokePassive` are the local halves, refused at a table exactly as `awardExperience` and `setPurse` are. `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
 | `useConfigStore` (cont.) | `source` + `openAccountRuleset(id)` / `openLocalRuleset()` (TICKET-RUL-02) — which home is open, and the two ways to change it. Opening one home reads nothing from the other | via `services/rulesetSync.ts` |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history, `storageFailure` and `saveConflict` (TICKET-RUL-02 — a *server* refusal, with the edit still on screen) | not persisted |
 
@@ -279,7 +280,10 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   than merely avoided.
 - `dependencies.ts` — **the reference walker** (TICKET-REF-02): `findReferences(target, config,
   characters)` → `EntityReference[]`. **A `Record<ReferenceTargetKind, walker>` since
-  TICKET-SPL-01**, where it was a fifteen-arm `switch` with a `never` default before: each arm is a
+  TICKET-SPL-01**, keyed by the **`REFERENCE_TARGET_KIND` const object** since TICKET-PAS-01 (the
+  no-bare-string-unions rule, converted when touched — every `guardedDelete` and `findReferences`
+  call site names the constant, and `referenceArms.test.ts`' source scan knows the computed spelling).
+  It was a fifteen-arm `switch` with a `never` default before that: each arm is a
   named module-level function taking `(id, config, characters)`, `REFERENCE_WALKERS` maps the kind to
   it, and `findReferences` is a lookup and a call. **Add a kind by adding a row** — the `Record` makes
   a missing one *and* an invented one a compile error naming the key, where the `never` default caught
@@ -377,6 +381,21 @@ Pure functions, no React, no storage. Every user-authored number in the app reso
   and drawing the leftover is what lets a Player clear one that was forced through. There is no
   `learnedSpellsField` counterpart to `focusPicksField`: only `removeLearnedSpell` can empty the
   list, so *none has one spelling* is stated at that one write.
+- `passives.ts` (TICKET-PAS-01) — `spellbook.ts`'s shape over the **passive-ability catalog**:
+  `heldPassiveIdsOf(character)` is the one reader of `Character.passiveIds` (absent means none, never
+  de-duplicated), `passivesOf(character, config)` resolves the held ids against the catalog **in
+  catalog order** with any id the ruleset has lost appended as a `PassiveEntry` whose `passive` is
+  `null`, and `grantablePassives` is that list's **complement** — which is what makes a handout put a
+  row on the sheet and take it out of the picker with neither control saying so. Nothing is pruned on
+  read, for `spellbookOf`'s reason: the walker refuses the delete, and drawing the leftover is what
+  lets it be revoked.
+- `templateContext.ts` (TICKET-PAS-01) — **the one place a character's own template context is
+  built**: `templateContextFor(character, config, owner)` composes `calculateCharacter` +
+  `namespacesFor` + **`statVariables`**, and that third call is the reason the module exists. It was
+  a line inside `useSpellbook` until passives resolved the same text at the same attachment point;
+  the flat stat space is CR-02's fix, and copying three calls by hand into a second hook is how a
+  subtlety gets lost. **Not** the preview's context — `config/shared/formulaSamples.ts` builds one
+  from editable samples, because an author has no character.
 - `composedItems.ts` (TICKET-INV-06) — the **read side of a `ComposedItem`**: `materialTierOf` /
   `inlayTierOf` (a rung is found **by its number**, never by array position — neither ladder is kept
   dense or sorted), `composedItemLabel` (the derived display phrase, the sheet's own
@@ -742,11 +761,16 @@ each later ticket adds.
   is `routes/dm/`'s, with its own Event types. `playerRules.test.ts` is the provenance check — every
   handler here imports the Kernel's rules and **none** imports `#shared/engine/` directly, because
   that is where a second implementation starts.
-- `routes/dm/` (TICKET-DM-01) — **what the DM does to a character they do not own**, six writes and
+- `routes/dm/` (TICKET-DM-01) — **what the DM does to a character they do not own**, eight writes and
   one read. Same shape as `routes/play/` with a different guard: `POST /api/characters/:id/<action>`
   where `<action>` is a `DM_ACTION` value — `dm-award-experience`, `dm-deduct-experience`,
   `dm-set-level`, `dm-grant-points`, `dm-set-resource`, `dm-set-dream-level` (TICKET-RES-04, the
-  sixth: the one `dm-set-*` whose body *is* what gets stored, because nothing derives a dream level). The **`dm-` prefix is load-bearing**: both
+  sixth: the one `dm-set-*` whose body *is* what gets stored, because nothing derives a dream level),
+  and **`dm-grant-passive` / `dm-revoke-passive`** (TICKET-PAS-01 — a **pair** rather than one
+  whole-list `dm-set-passives`, because the revoke deliberately consults no ruleset and so can clear
+  an id the catalog has lost; a list write validating every id would refuse that very edit). Those two
+  are also the only door: there is **no player route** to `Character.passiveIds`, which is what *a
+  Player cannot self-grant* means at a table. The **`dm-` prefix is load-bearing**: both
   kinds of Event share the `type` column, so a DM's *set-resource* and a Player's have to be tellable
   apart by a reader six months later. They reuse `playPayloads.applyPlayerAction` whole rather than
   growing a second pipeline — it is the same operation, and the guard is the difference. The guard is
@@ -1110,6 +1134,21 @@ Backpack one entity over. Three things worth knowing before touching it:
   spell, and no ruleset field answers it (the User's ruling — the Player names it at cast time).
   `SpellLearner` searches rather than pages, unlike `useSpellManager` over the same 418 rows,
   because a Player already knows the spell's name; the match cap is **stated** rather than silent.
+  **Since TICKET-PAS-01 `useSpellbookRows` builds its context through `templateContextFor`** rather
+  than composing the three calls itself — the *both spaces* rule lives there now, with a second
+  caller.
+
+`passives/` holds `PassivesPanel` (TICKET-PAS-01 — mounted by the sheet under the Spellbook) with
+`PassiveRow`, `PassiveGranter`, `usePassives` and `usePassiveHandout`. `SpellbookPanel`'s shape one
+entity over, including `hasPassives`' *catalog **or** a held row* and the lost-passive row, and with
+one difference that is the whole ticket: **a passive is handed out by two actors, so the write
+handlers are not in the read hook**. `usePassives` answers *what are they and what could they still
+be handed*; **`usePassiveHandout` answers *who is asking*** — the Player on a local sheet (signed out
+there is no DM, `dreamLevel`'s split), the table's DM at a session, and **nobody in between**, so a
+Player at a table gets the list and no controls. It returns `null` rather than a pair of no-ops,
+because an absent control says *not yours* where a disabled one says *not now*. The panel composes
+both hooks and takes only `characterId` and `atTable`; the sheet threads no handlers at all, which is
+what kept `CharacterSheet` under the complexity threshold when `fallow` measured it.
 `rolls/` holds `useRoller`, `RollBreakdown` and `RollHistoryPanel`.
 The roll button and the last result live in `RollsSection`; the history is its own panel.
 **`useRoller` branches on where the character lives** (TICKET-ROLL-07). A **local** character rolls

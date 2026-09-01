@@ -22,7 +22,11 @@ import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { RegenerationReport } from '#shared/engine/curveGenerator';
 import { flagColumnAsOverridden } from '#shared/engine/curveGenerator';
-import { type EntityReference, findReferences } from '#shared/engine/dependencies';
+import {
+  type EntityReference,
+  findReferences,
+  REFERENCE_TARGET_KIND,
+} from '#shared/engine/dependencies';
 import { validateFormulaChange } from '#shared/engine/formula/formulaChange';
 import { FORMULA_OWNER, scopeFor } from '#shared/engine/formula/scoping';
 import type { Curve, CurveColumn } from '#shared/types';
@@ -87,7 +91,10 @@ export function useCurveManager() {
     if (!config) return new Map<string, EntityReference[]>();
 
     return new Map(
-      curves.map((curve) => [curve.id, findReferences({ kind: 'curve', id: curve.id }, config)])
+      curves.map((curve) => [
+        curve.id,
+        findReferences({ kind: REFERENCE_TARGET_KIND.CURVE, id: curve.id }, config),
+      ])
     );
   }, [config, curves]);
 

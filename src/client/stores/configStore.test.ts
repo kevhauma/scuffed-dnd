@@ -21,6 +21,7 @@ import type {
   Item,
   Material,
   MaterialCategory,
+  Passive,
   Race,
   RollDefinition,
   Skill,
@@ -1061,6 +1062,139 @@ describe('ConfigStore', () => {
       );
 
       expect(importConfiguration(exported).spells).toEqual([unpriced]);
+    });
+  });
+
+  describe('Passives CRUD (v4 systems/14, TICKET-PAS-01)', () => {
+    /** A plain row of the sheet's tab: a name and a sentence that computes nothing */
+    const charmImmunity: Passive = {
+      id: 'passive-charmed',
+      name: 'Charm immunity',
+      effectText: 'You cannot be charmed.',
+    };
+
+    /** One of the two rows that are live formulas */
+    const blindsight: Passive = {
+      id: 'passive-blindsight',
+      name: 'Blindsight',
+      effectText: 'blindsight out to {skills.stealth.level * 10} feet',
+    };
+
+    beforeEach(() => {
+      useConfigStore.getState().initializeConfig('Test');
+      vi.clearAllMocks();
+    });
+
+    it('should mint a fresh ruleset with no passives key at all', () => {
+      expect(useConfigStore.getState().config?.passives).toBeUndefined();
+    });
+
+    it('should add a passive and persist it', () => {
+      useConfigStore.getState().addPassive(charmImmunity);
+
+      expect(useConfigStore.getState().config?.passives).toEqual([charmImmunity]);
+      expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+
+    it('should keep an empty effect exactly as given', () => {
+      const unwritten: Passive = { ...charmImmunity, effectText: '' };
+
+      useConfigStore.getState().addPassive(unwritten);
+
+      expect(useConfigStore.getState().config?.passives?.[0].effectText).toBe('');
+    });
+
+    it('should edit a passive in place, leaving the rest of the catalog alone', () => {
+      useConfigStore.getState().addPassive(charmImmunity);
+      useConfigStore.getState().addPassive(blindsight);
+
+      useConfigStore.getState().updatePassive('passive-blindsight', { name: 'Blind sight' });
+
+      const passives = useConfigStore.getState().config?.passives;
+      expect(passives?.[0]).toEqual(charmImmunity);
+      expect(passives?.[1].name).toBe('Blind sight');
+      expect(passives?.[1].effectText).toBe(blindsight.effectText);
+    });
+
+    it('should delete a passive nobody holds', () => {
+      useConfigStore.getState().addPassive(charmImmunity);
+      vi.clearAllMocks();
+
+      const references = useConfigStore.getState().deletePassive('passive-charmed');
+
+      expect(references).toEqual([]);
+      expect(useConfigStore.getState().config?.passives).toEqual([]);
+      expect(storage.saveConfiguration).toHaveBeenCalled();
+    });
+
+    it('should refuse to delete a passive a character holds, naming the holder', () => {
+      // The guard is live from the first day here, unlike `deleteSpell` and `deleteInlay`, because
+      // `Character.passiveIds` lands in the same ticket as the catalog
+      useConfigStore.getState().addPassive(charmImmunity);
+      useCharacterStore.setState({
+        characters: [
+          {
+            id: 'char1',
+            name: 'Quackers',
+            configurationId: 'config1',
+            raceIds: [],
+            investedStatPoints: {},
+            investedSkillPoints: {},
+            currentResourceValues: {},
+            experience: 0,
+            passiveIds: ['passive-charmed'],
+            inventory: { equippedItems: {}, composedItems: [] },
+            createdAt: '2024-01-01',
+            updatedAt: '2024-01-01',
+          },
+        ],
+      });
+      vi.clearAllMocks();
+
+      const references = useConfigStore.getState().deletePassive('passive-charmed');
+
+      expect(references.map((reference) => reference.holderName)).toEqual(['Quackers']);
+      expect(useConfigStore.getState().config?.passives).toHaveLength(1);
+      expect(storage.saveConfiguration).not.toHaveBeenCalled();
+    });
+
+    it('should delete anyway when forced, leaving the holder an id they can revoke', () => {
+      useConfigStore.getState().addPassive(charmImmunity);
+      useCharacterStore.setState({
+        characters: [
+          {
+            id: 'char1',
+            name: 'Quackers',
+            configurationId: 'config1',
+            raceIds: [],
+            investedStatPoints: {},
+            investedSkillPoints: {},
+            currentResourceValues: {},
+            experience: 0,
+            passiveIds: ['passive-charmed'],
+            inventory: { equippedItems: {}, composedItems: [] },
+            createdAt: '2024-01-01',
+            updatedAt: '2024-01-01',
+          },
+        ],
+      });
+
+      const references = useConfigStore.getState().deletePassive('passive-charmed', {
+        force: true,
+      });
+
+      expect(references).toEqual([]);
+      expect(useConfigStore.getState().config?.passives).toEqual([]);
+    });
+
+    it('should round-trip a templated passive through export and import', () => {
+      useConfigStore.getState().addPassive(blindsight);
+
+      const exported = JSON.stringify(
+        toStoredConfiguration(useConfigStore.getState().config as Configuration)
+      );
+
+      expect(importConfiguration(exported).passives).toEqual([blindsight]);
     });
   });
 

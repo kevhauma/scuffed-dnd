@@ -666,6 +666,16 @@ export interface SpellRequest {
 }
 
 /**
+ * What a DM sends to hand out or take back one passive — a `Passive.id` in the ruleset's catalog
+ *
+ * One id, never a list: the two actions are a grant and a revoke rather than a replacement, so there
+ * is no state on the wire that a stale render could clobber (TICKET-PAS-01).
+ */
+export interface PassiveRequest {
+  passiveId: string;
+}
+
+/**
  * What a client sends to cast one spell (TICKET-SPL-02)
  *
  * **Two ids, because a cast names its pool.** No ruleset field says which resource casting draws on
@@ -772,6 +782,22 @@ export const DM_ACTION = {
    * that awards experience and sets level.
    */
   SET_DREAM_LEVEL: 'dm-set-dream-level',
+  /**
+   * Hand a Character a passive ability by name (TICKET-PAS-01, v4 systems/14)
+   *
+   * **Two values rather than one `dm-set-passives` carrying the whole list**, which is
+   * `learn-spell`/`unlearn-spell`'s shape and is chosen for a correctness reason rather than a
+   * symmetry one: a revoke must consult **no ruleset**, so a passive the User force-deleted stays
+   * clearable. A whole-list write validating every id would refuse any edit made while the character
+   * still holds a lost one — which is exactly the trap `focusPickRefusal` sets for `set-focus-skills`
+   * and which the dependency walker has to guard against there.
+   *
+   * The Event's `target` is the passive's id and its before/after are `null` → id and id → `null`,
+   * the pair `learn-spell` writes.
+   */
+  GRANT_PASSIVE: 'dm-grant-passive',
+  /** Take a passive ability back — the only way to clear an id the ruleset has lost */
+  REVOKE_PASSIVE: 'dm-revoke-passive',
 } as const;
 
 export type DmAction = (typeof DM_ACTION)[keyof typeof DM_ACTION];

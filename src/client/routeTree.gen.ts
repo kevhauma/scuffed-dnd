@@ -24,6 +24,7 @@ import { Route as ConfigSpellsRouteImport } from './routes/config/spells'
 import { Route as ConfigSkillsRouteImport } from './routes/config/skills'
 import { Route as ConfigRollsRouteImport } from './routes/config/rolls'
 import { Route as ConfigRacesRouteImport } from './routes/config/races'
+import { Route as ConfigPassivesRouteImport } from './routes/config/passives'
 import { Route as ConfigMaterialsRouteImport } from './routes/config/materials'
 import { Route as ConfigItemsRouteImport } from './routes/config/items'
 import { Route as ConfigInlaysRouteImport } from './routes/config/inlays'
@@ -109,6 +110,11 @@ const ConfigRacesRoute = ConfigRacesRouteImport.update({
   path: '/config/races',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConfigPassivesRoute = ConfigPassivesRouteImport.update({
+  id: '/config/passives',
+  path: '/config/passives',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConfigMaterialsRoute = ConfigMaterialsRouteImport.update({
   id: '/config/materials',
   path: '/config/materials',
@@ -170,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/config/inlays': typeof ConfigInlaysRoute
   '/config/items': typeof ConfigItemsRoute
   '/config/materials': typeof ConfigMaterialsRoute
+  '/config/passives': typeof ConfigPassivesRoute
   '/config/races': typeof ConfigRacesRoute
   '/config/rolls': typeof ConfigRollsRoute
   '/config/skills': typeof ConfigSkillsRoute
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/config/inlays': typeof ConfigInlaysRoute
   '/config/items': typeof ConfigItemsRoute
   '/config/materials': typeof ConfigMaterialsRoute
+  '/config/passives': typeof ConfigPassivesRoute
   '/config/races': typeof ConfigRacesRoute
   '/config/rolls': typeof ConfigRollsRoute
   '/config/skills': typeof ConfigSkillsRoute
@@ -223,6 +231,7 @@ export interface FileRoutesById {
   '/config/inlays': typeof ConfigInlaysRoute
   '/config/items': typeof ConfigItemsRoute
   '/config/materials': typeof ConfigMaterialsRoute
+  '/config/passives': typeof ConfigPassivesRoute
   '/config/races': typeof ConfigRacesRoute
   '/config/rolls': typeof ConfigRollsRoute
   '/config/skills': typeof ConfigSkillsRoute
@@ -251,6 +260,7 @@ export interface FileRouteTypes {
     | '/config/inlays'
     | '/config/items'
     | '/config/materials'
+    | '/config/passives'
     | '/config/races'
     | '/config/rolls'
     | '/config/skills'
@@ -277,6 +287,7 @@ export interface FileRouteTypes {
     | '/config/inlays'
     | '/config/items'
     | '/config/materials'
+    | '/config/passives'
     | '/config/races'
     | '/config/rolls'
     | '/config/skills'
@@ -303,6 +314,7 @@ export interface FileRouteTypes {
     | '/config/inlays'
     | '/config/items'
     | '/config/materials'
+    | '/config/passives'
     | '/config/races'
     | '/config/rolls'
     | '/config/skills'
@@ -330,6 +342,7 @@ export interface RootRouteChildren {
   ConfigInlaysRoute: typeof ConfigInlaysRoute
   ConfigItemsRoute: typeof ConfigItemsRoute
   ConfigMaterialsRoute: typeof ConfigMaterialsRoute
+  ConfigPassivesRoute: typeof ConfigPassivesRoute
   ConfigRacesRoute: typeof ConfigRacesRoute
   ConfigRollsRoute: typeof ConfigRollsRoute
   ConfigSkillsRoute: typeof ConfigSkillsRoute
@@ -449,6 +462,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfigRacesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/config/passives': {
+      id: '/config/passives'
+      path: '/config/passives'
+      fullPath: '/config/passives'
+      preLoaderRoute: typeof ConfigPassivesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/config/materials': {
       id: '/config/materials'
       path: '/config/materials'
@@ -530,6 +550,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConfigInlaysRoute: ConfigInlaysRoute,
   ConfigItemsRoute: ConfigItemsRoute,
   ConfigMaterialsRoute: ConfigMaterialsRoute,
+  ConfigPassivesRoute: ConfigPassivesRoute,
   ConfigRacesRoute: ConfigRacesRoute,
   ConfigRollsRoute: ConfigRollsRoute,
   ConfigSkillsRoute: ConfigSkillsRoute,

@@ -26,7 +26,9 @@ import { deleteCharacter, listMyCharacters, readCharacter } from '../routes/char
 import {
   dmAwardExperience,
   dmDeductExperience,
+  dmGrantPassive,
   dmGrantPoints,
+  dmRevokePassive,
   dmSetDreamLevel,
   dmSetLevel,
   dmSetResource,
@@ -197,6 +199,12 @@ export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Respon
   // …and this body names a dream level and stores exactly that: player state nothing derives
   // (TICKET-RES-04), which is why it is the one `dm-set-*` whose before/after is what was typed
   'POST /api/characters/:id/dm-set-dream-level': dmSetDreamLevel,
+  // The passive handout (TICKET-PAS-01) — a pair rather than one whole-list write, because the
+  // revoke deliberately consults no ruleset and so can clear an id the catalog has lost. **There is
+  // no player counterpart to either**, which is what puts the handout behind the DM's guard at a
+  // table while the local sheet keeps writing the field itself (there is no DM signed out).
+  'POST /api/characters/:id/dm-grant-passive': dmGrantPassive,
+  'POST /api/characters/:id/dm-revoke-passive': dmRevokePassive,
   // …and what a Player reads back about their own sheet (v3 Req 42.7). A *read* rather than an
   // action, so it is a `GET` and its noun is what happened rather than what to do
   'GET /api/characters/:id/adjustments': listAdjustments,

@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { Configuration, Curve, DiceLadder, InlayTier, Spell } from '../types/config';
+import type { Configuration, Curve, DiceLadder, InlayTier, Passive, Spell } from '../types/config';
 import { validateConfiguration } from './validator';
 
 /** A stat with the boring fields filled in */
@@ -1800,6 +1800,76 @@ describe('validateConfiguration', () => {
       );
 
       expect(messages.some((message) => message.includes('2 spells share the id'))).toBe(true);
+    });
+  });
+
+  describe('passive effects (v4 systems/14, TICKET-PAS-01)', () => {
+    function withPassives(passives: Passive[]): Configuration {
+      const config = createMinimalConfig();
+      config.passives = passives;
+      return config;
+    }
+
+    const charmImmunity: Passive = {
+      id: 'passive-charmed',
+      name: 'Charm immunity',
+      effectText: 'You cannot be charmed.',
+    };
+
+    it('should validate nothing when the ruleset names no passives', () => {
+      expect(validateConfiguration(createMinimalConfig()).isValid).toBe(true);
+    });
+
+    it('should say nothing about a passive whose effect is plain prose', () => {
+      // 24 of the sheet's 26 are exactly this, so a report that found something to say here would
+      // put a permanent finding on almost the whole catalog
+      const report = validateConfiguration(withPassives([charmImmunity]));
+
+      expect(report.isValid).toBe(true);
+      expect(report.errors).toEqual([]);
+      expect(report.warnings).toEqual([]);
+    });
+
+    it('should say nothing about a placeholder that resolves', () => {
+      const blindsight = { ...charmImmunity, effectText: 'blindsight out to {STR} feet' };
+
+      expect(validateConfiguration(withPassives([blindsight])).isValid).toBe(true);
+    });
+
+    it('should report a placeholder naming a stat the ruleset does not have', () => {
+      const broken = { ...charmImmunity, effectText: 'out to {stats.nonesuch} feet' };
+
+      const messages = validateConfiguration(withPassives([broken])).errors.map(
+        (issue) => issue.message
+      );
+
+      expect(messages).toContain(
+        'Passive "Charm immunity" effect {stats.nonesuch}: Unknown member: stats.nonesuch'
+      );
+    });
+
+    it('should not read the prose as a formula', () => {
+      const wordy = { ...charmImmunity, effectText: 'The holder gains STR against poison.' };
+
+      expect(validateConfiguration(withPassives([wordy])).isValid).toBe(true);
+    });
+
+    it('should say nothing about two passives sharing a name, which the sheet does four times', () => {
+      // The poison-resistance ladder appears twice in the source tab, rows 7-10 and 15-18. The
+      // sheet wins (v4 D1), so the duplicate names stand.
+      const twin = { ...charmImmunity, id: 'passive-charmed-2' };
+
+      expect(validateConfiguration(withPassives([charmImmunity, twin])).isValid).toBe(true);
+    });
+
+    it('should report two passives sharing an id, which makes a revoke ambiguous', () => {
+      const twin = { ...charmImmunity, name: 'Charm immunity (greater)' };
+
+      const messages = validateConfiguration(withPassives([charmImmunity, twin])).errors.map(
+        (issue) => issue.message
+      );
+
+      expect(messages.some((message) => message.includes('2 passives share the id'))).toBe(true);
     });
   });
 

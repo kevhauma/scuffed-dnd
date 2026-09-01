@@ -77,17 +77,51 @@ const ARMS = [
      */
     live: true,
   },
+  {
+    kind: 'passive',
+    field: 'passiveIds',
+    /**
+     * `Character.passiveIds` names a passive by id (TICKET-PAS-01).
+     *
+     * **Born live**, unlike the two rows above it. Those were written vacuous a ticket ahead of the
+     * field that would point at them, which is what gave this file something to catch; PAS-01 lands
+     * the catalog and the holder's list in one change, so the arm and its referrer have never been
+     * apart. The row is here for the *next* ticket rather than for this one — the day something else
+     * grows a pointer at a passive, the implication below is already standing.
+     */
+    live: true,
+  },
 ] as const;
 
 /**
+ * How `REFERENCE_TARGET_KIND` spells a kind's constant — `curve-column` → `CURVE_COLUMN`
+ *
+ * The table's keys became **computed** at TICKET-PAS-01, when the union became a const object
+ * (CLAUDE.md's *no bare string-union types*, converted-when-touched). This scan reads source text, so
+ * it has to spell the key the way the source now does; deriving the constant's name from the value
+ * rather than listing it keeps {@link ARMS} a list of *kinds* — which is what the rows are about —
+ * and keeps this file failing loudly if a row is ever renamed out of step with the table.
+ */
+function constantName(kind: string): string {
+  const shouted = kind.toUpperCase();
+
+  return shouted.replace(/-/g, '_');
+}
+
+/**
  * The name of the function the walker table maps a kind to
+ *
+ * Both spellings are accepted — the computed key the table uses today and the bare literal it used
+ * before PAS-01 — so this stays a check on *the arm being written* rather than a check on how the
+ * table happens to be punctuated.
  *
  * @param source - `dependencies.ts` as written
  * @param kind - The target kind whose arm to look up
  * @returns The function's name, or an empty string when the table has no such row
  */
 function walkerName(source: string, kind: string): string {
-  const row = new RegExp(`^\\s*'?${kind}'?:\\s*(\\w+),`, 'm');
+  const computed = `\\[REFERENCE_TARGET_KIND\\.${constantName(kind)}\\]`;
+  const row = new RegExp(`^\\s*(?:${computed}|'?${kind}'?):\\s*(\\w+),`, 'm');
   const match = source.match(row);
 
   return match?.[1] ?? '';

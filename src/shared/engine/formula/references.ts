@@ -521,6 +521,22 @@ function translateConfiguration(
           })),
         }
       : {}),
+    /*
+     * A passive's effect is the same prose-with-formulas at the same attachment point
+     * (TICKET-PAS-01), so it translates the same way and for the same reason: renaming a skill
+     * re-spells Blindsight's `perception level × 10`, and the word "feet" beside it is left exactly
+     * as written because `mapTemplateFormulas` never sees the prose.
+     */
+    ...(config.passives
+      ? {
+          passives: config.passives.map((passive) => ({
+            ...passive,
+            effectText: mapTemplateFormulas(passive.effectText, (source) =>
+              translateFormula(source, index)
+            ),
+          })),
+        }
+      : {}),
   };
 }
 

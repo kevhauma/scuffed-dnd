@@ -25,11 +25,16 @@ import { describeAdjustment } from './describeAdjustment';
 
 export interface AdjustmentLogProps {
   adjustments: CharacterAdjustment[];
-  /** How a stat id is spelled on this ruleset, for the adjustments that name one */
-  statNames: Record<string, string>;
+  /**
+   * How each entity id is spelled on this ruleset, for the adjustments that name one
+   *
+   * One map across every entity kind an adjustment can name — stats and, since TICKET-PAS-01,
+   * passives. See `describeAdjustment` for why it is not one map per kind.
+   */
+  names: Record<string, string>;
 }
 
-export function AdjustmentLog({ adjustments, statNames }: AdjustmentLogProps) {
+export function AdjustmentLog({ adjustments, names }: AdjustmentLogProps) {
   return (
     <Card className="p-6">
       <Text variant="h4" as="h2" className="mb-3">
@@ -46,7 +51,7 @@ export function AdjustmentLog({ adjustments, statNames }: AdjustmentLogProps) {
               className="flex flex-wrap items-baseline justify-between gap-2 border-b border-stone-200 pb-2 last:border-b-0 last:pb-0"
             >
               <Text variant="body-small" as="span">
-                {describeAdjustment(adjustment, statNames)}
+                {describeAdjustment(adjustment, names)}
               </Text>
               <Text variant="caption" as="span">
                 {/* The Account's name, resolved server-side at read time — `null` is a profile that

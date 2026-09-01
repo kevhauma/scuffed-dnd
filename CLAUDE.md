@@ -137,7 +137,11 @@ acceptance criteria.
   exception** (TICKET-INV-05): a `ComposedItem` is a set of *links* — a template, a material tier, an
   optional inlay tier — and every number it is worth is read off those parts at calculation time, so
   retuning Iron Ore tier 10 relabels every axe made of it on the next read. It is the derived-values
-  rule applied to an aggregate rather than an exception to it.
+  rule applied to an aggregate rather than an exception to it. **Nor is
+  `Character.passiveIds`** (TICKET-PAS-01): a list of links to catalog entries, like
+  `learnedSpellIds` and `focusSkillIds` — a *pick*, not a number anything computes. What a passive
+  *says* is derived every render (`passivesOf` + `resolveTemplate`), so renaming one relabels every
+  sheet holding it.
 - **All user-authored math goes through the formula engine** (`parseFormula` → `validateFormula` →
   `evaluateFormula`). No `eval`, no `new Function`, no hand-rolled arithmetic parsing.
 - **Base components (`components/ui/`) carry intrinsic styling only** — no margin, flex/grid,
