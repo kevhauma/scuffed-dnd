@@ -27,9 +27,7 @@
  * **Validates: v3 Req 36.5**
  */
 
-import { baseTier, convertCurrency } from '../engine/currency';
 import type { Character } from '../types/character';
-import type { CurrencyTier } from '../types/config';
 
 /**
  * Whether a stored record is a character this build can read
@@ -50,6 +48,11 @@ import type { CurrencyTier } from '../types/config';
  * Checked here rather than left to the schemaVersion gate because that gate reads the
  * *Configuration*: a characters key beside a fresh or absent config never meets it
  * (TICKET-IO-03 implementation note 5).
+ *
+ * **This gate is why no conversion code survives the milestone** (TICKET-DX-09). A character old
+ * enough to carry a retired key — CUR-02's per-tier `wallet` was the last one anything adapted —
+ * predates `inventory.composedItems` and is refused here, so an adapter for it could never run.
+ * The clean break is the whole compatibility story; nothing rewrites an old record on the way in.
  *
  * @param character The record as it was stored
  * @returns Whether every field a reader depends on is there
@@ -167,8 +170,9 @@ function inventoryErrors(value: unknown, path: string): string[] {
  * on a `Configuration` went unchecked for a milestone exactly that way (CR-03, CR-22).
  *
  * `archetypeId` and `purse` are absent from the table deliberately — both are **optional** on
- * `Character` and a stored roster predating either must not become unreadable for want of a field
- * that did not exist when it was written.
+ * `Character`, so a character that has neither is not an old character but an ordinary one: no
+ * archetype picked, no money carried. Requiring either would refuse a roster that is entirely
+ * current.
  */
 const CHARACTER_FIELDS: Record<string, (value: unknown) => boolean> = {
   id: (value) => typeof value === 'string' && value !== '',
@@ -232,58 +236,4 @@ export function uploadedCharacterErrors(candidate: unknown, path: string): strin
       .map(([field]) => `${path}.${field} ${CHARACTER_FIELD_RULES[field]}`),
     ...inventoryErrors(record.inventory, `${path}.inventory`),
   ];
-}
-
-/**
- * A character whose retired per-tier wallet has become a base-tier purse (TICKET-CUR-02)
- *
- * **In the Kernel, not in the store, and that is the review's correction rather than a preference.**
- * It is a pure `(character, tiers) → character` rule over a *document*, and the server holds
- * character documents that can carry a `wallet` — TICKET-IO-04 uploads a browser roster verbatim, so
- * one written before this ticket keeps its wallet until something converts it. A rule the server
- * cannot call is a rule that will be written twice (D5).
- *
- * `convertCurrency` walks the rates: a second implementation of *how many coppers is a gold* here is
- * exactly the drift the engine exists to prevent. The holdings are summed in the **base** tier
- * because that is where all of them are expressible without inventing a fraction.
- *
- * **`null` means leave the character exactly as it is**, which covers one that never had a wallet,
- * one whose wallet is empty, and a ruleset with no tiers to convert by — guessing at a rate would
- * invent money. The retired key is dropped whenever a wallet *was* read, so the conversion runs at
- * most once per character.
- *
- * **An entry the ruleset cannot price is dropped rather than added.** `convertCurrency` returns a
- * value *unchanged* when either tier is unknown, which is right for its own contract and wrong as a
- * summand: a stored `{ gold: 3 }` whose tier the User has since deleted would contribute 3 rather
- * than 300 — silently, and in the direction that loses money. The same filter refuses an amount that
- * is not a finite number, which `isReadableCharacter` deliberately never checked for this field.
- *
- * @param character The stored character, which may still carry a `wallet`
- * @param tiers The ruleset's currency tiers
- * @returns The converted character, or `null` when there is nothing to convert
- */
-export function purseFromStoredWallet(
-  character: Character,
-  tiers: CurrencyTier[]
-): Character | null {
-  // The retired shape, read off the stored object rather than off the type — which no longer has it
-  const wallet = (character as { wallet?: Record<string, number> }).wallet;
-  const base = baseTier(tiers);
-
-  if (!wallet || !base) return null;
-
-  const total = Object.entries(wallet)
-    .filter(
-      ([tierId, amount]) =>
-        Number.isFinite(amount) && tiers.some((candidate) => candidate.id === tierId)
-    )
-    .reduce(
-      (running, [tierId, amount]) =>
-        running + convertCurrency({ tierId, amount }, base.id, tiers).amount,
-      character.purse ?? 0
-    );
-
-  const { wallet: _retired, ...rest } = character as Character & { wallet?: unknown };
-
-  return { ...rest, ...(total > 0 ? { purse: total } : {}) };
 }

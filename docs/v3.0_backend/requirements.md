@@ -393,8 +393,26 @@ ruleset defines has somewhere to land.
    > additive-optional and nothing reads `wallet`. A requirement change outranks a ticket, so this is
    > amended in place rather than quietly outgrown.
 
-6. THE Application SHALL keep reading a stored Character that still carries the retired per-tier
-   `wallet`, and SHALL convert it to a base-tier purse rather than discarding it
+6. ~~THE Application SHALL keep reading a stored Character that still carries the retired per-tier
+   `wallet`, and SHALL convert it to a base-tier purse rather than discarding it~~
+   **Superseded by TICKET-DX-09 (2026-09-01):** THE Application SHALL carry **no conversion path**
+   for a retired key, and SHALL ignore a stored `wallet` as it ignores any other field it no longer
+   reads.
+
+   > **Amended by TICKET-DX-09, and the amendment is v4.0's clean break catching up with it.** The
+   > original clause was written when a bump and a migration were the two available answers and
+   > CUR-02 chose the migration. v4.0's
+   > [D6](../v4.0_sheet_parity/overview.md#d6--no-backwards-compatibility-v40-is-a-clean-break-user-2026-08-29)
+   > chose the other one for the whole milestone, and TICKET-INV-05 landed the bump: since
+   > `isReadableCharacter` requires `inventory.composedItems`, a Character old enough to carry a
+   > `wallet` predates that field and is **refused before the roster is assembled** — and its ruleset
+   > is refused a step earlier by the schema gate. `purseFromStoredWallet` and
+   > `characterStore.adoptStoredWallets` could no longer run, so DX-09 deleted them; leaving the
+   > clause standing would have made the requirement describe code the app cannot reach.
+   > What survives unchanged is the *reason* the clause existed — a Player's money is not thrown away
+   > silently — now served by the refusal path rather than by a conversion: nothing is loaded,
+   > nothing is deleted, and `IncompatibleDataNotice` offers the stored bytes back before anything is
+   > cleared. **A requirement change outranks a ticket**, so this is amended in place.
 
 ### Requirement 44: Live Updates
 

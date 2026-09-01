@@ -12,6 +12,14 @@
  * refuses; or a persisted shape changed and the corpus has not caught up. All three are the
  * corpus's problem to fix — never the test's.
  *
+ * **The fragment list below is deliberately fixed through v4.0's shape pass**
+ * ([D7](../../../docs/v4.0_sheet_parity/overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)).
+ * That milestone suspends *every feature ships its sheet data* while the whole corpus is
+ * re-sourced at once, so spells, inlays and passives are shapes with no fragment yet and the list
+ * has twelve entries rather than fifteen on purpose. What this suite keeps proving meanwhile is the
+ * half that still binds: the corpus regenerates byte-identically and still imports clean **at the
+ * new shape** (TICKET-DX-09). The rule, and the three missing fragments, return with the data pass.
+ *
  * **Validates: Requirements 1.4, 1.5, 1.6; Concept 00 §6**
  */
 

@@ -496,6 +496,12 @@ that a failing fixture is never fixed by editing the fixture.
   array in `fixtures.ts` and one `describe`.
 - `client/integration/integration.test.ts` — the other nothing-mocked suite: real stores, real
   storage, real `localStorage`, real engine.
+- `client/integration/cleanBreak.test.tsx` (TICKET-DX-09) — the third: old-shape bytes in
+  `localStorage`, driven through the real service and stores to `IncompatibleDataNotice` and its
+  backup offer, plus the current-shape case that stops the refusals passing vacuously. This is where
+  v4.0's [D6](../../../docs/v4.0_sheet_parity/overview.md#d6--no-backwards-compatibility-v40-is-a-clean-break-user-2026-08-29)
+  is asserted rather than assumed; `useAppHydration.test.tsx` proves only that the *hook* routes a
+  thrown `StorageSchemaError`, because it mocks the loaders that throw it.
 
 ## Services — split across two roots (TICKET-DX-07)
 
@@ -525,6 +531,10 @@ between the roots is exactly *"does this touch a browser API"*.
   stores it end up in one app. Deliberately **not** `validateConfigurationShape`'s counterpart: it
   checks the three strings a row is stored under plus the four sanctioned pieces of player state,
   and nothing derived, because nothing derived is accepted.
+  **Two functions, not three, since TICKET-DX-09**: `purseFromStoredWallet` — the `wallet` → `purse`
+  adapter and the tree's last conversion path — is gone, because `isReadableCharacter`'s
+  `composedItems` requirement made it unreachable. Nothing rewrites an old record on the way in
+  anywhere in this codebase; the version gate refuses it and `IncompatibleDataNotice` offers a backup.
 - `copyConfiguration.ts` — `copyConfiguration(source, options)` and `copyName(name)`
   (TICKET-RUL-03). The **only** deep copy of a `Configuration` in the tree, and deliberately so:
   GAM-01's Snapshot is the same operation with a different destination and must not reach for its

@@ -77,12 +77,16 @@ describe('isReadableCharacter', () => {
     expect(readable).toBe(false);
   });
 
-  it('accepts one still carrying the retired per-tier wallet', () => {
-    // TICKET-CUR-02 replaced `wallet` with `purse` and converts the old shape on load — so a stored
-    // roster that still has one has to be *readable* for the migration to ever run. Refusing it here
-    // would turn a shape change into an IncompatibleDataNotice and lose the money it was meant to
-    // keep.
-    expect(isReadableCharacter({ ...stored(), wallet: { gold: 3 } } as Character)).toBe(true);
+  it('ignores a key this build no longer has rather than refusing the record', () => {
+    // A retired key is inert, not disqualifying: `wallet` (retired by TICKET-CUR-02) and
+    // `miscItems` (deleted by TICKET-INV-06) are fields nothing reads, and the fields this check
+    // *does* name are what decide readability. Since TICKET-DX-09 deleted the last adapter there is
+    // nothing to convert either — a character carrying one is simply read without it.
+    const strays = { ...stored(), wallet: { gold: 3 } } as Character;
+
+    const readable = isReadableCharacter(strays);
+
+    expect(readable).toBe(true);
   });
 });
 
@@ -261,10 +265,12 @@ describe('uploadedCharacterErrors', () => {
 
     it('still accepts the two fields the type marks optional', () => {
       // A stored roster predating either must not become unreadable for want of a field that did
-      // not exist when it was written — `wallet` arrived with TICKET-CUR-02, `archetypeId` with ARC-03
-      expect(
-        uploadedCharacterErrors({ ...stored(), wallet: undefined, archetypeId: undefined }, 'c')
-      ).toEqual([]);
+      // not exist when it was written — `purse` arrived with TICKET-CUR-02, `archetypeId` with ARC-03
+      const bare = { ...stored(), purse: undefined, archetypeId: undefined };
+
+      const errors = uploadedCharacterErrors(bare, 'c');
+
+      expect(errors).toEqual([]);
     });
   });
 

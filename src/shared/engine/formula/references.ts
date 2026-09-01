@@ -563,10 +563,17 @@ export function toDisplayConfiguration(config: Configuration): Configuration {
 /**
  * Give every referenceable entity an id, minting one where it is missing
  *
- * Configurations written before ids existed identify skills by code alone. Rather than refuse
- * them, they are completed on the way in — the codes they store still resolve, because a stored
- * form only contains ids for entities that had one when it was written. TICKET-IO-03 replaces
- * this with an outright rejection of pre-v2 data.
+ * **Leniency about an *authored* document, not compatibility with an old one** (reviewed at
+ * TICKET-DX-09). It was written for configurations predating ids, and that job ended with
+ * TICKET-IO-03: pre-v2 data is now rejected outright by the version gate, so a stored file reaching
+ * here has already proved it is on the current shape. What keeps the function is the **import**
+ * surface — a hand-written or tool-generated ruleset may legitimately omit `id`, which is why
+ * `ENTITY_SPECS` does not require one — and completing it beats refusing a file whose only fault is
+ * that a human did not invent UUIDs.
+ *
+ * It branches on no retired key and reads no superseded shape, which is why v4.0's clean break
+ * ([D6](../../../../docs/v4.0_sheet_parity/overview.md#d6--no-backwards-compatibility-v40-is-a-clean-break-user-2026-08-29))
+ * leaves it standing where it deleted the wallet adapter.
  *
  * `newId` is a parameter rather than a direct `crypto.randomUUID()` so this stays a pure function
  * like the rest of the engine; the services that call it supply the generator.
@@ -583,8 +590,8 @@ export function ensureReferenceIds(config: Configuration, newId: () => string): 
     ...config,
     stats: config.stats.map(withId),
     skills: config.skills.map(withId),
-    // Absent stays absent — a file predating TICKET-CST-01 round-trips unchanged rather than
-    // growing an empty array on the way through.
+    // Absent stays absent — a ruleset that names no shared numbers round-trips unchanged rather
+    // than growing an empty array on the way through.
     ...(config.constants ? { constants: config.constants.map(withId) } : {}),
     ...(config.curves
       ? {

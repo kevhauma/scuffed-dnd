@@ -231,7 +231,15 @@ that pass.
 - [x] [TICKET-SPL-02](./tickets/TICKET-SPL-02-learned-spells-spellbook-casting.md) — Learned spells, the Spellbook, and casting (systems/13) — needs SPL-01; spells unlock **manually** and "Chosen abiltie" is built into nothing (rulings above). Two User decisions taken in-ticket: an unaffordable cast is **refused with the shortfall named**, and the **Player names the pool** at cast time rather than the ruleset naming one
 - [x] [TICKET-SPL-03](./tickets/TICKET-SPL-03-spell-effect-templating.md) — Spell effect templating (systems/13, D4) — needs SPL-01/02; the `spell-effect` attachment point and its preview. The 326-formula transcription is the data pass's, and the grammar it targets is [`spell-template-grammar.md`](./spell-template-grammar.md) — `{formula}`, with braces because `[` is the stored form's
 - [x] [TICKET-PAS-01](./tickets/TICKET-PAS-01-passives-catalog.md) — Passive abilities: the entity and the handout (systems/14) — needs SPL-03's attachment point; nothing grants a passive yet, by the sheet's own admission. The catalog **reuses** the `spell-effect` owner rather than minting one (the reference set does not differ), and the handout is a **DM** action at a table and the Player's own on a local sheet, `dreamLevel`'s split exactly
-- [ ] [TICKET-DX-09](./tickets/TICKET-DX-09-clean-break-closeout.md) — The clean break, proven complete (systems/01) — **last of the shape pass**: one `SUPPORTED_SCHEMA_VERSION` bump, the old shape meeting `IncompatibleDataNotice`, TEST_STATUS refreshed. The corpus audit and the golden suite move to the data pass, which is where the numbers to pin come from
+- [x] [TICKET-DX-09](./tickets/TICKET-DX-09-clean-break-closeout.md) — The clean break, proven complete (systems/01) — **last of the shape pass**: one `SUPPORTED_SCHEMA_VERSION` bump **proven** rather than made (INV-05 landed it), the old shape meeting `IncompatibleDataNotice`, TEST_STATUS refreshed. The corpus audit and the golden suite move to the data pass, which is where the numbers to pin come from
+
+**The v4.0 shape pass is complete (2026-09-01)** — every line above is closed. That is not the same
+sentence as *v4.0 is complete*: under [D7](#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)
+**the milestone closes twice**, and what remains is the data pass — the re-sourced fragments, the
+seeded values and formula text, the two deferred lines below, and the *Thomas the test more* golden
+suite. DX-09 found the break sound: the version rose exactly once, the old shape errors honestly on
+both sides, and the tree's last conversion path (CUR-02's `wallet` adapter, orphaned by the bump)
+was deleted rather than left standing.
 
 ### Deferred to the data pass (D7)
 
@@ -240,6 +248,10 @@ values, so they belong with the rest of the data:
 
 - [TICKET-MAT-03](./tickets/TICKET-MAT-03-materials-catalog-v4.md) — Materials catalog replaced (systems/09) — 24 families × 10 tiers, no shape change at all
 - [TICKET-ITEM-02](./tickets/TICKET-ITEM-02-item-catalog-fragment.md) — The v4 item catalog: 40 categories, ~700 templates (systems/11) — the biggest lift, scripted against the checked-in xlsx
+
+### Cut here, belonging to neither pass
+
+- [ ] [TICKET-DX-10](./tickets/TICKET-DX-10-assertions-bind-their-subject.md) — Assertions bind their subject: the test-suite sweep — **neither a shape line nor a data line, and dependent on nothing**, so it is deliberately outside the build order above rather than appended to it: the shape pass closes at DX-09. Cut here because this is where the decision was made — the User settled at DX-09 that CLAUDE.md's no-nested-calls rule has no assertion exemption, and that the ~3,000 existing sites are swept **once, mechanically**, never opportunistically per ticket. It can ship at any point
 
 The 2026-08-29 rulings' two cross-line dependencies are answered in the ordering above: RES-04
 lands the `dreamLevel` field before ARC-04's gain formula reads it, and RACE-04 gives the race-count

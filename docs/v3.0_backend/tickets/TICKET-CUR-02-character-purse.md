@@ -62,6 +62,14 @@ character. It lives in `useAppHydration` because it needs the ruleset's **rates*
 `loadCharacters` has no access to and which the store cannot reach without the cycle `no-circular`
 refuses — the same constraint `createCharacterHere` works around by taking its argument.
 
+> **Retired by TICKET-DX-09 (2026-09-01).** This paragraph and item 3 below record what CUR-02 built;
+> the conversion no longer exists. v4.0 took the *bump* branch instead ([D6](../../v4.0_sheet_parity/overview.md#d6--no-backwards-compatibility-v40-is-a-clean-break-user-2026-08-29)),
+> and TICKET-INV-05's `inventory.composedItems` requirement made the adapter unreachable, so it and
+> its tests were deleted. **The requirement this ticket cites, v3 Req 43.6, now says the opposite**
+> and is amended in place — read it there rather than here. Everything else CUR-02 decided stands:
+> one base-tier amount, refusal below zero with the shortfall named, and `formatPurse` answering
+> *which tier to show it in* every render.
+
 ### `SUPPORTED_SCHEMA_VERSION` is **not** bumped, and the reason is the migration
 
 The data-model skill says to bump when a field *moves or is removed*, and `wallet` is removed — so

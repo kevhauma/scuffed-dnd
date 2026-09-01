@@ -80,7 +80,8 @@ interface RestoreVerdict {
  * Restore whichever stores have not been restored yet, and classify what went wrong
  *
  * **Outside the hook**, so the try/catch and its two branches are not part of the hook's own
- * complexity — the split `fallow` asked for when CUR-02's migration pushed it over the threshold.
+ * complexity — a split `fallow` asked for, and worth keeping: the hook is dense in hooks rather
+ * than in branching, so classification is the one part of it that reads better alone.
  * Each loader is `undefined` when that store is already loaded, which keeps the *when* with the
  * caller and the *what happened* here.
  *
@@ -135,29 +136,6 @@ export function useAppHydration(): AppHydration {
 
     if (verdict.incompatible !== undefined) setIncompatibleMessage(verdict.incompatible);
     if (verdict.error !== undefined) setStorageError(verdict.error);
-
-    // **Nothing was loaded**, so there is nothing to migrate and the keys are still the User's to
-    // decide about. Converting against a half-restored store is how a refusal turns into a write.
-    if (verdict.incompatible !== undefined || verdict.error !== undefined) return;
-
-    /*
-     * **The one shape migration the app performs** (TICKET-CUR-02). A per-tier `wallet` becomes a
-     * base-tier `purse`, which needs the ruleset's **rates** — so it happens here, right after the
-     * configuration has been read, rather than in `loadCharacters`, which has no ruleset, or in the
-     * store, which cannot reach `configStore` without the cycle `no-circular` refuses.
-     *
-     * Both stores are read through `getState()` rather than through selectors, and that is
-     * deliberate rather than lazy: this hook's complexity is **hook density** — `fallow` counts
-     * fourteen calls in it and no branching worth speaking of — so a migration that cost two more
-     * hooks pushed it past the threshold while changing nothing about how hard it is to read. Store
-     * actions are stable, and an effect reading one at the moment it fires is the same value a
-     * selector would have handed it.
-     *
-     * It writes nothing when there is nothing to convert, which is every load after the first.
-     */
-    useCharacterStore
-      .getState()
-      .adoptStoredWallets(useConfigStore.getState().config?.currencyTiers ?? []);
   }, [storageAvailable, configIsLoaded, charactersAreLoaded, loadConfig, loadCharacters]);
 
   // Reading and assembling the file is the service's job; this only decides when

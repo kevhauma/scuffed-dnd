@@ -754,8 +754,10 @@ const ENTITY_SPECS: Record<CollectionKey, EntitySpec> = {
     unique: { field: 'abbreviation', message: 'must be unique' },
   },
 
-  // `id` is deliberately absent: it is required by the type but files predating TICKET-REF-01 do
-  // not carry one, and `ensureReferenceIds` mints it on the way through `importConfiguration`
+  // `id` is deliberately absent: it is required by the type, but a hand-written or generated file
+  // may legitimately omit one, and `ensureReferenceIds` mints it on the way through
+  // `importConfiguration` (reviewed at TICKET-DX-09 — leniency about an authored document, not a
+  // conversion: the version gate has already refused anything on an older shape)
   skills: {
     presence: 'required',
     fields: {
@@ -924,8 +926,9 @@ const ENTITY_SPECS: Record<CollectionKey, EntitySpec> = {
     },
   },
 
-  // Absent is valid, so files predating TICKET-CST-01 still import. `id` is skipped for the reason
-  // a skill's is.
+  // Absent is valid because a ruleset need not name any shared numbers at all — not because of any
+  // older file, which the version gate refuses before this table is reached (TICKET-DX-09).
+  // `id` is skipped for the reason a skill's is.
   constants: {
     presence: 'optional',
     fields: {
@@ -943,9 +946,9 @@ const ENTITY_SPECS: Record<CollectionKey, EntitySpec> = {
     unique: { field: 'name', message: 'must be unique' },
   },
 
-  // Absent is valid, so files predating TICKET-CRV-01 still import. `displayName`, `description`
-  // and `keyName` are required by the type, so a file missing one imports and then renders a
-  // report reading `…has more than one row for undefined 3`.
+  // Absent is valid because a ruleset need not define any progressions. `displayName`,
+  // `description` and `keyName` are required by the type, so a file missing one imports and then
+  // renders a report reading `…has more than one row for undefined 3`.
   curves: {
     presence: 'optional',
     fields: {
@@ -966,8 +969,8 @@ const ENTITY_SPECS: Record<CollectionKey, EntitySpec> = {
     custom: curveTableShapeErrors,
   },
 
-  // Absent is valid, so files predating ladders still import (Concept 07, TICKET-ROLL-03). Whether
-  // the sizes make a *walkable* ladder is `engine/validator.ts`'s report.
+  // Absent is valid because a ruleset need not roll dice at all (Concept 07, TICKET-ROLL-03).
+  // Whether the sizes make a *walkable* ladder is `engine/validator.ts`'s report.
   diceLadders: {
     presence: 'optional',
     fields: {
@@ -986,8 +989,9 @@ const ENTITY_SPECS: Record<CollectionKey, EntitySpec> = {
     },
   },
 
-  // Absent is valid, so files predating rolls still import (Concept 08, TICKET-ROLL-05). Whether
-  // the `input` computes and whether `ladderId` names a ladder that exists are the engine's report.
+  // Absent is valid for `diceLadders`' reason — a ruleset need define no rolls (Concept 08,
+  // TICKET-ROLL-05). Whether the `input` computes and whether `ladderId` names a ladder that exists
+  // are the engine's report.
   rollDefinitions: {
     presence: 'optional',
     fields: {
@@ -1188,8 +1192,9 @@ export function validateConfigurationShape(data: unknown): ValidationResult {
  * Import a configuration that has already been parsed (TICKET-IO-04)
  *
  * **The whole of what "importing" means once the JSON text is out of it**: the version gate, the
- * shape check — retired fields included — then the reference ids a file predating TICKET-REF-01
- * does not carry, then the display spellings. Extracted from {@link importConfiguration} so the
+ * shape check — retired fields included — then the reference ids an authored file may not carry
+ * (see {@link ensureReferenceIds}), then the display spellings. Extracted from
+ * {@link importConfiguration} so the
  * server's `POST /api/rulesets/import` runs the *same* three gates in the same order rather than a
  * second chain that agrees on the day it is written (v3 Req 35.2).
  *

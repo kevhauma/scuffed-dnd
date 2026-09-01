@@ -218,8 +218,8 @@ function wrongShapeSent(fields: string[]): AppError {
  * A `Configuration` a client asked the server to **import** (v3 Req 35.1, 35.2)
  *
  * The browser's own import chain, run server-side: `importParsedConfiguration` gates the version,
- * checks the shape — retired fields included — mints the reference ids a file predating
- * TICKET-REF-01 does not carry, and hands back the display form. **The same function the browser
+ * checks the shape — retired fields included — mints the reference ids an authored file may omit,
+ * and hands back the display form. **The same function the browser
  * calls**, which is what makes "each produces its existing distinct message on both paths" a fact
  * about one implementation rather than a promise about two.
  *

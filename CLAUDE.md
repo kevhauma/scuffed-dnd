@@ -93,6 +93,13 @@ acceptance criteria.
   [source spreadsheet](https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit)
   data, cite the cell ranges they came from, and record in `notes` anything the sheet lacks or the
   current shape cannot hold. Never invent a number to fill a required field.
+  **Suspended for v4.0's shape pass only** ([D7](docs/v4.0_sheet_parity/overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)):
+  that milestone re-sources the entire corpus against a replaced workbook in **one later data pass**,
+  so no v4.0 shape ticket carries a fragment criterion and spells, inlays and passives are shapes
+  with no fragment yet. Two halves still bind meanwhile, and TICKET-DX-09 checked both at the shape
+  pass's close: `yarn run sheet:import` regenerates **byte-identically**, and the corpus still
+  imports clean at the new shape. **The rule returns in full when the data pass closes** — until
+  then, a ticket outside v4.0 owes its fragment as it always did.
 - Remaining foundation items that aren't ticketed yet appear in `overview.md` as *(plan §N)* lines
   — expand one into a ticket before building it, never implement straight from a plan line.
 - Commit messages: ticket ID + title (`TICKET-CHAR-01 Create CharacterList component`). Older
@@ -171,10 +178,16 @@ acceptance criteria.
   intermediate variable first, and that name is passed on: not `return foo(bar(param), baz());`
   but `const bounded = bar(param); const fallback = baz(); return foo(bounded, fallback);`. The
   name says what the value *is*, which is the point — a nested call makes the reader evaluate
-  inside-out to find out. Two things are not nesting and stay as they are: a method chain
-  (`items.filter(…).map(…)`), where each link reads left to right, and a function *passed by
+  inside-out to find out. Three things are not nesting and stay as they are: a method chain
+  (`items.filter(…).map(…)`), where each link reads left to right; a function *passed by
   reference or as an inline callback* (`items.map(toLabel)`, `useMemo(() => …, [])`), which is a
-  value rather than a call.
+  value rather than a call; and **JSX as an argument** (`render(<Component … />)`), which is an
+  element. **Test code is in scope, all of it — arrangement, act and assert alike, with no
+  assertion exemption** (User, TICKET-DX-09): `expect(compute(input)).toBe(n)` binds the subject
+  first, `localStorage.setItem(KEY, JSON.stringify(config))` binds the bytes first, and a matcher's
+  argument counts. The ~3,000 existing **assertion** sites are swept in one mechanical change under
+  **TICKET-DX-10** rather than opportunistically — until then new test code follows the whole rule
+  and old code is left alone. The `coding-conventions` skill's *Testing* section has the worked form.
 - **SOLID and KISS are house rules**, spelled out concretely in the `coding-conventions` skill.
   The load-bearing pair: extend `ConfigPanelShell` through `headerExtra` and children rather than
   adding a prop named after one caller, and introduce no abstraction, option, or flag before its

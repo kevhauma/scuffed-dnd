@@ -573,6 +573,22 @@ There is deliberately **no migration path**: the ruleset is regenerable from
 [`docs/imports/`](../../../docs/imports/README.md), and the notice offers a backup before anything
 is cleared.
 
+**TICKET-DX-09 closed the milestone's shape pass by proving that claim rather than restating it**,
+and three of its findings belong here:
+
+- **The version moved exactly once across v4.0** — `git log -L 15,15:src/shared/types/config.ts`
+  shows one change inside the milestone (INV-05, 9 → 10) and the one before it is TICKET-ROLL-06, in
+  v2.0. DX-09 raised nothing.
+- **The tree now contains no conversion code at all.** The last adapter was CUR-02's
+  `wallet` → `purse` conversion, which the 10 bump had already made unreachable, and it was deleted.
+  The rule that generalises: **a bump orphans every adapter written for the shape it now refuses**,
+  so the ticket that bumps should go looking for them — or the closeout ticket will.
+  `ensureReferenceIds` is the one thing that resembles an adapter and deliberately stays: it mints an
+  id a *hand-authored* import omitted, at the current version, branching on no retired key.
+- **The refusal is asserted end to end**, not inferred from a mocked throw:
+  `src/client/integration/cleanBreak.test.tsx` writes old-shape bytes to `localStorage` and drives
+  the real service, stores and component tree to `IncompatibleDataNotice` and its backup offer.
+
 The refusal has three surfaces, and they behave differently on purpose:
 
 | Path | What happens |
@@ -821,13 +837,21 @@ it is the third exception rather than a computed number stored.
 - **Below zero is refused with the shortfall named**, not clamped — `deductExperience`'s precedent,
   in `shared/services/playerActions.ts`'s `setPurse` / `adjustPurse`. Fractions pass: a tier rate may
   be fractional, so rounding on write would lose money. Round for display only.
-- **A stored `wallet` is converted, not dropped.** `characterStore.adoptStoredWallets(tiers)` sums
-  each holding down to the base tier through `convertCurrency` and removes the retired key, called
-  once from `useAppHydration` because it needs the ruleset's rates. `isReadableCharacter` therefore
-  still **accepts** a character carrying `wallet` — refusing one would mean the migration could never
-  run. **No `SUPPORTED_SCHEMA_VERSION` bump**: `purse` is additive-optional, nothing reads `wallet`,
-  and a bump would make every stored roster unreadable behind `IncompatibleDataNotice` — destroying
-  the very data the conversion exists to keep. A bump and a migration are mutually exclusive.
+- **The `wallet` conversion is gone, and nothing replaced it** (TICKET-DX-09). CUR-02 shipped
+  `purseFromStoredWallet` + `characterStore.adoptStoredWallets(tiers)` to sum a retired per-tier
+  `wallet` down to the base tier instead of dropping the money, and **v4.0's clean break made it
+  unreachable**: `isReadableCharacter` has required `inventory.composedItems` since TICKET-INV-05, so
+  a character old enough to carry a wallet is refused before the roster is assembled — and its
+  ruleset is refused one step earlier by the schema gate. The adapter, its action and its seven
+  tests were deleted rather than left as code nothing can run.
+
+  **`isReadableCharacter` still accepts a record carrying `wallet`**, for a different reason than it
+  used to: a retired key is *inert*, not disqualifying, exactly as `miscItems` is. It is read without
+  it.
+
+  The bump-or-migrate rule below is unchanged, and this is the worked example of the other branch:
+  **a conversion outlives its usefulness the moment a later bump refuses the data it was written
+  for.** When you bump, go looking for the adapters the bump just orphaned.
 
 And **`grantedStatPoints`** (TICKET-DM-01) — the extra spendable stat points the DM has handed out,
 optional and absent-means-none, whole and not negative. It is the fourth exception because nothing
@@ -1078,6 +1102,15 @@ concern, so:
   `docs/imports/ducklets.json` by `yarn run sheet:import` and validated by
   `src/shared/services/sheetImport.test.ts`. A changed entity shape means updating that entity's fragment
   and regenerating in the same change — see [docs/imports/README.md](../../../docs/imports/README.md).
+
+  **Suspended for v4.0's shape pass, and only for it**
+  ([D7](../../../docs/v4.0_sheet_parity/overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)):
+  the whole corpus is being re-sourced against a replaced workbook at once, so honouring the rule per
+  ticket would rewrite the same fragments a dozen times over. Spells, inlays and passives are
+  therefore shapes with no fragment yet, and the twelve-entry list in `sheetImport.test.ts` is
+  deliberate rather than stale. **What still binds during the suspension** — and what TICKET-DX-09
+  checked — is that the corpus regenerates byte-identically and still imports clean at the new shape.
+  The rule returns in full the moment the data pass closes.
 
 ## Data flow
 

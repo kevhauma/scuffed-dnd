@@ -12,7 +12,6 @@ import { create } from 'zustand';
 import { racesRequired } from '#shared/engine/races';
 import { validateStatAllocation } from '#shared/engine/skillAllocation';
 import { buildCharacter } from '#shared/services/characterCreation';
-import { purseFromStoredWallet } from '#shared/services/characterShape';
 // The experience rules **moved** here from this module with TICKET-DM-01, rather than being copied
 // into a DM route — the same thing PLY-01 did to the sheet's other writes, and for the same reason
 import {
@@ -68,7 +67,7 @@ import type {
 } from '#shared/types/api';
 import { DM_ACTION, PLAYER_ACTION } from '#shared/types/api';
 import type { Character, CharacterCreationData, ComposedItem } from '#shared/types/character';
-import type { Configuration, CurrencyTier } from '#shared/types/config';
+import type { Configuration } from '#shared/types/config';
 import {
   ACTION_OUTCOME,
   CREATION_OUTCOME,
@@ -377,21 +376,6 @@ export interface CharacterState {
   setPurse: (characterId: string, amount: number) => void;
   /** Move the purse by a delta — Concept 20's quick entry, with the same refusal below zero */
   adjustPurse: (characterId: string, delta: number) => void;
-  /**
-   * Convert any stored per-tier wallet into a base-tier purse (TICKET-CUR-02)
-   *
-   * **A one-way migration for a field that never had a ticket.** `wallet?: Record<tierId, number>`
-   * arrived outside the process and CUR-02 replaced it; this is what keeps the money. Each tier's
-   * holding is converted down to the base tier by `convertCurrency` and summed, so a purse of 3 gold
-   * and 40 copper becomes one amount worth exactly that.
-   *
-   * **The tiers are passed in rather than read**, for `createCharacterHere`'s reason: `configStore`
-   * imports this module, so reaching back would be the cycle `no-circular` refuses.
-   * `useAppHydration` has the ruleset by the time it restores the roster, and calls this once.
-   *
-   * A character with no wallet, or a ruleset with no tiers to convert by, is left exactly as it is.
-   */
-  adoptStoredWallets: (tiers: CurrencyTier[]) => void;
 
   /**
    * Move a resource pool by a delta rather than setting it (Concept 20's quick entry)
@@ -1053,20 +1037,6 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     applyLocally(set, get, characterId, (character) => adjustPurseBy(character, delta), {
       reportRefusal: true,
     });
-  },
-
-  adoptStoredWallets: (tiers: CurrencyTier[]) => {
-    const { characters } = get();
-
-    const converted = characters.map(
-      (character) => purseFromStoredWallet(character, tiers) ?? character
-    );
-
-    // Nothing to convert is the overwhelmingly common case, and writing the whole roster back for
-    // it would be a save on every page load
-    if (converted.every((character, index) => character === characters[index])) return;
-
-    set({ characters: autoSave(converted) });
   },
 
   // The rule moved to the Kernel with TICKET-DM-01 rather than being copied into a DM route: the

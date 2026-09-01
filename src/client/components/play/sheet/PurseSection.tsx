@@ -20,8 +20,8 @@
  *
  * **The box takes whole numbers**, though the stored purse need not be one. `useNumericDraft` parses
  * with `Number.parseInt`, which every numeric entry on the sheet has done since TICKET-RES-03 — so a
- * typed `0.5` commits `0`. A *fraction* is still a perfectly good purse and arrives by the paths that
- * produce one: a conversion across fractional rates, and the wallet migration. Widening the entry is
+ * typed `0.5` commits `0`. A *fraction* is still a perfectly good purse and arrives by the one path
+ * that produces one: a conversion across fractional rates. Widening the entry is
  * a change to the shared draft hook and every editor that uses it, which is its own ticket rather
  * than a line here; the limitation is recorded on TICKET-CUR-02.
  *

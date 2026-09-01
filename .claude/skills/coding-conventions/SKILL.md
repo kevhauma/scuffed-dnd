@@ -355,6 +355,40 @@ should re-open it.
   `describe` moves and a loose `it` does not**, and **a field retired from an *entity* goes with
   that entity** rather than with the configuration's own retirements. A new `ENTITY_SPECS` row is a
   new file.
+- **Test code is in scope for the no-nested-calls rule, all of it** (settled by the User at
+  TICKET-DX-09). CLAUDE.md's *never call a function as the argument of another call* has no test
+  exemption and no assertion exemption — **arrangement, act and assert alike**:
+
+  ```ts
+  // assert
+  const level = skillLevelOf(character, skill, config);
+  expect(level).toBe(12);
+
+  // arrange — the same rule, and the half that is easiest to forget
+  const bytes = JSON.stringify(config);
+  localStorage.setItem(CONFIG_KEY, bytes);
+  ```
+
+  rather than `expect(skillLevelOf(character, skill, config)).toBe(12)` or
+  `localStorage.setItem(CONFIG_KEY, JSON.stringify(config))`. A matcher's argument counts too — bind
+  the expected value rather than passing a call into `toEqual(…)`.
+
+  **Three things are not nesting**, here or anywhere else, and they cover most of what a test does:
+
+  1. a **method chain** — `vi.mocked(useConfigStore).mockReturnValue(…)`, an awaited
+     `screen.findByRole(…)`, `items.filter(…).map(…)`;
+  2. a **function passed by reference or as an inline callback** — `expect(fn).toHaveBeenCalled()`,
+     `expect(() => cast(…)).toThrow()`, `it.each(rows)`, `useMemo(() => …, [])`;
+  3. **JSX as an argument** — `render(<Component … />)`, which is an element rather than a call.
+
+  **This was being half-applied, which is why it is written down**: RACE-04, SKL-05 and INV-04 each
+  converted a handful of sites while adding ten to thirty more, because `expect(f(x))` is the suite's
+  pervasive existing form. The existing sites are swept in **one mechanical change under
+  TICKET-DX-10**, never opportunistically per ticket — a file half-converted disagrees with its own
+  neighbours and settles nothing. **That sweep is scoped to the assertion forms**, which are the
+  measurable and dominant bulk; an arrangement site in a file the sweep touches is converted in the
+  same pass rather than left as a second debt. Until it lands: **new test code follows the whole
+  rule, old test code is left alone**, and pre-existing nesting is not a review finding.
 
 ## Verification
 

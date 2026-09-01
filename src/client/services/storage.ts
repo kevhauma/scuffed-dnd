@@ -134,7 +134,8 @@ export function readStoredSnapshot(): StoredSnapshot {
  * Load configuration from LocalStorage
  *
  * @returns Configuration object or null if not found
- * @throws {StorageSchemaError} When the stored ruleset predates the unified stat model
+ * @throws {StorageSchemaError} When the stored `schemaVersion` is anything but the one this build
+ *   reads — an older shape or a newer one, both refused rather than converted (v4.0 D6)
  * @throws {StorageParseError} When stored data is invalid JSON
  * @throws {StorageError} When retrieval fails
  */

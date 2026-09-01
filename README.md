@@ -69,7 +69,7 @@ yarn build
 ### Configuration Mode
 - Keep one ruleset in this browser, or several on your account — the two are shown side by side and
   never merged
-- Define custom skills with 3-letter codes
+- Define custom skills, weighted against the stats they grow from — a formula reaches one by name
 - Create stats with formula-based calculations
 - Build materials with bonuses and tiers
 - Catalogue gem inlays — families of socketable stones, in tiers of stat grants

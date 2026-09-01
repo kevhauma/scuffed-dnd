@@ -38,7 +38,7 @@ inferred today:
 - Concept 02's `+1.5` for one starting pick (the points→level conversion is that page's open question);
 - APT at Speed 22 (Concept 05 cannot tell "the same formula" from "a hardcoded 1" on the creature sheet).
 
-## Four settlements this suite makes
+## Five settlements this suite makes
 
 Each of these was an open question the fixtures could not avoid answering.
 
@@ -61,6 +61,13 @@ zero investment. What it buys: everything genuinely derived from that line — A
 total, every skill level and bonus, every roll input and pool — is checked against numbers the
 sheet supplies independently. Settlement 4 is the consequence of "untouched" having become a
 stronger claim than it was.
+
+**The block is installed twice, not once, since TICKET-RACE-04**: a ruleset now says how many races
+a character carries, the corpus says two, and `buildSampleCharacter` fills both slots with
+`Ducklets`. That is the sheet's own answer rather than a workaround for the count — `Setup` A7:B9
+has the sample character down as Ducklets in both rows — and **no expected value moved**, because a
+blend of one block with itself is that block. Recorded here because a reader finding two race ids
+where the settlement above says "a race stat block" should not have to reconstruct why.
 
 ### 4. The sample character is archetype-less, deliberately (TICKET-ARC-04)
 
@@ -89,9 +96,15 @@ Charm's number, copied one row down.
 
 Both halves are pinned rather than one being dropped:
 
-- **Persuasion** at the live weights — 8.8, bonus 2, cited to the range.
-- **Charm with one starting pick** — 11.7 + 1.5 = 13.2, bonus 3, tagged inferred. That is the
-  derivation Concept 02 actually verified, attached to the skill whose weights produce it.
+- **Persuasion** at the live weights — 8.8 before rounding, pinned at **9 / bonus 2** since the
+  rounding moved (settlement 5). **Its `citation` is `V4_SKILL_ROUNDING` now, not `Skills!D31:G31`**:
+  the range says where the *weights* come from and the systems doc says where the *rounding* does, so
+  the range moved into the row's **name** — `Persuasion — the live sheet's CHA 0.2 + STR 0.1
+  (Skills!D31:G31), not the page's CHA 0.3` — where it still leads a reader to the cells without
+  claiming to be the source of a number it does not produce.
+- **Charm with one starting pick** — `ceil(11.7) + 1.5`, pinned at **13.5 / bonus 3** and tagged
+  inferred. That is the derivation Concept 02 actually verified, attached to the skill whose weights
+  produce it; only the rounding around it has moved.
 
 This closes the open question [`docs/imports/README.md`](../../../docs/imports/README.md) raised
 when `skills.json` landed.
@@ -105,6 +118,24 @@ derivation, so only `mele` and `Ranged` — the two Concept 08 confirms — run 
 
 Their **decompositions** are pinned, though: 18 and 16 appear in the ladder fixtures, where the
 mechanic is confirmed regardless of what produces the number.
+
+### 5. The skill rows round up, and their citations moved with them (TICKET-SKL-04)
+
+The new workbook computes a skill as `ROUNDUP((primary + secondary) × focus, 0) + investedPoints`
+and its bonus as `ROUNDUP(level / 5, 0)`. **All eight `skillFixtures` rows moved** — `11.7 → 12`,
+`4.5 → 5`, `1.6 → 2`, and Black smithing, whose level of 2 was already whole while its *bonus* still
+went `0 → 1`.
+
+This is the one edit the rule at the top of this file forbids doing halfway, so it was made whole:
+every moved row now cites **`V4_SKILL_ROUNDING`** in [`fixtures.ts`](./fixtures.ts) — systems/06,
+naming the cells — instead of Concept 02's *Derivation ✅*, which literally states
+`round(2.34) = 2` and, one heading along, *"Rounding is half-up ✅"*. A page that contradicts the row
+citing it is worse than no citation. Concept 02 keeps everything it is still right about: the
+**weights** and the **stat line** are read from it and did not move, and each row's comment carries
+the weighted sum the page shows before the round-up.
+
+Read the rows and the constant rather than a copy of them here; the point of the settlement is that
+the citation and the number travel together.
 
 ## Health 7 and Mana 310 are pool fixtures, not derivation fixtures
 
