@@ -5,9 +5,13 @@
  * Health and Mana — both `isResource`, so both land here rather than among the stats — and a group
  * that names them draws a heading here as it does there. A ruleset naming none is unchanged.
  *
+ * **And the pools survive their controls** (TICKET-DM-05): with no handlers — the table's DM, whose
+ * four writes the server refuses — the card keeps every pool's name, where it stands and what it can
+ * reach, and loses the box and the three buttons.
+ *
  * Pure props, so no store and no mock.
  *
- * **Validates: Concept 20; Requirements 13.4, 14.1, 14.2, 21.1-21.5**
+ * **Validates: Concept 20; Requirements 13.4, 14.1, 14.2, 21.1-21.5; v3 Req 42.7, 49.10**
  */
 
 import { render, screen } from '@testing-library/react';
@@ -58,6 +62,15 @@ function renderSection(resources: StatBreakdown[]) {
   );
 }
 
+/**
+ * Render the section with no handlers at all — the table's DM's reading (TICKET-DM-05)
+ *
+ * @param resources - What the ruleset flags `isResource`
+ */
+function renderReadOnly(resources: StatBreakdown[]) {
+  render(<ResourcesSection resources={resources} budget={null} />);
+}
+
 describe('ResourcesSection', () => {
   it('should draw a heading per group, with each pool under its own', () => {
     renderSection([pool('Health', 'Vitals'), pool('Focus', 'Mental'), pool('Mana', 'Vitals')]);
@@ -77,5 +90,44 @@ describe('ResourcesSection', () => {
     expect(screen.queryAllByRole('heading', { level: 3 })).toHaveLength(0);
     expect(screen.getByText('Health (HEA)')).toBeDefined();
     expect(screen.getByText('Mana (MAN)')).toBeDefined();
+  });
+
+  describe('with no handlers, which is the table’s DM (TICKET-DM-05)', () => {
+    /** One pool at 4 of 8, the fixture every case below reads */
+    const health = pool('Health');
+
+    it('should still show each pool, where it stands and what it can reach', () => {
+      renderReadOnly([health]);
+
+      const name = screen.getByText('Health (HEA)');
+      const current = screen.getByText('4');
+      const maximum = screen.getByText('of 8 max');
+
+      expect(name).toBeDefined();
+      expect(current).toBeDefined();
+      expect(maximum).toBeDefined();
+    });
+
+    it('should draw no pool controls at all — absent, not disabled', () => {
+      renderReadOnly([health]);
+
+      const increase = screen.queryByRole('button', { name: 'Increase Health' });
+      const decrease = screen.queryByRole('button', { name: 'Decrease Health' });
+      const refill = screen.queryByRole('button', { name: 'Restore Health to full' });
+      const box = screen.queryByLabelText('Health');
+
+      expect(increase).toBeNull();
+      expect(decrease).toBeNull();
+      expect(refill).toBeNull();
+      expect(box).toBeNull();
+    });
+
+    it('should say who moves a pool instead, rather than leaving a gap to read as a fault', () => {
+      renderReadOnly([health]);
+
+      const notice = screen.getByText(/quick actions/);
+
+      expect(notice).toBeDefined();
+    });
   });
 });

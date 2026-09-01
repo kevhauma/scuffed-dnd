@@ -16,25 +16,29 @@
  * write whose *actor* depends on the reader, which is `usePassiveHandout`'s subject and not this
  * hook's. Two handlers out is why this file got shorter in a ticket that added a feature.
  *
- * **Validates: Requirements 12.5, 14.2, 14.3, 14.5; v3 Req 41.1, 41.5**
+ * **Six more left for [`usePlayerControls`](./usePlayerControls.ts) at TICKET-DM-05**, on the same
+ * grounds and the same reading: the stat and skill spends, the three pool writes and the focus pick
+ * are all behind `requireCharacterPlayer`, so *may this reader make this write* has an answer that
+ * depends on who is holding the sheet open. What is left here is the residue that has no such
+ * question — experience and the dream level, which the sheet already withholds at a table for
+ * **every** reader (D9), and the way off the page, which is nobody's write at all.
+ *
+ * **Validates: v3 Req 41.1, 41.5**
+ *
+ * (No v1.0 requirement is cited any more: the four handlers left here are experience, the dream level
+ * and the way off the page, all of which are v3's. The old header's `12.5` and `14.5` travelled with
+ * the handlers that implement them — to `useInventoryActs` and `usePlayerControls` — and carrying a
+ * number onto a module that no longer earns it would be worse than citing none, because traceability
+ * is checked by grep and a wrong citation reads exactly like a right one.)
  */
 
 import { useNavigate } from '@tanstack/react-router';
-import { focusPicksOf, toFocusSlots } from '#shared/engine/focusSkills';
 import type { Character } from '#shared/types/character';
-import type { Configuration } from '#shared/types/config';
 import { useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
 
 /** What the sheet's controls call */
 export interface SheetActions {
-  handleChangeStatValue: (statId: string, value: number) => void;
-  handleAdjustStatValue: (statId: string, delta: number) => void;
-  handleResetStatValueToMax: (statId: string) => void;
-  handleChangeInvestedPoints: (statId: string, points: number) => void;
-  handleChangeInvestedSkillPoints: (skillId: string, points: number) => void;
-  /** Put a skill in one focus slot — the store sends all three, see below (TICKET-SKL-05) */
-  handleSelectFocusSkill: (slot: number, skillId: string) => void;
   handleAwardExperience: (amount: number) => void;
   handleDeductExperience: (amount: number) => void;
   handleSetDreamLevel: (level: number) => void;
@@ -44,24 +48,17 @@ export interface SheetActions {
 /**
  * Bind the sheet's controls to the store
  *
+ * **No `Configuration` since TICKET-DM-05**: every handler that had to price a write against the
+ * ruleset went to `usePlayerControls` with the rest of the reader-dependent six, and what is left
+ * writes a number the Kernel checks on its own side.
+ *
  * @param character The character the sheet is drawing, or null when there is none
- * @param config The ruleset it is read against — the browser's, or a table's Snapshot
  * @param atTable Whether this character lives at a game session
  * @returns One handler per control
  */
-export function useSheetActions(
-  character: Character | null,
-  config: Configuration | null,
-  atTable: boolean
-): SheetActions {
+export function useSheetActions(character: Character | null, atTable: boolean): SheetActions {
   const navigate = useNavigate();
 
-  const updateCurrentStatValue = useCharacterStore((state) => state.updateCurrentStatValue);
-  const adjustCurrentStatValue = useCharacterStore((state) => state.adjustCurrentStatValue);
-  const resetCurrentStatValueToMax = useCharacterStore((state) => state.resetCurrentStatValueToMax);
-  const setInvestedStatPoints = useCharacterStore((state) => state.setInvestedStatPoints);
-  const setInvestedSkillPoints = useCharacterStore((state) => state.setInvestedSkillPoints);
-  const setFocusSkills = useCharacterStore((state) => state.setFocusSkills);
   const awardExperience = useCharacterStore((state) => state.awardExperience);
   const deductExperience = useCharacterStore((state) => state.deductExperience);
   const updateDreamLevel = useCharacterStore((state) => state.updateDreamLevel);
@@ -69,66 +66,6 @@ export function useSheetActions(
   const openLocalRuleset = useConfigStore((state) => state.openLocalRuleset);
 
   return {
-    handleChangeStatValue: (statId: string, value: number) => {
-      if (!character || !config) return;
-
-      // Persistence — and the max-value clamp — belong to the store action, not to this hook
-      updateCurrentStatValue(character.id, statId, value, config);
-    },
-
-    // Concept 20's quick entry and "regain to full" (TICKET-RES-03). The delta is applied and the
-    // maximum is read inside the store, so nothing here does arithmetic on a pool.
-    handleAdjustStatValue: (statId: string, delta: number) => {
-      if (!character || !config) return;
-
-      adjustCurrentStatValue(character.id, statId, delta, config);
-    },
-
-    handleResetStatValueToMax: (statId: string) => {
-      if (!character || !config) return;
-
-      resetCurrentStatValueToMax(character.id, statId, config);
-    },
-
-    // Spending is the level-up mechanic (TICKET-RES-02). The store refuses anything the derived
-    // budget cannot pay for, so the sheet asks and renders whatever came back.
-    handleChangeInvestedPoints: (statId: string, points: number) => {
-      if (!character || !config) return;
-
-      setInvestedStatPoints(character.id, statId, points, config);
-    },
-
-    // The same pool as the stats above, since TICKET-RES-05 — so the same ruleset goes in, and the
-    // store refuses whatever the derived budget cannot pay for
-    handleChangeInvestedSkillPoints: (skillId: string, points: number) => {
-      if (!character || !config) return;
-
-      setInvestedSkillPoints(character.id, skillId, points, config);
-    },
-
-    /**
-     * Put a skill in one focus slot (TICKET-SKL-05)
-     *
-     * **Addressed by slot here and sent as a whole list**, which is the shape the two ends need: a
-     * picker changes one box, and the character stores the picks that were made with no sentinel for
-     * the ones that were not. The empties drop out on the way, so picks compact to the front — which
-     * changes nothing, because the multiplier is a sum over the slots and does not read their order.
-     *
-     * The slots are rebuilt from the stored picks rather than from the component's own state, for
-     * the reason every handler here takes the store's word: the character is the one copy, and a
-     * refused write must leave the boxes showing what is actually stored.
-     */
-    handleSelectFocusSkill: (slot: number, skillId: string) => {
-      if (!character || !config) return;
-
-      const picks = focusPicksOf(character);
-      const slots = toFocusSlots(picks);
-      slots[slot] = skillId;
-
-      const chosen = slots.filter((id) => id !== '');
-      setFocusSkills(character.id, chosen, config);
-    },
-
     // One action per click, mirroring the sheet's `exp.gs` — the store decides what is allowed
     handleAwardExperience: (amount: number) => {
       if (!character) return;

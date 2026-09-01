@@ -363,8 +363,20 @@ inventory and money, so that the table's fiction can be reflected in the sheet.
    action obeys
 6. THE Server SHALL record every DM adjustment as an Event naming the DM, the Character, and the
    before and after values
-7. THE Client SHALL present DM controls only to the DM, and SHALL show a Player the Events that
-   changed their own sheet
+7. THE Client SHALL present DM controls only to the DM, SHALL show a Player the Events that
+   changed their own sheet, and SHALL present a Player's own controls only to that Player — absent
+   for any other reader, not present and disabled
+   *(third clause added by TICKET-DM-05, 2026-09-01: as first written, both of this criterion's
+   clauses ran DM-ward — who may see the **DM's** controls, and what a Player may read — and so did
+   criterion 49.10's *absent, not present and disabled*, which is scoped to Quick_Actions. Neither
+   text, read literally, required that a **Player's own** controls be withheld from a DM, which is
+   the whole of what DM-05 built: the stat and skill spends, the pool editors, the focus picker, the
+   Spellbook and the roll buttons are all behind `requireCharacterPlayer` — `requireCharacterWriter`
+   minus the DM — so a DM was being shown six surfaces whose every press met a 404. Sixteen
+   `**Validates: … v3 Req 42.7, 49.10**` lines would otherwise cite a requirement by analogy, and
+   once written an analogy is indistinguishable from a citation. The code was right and only the spec
+   was short. DM-03's amendment of 49.3 is the precedent for correcting the text rather than the
+   implementation.)*
 
 ### Requirement 43: Character Purse
 

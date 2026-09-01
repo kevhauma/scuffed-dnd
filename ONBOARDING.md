@@ -395,6 +395,14 @@ carrying a user story, the as-is / to-be, and acceptance criteria.
   *call site* or a route table rather than a value, read the module with `readFileSync` and scan the
   text: `dmRules.test.ts`, `routeGuards.test.ts` and `quickActionRoutes.test.ts` all do, and the last
   of those lives in `client/` precisely because of this.
+- **A missing control on a character sheet is usually a decision, not a bug.** Since TICKET-DM-05 the
+  sheet's write handlers are **optional props**, and a hook on `useIsDungeonMaster` decides whether
+  the reader gets them: a Player gets all of them on a local sheet and at a table, and the table's
+  **DM** gets none of the Player's own — their spend, pool, focus, Spellbook and roll requests all
+  meet a 404, because `requireCharacterPlayer` is the writer guard minus the DM. So *the Cast button
+  is missing* on a DM's view is the feature. The rule is **absent, not disabled**, and the number the
+  control sat beside is always still shown. Before hunting a render bug, check who the test or the
+  browser session is signed in as and who owns the open character.
 - **A route handler that so much as writes the word `sessionId` must call a resource guard.**
   `src/server/routes/routeGuards.test.ts` is a text scan over every module containing
   `defineHandler(`, and it is deliberately blunt: it cannot tell a *read* of a session id from a

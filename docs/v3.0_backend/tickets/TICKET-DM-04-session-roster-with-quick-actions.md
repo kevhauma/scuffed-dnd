@@ -76,3 +76,14 @@ Building it before the event feed and presence exist would mean building it twic
   quiet lie in them is harder to catch than one chipped cell.
 - A roster wants sorting, grouping and filtering the moment a table has six players. **Not in this
   ticket** — ship the list in a stable order (member, then character name) and let the User ask.
+- **Inherited from TICKET-DM-05: a DM reading somebody's sheet sees an empty roll history**, and this
+  ticket is one of the two that owns fixing it.
+  [`useRoller`](../../../src/client/components/play/rolls/useRoller.ts) narrows the session's roll log
+  with `?rolledBy=<the reader's own accountId>` — right while the only reader was the character's own
+  Player, since it is what stops their rolls falling off a busy table's capped window, and wrong for a
+  DM, who then asks for *their own* rolls against somebody else's character and gets none. DM-05 made
+  the roll **buttons** absent for a DM (`rollDice.ts` refuses them) and deliberately left the log
+  alone, because the table-wide view is this roster's and
+  [TICKET-LIVE-02](./TICKET-LIVE-02-event-fan-out-and-reconciliation.md)'s — building half of it early
+  means building it twice. Whichever lands first should decide whether the sheet's own history panel
+  widens for a DM or defers to the roster entirely.

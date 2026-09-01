@@ -40,6 +40,7 @@ import { toPointBudgetView } from '../shared/pointBudgetView';
 import type { QuickAction } from '../shared/quickActions';
 import { quickActionsFor } from '../shared/quickActions';
 import { readable } from '../shared/readableNumber';
+import { usePlayerControls } from './usePlayerControls';
 import { useSheetActions } from './useSheetActions';
 
 /**
@@ -570,7 +571,13 @@ export function useCharacterSheet(characterId: string) {
   const dismissActionError = useCharacterStore((state) => state.dismissActionError);
 
   // What the Player can *do* to this sheet is its own hook (TICKET-PLY-01) — see `useSheetActions`
-  const actions = useSheetActions(character, config, atTable);
+  const actions = useSheetActions(character, atTable);
+
+  // …and the half of it whose actor depends on who is reading (TICKET-DM-05). Every field is absent
+  // for the table's DM, whom `requireCharacterPlayer` refuses, so the six handlers below reach the
+  // sections as `undefined` and each draws a display instead — see `usePlayerControls` for why this
+  // one answers with absent fields where the four hooks before it answer `null`.
+  const player = usePlayerControls(characterId, character, config);
 
   const { calculated, error } = useMemo(() => calculate(character, config), [character, config]);
 
@@ -654,5 +661,6 @@ export function useCharacterSheet(characterId: string) {
      */
     quickActions: toQuickActions(character, config, view.stats, level),
     ...actions,
+    ...player,
   };
 }

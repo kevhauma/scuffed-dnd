@@ -9,8 +9,18 @@
  * It lived inside `useDmControls` until TICKET-DM-02, when two more surfaces came to need the same
  * answer — [`usePurseControls`](../sheet/usePurseControls.ts) and
  * [`useInventoryActs`](../inventory/useInventoryActs.ts), each of which reaches its **own** DM store
- * actions and nothing else. Three readers of one predicate, and computing it three times is how they
- * would eventually disagree about who is looking at the sheet.
+ * actions and nothing else. **There are seven readers now**: those three, plus TICKET-DM-03's
+ * [`useQuickActions`](./useQuickActions.ts) and TICKET-DM-05's
+ * [`usePlayerControls`](../sheet/usePlayerControls.ts), [`useRoller`](../rolls/useRoller.ts) and
+ * [`useSpellbook`](../spells/useSpellbook.ts). Computing it seven times is how they would eventually
+ * disagree about who is looking at the sheet — which is the whole reason it is a hook rather than a
+ * field on any one of them. **Keep this count honest**: it is the first thing a reader opening this
+ * module learns, and `.claude/skills/project-map/SKILL.md` states it too.
+ *
+ * **The last three read it in the opposite direction from the first four.** DM-01 through DM-03 ask
+ * *may I show the DM their controls*; DM-05 asks *may I show the Player theirs*, and answers no for
+ * the DM. One predicate, both readings — which is why the *says no while the cookie is unresolved*
+ * rule below is the safe default in both: an unidentified browser draws the Player's own sheet.
  *
  * **It says no while the cookie is unresolved**, and that is load-bearing: answering *yes* on a
  * browser that has not identified itself yet would flash the DM's controls onto a Player's own sheet

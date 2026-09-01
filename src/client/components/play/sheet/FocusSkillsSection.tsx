@@ -13,7 +13,12 @@
  * Every number is the engine's. The multiplier beside a slot is `calculated.skillFocus`, the same map
  * the skills grid's `focus ×` breakdown row reads, so a slot and the level it moved cannot disagree.
  *
- * **Validates: Requirements 21.1-21.5; v4 systems/06 gap 2**
+ * **The picker is optional since TICKET-DM-05.** `set-focus-skills` is behind
+ * `requireCharacterPlayer`, so the table's DM reads the three picks and their multipliers as text
+ * rather than being offered three dropdowns whose writes 404. Which skills a character focuses is a
+ * choice about who they are, and it stays the Player's.
+ *
+ * **Validates: Requirements 21.1-21.5; v3 Req 42.7, 49.10; v4 systems/06 gap 2**
  */
 
 import { FOCUS_CHOSEN_NAME, FOCUS_OTHER_NAME } from '#shared/engine/focusSkills';
@@ -21,6 +26,7 @@ import { Card } from '../../ui/Card/Card';
 import { Label } from '../../ui/Label/Label';
 import { Select, type SelectOption } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
+import { NoControlsNotice } from '../shared/NoControlsNotice';
 import { readable } from '../shared/readableNumber';
 import type { FocusSlotView, SkillBreakdown } from './useCharacterSheet';
 
@@ -31,9 +37,21 @@ export interface FocusSkillsSectionProps {
   slots: FocusSlotView[];
   /** Whether the ruleset states either focus dial — see {@link caption} */
   isDialled: boolean;
-  /** Put a skill in one slot; the empty option clears it */
-  onSelectFocusSkill: (slot: number, skillId: string) => void;
+  /**
+   * Put a skill in one slot; the empty option clears it. Absent when this reader may not
+   * (TICKET-DM-05) — the slots then read as text, naming what was picked and what it multiplies by.
+   */
+  onSelectFocusSkill?: (slot: number, skillId: string) => void;
 }
+
+/** What a reader with no picker is told instead — the section's half of `ResourcesSection`'s line */
+const NO_CONTROLS = 'Only the Player chooses what their own character focuses on.';
+
+/** What an unfilled slot reads as — the dropdown's clearing option, and the text beside it */
+const NO_FOCUS = 'No focus';
+
+/** The value that option carries, and what the character stores for a slot nobody filled */
+const NO_FOCUS_VALUE = '';
 
 /**
  * What the section says about what a pick is worth here
@@ -59,6 +77,23 @@ function caption(isDialled: boolean): string {
   );
 }
 
+/**
+ * What one slot is holding, spelled for a reader who cannot change it (TICKET-DM-05)
+ *
+ * Looked up rather than carried on the slot for the reason `raceContributions` pairs an id with an
+ * abbreviation in the hook: the slot stores the pick, and *what to call it* is the ruleset's, read
+ * fresh — so renaming a skill relabels every sheet focusing on it.
+ *
+ * @param skills The ruleset's skills, as the section already has them
+ * @param skillId What the slot names, or `''` for an empty one
+ * @returns The skill's name, or the same *No focus* the dropdown's empty option reads
+ */
+function pickName(skills: SkillBreakdown[], skillId: string): string {
+  const picked = skills.find((skill) => skill.id === skillId);
+
+  return picked ? picked.name : NO_FOCUS;
+}
+
 export function FocusSkillsSection({
   skills,
   slots,
@@ -72,7 +107,7 @@ export function FocusSkillsSection({
    * the placeholder instead, where an empty slot is a step error rather than a choice.
    */
   const options: SelectOption[] = [
-    { value: '', label: 'No focus' },
+    { value: NO_FOCUS_VALUE, label: NO_FOCUS },
     ...skills.map((skill) => ({ value: skill.id, label: skill.name })),
   ];
 
@@ -90,20 +125,38 @@ export function FocusSkillsSection({
             {caption(isDialled)}
           </Text>
 
+          {onSelectFocusSkill === undefined && <NoControlsNotice message={NO_CONTROLS} />}
+
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             {slots.map((slot, index) => {
               const fieldId = `focus-slot-${index}`;
+              const heading = `Focus ${index + 1}`;
 
               return (
                 <div key={fieldId} className="flex flex-col gap-1">
-                  <Label htmlFor={fieldId}>Focus {index + 1}</Label>
-                  <Select
-                    id={fieldId}
-                    className="w-64"
-                    options={options}
-                    value={slot.skillId}
-                    onChange={(event) => onSelectFocusSkill(index, event.target.value)}
-                  />
+                  {onSelectFocusSkill ? (
+                    <>
+                      <Label htmlFor={fieldId}>{heading}</Label>
+                      <Select
+                        id={fieldId}
+                        className="w-64"
+                        options={options}
+                        value={slot.skillId}
+                        onChange={(event) => onSelectFocusSkill(index, event.target.value)}
+                      />
+                    </>
+                  ) : (
+                    /* The pick as a reading (TICKET-DM-05). `Label` with no control to name would be
+                       a label pointing at nothing, so the slot's heading is plain text here. */
+                    <>
+                      <Text variant="caption" as="span">
+                        {heading}
+                      </Text>
+                      <Text variant="body-small" as="span" className="w-64">
+                        {pickName(skills, slot.skillId)}
+                      </Text>
+                    </>
+                  )}
                   {/* Only for a filled slot: an empty one has no skill whose multiplier to state,
                       and `×0.9` under a box reading *No focus* would be attaching a number to a
                       choice nobody made */}

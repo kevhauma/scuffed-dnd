@@ -297,9 +297,10 @@ Two families of judgement, both concrete here rather than generic.
   `dreamLevelOf` and pass the number. A defaulted parameter would have been the second rule the
   reader exists to prevent, one file further down.
 - **When a surface's write depends on *who is reading*, that decision is a hook of its own — never a
-  ternary in the component and never a prop threaded down.** Three instances now, which is what makes
+  ternary in the component and never a prop threaded down.** Seven instances now, which is what makes
   it a convention: `usePassiveHandout` (TICKET-PAS-01), then `usePurseControls` and
-  `useInventoryActs` (TICKET-DM-02). Each returns the **bound pair** — the Player's own store actions
+  `useInventoryActs` (TICKET-DM-02), `useQuickActions` (TICKET-DM-03), and `usePlayerControls`,
+  `useRoller` and `useSpellbook` (TICKET-DM-05). Each returns the **bound pair** — the Player's own store actions
   or the DM's `dm-` ones — or `null` for a reader who may not act, so the component renders what it is
   given and the panel beneath it never learns a DM exists. Two reasons it keeps earning its place:
   *laying a surface out* and *deciding who may act on it* are different subjects, and the cost of
@@ -330,6 +331,36 @@ Two families of judgement, both concrete here rather than generic.
   `characterId` and render nothing when there is nothing to render. **Extracting a presentational
   component does not help here**, because the conditional stays behind; giving the section its own
   answer is what does.
+
+  **A hook feeding *several* surfaces answers with absent fields rather than `null`** (TICKET-DM-05,
+  and it is the one deviation the pattern allows). `usePlayerControls` decides *which actor* for five
+  of the sheet's sections at once, so it returns an interface whose members are each optional and
+  which is empty for the reader who may not act; `useCharacterSheet` spreads it beside its other
+  handlers and **`CharacterSheet` gains no conditional at all**. The strict `X | null` would have put
+  a `controls?.x` at each of seven props — one new branch per prop, on the file the paragraph above
+  exists to protect. Absence modelled *as absence* is also the same thing the sections are being asked
+  to render. **This is the precedent extended, not replaced: a hook feeding one surface still answers
+  `null`**, because there `null` is the whole answer and an optional-field object would be a shape
+  with nothing to say.
+
+  **Absent controls must not take the numbers with them.** Where a value was editable and is now read,
+  the surface still *shows* it and says who changes it instead — DM-05's rule, learned from
+  `PurseSection`. `CountRow` draws the invested points with no buttons around them rather than hiding
+  the count with the controls, and `RollsSection` moves the dice pool off the button label into text
+  so a DM still reads `1D20 + 1D12 + 1D6 + 1`. Removing an affordance is not a licence to remove
+  information. The *says who instead* half is `play/shared/NoControlsNotice`, and it is worth noting
+  how it got there: DM-05 shipped six copies of one `<Text variant="body-small-secondary">` differing
+  only in their sentence, and the review pulled them out in the same ticket. **The third-caller rule
+  cuts both ways** — it forbids abstracting before the third caller, and it obliges the ticket that
+  creates the debt to pay it. `fallow`'s clone detector caught none of the six, each copy being
+  shorter than its window, which is why this is a rule rather than something a tool finds.
+
+  **Answer *may this reader act* explicitly rather than inferring it from an absent handler**, unless
+  absence provably has one cause. `useSpellbook` returns `isReadOnly` beside its three optional
+  handlers because `handleLearn === undefined` is *also* true before a character resolves, and a panel
+  reading that as *not yours* would tell a Player their own book is somebody else's.
+  `usePlayerControls` needs no such flag — its six handlers are bound whatever the character and
+  ruleset are, so absence there means exactly *the DM*. Know which of the two you have written.
 - Session-only UI state (open dialogs, roll history, active mode) lives in `useUIStore`, not in
   the persisted stores.
 

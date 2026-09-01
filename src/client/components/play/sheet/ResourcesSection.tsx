@@ -19,7 +19,14 @@
  * Speed, and this app puts the first two here and the third among the stats — so a group that spans
  * the split draws a column on each side rather than one section quietly swallowing the other's rows.
  *
- * **Validates: Concept 20; Requirements 11.3, 13.4, 14.1, 14.2, 14.3, 14.4, 16.6, 21.1-21.5**
+ * **Every handler is optional since TICKET-DM-05.** The four routes behind them are all
+ * `requireCharacterPlayer`, so the table's DM gets none of them and reads the pools instead — the
+ * maxima on their `CountRow`s and where each pool stands on its `StatEditor`, with the spend and the
+ * pool controls simply absent. What a DM does instead is the quick actions in the rail, which this
+ * section says out loud rather than leaving four missing controls to be read as a rendering failure.
+ *
+ * **Validates: Concept 20; Requirements 11.3, 13.4, 14.1, 14.2, 14.3, 14.4, 16.6, 21.1-21.5;
+ * v3 Req 42.7, 49.10**
  */
 
 import { Fragment } from 'react';
@@ -27,6 +34,7 @@ import { groupByLabel } from '../../shared/labelledGroups';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 import { CountRow } from '../shared/CountRow';
+import { NoControlsNotice } from '../shared/NoControlsNotice';
 import type { PointBudgetView } from '../shared/pointBudgetView';
 import { investedContribution } from './investedContribution';
 import { StatEditor } from './StatEditor';
@@ -38,11 +46,32 @@ export interface ResourcesSectionProps {
   resources: StatBreakdown[];
   /** The pool every invested stat spends from, or null when there is none to show */
   budget: PointBudgetView | null;
-  onChangeStatValue: (statId: string, value: number) => void;
-  onAdjustStatValue: (statId: string, delta: number) => void;
-  onResetStatValueToMax: (statId: string) => void;
-  onChangeInvestedPoints: (statId: string, points: number) => void;
+  /**
+   * Set a pool to an absolute value, or absent when this reader may only read it (TICKET-DM-05)
+   *
+   * The three pool handlers travel together — `StatEditor` draws all its controls or none — and the
+   * reader who gets none is the table's DM, refused by `requireCharacterPlayer`.
+   */
+  onChangeStatValue?: (statId: string, value: number) => void;
+  /** Move a pool by a delta. Absent with {@link ResourcesSectionProps.onChangeStatValue}. */
+  onAdjustStatValue?: (statId: string, delta: number) => void;
+  /** Fill a pool to its maximum. Absent with {@link ResourcesSectionProps.onChangeStatValue}. */
+  onResetStatValueToMax?: (statId: string) => void;
+  /** Spend on a pool's maximum, or absent for the DM — whose points meet the same refusal */
+  onChangeInvestedPoints?: (statId: string, points: number) => void;
 }
+
+/**
+ * What a reader with no controls is told to do instead
+ *
+ * Its own sentence rather than `POINTS_ARE_THE_PLAYERS`, because this card loses **two** things — the
+ * spend and the pool editor — and the DM's route to the second is the quick actions' damage/restore
+ * pair specifically. It names the sidebar the DM actually has, because the DM is the only reader who
+ * ever sees it: a Player keeps every control here, at a table and off it.
+ */
+const NO_CONTROLS =
+  'Only the Player spends points and moves their own pools — damage and restore them from the quick ' +
+  'actions in the rail.';
 
 export function ResourcesSection({
   resources,
@@ -62,6 +91,10 @@ export function ResourcesSection({
         Resources
       </Text>
 
+      {/* Said once for the whole card rather than under each pool: a table with six resources would
+          otherwise carry the same sentence six times */}
+      {onChangeStatValue === undefined && <NoControlsNotice message={NO_CONTROLS} />}
+
       <StatGroupColumns groups={groups}>
         {(group) =>
           // A `Fragment` rather than a wrapper: `CountRow`'s `last:border-b-0` reads its
@@ -73,8 +106,11 @@ export function ResourcesSection({
                 code={resource.abbreviation}
                 total={resource.max}
                 invested={resource.invested}
+                // Three ways to have no spend control, and they mean different things: a derived
+                // pool takes no points *ever*, a sheet with no budget has none to spend, and a
+                // reader with no handler may not spend at all (TICKET-DM-05)
                 onAdjust={
-                  resource.isDerived || !budget
+                  resource.isDerived || !budget || !onChangeInvestedPoints
                     ? undefined
                     : (points) => onChangeInvestedPoints(resource.id, points)
                 }
@@ -88,14 +124,16 @@ export function ResourcesSection({
                 ]}
               />
 
+              {/* All three or none, which is `StatEditor`'s own rule: bound to this pool's id where
+                  the reader has them, and passed straight through as absent where they do not */}
               <StatEditor
                 name={resource.name}
                 current={resource.current}
                 max={resource.max}
                 isOverMax={resource.isOverMax}
-                onChange={(value) => onChangeStatValue(resource.id, value)}
-                onAdjust={(delta) => onAdjustStatValue(resource.id, delta)}
-                onResetToMax={() => onResetStatValueToMax(resource.id)}
+                onChange={onChangeStatValue && ((value) => onChangeStatValue(resource.id, value))}
+                onAdjust={onAdjustStatValue && ((delta) => onAdjustStatValue(resource.id, delta))}
+                onResetToMax={onResetStatValueToMax && (() => onResetStatValueToMax(resource.id))}
               />
             </Fragment>
           ))

@@ -5,14 +5,19 @@
  * per distinct name, and one that names none draws the flat list it always has — same rows, same
  * order, no heading invented for them.
  *
+ * **And the rows survive their controls** (TICKET-DM-05): with no spend handler — the table's DM,
+ * whose `invest-stat-points` meets a 404 — each row keeps its value and **what is already invested in
+ * it**, and loses the two buttons.
+ *
  * Pure props, so no store and no mock: the section is given the stats exactly as
  * `useCharacterSheet` produces them.
  *
- * **Validates: Concept 01; Requirements 11.3, 13.4, 21.1-21.5**
+ * **Validates: Concept 01; Requirements 11.3, 13.4, 21.1-21.5; v3 Req 42.7, 49.10**
  */
 
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { PointBudgetView } from '../shared/pointBudgetView';
 import { StatsSection } from './StatsSection';
 import type { StatBreakdown } from './useCharacterSheet';
 
@@ -112,5 +117,67 @@ describe('StatsSection', () => {
     renderSection([]);
 
     expect(screen.getByText('This ruleset defines no stats.')).toBeDefined();
+  });
+
+  describe('with no spend handler, which is the table’s DM (TICKET-DM-05)', () => {
+    /** A stat with points in it and a pool to spend, so only the reader decides the controls */
+    function spent(): StatBreakdown {
+      return { ...stat('Strenght'), invested: 6 };
+    }
+
+    /** The pool as the header states it, so `canSpend` is not what closes the buttons here */
+    const budget: PointBudgetView = {
+      pointsSpent: 6,
+      grantedPoints: 0,
+      pointBudget: { value: 15, error: null },
+      pointsRemaining: { value: 9, error: null },
+      isOverBudget: false,
+    };
+
+    it('should draw no spend controls, though the pool has points left in it', () => {
+      const strength = spent();
+      render(<StatsSection stats={[strength]} statTotal={99} budget={budget} />);
+
+      const spend = screen.queryByRole('button', { name: 'Spend a point on Strenght' });
+      const refund = screen.queryByRole('button', { name: 'Remove a point from Strenght' });
+
+      expect(spend).toBeNull();
+      expect(refund).toBeNull();
+    });
+
+    it('should still show the value and what has been invested in it', () => {
+      // Criterion 4: the buttons go, the number does not. A DM reading somebody's sheet is reading
+      // exactly *how many points are in this*.
+      const strength = spent();
+      render(<StatsSection stats={[strength]} statTotal={99} budget={budget} />);
+
+      const name = screen.getByText('Strenght (STR)');
+      const value = screen.getByText('12');
+      const invested = screen.getByText('6 points spent');
+
+      expect(name).toBeDefined();
+      expect(value).toBeDefined();
+      expect(invested).toBeDefined();
+    });
+
+    it('should leave a stat with nothing invested unlabelled, as it always was', () => {
+      // The `!== 0` in `CountRow`: a derived stat takes no points ever and gets no reading, rather
+      // than a 0 drawn on every row that cannot be spent on
+      const evasion = stat('Evasion');
+      render(<StatsSection stats={[evasion]} statTotal={99} budget={budget} />);
+
+      const reading = screen.queryByText('0 points spent');
+
+      expect(reading).toBeNull();
+    });
+
+    it('should say who grants the pool instead', () => {
+      const strength = spent();
+      render(<StatsSection stats={[strength]} statTotal={99} budget={budget} />);
+
+      const notice = screen.getByText(/quick actions/);
+
+      expect(notice).toBeDefined();
+    });
   });
 });

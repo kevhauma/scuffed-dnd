@@ -1061,10 +1061,11 @@ the six dead-end notices to **`SheetStatusNotice`** and the refusal banner to
 **`SheetRefusalBanner`** — `fallow` measured the DM panel and the adjustment log pushing that
 component past the complexity threshold, and neither of those subjects is laying a sheet out) and
 `useCharacterSheet` (status resolution and the one `calculateCharacter` call), with two hooks beside
-it since **PLY-01**: **`useSheetActions`** — every handler the sheet's controls call, split out
-because *what the sheet shows* and *what a Player can do to it* are two subjects (the
-`useCharacterSubmit` precedent, and the split that took the hook back under the complexity
-threshold) — and **`useOpenTableCharacter`**, which reads a character that lives on the server and
+it since **PLY-01**: **`useSheetActions`** — the handlers the sheet's controls call whose **actor is
+not in question**, split out because *what the sheet shows* and *what a Player can do to it* are two
+subjects (the `useCharacterSubmit` precedent, and the split that took the hook back under the
+complexity threshold); it is down to experience, the dream level and *back* since **TICKET-DM-05**,
+and takes no `Configuration` — and **`useOpenTableCharacter`**, which reads a character that lives on the server and
 then its table's Snapshot, in that order, reporting while it does so the sheet waits rather than
 rendering *Different Ruleset Loaded* in between. **It asks the server nothing while nobody is signed
 in** (D6). The sheet renders a dismissible refusal banner from `actionError`, and at a table it draws
@@ -1074,6 +1075,33 @@ a disabled one says *not now*. The purse **card** is drawn there since TICKET-DM
 Player can see the coin the DM handed them; the pair that would edit it left this hook for
 `usePurseControls`, on the rule the PAS-01 review set — *if a returned key needs a JSDoc paragraph to
 explain itself, it wants a module*.
+
+**Since TICKET-DM-05 the DM's view of a player's sheet is read-only**, and
+**`sheet/usePlayerControls`** is where that is decided: the six writes behind
+`requireCharacterPlayer` — the stat spend, the skill spend, the three pool writes and the focus pick —
+left `useSheetActions` for it, on DM-02's grounds. It sits on `useIsDungeonMaster` and **returns an
+interface whose fields are each optional**, empty for the DM, where the four hooks before it return
+`X | null`. That is the precedent extended rather than broken: those four each feed *one* surface, so
+`null` is the whole answer; this feeds *five*, and optional fields let `useCharacterSheet` spread it
+beside `...actions` so **`CharacterSheet` gains no conditional at all** — its DM-05 diff is comments
+only. A hook feeding one surface should still answer `null`. Each surface then takes its handlers as
+optional and draws a **display** when it has none: `ResourcesSection` and `StatsSection` and
+`SkillsSection` keep every value *and what is invested in it* (`CountRow` draws the points with no
+buttons when `invested !== 0`), `StatEditor` draws where a pool stands through its module-level
+`PoolReading`, `FocusSkillsSection` reads the three picks as text, and `RollsSection` moves the dice
+pool off the button label into text —
+`rollDice.ts` refuses a DM, so a live-looking roll button would be the most misleading control on the
+page. **Each also says who acts instead, through `play/shared/NoControlsNotice`** — that one line
+stated once, with six callers on the day it landed; `POINTS_ARE_THE_PLAYERS` is the sentence
+`StatsSection` and `SkillsSection` share, because since TICKET-RES-05 they spend one pool and a reader
+told two different things about one budget is being told something false about one of them. The
+predicate reaches the last two surfaces through their own hooks rather than a wrapper:
+**`useRoller`** answers `handleRoll: undefined` for a DM, and **`useSpellbook`** answers all three of
+learn/unlearn/cast that way **plus an explicit `isReadOnly`** — the panel must not infer *not yours*
+from an absent handler, because an absent handler there also means *no character or ruleset resolved
+yet*, and a Player would be told their own book is somebody else's. In `usePlayerControls` absence
+*does* mean exactly *the DM*, its six handlers being bound whatever the character and ruleset are;
+that property is worth keeping true.
 `SheetHeader` is the identity block the workbook's `Character Sheet` A1:B6 prints: name, level,
 **dream level**, XP, races and archetype through `CharacterSummaryLine`, plus the two write controls
 above.
@@ -1138,9 +1166,11 @@ the Player's own `ExperienceControl`, which is the same act with a different sto
 **`useIsDungeonMaster`** answers *is this reader the DM* with a **comparison, not a request**: the
 server opens a character only to its owner or to its table's DM, so *at a table and not mine* has
 exactly one meaning, and `characterStore.tableCharacterOwnerId` is what it reads. **It is the one
-piece four surfaces share** — `useDmControls`, `usePurseControls`, `useInventoryActs` and
-TICKET-DM-03's `useQuickActions` — which is why it is a hook of its own rather than a field on any of
-them.
+piece seven surfaces share** — `useDmControls`, `usePurseControls`, `useInventoryActs`,
+TICKET-DM-03's `useQuickActions` and TICKET-DM-05's `usePlayerControls`, `useRoller` and
+`useSpellbook` — which is why it is a hook of its own rather than a field on any of them. **It says no
+while the cookie is unresolved**, which decides the safe direction in both readings: a half-resolved
+browser draws the Player's own controls and never flashes the DM's.
 
 **`QuickActionsSidebar`** (TICKET-DM-03) is the DM's one-press half, first in the sheet's right rail
 and the fourth panel there that **decides for itself whether to exist** — it calls
@@ -1209,7 +1239,17 @@ component the config panel's preview uses, so an author and a Player read one se
 there and a code the scope allows but the context cannot resolve is CR-02's bug. **The book is the
 sheet's own `FILTER`**, derived by `spellbookOf` rather than read, so learning a spell puts it in the
 book and takes it out of the picker with neither control touching the other — `InventoryPanel`'s
-Backpack one entity over. Three things worth knowing before touching it:
+Backpack one entity over. **All three writes are the Player's** (TICKET-DM-05): `useSpellbook` sits on
+`useIsDungeonMaster` and answers `handleLearn`/`handleUnlearn`/`handleCast` as `undefined` for the
+table's DM, who reads the book with no controls, no pool selector and no search — and is told that a
+cast spends a pool, so the DM moves the pool with a quick action and the Player casts. **Asking that
+one question cost three extractions** — `bindActs`, `choosePool` and `searchUnlearned` are now
+module-level, because one more branch took the hook to 13 cyclomatic / 17 cognitive, over the
+**cognitive** threshold (fallow's pair is 20 / 15, so the cyclomatic one was never close). The two
+that actually moved the number were `choosePool` and `searchUnlearned` — decisions the hook body was
+making — rather than `bindActs`, whose guards lived inside arrow functions that fallow scores
+separately; `bindActs` stands on *one guard instead of three*. Three things worth knowing before
+touching it:
 
 - **The panel draws on `hasSpells`, a compendium *or* a book** — not on the compendium alone. A
   ruleset with no magic draws nothing, but force-deleting the last spell a Player had learned empties
@@ -1248,6 +1288,14 @@ preview, because a previewed roll that differed from the recorded one is the exa
 45.2 prevents. Its history is a projection of the session's Event log, so it survives a reload — and
 `RollHistoryPanel`'s `onClear` is **withheld** there, because an Event log is append-only and a
 *Clear* button would be one that lies. That same absence is what picks the empty state's wording.
+**And the table's DM does not roll either** (TICKET-DM-05): `rollDice.ts` uses
+`requireCharacterPlayer`, so the hook answers `handleRoll: undefined` for a DM and `RollsSection`
+draws the pool as text with no button. Two things follow. `canRoll` and an absent `handleRoll` mean
+**different** things and are kept apart — *this roll cannot be resolved right now* disables a button
+that still means something, where *this is not your roll* draws none. And a known gap: the hook
+narrows the session log with `?rolledBy=<the reader's own accountId>`, so **a DM's view of the roll
+history reads empty** — the table-wide feed is TICKET-DM-04's roster and TICKET-LIVE-02's, and the
+note is on both tickets.
 
 **`shared/`** — cross-mode components and hooks, barrelled by `shared/index.ts`:
 `AppShell.tsx` (the medieval frame + mode switcher + per-mode nav), `useAppMode.ts` (route↔mode

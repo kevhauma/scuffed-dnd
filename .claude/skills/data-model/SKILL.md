@@ -811,7 +811,10 @@ than four rules. The **delta** shape is the one that matters at a table: it appl
 *stored*, so a pool left above a fallen maximum loses exactly what was asked for (TICKET-RES-03),
 where a surface computing `current − 7` and sending an absolute would be doing arithmetic on a
 reading that may have moved. A *write* still clamps at the derived maximum; nothing rewrites a
-stranded current merely because the maximum fell.
+stranded current merely because the maximum fell. **The two shapes do not both reach both surfaces**
+(TICKET-DM-05): the Player's pair is behind `requireCharacterPlayer`, so a DM opening somebody's sheet
+is drawn no pool editor at all and moves the pool from the quick actions instead. No persisted shape
+changed for that — it is which handler a surface is handed, not what a character stores.
 
 And `experience` (TICKET-RES-01) — stored because nothing else in the app knows it: XP is awarded
 at the table. **`level` derives *from* it**, through a reverse lookup on the `xp_thresholds` curve

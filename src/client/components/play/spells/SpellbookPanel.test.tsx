@@ -14,14 +14,32 @@
  * 3. **The pool selector appears only when the ruleset has a choice to make**, which is what the
  *    User's ruling asks for.
  * 4. **A spell the ruleset has lost is a row a Player can clear**, not a crash and not a silent gap.
+ * 5. **The table's DM reads the book and does not work it** (TICKET-DM-05) — all three writes are
+ *    behind `requireCharacterPlayer`.
  *
- * **Validates: v4 systems/13 gaps 2, 3; Requirements 21.1-21.5**
+ * **Validates: v4 systems/13 gaps 2, 3; Requirements 21.1-21.5; v3 Req 42.7, 49.10**
  */
 
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Character } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
+
+/**
+ * Who is reading, which decides whether the panel has controls at all (TICKET-DM-05)
+ *
+ * Signed out by default, so every case written before that ticket is a Player on their own local
+ * sheet and behaves exactly as it did. The one block that flips it says so.
+ */
+const account = { current: null as string | null };
+vi.mock('../../auth/useAuth', () => ({
+  useAuth: () => ({
+    accountId: account.current,
+    email: null,
+    isPending: false,
+    isSignedIn: account.current !== null,
+  }),
+}));
 
 vi.mock('../../../services/storage', () => ({
   loadConfiguration: vi.fn(() => null),
@@ -116,9 +134,39 @@ function stored(): Character {
   return useCharacterStore.getState().characters[0];
 }
 
+/**
+ * Draw the panel for the table's DM — somebody else's character, open at a game (TICKET-DM-05)
+ *
+ * The store holds a table's character apart from `characters`, which is LocalStorage's list, so this
+ * is what a sheet at a table is; the owner being a different Account is what makes the reader a DM.
+ *
+ * @param config The ruleset the table plays by
+ * @param character Whose book is being read
+ */
+function drawForDungeonMaster(config: Configuration, character: Character) {
+  account.current = 'account-dm';
+  useConfigStore.setState({ config });
+  useCharacterStore.setState({
+    characters: [],
+    tableCharacter: character,
+    tableCharacterOwnerId: 'account-player',
+    isLoaded: true,
+    actionError: null,
+  });
+
+  return render(<SpellbookPanel characterId={character.id} />);
+}
+
 describe('SpellbookPanel', () => {
   beforeEach(() => {
-    useCharacterStore.setState({ characters: [], isLoaded: false, actionError: null });
+    account.current = null;
+    useCharacterStore.setState({
+      characters: [],
+      tableCharacter: null,
+      tableCharacterOwnerId: null,
+      isLoaded: false,
+      actionError: null,
+    });
     useConfigStore.setState({ config: null });
     vi.clearAllMocks();
   });
@@ -358,5 +406,69 @@ describe('SpellbookPanel', () => {
     fireEvent.change(screen.getByLabelText('Learn a spell'), { target: { value: 'zzz' } });
 
     expect(screen.getByText('Nothing left to learn by that name.')).toBeDefined();
+  });
+
+  describe('read by the table’s DM (TICKET-DM-05)', () => {
+    /** A caster with Firebolt already in the book, so there is a row to draw controls on */
+    function aCaster(): Character {
+      return createCharacter({ learnedSpellIds: ['bolt'] });
+    }
+
+    /** The ruleset and the caster together, as every case in this block opens */
+    function drawBook() {
+      const rules = createConfig();
+      const caster = aCaster();
+
+      drawForDungeonMaster(rules, caster);
+    }
+
+    it('still draws the book, each row named and priced', () => {
+      drawBook();
+
+      const heading = screen.getByRole('heading', { name: 'Spellbook' });
+      const name = screen.getByText('Firebolt');
+      const cost = screen.getByText(/10 mana/);
+
+      expect(heading).toBeDefined();
+      expect(name).toBeDefined();
+      expect(cost).toBeDefined();
+    });
+
+    it('draws no Cast and no Unlearn, both being writes the server refuses', () => {
+      drawBook();
+
+      const cast = screen.queryByRole('button', { name: 'Cast' });
+      const unlearn = screen.queryByRole('button', { name: 'Unlearn' });
+
+      expect(cast).toBeNull();
+      expect(unlearn).toBeNull();
+    });
+
+    it('draws no search to learn from either', () => {
+      drawBook();
+
+      const search = screen.queryByLabelText('Learn a spell');
+
+      expect(search).toBeNull();
+    });
+
+    it('says a cast spends a pool, and that moving one is the quick actions’ job', () => {
+      // The ticket's own wrinkle, said on the panel rather than left to be worked out: the DM's route
+      // to a recorded cast is to move the pool and have the Player cast
+      drawBook();
+
+      const notice = screen.getByText(/A cast spends a pool/);
+
+      expect(notice).toBeDefined();
+    });
+
+    it('still draws nothing at all for a ruleset that knows no magic', () => {
+      // The reader does not change what a Spellbook *is* — an empty compendium is still no panel
+      const noMagic = createConfig({ spells: [] });
+      const character = createCharacter();
+      const { container } = drawForDungeonMaster(noMagic, character);
+
+      expect(container.innerHTML).toBe('');
+    });
   });
 });

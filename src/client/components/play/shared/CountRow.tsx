@@ -71,6 +71,10 @@ export interface CountRowProps {
   /**
    * Spend or unspend a point. Absent for anything the Player cannot invest in — a derived stat
    * takes no points, so it gets no controls at all rather than disabled ones.
+   *
+   * **Also absent for the table's DM since TICKET-DM-05**, whose spend meets a 404: the buttons go
+   * and {@link invested} stays, because *how many points are in this* is a number the DM is reading
+   * the sheet to find out. See {@link investedStyles}' sibling below for where that split is drawn.
    */
   onAdjust?: (points: number) => void;
   /** `sm` for the skills grid, where there are forty-odd of these and they are secondary */
@@ -89,6 +93,25 @@ const sizeStyles = {
  * reason the value beside the name has one.
  */
 const investedStyles = 'min-w-5 shrink-0 text-center font-mono text-xs tabular-nums text-ink-700';
+
+/**
+ * The points, drawn the same either way — with the buttons around them, or on their own
+ *
+ * **A function rather than a copied span** (TICKET-DM-05): the reading a DM is left with has to be
+ * the *same* reading a Player sees between the controls, or the number would move by a pixel when
+ * the buttons go and a reader would take it for a different figure.
+ *
+ * @param invested How many points are in this row's entity
+ * @returns The digits for the eye and the whole phrase for a screen reader
+ */
+function investedReading(invested: number) {
+  return (
+    <span className={investedStyles}>
+      <span className="sr-only">{`${invested} points spent`}</span>
+      <span aria-hidden="true">{invested}</span>
+    </span>
+  );
+}
 
 export function CountRow({
   name,
@@ -160,7 +183,7 @@ export function CountRow({
         </Text>
       </div>
 
-      {onAdjust && (
+      {onAdjust ? (
         <div className={`flex shrink-0 items-center ${scale.gap}`}>
           <Button
             variant="secondary"
@@ -174,10 +197,7 @@ export function CountRow({
 
           {/* The whole phrase for a screen reader and the digits alone for the eye: a bare number
               between two unlabelled buttons is not self-describing out loud */}
-          <span className={investedStyles}>
-            <span className="sr-only">{`${invested} points spent`}</span>
-            <span aria-hidden="true">{invested}</span>
-          </span>
+          {investedReading(invested)}
 
           <Button
             variant="secondary"
@@ -189,6 +209,16 @@ export function CountRow({
             +
           </Button>
         </div>
+      ) : (
+        /* No controls, but the spend is still a fact about the row (TICKET-DM-05).
+
+           **`!== 0` suppresses two different things and both are wanted.** A **derived** stat has
+           nothing invested by construction, so a `0` beside it would name a spend that cannot exist;
+           and a **spendable** stat nobody has spent on yet reads as a plain row for the DM exactly as
+           it does for the Player, because *nothing has been put in this* is what an absent badge
+           already says. What the reading is for is the other case — a stat with points in it, whose
+           count is a number the DM opened the sheet to find out. */
+        invested !== 0 && investedReading(invested)
       )}
     </div>
   );

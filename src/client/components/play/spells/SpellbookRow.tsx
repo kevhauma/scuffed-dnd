@@ -40,8 +40,16 @@ export interface SpellbookRowProps {
   effect: ResolvedSegment[];
   /** Whether there is a pool to spend from — `false` disables *Cast* rather than hiding it */
   canCast: boolean;
-  onCast: (spellId: string) => void;
-  onUnlearn: (spellId: string) => void;
+  /**
+   * Spend a pool on this spell, or absent when this reader may not (TICKET-DM-05)
+   *
+   * **A different absence from `canCast: false`**, and the row draws them differently on purpose:
+   * an unspendable pool disables a button whose meaning still stands, where a reader with no handler
+   * has no such act at all and gets no button.
+   */
+  onCast?: (spellId: string) => void;
+  /** Take this spell out of the book. Absent with {@link SpellbookRowProps.onCast}. */
+  onUnlearn?: (spellId: string) => void;
 }
 
 /** What the row says a cast costs — an unpriced spell says so rather than showing a 0 */
@@ -67,23 +75,29 @@ export function SpellbookRow({ entry, effect, canCast, onCast, onUnlearn }: Spel
           )}
         </div>
 
-        <div className="flex gap-2">
-          {/* Offered even when the spell is unpriced: the Kernel's refusal names *why* it cannot be
-              cast, which is a sentence the Player can act on where a missing button is not */}
-          {spell && (
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={!canCast}
-              onClick={() => onCast(entry.spellId)}
-            >
-              Cast
-            </Button>
-          )}
-          <Button variant="danger" size="sm" onClick={() => onUnlearn(entry.spellId)}>
-            Unlearn
-          </Button>
-        </div>
+        {/* The container goes with its buttons (TICKET-DM-05): a reader with neither handler would
+            otherwise get an empty flex box holding the row's `justify-between` open against nothing */}
+        {(onCast || onUnlearn) && (
+          <div className="flex gap-2">
+            {/* Offered even when the spell is unpriced: the Kernel's refusal names *why* it cannot be
+                cast, which is a sentence the Player can act on where a missing button is not */}
+            {spell && onCast && (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!canCast}
+                onClick={() => onCast(entry.spellId)}
+              >
+                Cast
+              </Button>
+            )}
+            {onUnlearn && (
+              <Button variant="danger" size="sm" onClick={() => onUnlearn(entry.spellId)}>
+                Unlearn
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {effect.length > 0 && <ResolvedTemplate segments={effect} className="mt-1" />}

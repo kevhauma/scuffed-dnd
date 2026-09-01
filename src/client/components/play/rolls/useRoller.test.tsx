@@ -100,6 +100,27 @@ function renderRoller(input: FormulaResult = 39) {
   );
 }
 
+/** What `renderHook` hands back, narrowed to this hook */
+type Rendered = { current: ReturnType<typeof useRoller> };
+
+/**
+ * Throw one roll through the handler a Player gets
+ *
+ * `handleRoll` became optional at TICKET-DM-05 — it is `undefined` for the **table's DM**, whose roll
+ * the server refuses, and no case in this file is one. So this insists on it rather than reaching
+ * past the type, and the whole handler is **re-read on every call**: it closes over the calculated
+ * character, so a binding kept across a `rerender` would roll the previous ruleset's numbers.
+ *
+ * @param rendered The rendered hook, read fresh
+ * @param rollId Which definition to throw
+ */
+function roll(rendered: Rendered, rollId: string) {
+  const handleRoll = rendered.current.handleRoll;
+  if (handleRoll === undefined) throw new Error('Expected a roll handler on a Player’s own sheet');
+
+  act(() => handleRoll(rollId));
+}
+
 describe('useRoller', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -110,7 +131,7 @@ describe('useRoller', () => {
   it('should keep the latest result per roll id', () => {
     const { result } = renderRoller();
 
-    act(() => result.current.handleRoll('mel-id'));
+    roll(result, 'mel-id');
 
     // Every die at its minimum, plus the flat: 1 + 1 + 1 + 1
     expect(result.current.results['mel-id'].total).toBe(4);
@@ -120,7 +141,7 @@ describe('useRoller', () => {
   it('should record the roll in the session history, tagged with who rolled it', () => {
     const { result } = renderRoller();
 
-    act(() => result.current.handleRoll('mel-id'));
+    roll(result, 'mel-id');
 
     const [entry] = useUIStore.getState().rollHistory;
     expect(entry.characterId).toBe('char1');
@@ -132,7 +153,7 @@ describe('useRoller', () => {
   it('should report a broken input beside that roll, with no result and no history entry', () => {
     const { result } = renderRoller(formulaError('undefined-variable', 'Undefined variable: STR'));
 
-    act(() => result.current.handleRoll('mel-id'));
+    roll(result, 'mel-id');
 
     expect(result.current.errors['mel-id']).toContain('Undefined variable: STR');
     expect(result.current.results['mel-id']).toBeUndefined();
@@ -142,7 +163,7 @@ describe('useRoller', () => {
   it('should ignore a roll id the ruleset does not define', () => {
     const { result } = renderRoller();
 
-    act(() => result.current.handleRoll('nope'));
+    roll(result, 'nope');
 
     expect(result.current.results).toEqual({});
     expect(result.current.errors).toEqual({});
@@ -150,7 +171,7 @@ describe('useRoller', () => {
 
   it('should show each character only their own rolls', () => {
     const mine = renderRoller();
-    act(() => mine.result.current.handleRoll('mel-id'));
+    roll(mine.result, 'mel-id');
 
     const theirs = renderHook(() =>
       useRoller('char2', createCalculated({ 'mel-id': 39 }), { rng: () => 0 })
@@ -170,12 +191,12 @@ describe('useRoller', () => {
       { initialProps: { input: broken as FormulaResult } }
     );
 
-    act(() => result.current.handleRoll('mel-id'));
+    roll(result, 'mel-id');
     expect(result.current.errors['mel-id']).toBeDefined();
 
     // The ruleset is fixed and the Player rolls again
     rerender({ input: 39 });
-    act(() => result.current.handleRoll('mel-id'));
+    roll(result, 'mel-id');
 
     expect(result.current.errors['mel-id']).toBeUndefined();
     expect(result.current.results['mel-id'].total).toBe(4);
@@ -183,7 +204,7 @@ describe('useRoller', () => {
 
   it("should clear this character's history on request", () => {
     const { result } = renderRoller();
-    act(() => result.current.handleRoll('mel-id'));
+    roll(result, 'mel-id');
 
     act(() => result.current.handleClearHistory());
 
@@ -212,7 +233,7 @@ describe('useRoller', () => {
     });
 
     const { result } = renderRoller();
-    act(() => result.current.handleRoll('mel-id'));
+    roll(result, 'mel-id');
     expect(useUIStore.getState().rollHistory).toHaveLength(2);
 
     act(() => result.current.handleClearHistory());
@@ -225,7 +246,7 @@ describe('useRoller', () => {
     const { result } = renderHook(() => useRoller('char1', null));
 
     expect(result.current.canRoll).toBe(false);
-    act(() => result.current.handleRoll('mel-id'));
+    roll(result, 'mel-id');
     expect(result.current.results).toEqual({});
   });
 });

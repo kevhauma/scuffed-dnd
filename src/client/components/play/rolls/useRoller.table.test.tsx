@@ -151,6 +151,27 @@ beforeEach(() => {
   });
 });
 
+/** What `renderHook` hands back, narrowed to this hook */
+type Rendered = { current: ReturnType<typeof useRoller> };
+
+/**
+ * The roll handler a Player gets, insisted upon
+ *
+ * `handleRoll` became optional at TICKET-DM-05: it is `undefined` for the **table's DM**, whose roll
+ * `rollDice.ts` refuses. Every case here is the character's own Player — `tableCharacterOwnerId` is
+ * never set to somebody else — so an absent handler is a regression rather than a state to handle,
+ * and this says so by name instead of the call sites reaching past the type.
+ *
+ * @param rendered The rendered hook, read fresh at each call site
+ * @returns The handler, ready to be thrown inside the caller's own `act`
+ */
+function rollerOf(rendered: Rendered): (rollId: string) => void {
+  const handleRoll = rendered.current.handleRoll;
+  if (handleRoll === undefined) throw new Error('Expected a roll handler on a Player’s own sheet');
+
+  return handleRoll;
+}
+
 describe('rolling at a table', () => {
   it('asks the server for the roll and adopts what came back', async () => {
     respondWith([], OUTCOME);
@@ -158,8 +179,9 @@ describe('rolling at a table', () => {
     const { result } = renderHook(() => useRoller('char-1', CALCULATED));
     await waitFor(() => expect(requests().length).toBeGreaterThan(0));
 
+    const handleRoll = rollerOf(result);
     await act(async () => {
-      result.current.handleRoll('roll-1');
+      handleRoll('roll-1');
     });
 
     await waitFor(() => expect(result.current.results['roll-1']).toBeDefined());
@@ -176,8 +198,9 @@ describe('rolling at a table', () => {
 
     const { result } = renderHook(() => useRoller('char-1', CALCULATED));
 
+    const handleRoll = rollerOf(result);
     await act(async () => {
-      result.current.handleRoll('roll-1');
+      handleRoll('roll-1');
     });
     await waitFor(() => expect(result.current.results['roll-1']).toBeDefined());
 
@@ -208,8 +231,9 @@ describe('rolling at a table', () => {
     const { result } = renderHook(() => useRoller('char-1', CALCULATED));
     await waitFor(() => expect(requests()).toHaveLength(1));
 
+    const handleRoll = rollerOf(result);
     await act(async () => {
-      result.current.handleRoll('roll-1');
+      handleRoll('roll-1');
     });
     await waitFor(() => expect(result.current.history).toHaveLength(1));
 
@@ -236,8 +260,9 @@ describe('rolling at a table', () => {
 
     const { result } = renderHook(() => useRoller('char-1', CALCULATED));
 
+    const handleRoll = rollerOf(result);
     await act(async () => {
-      result.current.handleRoll('roll-1');
+      handleRoll('roll-1');
     });
 
     await waitFor(() => expect(result.current.errors['roll-1']).toBeDefined());
@@ -251,8 +276,9 @@ describe('rolling at a table', () => {
 
     const { result } = renderHook(() => useRoller('char-1', CALCULATED));
 
+    const handleRoll = rollerOf(result);
     await act(async () => {
-      result.current.handleRoll('roll-1');
+      handleRoll('roll-1');
     });
     await waitFor(() => expect(result.current.results['roll-1']).toBeDefined());
 
@@ -279,8 +305,9 @@ describe('rolling a character in this browser', () => {
       })
     );
 
+    const handleRoll = rollerOf(result);
     act(() => {
-      result.current.handleRoll('roll-1');
+      handleRoll('roll-1');
     });
 
     expect(result.current.results['roll-1'].notation).toBe('1D6 + 2');

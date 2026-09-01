@@ -28,13 +28,20 @@
  * names no group and lays no column out: `shared/labelledGroups.ts` decides what the columns *are*
  * and `StatGroupColumns` draws them, so this file still only knows how to draw a stat.
  *
- * **Validates: Concept 01; Concept 06; Requirements 11.3, 13.4, 16.6, 21.1-21.5**
+ * **The spend handler is optional since TICKET-DM-05.** `invest-stat-points` is behind
+ * `requireCharacterPlayer`, so the table's DM gets no handler and every row loses its two buttons
+ * while keeping its value, its breakdown and **what is already invested in it** — a DM reading
+ * somebody's sheet is reading exactly those numbers. The pool itself is granted from the quick
+ * actions, which is what the section says in place of the controls.
+ *
+ * **Validates: Concept 01; Concept 06; Requirements 11.3, 13.4, 16.6, 21.1-21.5; v3 Req 42.7, 49.10**
  */
 
 import { groupByLabel } from '../../shared/labelledGroups';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 import { CountRow } from '../shared/CountRow';
+import { NoControlsNotice, POINTS_ARE_THE_PLAYERS } from '../shared/NoControlsNotice';
 import type { PointBudgetView } from '../shared/pointBudgetView';
 import { investedContribution } from './investedContribution';
 import { StatGroupColumns } from './StatGroupColumns';
@@ -47,7 +54,13 @@ export interface StatsSectionProps {
   statTotal: number;
   /** The pool every invested stat below spends from, or null when there is none to show */
   budget: PointBudgetView | null;
-  onChangeInvestedPoints: (statId: string, points: number) => void;
+  /**
+   * Spend or unspend a point on one stat, or absent when this reader may not (TICKET-DM-05)
+   *
+   * Absent for the table's DM, whose `invest-stat-points` request meets a 404 — the rows keep every
+   * number and lose both buttons, which is *absent* rather than *present and disabled*.
+   */
+  onChangeInvestedPoints?: (statId: string, points: number) => void;
 }
 
 export function StatsSection({
@@ -66,6 +79,12 @@ export function StatsSection({
         Stats
       </Text>
 
+      {/* The same sentence `SkillsSection` says, from the same constant: one pool pays for both since
+          TICKET-RES-05, so two spellings would be telling a reader two things about one budget */}
+      {onChangeInvestedPoints === undefined && (
+        <NoControlsNotice message={POINTS_ARE_THE_PLAYERS} />
+      )}
+
       {stats.length === 0 ? (
         <Text variant="body-small-secondary">This ruleset defines no stats.</Text>
       ) : (
@@ -79,9 +98,10 @@ export function StatsSection({
                 total={stat.max}
                 invested={stat.invested}
                 // A derived stat takes no points, so it gets no controls at all rather than two
-                // permanently disabled ones
+                // permanently disabled ones — and since TICKET-DM-05 neither does a reader who may
+                // not spend, which is a different reason for the same absence
                 onAdjust={
-                  stat.isDerived || !budget
+                  stat.isDerived || !budget || !onChangeInvestedPoints
                     ? undefined
                     : (points) => onChangeInvestedPoints(stat.id, points)
                 }

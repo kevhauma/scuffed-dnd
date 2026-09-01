@@ -21,7 +21,14 @@
  * about one spell — so it is asked once, above the book. A ruleset with exactly one resource answers
  * it without asking, which is the ordinary sheet, and one with none disables *Cast* and says why.
  *
- * **Validates: v4 systems/13 gaps 2, 3; Requirements 21.1-21.5**
+ * ## And the DM reads it rather than working it (TICKET-DM-05)
+ *
+ * All three writes are behind `requireCharacterPlayer`, so the table's DM gets the book, each row's
+ * effect resolved for its caster, and none of the controls — no *Cast*, no *Unlearn*, no search to
+ * learn from. The pool selector goes with them, because which pool a cast spends is a choice made at
+ * cast time by whoever is casting.
+ *
+ * **Validates: v4 systems/13 gaps 2, 3; Requirements 21.1-21.5; v3 Req 42.7, 49.10**
  */
 
 import { useId } from 'react';
@@ -29,6 +36,7 @@ import { Card } from '../../ui/Card/Card';
 import { Label } from '../../ui/Label/Label';
 import { Select } from '../../ui/Select/Select';
 import { Text } from '../../ui/Text/Text';
+import { NoControlsNotice } from '../shared/NoControlsNotice';
 import { SpellbookRow } from './SpellbookRow';
 import { SpellLearner } from './SpellLearner';
 import { useSpellbook } from './useSpellbook';
@@ -37,11 +45,23 @@ export interface SpellbookPanelProps {
   characterId: string;
 }
 
+/**
+ * What a reader with no Spellbook controls is told instead
+ *
+ * The ticket's own wrinkle, said on the panel rather than left to be worked out: a cast **spends a
+ * pool**, so the DM's route to the same outcome is the quick actions, and the cast itself stays with
+ * the person whose spell it is.
+ */
+const NO_CONTROLS =
+  'Only the Player works their own Spellbook. A cast spends a pool — move it from the quick actions ' +
+  'in the rail and let them cast.';
+
 export function SpellbookPanel({ characterId }: SpellbookPanelProps) {
   const poolSelectId = useId();
 
   const {
     hasSpells,
+    isReadOnly,
     rows,
     pools,
     chosenPool,
@@ -62,13 +82,24 @@ export function SpellbookPanel({ characterId }: SpellbookPanelProps) {
   // whatever the ruleset has left, or a force-deleted spell would be unclearable — see `hasSpells`.
   if (!hasSpells) return null;
 
+  /*
+   * The three writes move together (TICKET-DM-05), and **the hook says so rather than this file
+   * inferring it from an absent handler**: a missing `handleLearn` also means *no character or
+   * ruleset resolved yet*, and reading that as *not your book* would tell a Player their own
+   * Spellbook is somebody else's. The pool chrome goes with the writes, since *which pool am I
+   * casting out of* is a question only the caster is being asked.
+   */
+  const canAct = !isReadOnly;
+
   return (
     <Card className="p-6">
       <Text variant="h4" as="h2" className="mb-3">
         Spellbook
       </Text>
 
-      {pools.length > 1 && (
+      {isReadOnly && <NoControlsNotice message={NO_CONTROLS} />}
+
+      {canAct && pools.length > 1 && (
         <div className="mb-3">
           <Label htmlFor={poolSelectId}>Cast from</Label>
           <Select
@@ -84,13 +115,13 @@ export function SpellbookPanel({ characterId }: SpellbookPanelProps) {
         </div>
       )}
 
-      {pools.length === 1 && chosenPool && (
+      {canAct && pools.length === 1 && chosenPool && (
         <Text variant="body-small-secondary" className="mb-3">
           {`Casting from ${chosenPool.name} — ${chosenPool.current} left.`}
         </Text>
       )}
 
-      {pools.length === 0 && (
+      {canAct && pools.length === 0 && (
         <Text variant="body-small-secondary" className="mb-3">
           This ruleset defines no resource pools, so there is nothing to spend on a cast.
         </Text>
@@ -111,16 +142,18 @@ export function SpellbookPanel({ characterId }: SpellbookPanelProps) {
         ))
       )}
 
-      <div className="mt-4">
-        <SpellLearner
-          search={search}
-          onSearch={setSearch}
-          matches={matches}
-          matchCount={matchCount}
-          matchLimit={matchLimit}
-          onLearn={handleLearn}
-        />
-      </div>
+      {handleLearn && (
+        <div className="mt-4">
+          <SpellLearner
+            search={search}
+            onSearch={setSearch}
+            matches={matches}
+            matchCount={matchCount}
+            matchLimit={matchLimit}
+            onLearn={handleLearn}
+          />
+        </div>
+      )}
     </Card>
   );
 }

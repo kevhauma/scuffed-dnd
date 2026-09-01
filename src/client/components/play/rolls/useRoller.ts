@@ -21,10 +21,22 @@
  * comes back is the server's outcome, and the history is a projection of the session's Event log —
  * so it survives a reload, which `useUIStore`'s never could.
  *
+ * ## And the table's DM does not roll either (TICKET-DM-05)
+ *
+ * [`rollDice.ts`](../../../../server/routes/rolls/rollDice.ts) uses `requireCharacterPlayer`, whose
+ * own docblock says *a DM rolling for a player is out of scope*. So this hook answers `undefined` for
+ * a DM and `RollsSection` draws the pool with no button — v3 Req 49.10's *absent, not present and
+ * disabled*, applied to the one control where a stale-looking affordance would produce a **number**
+ * somebody acts on.
+ *
+ * **The predicate lives here rather than in a wrapper**: this is the rolls surface's own hook, and
+ * `handleRoll` has exactly one consumer, so a `useRollControls` around it would be an abstraction
+ * with no second caller.
+ *
  * Replaces `useCombatRoller` (TICKET-ROLL-06); keyed by roll **id** rather than a 3-letter code,
  * since a roll definition has none.
  *
- * **Validates: Concept 08; Requirements 15.1, 15.2, 15.3, 15.5; v3 Req 41.6, 45.2**
+ * **Validates: Concept 08; Requirements 15.1, 15.2, 15.3, 15.5; v3 Req 41.6, 42.7, 45.2, 49.10**
  */
 
 import { useEffect, useState } from 'react';
@@ -38,6 +50,7 @@ import { useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
 import { type RollResult, useUIStore } from '../../../stores/uiStore';
 import { useAuth } from '../../auth/useAuth';
+import { useIsDungeonMaster } from '../dm/useIsDungeonMaster';
 
 export interface UseRollerOptions {
   /**
@@ -62,6 +75,8 @@ export function useRoller(
 
   const atTable = useCharacterStore((state) => state.tableCharacter?.id === characterId);
   const tableSessionId = useCharacterStore((state) => state.tableSessionId);
+  // Who is holding the sheet open (TICKET-DM-05) — the shared predicate, not a fifth spelling of it
+  const isDungeonMaster = useIsDungeonMaster(characterId);
   // Whose rolls to ask for. The Player's own, because `requireCharacterPlayer` means nobody else
   // could have rolled this character — the id is what the log is keyed by, so it is what narrows it
   const { accountId } = useAuth();
@@ -193,6 +208,13 @@ export function useRoller(
     // a config and a calculated character, so the extra disjunct enabled nothing — and if it ever
     // became reachable it would offer a roll whose pool the sheet could not show
     canRoll: config !== null && calculated !== null,
-    handleRoll,
+    /**
+     * Throw a roll — **`undefined` for the table's DM**, whose roll the server refuses (TICKET-DM-05)
+     *
+     * Not folded into `canRoll` above, and the distinction is the ticket's: `canRoll` says *this roll
+     * cannot be resolved right now* and disables a button that still means something, where this says
+     * *this is not your roll to make* and there is no button at all.
+     */
+    handleRoll: isDungeonMaster ? undefined : handleRoll,
   };
 }

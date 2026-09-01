@@ -11,12 +11,17 @@
  * Every number comes from the calculator; this section multiplies nothing and — since
  * TICKET-SKL-04 moved the level's ceiling into the engine — rounds nothing either.
  *
- * **Validates: Concept 02; Requirements 13.4, 21.1-21.5; v4 systems/06 gap 3**
+ * **The spend handler is optional since TICKET-DM-05**, `StatsSection`'s change out of the same pool:
+ * `invest-skill-points` is behind `requireCharacterPlayer`, so the table's DM reads all forty-odd
+ * levels and bonuses with no way to move any of them.
+ *
+ * **Validates: Concept 02; Requirements 13.4, 21.1-21.5; v3 Req 42.7, 49.10; v4 systems/06 gap 3**
  */
 
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 import { CountRow } from '../shared/CountRow';
+import { NoControlsNotice, POINTS_ARE_THE_PLAYERS } from '../shared/NoControlsNotice';
 import type { PointBudgetView } from '../shared/pointBudgetView';
 import type { SkillBreakdown } from './useCharacterSheet';
 
@@ -30,13 +35,14 @@ export interface SkillsSectionProps {
    */
   budget: PointBudgetView | null;
   /**
-   * Spend or unspend a point on one skill
+   * Spend or unspend a point on one skill, or absent when this reader may not (TICKET-DM-05)
    *
    * Budgeted since TICKET-RES-05, so these rows carry the same `canSpend` the stats do — the note
    * that used to stand here said this would happen the moment a ticket gave skills a pool, and this
-   * is that ticket.
+   * is that ticket. **Absent for the table's DM**, for `StatsSection`'s reason and out of the same
+   * pool: one budget pays for both, and neither half of it is the DM's to spend.
    */
-  onChangeInvestedPoints: (skillId: string, points: number) => void;
+  onChangeInvestedPoints?: (skillId: string, points: number) => void;
 }
 
 export function SkillsSection({ skills, budget, onChangeInvestedPoints }: SkillsSectionProps) {
@@ -45,6 +51,11 @@ export function SkillsSection({ skills, budget, onChangeInvestedPoints }: Skills
       <Text variant="h4" as="h2" className="mb-3">
         Skills
       </Text>
+
+      {/* `StatsSection`'s sentence from `StatsSection`'s constant — the pool is one pool */}
+      {onChangeInvestedPoints === undefined && (
+        <NoControlsNotice message={POINTS_ARE_THE_PLAYERS} />
+      )}
 
       {skills.length === 0 ? (
         <Text variant="body-small-secondary">This ruleset defines no skills.</Text>
@@ -70,7 +81,12 @@ export function SkillsSection({ skills, budget, onChangeInvestedPoints }: Skills
               // it is a column of small numbers, where the level is what actually moves.
               secondary={{ label: 'bonus', value: skill.bonus }}
               invested={skill.invested}
-              onAdjust={budget ? (points) => onChangeInvestedPoints(skill.id, points) : undefined}
+              // No budget to spend from, or no standing to spend it — two reasons, one absence
+              onAdjust={
+                budget && onChangeInvestedPoints
+                  ? (points) => onChangeInvestedPoints(skill.id, points)
+                  : undefined
+              }
               // `StatsSection`'s line, for the same pool and the same reason: an empty pool closes
               // `+` and leaves `−` open, because a point can always be taken back
               canSpend={(budget?.pointsRemaining.value ?? 0) > 0}

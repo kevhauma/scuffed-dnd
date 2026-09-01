@@ -5,7 +5,13 @@
  * ruleset defines, for one character. Layout and composition only — every decision and every
  * number comes from `useCharacterSheet`.
  *
- * **Validates: Requirements 8.5, 13.4, 14.1, 14.2, 14.5, 21.1-21.5, 22.1-22.6**
+ * **Including *whether each section has controls at all*** (TICKET-DM-05). The six handlers this file
+ * passes down are `undefined` for the table's DM, whose writes `requireCharacterPlayer` refuses, and
+ * each section draws a display instead. **Nothing here branches on that**, which is deliberate:
+ * `usePlayerControls` answers with absent fields rather than a `null` bundle exactly so this file
+ * gains no conditional — see that module for why the four hooks before it answer differently.
+ *
+ * **Validates: Requirements 8.5, 13.4, 14.1, 14.2, 14.5, 21.1-21.5, 22.1-22.6; v3 Req 42.7, 49.10**
  */
 
 import { AdjustmentLog } from '../dm/AdjustmentLog';
