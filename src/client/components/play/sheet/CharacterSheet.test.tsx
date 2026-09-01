@@ -1329,13 +1329,31 @@ describe('CharacterSheet', () => {
       expect(screen.getByRole('heading', { name: 'Stats' })).toBeDefined();
     });
 
-    it('should draw neither the experience controls nor the purse, because both are the DM’s', () => {
-      // D9 and v3 Req 42.5: there is no player route for either, so the control is **absent**
-      // rather than disabled — a greyed control says *not now*, and this is *not yours*
+    it('should draw no experience control, because awarding it is the DM’s (D9)', () => {
+      // There is no player route for it, so the control is **absent** rather than disabled — a
+      // greyed control says *not now*, and this is *not yours*
       render(<CharacterSheet characterId="char1" />);
 
       expect(screen.queryByRole('button', { name: 'Award' })).toBeNull();
-      expect(screen.queryByRole('heading', { name: 'Purse' })).toBeNull();
+    });
+
+    it('should show the purse and no way to edit it, since the DM hands out coin (TICKET-DM-02)', () => {
+      /*
+       * **Changed by TICKET-DM-02, and the change is the point.** The card used to be absent here
+       * too, which was right while nobody at a table could change a purse and wrong the moment the
+       * DM could: *"the payment lands on the sheet instead of in a note"* is not satisfied by a
+       * number the Player cannot see. What stays absent is the *control* — an amount with no box
+       * beside it is a display, which is not the thing v3 Req 42.7 is about.
+       */
+      render(<CharacterSheet characterId="char1" />);
+
+      const purse = screen.getByRole('heading', { name: 'Purse' });
+      const box = screen.queryByLabelText('Gold');
+      const explanation = screen.getByText(/Dungeon Master hands out coin/);
+
+      expect(purse).toBeDefined();
+      expect(box).toBeNull();
+      expect(explanation).toBeDefined();
     });
 
     it('should show the server’s refusal, and let it be dismissed', () => {

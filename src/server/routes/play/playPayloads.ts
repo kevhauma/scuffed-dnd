@@ -40,8 +40,13 @@
  */
 
 import { isRefusal, type PlayerActionResult } from '#shared/services/playerActions';
-import type { CharacterDocument, PlayerActionEvent, SheetAction } from '#shared/types/api';
-import type { Character } from '#shared/types/character';
+import type {
+  BuildItemRequest,
+  CharacterDocument,
+  PlayerActionEvent,
+  SheetAction,
+} from '#shared/types/api';
+import type { Character, ComposedItem } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
 import { badRequest, conflict, notFound } from '../../http/appError';
 import type { CharacterRow } from '../../repositories/characterRepository';
@@ -183,6 +188,36 @@ export function idListFrom(value: unknown, field: string): string[] {
   if (!isList) throw badRequest(`${field} has to be a list of ids.`);
 
   return value as string[];
+}
+
+/**
+ * The four part links of a build, as far as a body may state them (TICKET-INV-06)
+ *
+ * **Here rather than in `buildItem.ts`, since TICKET-DM-02** gave the act a second route: a DM
+ * builds through `dm-build-item` and a Player through `build-item`, and the two read one body. A
+ * private copy in each would have been `fallow`'s duplication finding and, worse, two places for
+ * *what may be in a build request* to drift.
+ *
+ * Absent is left absent rather than written as an explicit `undefined`, so the record the Kernel is
+ * handed is the record that gets stored: an unsocketed build carries no `inlayId` key at all, which
+ * is what `ComposedItem` means by an empty socket. Present-but-wrong is a 400 about the field.
+ *
+ * **Shape only**, this module's standing split: whether tier 10 is a rung the family actually has is
+ * the Kernel's answer, because that is a question about the ruleset.
+ */
+export function partsFrom(body: BuildItemRequest | null): Omit<ComposedItem, 'id' | 'templateId'> {
+  return {
+    ...(body?.materialId === undefined
+      ? {}
+      : { materialId: idFrom(body.materialId, 'materialId') }),
+    ...(body?.materialLevel === undefined
+      ? {}
+      : { materialLevel: numberFrom(body.materialLevel, 'materialLevel') }),
+    ...(body?.inlayId === undefined ? {} : { inlayId: idFrom(body.inlayId, 'inlayId') }),
+    ...(body?.inlayLevel === undefined
+      ? {}
+      : { inlayLevel: numberFrom(body.inlayLevel, 'inlayLevel') }),
+  };
 }
 
 /**

@@ -130,6 +130,16 @@ reshapes the set**. Two things the second conversion learned that the first did 
   row of that guard pass by matching nothing. Converting a set means checking whether anything
   **scans** for its old spelling — the compiler will not tell you.
 
+**Exhaust a set with a `Record`, not with a `never` default, once there are more than a handful of
+arms.** A `switch` whose cases are a flat lookup pays a cyclomatic point per case and `fallow` will
+eventually say so — `describeAdjustment` hit 23 at fourteen `DM_ACTION` cases (TICKET-DM-02), as
+`findReferences` hit 24 before SPL-01 (see `REFERENCE_WALKERS`). `Record<TheUnion, (…) => T>` is the
+same dispatch said properly, and its exhaustiveness is **stronger** than the `never` it replaces: a
+missing key fails at the declaration, naming the key, and so does a key for a value that no longer
+exists — where a `never` default catches only the first, at the bottom of a function. Keep a runtime
+fallback when the input is *stored history* rather than a live type (an Event row written by a
+version that named an action since retired is a true record, not a crash).
+
 ## Design principles
 
 Two families of judgement, both concrete here rather than generic.
@@ -286,6 +296,29 @@ Two families of judgement, both concrete here rather than generic.
   dreamLevel)` has no default and no `Character` argument — the callers that hold a character read
   `dreamLevelOf` and pass the number. A defaulted parameter would have been the second rule the
   reader exists to prevent, one file further down.
+- **When a surface's write depends on *who is reading*, that decision is a hook of its own — never a
+  ternary in the component and never a prop threaded down.** Three instances now, which is what makes
+  it a convention: `usePassiveHandout` (TICKET-PAS-01), then `usePurseControls` and
+  `useInventoryActs` (TICKET-DM-02). Each returns the **bound pair** — the Player's own store actions
+  or the DM's `dm-` ones — or `null` for a reader who may not act, so the component renders what it is
+  given and the panel beneath it never learns a DM exists. Two reasons it keeps earning its place:
+  *laying a surface out* and *deciding who may act on it* are different subjects, and the cost of
+  mixing them has twice been a `fallow` measurement rather than a matter of taste — `CharacterSheet`
+  at PAS-01, and `useDmControls` over the cognitive threshold mid-build at DM-02. At DM-02
+  `useInventoryManager` was kept out of that by the same move **before** it was measured, and its
+  hotspot density fell 0.24 → 0.22 for it; treat that one as the pattern paying off rather than as a
+  third threshold breach. **`null` rather than a pair of no-ops** is the
+  point: an absent control says *not yours* where a disabled one says *not now*. A read-only
+  **display** of the same value is not a disabled control and is often the right thing to keep —
+  `PurseSection` shows a Player at a table their coin with no box.
+
+  **Scope such a hook to the actions its own surface calls, not to an actor's whole repertoire.**
+  DM-02's first draft answered *which actor* with a bundle of all six of the DM's belongings actions;
+  `usePurseControls` used two of them and `useInventoryActs` the other four, so each subscribed to
+  writes it never made — the same defect as the fourteen-handler hook the bundle was extracted from,
+  one size down. What the surfaces share is the **predicate** (`useIsDungeonMaster`), and that is what
+  gets extracted; the handlers stay with whoever calls them. A shared bundle is worth having only once
+  a caller genuinely wants the whole of it.
 - Session-only UI state (open dialogs, roll history, active mode) lives in `useUIStore`, not in
   the persisted stores.
 

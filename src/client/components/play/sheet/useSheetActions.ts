@@ -11,6 +11,11 @@
  * character, and a call. Where the write actually goes — LocalStorage or a table's server — is
  * `characterStore`'s one branch, and nothing on this side knows which it was.
  *
+ * **The purse pair left for [`usePurseControls`](./usePurseControls.ts) at TICKET-DM-02.** Everything
+ * still here is a write the Player makes with no question about whether they may; the purse became a
+ * write whose *actor* depends on the reader, which is `usePassiveHandout`'s subject and not this
+ * hook's. Two handlers out is why this file got shorter in a ticket that added a feature.
+ *
  * **Validates: Requirements 12.5, 14.2, 14.3, 14.5; v3 Req 41.1, 41.5**
  */
 
@@ -30,8 +35,6 @@ export interface SheetActions {
   handleChangeInvestedSkillPoints: (skillId: string, points: number) => void;
   /** Put a skill in one focus slot — the store sends all three, see below (TICKET-SKL-05) */
   handleSelectFocusSkill: (slot: number, skillId: string) => void;
-  handleSetPurse: (amount: number) => void;
-  handleAdjustPurse: (delta: number) => void;
   handleAwardExperience: (amount: number) => void;
   handleDeductExperience: (amount: number) => void;
   handleSetDreamLevel: (level: number) => void;
@@ -59,8 +62,6 @@ export function useSheetActions(
   const setInvestedStatPoints = useCharacterStore((state) => state.setInvestedStatPoints);
   const setInvestedSkillPoints = useCharacterStore((state) => state.setInvestedSkillPoints);
   const setFocusSkills = useCharacterStore((state) => state.setFocusSkills);
-  const setPurse = useCharacterStore((state) => state.setPurse);
-  const adjustPurse = useCharacterStore((state) => state.adjustPurse);
   const awardExperience = useCharacterStore((state) => state.awardExperience);
   const deductExperience = useCharacterStore((state) => state.deductExperience);
   const updateDreamLevel = useCharacterStore((state) => state.updateDreamLevel);
@@ -126,20 +127,6 @@ export function useSheetActions(
 
       const chosen = slots.filter((id) => id !== '');
       setFocusSkills(character.id, chosen, config);
-    },
-
-    // Set and adjust are two intents rather than one plus arithmetic here: `-12` against a purse
-    // means *spend twelve*, and the store is where "and refuse if that goes below zero" lives
-    handleSetPurse: (amount: number) => {
-      if (!character) return;
-
-      setPurse(character.id, amount);
-    },
-
-    handleAdjustPurse: (delta: number) => {
-      if (!character) return;
-
-      adjustPurse(character.id, delta);
     },
 
     // One action per click, mirroring the sheet's `exp.gs` — the store decides what is allowed

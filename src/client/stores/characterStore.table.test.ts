@@ -480,6 +480,52 @@ describe("the DM's adjustments (TICKET-DM-01)", () => {
       () => useCharacterStore.getState().dmRevokePassive('character-1', 'passive-blindsight'),
       { passiveId: 'passive-blindsight' },
     ],
+    // The money and the pack (TICKET-DM-02). The purse pair sends `amount` and `delta` under
+    // different names deliberately: *set it to 40* and *put 40 in it* are opposite instructions,
+    // and a shared field would make a mis-routed body silently — and expensively — valid.
+    [
+      DM_ACTION.SET_PURSE,
+      () => useCharacterStore.getState().dmSetPurse('character-1', 340),
+      { amount: 340 },
+    ],
+    [
+      DM_ACTION.ADJUST_PURSE,
+      () => useCharacterStore.getState().dmAdjustPurse('character-1', -12),
+      { delta: -12 },
+    ],
+    [
+      DM_ACTION.BUILD_ITEM,
+      () =>
+        useCharacterStore.getState().dmBuildItem('character-1', {
+          templateId: 'item-axe',
+          materialId: 'mat-iron',
+          materialLevel: 10,
+        }),
+      // The id is **not** on the wire: the server mints one, so a client-supplied id would be an id
+      // the server had no reason to trust (`buildItem`'s rule, one actor over)
+      {
+        itemId: 'item-axe',
+        materialId: 'mat-iron',
+        materialLevel: 10,
+        inlayId: undefined,
+        inlayLevel: undefined,
+      },
+    ],
+    [
+      DM_ACTION.DROP_ITEM,
+      () => useCharacterStore.getState().dmDiscardItem('character-1', 'build-77'),
+      { itemId: 'build-77' },
+    ],
+    [
+      DM_ACTION.EQUIP_ITEM,
+      () => useCharacterStore.getState().dmEquipItem('character-1', 'head_gear', 'build-77'),
+      { equipmentSlotType: 'head_gear', itemId: 'build-77' },
+    ],
+    [
+      DM_ACTION.UNEQUIP_ITEM,
+      () => useCharacterStore.getState().dmUnequipItem('character-1', 'head_gear'),
+      { equipmentSlotType: 'head_gear' },
+    ],
   ])('posts %s by name, with only what the server needs to be told', async (action, run, body) => {
     accepted(aCharacter({ experience: 300 }));
 

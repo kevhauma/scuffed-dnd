@@ -29,6 +29,7 @@ import { SkillsSection } from './SkillsSection';
 import { StatsSection } from './StatsSection';
 import { CHARACTER_SHEET_STATUS, useCharacterSheet } from './useCharacterSheet';
 import { useOpenTableCharacter } from './useOpenTableCharacter';
+import { usePurseControls } from './usePurseControls';
 
 export interface CharacterSheetProps {
   /**
@@ -69,12 +70,10 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     handleResetStatValueToMax,
     currencyTiers,
     purse,
-    adjustmentNames,
+    adjustmentWords,
     handleChangeInvestedPoints,
     handleChangeInvestedSkillPoints,
     handleSelectFocusSkill,
-    handleSetPurse,
-    handleAdjustPurse,
     handleAwardExperience,
     handleDeductExperience,
     handleSetDreamLevel,
@@ -97,6 +96,10 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
   // Re-read whenever the sheet changes, which is what makes an adjustment appear under the number
   // it moved rather than on the next page load
   const adjustments = useCharacterAdjustments(character, atTable);
+
+  // Who may change the money (TICKET-DM-02) — `null` for a Player at a table, whose purse the DM
+  // hands out. The pack's equivalent decision is inside `InventoryPanel`'s own hook.
+  const purseControls = usePurseControls(characterId, atTable);
 
   // Every reason there is no sheet, in one component (TICKET-DM-01): six of them, each a different
   // thing to tell the Player, and none of them anything to do with laying a sheet out
@@ -222,17 +225,16 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
           <PassivesPanel characterId={characterId} atTable={atTable} />
 
           {/* Coin sits beside the equipment, as it does on the sheet (`Q18:S23`, right of the
-              `M3:O15` boxes) — what you are carrying, in one column. Not at a table: a purse there
-              is the DM's to change (D9, v3 Req 42.5), and TICKET-DM-02 is what gives them the
-              control. */}
-          {!atTable && (
-            <PurseSection
-              tiers={currencyTiers}
-              purse={purse}
-              onSet={handleSetPurse}
-              onAdjust={handleAdjustPurse}
-            />
-          )}
+              `M3:O15` boxes) — what you are carrying, in one column. **Always drawn since
+              TICKET-DM-02**, and who gets an entry box is `usePurseControls`': locally the Player,
+              at a table the DM (D9, v3 Req 42.5), and a Player at a table reads the amount they were
+              handed rather than being shown nothing at all. */}
+          <PurseSection
+            tiers={currencyTiers}
+            purse={purse}
+            onSet={purseControls?.set}
+            onAdjust={purseControls?.adjust}
+          />
 
           {/* No *Clear* at a table: that log is the session's Event log, which is append-only
               (TICKET-ROLL-07) */}
@@ -243,7 +245,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
 
           {/* v3 Req 42.7's second half: a Player reads the Events that changed their own sheet.
               At a table only — a local character has no DM and no Event log to project. */}
-          {atTable && <AdjustmentLog adjustments={adjustments} names={adjustmentNames} />}
+          {atTable && <AdjustmentLog adjustments={adjustments} words={adjustmentWords} />}
         </div>
       </div>
 

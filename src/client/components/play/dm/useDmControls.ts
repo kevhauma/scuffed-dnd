@@ -6,16 +6,31 @@
  * a revocation would leave overspent, where a pool may stand — is the Kernel's, checked on the
  * server, and nothing here does arithmetic.
  *
- * **Whether the reader *is* the DM is answered here rather than in the component**, because it is a
- * fact about state and not about layout. It is a comparison rather than a request: the server opens
- * a character to its owner or to the DM of its table, so a table character that is not the reader's
- * own has exactly one possible reader.
+ * **Whether the reader *is* the DM is answered outside the component**, because it is a fact about
+ * state and not about layout — [`useIsDungeonMaster`](./useIsDungeonMaster.ts), which TICKET-DM-02
+ * extracted when a second hook came to need the same answer.
+ *
+ * ## What this hook is, and what it stopped being at TICKET-DM-02
+ *
+ * It is the DM's writes to what a character **is** — experience, the level it derives to, the points
+ * they may spend, where their pools stand, how far they stand in their dream, the abilities they
+ * hold. **The DM's writes to what a character *has* are not here**, and are not in a second bundle
+ * either: `dm-set-purse`/`dm-adjust-purse` are reached by
+ * [`usePurseControls`](../sheet/usePurseControls.ts) and the four pack acts by
+ * [`useInventoryActs`](../inventory/useInventoryActs.ts), each subscribing to its own selectors and
+ * nothing more. DM-02 put all fourteen handlers here first and `fallow` measured this hook over the
+ * cognitive threshold for it (19 against 15, on an intermediate state that is not in the tree — the
+ * shipped hook reads **10 cognitive across 10 hooks**). The first fix was a second *bundle* holding
+ * the other six, and the review rejected it: **no caller wanted both halves**, so `usePurseControls`
+ * would have subscribed to four writes it never makes and `useInventoryActs` to two. The rule that
+ * survived is the simpler one — **a surface takes the actions it uses**, and what the three of them
+ * genuinely share is one predicate, {@link useIsDungeonMaster}.
  *
  * **Validates: v3 Req 42.1, 42.2, 42.3, 42.5, 42.7**
  */
 
 import { useCharacterStore } from '../../../stores/characterStore';
-import { useAuth } from '../../auth/useAuth';
+import { useIsDungeonMaster } from './useIsDungeonMaster';
 
 /** What the DM panel calls, plus whether there is a DM panel to draw at all */
 export interface DmControls {
@@ -49,10 +64,7 @@ export interface DmControls {
  * @returns One handler per control, and whether to draw them
  */
 export function useDmControls(characterId: string): DmControls {
-  const { accountId } = useAuth();
-
-  const isAtTable = useCharacterStore((state) => state.tableCharacter?.id === characterId);
-  const ownerAccountId = useCharacterStore((state) => state.tableCharacterOwnerId);
+  const isDungeonMaster = useIsDungeonMaster(characterId);
   const isBusy = useCharacterStore((state) => state.isActing);
 
   const dmAwardExperience = useCharacterStore((state) => state.dmAwardExperience);
@@ -65,10 +77,7 @@ export function useDmControls(characterId: string): DmControls {
   const dmRevokePassive = useCharacterStore((state) => state.dmRevokePassive);
 
   return {
-    // `accountId === null` is a browser that has not resolved its cookie yet, and answering *yes*
-    // there would flash the DM's panel onto a Player's own sheet for a frame
-    isDungeonMaster:
-      isAtTable && accountId !== null && ownerAccountId !== null && ownerAccountId !== accountId,
+    isDungeonMaster,
     isBusy,
 
     handleAwardExperience: (amount: number) => dmAwardExperience(characterId, amount),

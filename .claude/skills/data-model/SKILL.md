@@ -837,6 +837,14 @@ it is the third exception rather than a computed number stored.
 - **Below zero is refused with the shortfall named**, not clamped — `deductExperience`'s precedent,
   in `shared/services/playerActions.ts`'s `setPurse` / `adjustPurse`. Fractions pass: a tier rate may
   be fractional, so rounding on write would lose money. Round for display only.
+- **Who may write it depends on where the character lives** (TICKET-DM-02). On a **local** sheet the
+  Player writes their own, because signed out there is no DM. At a **table** the money is the DM's to
+  hand out (v3 Req 42.5, as experience is Req 42.1's), so the only doors are
+  `POST /api/characters/:id/dm-set-purse` and `dm-adjust-purse` — **there is no player route to a
+  purse at a table at all**, and `characterStore.refuseAtTable` is what a Player's own write meets.
+  Both routes run the same two Kernel functions, so the refusal is one rule with two callers rather
+  than a DM-flavoured copy. The Player still **reads** it: `PurseSection` draws the amount with no
+  entry box for them, because a payment they cannot see is still a note.
 - **The `wallet` conversion is gone, and nothing replaced it** (TICKET-DX-09). CUR-02 shipped
   `purseFromStoredWallet` + `characterStore.adoptStoredWallets(tiers)` to sum a retired per-tier
   `wallet` down to the base tier instead of dropping the money, and **v4.0's clean break made it

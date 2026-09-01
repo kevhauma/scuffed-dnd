@@ -110,4 +110,44 @@ describe('PurseSection', () => {
 
     expect(onSet).toHaveBeenCalledExactlyOnceWith(340);
   });
+
+  describe('a reader who may not change it (TICKET-DM-02)', () => {
+    /**
+     * The card with no handlers — a Player at a table, whose coin the DM hands out
+     *
+     * Rendered directly rather than through {@link renderPurse}, because *there are no handlers* is
+     * exactly what the case is about.
+     */
+    function renderReadOnly(purse: number) {
+      render(<PurseSection tiers={tiers} purse={purse} />);
+    }
+
+    it('still shows what the character is carrying', () => {
+      // The whole reason the card stopped being absent at a table: *"the payment lands on the sheet
+      // instead of in a note"* is not satisfied by a number the Player cannot see
+      renderReadOnly(2500);
+
+      const amount = screen.getByText('2.5 Gold');
+
+      expect(amount).toBeDefined();
+    });
+
+    it('draws no entry box at all, rather than a disabled one', () => {
+      // An absent control says *not yours*; a greyed one says *not now* and invites a request to
+      // use it. `SheetHeader`'s treatment of the experience controls it withholds at a table.
+      renderReadOnly(2500);
+
+      const box = screen.queryByLabelText('Copper');
+
+      expect(box).toBeNull();
+    });
+
+    it('says who does change it, so the missing box reads as a rule rather than a fault', () => {
+      renderReadOnly(2500);
+
+      const explanation = screen.getByText(/Dungeon Master hands out coin/);
+
+      expect(explanation).toBeDefined();
+    });
+  });
 });

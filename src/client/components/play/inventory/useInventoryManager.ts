@@ -8,6 +8,11 @@
  * Slot-type validation is enforced by the store actions (Requirement 12.3). The `fitsSlot` filter
  * here only decides what to *offer* — it is a convenience, not the rule.
  *
+ * **Which actor performs an act is [`useInventoryActs`](./useInventoryActs.ts)'s answer, not this
+ * hook's** (TICKET-DM-02). A DM opening a player's sheet moves their kit through the `dm-` routes and
+ * a Player moves their own through theirs; the acts are bound before they get here, so every handler
+ * below stayed one line and nothing under `InventoryPanel` knows the difference.
+ *
  * **What a slot holds is a `ComposedItem.id` since TICKET-INV-05** (v4 systems/12), so every row here
  * resolves *twice*: the id names one of the character's builds, and that build names the template,
  * the metal and the gem the phrase is spelled from ([`composedItemLabel`](#shared/engine/composedItems.ts)).
@@ -25,6 +30,7 @@ import type { ComposedItem } from '#shared/types/character';
 import type { EquipmentSlotPlacement, Item } from '#shared/types/config';
 import { selectCharacter, useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
+import { useInventoryActs } from './useInventoryActs';
 
 /**
  * One equipment slot with its occupant resolved
@@ -85,10 +91,9 @@ export function useInventoryManager(characterId: string) {
   // and the Backpack is one of the things a Player moves things in and out of at one
   const character = useCharacterStore((state) => selectCharacter(state, characterId));
 
-  const equipItem = useCharacterStore((state) => state.equipItem);
-  const unequipItem = useCharacterStore((state) => state.unequipItem);
-  const buildItem = useCharacterStore((state) => state.buildItem);
-  const discardItem = useCharacterStore((state) => state.discardItem);
+  // The four acts, already bound to whichever actor is asking (TICKET-DM-02) — `null` when there is
+  // no ruleset for a Player's own write to be checked against
+  const acts = useInventoryActs(characterId);
 
   const items = config?.items ?? [];
   const builds = character?.inventory.composedItems ?? [];
@@ -139,17 +144,13 @@ export function useInventoryManager(characterId: string) {
   }));
 
   const handleEquip = (equipmentSlotType: string, composedId: string) => {
-    if (!character || !config) return;
-
-    // The store owns both the move and the slot-type rule
-    equipItem(character.id, equipmentSlotType, composedId, config);
+    // The act owns both the move and the slot-type rule; which actor performs it is `acts`' answer
+    if (character && acts) acts.equip(equipmentSlotType, composedId);
   };
 
   const handleUnequip = (equipmentSlotType: string) => {
-    if (!character) return;
-
     // Taking it off *is* putting it in the Backpack — there is no second collection (TICKET-INV-06)
-    unequipItem(character.id, equipmentSlotType);
+    if (character && acts) acts.unequip(equipmentSlotType);
   };
 
   /**
@@ -159,16 +160,12 @@ export function useInventoryManager(characterId: string) {
    * a refusal reaches the Player as the sheet's own banner rather than being counted here.
    */
   const handleBuild = (build: Omit<ComposedItem, 'id'>) => {
-    if (!character || !config) return;
-
-    buildItem(character.id, build, config);
+    if (character && acts) acts.build(build);
   };
 
   /** Put one build down for good — exactly the one named, twin or no twin */
   const handleDiscard = (composedId: string) => {
-    if (!character || !config) return;
-
-    discardItem(character.id, composedId, config);
+    if (character && acts) acts.discard(composedId);
   };
 
   /**

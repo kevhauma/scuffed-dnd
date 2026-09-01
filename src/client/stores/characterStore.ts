@@ -52,15 +52,21 @@ import {
   unequipSlot,
 } from '#shared/services/playerActions';
 import type {
+  BuildItemRequest,
   CastSpellRequest,
   DmAction,
   DreamLevelRequest,
+  EquipmentSlotRequest,
   ExperienceRequest,
   FocusSkillsRequest,
   GrantRequest,
+  ItemPlacementRequest,
+  ItemRequest,
   LevelRequest,
   PassiveRequest,
   PlayerAction,
+  PurseDeltaRequest,
+  PurseRequest,
   ResourceValueRequest,
   SheetAction,
   SpellRequest,
@@ -477,6 +483,33 @@ export interface CharacterState {
   dmRevokePassive: (characterId: string, passiveId: string) => void;
   /** Write where one of a character's resource pools stands, under the Player's own Kernel rule */
   dmSetResource: (characterId: string, statId: string, value: number) => void;
+
+  /*
+   * The money and the pack (TICKET-DM-02, v3 Req 42.5)
+   *
+   * The six that complete the DM's writes, and the four inventory ones are the only members of this
+   * group that **shadow a player action the Player can still perform**: `equipItem` and the rest stay
+   * exactly as they were, and which pair a surface reaches for is
+   * [`useInventoryManager`](../components/play/inventory/useInventoryManager.ts)'s one decision. The
+   * purse pair shadows nothing at a table, because there is no player route to a purse there at all.
+   */
+  /** Set what a character at the caller's table carries, in the ruleset's base tier */
+  dmSetPurse: (characterId: string, amount: number) => void;
+  /** Move that purse by a delta — `-12` means *spend twelve*, and below zero is refused */
+  dmAdjustPurse: (characterId: string, delta: number) => void;
+  /**
+   * Build a thing into a character's pack, under the Player's own Kernel rule
+   *
+   * Takes the record **without its identity**, {@link buildItem}'s signature and for its reason: the
+   * picks are the asker's and the id is the server's to mint.
+   */
+  dmBuildItem: (characterId: string, build: Omit<ComposedItem, 'id'>) => void;
+  /** Destroy one of a character's builds — refused while they are wearing it */
+  dmDiscardItem: (characterId: string, itemId: string) => void;
+  /** Put one of their builds in a slot its template declares — a mismatch is refused, never forced */
+  dmEquipItem: (characterId: string, equipmentSlotType: string, itemId: string) => void;
+  /** Take a slot's occupant off; it is in the Backpack the moment it is not worn */
+  dmUnequipItem: (characterId: string, equipmentSlotType: string) => void;
 }
 
 /**
@@ -603,7 +636,10 @@ function toTable(
  *
  * Experience and the purse are the DM's at a game session
  * ([D9](../../../docs/v3.0_backend/overview.md#d9--level-stays-derived-points-to-spend-becomes-a-grant),
- * v3 Req 42), so there is no player route for either and these actions have nothing to send. The
+ * v3 Req 42), so there is no player route for either and these actions have nothing to send. **That
+ * stayed true through TICKET-DM-02**, which gave the *DM* `dmSetPurse` and `dmAdjustPurse` and gave
+ * the Player nothing: the money is handed out at the table, so a Player at one reads their purse and
+ * does not write it. The
  * sheet does not draw the controls — but **the rule belongs here, not to a JSX conditional**: the
  * review found that a table character simply fell through to `characters.find(...)`, matched
  * nothing and no-opped in silence, so a second surface reaching for the same action would have
@@ -1023,7 +1059,8 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   },
 
   setPurse: (characterId: string, amount: number) => {
-    // A purse at a table is the DM's until TICKET-DM-02 gives them the control (D9, v3 Req 42.5)
+    // A purse at a table is the DM's, and since TICKET-DM-02 they have the control: `dmSetPurse` is
+    // the door, and there is still no player route to send this one down (D9, v3 Req 42.5)
     if (refuseAtTable(set, get, characterId, 'A purse')) return;
 
     applyLocally(set, get, characterId, (character) => setPurseAmount(character, amount), {
@@ -1129,5 +1166,44 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     adjustAtTable(set, get, characterId, DM_ACTION.REVOKE_PASSIVE, {
       passiveId,
     } satisfies PassiveRequest);
+  },
+
+  dmSetPurse: (characterId: string, amount: number) => {
+    adjustAtTable(set, get, characterId, DM_ACTION.SET_PURSE, { amount } satisfies PurseRequest);
+  },
+
+  dmAdjustPurse: (characterId: string, delta: number) => {
+    adjustAtTable(set, get, characterId, DM_ACTION.ADJUST_PURSE, {
+      delta,
+    } satisfies PurseDeltaRequest);
+  },
+
+  // The picks go out and the id comes back: the server mints it, so nothing here is minted and
+  // discarded the way the local `buildItem` path's is
+  dmBuildItem: (characterId: string, build: Omit<ComposedItem, 'id'>) => {
+    adjustAtTable(set, get, characterId, DM_ACTION.BUILD_ITEM, {
+      itemId: build.templateId,
+      materialId: build.materialId,
+      materialLevel: build.materialLevel,
+      inlayId: build.inlayId,
+      inlayLevel: build.inlayLevel,
+    } satisfies BuildItemRequest);
+  },
+
+  dmDiscardItem: (characterId: string, itemId: string) => {
+    adjustAtTable(set, get, characterId, DM_ACTION.DROP_ITEM, { itemId } satisfies ItemRequest);
+  },
+
+  dmEquipItem: (characterId: string, equipmentSlotType: string, itemId: string) => {
+    adjustAtTable(set, get, characterId, DM_ACTION.EQUIP_ITEM, {
+      equipmentSlotType,
+      itemId,
+    } satisfies ItemPlacementRequest);
+  },
+
+  dmUnequipItem: (characterId: string, equipmentSlotType: string) => {
+    adjustAtTable(set, get, characterId, DM_ACTION.UNEQUIP_ITEM, {
+      equipmentSlotType,
+    } satisfies EquipmentSlotRequest);
   },
 }));

@@ -761,7 +761,10 @@ export type ActionValue = number | string | null;
  * Event's before/after are experience totals. The level derives from them
  * ([D9](../../../docs/v3.0_backend/overview.md#d9--level-stays-derived-points-to-spend-becomes-a-grant)).
  *
- * Inventory and the purse are deliberately absent — they are TICKET-DM-02's.
+ * **Inventory and the purse joined it in TICKET-DM-02**, which completes v3 Req 42.5 and is the last
+ * of the DM's writes. Six values in one ticket rather than the usual one or two, because a purse
+ * needs a total *and* a delta and the pack needs the four acts a build has a life through — and
+ * none of the six invents a rule: every one of them runs `playerActions.ts`'s function unchanged.
  */
 export const DM_ACTION = {
   /** Add to a Character's accumulated experience */
@@ -798,6 +801,37 @@ export const DM_ACTION = {
   GRANT_PASSIVE: 'dm-grant-passive',
   /** Take a passive ability back — the only way to clear an id the ruleset has lost */
   REVOKE_PASSIVE: 'dm-revoke-passive',
+  /**
+   * Set what a Character is carrying, in the ruleset's base tier (TICKET-DM-02, v3 Req 42.5)
+   *
+   * **A total**, `set-resource`'s shape, and {@link ADJUST_PURSE} is its delta counterpart. Both are
+   * here rather than in {@link PLAYER_ACTION} because there is **no player route to a purse at a
+   * table at all**: Req 42.5 gives the money to the DM, exactly as Req 42.1 gives them experience.
+   * A local sheet still writes its own, because signed out there is no DM.
+   */
+  SET_PURSE: 'dm-set-purse',
+  /** Move a purse by a delta — `-12` means *spend twelve*, and below zero is refused */
+  ADJUST_PURSE: 'dm-adjust-purse',
+  /**
+   * Build a template, a material tier and an optional inlay tier into one thing (TICKET-DM-02)
+   *
+   * **Four inventory values rather than two**, mirroring {@link PLAYER_ACTION}'s own four intents,
+   * because `discardBuild` refuses a build the character is **wearing**: without
+   * {@link UNEQUIP_ITEM} a DM could not remove a worn item at all, which would make Req 42.5's *add
+   * and remove inventory items* half-true. One act each is what a quick action can sit on top of
+   * (TICKET-DM-03).
+   *
+   * Every one of the four runs `playerActions.ts`'s rule unchanged — **there is no DM relaxation of
+   * the slot rules**, which is this ticket's central note: a DM who needs a helmet in a boot slot
+   * changes the ruleset, not the enforcement.
+   */
+  BUILD_ITEM: 'dm-build-item',
+  /** Destroy a build the Character is not wearing */
+  DROP_ITEM: 'dm-drop-item',
+  /** Put one of the Character's builds in an equipment slot its template declares */
+  EQUIP_ITEM: 'dm-equip-item',
+  /** Take whatever is in a slot off — it is in the Backpack the moment it is not worn */
+  UNEQUIP_ITEM: 'dm-unequip-item',
 } as const;
 
 export type DmAction = (typeof DM_ACTION)[keyof typeof DM_ACTION];
@@ -845,14 +879,41 @@ export interface DreamLevelRequest {
 }
 
 /**
+ * What a DM sends to set a Character's purse — the new balance, in the base tier (TICKET-DM-02)
+ *
+ * **The base tier and never a per-tier breakdown** (v3 Req 43.1): a purse is one amount, and which
+ * tier to *show* it in is `formatPurse`'s answer, re-derived every render. A body naming a tier
+ * would be a second representation of one amount of wealth.
+ */
+export interface PurseRequest {
+  amount: number;
+}
+
+/**
+ * What a DM sends to move a purse without setting it (TICKET-DM-02)
+ *
+ * Spelled `delta` rather than `amount` for {@link DreamLevelRequest}'s reason, one pair over: *set
+ * the purse to 40* and *put 40 in the purse* are opposite instructions, and a shared field name
+ * would make a mis-routed body silently valid — and, here, silently expensive.
+ */
+export interface PurseDeltaRequest {
+  delta: number;
+}
+
+/**
  * One DM adjustment as a Player reads it back (v3 Req 42.6, 42.7)
  *
  * A projection of the Event log, like {@link SessionRoll} — the same shape of answer for the same
  * reason: the log is the record, and a second store of what changed would be a second truth.
  *
- * `target` is the stat a resource adjustment names, and empty for the ones that name nothing but the
- * character. Names are resolved at read time so a renamed Account does not leave the history calling
- * somebody by a name they no longer have.
+ * `target` is whichever entity the adjustment named — a stat for a resource, a passive for a handout,
+ * an item **template** for a build, an equipment **slot type** for a placement — and empty for the
+ * ones that name nothing but the character, the purse and experience among them. Names are resolved
+ * at read time so a renamed Account does not leave the history calling somebody by a name they no
+ * longer have.
+ *
+ * **`dm-drop-item`'s target is the id of a build that no longer exists**, which is the one target
+ * nothing can spell: see `describeAdjustment`, which says so rather than inventing a name.
  */
 export interface CharacterAdjustment {
   /** The Event's id, so a list can key on something the server minted */

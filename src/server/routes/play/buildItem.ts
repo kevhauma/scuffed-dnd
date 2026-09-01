@@ -20,6 +20,9 @@
  * supplies its own. The client's optimistic id is discarded along with the rest of its guess when the
  * response replaces the character.
  *
+ * **`partsFrom` moved to `playPayloads.ts` at TICKET-DM-02**, which gave the act a second route: a
+ * DM builds into somebody's pack through `dm-build-item`, and one body reader serves both.
+ *
  * **Validates: v3 Req 41.4, 41.5, 45.1; Requirement 12.2; v4 systems/12**
  */
 
@@ -29,29 +32,7 @@ import type { ComposedItem } from '#shared/types/character';
 import { requireAccount, requireCharacterPlayer } from '../../auth/guards';
 import { defineHandler } from '../../http/pipeline';
 import { characterIdFrom } from '../characters/characterPayloads';
-import { applyPlayerAction, idFrom, numberFrom } from './playPayloads';
-
-/**
- * The four part links, as far as a body may state them
- *
- * Absent is left absent rather than written as an explicit `undefined`, so the record the Kernel is
- * handed is the record that gets stored: an unsocketed build carries no `inlayId` key at all, which
- * is what `ComposedItem` means by an empty socket. Present-but-wrong is a 400 about the field.
- */
-function partsFrom(body: BuildItemRequest | null): Omit<ComposedItem, 'id' | 'templateId'> {
-  return {
-    ...(body?.materialId === undefined
-      ? {}
-      : { materialId: idFrom(body.materialId, 'materialId') }),
-    ...(body?.materialLevel === undefined
-      ? {}
-      : { materialLevel: numberFrom(body.materialLevel, 'materialLevel') }),
-    ...(body?.inlayId === undefined ? {} : { inlayId: idFrom(body.inlayId, 'inlayId') }),
-    ...(body?.inlayLevel === undefined
-      ? {}
-      : { inlayLevel: numberFrom(body.inlayLevel, 'inlayLevel') }),
-  };
-}
+import { applyPlayerAction, idFrom, partsFrom } from './playPayloads';
 
 export const buildItem = defineHandler(async (context) => {
   const account = requireAccount(context);

@@ -21,20 +21,22 @@ import type { CharacterAdjustment } from '#shared/types/api';
 import { readableMoment } from '../../shared/readableMoment';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
+import type { AdjustmentVocabulary } from './adjustmentVocabulary';
 import { describeAdjustment } from './describeAdjustment';
 
 export interface AdjustmentLogProps {
   adjustments: CharacterAdjustment[];
   /**
-   * How each entity id is spelled on this ruleset, for the adjustments that name one
+   * How this ruleset spells what an adjustment names, and how it says an amount of money
    *
-   * One map across every entity kind an adjustment can name — stats and, since TICKET-PAS-01,
-   * passives. See `describeAdjustment` for why it is not one map per kind.
+   * One object across every kind — stats, passives and, since TICKET-DM-02, item templates,
+   * equipment slots and the purse's own phrasing. See `adjustmentVocabulary.ts` for why it is one
+   * rather than a parameter per kind.
    */
-  names: Record<string, string>;
+  words: AdjustmentVocabulary;
 }
 
-export function AdjustmentLog({ adjustments, names }: AdjustmentLogProps) {
+export function AdjustmentLog({ adjustments, words }: AdjustmentLogProps) {
   return (
     <Card className="p-6">
       <Text variant="h4" as="h2" className="mb-3">
@@ -51,7 +53,7 @@ export function AdjustmentLog({ adjustments, names }: AdjustmentLogProps) {
               className="flex flex-wrap items-baseline justify-between gap-2 border-b border-stone-200 pb-2 last:border-b-0 last:pb-0"
             >
               <Text variant="body-small" as="span">
-                {describeAdjustment(adjustment, names)}
+                {describeAdjustment(adjustment, words)}
               </Text>
               <Text variant="caption" as="span">
                 {/* The Account's name, resolved server-side at read time — `null` is a profile that

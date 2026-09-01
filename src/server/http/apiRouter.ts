@@ -24,14 +24,20 @@ import { AUTH_PREFIX, handleAuthRequest } from '../auth/authRoutes';
 import { authProviders } from '../routes/authProviders';
 import { deleteCharacter, listMyCharacters, readCharacter } from '../routes/characters';
 import {
+  dmAdjustPurse,
   dmAwardExperience,
+  dmBuildItem,
   dmDeductExperience,
+  dmDropItem,
+  dmEquipItem,
   dmGrantPassive,
   dmGrantPoints,
   dmRevokePassive,
   dmSetDreamLevel,
   dmSetLevel,
+  dmSetPurse,
   dmSetResource,
+  dmUnequipItem,
   listAdjustments,
 } from '../routes/dm';
 import { health } from '../routes/health';
@@ -205,6 +211,17 @@ export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Respon
   // table while the local sheet keeps writing the field itself (there is no DM signed out).
   'POST /api/characters/:id/dm-grant-passive': dmGrantPassive,
   'POST /api/characters/:id/dm-revoke-passive': dmRevokePassive,
+  // The money and the pack (TICKET-DM-02), which complete v3 Req 42.5. **There is no player
+  // counterpart to the purse pair** — a purse at a table is the DM's, as experience is — while the
+  // four inventory routes each shadow one of the Player's own above, differing in the guard and the
+  // Event type and in nothing else: the Kernel rule behind each is the identical function, so a
+  // helmet does not fit a boot slot for a DM either
+  'POST /api/characters/:id/dm-set-purse': dmSetPurse,
+  'POST /api/characters/:id/dm-adjust-purse': dmAdjustPurse,
+  'POST /api/characters/:id/dm-build-item': dmBuildItem,
+  'POST /api/characters/:id/dm-drop-item': dmDropItem,
+  'POST /api/characters/:id/dm-equip-item': dmEquipItem,
+  'POST /api/characters/:id/dm-unequip-item': dmUnequipItem,
   // …and what a Player reads back about their own sheet (v3 Req 42.7). A *read* rather than an
   // action, so it is a `GET` and its noun is what happened rather than what to do
   'GET /api/characters/:id/adjustments': listAdjustments,

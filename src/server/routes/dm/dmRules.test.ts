@@ -9,9 +9,12 @@
  *
  * Three claims about every module in this folder that answers a request:
  *
- * 1. **It takes its rule from the Kernel** — `dmActions.ts` for the four adjustments this ticket
- *    invents, and `playerActions.ts` for the one it deliberately does not: a DM setting a pool obeys
- *    the Player's own rule, unchanged (v3 Req 42.5).
+ * 1. **It takes its rule from the Kernel** — `dmActions.ts` for the four adjustments DM-01 invents,
+ *    and `playerActions.ts` for the ones it deliberately does not: a DM setting a pool obeys the
+ *    Player's own rule, unchanged (v3 Req 42.5). **TICKET-DM-02's six all fall on that second side**,
+ *    which is this check earning its keep rather than a coincidence: the purse and the four
+ *    inventory acts each run a `playerActions.ts` function, so a future route that quietly re-derived
+ *    *what fits in a boot slot* would be caught here even though every import it made was legal.
  * 2. **It reaches nothing in `#shared/engine/` directly.** That is where a second implementation
  *    starts. `listAdjustments` is exempt because it writes nothing and runs no rule — it projects
  *    the Event log — and it imports no engine module either, which the scan checks rather than
@@ -57,8 +60,8 @@ function writeModules(): { name: string; source: string }[] {
 
 describe('the DM-control routes', () => {
   it('has one write module per named adjustment, so this is not passing by looking at nothing', () => {
-    // Five actions, five writers — a sixth action without a route, or a route without an action, is
-    // a difference this names rather than a gap somebody notices later
+    // One writer per named action — an action without a route, or a route without an action, is a
+    // difference this names rather than a gap somebody notices later. Fourteen since TICKET-DM-02.
     expect(writeModules()).toHaveLength(Object.values(DM_ACTION).length);
   });
 
