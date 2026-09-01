@@ -104,6 +104,13 @@ lands on and LIVE-03 later fills with presence.
       means typing a password into a sign-up form, which this agent may not do. Covered by
       `membership.test.ts`'s 23 cases against real rows; open here until somebody drives it by hand.
 
+      **Attempted again and deferred by the User (2026-09-01).** Both cookie jars were set up and
+      parked on `/signin` — `http://localhost:3000` for the DM and `http://[::1]:3000` for the
+      player, the CLAUDE.md two-host recipe, with `dm01-player@example.com` and
+      `dm01-second@example.com` already sharing two seated tables (*DM-01 check*, *DM-01 ladder*).
+      The User chose not to sign in and to keep the milestone moving. The criterion stays open; it
+      needs nothing but a human at a keyboard.
+
 ## Notes
 
 - **Retention over deletion** is the decision worth arguing with later if anyone wants to. The
