@@ -30,6 +30,20 @@ vi.mock('../services/storage', () => ({
   saveCharacters: vi.fn(),
 }));
 
+/**
+ * The live socket, stubbed to **throw** (TICKET-LIVE-03, v3 Req 44.9)
+ *
+ * *Every action still works with the connection down* is the requirement, and this is the strongest
+ * form of it available to a store test: if any write path ever reached for the socket, the action
+ * would throw here rather than quietly degrade. Inert today, because nothing under `stores/` imports
+ * it — which is the claim, asserted structurally in `services/liveSocket.test.ts` as well.
+ */
+vi.mock('../services/liveSocket', () => ({
+  liveConnection: () => {
+    throw new Error('an action must not need the socket');
+  },
+}));
+
 import { EVENT_EFFECT } from '../services/liveEvents';
 import * as storage from '../services/storage';
 import { useCharacterStore } from './characterStore';
@@ -650,5 +664,64 @@ describe('an Event broadcast by the table (TICKET-LIVE-02)', () => {
     const effect = useCharacterStore.getState().applyTableEvent(awarded);
 
     expect(effect).toBe(EVENT_EFFECT.ELSEWHERE);
+  });
+});
+
+describe('with the socket unusable (TICKET-LIVE-03, v3 Req 44.9)', () => {
+  beforeEach(() => {
+    const open = aCharacter();
+
+    useCharacterStore.setState({ tableCharacter: open, tableSessionId: 'session-1' });
+  });
+
+  it('performs a Player’s action and shows the result, with no connection at all', async () => {
+    // **The requirement in one case**: the application stays correct with the socket disconnected —
+    // actions still work over HTTP and only the liveness is lost. The connection is stubbed to
+    // *throw* rather than counted, the shape this file uses for D6: a write path that reached for it
+    // and swallowed the failure would satisfy a call count and still be broken for a Player on a
+    // train. The structural half — that no store or service may so much as name it — is asserted in
+    // `services/liveSocket.test.ts`.
+    const moved = aCharacter({ currentResourceValues: { 'stat-health': 23 } });
+    respondWith(200, {
+      id: 'character-1',
+      sessionId: 'session-1',
+      rulesetId: null,
+      ownerAccountId: 'account-1',
+      name: 'Quackers',
+      revision: 2,
+      createdAt: 0,
+      updatedAt: 0,
+      character: moved,
+    });
+
+    useCharacterStore.getState().adjustCurrentStatValue('character-1', 'stat-health', -7, RULES);
+    await vi.waitFor(() => expect(useCharacterStore.getState().isActing).toBe(false));
+
+    const held = useCharacterStore.getState().tableCharacter;
+
+    expect(held?.currentResourceValues['stat-health']).toBe(23);
+    expect(useCharacterStore.getState().actionError).toBeNull();
+  });
+
+  it('performs a DM’s action too, since the socket is on neither path', async () => {
+    const awarded = aCharacter({ experience: 300 });
+    respondWith(200, {
+      id: 'character-1',
+      sessionId: 'session-1',
+      rulesetId: null,
+      ownerAccountId: 'account-1',
+      name: 'Quackers',
+      revision: 2,
+      createdAt: 0,
+      updatedAt: 0,
+      character: awarded,
+    });
+
+    useCharacterStore.getState().dmAwardExperience('character-1', 300);
+    await vi.waitFor(() => expect(useCharacterStore.getState().isActing).toBe(false));
+
+    const held = useCharacterStore.getState().tableCharacter;
+
+    expect(held?.experience).toBe(300);
   });
 });

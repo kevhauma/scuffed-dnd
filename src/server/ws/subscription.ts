@@ -1,5 +1,5 @@
 /**
- * The only thing a client may say, and the guard that answers it (TICKET-LIVE-01)
+ * The only thing a client may say, and the guard that answers it (TICKET-LIVE-01, TICKET-LIVE-03)
  *
  * **This module is the socket's whole inbound surface.** Everything arriving on a connection is
  * decoded here, and exactly two verbs are accepted — *listen to this room* and *stop*. Anything
@@ -30,7 +30,20 @@
  * outcome off the connection state, re-leaking exactly what the indistinguishable payload just hid.
  * Closes are for connection-level facts; see `SOCKET_CLOSE_CODE`.
  *
- * **Validates: v3 Req 32.3, 32.5, 44.2, 44.4**
+ * ## The subscribe grew a parameter, and the guard is what makes it safe (TICKET-LIVE-03)
+ *
+ * `afterSeq` is a client-supplied number that **steers a server-side query** — the one thing on this
+ * channel that reads more like a read than like a notification. Two properties keep it inside D8
+ * rather than outside it. It is *validated* — a non-negative integer or absent, and anything else
+ * refuses the whole frame rather than admitting a client to a room and silently skipping its
+ * catch-up. And the query it steers is scoped to **the session `requireMember` just approved**,
+ * never to an id the caller chose freely: the only thing the client picks is how far back to look
+ * inside its own table's log.
+ *
+ * Still nothing here writes. The reply to a resumed subscribe is rows out of `event`, which is the
+ * same claim the room was already sent, delivered late.
+ *
+ * **Validates: v3 Req 32.3, 32.5, 44.2, 44.4, 44.6**
  */
 
 import {
@@ -42,6 +55,8 @@ import {
 import type { Asking } from '../auth/guards';
 import { requireMember } from '../auth/guards';
 import { AppError } from '../http/appError';
+import { latestEventSeq } from '../repositories/eventRepository';
+import { replayTo } from './replay';
 import type { LiveConnection, SocketRooms } from './rooms';
 
 /** How much of an unrecognised message's verb is worth repeating into the log */
@@ -94,10 +109,53 @@ function rejected(rejection: string): DecodedFrame {
   return { accepted: false, rejection };
 }
 
-/** The two fields this socket looks for, still entirely untrusted */
+/** The three fields this socket looks for, still entirely untrusted */
 interface FrameBody {
   type?: unknown;
   sessionId?: unknown;
+  afterSeq?: unknown;
+}
+
+/**
+ * What a client says it has already seen, if it said anything usable (TICKET-LIVE-03)
+ *
+ * A **discriminated answer rather than a nullable number**, because *said nothing* and *said
+ * something unusable* are different outcomes and the caller acts differently on each: absence is
+ * an ordinary first subscribe, and a malformed value is a frame this socket refuses outright.
+ *
+ * **Refused rather than quietly dropped**, which is the choice worth defending. Ignoring a bad
+ * `afterSeq` would admit the connection to the room and skip the catch-up, leaving a client that
+ * asked to be resumed with a **silent gap** in its Event sequence — the precise failure the whole
+ * ticket exists to remove. A refusal is visible at both ends: the caller gets no subscription and
+ * the operator gets a bounded line in the log.
+ *
+ * Non-negative and integral is the whole of the rule. A negative number would ask
+ * `eventsSince` for the entire log, and a fractional one is not a sequence number in a column that
+ * only holds integers.
+ */
+type SeenSoFar =
+  | { said: false }
+  | { said: true; usable: true; afterSeq: number }
+  | { said: true; usable: false };
+
+/** Nothing said — a first subscribe, which asks for no replay at all */
+const SAID_NOTHING: SeenSoFar = { said: false };
+
+/** …and something that is not a sequence number */
+const SAID_NONSENSE: SeenSoFar = { said: true, usable: false };
+
+/**
+ * Read the resume point off a frame
+ *
+ * @param value Whatever the `afterSeq` field held
+ * @returns What the client said, and whether it can be acted on
+ */
+function seenSoFar(value: unknown): SeenSoFar {
+  if (value === undefined) return SAID_NOTHING;
+  if (typeof value !== 'number') return SAID_NONSENSE;
+  if (!Number.isInteger(value) || value < 0) return SAID_NONSENSE;
+
+  return { said: true, usable: true, afterSeq: value };
 }
 
 /**
@@ -126,6 +184,32 @@ function readFrameBody(raw: string): FrameBody | string {
 }
 
 /**
+ * One `subscribe`, with the resume point it may or may not carry (TICKET-LIVE-03)
+ *
+ * Its own function rather than an arm of {@link decodeFrame}, which `fallow` measured going over on
+ * CRAP as soon as this ticket added the second field to read — the shape TICKET-DM-05 established
+ * when `useSpellbook` shed `choosePool`. What a *subscribe* is made of is also a different subject
+ * from what a *frame* is made of, so the seam was there to be found.
+ *
+ * @param sessionId The table, already length-checked
+ * @param afterSeq Whatever the frame's `afterSeq` field held, still untrusted
+ * @param verb The message type, already truncated for the log
+ * @returns The message, or a short description of why there is not one
+ */
+function decodeSubscribe(sessionId: string, afterSeq: unknown, verb: string): DecodedFrame {
+  const seen = seenSoFar(afterSeq);
+
+  // Nothing of the value is quoted, for {@link MAX_SESSION_ID_LENGTH}'s reason: this field is as
+  // attacker-controlled as any other, and *that it was unusable* is the whole of what an operator
+  // needs
+  if (seen.said && !seen.usable) return rejected(`${verb}, with an unusable sequence number`);
+
+  const resuming = seen.said ? { afterSeq: seen.afterSeq } : {};
+
+  return accepted({ type: CLIENT_MESSAGE_TYPE.SUBSCRIBE, sessionId, ...resuming });
+}
+
+/**
  * What this socket will act on, if anything
  *
  * The two accepted shapes are matched **literally, one branch each**, rather than by looking the
@@ -145,7 +229,7 @@ function decodeFrame(raw: string): DecodedFrame {
 
   if (typeof body === 'string') return rejected(body);
 
-  const { type, sessionId } = body;
+  const { type, sessionId, afterSeq } = body;
   const verb = typeof type === 'string' ? type.slice(0, LOGGED_TYPE_LIMIT) : 'no type';
 
   if (typeof sessionId !== 'string' || sessionId === '') {
@@ -159,7 +243,7 @@ function decodeFrame(raw: string): DecodedFrame {
   }
 
   if (type === CLIENT_MESSAGE_TYPE.SUBSCRIBE) {
-    return accepted({ type: CLIENT_MESSAGE_TYPE.SUBSCRIBE, sessionId });
+    return decodeSubscribe(sessionId, afterSeq, verb);
   }
 
   if (type === CLIENT_MESSAGE_TYPE.UNSUBSCRIBE) {
@@ -172,13 +256,24 @@ function decodeFrame(raw: string): DecodedFrame {
 /**
  * Admit a connection to a room, or refuse it saying nothing
  *
+ * **The whole of this function is one synchronous turn, and TICKET-LIVE-03 depends on that.** The
+ * guard, the join and the catch-up run with nothing awaited between them, so no Event can be
+ * written into the window between being admitted and being replayed — see `replay.ts`, which is
+ * where the property is argued and where the way it could silently die is written down.
+ *
  * @param connection Who is asking
  * @param sessionId Which table
+ * @param afterSeq Where to resume from, or `undefined` for a first subscribe asking for no replay
  * @param rooms Where admission is recorded
  * @throws Anything `requireMember` throws that is not an {@link AppError} — a bug rather than a
  *   refusal, handled where every other bug on this socket is
  */
-function subscribe(connection: LiveConnection, sessionId: string, rooms: SocketRooms): void {
+function subscribe(
+  connection: LiveConnection,
+  sessionId: string,
+  afterSeq: number | undefined,
+  rooms: SocketRooms
+): void {
   const asking: Asking = { account: { id: connection.accountId } };
 
   try {
@@ -195,7 +290,22 @@ function subscribe(connection: LiveConnection, sessionId: string, rooms: SocketR
   }
 
   rooms.join(sessionId, connection);
-  say(connection, { type: SERVER_MESSAGE_TYPE.SUBSCRIBED, sessionId });
+
+  // **Read once, and spent on both answers.** The acknowledgement carries where the log stands so
+  // that a client has somewhere to resume from *before* it has seen anything — without it, a Player
+  // at a quiet table had no resume point, so a reconnect asked for nothing and a change made while
+  // they were away was never corrected. The replay is measured against the same number, so the two
+  // halves of one reply cannot disagree about where the log stands.
+  const head = latestEventSeq(sessionId);
+
+  say(connection, { type: SERVER_MESSAGE_TYPE.SUBSCRIBED, sessionId, seq: head });
+
+  // **After the join, and only for a client that named a place to resume from** (v3 Req 44.6). A
+  // first subscribe carries no number and gets no replay: the surface that just mounted read its
+  // state over HTTP a moment ago, so there is nothing for a history to correct.
+  if (afterSeq === undefined) return;
+
+  replayTo(connection, sessionId, afterSeq, head);
 }
 
 /**
@@ -224,7 +334,7 @@ export function handleClientMessage(
   const { message } = decoded;
 
   if (message.type === CLIENT_MESSAGE_TYPE.SUBSCRIBE) {
-    subscribe(connection, message.sessionId, rooms);
+    subscribe(connection, message.sessionId, message.afterSeq, rooms);
     return;
   }
 

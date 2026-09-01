@@ -129,6 +129,7 @@ function SessionRow({
       {isOpen && (
         <>
           <SessionLobby
+            sessionId={session.id}
             members={members.members}
             departedCharacters={members.departedCharacters}
             accountId={accountId}

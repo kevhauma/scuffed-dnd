@@ -1,5 +1,5 @@
 /**
- * Who is listening to which table (TICKET-LIVE-01)
+ * Who is listening to which table (TICKET-LIVE-01, TICKET-LIVE-03)
  *
  * One room per Game_Session, held in memory. That is a deliberate single-process assumption —
  * [overview.md](../../../docs/v3.0_backend/overview.md#not-in-this-milestone-deliberately) ruled
@@ -12,15 +12,46 @@
  * want two processes the change is this one module rather than every call site. A registry that
  * imported the socket library would make the interface decorative.
  *
- * **{@link SocketRooms.broadcast} has exactly one production caller**, and that is deliberate:
- * `events/recordEvent.ts`, which is also the only module that writes a row to `event`
- * (TICKET-LIVE-02). Nothing else may send a frame, because a frame sent from anywhere else would be
- * a claim about the table that the log does not carry.
+ * ## Who may send a frame, restated correctly (TICKET-LIVE-03)
  *
- * **Validates: v3 Req 44.2, 44.3, 39.3**
+ * TICKET-LIVE-02 wrote here that {@link SocketRooms.broadcast} *has exactly one production caller*
+ * and that nothing else may send a frame. The first half was true and the second was the reasoning
+ * behind it stated too widely — and, being prose, it was never checked. What is actually load-bearing
+ * is narrower and is now enforced: **an `event` frame is composed in exactly one module**
+ * (`events/liveEventFrame.ts`, asserted by `events/eventFanOut.test.ts`), because an Event frame is
+ * a claim about the table that the log has to carry.
+ *
+ * Two things this ticket adds send frames that are **not** Events and carry no such claim, so both
+ * sit inside the rule rather than beside it:
+ *
+ * - **presence** — broadcast by this registry itself, below, and derived from nothing but the map
+ *   on this page;
+ * - **replay** — `ws/replay.ts` sending one connection rows it reads *out of the log*, through the
+ *   very same `liveEventFrame`. The same claim, delivered late.
+ *
+ * ## Presence is announced by the thing that changes it
+ *
+ * Every mutator here broadcasts the room's new membership, rather than leaving each call site to
+ * remember — the shape `recordEvent` established for the Event log, applied to a much smaller fact:
+ * *a room's membership cannot change without the room being told*. There is no
+ * `membersOf` on the interface for the same reason there is no other query on it. A registry that
+ * hands its state out is one somebody reads instead of broadcasting to, and presence read *at* a
+ * moment is exactly the stale number this ticket exists to stop showing.
+ *
+ * **It announces on a change of *Account*, never of connection.** Two tabs of one person are one
+ * person at the table: the second adds nobody and closing it announces no departure. That is the
+ * difference between presence and counting sockets, and it is what makes the lobby's answer stable
+ * while somebody has their sheet open in a second window.
+ *
+ * **Validates: v3 Req 44.2, 44.3, 44.8, 39.3**
  */
 
-import { SOCKET_CLOSE_CODE, type SocketCloseCode } from '#shared/types/liveSocket';
+import type { PresenceMessage, RoomClosedMessage } from '#shared/types/liveSocket';
+import {
+  SERVER_MESSAGE_TYPE,
+  SOCKET_CLOSE_CODE,
+  type SocketCloseCode,
+} from '#shared/types/liveSocket';
 
 /**
  * As much of a socket as a room needs
@@ -44,16 +75,22 @@ export interface LiveConnection {
 /**
  * The rooms, as an interface rather than as a class everybody imports
  *
- * Deliberately small: five verbs and one number. A registry with a query surface is a registry
- * somebody reads state out of instead of broadcasting to, and every such read is a place the room
- * model can be second-guessed.
+ * Deliberately small: five verbs and one number, and **TICKET-LIVE-03 added none**. A registry with
+ * a query surface is a registry somebody reads state out of instead of broadcasting to, and every
+ * such read is a place the room model can be second-guessed — which is why presence leaves this
+ * class as a broadcast from the mutators themselves rather than as a `membersOf` a caller could
+ * hold on to.
  */
 export interface SocketRooms {
-  /** Put a connection in a room. Already being in it is not an error. */
+  /**
+   * Put a connection in a room. Already being in it is not an error.
+   *
+   * **Announces the room's membership** when that admitted a new *Account* (v3 Req 44.8).
+   */
   join(sessionId: string, connection: LiveConnection): void;
-  /** Take it out of one room, leaving its others alone. Never refused. */
+  /** Take it out of one room, leaving its others alone. Never refused. Announces, like `join`. */
   leave(sessionId: string, connection: LiveConnection): void;
-  /** Take it out of every room — what a close or an error means (criterion 6). */
+  /** Take it out of every room — what a close or an error means (criterion 6). Announces each. */
   forget(connection: LiveConnection): void;
   /** Send one frame to every connection in one room, and to no other room. */
   broadcast(sessionId: string, payload: string): void;
@@ -62,10 +99,16 @@ export interface SocketRooms {
    * (TICKET-GAM-04, v3 Req 39.3)
    *
    * Not *close their connections* flatly: one socket may be listening to several tables, and losing
-   * a seat at one is not a reason to go dark on the others.
+   * a seat at one is not a reason to go dark on the others. Since TICKET-LIVE-03 the connection is
+   * **told** which room it lost before it is removed from it.
    */
   evictMember(sessionId: string, accountId: string): void;
-  /** Close everything and empty the map — process shutdown (criterion 6). */
+  /**
+   * Close everything and empty the map — process shutdown (criterion 6)
+   *
+   * **Announces nothing**, deliberately: presence says who is at a table, and *everybody is going*
+   * is what the close frame already says to each of them.
+   */
   closeAll(): void;
   /** How many rooms are held. Zero is what "the server is not leaking rooms" looks like. */
   roomCount(): number;
@@ -116,26 +159,99 @@ function shut(connection: LiveConnection, code: SocketCloseCode, reason: string)
   }
 }
 
+/**
+ * Whether two rooms hold the same Accounts
+ *
+ * Both sides come from {@link InMemorySocketRooms.accountsIn}, which sorts, so this is a walk rather
+ * than a set comparison.
+ *
+ * @param before Who was there
+ * @param after Who is there now
+ * @returns True when nothing a reader would draw has changed
+ */
+function sameAccounts(before: string[], after: string[]): boolean {
+  if (before.length !== after.length) return false;
+
+  return before.every((accountId, index) => accountId === after[index]);
+}
+
 /** The in-memory rooms — the only implementation this milestone has */
 class InMemorySocketRooms implements SocketRooms {
   /** Session id → the connections listening to it. An empty room is deleted, never kept at size 0. */
   private readonly rooms = new Map<string, Set<LiveConnection>>();
 
+  /**
+   * The Accounts watching one room, deduplicated and in a stable order (TICKET-LIVE-03)
+   *
+   * **Private, and that is the design.** Presence leaves this class only as a broadcast; nothing may
+   * ask it *who is there* and hold the answer, because an answer held is a stale answer drawn.
+   *
+   * Sorted so that {@link sameAccounts} can compare two readings positionally, and so that the same
+   * membership always produces the same frame — a set iterated in insertion order would announce a
+   * "change" every time one person's second tab replaced their first.
+   *
+   * @param sessionId Which room
+   * @returns The Account ids, sorted; empty for a room nobody is in
+   */
+  private accountsIn(sessionId: string): string[] {
+    const room = this.rooms.get(sessionId);
+    if (!room) return [];
+
+    const held = [...room].map((connection) => connection.accountId);
+    const unique = new Set(held);
+
+    return [...unique].sort();
+  }
+
+  /**
+   * Tell a room who is in it, if that changed (v3 Req 44.8)
+   *
+   * **The account set, never the connection set.** A person opening their sheet in a second tab
+   * joins the room a second time and changes nothing anybody can see, so nothing is sent; closing
+   * that tab likewise announces no departure. Broadcasting per *connection* would make presence
+   * flicker for everybody else every time one player opened a window.
+   *
+   * A room that has just emptied broadcasts to nobody, which is the correct amount of noise: the
+   * only Account that could have been told is the one that left.
+   *
+   * @param sessionId Which room changed
+   * @param before Who was in it before the change
+   */
+  private announce(sessionId: string, before: string[]): void {
+    const after = this.accountsIn(sessionId);
+
+    if (sameAccounts(before, after)) return;
+
+    const message: PresenceMessage = {
+      type: SERVER_MESSAGE_TYPE.PRESENCE,
+      sessionId,
+      accountIds: after,
+    };
+    const frame = JSON.stringify(message);
+
+    this.broadcast(sessionId, frame);
+  }
+
   join(sessionId: string, connection: LiveConnection): void {
+    const before = this.accountsIn(sessionId);
     const room = this.rooms.get(sessionId);
 
-    if (room) {
-      room.add(connection);
-      return;
+    if (room) room.add(connection);
+    else {
+      const opened = new Set([connection]);
+      this.rooms.set(sessionId, opened);
     }
 
-    const opened = new Set([connection]);
-    this.rooms.set(sessionId, opened);
+    // After the join rather than before it, so the joiner is in the room the frame goes to and
+    // learns who is here from the same message everybody else learns about them from
+    this.announce(sessionId, before);
   }
 
   leave(sessionId: string, connection: LiveConnection): void {
     const room = this.rooms.get(sessionId);
     if (!room) return;
+
+    const before = this.accountsIn(sessionId);
 
     room.delete(connection);
 
@@ -143,6 +259,8 @@ class InMemorySocketRooms implements SocketRooms {
     // zero-size Set per session ever played would leak one entry per table forever, which is the
     // leak criterion 6 asks to be shown the absence of.
     if (room.size === 0) this.rooms.delete(sessionId);
+
+    this.announce(sessionId, before);
   }
 
   forget(connection: LiveConnection): void {
@@ -177,6 +295,17 @@ class InMemorySocketRooms implements SocketRooms {
     const held = [...room].filter((connection) => connection.accountId === accountId);
 
     for (const connection of held) {
+      // **Told before they are removed** (TICKET-LIVE-03, v3 Req 44.8). This is the one case where
+      // the server *knows* a surface has gone stale, and until this ticket it was the one case it
+      // said nothing: a connection watching two tables and evicted from one kept drawing the lost
+      // table's numbers with nothing marking them as no longer moving. Sent even when the socket is
+      // about to be closed below, so there is one rule here rather than two — a client that hears
+      // both learns the same thing twice, which costs nothing.
+      const closed: RoomClosedMessage = { type: SERVER_MESSAGE_TYPE.ROOM_CLOSED, sessionId };
+      const frame = JSON.stringify(closed);
+
+      deliver(connection, frame);
+
       this.leave(sessionId, connection);
 
       // **Leave the room; close the socket only when that was its last one.** The criterion is
@@ -187,10 +316,9 @@ class InMemorySocketRooms implements SocketRooms {
       // module that reasons one way about a refusal and the other way about an eviction is a module
       // with two ideas about what a connection is.
       //
-      // The client is not *told* which room it lost. TICKET-LIVE-02 gave the socket a server → client
-      // message type and a client that can hear one, and **left this alone anyway**: what such a
-      // message would serve is *what is on screen is stale*, which is v3 Req 44.8 and LIVE-03's by
-      // name. Cheapness is not ownership.
+      // **TICKET-LIVE-03 closed the half this left open**: the client is now told *which* room it
+      // lost, above, so a connection that survives here because it holds other rooms no longer keeps
+      // drawing this one as though it were live.
       if (this.stillListening(connection)) continue;
 
       shut(connection, SOCKET_CLOSE_CODE.MEMBERSHIP_ENDED, MEMBERSHIP_ENDED_REASON);

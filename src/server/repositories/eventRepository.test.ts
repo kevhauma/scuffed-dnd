@@ -16,7 +16,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Database } from '../db/client';
 import { seedSession, withTestDatabase } from '../testing';
-import { appendEvent, eventsSince } from './eventRepository';
+import { appendEvent, eventsSince, latestEventSeq } from './eventRepository';
 
 /** Two sessions, so "per session" can actually be tested. Every case below refers to them by id. */
 function seedTwoSessions(database: Database): void {
@@ -134,6 +134,52 @@ describe('eventRepository', () => {
         append(database, 'e2', 's2');
 
         expect(eventsSince('s1', 0, database).map((row) => row.id)).toEqual(['e1']);
+      }));
+  });
+
+  describe('latestEventSeq', () => {
+    it('answers 0 for a session nothing has happened in', () =>
+      withTestDatabase((database) => {
+        seedTwoSessions(database);
+
+        // Zero rather than null, because it is compared against a client's *last seen* on the very
+        // next line of the replay — and *I have seen nothing* is the same number
+        const head = latestEventSeq('s1', database);
+
+        expect(head).toBe(0);
+      }));
+
+    it('answers with the highest sequence number in the session', () =>
+      withTestDatabase((database) => {
+        seedTwoSessions(database);
+        append(database, 'e1', 's1');
+        append(database, 'e2', 's1');
+        append(database, 'e3', 's1');
+
+        const head = latestEventSeq('s1', database);
+
+        expect(head).toBe(3);
+      }));
+
+    it('counts per session, like the numbers themselves', () =>
+      withTestDatabase((database) => {
+        seedTwoSessions(database);
+        append(database, 'e1', 's1');
+        append(database, 'e2', 's1');
+        append(database, 'e3', 's2');
+
+        const other = latestEventSeq('s2', database);
+
+        // A global maximum here would make every reconnecting client of a quiet table look
+        // catastrophically behind, and send them all to a full resynchronise
+        expect(other).toBe(1);
+      }));
+
+    it('answers 0 for a session that does not exist', () =>
+      withTestDatabase((database) => {
+        const head = latestEventSeq('no-such-session', database);
+
+        expect(head).toBe(0);
       }));
   });
 });

@@ -36,10 +36,10 @@
  * **Validates: v3 Req 44.4, 44.5, 45.1**
  */
 
-import { SERVER_MESSAGE_TYPE } from '#shared/types/liveSocket';
 import type { AppendEvent, EventRow, NewEvent, Recorded } from '../repositories/eventRepository';
 import { appendEvent, appendEventWithin } from '../repositories/eventRepository';
 import { liveRooms, type SocketRooms } from '../ws/rooms';
+import { liveEventFrame } from './liveEventFrame';
 
 /** A repository write that appends the Event it is handed, in the same transaction as its own row */
 export type EventfulWrite<T> = (append: AppendEvent) => Recorded<T>;
@@ -48,41 +48,18 @@ export type EventfulWrite<T> = (append: AppendEvent) => Recorded<T>;
 export type NullableWrite<T> = (append: AppendEvent) => Recorded<T> | null;
 
 /**
- * Turn a stored row into the frame the room reads (v3 Req 44.4, 44.5)
- *
- * The session is on the message rather than in the event, because the frame already names the room
- * it was sent to and two spellings of *which table* is one more than a reader needs. The payload is
- * parsed here — our own bytes, written by this server, the same call `playerStateOf` makes.
- *
- * @param row The Event as the log holds it
- * @returns The frame, as text
- */
-function frameFor(row: EventRow): string {
-  const payload: unknown = JSON.parse(row.payload);
-
-  return JSON.stringify({
-    type: SERVER_MESSAGE_TYPE.EVENT,
-    sessionId: row.sessionId,
-    event: {
-      id: row.id,
-      seq: row.seq,
-      type: row.type,
-      actorAccountId: row.actorAccountId,
-      at: row.createdAt,
-      payload,
-    },
-  });
-}
-
-/**
  * Send one Event to its session's room, and to no other (v3 Req 44.3)
+ *
+ * **The frame is `liveEventFrame`'s** since TICKET-LIVE-03, rather than this module's own: a
+ * reconnecting client is *replayed* the same rows out of the log, and a broadcast that projected
+ * them differently from a replay would make the two arrivals of one Event two different facts.
  *
  * @param row The Event that was just written
  * @param rooms Where the connections are
  */
 function publish(row: EventRow, rooms: SocketRooms): void {
   try {
-    const frame = frameFor(row);
+    const frame = liveEventFrame(row);
     rooms.broadcast(row.sessionId, frame);
   } catch (error) {
     // The row is committed and the caller's action succeeded. See the module note: failing here

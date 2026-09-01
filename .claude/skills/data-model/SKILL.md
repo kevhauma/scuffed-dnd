@@ -152,6 +152,13 @@ Two consequences worth holding on to before changing a persisted shape:
   re-read. `cast-spell` is the worked example of why the table is explicit rather than inferred: its
   before/after are a **pool's** and its Event `target` is a **spell's**, so a rule reading the shape
   would write a mana total under a spell id.
+- **Presence is state that is *deliberately* not persisted** (TICKET-LIVE-03). Who is watching a
+  table is derived from open connections in `server/ws/rooms.ts`, announced to that room when the
+  **Account** set changes, and legitimately ends with the process — the one piece of milestone state
+  with no row, no key and no document, like `useUIStore`'s roll history before ROLL-07. It is worth
+  naming here precisely because a *roster* looks like a thing to store: a stored presence list is a
+  list that outlives the connections it describes, and the app would be reading it after the fact
+  and calling it live. Nothing in this skill's tables changed for it, and nothing should.
 
 ## Storage
 

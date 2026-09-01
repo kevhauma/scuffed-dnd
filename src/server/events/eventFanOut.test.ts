@@ -44,6 +44,7 @@ import type { CharacterDocument, GameSessionDocument, SessionRoll } from '#share
 import { DM_ACTION, PLAYER_ACTION, ROLL_EVENT, SESSION_EVENT } from '#shared/types/api';
 import type { Configuration } from '#shared/types/config';
 import type { LiveEventMessage } from '#shared/types/liveSocket';
+import { SERVER_MESSAGE_TYPE } from '#shared/types/liveSocket';
 import { dmAwardExperience } from '../routes/dm/dmAwardExperience';
 import { setFocusSkills } from '../routes/play/setFocusSkills';
 import { rollDiceHandler } from '../routes/rolls/rollDice';
@@ -101,6 +102,17 @@ const APPEND_EXPORTS = ['appendEvent', 'appendEventWithin'];
 
 /** How a route reaches the fan-out — directly, or through the pipeline every sheet action shares */
 const FAN_OUT_MARKERS = ['recordEvent(', 'applyPlayerAction('];
+
+/**
+ * How an Event frame is built — naming the message type, which is the only way to build one
+ *
+ * Not `liveEventFrame(`, which is the *call*: a second module spelling the object out by hand would
+ * call nothing and match no name, which is precisely the shape this has to catch.
+ */
+const EVENT_FRAME_MARKER = 'SERVER_MESSAGE_TYPE.EVENT';
+
+/** …and the one module allowed to do it */
+const EVENT_FRAME = '/events/liveEventFrame.ts';
 
 /** One module of the server, as text */
 interface ServerModule {
@@ -199,6 +211,31 @@ describe('the Event log has one writer', () => {
 
     expect(recorder?.source).toContain('rooms.broadcast(');
   });
+
+  it('composes an Event frame in exactly one module (TICKET-LIVE-03)', () => {
+    // **The claim `rooms.ts` used to make in prose, made checkable.** LIVE-02's docblock said that
+    // nothing but `recordEvent` may send a frame, which was the right instinct stated too widely and
+    // never enforced — and LIVE-03 needed a second *sender*, because a reconnecting client is
+    // replayed rows out of the log. What is actually load-bearing is narrower: an `event` frame is a
+    // claim about the table, so there must be exactly one place that can build one. Both the
+    // broadcast and the replay go through it.
+    //
+    // Verified by mutation while it was written: spelling the frame a second time in `ws/replay.ts`
+    // fails this, and so does moving the projection back into `recordEvent.ts`.
+    const modules = modulesUnder(SERVER_ROOT);
+    const composers = containing(modules, [EVENT_FRAME_MARKER]);
+
+    expect(composers).toEqual([EVENT_FRAME]);
+  });
+
+  it('sends that one projection from both the broadcast and the replay', () => {
+    // The other half: one composer is only worth having if everybody uses it. A module that sent
+    // Events some other way would pass the assertion above by not naming the type at all.
+    const modules = modulesUnder(SERVER_ROOT);
+    const senders = containing(modules, ['liveEventFrame(']);
+
+    expect(senders).toEqual([EVENT_FRAME, '/events/recordEvent.ts', '/ws/replay.ts']);
+  });
 });
 
 describe('the routes that write an Event', () => {
@@ -232,7 +269,13 @@ interface FakeConnection extends LiveConnection {
   readonly frames: LiveEventMessage[];
 }
 
-/** A connection that keeps what it was sent */
+/**
+ * A connection that keeps the **Events** it was sent
+ *
+ * Only the Events: since TICKET-LIVE-03 a room also tells its members who is in it, and joining one
+ * of these fakes to a room produces such a frame before any action has been performed. Keeping them
+ * here would make every *sends exactly one frame* case below count the arrangement.
+ */
 function fakeConnection(accountId: string): FakeConnection {
   const frames: LiveEventMessage[] = [];
 
@@ -241,6 +284,9 @@ function fakeConnection(accountId: string): FakeConnection {
     frames,
     send: (payload) => {
       const message = JSON.parse(payload) as LiveEventMessage;
+
+      if (message.type !== SERVER_MESSAGE_TYPE.EVENT) return;
+
       frames.push(message);
     },
     close: () => undefined,

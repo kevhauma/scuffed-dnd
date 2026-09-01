@@ -257,13 +257,50 @@ export function latestCharacterEvents(
 }
 
 /**
+ * How far a session's log has got (TICKET-LIVE-03)
+ *
+ * **Asked *before* {@link eventsSince}, and that ordering is the whole point.** A reconnecting
+ * client names the number it got to; the server has to decide whether the distance from there to
+ * here is worth replaying at all, and it cannot decide that by fetching the rows and counting them
+ * — a client gone for an hour would have the server read two thousand rows in order to conclude it
+ * should not have. This answers the question with the index and no rows.
+ *
+ * It is also what a `resync` instruction carries, so a client that refetches knows where to resume
+ * from rather than guessing low and asking for the gap it was just told to skip.
+ *
+ * @param sessionId Which session
+ * @param database The connection; defaults to the process's
+ * @returns The highest `seq` in that session, or `0` for a session nothing has happened in
+ */
+export function latestEventSeq(sessionId: string, database: Database = getDatabase()): number {
+  const latest = database.db
+    .select({ seq: event.seq })
+    .from(event)
+    .where(eq(event.sessionId, sessionId))
+    .orderBy(desc(event.seq))
+    .limit(1)
+    .get();
+
+  // Zero rather than `null`: *nothing has happened here* and *I have seen nothing* are the same
+  // number on both sides of the comparison the replay makes, and an optional would make every
+  // caller restate that
+  return latest?.seq ?? 0;
+}
+
+/**
  * Everything that happened in a session after a given sequence number
  *
  * What a client reconnecting asks for (LIVE-03): "I saw up to 41, what have I missed?"
  *
- * @param database The connection
+ * **Uncapped, deliberately, and bounded by its caller instead.** `ws/replay.ts` asks
+ * {@link latestEventSeq} first and refuses to call this at all when the gap exceeds the replay
+ * window — so the row count here is bounded by that window rather than by a `limit` clause. A cap
+ * *here* would be worse than none: it would silently return a prefix of the answer, which is the
+ * one thing a gapless replay cannot survive, where the caller's refusal is visible and says so.
+ *
  * @param sessionId Which session
  * @param afterSeq The last sequence number the caller has; `0` for everything
+ * @param database The connection
  * @returns The events in order
  */
 export function eventsSince(

@@ -256,6 +256,22 @@ acceptance criteria.
   socket is a socket that exists unauthenticated. `ws/rooms.ts` imports `ws` **not at all**;
   `ws/liveSocketServer.ts` is the only module that does. The socket's URL is derived from
   `window.location` and no variable or constant names its host.
+  **TICKET-LIVE-03 added a *parameter*, not a third verb**: `subscribe` may carry `afterSeq`, and the
+  server replays what that client missed. It is a client-supplied value steering a server-side query,
+  so it is validated (or the whole frame is refused), scoped to the session `requireMember` just
+  approved, and bounded to one catch-up per room per connection — D8 carries the reasoning. The
+  replay is **gapless because the whole subscribe is one synchronous turn**; nothing on that path may
+  become `async` without the property dying silently.
+- **Presence is never persisted, and a feed that is not live yields *unknown*, never *away***
+  (TICKET-LIVE-03, v3 Req 44.8). It is derived from open connections and announced by `ws/rooms.ts`
+  itself on a change of **Account** — two tabs are one person at the table. The judgement lives in
+  `components/live/presenceState.ts` and the sentence in `LiveStatusNotice`; a second surface renders
+  those modules rather than copying their markup.
+- **A dropped socket costs liveness and nothing else** (v3 Req 44.9). **No store and no persistence
+  service may name `services/liveSocket`** — every action goes store → `characterSync` → `api`
+  whatever the connection is doing, and `services/liveSocket.test.ts` asserts that as an equality.
+  The client reconnects with a jittered backoff and **reconciles on open rather than flushing a
+  queue**.
 - **An Event is written through `recordEvent()` and nowhere else** (TICKET-LIVE-02, v3 Req 44.4).
   `src/server/events/recordEvent.ts` appends the row **and** broadcasts it to that session's room in
   one path, so an action cannot change a character without the table being told. It **injects** the

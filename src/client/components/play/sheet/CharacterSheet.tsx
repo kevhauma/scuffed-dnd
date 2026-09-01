@@ -14,6 +14,7 @@
  * **Validates: Requirements 8.5, 13.4, 14.1, 14.2, 14.5, 21.1-21.5, 22.1-22.6; v3 Req 42.7, 49.10**
  */
 
+import { LiveStatusNotice } from '../../live/LiveStatusNotice';
 import { AdjustmentLog } from '../dm/AdjustmentLog';
 import { DmControlsPanel } from '../dm/DmControlsPanel';
 import { QuickActionsSidebar } from '../dm/QuickActionsSidebar';
@@ -73,6 +74,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     budget,
     rollGroups,
     atTable,
+    tableSessionId,
     actionError,
     dismissActionError,
     handleChangeStatValue,
@@ -149,6 +151,12 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <SheetRefusalBanner message={actionError} onDismiss={dismissActionError} />
+
+      {/* Above everything, because everything below it is a number that stops moving when the feed
+          does (TICKET-LIVE-03, v3 Req 44.8). **Drawn unconditionally**: it answers *nothing to say*
+          for a local character and for a healthy connection, so this file gains no branch — the same
+          shape every panel in the rail below already has. */}
+      <LiveStatusNotice sessionId={tableSessionId} />
 
       <SheetHeader
         name={character.name}

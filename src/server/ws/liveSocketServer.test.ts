@@ -264,7 +264,15 @@ function openedUp(socket: WebSocket): Promise<void> {
   });
 }
 
-/** Resolve with the next message this socket receives */
+/**
+ * Resolve with the next message this socket receives that is **an answer**
+ *
+ * Presence is skipped rather than counted. Since TICKET-LIVE-03 a room announces its membership to
+ * everybody in it whenever that changes, so a successful subscribe produces two frames — one about
+ * the room and one about the request — and every caller here is waiting for the second. Skipping
+ * rather than filtering afterwards keeps the timeout meaningful: a socket that only ever heard
+ * presence should still time out saying no answer arrived.
+ */
 function nextMessage(socket: WebSocket): Promise<ServerSocketMessage> {
   return new Promise((resolve, reject) => {
     const giveUp = setTimeout(() => {
@@ -272,12 +280,18 @@ function nextMessage(socket: WebSocket): Promise<ServerSocketMessage> {
       reject(timedOut);
     }, PATIENCE_MS);
 
-    socket.once('message', (data) => {
-      clearTimeout(giveUp);
+    const hear = (data: { toString(): string }) => {
       const text = data.toString();
       const parsed = JSON.parse(text) as ServerSocketMessage;
+
+      if (parsed.type === SERVER_MESSAGE_TYPE.PRESENCE) return;
+
+      clearTimeout(giveUp);
+      socket.off('message', hear);
       resolve(parsed);
-    });
+    };
+
+    socket.on('message', hear);
   });
 }
 
@@ -552,6 +566,8 @@ describe('rooms, over a real connection', () => {
         expect(admitted).toEqual({
           type: SERVER_MESSAGE_TYPE.SUBSCRIBED,
           sessionId,
+          // Where the log stands, over a real socket: nothing has happened at this table
+          seq: 0,
         });
         expect(refused).toEqual({
           type: SERVER_MESSAGE_TYPE.SUBSCRIBE_REFUSED,
@@ -587,6 +603,7 @@ describe('rooms, over a real connection', () => {
         const traffic: ServerSocketMessage = {
           type: SERVER_MESSAGE_TYPE.SUBSCRIBED,
           sessionId: "a later ticket's traffic",
+          seq: 0,
         };
         const frame = JSON.stringify(traffic);
         rooms.broadcast(sessionId, frame);
@@ -596,6 +613,7 @@ describe('rooms, over a real connection', () => {
         expect(received).toEqual({
           type: SERVER_MESSAGE_TYPE.SUBSCRIBED,
           sessionId: "a later ticket's traffic",
+          seq: 0,
         });
         expect(outsideHeard).toEqual([]);
       });

@@ -433,10 +433,19 @@ carrying a user story, the as-is / to-be, and acceptance criteria.
   re-read otherwise. Its `Record<SheetAction, …>` is exhaustive, so adding an action **fails the
   typecheck** there until you say which it is. Answering `null` is a perfectly good answer; leaving
   it out is not an option, which is the point.
-- **The socket does not reconnect, and that is deliberate until TICKET-LIVE-03.** If the connection
-  drops, the feed stops and the app keeps working — every action is still an HTTP request. Do not
-  add a retry without the replay that makes it honest: a client that silently came back would have a
-  gap in its Event sequence and no way to know (v3 Req 44.6, 44.8, 44.9).
+- **The socket reconnects, and it replays rather than queueing** (TICKET-LIVE-03). A dropped
+  connection comes back on a jittered backoff and, on every open, asks for each room it still holds
+  **with the last `seq` it saw** — so the server sends exactly what was missed, or tells it to read
+  the session again when the gap is past `REPLAY_WINDOW_EVENTS`. There is no queue of frames waiting
+  for a socket: the rooms map already says what the connection wants, and reconciling from it means a
+  room let go while offline is simply never resubscribed. The app stays correct throughout, because
+  every action is an HTTP request and only liveness is lost (v3 Req 44.6, 44.9).
+- **Do not read presence off a socket that is down.** `components/live/presenceState.ts` answers
+  *unknown* for every state that is not live, even when it still holds a list of who was last seen —
+  the lobby saying *Away* about somebody sitting right there is the failure the whole ticket is
+  against, and it is the same instinct as chipping a formula that cannot be evaluated instead of
+  showing a confident zero. Presence is by **Account**, never by connection: your second tab adds
+  nobody, and closing it announces no departure (v3 Req 44.8).
 - **Every `ws` socket needs an `'error'` listener, including one you are about to close.** An
   `'error'` on an `EventEmitter` with no listener is a **throw**, and from a socket it is raised out
   of a `data` callback where nothing catches it — so it ends the process. LIVE-01's refusal path

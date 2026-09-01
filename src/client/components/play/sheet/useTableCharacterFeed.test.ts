@@ -1,10 +1,17 @@
 /**
- * One refetch for a burst, and none at all for what can be applied (TICKET-LIVE-02, v3 Req 44.7)
+ * One refetch for a burst, and none at all for what can be applied (TICKET-LIVE-02, TICKET-LIVE-03,
+ * v3 Req 44.6, 44.7)
  *
  * The criterion is *an Event a client cannot apply triggers **exactly one** full refetch, not one
  * per Event* — a claim about counting, which is why this file drives the hook with a fake clock and
  * counts. The three cases that matter are the burst, the Event that lands *during* the read it
  * caused, and the Event that needs no read at all.
+ *
+ * TICKET-LIVE-03 adds two more of the same shape. A **resynchronise instruction** reads once, and
+ * once per instruction however often the surface re-renders. And an Event that **applied** while a
+ * read was in flight now schedules the trailing pass too — the read on the wire was composed before
+ * that Event and would overwrite it on arrival, which is the failure that made *the client refetches
+ * once and is correct afterwards* untrue.
  *
  * The room itself is `useLiveSession`'s and is faked here down to *what does this hook do with a
  * frame*: the connection has its own tests in `services/liveSocket.test.ts`, and a second copy of
@@ -17,6 +24,7 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LiveEventMessage } from '#shared/types/liveSocket';
 import { EVENT_EFFECT, type LiveEventEffect } from '../../../services/liveEvents';
+import { LIVE_STATUS, type LiveRoomView } from '../../../services/liveSocket';
 
 /** What the hook subscribed with, so a case can push frames at it */
 let deliver: ((message: LiveEventMessage) => void) | null = null;
@@ -28,6 +36,11 @@ vi.mock('../shared/useLiveSession', () => ({
     deliver = onEvent;
   },
 }));
+
+/** The room's own view, which is where a *read it all again* instruction arrives */
+let room: LiveRoomView | null = null;
+
+vi.mock('../../live/useLiveRoom', () => ({ useLiveRoom: () => room }));
 
 const applyTableEvent = vi.fn<(event: unknown) => LiveEventEffect>(() => EVENT_EFFECT.APPLIED);
 
@@ -72,11 +85,17 @@ function arrive(seq: number): void {
   });
 }
 
+/** A room in the state a case needs */
+function aRoom(resyncAt: number | null): LiveRoomView {
+  return { status: LIVE_STATUS.LIVE, presentAccountIds: [], resyncAt };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();
   deliver = null;
   listeningTo = null;
+  room = aRoom(null);
   applyTableEvent.mockReturnValue(EVENT_EFFECT.APPLIED);
   storeState = {
     tableCharacter: { id: 'character-1' },
@@ -181,6 +200,101 @@ describe('useTableCharacterFeed', () => {
     });
 
     expect(reopen).toHaveBeenCalledTimes(2);
+  });
+
+  it('reads again for an Event that applied while it was reading (TICKET-LIVE-03)', async () => {
+    // **The race a resynchronise makes likely, and this is the fix.** The read on the wire was
+    // composed before this Event; it will land afterwards and overwrite the value the Event just
+    // wrote, leaving the sheet a step behind with nothing left to correct it. Before LIVE-03 only a
+    // `stale` scheduled the trailing pass, and this case fails without that change.
+    applyTableEvent.mockReturnValue(EVENT_EFFECT.STALE);
+
+    let settle: (() => void) | null = null;
+    const reopen = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          settle = resolve;
+        })
+    );
+
+    renderHook(() => useTableCharacterFeed('character-1', reopen));
+
+    arrive(1);
+
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(reopen).toHaveBeenCalledTimes(1);
+
+    // …and now a DM's award arrives and *applies* cleanly, while the read is still out
+    applyTableEvent.mockReturnValue(EVENT_EFFECT.APPLIED);
+    arrive(2);
+
+    await act(async () => {
+      const finish = settle as unknown as () => void;
+      finish();
+      await vi.runAllTimersAsync();
+    });
+
+    expect(reopen).toHaveBeenCalledTimes(2);
+  });
+
+  it('reads nothing for an Event that applied with no read in flight', async () => {
+    // The other half, so the case above is not just *always read twice*: an applied Event with
+    // nothing on the wire has already put the sheet right, and asking again would be a request per
+    // Event — the very thing the coalescing exists to prevent
+    const reopen = vi.fn(async () => undefined);
+    renderHook(() => useTableCharacterFeed('character-1', reopen));
+
+    arrive(1);
+    arrive(2);
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(reopen).not.toHaveBeenCalled();
+  });
+
+  it('reads the sheet again when the server says to resynchronise', async () => {
+    // v3 Req 44.6's other outcome: too far behind to replay, so the server names the head of the log
+    // and the client reads. The instruction goes through the same coalescing timer as everything
+    // else, so a resync beside a burst is still one read.
+    const reopen = vi.fn(async () => undefined);
+    const { rerender } = renderHook(() => useTableCharacterFeed('character-1', reopen));
+
+    room = aRoom(1_700_000_000_500);
+    rerender();
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(reopen).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads once per instruction, however often the surface re-renders', async () => {
+    // The reason the view carries a timestamp rather than a flag: nobody has to own clearing it, and
+    // a re-render for any other reason is not a second instruction
+    const reopen = vi.fn(async () => undefined);
+    const { rerender } = renderHook(() => useTableCharacterFeed('character-1', reopen));
+
+    room = aRoom(1_700_000_000_500);
+    rerender();
+    rerender();
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    rerender();
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(reopen).toHaveBeenCalledTimes(1);
   });
 
   it('does not read after the sheet has gone', async () => {

@@ -29,7 +29,7 @@ src/
 │   │   └── play/                 # Play mode routes
 │   ├── stores/                   # Zustand state stores
 │   ├── services/                 # LocalStorage, Blob/File download, /api/* client, the live socket
-│   ├── components/               # ui/ primitives → config/, play/, rulesets/, auth/, shared/
+│   ├── components/               # ui/ primitives → config/, play/, rulesets/, auth/, live/, shared/
 │   ├── integration/              # The nothing-mocked suites
 │   ├── router.tsx                # Router creation
 │   ├── routeTree.gen.ts          # Generated — never hand-edit

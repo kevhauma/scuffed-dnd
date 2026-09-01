@@ -630,15 +630,31 @@ between the roots is exactly *"does this touch a browser API"*.
   path from `#shared/types/liveSocket`'s `LIVE_SOCKET_PATH`. No environment variable, no
   configurable base and no host literal anywhere in the module — asserted against its **own source
   text**, since that property decays the first time somebody adds a fallback.
-  `openLiveConnection({ url, open? })` is one socket, several rooms and a list of listeners, over a
-  structural `LiveSocketLike` so a test drives it with no `WebSocket`; `liveConnection()` is the
-  page's singleton, `liveRooms()`'s counterpart at the other end. **Rooms are reference-counted**,
-  because two hooks on one sheet subscribe to the same table and the second unmounting must not take
-  the first one's feed. Frames written before the handshake finishes are queued and flushed on
-  `open` — nothing is queued across a *close*, which would be replay. It deliberately **does not
-  reconnect, report connection state, or replay**: all three are TICKET-LIVE-03's (v3 Req 44.6,
-  44.8, 44.9), and a client that came back without knowing what it missed is worse than one that
-  stayed down.
+  `openLiveConnection({ url, open?, random? })` is one socket, several rooms and a list of listeners,
+  over a structural `LiveSocketLike` so a test drives it with no `WebSocket`; `liveConnection()` is
+  the page's singleton, `liveRooms()`'s counterpart at the other end. **Rooms are
+  reference-counted**, because two hooks on one sheet subscribe to the same table and the second
+  unmounting must not take the first one's feed. **TICKET-LIVE-03 added the three things LIVE-02
+  named and deleted the frame queue.** It reconnects on a jittered backoff (`random` is injected so
+  fifty clients can be asserted exactly rather than statistically); on every open it **reconciles**
+  — one `subscribe` per room it still holds, each carrying that room's `resumeFrom`, so the server
+  replays what was missed — and it drops any Event whose `seq` is not greater than that, which is
+  duplicate suppression and never a gap because frames arrive in `seq` order. **`resumeFrom` comes
+  from the acknowledgement's `seq` and `null` means *first subscribe*, not *seen nothing***: keyed on
+  the last Event it had seen, a client at a quiet table asked for nothing on reconnect and stayed
+  stale, which is the gap LIVE-03's review closed. A room the server refused or took away is **not**
+  re-asked for on reconnect — that would provoke a refusal per backoff and meanwhile read as
+  *reconnecting* about a feed that is not coming back. Two refusals to retry are load-bearing:
+  a deliberate `close()` and a `4401`. `roomView(sessionId)` is what a surface
+  reads — `{ status, presentAccountIds, resyncAt }`, five statuses, with presence handed out **only**
+  alongside a live status; `addViewListener` is how it hears that any of it moved.
+- `liveBackoff.ts` — **how long to wait before trying again** (TICKET-LIVE-03). Pure, and separate
+  from the connection because the property is about a *population*: `backoffDelay(attempt, random)`
+  is half fixed and half random (`ceiling / 2 + random × ceiling / 2`), the ceiling doubling from
+  `RECONNECT_BASE_MS` to `RECONNECT_CAP_MS`. Equal jitter rather than none (the stampede) or full
+  (the client that retries after almost no wait). `CONNECTION_STABLE_MS` is the other half of the
+  defence: the attempt counter resets only after a connection that *lasted*, so a shutting-down
+  server accepting and immediately closing cannot peg every client at the base delay together.
 - `liveEvents.ts` — **what a broadcast Event does to the sheet a browser is holding**
   (TICKET-LIVE-02). Pure. `applyEventToCharacter(character, event)` answers `applied` (with the
   patched character), `elsewhere` (another character, or a roll, which stores nothing) or `stale`
@@ -929,8 +945,8 @@ each later ticket adds.
   no route can call. AUTH-03 converted DB-01's two to match.
 
 - `ws/` (TICKET-LIVE-01) — **the live socket**, and the transport only. It carries traffic since
-  TICKET-LIVE-02, but nothing here decides what: `events/recordEvent.ts` is `broadcast`'s one
-  production caller. Three modules and the split between them is the design:
+  TICKET-LIVE-02, but nothing here decides what an Event *is*: `events/liveEventFrame.ts` is the one
+  module that composes one. Four modules and the split between them is the design:
   - `rooms.ts` — one room per Game_Session, `Map<sessionId, Set<LiveConnection>>`, with `join`,
     `leave`, `forget`, `broadcast`, `evictMember`, `closeAll` and `roomCount`. **It imports `ws` not
     at all** — and that is a **dependency-cruiser rule**, `the-socket-library-has-one-importer`, not
@@ -939,15 +955,36 @@ each later ticket adds.
     import would end that silently. An empty room is *deleted*, so a long-running server holds no
     Set per table ever played. `evictMember` **leaves the room and closes the socket only if that was
     its last room** — one browser holds one socket across every table it watches, so closing outright
-    would darken table B because a seat at table A was removed. `liveRooms()` is the process
-    singleton (`setLiveRooms` mirrors `db/client`'s `setProcessDatabase` for tests).
+    would darken table B because a seat at table A was removed — and since TICKET-LIVE-03 it **tells
+    that connection which room it lost** (`ROOM_CLOSED`) before removing it. **Presence is announced
+    by the mutators themselves** (LIVE-03): every `join` / `leave` / `forget` / `evictMember`
+    broadcasts the room's membership when the **Account** set changed, so a membership change and its
+    announcement are one path and a second tab of one person announces nothing. There is deliberately
+    no `membersOf` on the interface — a registry that hands its state out is one somebody reads
+    instead of broadcasting to, and presence read *at* a moment is the stale number the whole ticket
+    is against. `closeAll` announces nothing. `liveRooms()` is the process singleton (`setLiveRooms`
+    mirrors `db/client`'s `setProcessDatabase` for tests).
   - `subscription.ts` — the socket's **whole inbound surface**. Two verbs, `subscribe` and
     `unsubscribe`; anything else is dropped and logged before it can reach a repository (D8). The
     subscribe calls **`requireMember` from `auth/guards.ts`, unmodified** — there is no
     `findSessionMember` call anywhere under `ws/` — and maps every `AppError` onto one refusal
     payload carrying no reason, so *no such session* and *not a Member* are the same answer
     (v3 Req 32.5). A refusal is a **message**, not a close: one socket may hold several rooms, and
-    closing on a bad id would let a caller read the outcome off the connection state.
+    closing on a bad id would let a caller read the outcome off the connection state. Since
+    TICKET-LIVE-03 a subscribe may carry `afterSeq`; `decodeSubscribe` validates it as a non-negative
+    integer and **refuses the whole frame** otherwise, because admitting a client and silently
+    skipping its catch-up is a gap nobody can notice.
+  - `replay.ts` — **what a reconnecting client missed, or the instruction to stop asking**
+    (TICKET-LIVE-03, v3 Req 44.6). `replayTo(connection, sessionId, afterSeq, latest?)` is bounded to
+    **one catch-up per room per connection** (`caughtUp`, a `WeakMap` keyed on the connection so an
+    entry goes when the socket does) — validating `afterSeq` as a value said nothing about how often
+    it may be sent, and a replay is not idempotent the way a join is. It asks
+    `latestEventSeq` — or takes the head its caller already read — sends a `RESYNC` carrying it when the gap exceeds
+    `REPLAY_WINDOW_EVENTS` (200, a documented constant — TICKET-POL-03 owns deployment knobs), and
+    otherwise sends `eventsSince` through `liveEventFrame`. **Gapless because the whole subscribe is
+    one synchronous turn**: nothing on the path from `requireMember` to the last frame is awaited, so
+    no broadcast can interleave — a property that would die silently if any of it became `async`,
+    which is why the module says so and `subscription.test.ts` asserts the shape.
   - `liveSocketServer.ts` — `attachLiveSocket(httpServer, rooms?)`, the **only** module importing
     `ws`. `noServer: true`, a 4 KiB `maxPayload`, and an `upgrade` listener filtered to
     `LIVE_SOCKET_PATH` so Vite's own HMR socket on the same listener is untouched. Identity is
@@ -974,6 +1011,12 @@ each later ticket adds.
   would report a committed change as a failed one. `eventAlone` is the writer for a caller with
   nothing else to record — a roll. Three production callers: `routes/play/playPayloads.ts` (which is
   all 28 sheet actions), `routes/rolls/rollDice.ts` and `routes/sessions/refreshSnapshot.ts`.
+  - `liveEventFrame.ts` (TICKET-LIVE-03) — the row → frame projection, hoisted out of `recordEvent`
+    when replay became a second way an Event reaches a client. **The only module in `src/server/`
+    that composes a `SERVER_MESSAGE_TYPE.EVENT` frame**, asserted by `eventFanOut.test.ts` as an
+    equality: two projections that have to agree is a drift with a date on it. It replaces LIVE-02's
+    prose claim that nothing but `recordEvent` may *send* a frame, which was the right instinct
+    stated too widely and never checked.
 
 Server tests call handlers directly with a `Request` and **never boot Nitro** —
 `vitest.config.ts` still omits `tanstackStart()`, for the reason its own header records. **A socket
@@ -1133,6 +1176,22 @@ and no other, and asks for no socket at all while nobody is signed in (D6). The 
 a **ref** rather than depended on — every caller passes a fresh closure, so a dependency on it would
 leave and rejoin the room on each render. Two callers today (`useTableCharacterFeed`,
 `useTableRollLog`), which is exactly why the connection beneath it counts its rooms.
+
+**`components/live/`** (TICKET-LIVE-03) is the cross-feature folder for *is this still live* — the
+lobby renders it today and TICKET-DM-04's roster renders the same modules rather than copying their
+markup. Four of them. **`useLiveRoom(sessionId)`** is `useLiveSession`'s reading half: it holds the
+room while the surface is mounted and answers a `LiveRoomView` — or **`null`**, which is a real
+answer meaning *there is no feed here at all* (a local character, a signed-out reader) rather than
+*the feed is down*. **`presenceState.ts`** is where the ticket's central judgement lives:
+`presenceStateOf(view, accountId)` answers `present` / `away` / **`unknown`**, and every status but
+`live` is `unknown` even when a list of who was last seen is still in hand — *away* is a claim about
+another person, and a dead socket cannot support one. It keeps GAM-04's *Connection unknown* in the
+vocabulary rather than retiring it. **`PresenceBadge`** draws a decided state (presentational, so one
+feed serves twenty rows), and **`LiveStatusNotice`** is the sentence a stale surface shows: drawn
+**unconditionally** by its callers and silent for a healthy feed *and* for a first connection —
+nothing is stale on a first load — so `CharacterSheet` and `SessionLobby` each gained a surface and
+no branch. `live.style.ts` is the folder's tone table.
+
 `characters/` holds `CharacterList` + `CharacterCard` + `useCharacterListManager`.
 `creation/` holds the five-step wizard: `CharacterCreationWizard` dispatches on a step index and
 the five step components (`IdentityStep`, `ArchetypeStep`, `SkillAllocationStep`, `FocusStep`,
@@ -1530,12 +1589,17 @@ acts on characters without opening them is still TICKET-DM-04's.
 sits at the top of an expanded row — **every** row now, not just a DM's, because a table is other
 people and a player who could not see who else was at theirs would be playing alone with extra
 steps. Driven by `useSessionMembers(sessionId)`, the third hook on that keyed-on-the-open-row
-skeleton. Three things about it are decisions rather than details: the connection column says
-**Unknown** because the app genuinely cannot tell until LIVE-03 and *Offline* would be a claim it
-cannot support; all three actions confirm through `ui/Dialog` and each sentence says **nothing is
-deleted**, because *removed* reads like *deleted* and here it is not; and a DM's own row offers
-neither *Leave* nor *Remove*, which is v3 Req 39.6 drawn rather than guessed. **TICKET-DM-04 grows
-this into the DM's roster** — it is the session's one member list, not a page that needs a sibling.
+skeleton. Three things about it are decisions rather than details: the connection column is
+**real since TICKET-LIVE-03** and says *Connected* / *Away* off `useLiveRoom` — going straight back
+to GAM-04's *Connection unknown* whenever the feed is not live, because *Offline* was always a claim
+the app could not support and a dropped socket still cannot; all three actions confirm through
+`ui/Dialog` and each sentence says **nothing is deleted**, because *removed* reads like *deleted* and
+here it is not; and a DM's own row offers neither *Leave* nor *Remove*, which is v3 Req 39.6 drawn
+rather than guessed. `MemberList` holds the rows (split out at LIVE-03, when the badge took the
+component past `fallow`'s cognitive threshold) and `LiveStatusNotice` sits above them, so a reader
+who is looking at a dead feed is told once rather than per row. **TICKET-DM-04 grows this into the
+DM's roster** — it is the session's one member list, not a page that needs a sibling, and the four
+`components/live/` modules are what it inherits.
 `useAuth` gained `accountId` for it, so the lobby can tell which row is yours without the server
 sending a per-caller flag.
 

@@ -1,11 +1,19 @@
 /**
- * What travels on the live socket, declared once for both ends (TICKET-LIVE-01, TICKET-LIVE-02)
+ * What travels on the live socket, declared once for both ends (TICKET-LIVE-01, TICKET-LIVE-02,
+ * TICKET-LIVE-03)
  *
  * The socket is **server → client** ([D8](../../../docs/v3.0_backend/overview.md#d8--websockets-notify-http-mutates)):
  * every state-changing action is an HTTP request, and the only thing a client may say here is
  * *which rooms it is listening to*. That is what keeps authorization to one implementation — the
  * HTTP one — rather than one per transport, and it is why {@link CLIENT_MESSAGE_TYPE} has two
  * members and will not grow a third that writes anything.
+ *
+ * **TICKET-LIVE-03 added a *parameter* rather than a verb**, and the distinction is the whole of why
+ * D8 needed no amendment: {@link SubscribeMessage.afterSeq} says *where I got to*, so the same
+ * `subscribe` a client already sent now also asks to be caught up. It steers a server-side query,
+ * which is closer to a read than to a notification — see D8's note, and `server/ws/replay.ts` for
+ * the two things that keep it safe (it is validated as a non-negative integer or absent, and the
+ * query runs **after** `requireMember` against the session the guard approved).
  *
  * In the Kernel rather than in `server/ws/` for the reason every shape in this folder is: the
  * server produces these and the client reads them, so a second declaration on either side is one
@@ -75,10 +83,23 @@ export const CLIENT_MESSAGE_TYPE = {
   UNSUBSCRIBE: 'unsubscribe',
 } as const;
 
-/** *Listen to this session* */
+/** *Listen to this session* — and, since TICKET-LIVE-03, *from here* */
 export interface SubscribeMessage {
   type: typeof CLIENT_MESSAGE_TYPE.SUBSCRIBE;
   sessionId: string;
+  /**
+   * The last `seq` this client saw in that room, when it has seen one (v3 Req 44.6)
+   *
+   * **Absent on a first subscribe, present only across a reconnect.** A surface that has just
+   * opened read its state over HTTP a moment ago, so replaying the table's history into it would be
+   * work with nothing to correct; a surface whose socket died at 41 has a gap, and this is the
+   * number that closes it.
+   *
+   * `0` is not the same as absent and is not spelled: a client that has seen nothing has nothing to
+   * resume from. See `server/ws/replay.ts` for what the server does with it, including the case
+   * where the gap is too large to be worth replaying.
+   */
+  afterSeq?: number;
 }
 
 /** *Stop listening to this session* */
@@ -105,12 +126,51 @@ export const SERVER_MESSAGE_TYPE = {
   SUBSCRIBE_REFUSED: 'subscribe-refused',
   /** Something happened at that table (TICKET-LIVE-02) — see {@link LiveEvent} */
   EVENT: 'event',
+  /**
+   * Who is connected to that table right now (TICKET-LIVE-03, v3 Req 44.8)
+   *
+   * Sent to a whole room whenever its **account** set changes, which is not the same as whenever a
+   * connection changes: two tabs of one Account are one person at the table, so the second adds
+   * nobody and closing it announces no departure.
+   *
+   * **Not persisted anywhere**, and that is a property rather than an omission — presence is
+   * derived from open connections and legitimately ends with the process.
+   */
+  PRESENCE: 'presence',
+  /**
+   * *Your gap is too large to replay; read the whole thing again* (TICKET-LIVE-03, v3 Req 44.6)
+   *
+   * A normal outcome rather than an error. A client gone for an hour should refetch: replaying two
+   * thousand Events to reach the state one read returns is slower and more fragile.
+   */
+  RESYNC: 'resync',
+  /**
+   * *You are no longer in that room* (TICKET-LIVE-03, v3 Req 44.8)
+   *
+   * The message TICKET-GAM-04 could not send and TICKET-LIVE-02 declined to invent. `evictMember`
+   * takes a Member out of one room and closes their socket **only if that was its last** — so a
+   * connection watching two tables and evicted from one used to keep drawing the lost table's
+   * numbers with nothing saying they had stopped moving. This is the one case where the server
+   * *knows* a surface is stale, and it is now the one case it says so.
+   */
+  ROOM_CLOSED: 'room-closed',
 } as const;
 
-/** *You are in that room* */
+/** *You are in that room*, and here is where its log stands */
 export interface SubscribedMessage {
   type: typeof SERVER_MESSAGE_TYPE.SUBSCRIBED;
   sessionId: string;
+  /**
+   * The session's current highest `seq` — `0` for a table nothing has happened at yet
+   *
+   * **Added by TICKET-LIVE-03's review, and it closes a gap rather than optimising one.** Without
+   * it a client had nowhere to resume from until it had *seen* an Event, so a Player who opened a
+   * sheet at a quiet table, lost the connection, and had their HP adjusted while it was down
+   * reconnected asking for nothing, was told only *you are in that room*, and sat there stale with
+   * no correction pending. Adopting this number on the first acknowledgement makes every later
+   * subscribe a genuine resume — see `client/services/liveSocket.ts`'s `resumeFrom`.
+   */
+  seq: number;
 }
 
 /** *You are not in that room*, and nothing further */
@@ -164,5 +224,45 @@ export interface LiveEventMessage {
   event: LiveEvent;
 }
 
+/** *These Accounts are watching that table* */
+export interface PresenceMessage {
+  type: typeof SERVER_MESSAGE_TYPE.PRESENCE;
+  sessionId: string;
+  /**
+   * Who is connected, by Account id
+   *
+   * **Ids and nothing else.** Every reader of this frame is a Member of the session and already has
+   * the names from `GET /api/sessions/:id/members`, so a name here would be a second copy of
+   * something a rename can make wrong — the reasoning `useTableRollLog` gives for resolving a
+   * character's name at read time rather than storing it in a payload.
+   */
+  accountIds: string[];
+}
+
+/** *Read it all again* — with the number to resume from once you have */
+export interface ResyncMessage {
+  type: typeof SERVER_MESSAGE_TYPE.RESYNC;
+  sessionId: string;
+  /**
+   * The session's current highest `seq`
+   *
+   * What the client resumes from after its refetch. Without it a client that resynchronised would
+   * have to guess, and guessing low means replaying the gap it was just told not to replay.
+   */
+  seq: number;
+}
+
+/** *That room is not yours any more*, and nothing further */
+export interface RoomClosedMessage {
+  type: typeof SERVER_MESSAGE_TYPE.ROOM_CLOSED;
+  sessionId: string;
+}
+
 /** Anything this server sends */
-export type ServerSocketMessage = SubscribedMessage | SubscribeRefusedMessage | LiveEventMessage;
+export type ServerSocketMessage =
+  | SubscribedMessage
+  | SubscribeRefusedMessage
+  | LiveEventMessage
+  | PresenceMessage
+  | ResyncMessage
+  | RoomClosedMessage;

@@ -24,6 +24,8 @@ import {
   SERVER_MESSAGE_TYPE,
   type ServerSocketMessage,
 } from '#shared/types';
+import type { LiveEventMessage, SubscribedMessage } from '#shared/types/liveSocket';
+import { appendEvent } from '../repositories/eventRepository';
 import { removeSessionMember } from '../repositories/gameSessionRepository';
 import {
   allCharacters,
@@ -56,9 +58,21 @@ function fakeConnection(accountId: string): FakeConnection {
   };
 }
 
-/** What a connection was told, parsed back */
+/**
+ * What a connection was told **in answer to what it said**, parsed back
+ *
+ * Presence is filtered out since TICKET-LIVE-03: a room announces its membership to everybody in it
+ * whenever that changes, so a successful subscribe now produces a frame that is *about the room*
+ * beside the one that is *about the request*. Every case here is about the second kind. That the
+ * first kind is sent, to the right people, at the right moments, is `rooms.test.ts`'s subject.
+ *
+ * @param connection Whose frames
+ * @returns The replies, in order
+ */
 function heard(connection: FakeConnection): ServerSocketMessage[] {
-  return connection.sent.map((frame) => JSON.parse(frame) as ServerSocketMessage);
+  const replies = connection.sent.map((frame) => JSON.parse(frame) as ServerSocketMessage);
+
+  return replies.filter((message) => message.type !== SERVER_MESSAGE_TYPE.PRESENCE);
 }
 
 /** Stands in for the id a refusal echoes back, so two refusals about different ids can be compared */
@@ -113,7 +127,11 @@ describe('subscribe', () => {
       const replies = heard(connection);
       const joined = rooms.roomCount();
 
-      expect(replies).toEqual([{ type: SERVER_MESSAGE_TYPE.SUBSCRIBED, sessionId: session.id }]);
+      // The acknowledgement carries where the log stands — `0` at a table nothing has happened at,
+      // which is what gives this client a resume point before it has seen anything
+      expect(replies).toEqual([
+        { type: SERVER_MESSAGE_TYPE.SUBSCRIBED, sessionId: session.id, seq: 0 },
+      ]);
       expect(joined).toBe(1);
     }));
 
@@ -129,7 +147,9 @@ describe('subscribe', () => {
 
       const replies = heard(connection);
 
-      expect(replies).toEqual([{ type: SERVER_MESSAGE_TYPE.SUBSCRIBED, sessionId: session.id }]);
+      expect(replies).toEqual([
+        { type: SERVER_MESSAGE_TYPE.SUBSCRIBED, sessionId: session.id, seq: 0 },
+      ]);
     }));
 
   it('should refuse a non-member and join no room', () =>
@@ -217,6 +237,265 @@ describe('subscribe', () => {
       send(second, { type: CLIENT_MESSAGE_TYPE.SUBSCRIBE, sessionId: session.id }, rooms);
 
       const replies = heard(second);
+
+      expect(replies).toEqual([
+        { type: SERVER_MESSAGE_TYPE.SUBSCRIBE_REFUSED, sessionId: session.id },
+      ]);
+    }));
+});
+
+describe('resuming a subscribe (TICKET-LIVE-03)', () => {
+  /** A player, their table, and a log with three Events in it */
+  function aTableWithHistory(database: Database) {
+    const player = seedAccount();
+    const { session } = seedSession(database);
+    seedMember(database, { session, account: player, role: MEMBER_ROLE.PLAYER });
+
+    for (let index = 1; index <= 3; index += 1) {
+      appendEvent(
+        {
+          id: `event-${index}`,
+          sessionId: session.id,
+          actorAccountId: player.id,
+          type: 'dm-award-experience',
+          payload: '{"characterId":"character-1","after":300}',
+          now: 1_700_000_000_000 + index,
+        },
+        database
+      );
+    }
+
+    const rooms = createSocketRooms();
+    const connection = fakeConnection(player.id);
+
+    return { session, rooms, connection };
+  }
+
+  /** The sequence numbers a connection was replayed */
+  function replayedSeqs(connection: FakeConnection): number[] {
+    const messages = heard(connection);
+    const events = messages.filter(
+      (message): message is LiveEventMessage => message.type === SERVER_MESSAGE_TYPE.EVENT
+    );
+
+    return events.map((message) => message.event.seq);
+  }
+
+  it('should replay what a resuming client missed, after admitting it', () =>
+    withTestDatabase((database) => {
+      const { session, rooms, connection } = aTableWithHistory(database);
+
+      send(
+        connection,
+        { type: CLIENT_MESSAGE_TYPE.SUBSCRIBE, sessionId: session.id, afterSeq: 1 },
+        rooms
+      );
+
+      const replayed = replayedSeqs(connection);
+      const messages = heard(connection);
+      const first = messages[0];
+
+      // The admission comes first and the catch-up follows it, which is the order that makes the
+      // reply meaningful: a client is told it is in the room before it is told what it missed
+      expect(first.type).toBe(SERVER_MESSAGE_TYPE.SUBSCRIBED);
+      expect(replayed).toEqual([2, 3]);
+    }));
+
+  it('should replay nothing to a first subscribe, which names no resume point', () =>
+    withTestDatabase((database) => {
+      // The surface that just mounted read its state over HTTP a moment ago. Replaying a table's
+      // history into it would be work with nothing to correct — and on a busy session, a lot of it.
+      const { session, rooms, connection } = aTableWithHistory(database);
+
+      send(connection, { type: CLIENT_MESSAGE_TYPE.SUBSCRIBE, sessionId: session.id }, rooms);
+
+      const replayed = replayedSeqs(connection);
+
+      expect(replayed).toEqual([]);
+    }));
+
+  it('should tell a first subscribe where the log stands, so its reconnect can ask', () =>
+    withTestDatabase((database) => {
+      // **The half a first subscribe does need, and the gap this closes.** Without the head on the
+      // acknowledgement a client had nowhere to resume from until it had *seen* an Event — so a
+      // Player at a quiet table reconnected asking for nothing, was told nothing, and sat stale.
+      const { session, rooms, connection } = aTableWithHistory(database);
+
+      send(connection, { type: CLIENT_MESSAGE_TYPE.SUBSCRIBE, sessionId: session.id }, rooms);
+
+      const replies = heard(connection);
+      const acknowledged = replies[0] as SubscribedMessage;
+
+      expect(acknowledged.type).toBe(SERVER_MESSAGE_TYPE.SUBSCRIBED);
+      expect(acknowledged.seq).toBe(3);
+    }));
+
+  it('should answer the acknowledgement and the replay from one reading of the log', () =>
+    withTestDatabase((database) => {
+      // Two reads could not disagree in one synchronous turn, but one read cannot disagree at all —
+      // and the day something on this path is made asynchronous, *how many times the head was read*
+      // is the difference between a client resuming from where it was caught up to and from
+      // somewhere else
+      const { session, rooms, connection } = aTableWithHistory(database);
+
+      send(
+        connection,
+        { type: CLIENT_MESSAGE_TYPE.SUBSCRIBE, sessionId: session.id, afterSeq: 1 },
+        rooms
+      );
+
+      const replies = heard(connection);
+      const acknowledged = replies[0] as SubscribedMessage;
+      const replayed = replayedSeqs(connection);
+      const lastReplayed = replayed[replayed.length - 1];
+
+      expect(acknowledged.seq).toBe(lastReplayed);
+    }));
+
+  it('should catch a connection up on one room exactly once', () =>
+    withTestDatabase((database) => {
+      // **The bound on repetition.** Everything about `afterSeq` as a *value* is checked by the
+      // decoder; what that leaves is how often a Member may ask, and a replay is not idempotent the
+      // way a join is — each one is an index read plus up to `REPLAY_WINDOW_EVENTS` row reads,
+      // parses and sends, synchronously, on the process serving every other table. Once per room per
+      // connection is all a legitimate client needs, because a reconnect is a new connection.
+      const { session, rooms, connection } = aTableWithHistory(database);
+      const resume = { type: CLIENT_MESSAGE_TYPE.SUBSCRIBE, sessionId: session.id, afterSeq: 0 };
+
+      send(connection, resume, rooms);
+
+      const afterFirst = replayedSeqs(connection);
+
+      send(connection, resume, rooms);
+      send(connection, resume, rooms);
+
+      const afterThree = replayedSeqs(connection);
+
+      expect(afterFirst).toEqual([1, 2, 3]);
+      expect(afterThree).toEqual(afterFirst);
+    }));
+
+  it('should still catch that connection up on a different room', () =>
+    withTestDatabase((database) => {
+      // The bound is per room, not per connection: one browser holds one socket across every table
+      // it watches, and a second table is a second legitimate catch-up
+      const first = aTableWithHistory(database);
+      const second = seedSession(database);
+      seedMember(database, { session: second.session, account: first.connection.accountId });
+
+      appendEvent(
+        {
+          id: 'other-event-1',
+          sessionId: second.session.id,
+          actorAccountId: first.connection.accountId,
+          type: 'dm-award-experience',
+          payload: '{"characterId":"character-2","after":50}',
+          now: 1_700_000_000_009,
+        },
+        database
+      );
+
+      send(
+        first.connection,
+        { type: CLIENT_MESSAGE_TYPE.SUBSCRIBE, sessionId: first.session.id, afterSeq: 0 },
+        first.rooms
+      );
+      send(
+        first.connection,
+        { type: CLIENT_MESSAGE_TYPE.SUBSCRIBE, sessionId: second.session.id, afterSeq: 0 },
+        first.rooms
+      );
+
+      const replayed = replayedSeqs(first.connection);
+
+      // Three from the first table and one from the second
+      expect(replayed).toEqual([1, 2, 3, 1]);
+    }));
+
+  it('should admit and catch up in one synchronous turn', () =>
+    withTestDatabase((database) => {
+      // **The observable form of *there is no interleaving point*.** Every step — the guard, the
+      // join, the log reads — is synchronous, so no Event can be written between being admitted to
+      // the room and being sent what was missed: a gap on one side, a duplicate on the other. There
+      // is nothing awaited below, and that is the assertion: by the time the call has returned, the
+      // room holds this connection *and* the catch-up has been delivered. Make any of those steps
+      // async and the frames would not be here yet.
+      const { session, rooms, connection } = aTableWithHistory(database);
+      const frame = JSON.stringify({
+        type: CLIENT_MESSAGE_TYPE.SUBSCRIBE,
+        sessionId: session.id,
+        afterSeq: 0,
+      });
+
+      handleClientMessage(connection, frame, rooms);
+
+      const joined = rooms.roomCount();
+      const replayed = replayedSeqs(connection);
+
+      expect(joined).toBe(1);
+      expect(replayed).toEqual([1, 2, 3]);
+    }));
+
+  it('should refuse the whole frame rather than quietly skipping an unusable resume point', () =>
+    withTestDatabase((database) => {
+      // **Refusing is louder than ignoring, and that is the point.** Admitting the connection and
+      // silently skipping its catch-up would leave a client that asked to be resumed with a gap in
+      // its Event sequence and nothing to notice it by — the precise failure this ticket removes.
+      const { session, rooms, connection } = aTableWithHistory(database);
+
+      const unusable = [-1, 1.5, '2', null];
+
+      for (const afterSeq of unusable) {
+        send(
+          connection,
+          { type: CLIENT_MESSAGE_TYPE.SUBSCRIBE, sessionId: session.id, afterSeq },
+          rooms
+        );
+      }
+
+      const replies = heard(connection);
+      const joined = rooms.roomCount();
+
+      expect(replies).toEqual([]);
+      expect(joined).toBe(0);
+    }));
+
+  it('should say nothing about the value it refused, beyond that there was one', () =>
+    withTestDatabase((database) => {
+      // The `sessionId` rule applied to the other field: a client's frame is attacker-controlled
+      // text, and a log that echoes it is a log worth attacking
+      const { session, rooms, connection } = aTableWithHistory(database);
+      const chosen = 'a'.repeat(500);
+
+      send(
+        connection,
+        { type: CLIENT_MESSAGE_TYPE.SUBSCRIBE, sessionId: session.id, afterSeq: chosen },
+        rooms
+      );
+
+      const logged = warn.mock.calls.flat().join(' ');
+
+      expect(logged).toContain('unusable sequence number');
+      expect(logged).not.toContain(chosen);
+    }));
+
+  it('should still refuse a resuming stranger, saying nothing and replaying nothing', () =>
+    withTestDatabase((database) => {
+      // A resume point does not buy a client past `requireMember`: the replay is reached only after
+      // the guard has approved *this* session for *this* Account
+      const stranger = seedAccount();
+      const { session } = seedSession(database);
+
+      const rooms = createSocketRooms();
+      const connection = fakeConnection(stranger.id);
+
+      send(
+        connection,
+        { type: CLIENT_MESSAGE_TYPE.SUBSCRIBE, sessionId: session.id, afterSeq: 0 },
+        rooms
+      );
+
+      const replies = heard(connection);
 
       expect(replies).toEqual([
         { type: SERVER_MESSAGE_TYPE.SUBSCRIBE_REFUSED, sessionId: session.id },
@@ -374,7 +653,9 @@ describe('anything else', () => {
 
       const replies = heard(connection);
 
-      expect(replies).toEqual([{ type: SERVER_MESSAGE_TYPE.SUBSCRIBED, sessionId: realWorldId }]);
+      expect(replies).toEqual([
+        { type: SERVER_MESSAGE_TYPE.SUBSCRIBED, sessionId: realWorldId, seq: 0 },
+      ]);
     }));
 
   it('should ignore a frame that is not JSON at all', () =>

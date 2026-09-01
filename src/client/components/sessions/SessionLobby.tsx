@@ -1,15 +1,17 @@
 /**
- * Who is at this table (TICKET-GAM-04)
+ * Who is at this table (TICKET-GAM-04, TICKET-LIVE-03)
  *
  * **The first surface in the app that shows other people**, which is what makes it worth building
  * as the session's *one* member list rather than as a page TICKET-DM-04 will need a sibling for.
  * That ticket grows this into the DM's roster with quick actions; it does not replace it.
  *
- * **Connection says *Unknown*, and that is a claim about what we can observe rather than a
- * placeholder.** The app cannot tell a player who closed the tab from one sitting quietly until
- * LIVE-01's socket exists, so it says so. Writing *Offline* would be the same mistake as showing a
- * confident zero for a formula that could not be evaluated — the discipline this codebase applies
- * to a chipped stat, applied to a person.
+ * **The connection column is real since TICKET-LIVE-03**, and the state GAM-04 wrote there survives
+ * rather than being retired. *Unknown* was never a placeholder — it was a claim about what the app
+ * could observe, and writing *Offline* instead would have been the same mistake as showing a
+ * confident zero for a formula that could not be evaluated. Now the app can observe presence, so the
+ * column says *Connected* and *Away* when there is a live feed to say it from, and goes back to
+ * *unknown* the moment there is not. The judgement lives in `live/presenceState.ts`, which is what
+ * TICKET-DM-04's roster inherits — a module rather than this file's markup.
  *
  * **What each Member may do to whom is the server's rule, drawn rather than guessed**: the DM may
  * take anybody else's seat and hand the game over; everybody may give up their own; and the DM's own
@@ -28,6 +30,11 @@
 import { useState } from 'react';
 import type { MemberRole, SessionCharacterSummary, SessionMemberSummary } from '#shared/types/api';
 import { MEMBER_ROLE } from '#shared/types/api';
+import type { LiveRoomView } from '../../services/liveSocket';
+import { LiveStatusNotice } from '../live/LiveStatusNotice';
+import { PresenceBadge } from '../live/PresenceBadge';
+import { type PresenceState, presenceStateOf } from '../live/presenceState';
+import { useLiveRoom } from '../live/useLiveRoom';
 import { readableMoment } from '../shared/readableMoment';
 import { Button } from '../ui/Button/Button';
 import { Card } from '../ui/Card/Card';
@@ -39,10 +46,11 @@ import {
   playerBadgeStyles,
   sectionStyles,
   sessionRowStyles,
-  unknownBadgeStyles,
 } from './sessions.style';
 
 export interface SessionLobbyProps {
+  /** Which table this is, so the lobby can watch its live feed (TICKET-LIVE-03) */
+  sessionId: string;
   members: SessionMemberSummary[];
   /** Characters whose owner has left — kept at the table, writable by nobody */
   departedCharacters: SessionCharacterSummary[];
@@ -127,6 +135,7 @@ function Characters({ characters }: { characters: SessionCharacterSummary[] }) {
 function MemberRow({
   member,
   isYou,
+  presence,
   isDm,
   canTransfer,
   isBusy,
@@ -134,6 +143,8 @@ function MemberRow({
 }: {
   member: SessionMemberSummary;
   isYou: boolean;
+  /** Decided once for the whole list, so twenty rows do not each ask the socket */
+  presence: PresenceState;
   onAsk: (pending: PendingAction) => void;
 } & Pick<SessionLobbyProps, 'isDm' | 'canTransfer' | 'isBusy'>) {
   const badge = ROLE_BADGE[member.role];
@@ -154,8 +165,9 @@ function MemberRow({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        {/* The column LIVE-03 fills in. Until then it says what is true: we cannot tell. */}
-        <span className={unknownBadgeStyles}>Connection unknown</span>
+        {/* Filled in by TICKET-LIVE-03, and still saying *we cannot tell* whenever that is what is
+            true — see `live/presenceState.ts` */}
+        <PresenceBadge state={presence} />
 
         {/* The DM's own row offers nothing — leaving is refused until the game is handed over */}
         {isYou && !isTheDm && (
@@ -212,7 +224,66 @@ function Departed({ characters }: { characters: SessionCharacterSummary[] }) {
   );
 }
 
+/**
+ * Everybody at the table, or a word about why nobody is drawn yet
+ *
+ * Split out of {@link SessionLobby} when TICKET-LIVE-03 gave each row a presence badge and `fallow`
+ * measured the component past the cognitive threshold. It is the same seam `Departed` and
+ * `MemberRow` already sit on: *what the list is* is a different subject from *what the card asks
+ * before it acts*, and the branch that decides between a list and a caption belongs with the list.
+ *
+ * **The feed is read once, above, and handed down as decided states.** A badge that fetched its own
+ * answer would put a subscription on every row of a six-player table.
+ */
+function MemberList({
+  members,
+  room,
+  accountId,
+  isPending,
+  isDm,
+  canTransfer,
+  isBusy,
+  onAsk,
+}: {
+  room: LiveRoomView | null;
+  onAsk: (pending: PendingAction) => void;
+} & Pick<
+  SessionLobbyProps,
+  'members' | 'accountId' | 'isPending' | 'isDm' | 'canTransfer' | 'isBusy'
+>) {
+  if (isPending) {
+    return (
+      <Text variant="caption" as="p">
+        Checking who is here…
+      </Text>
+    );
+  }
+
+  return (
+    <>
+      {members.map((member) => {
+        const presence = presenceStateOf(room, member.accountId);
+        const isYou = member.accountId === accountId;
+
+        return (
+          <MemberRow
+            key={member.accountId}
+            member={member}
+            isYou={isYou}
+            presence={presence}
+            isDm={isDm}
+            canTransfer={canTransfer}
+            isBusy={isBusy}
+            onAsk={onAsk}
+          />
+        );
+      })}
+    </>
+  );
+}
+
 export function SessionLobby({
+  sessionId,
   members,
   departedCharacters,
   accountId,
@@ -225,6 +296,10 @@ export function SessionLobby({
   onTransfer,
 }: SessionLobbyProps) {
   const [pending, setPending] = useState<PendingAction | null>(null);
+
+  // One feed for the whole list. Every row's badge is decided from it, so a table of six players
+  // holds one subscription rather than six.
+  const room = useLiveRoom(sessionId);
 
   const confirm = () => {
     if (!pending) return;
@@ -252,23 +327,21 @@ export function SessionLobby({
           </div>
         )}
 
-        {isPending ? (
-          <Text variant="caption" as="p">
-            Checking who is here…
-          </Text>
-        ) : (
-          members.map((member) => (
-            <MemberRow
-              key={member.accountId}
-              member={member}
-              isYou={member.accountId === accountId}
-              isDm={isDm}
-              canTransfer={canTransfer}
-              isBusy={isBusy}
-              onAsk={setPending}
-            />
-          ))
-        )}
+        {/* Above the rows rather than beside one of them: if the feed is down, *every* line below
+            is a number that has stopped moving, and saying so once is what stops a reader taking
+            the list as current (v3 Req 44.8) */}
+        <LiveStatusNotice sessionId={sessionId} />
+
+        <MemberList
+          members={members}
+          room={room}
+          accountId={accountId}
+          isPending={isPending}
+          isDm={isDm}
+          canTransfer={canTransfer}
+          isBusy={isBusy}
+          onAsk={setPending}
+        />
 
         <Departed characters={departedCharacters} />
       </section>

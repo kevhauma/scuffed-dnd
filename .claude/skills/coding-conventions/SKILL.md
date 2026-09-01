@@ -310,6 +310,27 @@ Two families of judgement, both concrete here rather than generic.
   `Date.now()` so the second reading is a different number; against the real clock two calls in one
   synchronous block return the same millisecond and the test passes whether the invariant holds or
   not (TICKET-LIVE-02's review). Same shape for counters, ids and any "read once" claim.
+  **Two more shapes of it, from TICKET-LIVE-03**: an invariant about a *spread* (fifty clients not
+  reconnecting together) needs an injected `random` that walks its range, because against
+  `Math.random` the assertion is a distribution and therefore a flake; and an invariant about
+  *identity* (presence counting **people**, not sockets) needs one person holding **two** connections
+  — a fake per Account passes whether the registry counts one or the other.
+- **When a connection can drop, reconcile on reconnect rather than queueing across the gap**
+  (TICKET-LIVE-03). `liveSocket.ts` holds no frame queue: the rooms map already records what the
+  connection *wants*, so every open sends one subscribe per held room carrying that room's last-seen
+  `seq`, and a room let go while offline is simply never resubscribed — no unsubscribe frame, no
+  queue to flush, no entry growing for the life of the page. A queue of pending writes beside a
+  record of intent is a second, weaker copy of that record; prefer replaying the intent.
+- **A cross-cutting piece of transport state is *one view object* read by a hook, not three hooks.**
+  `useLiveRoom(sessionId)` answers `{ status, presentAccountIds, resyncAt }` because the three are
+  read together — a badge saying who is connected is a lie unless the status beside it says the
+  connection is up — and because a second surface (TICKET-DM-04's roster) renders the same answer.
+  Two rules travel with it. **Absence is modelled as absence**: `null` means *there is no feed here*
+  (a local character, a signed-out reader), which is a different thing from a feed that is down.
+  And **a value the transport cannot currently support is not handed out at all**: presence comes
+  back empty unless the status is `live`, enforced where the surface reads it rather than trusted to
+  the four places that clear it. That is the engine's chip-an-unevaluable-value instinct applied to a
+  connection — `presenceStateOf` answers *unknown*, never *away*, off a socket that is down.
 - **Derived values are computed, never stored.** Anything downstream of a formula comes from
   `calculateCharacter()` (the one composed entry point) at read time — see the **data-model**
   skill for why `currentStatValues` is the one exception.

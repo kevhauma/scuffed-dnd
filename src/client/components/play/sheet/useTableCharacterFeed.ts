@@ -1,5 +1,6 @@
 /**
- * Keeping an open sheet current while other people act on it (TICKET-LIVE-02, v3 Req 44.7)
+ * Keeping an open sheet current while other people act on it (TICKET-LIVE-02, TICKET-LIVE-03,
+ * v3 Req 44.7)
  *
  * The DM awards 300 experience and the Player's level moves, with nothing pressed and nothing
  * reloaded. That is the whole of what this hook is for.
@@ -24,12 +25,28 @@
  * **The re-read is `useOpenTableCharacter`'s own `reopen`** — the very two reads the sheet opened
  * with. A second spelling of *what a session sheet is made of* is the thing most likely to drift.
  *
- * **Validates: v3 Req 44.7**
+ * ## Two things TICKET-LIVE-03 added, both about a read that is already in flight
+ *
+ * **A resynchronise instruction schedules the same re-read** (v3 Req 44.6). When a client has been
+ * gone too long to replay, the server says so rather than sending five hundred frames, and *read it
+ * all again* is a thing this hook already knows how to do — through the same coalescing timer, so a
+ * resync arriving beside a burst of Events is still one read.
+ *
+ * **An Event that applied cleanly now also schedules the trailing pass, if a read is running.** It
+ * used to be that only a `stale` did. The failure is specific and it defeats the resync above: a
+ * re-read is composed on the server *before* the Event lands, the Event arrives and is applied to
+ * the sheet, and then the older answer arrives and overwrites it — leaving a sheet that is a step
+ * behind with nothing left to correct it. The read that follows is the fix, and it is the same fold
+ * `useTableRollLog` performs for the same reason: a live feed and a fetch race, and the fetch is the
+ * one that is out of date.
+ *
+ * **Validates: v3 Req 44.6, 44.7**
  */
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { EVENT_EFFECT } from '../../../services/liveEvents';
 import { useCharacterStore } from '../../../stores/characterStore';
+import { useLiveRoom } from '../../live/useLiveRoom';
 import { useLiveSession } from '../shared/useLiveSession';
 
 /**
@@ -76,11 +93,13 @@ export function useTableCharacterFeed(characterId: string, reopen: () => Promise
 
   const listening = atTable ? tableSessionId : null;
 
-  useLiveSession(listening, (message) => {
-    const effect = applyTableEvent(message.event);
-
-    if (effect !== EVENT_EFFECT.STALE) return;
-
+  /**
+   * Ask for the sheet again, once, however many reasons arrive at once
+   *
+   * Stable — it touches nothing but refs — so the resync effect below can depend on it without
+   * rescheduling itself every render.
+   */
+  const scheduleRead = useCallback(() => {
     if (reading.current) {
       again.current = true;
       return;
@@ -105,7 +124,37 @@ export function useTableCharacterFeed(characterId: string, reopen: () => Promise
         void read.current();
       });
     }, COALESCE_MS);
+  }, []);
+
+  useLiveSession(listening, (message) => {
+    const effect = applyTableEvent(message.event);
+
+    // Somebody else's character, or a roll, which stores nothing. Not about this sheet either way,
+    // so it does not make an in-flight read out of date.
+    if (effect === EVENT_EFFECT.ELSEWHERE) return;
+
+    if (effect === EVENT_EFFECT.STALE) {
+      scheduleRead();
+      return;
+    }
+
+    // **Applied — and that is not always the end of it.** The sheet holds the new value, but a read
+    // already on the wire was composed before this Event and will overwrite it when it lands. One
+    // trailing read after that is what makes the sheet right again; with no read running there is
+    // nothing to correct and nothing is scheduled.
+    if (reading.current) again.current = true;
   });
+
+  // *Read it all again* (v3 Req 44.6). A timestamp rather than a flag, so this fires once per
+  // instruction and nobody has to own clearing it.
+  const room = useLiveRoom(listening);
+  const resyncAt = room?.resyncAt ?? null;
+
+  useEffect(() => {
+    if (resyncAt === null) return;
+
+    scheduleRead();
+  }, [resyncAt, scheduleRead]);
 
   useEffect(() => {
     // Set as well as cleared: a ref survives a remount of the same element, and a hook that only

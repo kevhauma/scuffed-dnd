@@ -566,6 +566,7 @@ export function useCharacterSheet(characterId: string) {
   // Wherever it lives (TICKET-PLY-01) — the browser's list, or the one character open at a table
   const character = useCharacterStore((state) => selectCharacter(state, characterId));
   const atTable = useCharacterStore((state) => state.tableCharacter?.id === characterId);
+  const openTableSessionId = useCharacterStore((state) => state.tableSessionId);
   const actionError = useCharacterStore((state) => state.actionError);
   const isActing = useCharacterStore((state) => state.isActing);
   const dismissActionError = useCharacterStore((state) => state.dismissActionError);
@@ -616,6 +617,15 @@ export function useCharacterSheet(characterId: string) {
      * A control that quietly lost what it changed would be worse than an absent one.
      */
     atTable,
+    /**
+     * Which table, when this sheet is at one (TICKET-LIVE-03)
+     *
+     * `null` for a local character, which is the answer `LiveStatusNotice` reads as *there is no
+     * feed here* rather than as *the feed is down*. Held beside `atTable` rather than derived from
+     * it at the caller: the store already knows both, and a component working one out from the other
+     * would be a second rule about what *at a table* means.
+     */
+    tableSessionId: atTable ? openTableSessionId : null,
     /** Why the last action at a table was refused, in the server's own words — null after a success */
     actionError,
     /** True while an action is on the wire */

@@ -1,26 +1,54 @@
 /**
- * The session lobby (TICKET-GAM-04)
+ * The session lobby (TICKET-GAM-04, TICKET-LIVE-03)
  *
  * Four claims worth a test:
  *
  * - **What each reader may do to whom** is the server's rule drawn rather than guessed: a player
  *   sees *Leave* on their own row and nothing on anybody else's; a DM sees *Remove* and *Hand over*
  *   on everybody else's and **neither on their own** (v3 Req 39.6).
- * - **Connection says *Unknown***, because until LIVE-01's socket the app cannot tell a player who
- *   closed the tab from one sitting quietly, and *Offline* would be a claim we cannot support.
+ * - **The connection column is real, and still says *unknown* when that is the truth**
+ *   (TICKET-LIVE-03). GAM-04 drew *Connection unknown* on every row because the app could not
+ *   observe presence; now it can, so a live feed produces *Connected* and *Away* — and a feed that
+ *   is down goes straight back to *unknown*, because *Away* is a claim about somebody that a dead
+ *   socket cannot support.
  * - **Every action confirms first**, and the sentence says that nothing is deleted — *removed* reads
  *   like *deleted* and here it is not (v3 Req 39.3).
  * - **A departed player's characters are still shown**, which is retention made visible rather than
  *   merely implemented.
  *
- * **Validates: v3 Req 39.3, 39.4, 39.5, 39.6, 39.7**
+ * The room's feed is mocked, the way a component test mocks a store: what is under test here is the
+ * lobby's rendering of a decided view. That the view itself is right is `useLiveRoom`'s and
+ * `presenceState`'s own tests, and the **judgement** — never *away* off a dead connection — is
+ * `presenceStateOf`, which this file exercises for real rather than mocking.
+ *
+ * **Validates: v3 Req 39.3, 39.4, 39.5, 39.6, 39.7, 44.8**
  */
 
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SessionMemberSummary } from '#shared/types/api';
 import { MEMBER_ROLE } from '#shared/types/api';
+import { LIVE_STATUS, type LiveRoomView } from '../../services/liveSocket';
+import { useLiveRoom } from '../live/useLiveRoom';
 import { SessionLobby } from './SessionLobby';
+
+vi.mock('../live/useLiveRoom');
+
+/** A feed in some state, as the connection would report it */
+function roomView(overrides: Partial<LiveRoomView> = {}): LiveRoomView {
+  return {
+    status: LIVE_STATUS.LIVE,
+    presentAccountIds: [],
+    resyncAt: null,
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  // No feed at all is the default, so every case that is not about presence renders what a signed
+  // -out reader or a local character would see
+  vi.mocked(useLiveRoom).mockReturnValue(null);
+});
 
 /** One Member, as the roster carries them */
 function member(overrides: Partial<SessionMemberSummary> = {}): SessionMemberSummary {
@@ -49,6 +77,7 @@ function renderLobby(props: Partial<React.ComponentProps<typeof SessionLobby>> =
 
   render(
     <SessionLobby
+      sessionId="session-1"
       members={[member(), ADA]}
       departedCharacters={[]}
       accountId="account-dm"
@@ -88,12 +117,41 @@ describe('SessionLobby', () => {
     expect(screen.getByText(/The DM \(you\)/)).toBeTruthy();
   });
 
-  it('says the connection is unknown rather than claiming offline', () => {
+  it('says the connection is unknown rather than claiming offline, when there is no feed', () => {
     renderLobby();
 
-    // The app cannot tell until LIVE-03, and saying so is the point
+    // A signed-out reader, or a local character: there is nothing to ask, and saying so is the point
     expect(screen.getAllByText('Connection unknown')).toHaveLength(2);
     expect(screen.queryByText(/offline/i)).toBeNull();
+  });
+
+  it('names who is connected and who is away, once there is a live feed', () => {
+    const live = roomView({ presentAccountIds: ['account-ada'] });
+    vi.mocked(useLiveRoom).mockReturnValue(live);
+
+    renderLobby();
+
+    // GAM-04's column, finally answering: Ada's browser is on the room, the DM's is not
+    expect(screen.getByText('Connected')).toBeTruthy();
+    expect(screen.getByText('Away')).toBeTruthy();
+    expect(screen.queryByText('Connection unknown')).toBeNull();
+  });
+
+  it('goes back to unknown the moment the feed is not live', () => {
+    // The ticket's whole discipline in one case: the last thing this browser heard was that Ada was
+    // connected, and a dropped socket makes that a claim it can no longer support. *Away* here would
+    // be a confident wrong answer about a person.
+    const dropped = roomView({
+      status: LIVE_STATUS.RECONNECTING,
+      presentAccountIds: ['account-ada'],
+    });
+    vi.mocked(useLiveRoom).mockReturnValue(dropped);
+
+    renderLobby();
+
+    expect(screen.getAllByText('Connection unknown')).toHaveLength(2);
+    expect(screen.queryByText('Away')).toBeNull();
+    expect(screen.queryByText('Connected')).toBeNull();
   });
 
   it('offers a DM nothing on their own row (v3 Req 39.6)', () => {
