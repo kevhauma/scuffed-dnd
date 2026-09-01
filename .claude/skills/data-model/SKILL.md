@@ -1097,20 +1097,26 @@ concern, so:
   `useConfigStore.replaceConfig(config)` is what applying an import means (the app holds one
   configuration, so it replaces rather than appends); `renameConfig(name)` renames it.
 - Round-trip test: export → import must reproduce an equivalent configuration.
-- **The sheet-import corpus moves with the shape.** `docs/imports/` holds one JSON fragment per
-  built feature carrying that feature's real data from the source spreadsheet, merged into
-  `docs/imports/ducklets.json` by `yarn run sheet:import` and validated by
-  `src/shared/services/sheetImport.test.ts`. A changed entity shape means updating that entity's fragment
-  and regenerating in the same change — see [docs/imports/README.md](../../../docs/imports/README.md).
+- **The sheet-import corpus moves with the shape, and it is generated.** `docs/imports/` holds
+  **fifteen** JSON fragments, one per built feature, carrying that feature's real data — and since
+  the v4.0 data pass (2026-09-01) they are **read out of the checked-in workbook by
+  `scripts/build-fragments.mjs`** rather than hand-transcribed. A changed entity shape means editing
+  that script, not the JSON, and running both commands in the same change:
 
-  **Suspended for v4.0's shape pass, and only for it**
-  ([D7](../../../docs/v4.0_sheet_parity/overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)):
-  the whole corpus is being re-sourced against a replaced workbook at once, so honouring the rule per
-  ticket would rewrite the same fragments a dozen times over. Spells, inlays and passives are
-  therefore shapes with no fragment yet, and the twelve-entry list in `sheetImport.test.ts` is
-  deliberate rather than stale. **What still binds during the suspension** — and what TICKET-DX-09
-  checked — is that the corpus regenerates byte-identically and still imports clean at the new shape.
-  The rule returns in full the moment the data pass closes.
+  ```bash
+  yarn run sheet:source   # rewrite the fragments from docs/v4.0_sheet_parity/4.1 source sheets.xlsx
+  yarn run sheet:import   # merge them into docs/imports/ducklets.json
+  ```
+
+  `src/shared/services/sheetImport.test.ts` validates the result: the envelope on every fragment, the
+  merge against the committed file, `validateConfigurationShape`, **and a whole-corpus referential
+  report** — the last of which exists because re-sourcing the coin names once moved every currency
+  tier's id and left 240 material tiers pointing at a tier that no longer existed, with every other
+  check passing. See [docs/imports/README.md](../../../docs/imports/README.md).
+
+  **D7's suspension is over.** The v4.0 shape pass ran without fragment criteria because the whole
+  corpus was being re-sourced at once; the data pass did that, spells, inlays and passives included,
+  so the rule binds in full again.
 
 ## Data flow
 

@@ -2,32 +2,36 @@
   "feature": "roll-definitions",
   "title": "Roll definitions",
   "tickets": [
-    "TICKET-ROLL-05"
+    "TICKET-ROLL-05",
+    "TICKET-ROLL-06",
+    "TICKET-ROLL-08"
   ],
-  "concept": "08 · Roll definition",
+  "concept": "07 · Combat rolls",
   "source": {
-    "spreadsheet": "https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit",
-    "exportedAt": "2026-08-09",
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/18fMuQOMK65LVawBedC9R5mNASknJ8V56_QVFDdDa5Yc/edit",
+    "workbook": "docs/v4.0_sheet_parity/4.1 source sheets.xlsx",
+    "exportedAt": "2026-08-28",
     "ranges": [
-      "Calculator!G17:N20",
-      "Charactersheet!D12:H14"
+      "Background Charater Sheet Calcu!AB2:AG8",
+      "Background References Character!S2:U4",
+      "Background References Naming!BA8:BB11"
     ]
   },
-  "confidence": "confirmed names and ladder / melee and ranged inputs confirmed, evasion and endure inferred",
+  "confidence": "confirmed — all four inputs read from formulas",
   "notes": [
-    "The sheet's four rolls as records, which is the whole point of Concept 08: the sheet hardwires them into two layouts as duplicated formula blocks, so 'add initiative' means editing both. Here it is one row each.",
-    "**Melee and ranged inputs are confirmed** — the raw stat, proven twice over: input 10 at Str 10 and input 11 at Dex 11, each producing the decomposition Calculator!G17:N20 shows.",
-    "**Evasion and endure are NOT.** The sheet's inputs are 18 and 16 for a character with Dex 11 and Con 12, so each carries an extra term (+7 and +4) that the export does not explain — Concept 08's open question. The fragment ships the raw stat, so those two rolls are honestly *short* rather than fitted with a constant nobody can source. Correcting them is a formula edit once the live Calculator rows are read.",
-    "Every roll points at the one ladder in dice-ladders.json, matching the sheet: there is a single `20 | 12 | 6` row and all four rolls run down it.",
-    "**This fragment coexists with combat-skills.json on purpose**, mirroring the code: TICKET-ROLL-05 adds `RollDefinition` alongside `CombatSkill`, and TICKET-ROLL-06 is what removes the older one. Ids are prefixed `rolldef-` so the two sets do not collide in the merge. Expect combat-skills.json to be deleted, not merged, when ROLL-06 lands.",
-    "`applies_to` and `visibility` are Concept 08 fields the shape does not model yet (deferred until there is a creature and a second view). The sheet's creature call sheet uses the same four names, which is what `applies_to: both` would say."
+    "**All four inputs are confirmed now, and two of them were not.** v2.0 shipped evasion and endure deliberately *short*: the old sheet's inputs were 18 at Dex 11 and 16 at Con 12, carrying terms the export did not explain, so the fragment read the bare stat and said so rather than fitting a constant nobody could source. The xlsx writes both out, which closes Concept 08's open question.",
+    "Evasion is Dex + Speed/5 (`Calcu` AB5 reads R4 + R11/S4) and Endurance is (Strenght + Con)/2.5 + Health/5 (`Calcu` AB6 reads (R3+R5)/U4 + R9/T4). The three divisors are named constants rather than literals, so retuning them is a ruleset edit — see constants.json.",
+    "`endure` takes the glossary's spelling **Endurance** (Naming BA11, 'hoe goed je het tanked'). The id does not move, so nothing that points at the roll notices.",
+    "Every roll runs down the one ladder, matching the sheet: a single `20 | 12 | 6` row serves all four.",
+    "Endurance's input is **fractional** for the sample character (22.4), which is the case the ladder had never seen — TICKET-ROLL-08 made the remainder round the way the sheet's `ROUND(…, 0)` does, away from zero at a half.",
+    "`applies_to` and `visibility` are concept fields the shape does not model yet. The sheet's creature call sheet uses the same four names, which is what `applies_to: both` would say."
   ],
   "data": {
     "rollDefinitions": [
       {
         "id": "rolldef-melee",
-        "name": "mele",
-        "description": "Melee attack. Input is the raw Strenght stat — confirmed: input 10 at Str 10 gives 0D20 + 0D12 + 1D6 + 4.",
+        "name": "Mele",
+        "description": "Melee damage. The final Strenght stat — Calcu AB3 reads R3.",
         "input": "stats.strenght",
         "ladderId": "ladder-standard",
         "category": "offence",
@@ -36,7 +40,7 @@
       {
         "id": "rolldef-ranged",
         "name": "Ranged",
-        "description": "Ranged attack. Input is the raw Dex stat — confirmed: input 11 at Dex 11 gives 0D20 + 0D12 + 1D6 + 5.",
+        "description": "Ranged damage. The final Dex stat — Calcu AB4 reads R4.",
         "input": "stats.dex",
         "ladderId": "ladder-standard",
         "category": "offence",
@@ -44,18 +48,18 @@
       },
       {
         "id": "rolldef-evasion",
-        "name": "evasion",
-        "description": "Dodging. The sheet's input is 18 against Dex 11 — the extra 7 is unexplained (Concept 08 open question), so this reads the raw stat and is 7 short.",
-        "input": "stats.dex",
+        "name": "Evasion",
+        "description": "How well you dodge. Calcu AB5 reads R4 + R11/S4 — Dex plus Speed over 5.",
+        "input": "stats.dex + stats.speed / const.evasion_speed_divisor",
         "ladderId": "ladder-standard",
         "category": "defence",
         "order": 2
       },
       {
         "id": "rolldef-endure",
-        "name": "endure",
-        "description": "Soaking. The sheet's input is 16 against Con 12 — the extra 4 is unexplained (Concept 08 open question), so this reads the raw stat and is 4 short.",
-        "input": "stats.con",
+        "name": "Endurance",
+        "description": "How well you tank it. Calcu AB6 reads (R3+R5)/U4 + R9/T4 — Strenght plus Con over 2.5, plus Health over 5.",
+        "input": "(stats.strenght + stats.con) / const.endurance_body_divisor + stats.health / const.endurance_health_divisor",
         "ladderId": "ladder-standard",
         "category": "defence",
         "order": 3

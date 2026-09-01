@@ -1,0 +1,157 @@
+{
+  "feature": "passives",
+  "title": "Passive abilities",
+  "tickets": [
+    "TICKET-PAS-01"
+  ],
+  "concept": "14 · Passives and reference tables",
+  "source": {
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/18fMuQOMK65LVawBedC9R5mNASknJ8V56_QVFDdDa5Yc/edit",
+    "workbook": "docs/v4.0_sheet_parity/4.1 source sheets.xlsx",
+    "exportedAt": "2026-08-28",
+    "ranges": [
+      "Background refernces abilities !B2:D27"
+    ]
+  },
+  "confidence": "confirmed",
+  "notes": [
+    "26 passive abilities — resistances, immunities and senses — in the sheet's own order and spelling ('magic immume', 'affecte').",
+    "**Nothing grants one yet, by the sheet's own admission.** The actives tab is empty and the Setup box reads *Passive abilites: Coming soon* (overview D5), so this is the catalog and the whole of what a ruleset carries. Who *holds* a passive is `Character.passiveIds`, handed out by the DM at a table and by the Player on a local sheet (TICKET-PAS-01).",
+    "Effect text goes through the same `{formula}` grammar a spell's does, reusing the `spell-effect` attachment point rather than minting a second one — the reference set does not differ. None of these rows has a computed number in it, so all of them are plain text, which the grammar is forgiving about on purpose.",
+    "The tab has two columns and the entity has two fields. There is no cost, category or prerequisite to record, and none is invented."
+  ],
+  "data": {
+    "passives": [
+      {
+        "id": "passive-low-magic-resistance",
+        "name": "Low Magic resistance",
+        "effectText": "magica only deals 3/4 of the damage"
+      },
+      {
+        "id": "passive-magic-resistance",
+        "name": "Magic resistance",
+        "effectText": "magic only deals 2/4 of the damage"
+      },
+      {
+        "id": "passive-legendary-magic-resistance",
+        "name": "Legendary magic resistance",
+        "effectText": "magic only deals 1/4 of the damage"
+      },
+      {
+        "id": "passive-magic-immume",
+        "name": "magic immume",
+        "effectText": "cant be affecte by magic in anny shape or form"
+      },
+      {
+        "id": "passive-blindsight",
+        "name": "Blindsight",
+        "effectText": "If you have Blindsight, you can see within a specific range without relying on physical sight. Within that range, you can see anything that isn’t behind Total Cover even if you have the Blinded condition or are in Darkness. Moreover, in that range, you can see something that has the Invisible condition. the range is 50 feet\n\n"
+      },
+      {
+        "id": "passive-low-poison-resistance",
+        "name": "Low poison resistance",
+        "effectText": "poison only deals 3/4 of the damage"
+      },
+      {
+        "id": "passive-poison-resistance",
+        "name": "poison resistance",
+        "effectText": "poison only deals 2/4 of the damage"
+      },
+      {
+        "id": "passive-legendary-poison-resistance",
+        "name": "Legendary poison resistance",
+        "effectText": "poison only deals 1/4 of the damage"
+      },
+      {
+        "id": "passive-poison-immunitie",
+        "name": "poison immunitie",
+        "effectText": "cant be affecte by poison in anny shape or form"
+      },
+      {
+        "id": "passive-low-psychic-resistance",
+        "name": "Low psychic resistance",
+        "effectText": "psychic only deals 3/4 of the damage"
+      },
+      {
+        "id": "passive-psychic-resistance",
+        "name": "psychic resistance",
+        "effectText": "psychic only deals 2/4 of the damage"
+      },
+      {
+        "id": "passive-legendary-psychic-resistance",
+        "name": "Legendary psychic resistance",
+        "effectText": "psychic only deals 1/4 of the damage"
+      },
+      {
+        "id": "passive-psychic-immume",
+        "name": "psychic immume",
+        "effectText": "cant be affecte by psychic in anny shape or form"
+      },
+      {
+        "id": "passive-low-poison-resistance-2",
+        "name": "Low poison resistance",
+        "effectText": "poison only deals 3/4 of the damage"
+      },
+      {
+        "id": "passive-poison-resistance-2",
+        "name": "poison resistance",
+        "effectText": "poison only deals 2/4 of the damage"
+      },
+      {
+        "id": "passive-legendary-poison-resistance-2",
+        "name": "Legendary poison resistance",
+        "effectText": "poison only deals 1/4 of the damage"
+      },
+      {
+        "id": "passive-poison-immune",
+        "name": "poison immune",
+        "effectText": "cant be poisoned"
+      },
+      {
+        "id": "passive-blinded-immune",
+        "name": "blinded immune",
+        "effectText": "cant be blinded"
+      },
+      {
+        "id": "passive-charmed-immune",
+        "name": "charmed immune",
+        "effectText": "cant be charned"
+      },
+      {
+        "id": "passive-deafened-immune",
+        "name": "deafened immune",
+        "effectText": "cant be deafened"
+      },
+      {
+        "id": "passive-exhaustion-immune",
+        "name": "exhaustion immune",
+        "effectText": "cant be exhausted"
+      },
+      {
+        "id": "passive-frightened-immume",
+        "name": "frightened immume",
+        "effectText": "cant be frightened"
+      },
+      {
+        "id": "passive-paralyze-immume",
+        "name": "paralyze immume",
+        "effectText": "cant be paralyzed"
+      },
+      {
+        "id": "passive-petrifie-immume",
+        "name": "petrifie immume",
+        "effectText": "cant pe petrified"
+      },
+      {
+        "id": "passive-darkvision",
+        "name": "darkvision",
+        "effectText": "can see up to 25 feet in dark and dim areas  "
+      },
+      {
+        "id": "passive-false-appearance",
+        "name": "False appearance",
+        "effectText": "As long as you remain motionless you be indistinguishable from what ever you mimic"
+      }
+    ]
+  }
+}

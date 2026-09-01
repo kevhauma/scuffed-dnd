@@ -2,109 +2,160 @@
   "feature": "skills",
   "title": "Skills",
   "tickets": [
-    "TICKET-SKL (v1.0)",
-    "TICKET-SKL-02"
+    "TICKET-SKL-02",
+    "TICKET-SKL-03",
+    "TICKET-SKL-04",
+    "TICKET-SKL-05"
   ],
-  "concept": "02 · Skill",
+  "concept": "06 · Skills and focus",
   "source": {
-    "spreadsheet": "https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit",
-    "exportedAt": "2026-08-09",
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/18fMuQOMK65LVawBedC9R5mNASknJ8V56_QVFDdDa5Yc/edit",
+    "workbook": "docs/v4.0_sheet_parity/4.1 source sheets.xlsx",
+    "exportedAt": "2026-08-28",
     "ranges": [
-      "Skills!C12:G59"
+      "Background References Character!A4:E51",
+      "!F4:H7"
     ]
   },
-  "confidence": "confirmed",
+  "confidence": "confirmed (read from the reference table, not from the level formulas)",
   "notes": [
-    "48 skills, each with the 1–2 weighted stats the Skills tab gives it. Single-stat skills weigh 0.2 or 0.3; two-stat skills split 0.2 + 0.1.",
-    "Since TICKET-SKL-02 the weights are the stored shape: `statWeights: [{ statId, weight }]`, keyed by stat id. The numbers are unchanged — they were already the sheet's, encoded as a `bonusFormula` string — but the app now holds them as data rather than as an opaque expression, which is Concept 02's whole argument. The level is Σ(weight × stat) + invested and the bonus is round(level / const.bonus_divider); neither is per-skill any more, so this fragment needs stats.json and constants.json loaded alongside it.",
-    "`maxBaseLevel` and the 3-letter `code` are **gone**. The sheet has no level cap, and the code only ever existed so a formula could name a skill in the flat variable space — a formula reaches one as `skills.<name-slug>` now, so there is nothing left for a code to do.",
-    "Duplicate name kept deliberately (Concept 02 import note): Skinning appears twice in the sheet with different levels, so they are two records until the User merges them. They slug the same way, so the first one wins any `skills.skinning` reference — which is exactly the ambiguity the merge is there to settle.",
-    "Verified against Concept 02: Charm = CHA × 0.3 (11.7 at Char 39), Brewing = WIS × 0.3, Black smithing = STR × 0.2, alchemy = INT × 0.2, Trading = CHA × 0.3.",
-    "One divergence from Concept 02, and the sheet wins: the page has Persuasion at Char × 0.3, the live Skills tab has Char × 0.2 + Strenght × 0.1 (Skills!D31:G31). The page's 11.7 for Persuasion is Charm's number. SETTLED by TICKET-DX-04: the golden suite pins Persuasion at 8.8 (the live weights, range cited) and pins the page's 13.2 -> bonus 3 on Charm, where the weights that produce it live, with the inferred +1.5 tagged as inferred."
+    "48 skills, in the sheet's own order and spelling — the v4 workbook's list, which is not the old one's. Gone: 'sewing' and the duplicate 'Skinning' (the creator resolved v2.0's deliberate duplicate to one 'skinning'). New: 'Summening', which used to be only a focus-skill spelling, and 'woodcrafting'. Nine names are recapitalised — alchemy→Alchemy, arcane→Arcane, assassination→Assassination, athletics→Athletics, butchering→Butchering, construction→Construction, farming→Farming, foraging→Foraging, botany→Botany.",
+    "Every skill has a primary stat and at most one secondary. Mono skills weigh 0.35; duo skills weigh 0.2 on the primary and 0.1 on the secondary. Every old 0.3 mono became 0.35, and several skills changed stat outright — old alchemy was Int 0.2, it is now Int 0.35.",
+    "**One formula bug is recorded here and deliberately not reproduced**, on the User's 2026-08-29 ruling to build the reference table's intent (systems/06): Summening's level cell reads **Stealing's** reference row for its primary stat (`Calcu` D38 looks up `B40`, not `B39`), so the sheet scales Summening off Dex 0.2 where the table says Wis 0.2. Its *secondary* lookup reads its own row, so the sheet computes Dex×0.2 + Int×0.1 — visible in the sample, whose Summening terms are 1.8 = Dex 9 × 0.2 and 1.1 = Int 11 × 0.1. The app builds Wis 0.2 + Int 0.1. Summening's is the only off-by-one in all 48 rows.",
+    "**systems/06's *other* claimed bug is not in this workbook and is corrected here.** That document says every level cell reads the primary stat's name cell twice, so a duo skill computes primary×0.2 + primary×0.1. The xlsx disagrees: column D looks up `Character!B<row>` and column E looks up `Character!D<row>` — two different cells — and every one of the 48 pairs points at its own reference row bar Summening's primary. The sample confirms it: Athletics' secondary term is **2.6 = Strenght 26 × 0.1**, not the 0.9 = Dex 9 × 0.1 the document predicts. The secondary stat is genuinely read, so a duo skill's level needs no correction at all.",
+    "Consequence for the golden fixtures: only Summening moves. Every other skill computes what the sheet computes, which is what makes the sample character a usable parity gate rather than a set of numbers the app deliberately disagrees with.",
+    "The sheet has no per-skill category, so `category` is absent on all 48 — absent stays absent. The old fragment's three-letter codes are gone with TICKET-SKL-02: a formula reaches a skill as `skills.<name-slug>`, so ids are `skill-<slug>` and nothing here occupies the flat formula namespace.",
+    "The focus multiplier (chosen 1.5 / others 0.3), the mono/duo scales and the bonus scaling 5 are constants rather than per-skill data — they live in constants.json (TICKET-SKL-05).",
+    "Weights are keyed by stat **id**, so this fragment needs stats.json loaded alongside it."
   ],
   "data": {
     "skills": [
       {
-        "id": "skill-alchemy-alc",
-        "name": "alchemy",
-        "description": "Skills!C12. Weights: INT 0.2.",
+        "id": "skill-alchemy",
+        "name": "Alchemy",
+        "description": "Scaling A4. Int ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-int",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-arcane",
+        "name": "Arcane",
+        "description": "Scaling A5. Int ×0.2 + Wis ×0.1.",
         "statWeights": [
           {
             "statId": "stat-int",
             "weight": 0.2
+          },
+          {
+            "statId": "stat-wis",
+            "weight": 0.1
           }
         ]
       },
       {
-        "id": "skill-assassination-ass",
-        "name": "assassination",
-        "description": "Skills!C13. Weights: DEX 0.2.",
+        "id": "skill-assassination",
+        "name": "Assassination",
+        "description": "Scaling A6. Dex ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-dex",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-athletics",
+        "name": "Athletics",
+        "description": "Scaling A7. Dex ×0.2 + Strenght ×0.1.",
         "statWeights": [
           {
             "statId": "stat-dex",
             "weight": 0.2
+          },
+          {
+            "statId": "stat-strenght",
+            "weight": 0.1
           }
         ]
       },
       {
-        "id": "skill-black-smithing-bsl",
+        "id": "skill-black-smithing",
         "name": "Black smithing",
-        "description": "Skills!C14. Weights: STR 0.2.",
+        "description": "Scaling A8. Strenght ×0.35.",
         "statWeights": [
           {
             "statId": "stat-strenght",
-            "weight": 0.2
+            "weight": 0.35
           }
         ]
       },
       {
-        "id": "skill-brewing-bre",
+        "id": "skill-botany",
+        "name": "Botany",
+        "description": "Scaling A9. Wis ×0.2 + Int ×0.1.",
+        "statWeights": [
+          {
+            "statId": "stat-wis",
+            "weight": 0.2
+          },
+          {
+            "statId": "stat-int",
+            "weight": 0.1
+          }
+        ]
+      },
+      {
+        "id": "skill-brewing",
         "name": "Brewing",
-        "description": "Skills!C15. Weights: WIS 0.3.",
+        "description": "Scaling A10. Wis ×0.35.",
         "statWeights": [
           {
             "statId": "stat-wis",
-            "weight": 0.3
+            "weight": 0.35
           }
         ]
       },
       {
-        "id": "skill-butchering-but",
-        "name": "butchering",
-        "description": "Skills!C16. Weights: STR 0.2.",
+        "id": "skill-butchering",
+        "name": "Butchering",
+        "description": "Scaling A11. Strenght ×0.35.",
         "statWeights": [
           {
             "statId": "stat-strenght",
-            "weight": 0.2
+            "weight": 0.35
           }
         ]
       },
       {
-        "id": "skill-charm-chr",
+        "id": "skill-charm",
         "name": "Charm",
-        "description": "Skills!C17. Weights: CHA 0.3.",
+        "description": "Scaling A12. Char ×0.35.",
         "statWeights": [
           {
             "statId": "stat-char",
-            "weight": 0.3
+            "weight": 0.35
           }
         ]
       },
       {
-        "id": "skill-construction-cos",
-        "name": "construction",
-        "description": "Skills!C18. Weights: STR 0.2.",
+        "id": "skill-construction",
+        "name": "Construction",
+        "description": "Scaling A13. Strenght ×0.35.",
         "statWeights": [
           {
             "statId": "stat-strenght",
-            "weight": 0.2
+            "weight": 0.35
           }
         ]
       },
       {
-        "id": "skill-cooking-coo",
+        "id": "skill-cooking",
         "name": "Cooking",
-        "description": "Skills!C19. Weights: WIS 0.2, DEX 0.1.",
+        "description": "Scaling A14. Wis ×0.2 + Dex ×0.1.",
         "statWeights": [
           {
             "statId": "stat-wis",
@@ -117,20 +168,20 @@
         ]
       },
       {
-        "id": "skill-dancing-dan",
+        "id": "skill-dancing",
         "name": "Dancing",
-        "description": "Skills!C20. Weights: DEX 0.2.",
+        "description": "Scaling A15. Dex ×0.35.",
         "statWeights": [
           {
             "statId": "stat-dex",
-            "weight": 0.2
+            "weight": 0.35
           }
         ]
       },
       {
-        "id": "skill-foraging-for",
-        "name": "foraging",
-        "description": "Skills!C21. Weights: WIS 0.2, DEX 0.1.",
+        "id": "skill-farming",
+        "name": "Farming",
+        "description": "Scaling A16. Wis ×0.2 + Dex ×0.1.",
         "statWeights": [
           {
             "statId": "stat-wis",
@@ -143,9 +194,9 @@
         ]
       },
       {
-        "id": "skill-handeling-han",
-        "name": "Handeling",
-        "description": "Skills!C22. Weights: WIS 0.2, DEX 0.1.",
+        "id": "skill-foraging",
+        "name": "Foraging",
+        "description": "Scaling A17. Wis ×0.2 + Dex ×0.1.",
         "statWeights": [
           {
             "statId": "stat-wis",
@@ -158,328 +209,9 @@
         ]
       },
       {
-        "id": "skill-healing-hea",
-        "name": "Healing",
-        "description": "Skills!C23. Weights: WIS 0.2.",
-        "statWeights": [
-          {
-            "statId": "stat-wis",
-            "weight": 0.2
-          }
-        ]
-      },
-      {
-        "id": "skill-hiding-hid",
-        "name": "Hiding",
-        "description": "Skills!C24. Weights: DEX 0.3.",
-        "statWeights": [
-          {
-            "statId": "stat-dex",
-            "weight": 0.3
-          }
-        ]
-      },
-      {
-        "id": "skill-history-his",
-        "name": "history",
-        "description": "Skills!C25. Weights: WIS 0.2, INT 0.1.",
-        "statWeights": [
-          {
-            "statId": "stat-wis",
-            "weight": 0.2
-          },
-          {
-            "statId": "stat-int",
-            "weight": 0.1
-          }
-        ]
-      },
-      {
-        "id": "skill-intimidation-ini",
-        "name": "intimidation",
-        "description": "Skills!C26. Weights: STR 0.2, CHA 0.1.",
-        "statWeights": [
-          {
-            "statId": "stat-strenght",
-            "weight": 0.2
-          },
-          {
-            "statId": "stat-char",
-            "weight": 0.1
-          }
-        ]
-      },
-      {
-        "id": "skill-lock-picking-lpo",
-        "name": "Lock picking",
-        "description": "Skills!C27. Weights: DEX 0.3.",
-        "statWeights": [
-          {
-            "statId": "stat-dex",
-            "weight": 0.3
-          }
-        ]
-      },
-      {
-        "id": "skill-medician-med",
-        "name": "Medician",
-        "description": "Skills!C28. Weights: WIS 0.2, INT 0.1.",
-        "statWeights": [
-          {
-            "statId": "stat-wis",
-            "weight": 0.2
-          },
-          {
-            "statId": "stat-int",
-            "weight": 0.1
-          }
-        ]
-      },
-      {
-        "id": "skill-mining-min",
-        "name": "Mining",
-        "description": "Skills!C29. Weights: STR 0.2, CON 0.1.",
-        "statWeights": [
-          {
-            "statId": "stat-strenght",
-            "weight": 0.2
-          },
-          {
-            "statId": "stat-con",
-            "weight": 0.1
-          }
-        ]
-      },
-      {
-        "id": "skill-navigation-nav",
-        "name": "navigation",
-        "description": "Skills!C30. Weights: WIS 0.3.",
-        "statWeights": [
-          {
-            "statId": "stat-wis",
-            "weight": 0.3
-          }
-        ]
-      },
-      {
-        "id": "skill-persuasion-per",
-        "name": "Persuasion",
-        "description": "Skills!C31. Weights: CHA 0.2, STR 0.1.",
-        "statWeights": [
-          {
-            "statId": "stat-char",
-            "weight": 0.2
-          },
-          {
-            "statId": "stat-strenght",
-            "weight": 0.1
-          }
-        ]
-      },
-      {
-        "id": "skill-prefomance-pre",
-        "name": "Prefomance",
-        "description": "Skills!C32. Weights: CHA 0.2, DEX 0.1.",
-        "statWeights": [
-          {
-            "statId": "stat-char",
-            "weight": 0.2
-          },
-          {
-            "statId": "stat-dex",
-            "weight": 0.1
-          }
-        ]
-      },
-      {
-        "id": "skill-sailing-sai",
-        "name": "Sailing",
-        "description": "Skills!C33. Weights: STR 0.2, CON 0.1.",
-        "statWeights": [
-          {
-            "statId": "stat-strenght",
-            "weight": 0.2
-          },
-          {
-            "statId": "stat-con",
-            "weight": 0.1
-          }
-        ]
-      },
-      {
-        "id": "skill-scouting-sco",
-        "name": "Scouting",
-        "description": "Skills!C34. Weights: DEX 0.3.",
-        "statWeights": [
-          {
-            "statId": "stat-dex",
-            "weight": 0.3
-          }
-        ]
-      },
-      {
-        "id": "skill-sewing-sew",
-        "name": "sewing",
-        "description": "Skills!C35. Weights: DEX 0.3.",
-        "statWeights": [
-          {
-            "statId": "stat-dex",
-            "weight": 0.3
-          }
-        ]
-      },
-      {
-        "id": "skill-skinning-ski",
-        "name": "skinning",
-        "description": "Skills!C36. Weights: DEX 0.3.",
-        "statWeights": [
-          {
-            "statId": "stat-dex",
-            "weight": 0.3
-          }
-        ]
-      },
-      {
-        "id": "skill-sneaking-sne",
-        "name": "Sneaking",
-        "description": "Skills!C37. Weights: DEX 0.3.",
-        "statWeights": [
-          {
-            "statId": "stat-dex",
-            "weight": 0.3
-          }
-        ]
-      },
-      {
-        "id": "skill-stealing-ste",
-        "name": "Stealing",
-        "description": "Skills!C38. Weights: DEX 0.3.",
-        "statWeights": [
-          {
-            "statId": "stat-dex",
-            "weight": 0.3
-          }
-        ]
-      },
-      {
-        "id": "skill-storytelling-sto",
-        "name": "Storytelling",
-        "description": "Skills!C39. Weights: WIS 0.2, CHA 0.1.",
-        "statWeights": [
-          {
-            "statId": "stat-wis",
-            "weight": 0.2
-          },
-          {
-            "statId": "stat-char",
-            "weight": 0.1
-          }
-        ]
-      },
-      {
-        "id": "skill-tailoring-tai",
-        "name": "tailoring",
-        "description": "Skills!C40. Weights: DEX 0.3.",
-        "statWeights": [
-          {
-            "statId": "stat-dex",
-            "weight": 0.3
-          }
-        ]
-      },
-      {
-        "id": "skill-taming-tam",
-        "name": "Taming",
-        "description": "Skills!C41. Weights: WIS 0.2, STR 0.1.",
-        "statWeights": [
-          {
-            "statId": "stat-wis",
-            "weight": 0.2
-          },
-          {
-            "statId": "stat-strenght",
-            "weight": 0.1
-          }
-        ]
-      },
-      {
-        "id": "skill-teaching-tea",
-        "name": "Teaching",
-        "description": "Skills!C42. Weights: WIS 0.2, INT 0.1.",
-        "statWeights": [
-          {
-            "statId": "stat-wis",
-            "weight": 0.2
-          },
-          {
-            "statId": "stat-int",
-            "weight": 0.1
-          }
-        ]
-      },
-      {
-        "id": "skill-tracking-tra",
-        "name": "Tracking",
-        "description": "Skills!C43. Weights: WIS 0.3.",
-        "statWeights": [
-          {
-            "statId": "stat-wis",
-            "weight": 0.3
-          }
-        ]
-      },
-      {
-        "id": "skill-trading-trd",
-        "name": "Trading",
-        "description": "Skills!C44. Weights: CHA 0.3.",
-        "statWeights": [
-          {
-            "statId": "stat-char",
-            "weight": 0.3
-          }
-        ]
-      },
-      {
-        "id": "skill-white-smithing-wsh",
-        "name": "white smithing",
-        "description": "Skills!C45. Weights: WIS 0.3.",
-        "statWeights": [
-          {
-            "statId": "stat-wis",
-            "weight": 0.3
-          }
-        ]
-      },
-      {
-        "id": "skill-woodcutting-woo",
-        "name": "woodcutting",
-        "description": "Skills!C46. Weights: STR 0.3.",
-        "statWeights": [
-          {
-            "statId": "stat-strenght",
-            "weight": 0.3
-          }
-        ]
-      },
-      {
-        "id": "skill-writing-wri",
-        "name": "writing",
-        "description": "Skills!C47. Weights: CHA 0.2, WIS 0.1.",
-        "statWeights": [
-          {
-            "statId": "stat-char",
-            "weight": 0.2
-          },
-          {
-            "statId": "stat-wis",
-            "weight": 0.1
-          }
-        ]
-      },
-      {
-        "id": "skill-graple-gra",
+        "id": "skill-graple",
         "name": "graple",
-        "description": "Skills!C48. Weights: STR 0.2, DEX 0.1.",
+        "description": "Scaling A18. Strenght ×0.2 + Dex ×0.1.",
         "statWeights": [
           {
             "statId": "stat-strenght",
@@ -492,35 +224,9 @@
         ]
       },
       {
-        "id": "skill-perception-pec",
-        "name": "perception",
-        "description": "Skills!C49. Weights: WIS 0.3.",
-        "statWeights": [
-          {
-            "statId": "stat-wis",
-            "weight": 0.3
-          }
-        ]
-      },
-      {
-        "id": "skill-athletics-ath",
-        "name": "athletics",
-        "description": "Skills!C50. Weights: DEX 0.2, STR 0.1.",
-        "statWeights": [
-          {
-            "statId": "stat-dex",
-            "weight": 0.2
-          },
-          {
-            "statId": "stat-strenght",
-            "weight": 0.1
-          }
-        ]
-      },
-      {
-        "id": "skill-hand-to-hand-hta",
+        "id": "skill-hand-to-hand",
         "name": "hand to hand",
-        "description": "Skills!C51. Weights: STR 0.2, DEX 0.1.",
+        "description": "Scaling A19. Strenght ×0.2 + Dex ×0.1.",
         "statWeights": [
           {
             "statId": "stat-strenght",
@@ -533,9 +239,9 @@
         ]
       },
       {
-        "id": "skill-farming-far",
-        "name": "farming",
-        "description": "Skills!C52. Weights: WIS 0.2, DEX 0.1.",
+        "id": "skill-handeling",
+        "name": "Handeling",
+        "description": "Scaling A20. Wis ×0.2 + Dex ×0.1.",
         "statWeights": [
           {
             "statId": "stat-wis",
@@ -548,65 +254,61 @@
         ]
       },
       {
-        "id": "skill-riding-rid",
-        "name": "riding",
-        "description": "Skills!C53. Weights: DEX 0.2, STR 0.1.",
+        "id": "skill-healing",
+        "name": "Healing",
+        "description": "Scaling A21. Wis ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-wis",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-hiding",
+        "name": "Hiding",
+        "description": "Scaling A22. Dex ×0.35.",
         "statWeights": [
           {
             "statId": "stat-dex",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-history",
+        "name": "history",
+        "description": "Scaling A23. Wis ×0.2 + Int ×0.1.",
+        "statWeights": [
+          {
+            "statId": "stat-wis",
             "weight": 0.2
           },
+          {
+            "statId": "stat-int",
+            "weight": 0.1
+          }
+        ]
+      },
+      {
+        "id": "skill-intimidation",
+        "name": "intimidation",
+        "description": "Scaling A24. Strenght ×0.2 + Char ×0.1.",
+        "statWeights": [
           {
             "statId": "stat-strenght",
-            "weight": 0.1
-          }
-        ]
-      },
-      {
-        "id": "skill-skinning-skn",
-        "name": "Skinning",
-        "description": "Skills!C54. Weights: DEX 0.2, WIS 0.1.",
-        "statWeights": [
-          {
-            "statId": "stat-dex",
             "weight": 0.2
           },
           {
-            "statId": "stat-wis",
+            "statId": "stat-char",
             "weight": 0.1
           }
         ]
       },
       {
-        "id": "skill-arcane-arc",
-        "name": "arcane",
-        "description": "Skills!C55. Weights: INT 0.2, WIS 0.1.",
-        "statWeights": [
-          {
-            "statId": "stat-int",
-            "weight": 0.2
-          },
-          {
-            "statId": "stat-wis",
-            "weight": 0.1
-          }
-        ]
-      },
-      {
-        "id": "skill-linguistics-lin",
-        "name": "linguistics",
-        "description": "Skills!C56. Weights: INT 0.3.",
-        "statWeights": [
-          {
-            "statId": "stat-int",
-            "weight": 0.3
-          }
-        ]
-      },
-      {
-        "id": "skill-law-law",
+        "id": "skill-law",
         "name": "law",
-        "description": "Skills!C57. Weights: INT 0.2, WIS 0.1.",
+        "description": "Scaling A25. Int ×0.2 + Wis ×0.1.",
         "statWeights": [
           {
             "statId": "stat-int",
@@ -619,24 +321,328 @@
         ]
       },
       {
-        "id": "skill-zoology-zoo",
+        "id": "skill-linguistics",
+        "name": "linguistics",
+        "description": "Scaling A26. Int ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-int",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-lock-picking",
+        "name": "Lock picking",
+        "description": "Scaling A27. Dex ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-dex",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-medician",
+        "name": "Medician",
+        "description": "Scaling A28. Wis ×0.2 + Int ×0.1.",
+        "statWeights": [
+          {
+            "statId": "stat-wis",
+            "weight": 0.2
+          },
+          {
+            "statId": "stat-int",
+            "weight": 0.1
+          }
+        ]
+      },
+      {
+        "id": "skill-mining",
+        "name": "Mining",
+        "description": "Scaling A29. Strenght ×0.2 + Con ×0.1.",
+        "statWeights": [
+          {
+            "statId": "stat-strenght",
+            "weight": 0.2
+          },
+          {
+            "statId": "stat-con",
+            "weight": 0.1
+          }
+        ]
+      },
+      {
+        "id": "skill-navigation",
+        "name": "navigation",
+        "description": "Scaling A30. Wis ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-wis",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-perception",
+        "name": "perception",
+        "description": "Scaling A31. Wis ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-wis",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-persuasion",
+        "name": "Persuasion",
+        "description": "Scaling A32. Char ×0.2 + Strenght ×0.1.",
+        "statWeights": [
+          {
+            "statId": "stat-char",
+            "weight": 0.2
+          },
+          {
+            "statId": "stat-strenght",
+            "weight": 0.1
+          }
+        ]
+      },
+      {
+        "id": "skill-prefomance",
+        "name": "Prefomance",
+        "description": "Scaling A33. Char ×0.2 + Dex ×0.1.",
+        "statWeights": [
+          {
+            "statId": "stat-char",
+            "weight": 0.2
+          },
+          {
+            "statId": "stat-dex",
+            "weight": 0.1
+          }
+        ]
+      },
+      {
+        "id": "skill-riding",
+        "name": "riding",
+        "description": "Scaling A34. Dex ×0.2 + Strenght ×0.1.",
+        "statWeights": [
+          {
+            "statId": "stat-dex",
+            "weight": 0.2
+          },
+          {
+            "statId": "stat-strenght",
+            "weight": 0.1
+          }
+        ]
+      },
+      {
+        "id": "skill-sailing",
+        "name": "Sailing",
+        "description": "Scaling A35. Strenght ×0.2 + Con ×0.1.",
+        "statWeights": [
+          {
+            "statId": "stat-strenght",
+            "weight": 0.2
+          },
+          {
+            "statId": "stat-con",
+            "weight": 0.1
+          }
+        ]
+      },
+      {
+        "id": "skill-scouting",
+        "name": "Scouting",
+        "description": "Scaling A36. Dex ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-dex",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-skinning",
+        "name": "skinning",
+        "description": "Scaling A37. Dex ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-dex",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-sneaking",
+        "name": "Sneaking",
+        "description": "Scaling A38. Dex ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-dex",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-summening",
+        "name": "Summening",
+        "description": "Scaling A39. Wis ×0.2 + Int ×0.1.",
+        "statWeights": [
+          {
+            "statId": "stat-wis",
+            "weight": 0.2
+          },
+          {
+            "statId": "stat-int",
+            "weight": 0.1
+          }
+        ]
+      },
+      {
+        "id": "skill-stealing",
+        "name": "Stealing",
+        "description": "Scaling A40. Dex ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-dex",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-storytelling",
+        "name": "Storytelling",
+        "description": "Scaling A41. Wis ×0.2 + Char ×0.1.",
+        "statWeights": [
+          {
+            "statId": "stat-wis",
+            "weight": 0.2
+          },
+          {
+            "statId": "stat-char",
+            "weight": 0.1
+          }
+        ]
+      },
+      {
+        "id": "skill-tailoring",
+        "name": "tailoring",
+        "description": "Scaling A42. Dex ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-dex",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-taming",
+        "name": "Taming",
+        "description": "Scaling A43. Wis ×0.2 + Strenght ×0.1.",
+        "statWeights": [
+          {
+            "statId": "stat-wis",
+            "weight": 0.2
+          },
+          {
+            "statId": "stat-strenght",
+            "weight": 0.1
+          }
+        ]
+      },
+      {
+        "id": "skill-teaching",
+        "name": "Teaching",
+        "description": "Scaling A44. Wis ×0.2 + Int ×0.1.",
+        "statWeights": [
+          {
+            "statId": "stat-wis",
+            "weight": 0.2
+          },
+          {
+            "statId": "stat-int",
+            "weight": 0.1
+          }
+        ]
+      },
+      {
+        "id": "skill-tracking",
+        "name": "Tracking",
+        "description": "Scaling A45. Wis ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-wis",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-trading",
+        "name": "Trading",
+        "description": "Scaling A46. Char ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-char",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-white-smithing",
+        "name": "white smithing",
+        "description": "Scaling A47. Wis ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-wis",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-woodcrafting",
+        "name": "woodcrafting",
+        "description": "Scaling A48. Dex ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-dex",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-woodcutting",
+        "name": "woodcutting",
+        "description": "Scaling A49. Strenght ×0.35.",
+        "statWeights": [
+          {
+            "statId": "stat-strenght",
+            "weight": 0.35
+          }
+        ]
+      },
+      {
+        "id": "skill-writing",
+        "name": "writing",
+        "description": "Scaling A50. Char ×0.2 + Wis ×0.1.",
+        "statWeights": [
+          {
+            "statId": "stat-char",
+            "weight": 0.2
+          },
+          {
+            "statId": "stat-wis",
+            "weight": 0.1
+          }
+        ]
+      },
+      {
+        "id": "skill-zoology",
         "name": "zoology",
-        "description": "Skills!C58. Weights: WIS 0.2, INT 0.1.",
-        "statWeights": [
-          {
-            "statId": "stat-wis",
-            "weight": 0.2
-          },
-          {
-            "statId": "stat-int",
-            "weight": 0.1
-          }
-        ]
-      },
-      {
-        "id": "skill-botany-bot",
-        "name": "botany",
-        "description": "Skills!C59. Weights: WIS 0.2, INT 0.1.",
+        "description": "Scaling A51. Wis ×0.2 + Int ×0.1.",
         "statWeights": [
           {
             "statId": "stat-wis",

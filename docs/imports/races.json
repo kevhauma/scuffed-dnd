@@ -3,30 +3,38 @@
   "title": "Races",
   "tickets": [
     "TICKET-RACE-01",
-    "TICKET-RACE-02 (pending)"
+    "TICKET-RACE-02",
+    "TICKET-RACE-03",
+    "TICKET-RACE-04"
   ],
-  "concept": "04 · Creature (race subset)",
+  "concept": "04 · Races",
   "source": {
-    "spreadsheet": "https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit",
-    "exportedAt": "2026-08-09",
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/18fMuQOMK65LVawBedC9R5mNASknJ8V56_QVFDdDa5Yc/edit",
+    "workbook": "docs/v4.0_sheet_parity/4.1 source sheets.xlsx",
+    "exportedAt": "2026-08-28",
     "ranges": [
-      "'Creature stats'!B4:K14"
+      "Background Referenes Race scali!B3:AA17",
+      "Background References Naming!BD3:BD9",
+      "!BG3:BG19"
     ]
   },
   "confidence": "confirmed",
   "notes": [
-    "The ten entries the sheet's race picker offers, before the bestiary starts at column L (bat). The other 970-odd creature columns are Concept 04's bestiary — a later milestone, not a race list.",
-    "The sheet stores an **absolute base** per stat, and since TICKET-RACE-01 so does the app: a race is a stat block keyed by stat id, not a list of modifiers. The numbers are unchanged from the modifier form — they only ever agreed because a stat default base is 0 — but the meaning is now the sheet's.",
-    "TICKET-RACE-02 landed the sheet's hybrid: a character has at most two races and their blocks blend as roundup((a + b) / const.race_blend_divisor) rather than stacking. The blocks below are unchanged by it — the blend is how they are read, not what they hold — but a two-race character's numbers moved, and \"Empty\" is now a way to halve a block rather than a no-op.",
-    "Totals in each description are the sheet's own row 14 and are the six-core-only check Concept 01 confirms: human 60, elf 64, dwarf 60, Raccoon 59, Demon 90.",
-    "\"Empty\" is the sheet's no-race placeholder and is kept because the race picker offers it. Its block is written as {} rather than as ten zeros: under the absent-reads-0 rule those are the same race, and the empty object is the one that stays correct when a stat is added."
+    "25 races, in the sheet's own order and spelling — 'aasimar ' keeps its trailing space and the tab keeps its own name's typo ('Referenes'). The old corpus had ten; fifteen are new.",
+    "The tab is **transposed**: one column per race, one row per field. Rows 18–26 repeat the stat block — presumably the mother/father lookup copies — and are read once, not twice.",
+    "Each race carries three identity fields the old sheet never gave one: `type` (row 15), `size` (row 16) and `challengeRate` (row 17). Challenge rate is **0 for every playable race** — a creature-facing number waiting for a bestiary — and is recorded because the sheet has it (D1), read by nothing. The tab writes the label twice, 'Chalenge rate' at row 14 and 'challenge rate' at row 17; both are zero and the second is the one read.",
+    "`type` and `size` are the User's own words, picked from the two reference lists this fragment also carries — 7 sizes (Naming BD3:BD9) and 17 kinds (BG3:BG19), in the sheet's spellings, so 'humaniod', 'Ooze' and 'guargantian' stand as written. A race naming a word the lists do not hold is a validation **finding**, never a refusal, and a ruleset that names no vocabularies at all validates nothing.",
+    "Two of the workbook's 17 kinds are in use by a playable race and the rest wait for a bestiary; the size list's 'swarm' is a kind on the type list as well, which is the sheet's own overlap rather than a merge error.",
+    "Row 13 is the unlabelled **six-core total**, which re-confirms Concept 01's counts-toward-total rule: Ducklets 8+9+8+8+12+14 = 59, with Health, Mana and Speed excluded. It is carried in each race's description rather than stored, because it is derived.",
+    "How many races a character has is **ruleset data**, not a constant in the engine: `const.race_count` in constants.json, defaulting to 2 — the sheet's answer and the app's default, not a rule (overview, ticket-review rulings). A pure-blood is the same race in both slots, which is how `Setup` A7:B9 writes the sample character.",
+    "Stat blocks are absolute values keyed by stat id (TICKET-RACE-01), so this fragment needs stats.json loaded alongside it."
   ],
   "data": {
     "races": [
       {
         "id": "race-human",
         "name": "human",
-        "description": "Stat block from the sheet's Creature stats tab (column B); six-core total 60.",
+        "description": "Race scaling column C. Six-core total 60.",
         "statValues": {
           "stat-strenght": 10,
           "stat-dex": 10,
@@ -37,12 +45,15 @@
           "stat-health": 5,
           "stat-mana": 100,
           "stat-speed": 20
-        }
+        },
+        "type": "humaniod",
+        "size": "medium",
+        "challengeRate": 0
       },
       {
         "id": "race-elf",
         "name": "elf",
-        "description": "Stat block from the sheet's Creature stats tab (column C); six-core total 64.",
+        "description": "Race scaling column D. Six-core total 64.",
         "statValues": {
           "stat-strenght": 9,
           "stat-dex": 12,
@@ -53,12 +64,15 @@
           "stat-health": 7,
           "stat-mana": 200,
           "stat-speed": 25
-        }
+        },
+        "type": "humaniod",
+        "size": "medium",
+        "challengeRate": 0
       },
       {
         "id": "race-hamster",
         "name": "Hamster",
-        "description": "Stat block from the sheet's Creature stats tab (column D); six-core total 20.",
+        "description": "Race scaling column E. Six-core total 20.",
         "statValues": {
           "stat-strenght": 1,
           "stat-dex": 1,
@@ -69,12 +83,15 @@
           "stat-health": 1,
           "stat-mana": 500,
           "stat-speed": 20
-        }
+        },
+        "type": "humaniod",
+        "size": "small",
+        "challengeRate": 0
       },
       {
         "id": "race-dwarf",
         "name": "dwarf",
-        "description": "Stat block from the sheet's Creature stats tab (column E); six-core total 60.",
+        "description": "Race scaling column F. Six-core total 60.",
         "statValues": {
           "stat-strenght": 14,
           "stat-dex": 3,
@@ -85,12 +102,15 @@
           "stat-health": 8,
           "stat-mana": 130,
           "stat-speed": 15
-        }
+        },
+        "type": "humaniod",
+        "size": "small",
+        "challengeRate": 0
       },
       {
         "id": "race-raccoon",
         "name": "Raccoon",
-        "description": "Stat block from the sheet's Creature stats tab (column F); six-core total 59.",
+        "description": "Race scaling column G. Six-core total 59.",
         "statValues": {
           "stat-strenght": 7,
           "stat-dex": 16,
@@ -101,78 +121,419 @@
           "stat-health": 5,
           "stat-mana": 70,
           "stat-speed": 30
-        }
+        },
+        "type": "humaniod",
+        "size": "small",
+        "challengeRate": 0
       },
       {
-        "id": "race-demon",
-        "name": "Demon",
-        "description": "Stat block from the sheet's Creature stats tab (column G); six-core total 90.",
+        "id": "race-githyanki",
+        "name": "githyanki",
+        "description": "Race scaling column H. Six-core total 72.",
+        "statValues": {
+          "stat-strenght": 12,
+          "stat-dex": 12,
+          "stat-con": 12,
+          "stat-int": 12,
+          "stat-wis": 12,
+          "stat-char": 12,
+          "stat-health": 8,
+          "stat-mana": 300,
+          "stat-speed": 30
+        },
+        "type": "humaniod",
+        "size": "medium",
+        "challengeRate": 0
+      },
+      {
+        "id": "race-halfling",
+        "name": "halfling",
+        "description": "Race scaling column I. Six-core total 62.",
+        "statValues": {
+          "stat-strenght": 6,
+          "stat-dex": 10,
+          "stat-con": 13,
+          "stat-int": 13,
+          "stat-wis": 10,
+          "stat-char": 10,
+          "stat-health": 3,
+          "stat-mana": 130,
+          "stat-speed": 25
+        },
+        "type": "humaniod",
+        "size": "small",
+        "challengeRate": 0
+      },
+      {
+        "id": "race-dragonborn",
+        "name": "dragonborn",
+        "description": "Race scaling column J. Six-core total 70.",
+        "statValues": {
+          "stat-strenght": 14,
+          "stat-dex": 13,
+          "stat-con": 8,
+          "stat-int": 10,
+          "stat-wis": 11,
+          "stat-char": 14,
+          "stat-health": 6,
+          "stat-mana": 180,
+          "stat-speed": 15
+        },
+        "type": "humaniod",
+        "size": "medium",
+        "challengeRate": 0
+      },
+      {
+        "id": "race-gnome",
+        "name": "gnome",
+        "description": "Race scaling column K. Six-core total 63.",
+        "statValues": {
+          "stat-strenght": 6,
+          "stat-dex": 10,
+          "stat-con": 14,
+          "stat-int": 10,
+          "stat-wis": 13,
+          "stat-char": 10,
+          "stat-health": 3,
+          "stat-mana": 110,
+          "stat-speed": 25
+        },
+        "type": "humaniod",
+        "size": "small",
+        "challengeRate": 0
+      },
+      {
+        "id": "race-aasimar",
+        "name": "aasimar ",
+        "description": "Race scaling column L. Six-core total 78.",
+        "statValues": {
+          "stat-strenght": 13,
+          "stat-dex": 13,
+          "stat-con": 13,
+          "stat-int": 13,
+          "stat-wis": 13,
+          "stat-char": 13,
+          "stat-health": 7,
+          "stat-mana": 150,
+          "stat-speed": 25
+        },
+        "type": "humaniod",
+        "size": "medium",
+        "challengeRate": 0
+      },
+      {
+        "id": "race-firbolg",
+        "name": "firbolg",
+        "description": "Race scaling column M. Six-core total 66.",
+        "statValues": {
+          "stat-strenght": 8,
+          "stat-dex": 11,
+          "stat-con": 8,
+          "stat-int": 12,
+          "stat-wis": 13,
+          "stat-char": 14,
+          "stat-health": 4,
+          "stat-mana": 200,
+          "stat-speed": 15
+        },
+        "type": "humaniod",
+        "size": "small",
+        "challengeRate": 0
+      },
+      {
+        "id": "race-goliath",
+        "name": "goliath",
+        "description": "Race scaling column N. Six-core total 81.",
+        "statValues": {
+          "stat-strenght": 18,
+          "stat-dex": 13,
+          "stat-con": 16,
+          "stat-int": 10,
+          "stat-wis": 12,
+          "stat-char": 12,
+          "stat-health": 8,
+          "stat-mana": 30,
+          "stat-speed": 30
+        },
+        "type": "humaniod",
+        "size": "medium",
+        "challengeRate": 0
+      },
+      {
+        "id": "race-kenku",
+        "name": "kenku",
+        "description": "Race scaling column O. Six-core total 62.",
+        "statValues": {
+          "stat-strenght": 8,
+          "stat-dex": 10,
+          "stat-con": 14,
+          "stat-int": 10,
+          "stat-wis": 12,
+          "stat-char": 8,
+          "stat-health": 5,
+          "stat-mana": 60,
+          "stat-speed": 25
+        },
+        "type": "humaniod",
+        "size": "small",
+        "challengeRate": 0
+      },
+      {
+        "id": "race-tabaxi",
+        "name": "tabaxi",
+        "description": "Race scaling column P. Six-core total 64.",
+        "statValues": {
+          "stat-strenght": 8,
+          "stat-dex": 9,
+          "stat-con": 16,
+          "stat-int": 10,
+          "stat-wis": 10,
+          "stat-char": 11,
+          "stat-health": 4,
+          "stat-mana": 60,
+          "stat-speed": 30
+        },
+        "type": "humaniod",
+        "size": "medium",
+        "challengeRate": 0
+      },
+      {
+        "id": "race-triton",
+        "name": "triton",
+        "description": "Race scaling column Q. Six-core total 60.",
+        "statValues": {
+          "stat-strenght": 10,
+          "stat-dex": 10,
+          "stat-con": 10,
+          "stat-int": 10,
+          "stat-wis": 10,
+          "stat-char": 10,
+          "stat-health": 5,
+          "stat-mana": 100,
+          "stat-speed": 20
+        },
+        "type": "humaniod",
+        "size": "medium",
+        "challengeRate": 0
+      },
+      {
+        "id": "race-tortle",
+        "name": "tortle",
+        "description": "Race scaling column R. Six-core total 73.",
         "statValues": {
           "stat-strenght": 15,
-          "stat-dex": 15,
-          "stat-con": 15,
-          "stat-int": 15,
-          "stat-wis": 15,
-          "stat-char": 15,
-          "stat-health": 15,
-          "stat-mana": 1000,
-          "stat-speed": 40
-        }
+          "stat-dex": 10,
+          "stat-con": 12,
+          "stat-int": 11,
+          "stat-wis": 13,
+          "stat-char": 12,
+          "stat-health": 4,
+          "stat-mana": 60,
+          "stat-speed": 15
+        },
+        "type": "humaniod",
+        "size": "medium",
+        "challengeRate": 0
       },
       {
-        "id": "race-demur",
-        "name": "Demur",
-        "description": "Stat block from the sheet's Creature stats tab (column H); six-core total 66.",
+        "id": "race-warforge",
+        "name": "warforge",
+        "description": "Race scaling column S. Six-core total 62.",
         "statValues": {
-          "stat-strenght": 11,
-          "stat-dex": 11,
+          "stat-strenght": 13,
+          "stat-dex": 10,
+          "stat-con": 12,
+          "stat-int": 8,
+          "stat-wis": 7,
+          "stat-char": 12,
+          "stat-health": 7,
+          "stat-mana": 100,
+          "stat-speed": 25
+        },
+        "type": "construct",
+        "size": "medium",
+        "challengeRate": 0
+      },
+      {
+        "id": "race-crab-folk",
+        "name": "crab folk",
+        "description": "Race scaling column T. Six-core total 67.",
+        "statValues": {
+          "stat-strenght": 15,
+          "stat-dex": 10,
+          "stat-con": 17,
+          "stat-int": 7,
+          "stat-wis": 9,
+          "stat-char": 9,
+          "stat-health": 5,
+          "stat-mana": 20,
+          "stat-speed": 40
+        },
+        "type": "humaniod",
+        "size": "large",
+        "challengeRate": 0
+      },
+      {
+        "id": "race-autognome",
+        "name": "autognome",
+        "description": "Race scaling column U. Six-core total 56.",
+        "statValues": {
+          "stat-strenght": 13,
+          "stat-dex": 6,
+          "stat-con": 16,
+          "stat-int": 4,
+          "stat-wis": 11,
+          "stat-char": 6,
+          "stat-health": 6,
+          "stat-mana": 100,
+          "stat-speed": 20
+        },
+        "type": "construct",
+        "size": "small",
+        "challengeRate": 0
+      },
+      {
+        "id": "race-dohwar",
+        "name": "dohwar",
+        "description": "Race scaling column V. Six-core total 66.",
+        "statValues": {
+          "stat-strenght": 5,
+          "stat-dex": 12,
           "stat-con": 11,
           "stat-int": 11,
-          "stat-wis": 11,
-          "stat-char": 11,
+          "stat-wis": 14,
+          "stat-char": 13,
+          "stat-health": 3,
+          "stat-mana": 60,
+          "stat-speed": 20
+        },
+        "type": "fey",
+        "size": "small",
+        "challengeRate": 0
+      },
+      {
+        "id": "race-hadozee",
+        "name": "hadozee",
+        "description": "Race scaling column W. Six-core total 75.",
+        "statValues": {
+          "stat-strenght": 11,
+          "stat-dex": 16,
+          "stat-con": 13,
+          "stat-int": 10,
+          "stat-wis": 13,
+          "stat-char": 12,
+          "stat-health": 3,
+          "stat-mana": 80,
+          "stat-speed": 30
+        },
+        "type": "humaniod",
+        "size": "medium",
+        "challengeRate": 0
+      },
+      {
+        "id": "race-plasmoid",
+        "name": "plasmoid",
+        "description": "Race scaling column X. Six-core total 71.",
+        "statValues": {
+          "stat-strenght": 13,
+          "stat-dex": 12,
+          "stat-con": 12,
+          "stat-int": 10,
+          "stat-wis": 14,
+          "stat-char": 10,
           "stat-health": 6,
-          "stat-mana": 200,
-          "stat-speed": 20
-        }
+          "stat-mana": 30,
+          "stat-speed": 30
+        },
+        "type": "Ooze",
+        "size": "large",
+        "challengeRate": 0
       },
       {
-        "id": "race-empty",
-        "name": "Empty",
-        "description": "Stat block from the sheet's Creature stats tab (column I); six-core total 0.",
-        "statValues": {}
-      },
-      {
-        "id": "race-monolith",
-        "name": "Monolith",
-        "description": "Stat block from the sheet's Creature stats tab (column J); six-core total 1800.",
+        "id": "race-musteval",
+        "name": "musteval",
+        "description": "Race scaling column Y. Six-core total 49.",
         "statValues": {
-          "stat-strenght": 300,
-          "stat-dex": 300,
-          "stat-con": 300,
-          "stat-int": 300,
-          "stat-wis": 300,
-          "stat-char": 300,
-          "stat-health": 3000,
-          "stat-mana": 3000,
-          "stat-speed": 20
-        }
+          "stat-strenght": 3,
+          "stat-dex": 16,
+          "stat-con": 2,
+          "stat-int": 8,
+          "stat-wis": 8,
+          "stat-char": 12,
+          "stat-health": 2,
+          "stat-mana": 100,
+          "stat-speed": 35
+        },
+        "type": "celestial",
+        "size": "small",
+        "challengeRate": 0
       },
       {
-        "id": "race-gods",
-        "name": "Gods",
-        "description": "Stat block from the sheet's Creature stats tab (column K); six-core total 1920.",
+        "id": "race-loxodon",
+        "name": "Loxodon",
+        "description": "Race scaling column Z. Six-core total 70.",
         "statValues": {
-          "stat-strenght": 320,
-          "stat-dex": 320,
-          "stat-con": 320,
-          "stat-int": 320,
-          "stat-wis": 320,
-          "stat-char": 320,
-          "stat-health": 3200,
-          "stat-mana": 3200,
-          "stat-speed": 40
-        }
+          "stat-strenght": 12,
+          "stat-dex": 8,
+          "stat-con": 14,
+          "stat-int": 12,
+          "stat-wis": 16,
+          "stat-char": 8,
+          "stat-health": 8,
+          "stat-mana": 360,
+          "stat-speed": 25
+        },
+        "type": "humaniod",
+        "size": "large",
+        "challengeRate": 0
+      },
+      {
+        "id": "race-ducklets",
+        "name": "Ducklets",
+        "description": "Race scaling column AA. Six-core total 59.",
+        "statValues": {
+          "stat-strenght": 8,
+          "stat-dex": 9,
+          "stat-con": 8,
+          "stat-int": 8,
+          "stat-wis": 12,
+          "stat-char": 14,
+          "stat-health": 3,
+          "stat-mana": 210,
+          "stat-speed": 20
+        },
+        "type": "humaniod",
+        "size": "medium",
+        "challengeRate": 0
       }
+    ],
+    "creatureSizes": [
+      "tiny",
+      "small",
+      "medium",
+      "large",
+      "huge",
+      "guargantian",
+      "swarm"
+    ],
+    "creatureTypes": [
+      "humaniod",
+      "undead",
+      "celestial",
+      "construct",
+      "beast",
+      "Devil",
+      "dragon",
+      "demon",
+      "fey",
+      "aberration",
+      "monstrosity",
+      "elemental",
+      "plant",
+      "fiend",
+      "gaint",
+      "Ooze",
+      "swarm"
     ]
   }
 }

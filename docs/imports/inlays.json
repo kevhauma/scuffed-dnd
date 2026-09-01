@@ -1,0 +1,4979 @@
+{
+  "feature": "inlays",
+  "title": "Inlays",
+  "tickets": [
+    "TICKET-INL-01"
+  ],
+  "concept": "10 · Inlays",
+  "source": {
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/18fMuQOMK65LVawBedC9R5mNASknJ8V56_QVFDdDa5Yc/edit",
+    "workbook": "docs/v4.0_sheet_parity/4.1 source sheets.xlsx",
+    "exportedAt": "2026-08-28",
+    "ranges": [
+      "Background Reference inlay scal!A1:J253"
+    ]
+  },
+  "confidence": "confirmed values / absent prices",
+  "notes": [
+    "25 gem families in two groups, 250 tiers — the first fragment this feature has ever had, since TICKET-INL-01 shipped the entity while the data pass was still ahead of it.",
+    "**A family may have a gap, and one does.**  is short of ten: the sheet's tenth row is blank, which is a *gap* rather than a zero. That is why an `InlayTier` carries its own rung number instead of the array being indexed by it — the family is importable, selectable up to its last real rung, and the User's to fill.",
+    "**Nothing is generated.** 23 of the 25 families happen to be linear in tier, but that is a property the capture verified rather than a rule to impose — Obsidian is hand-authored across all ten rows. Every tier a family has is stored.",
+    "Inlays grant over **nine** axes where a material tier grants over seven: the six core stats plus Health, **Mana and Speed**. Those last two are the inlays' own — the material tab has no column for either (materials.json), which is the split the two tabs draw between what a thing is made of and what is set into it.",
+    "No price. `Inlay` has no value field at all, where `MaterialLevel` still carries one from the old workbook — the new sheet prices nothing (overview D5) and this entity was shaped after that was known.",
+    "One name, two roles, deliberately two records: every family here is *also* a purchasable row on the items tab (items.json — the Common Gems and Precious Gems categories), with its own mostly −1 skill vector. Nobody should \"fix\" that duplication later.",
+    "Bonuses are keyed by stat **id**, so this fragment needs stats.json loaded alongside it."
+  ],
+  "data": {
+    "inlays": [
+      {
+        "id": "inlay-quartz",
+        "name": "Quartz",
+        "description": "Common Gems, from the inlay scaling tab.",
+        "group": "Common Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 100
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 200
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 300
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 400
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 500
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 600
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 700
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 800
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 900
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-agate",
+        "name": "Agate",
+        "description": "Common Gems, from the inlay scaling tab.",
+        "group": "Common Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 80
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 5
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 160
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 10
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 240
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 15
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 320
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 20
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 400
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 25
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 480
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 30
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 560
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 35
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 640
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 40
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 720
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 45
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 800
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 50
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-hematite",
+        "name": "Hematite",
+        "description": "Common Gems, from the inlay scaling tab.",
+        "group": "Common Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 80
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 160
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 3
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 240
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 320
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 400
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 480
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 7
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 560
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 640
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 9
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 720
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 800
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-lapis-lazuli",
+        "name": "Lapis Lazuli",
+        "description": "Common Gems, from the inlay scaling tab.",
+        "group": "Common Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 120
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 240
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 3
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 360
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 480
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 600
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 720
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 7
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 840
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 960
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 9
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1080
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1200
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-malachite",
+        "name": "Malachite",
+        "description": "Common Gems, from the inlay scaling tab.",
+        "group": "Common Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 100
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 200
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 3
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 15
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 300
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 400
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 25
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 500
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 30
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 600
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 7
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 35
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 700
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 40
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 800
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 9
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 45
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 900
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 50
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-turquoise",
+        "name": "Turquoise",
+        "description": "Common Gems, from the inlay scaling tab.",
+        "group": "Common Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 120
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 6
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 240
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 12
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 3
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 3
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 360
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 18
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 480
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 24
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 600
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 30
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 720
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 36
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 7
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 7
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 840
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 42
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 960
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 48
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 9
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 9
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1080
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 54
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1200
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 60
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-topaz",
+        "name": "Topaz",
+        "description": "Common Gems, from the inlay scaling tab.",
+        "group": "Common Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 150
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 10
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 300
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 20
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 450
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 30
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 600
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 40
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 750
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 50
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 900
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 60
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1050
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 70
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1200
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 80
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1350
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 90
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1500
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 100
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-bloodstone",
+        "name": "Bloodstone",
+        "description": "Common Gems, from the inlay scaling tab.",
+        "group": "Common Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 100
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 200
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 3
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 24
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 300
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 32
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 400
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 40
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 500
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 48
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 600
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 7
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 56
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 700
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 64
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 800
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 9
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 72
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 900
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 80
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-carnelian",
+        "name": "Carnelian",
+        "description": "Common Gems, from the inlay scaling tab.",
+        "group": "Common Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 90
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 180
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 3
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 270
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 360
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 450
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 540
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 7
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 630
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 720
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 9
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 810
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 900
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-moonstone",
+        "name": "Moonstone",
+        "description": "Common Gems, from the inlay scaling tab.",
+        "group": "Common Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 150
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 300
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 3
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 450
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 600
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 750
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 900
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 7
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1050
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1200
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 9
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1350
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1500
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-onyx",
+        "name": "Onyx",
+        "description": "Common Gems, from the inlay scaling tab.",
+        "group": "Common Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 120
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 240
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 3
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 360
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 480
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 600
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 720
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 7
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 840
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 960
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 9
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1080
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1200
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-zircon",
+        "name": "Zircon",
+        "description": "Common Gems, from the inlay scaling tab.",
+        "group": "Common Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 100
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 200
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 3
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 300
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 400
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 500
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 600
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 7
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 700
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 800
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 9
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 900
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": []
+          }
+        ]
+      },
+      {
+        "id": "inlay-sapphire",
+        "name": "Sapphire",
+        "description": "Precious Gems, from the inlay scaling tab.",
+        "group": "Precious Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 500
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1000
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1500
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2000
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2500
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3000
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3500
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4000
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4500
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 5000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-amethyst",
+        "name": "Amethyst",
+        "description": "Precious Gems, from the inlay scaling tab.",
+        "group": "Precious Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 450
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 900
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1350
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1800
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2250
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2700
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3150
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3600
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4050
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4500
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-garnet",
+        "name": "Garnet",
+        "description": "Precious Gems, from the inlay scaling tab.",
+        "group": "Precious Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 400
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 800
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 3
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1200
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 24
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1600
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 30
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2000
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 36
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2400
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 7
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 42
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2800
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 48
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3200
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 9
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 54
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3600
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 60
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-jade",
+        "name": "Jade",
+        "description": "Precious Gems, from the inlay scaling tab.",
+        "group": "Precious Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 400
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 800
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 3
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 30
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1200
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 40
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1600
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 50
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2000
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 60
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2400
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 7
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 70
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2800
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 80
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3200
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 9
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 90
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3600
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-con",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 100
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-pearl",
+        "name": "Pearl",
+        "description": "Precious Gems, from the inlay scaling tab.",
+        "group": "Precious Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 350
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 700
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1050
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1400
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1750
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2100
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2450
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2800
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3150
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-wis",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3500
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-tourmaline",
+        "name": "Tourmaline",
+        "description": "Precious Gems, from the inlay scaling tab.",
+        "group": "Precious Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 450
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 12
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 900
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 24
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1350
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 36
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1800
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 48
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2250
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 60
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2700
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 72
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3150
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 84
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3600
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 96
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4050
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 108
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-dex",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4500
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 120
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-emerald",
+        "name": "Emerald",
+        "description": "Precious Gems, from the inlay scaling tab.",
+        "group": "Precious Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 600
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1200
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 24
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1800
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 32
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2400
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 40
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3000
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 48
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3600
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 56
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4200
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 64
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4800
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 72
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 5400
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 80
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 6000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-opal",
+        "name": "Opal",
+        "description": "Precious Gems, from the inlay scaling tab.",
+        "group": "Precious Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 700
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 8
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1400
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 16
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2100
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 24
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2800
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 32
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3500
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 40
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4200
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 48
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4900
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 56
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 5600
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 64
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 6300
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 72
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 7000
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 80
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-ruby",
+        "name": "Ruby",
+        "description": "Precious Gems, from the inlay scaling tab.",
+        "group": "Precious Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 600
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1200
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 30
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1800
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 40
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2400
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 50
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3000
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 60
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3600
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 70
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4200
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 80
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4800
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 90
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 5400
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 100
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 6000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-star-sapphire",
+        "name": "Star Sapphire",
+        "description": "Precious Gems, from the inlay scaling tab.",
+        "group": "Precious Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 800
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1600
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2400
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3200
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4000
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4800
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 5600
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 6400
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 7200
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-int",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-wis",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 8000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-diamond",
+        "name": "Diamond",
+        "description": "Precious Gems, from the inlay scaling tab.",
+        "group": "Precious Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1000
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2000
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3000
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4000
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 5000
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 6000
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 7000
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 8000
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 9000
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 10000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-dragonstone",
+        "name": "Dragonstone",
+        "description": "Precious Gems, from the inlay scaling tab.",
+        "group": "Precious Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-dex",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1000
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 10
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-dex",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 2000
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 20
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-dex",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 30
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 3000
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 30
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-dex",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 40
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 4000
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 40
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-dex",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 50
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 5000
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 50
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-dex",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 60
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 6000
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 60
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-dex",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 14
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 70
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 7000
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 70
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-dex",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 16
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 80
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 8000
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 80
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-dex",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 18
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 90
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 9000
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 90
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-dex",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 20
+              },
+              {
+                "statId": "stat-health",
+                "modifier": 100
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 10000
+              },
+              {
+                "statId": "stat-speed",
+                "modifier": 100
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "inlay-obsidian",
+        "name": "Obsidian",
+        "description": "Precious Gems, from the inlay scaling tab.",
+        "group": "Precious Gems",
+        "tiers": [
+          {
+            "tier": 1,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 100
+              }
+            ]
+          },
+          {
+            "tier": 2,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 200
+              }
+            ]
+          },
+          {
+            "tier": 3,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 300
+              }
+            ]
+          },
+          {
+            "tier": 4,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 1
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 3
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 400
+              }
+            ]
+          },
+          {
+            "tier": 5,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 3
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 500
+              }
+            ]
+          },
+          {
+            "tier": 6,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 7
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 600
+              }
+            ]
+          },
+          {
+            "tier": 7,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 2
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 700
+              }
+            ]
+          },
+          {
+            "tier": 8,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 10
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 3
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 800
+              }
+            ]
+          },
+          {
+            "tier": 9,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 11
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 5
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 3
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 7
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 900
+              }
+            ]
+          },
+          {
+            "tier": 10,
+            "bonuses": [
+              {
+                "statId": "stat-strenght",
+                "modifier": 12
+              },
+              {
+                "statId": "stat-con",
+                "modifier": 6
+              },
+              {
+                "statId": "stat-int",
+                "modifier": 4
+              },
+              {
+                "statId": "stat-char",
+                "modifier": 8
+              },
+              {
+                "statId": "stat-mana",
+                "modifier": 1000
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

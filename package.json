@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
+    "sheet:source": "node scripts/build-fragments.mjs",
     "sheet:import": "node scripts/build-sheet-import.mjs",
     "db:generate": "drizzle-kit generate",
     "format": "biome format",

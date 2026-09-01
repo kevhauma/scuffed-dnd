@@ -185,7 +185,7 @@ function resourceStats(rules: Configuration): Stat[] {
 /**
  * Two items for one slot, pinned onto a Snapshot
  *
- * The corpus has seven slots and nothing that fits any of them, so every equipment case runs against
+ * The corpus has six slots and nothing that fits any of them, so every equipment case runs against
  * a Snapshot with these two in it. Pinned rather than invented wholesale so the rest of the ruleset
  * — the stats the clamp reads, the constants the budget reads — is still the real one.
  */
@@ -193,13 +193,13 @@ const HELMET = {
   id: 'item-test-helm',
   name: 'Test Helm',
   description: '',
-  equipmentSlotType: 'head',
+  equipmentSlotType: 'head_gear',
 };
 const CIRCLET = {
   id: 'item-test-circlet',
   name: 'Test Circlet',
   description: '',
-  equipmentSlotType: 'head',
+  equipmentSlotType: 'head_gear',
 };
 
 /**

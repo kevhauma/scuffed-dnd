@@ -79,26 +79,30 @@ bonus = ROUNDUP( level / 5, 0 ) + Σ(gear skill bonuses across the six slots)
 - Gear skill bonuses are the equipped items' template vectors, one column per slot, spilled from
   the Backpack calculation (systems/12).
 
-### Two sheet bugs, read from the same cells — recorded, not copied
+### One sheet bug, read from the same cells — recorded, not copied
 
-- **The secondary *stat* is never read.** Both stat lookups in the level formula reference the
-  **primary** stat's name cell, so a duo skill computes `primary × 0.2 + primary × 0.1` — the
-  Secundary column decides only *that* a 0.1 term exists, not whose stat feeds it (visible in
-  values: Athletics secondary term is 0.9 = Dex 9 × 0.1, not Strenght 26 × 0.1). Almost certainly
-  a copy-fill slip: the scaling reference lovingly names a secondary stat per skill that the
-  formula then ignores.
-- **Summening and Stealing share a stat row.** Both level formulas read the reference table's
-  row for Stealing (`B40`), so Summening scales off **Dex** instead of its listed Wis/Int — an
-  off-by-one visible in the sample (Summening's primary term is 1.8 = Dex 9 × 0.2).
+> **Corrected 2026-09-01, by the data pass, against the checked-in xlsx.** This section claimed
+> **two** bugs. Only the second is in the workbook; the first is not, and the correction is kept
+> visible rather than quietly rewritten because the fixtures cited it.
 
-**Ruled 2026-08-29: fix them.** The app builds the reference table's *intent* — the secondary stat
-is genuinely read, and Summening scales off its own Wis/Int row. So the weights table above is the
-spec, and the two bugs are recorded in the fragment's `notes` as a divergence between what the
-sheet computes and what it means. Two knock-on effects to expect when the golden fixtures are
-pinned (plan §15): **every duo skill's level changes** for the sample character (Athletics' second
-term becomes Strenght 26 × 0.1 = 2.6 rather than Dex 9 × 0.1 = 0.9), and Summening moves off Dex.
-The sample's captured levels are therefore *not* the app's expected output for duo skills — pin
-fixtures from the corrected arithmetic and cite this note.
+- ~~**The secondary *stat* is never read.**~~ **Not so.** The level formula's two lookups reference
+  *different* cells — column D looks up `Character!B<row>` (the Primary column) and column E looks
+  up `Character!D<row>` (the Secundary column) — and all 48 pairs point at their own reference row.
+  The values confirm it: Athletics' secondary term is **2.6 = Strenght 26 × 0.1**, not the
+  0.9 = Dex 9 × 0.1 this document predicted. **A duo skill needs no correction at all.**
+- **Summening reads Stealing's stat row.** `Calcu` D38 looks up `B40` rather than `B39`, so the
+  sheet scales Summening's *primary* off **Dex** instead of its listed Wis. Its *secondary* lookup
+  reads its own row, so the sheet computes `Dex × 0.2 + Int × 0.1` — visible in the sample, whose
+  Summening terms are 1.8 = Dex 9 × 0.2 and 1.1 = Int 11 × 0.1, for a level of 7. **It is the only
+  off-by-one in all 48 rows.**
+
+**Ruled 2026-08-29: fix it.** The app builds the reference table's *intent*, so Summening scales off
+its own Wis/Int row and its level is 8 where the sheet prints 7. The weights table above is the
+spec, and the divergence is recorded in `skills.json`'s `notes`.
+
+The knock-on effect is therefore **one skill**, not every duo skill: `thomasGolden.test.ts` pins the
+sample character's whole sheet against the workbook and every row agrees but that one, which is what
+makes the sample usable as a parity gate rather than a set of numbers the app deliberately disputes.
 
 ## What the app has today
 
@@ -137,5 +141,5 @@ Engine and document changes only; the server re-derives skill levels through the
   `const.focus_other` beside `bonus_divider`. Assumed yes (they are the User's dials), decided in
   the ticket.
 
-*(Settled: the rounding and invested-points questions, by the xlsx formulas; the two sheet bugs,
+*(Settled: the rounding and invested-points questions, by the xlsx formulas; the sheet bug,
 by the User's 2026-08-29 ruling to fix them.)*

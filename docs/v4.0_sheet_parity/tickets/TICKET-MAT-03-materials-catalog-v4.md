@@ -5,11 +5,11 @@
 - **Traceability:** System [09 · Materials](../systems/09-materials.md); overview
   [D5](../overview.md#d5--what-is-deliberately-not-parity) (prices are gone from the sheet).
 
-> **⏸ Deferred to the data pass (overview [D7](../overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)).**
-> This ticket is nothing but seeded values — no type change, no engine change, no panel change —
-> so it is **not built in v4.0's shape pass**. It stays here, cut and specified, as what the data
-> pass implements. Nothing downstream waits on it: TICKET-INV-05 composes from the `Material`
-> shape, which already exists, and which materials the corpus holds is not its business.
+> **✅ Built 2026-09-01, in the data pass.** Generated rather than transcribed: the catalog is read
+> out of the checked-in workbook by [`scripts/build-fragments.mjs`](../../../scripts/build-fragments.mjs)
+> (`yarn run sheet:source`), so re-reading it is a command. **One correction to the spec below**:
+> the tab has **four** group headers, not three — row 190 heads the six harvested families
+> `new materials` in their own right — and the sheet wins (D1). systems/09 is corrected to match.
 
 ## User story
 
@@ -46,21 +46,29 @@ express everything here. The old catalog's ~100 extra families fall out of the c
 
 ## Acceptance criteria
 
-- [ ] The regenerated corpus imports clean: 24 families × 10 tiers each, three groups, Iron Ore 10
-      granting Str 10 / Con 10 / Health 5 (the sample-confirmed row, ready for TICKET-DX-09).
-- [ ] No `Material` or `MaterialTier` type change; no engine change — asserted by untouched
-      calculator suites.
-- [ ] No price appears anywhere in the fragment; the old priced values are gone with a `notes`
+- [x] The regenerated corpus imports clean: 24 families × 10 tiers each, **four** groups (the
+      correction above), Iron Ore 10 granting Str 10 / Con 10 / Health 5.
+      *Evidence:* `sheetImport.test.ts` — *holds 24 material families in four groups, ten tiers
+      apiece (MAT-03)* and *grants what the sample character reads off Iron Ore 10 (MAT-03)*.
+- [x] No `Material` or `MaterialTier` type change; no engine change — `git diff` touches neither
+      `src/shared/types/config.ts` nor any calculator, and all 3,761 tests pass.
+- [x] No price appears anywhere in the fragment; the old priced values are gone with a `notes`
       entry citing D5 rather than silently.
-- [ ] [materials.json](../../imports/materials.json) cites `source.ranges` against the xlsx sheet
-      name (`Background Reference Material s`, truncated as the workbook has it) with the three
-      group-header rows noted and a new `exportedAt`; `yarn run sheet:import` regenerated; no
-      number invented for any required field.
-- [ ] Unit tests cover: the import count, a hand-authored ladder round-tripping (Wood's Dex
+      *Evidence:* `sheetImport.test.ts` — *prices nothing, because the new workbook prices nothing
+      (D5)* asserts every tier's amount is 0 and no item description mentions copper.
+- [x] [materials.json](../../imports/materials.json) cites `source.ranges` against the xlsx sheet
+      name (`Background Reference Material s`, truncated as the workbook has it) with the group
+      headers noted and `exportedAt` 2026-08-28; `yarn run sheet:import` regenerated; the only
+      required field the sheet cannot fill is `MaterialLevel.value`, which takes the neutral 0 in
+      the base tier with a note saying so.
+- [x] Unit tests cover: the import count, a hand-authored ladder round-tripping (Wood's Dex
       1,1,2,2,3,4,4,5,5,6), and absence of Mana/Speed targets.
-- [ ] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions`
-      skill. (Data-only — no browser criterion beyond the config panel listing the new families,
-      ask the User whether to check it live.)
+      *Evidence:* the three `the v4 catalogs` cases named above, plus *targets no stat axis the
+      material tab does not have (MAT-03)*.
+- [x] Verified: `npx vitest run` 3,761 passing / 0 failing, `npx tsc --noEmit` at its 2-error
+      baseline, `yarn run check` clean, `fallow audit --base main` with the dead export it found
+      removed and `buildMaterials` decomposed below CRITICAL. Browser check not run — offered to
+      the User with the rest of the data pass.
 
 ## Notes
 

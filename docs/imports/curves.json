@@ -6,19 +6,21 @@
     "TICKET-CRV-02",
     "TICKET-CRV-03"
   ],
-  "concept": "06 · Curve",
+  "concept": "05 · Archetypes and point buy",
   "source": {
-    "spreadsheet": "https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit",
-    "exportedAt": "2026-08-09",
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/18fMuQOMK65LVawBedC9R5mNASknJ8V56_QVFDdDa5Yc/edit",
+    "workbook": "docs/v4.0_sheet_parity/4.1 source sheets.xlsx",
+    "exportedAt": "2026-08-28",
     "ranges": [
-      "Calculator!B2:E54"
+      "Background References Character!J3:M55"
     ]
   },
-  "confidence": "confirmed (point_buy) / absent from the sheet (xp_thresholds)",
+  "confidence": "confirmed / xp_thresholds absent",
   "notes": [
-    "point_buy carries all 51 rows the sheet has (0–50 points), not the 16 the seed ships. The main column is 0.75 x (points + 1) for every one of them, verified cell by cell during extraction, so it ships as a generator; non and sub are hand-entered and marked overridden so regeneration cannot touch them.",
-    "Two anomalies come across as the sheet has them, deliberately: sub at 9 points is 4.64285714285714 and non at 50 points is 12.0665306122449, where every neighbour is an integer. Concept 06 wants a decision on these, not a silent rounding.",
-    "xp_thresholds is shape only. The sheet has no XP table — level is hand-typed in Charactersheet!E5 — so this is Concept 06 open question 8 and waits for the User."
+    "point_buy carries all 51 rows the sheet has (0–50 points). The main column is 0.75 × (points + 1) on every one of them, so it ships as a generator; non and sub are hand-entered and marked overridden so regeneration cannot straighten them.",
+    "**The new workbook's table is the old workbook's table** — re-read, not assumed. The online HTML view *displays* it as integers, which read as a new integer table; the xlsx shows that was cell formatting and the underlying values are the old decimals (overview D3). Re-sourcing it therefore reproduces v2.0's curve exactly, anomalies included, which is the point of reading it again.",
+    "The two anomalies come across as the sheet has them, deliberately: sub at 9 points is 4.64285714285714 and non at 50 is 12.0665306122449, where every neighbour is an integer. That decision is still the User's to make, and it is not made here.",
+    "xp_thresholds is shape only. **Neither workbook has an XP table** — the sheet hand-types the level — so the one row is a placeholder and the curve waits for the User. \"Set level to N\" prices N through this curve and refuses when it cannot, which is why the curve exists at all rather than being absent."
   ],
   "data": {
     "curves": [
@@ -716,7 +718,7 @@
         "id": "curve-xp-thresholds",
         "name": "xp_thresholds",
         "displayName": "XP thresholds",
-        "description": "Total experience needed for each level. Read backwards: given the XP, which level. Placeholder — the sheet does not have this table.",
+        "description": "Total experience needed for each level. Read backwards: given the XP, which level. Placeholder — neither workbook has this table.",
         "keyName": "level",
         "columns": [
           {
@@ -729,6 +731,9 @@
             "key": 1,
             "values": [
               0
+            ],
+            "overridden": [
+              true
             ]
           }
         ],

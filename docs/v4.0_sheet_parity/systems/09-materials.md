@@ -1,8 +1,14 @@
 # 09 · Materials — 24 families, hand-authored tiers
 
-**Sheet source:** `Background Reference Material: scaling` A4:I250 (three group headers: row 4
+**Sheet source:** `Background Reference Material: scaling` A4:I250 (**four** group headers: row 4
 "biological material", row 26 "### Stone & Clay (Stones & Ores)", row 88
-"### Raw Ores (Stones & Ores)"; data ends at row 250 — the grid padding beyond is empty).
+"### Raw Ores (Stones & Ores)", row 190 "new materials"; data ends at row 250 — the grid padding
+beyond is empty).
+
+> **Corrected 2026-09-01, by the data pass.** This document said *three* groups and put the six
+> harvested families under Raw Ores. Row 190 heads them **"new materials"** in its own right, so the
+> corpus has four categories and the sheet wins (D1). The table below is otherwise exact — all 24
+> tier-1 and tier-10 vectors round-tripped unchanged.
 
 ## What the new sheet says
 
@@ -32,16 +38,17 @@ axes belong to inlays, systems/10). The ladders are **hand-authored, not linear*
 | Platinum Ore | Raw Ores | 0/0/0/1/1/2/0 | 4/0/4/8/8/20/0 |
 | Mithril Ore | Raw Ores | 1/2/1/1/0/1/0 | 8/20/8/8/4/10/0 |
 | Adamantine Ore | Raw Ores | 2/0/2/0/0/1/2 | 20/0/20/0/0/5/20 |
-| Harvested Hide | Raw Ores | 0/2/1/0/0/0/1 | 0/20/10/0/0/0/15 |
-| Harvested Bone | Raw Ores | 2/0/2/0/0/0/1 | 20/0/20/0/0/0/10 |
-| Harvested Arcane Organ | Raw Ores | 0/0/0/2/2/1/0 | 0/0/0/20/20/15/0 |
-| Harvested Exotic Meat | Raw Ores | 1/0/1/0/0/0/2 | 15/0/10/0/0/0/20 |
-| Exotic Carapace | Raw Ores | 1/0/2/0/0/0/1 | 10/0/20/0/0/0/15 |
-| Exotic Feathers | Raw Ores | 0/2/0/0/1/1/0 | 0/20/0/0/10/15/0 |
+| Harvested Hide | new materials | 0/2/1/0/0/0/1 | 0/20/10/0/0/0/15 |
+| Harvested Bone | new materials | 2/0/2/0/0/0/1 | 20/0/20/0/0/0/10 |
+| Harvested Arcane Organ | new materials | 0/0/0/2/2/1/0 | 0/0/0/20/20/15/0 |
+| Harvested Exotic Meat | new materials | 1/0/1/0/0/0/2 | 15/0/10/0/0/0/20 |
+| Exotic Carapace | new materials | 1/0/2/0/0/0/1 | 10/0/20/0/0/0/15 |
+| Exotic Feathers | new materials | 0/2/0/0/1/1/0 | 0/20/0/0/10/15/0 |
 
 The tier-1 vector is *not* a base the others multiply — every one of the 240 rows is data. The
-harvested creature parts (the old sheet's "Monster harvest items" concept) now sit inside the Raw
-Ores group. Confirmed against the sample: **Iron Ore 10** grants Str 10 / Con 10 / Health 5 —
+harvested creature parts (the old sheet's "Monster harvest items" concept) sit in a fourth group of
+their own, headed `new materials` at row 190 — **not** inside Raw Ores, as this document first read
+it. They are also the six families the *items* tab leaves in its un-headed tail (systems/11). Confirmed against the sample: **Iron Ore 10** grants Str 10 / Con 10 / Health 5 —
 readable in the gear column (systems/12).
 
 ## What the app has today
@@ -54,7 +61,8 @@ at all** — prices left the sheet entirely (overview D5).
 
 ## Parity gap
 
-1. **Replace the materials fragment**: 24 families, 3 categories, 240 tiers, no prices. The old
+1. ~~**Replace the materials fragment**: 24 families, 3 categories, 240 tiers, no prices.~~
+   **Done 2026-09-01 (TICKET-MAT-03).** 24 families, **4** categories, 240 tiers, no prices. The old
    categories that vanished (Runes, Liquids, …) leave the corpus with the fragment; whether the
    User wants them kept in their *own* ruleset is their edit, not the corpus's.
 2. **No shape change** — `Material`/`MaterialTier`/`bonuses` already express everything here.

@@ -25,6 +25,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import {
+  FOCUS_CHOSEN_NAME,
+  FOCUS_OTHER_NAME,
+  FOCUS_SLOT_COUNT,
+  focusDials,
+} from '#shared/engine/focusSkills';
 import { racesRequired } from '#shared/engine/races';
 import type {
   CharacterCreateRequest,
@@ -120,6 +126,24 @@ function pureBlood(rules: Configuration): string[] {
   return Array.from({ length: required }, () => first.id);
 }
 
+/**
+ * The focus picks the ruleset asks for, or none where it asks for nothing (TICKET-SKL-05)
+ *
+ * The corpus **states both dials** since the data pass re-sourced the constants from the workbook's
+ * *Enhanced scaling* block, so a body that names no picks is refused at a corpus table exactly as it
+ * would be at any other. Filling them the way the wizard does keeps every case below testing the
+ * rule it is named for rather than this one.
+ *
+ * @param rules - The table's Snapshot
+ * @returns Three picks of the ruleset's first skill, or none when focus is not in play
+ */
+function focusPicks(rules: Configuration): string[] | undefined {
+  const { stated } = focusDials(rules.constants);
+  const [first] = rules.skills;
+  if (!stated || first === undefined) return undefined;
+  return Array.from({ length: FOCUS_SLOT_COUNT }, () => first.id);
+}
+
 /** A creation body that the corpus accepts — no points spent, one archetype if the corpus has any */
 function validBody(session: GameSessionRow, overrides: Partial<CharacterCreateRequest> = {}) {
   const rules = rulesOf(session);
@@ -130,8 +154,37 @@ function validBody(session: GameSessionRow, overrides: Partial<CharacterCreateRe
     investedStatPoints: {},
     investedSkillPoints: {},
     archetypeId: rules.archetypes?.[0]?.id,
+    focusSkillIds: focusPicks(rules),
     ...overrides,
   };
+}
+
+/**
+ * The same table with both focus dials taken back out of the Snapshot
+ *
+ * Focus is a ruleset's choice and a ruleset may decline it. Since the corpus stopped being such a
+ * ruleset, the *no dials* case needs building rather than assuming.
+ *
+ * @param database - The test database
+ * @returns The same shape `aTable` returns, over a focus-free ruleset
+ */
+function anUndialledTable(database: Database) {
+  const dm = seedAccount();
+  const player = seedAccount();
+  const ruleset = seedRuleset(database, { owner: dm });
+  const document = JSON.parse(ruleset.data) as Configuration;
+  const dials = new Set([FOCUS_CHOSEN_NAME, FOCUS_OTHER_NAME]);
+  const kept = (document.constants ?? []).filter((constant) => !dials.has(constant.name));
+  const undialled: Configuration = { ...document, constants: kept };
+
+  const { session } = seedSession(database, {
+    dm,
+    from: ruleset,
+    snapshot: JSON.stringify(undialled),
+  });
+  seedMember(database, { session, account: player });
+
+  return { dm, player, session };
 }
 
 describe('creating a character at a table', () => {
@@ -426,8 +479,11 @@ describe('the Kernel’s own rules, applied server-side', () => {
     it('should refuse a body with none when the Snapshot states a dial', () =>
       withTestDatabase(async (database) => {
         const { player, session } = aDialledTable(database);
+        // Explicitly dropped rather than merely omitted: `validBody` fills the picks a dialled
+        // ruleset asks for, which is the wizard's behaviour and no longer the interesting case
+        const dropped = validBody(session, { focusSkillIds: undefined });
 
-        const refused = await create(session.id, validBody(session), player);
+        const refused = await create(session.id, dropped, player);
 
         expect(refused.status).toBe(400);
         expect(messageOf(refused.body)).toContain('3 focus skills');
@@ -467,15 +523,30 @@ describe('the Kernel’s own rules, applied server-side', () => {
         expect(messageOf(refused.body)).toContain('list of ids');
       }));
 
-    it('should ask for none on the corpus, which states no dials', () =>
+    it('should ask for none on a ruleset that states no dials', () =>
       withTestDatabase(async (database) => {
-        const { player, session } = aTable(database);
+        const { player, session } = anUndialledTable(database);
 
         const created = await create(session.id, validBody(session), player);
 
         expect(created.status).toBe(200);
         // Absent stays absent: the field is not grown by a ruleset that never asked for it
         expect(created.body.character.focusSkillIds).toBeUndefined();
+      }));
+
+    it('should ask for three on the corpus, which now states both dials', () =>
+      withTestDatabase(async (database) => {
+        const { player, session } = aTable(database);
+        const rules = rulesOf(session);
+        const picks = focusPicks(rules);
+
+        // The data pass read `chosen` 1.5 and `others` 0.3 off the workbook's Enhanced scaling
+        // block, so the seed corpus is a focus ruleset where it used to be a focus-free one
+        expect(picks).toHaveLength(FOCUS_SLOT_COUNT);
+
+        const refused = await create(session.id, validBody(session, { focusSkillIds: [] }), player);
+        expect(refused.status).toBe(400);
+        expect(messageOf(refused.body)).toContain('3 focus skills');
       }));
   });
 });

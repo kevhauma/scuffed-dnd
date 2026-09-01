@@ -220,7 +220,7 @@ that pass.
 - [x] [TICKET-RES-05](./tickets/TICKET-RES-05-shared-point-pool-and-readout.md) — One point pool for stats and skills, with the readout (systems/02) — independent of ARC-04; behavioural: skill investment stops being free
 - [x] [TICKET-RACE-03](./tickets/TICKET-RACE-03-race-identity-and-blend-floor.md) — Race identity fields and the blend floor (systems/04, 14) — `type`/`size`/`challengeRate` over two Configuration reference lists, plus the `MAX(1, …)` floor; the 25-race catalog is the data pass's
 - [x] [TICKET-RACE-04](./tickets/TICKET-RACE-04-configurable-race-count.md) — The race count is ruleset data (systems/04) — needs RACE-03; `MAX_RACE_COUNT` becomes a per-ruleset dial defaulting to 2, and a character carries exactly that many (ticket-review ruling)
-- [x] [TICKET-SKL-04](./tickets/TICKET-SKL-04-ceil-rounding.md) — Skill levels and bonuses round with ceil (systems/06) — the engine half, landed before the data pass re-weights 48 skills against the wrong rounding. The list and the weights (and with them the sheet's two formula bugs, fixed not reproduced) are the data pass's
+- [x] [TICKET-SKL-04](./tickets/TICKET-SKL-04-ceil-rounding.md) — Skill levels and bonuses round with ceil (systems/06) — the engine half, landed before the data pass re-weights 48 skills against the wrong rounding. The list and the weights (and with them the sheet's one formula bug, fixed not reproduced — the data pass found the second one this line claimed is not in the workbook) are the data pass's
 - [x] [TICKET-SKL-05](./tickets/TICKET-SKL-05-focus-skills.md) — Focus skills multiply growth (systems/06) — needs SKL-04; chosen 1.5 / others 0.3, duplicates stack
 - [x] [TICKET-INV-04](./tickets/TICKET-INV-04-variable-equipment-slots.md) — Equipment slots stay User-built and variable (systems/08) — before INV-05. The builder is the authority (ticket-review ruling); this line seeds the sheet's spellings onto the figure and proves the count is free
 - [x] [TICKET-INL-01](./tickets/TICKET-INL-01-inlay-entity-panel-catalog.md) — Inlays: the entity and its panel (systems/10) — the new entity; the other ingredient of composition. The gem catalog is the data pass's
@@ -233,21 +233,59 @@ that pass.
 - [x] [TICKET-PAS-01](./tickets/TICKET-PAS-01-passives-catalog.md) — Passive abilities: the entity and the handout (systems/14) — needs SPL-03's attachment point; nothing grants a passive yet, by the sheet's own admission. The catalog **reuses** the `spell-effect` owner rather than minting one (the reference set does not differ), and the handout is a **DM** action at a table and the Player's own on a local sheet, `dreamLevel`'s split exactly
 - [x] [TICKET-DX-09](./tickets/TICKET-DX-09-clean-break-closeout.md) — The clean break, proven complete (systems/01) — **last of the shape pass**: one `SUPPORTED_SCHEMA_VERSION` bump **proven** rather than made (INV-05 landed it), the old shape meeting `IncompatibleDataNotice`, TEST_STATUS refreshed. The corpus audit and the golden suite move to the data pass, which is where the numbers to pin come from
 
-**The v4.0 shape pass is complete (2026-09-01)** — every line above is closed. That is not the same
-sentence as *v4.0 is complete*: under [D7](#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)
-**the milestone closes twice**, and what remains is the data pass — the re-sourced fragments, the
-seeded values and formula text, the two deferred lines below, and the *Thomas the test more* golden
-suite. DX-09 found the break sound: the version rose exactly once, the old shape errors honestly on
+**The v4.0 shape pass is complete (2026-09-01)** — every line above is closed. Under
+[D7](#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29) **the milestone closes
+twice**, and the second close — the data pass — landed the same day; see below.
+
+DX-09 found the break sound: the version rose exactly once, the old shape errors honestly on
 both sides, and the tree's last conversion path (CUR-02's `wallet` adapter, orphaned by the bump)
 was deleted rather than left standing.
 
-### Deferred to the data pass (D7)
+### The data pass (D7) — **complete, 2026-09-01**
 
-Cut, specified, and **not built in this milestone's shape pass** — they are nothing but sheet
-values, so they belong with the rest of the data:
+Cut as two lines and built as one job, because that is what D7 said it was: the whole corpus
+re-sourced at once rather than a fragment at a time.
 
-- [TICKET-MAT-03](./tickets/TICKET-MAT-03-materials-catalog-v4.md) — Materials catalog replaced (systems/09) — 24 families × 10 tiers, no shape change at all
-- [TICKET-ITEM-02](./tickets/TICKET-ITEM-02-item-catalog-fragment.md) — The v4 item catalog: 40 categories, ~700 templates (systems/11) — the biggest lift, scripted against the checked-in xlsx
+- [x] [TICKET-MAT-03](./tickets/TICKET-MAT-03-materials-catalog-v4.md) — Materials catalog replaced (systems/09) — 24 families × 10 tiers, **four** groups not three (systems/09 corrected), no shape change at all
+- [x] [TICKET-ITEM-02](./tickets/TICKET-ITEM-02-item-catalog-fragment.md) — The v4 item catalog: 40 categories, **830** templates (systems/11) — the biggest lift, scripted against the checked-in xlsx. The tail reconciliation was the User's call: **the tail wins**
+
+**And with them, everything else D7 moved here.** Each ticket's Scope line named what it owed this
+pass, and the pass paid all of them in one run of
+[`scripts/build-fragments.mjs`](../../scripts/build-fragments.mjs):
+
+| Fragment | What landed |
+|---|---|
+| `stats.json` | the three groups (STAT-04) and the Naming tab's flavour lines |
+| `skills.json` | the v4 48, re-weighted; `Summening`'s off-by-one fixed not reproduced |
+| `constants.json` | the focus dials, the three combat scalers, `race_count` |
+| `curves.json` | `point_buy` re-read and **byte-identical** to v2.0's, as D3 predicted |
+| `archetypes.json` | the six renames, and the affinity matrix finally *proven* rather than inferred |
+| `races.json` | the 25-race catalog, plus `creatureSizes` and `creatureTypes` |
+| `inlays.json` · `spells.json` · `passives.json` | the three entities v4.0 minted, first fragments ever |
+| `equipment-slots.json` | the sheet's six body slots; `accesory` retires |
+| `roll-definitions.json` | evasion and Endurance's real inputs — v2.0's honestly-short pair closes |
+| `items.json` · `materials.json` | the two lines above |
+
+**Three corrections the workbook forced**, each kept visible in the document it overturns rather
+than quietly rewritten: systems/09's three material groups are four; systems/06's *two* skill-formula
+bugs are one (the secondary stat **is** read — Athletics' secondary term is 2.6 = Strenght × 0.1,
+not the 0.9 that document predicted); and systems/11's "all-zero vector" rows have no numeric cells
+at all, which is structure rather than an item that does nothing.
+
+**The *Thomas the test more* golden suite landed with it** —
+[`thomasGolden.test.ts`](../../src/client/integration/thomasGolden.test.ts), the last thing DX-09
+moved here. It rebuilds the workbook's own sample character on the regenerated corpus through the
+public actions — Ducklets twice, Science, Arcane/Summening/Arcane, 3 points on Int, an Iron Ore 10
+Battleaxe with a Diamond 4 inlay in the right hand — and reads his Character Sheet back cell by
+cell. Every stat, every roll, every pinned skill agrees, bar the one Summening row the User ruled
+should differ. **That is the milestone's parity question answered in its bluntest form.**
+
+**One gap the corpus cannot close on its own**, and it is the sheet's: the item matrix has no slot
+column, so all 830 templates arrive with `equipmentSlotType` absent and a User assigns them before a
+build can be worn. Recorded in `items.json`'s notes and pinned by the golden suite rather than
+papered over.
+
+**v4.0 is complete.** Both passes are closed.
 
 ### Cut here, belonging to neither pass
 

@@ -90,7 +90,7 @@ As a <User | Player>, I want <capability>, so <benefit>.
 - [ ] <Feature components compose components/ui primitives; no raw HTML controls; base components gain no layout styles.>
 - [ ] <Unit tests cover: … (name the cases).>
 - [ ] <Every User-authored formula field renders `FormulaPreview` with its `FormulaOwner`, not a bare `FormulaEditor` — if this adds or reworks a field the User types a formula into.>
-- [ ] <The feature's `docs/imports/` fragment carries the source sheet's real data for it, with `source.ranges` cited and anything the sheet lacks recorded in `notes`; `yarn run sheet:import` regenerated — if this touches a persisted shape.>
+- [ ] <The feature's `docs/imports/` fragment carries the source sheet's real data for it, with `source.ranges` cited and anything the sheet lacks recorded in `notes`; built in `scripts/build-fragments.mjs` (never by hand-editing the JSON) and `yarn run sheet:source` + `yarn run sheet:import` regenerated — if this touches a persisted shape.>
 - [ ] <Verified via the fallow skill and the react-conventions skill.>
 - [ ] <Verified live in the browser: … — for anything UI-visible.>
 

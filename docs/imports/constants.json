@@ -5,28 +5,31 @@
     "TICKET-CST-01",
     "TICKET-CST-02",
     "TICKET-RES-02",
-    "TICKET-DM-01"
+    "TICKET-RES-05",
+    "TICKET-SKL-05"
   ],
-  "concept": "05 · Constant",
+  "concept": "05 · Constants",
   "source": {
-    "spreadsheet": "https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit",
-    "exportedAt": "2026-08-09",
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/18fMuQOMK65LVawBedC9R5mNASknJ8V56_QVFDdDa5Yc/edit",
+    "workbook": "docs/v4.0_sheet_parity/4.1 source sheets.xlsx",
+    "exportedAt": "2026-08-28",
     "ranges": [
-      "Calculator!G13:G14",
-      "Calculator!P2:Q2",
-      "Calculator!P5:Q5",
-      "Setup!Q6",
-      "Charactersheet!E17"
+      "Background References Character!F3:H7",
+      "!O2:P3",
+      "!S2:U4",
+      "!X2:Y3",
+      "Background Setup Calculations !B4:E51"
     ]
   },
-  "confidence": "confirmed",
+  "confidence": "confirmed values / three names are ours",
   "notes": [
-    "bonus_divider is labelled in Calculator!G13 and read by every skill bonus cell as ROUND(level / Calculator!$G$14, 0).",
-    "race_blend_divisor is the /2 in Setup!Q6 — ROUNDUP(K6+N6,0)/2 — the only place the sheet blends two races. The sheet has no label for it; the name is ours.",
-    "These four match the seed constants a fresh ruleset already ships with, so importing this fragment over a fresh configuration replaces like with like.",
-    "TICKET-RES-02 makes points_per_level load-bearing: the stat point budget is now derived as level × points_per_level, matching Charactersheet!E17 (level × points_per_level − points_spent). The flat Configuration.mainSkillPointBudget it replaces was never sheet data, so nothing was lost from this fragment when it was deleted.",
-    "The sheet has no starting_points cell — whether a fresh character gets a bonus pool on top of level 1's is unanswered there, so nothing is invented here and level 1's budget is the starting budget.",
-    "TICKET-DM-01 makes the budget level × points_per_level + Character.grantedStatPoints — the DM's handout, which is player state rather than ruleset data and so has no constant here and nothing in the sheet. Charactersheet!E17 has no grant column: the sheet's DM adjusts the cell by hand, which is exactly the untracked edit the grant replaces. points_per_level is unchanged; the grant is a second term beside it, never a replacement for it."
+    "10 constants, eight of them read from a labelled cell on the reference tab and two performed by the sheet without a label of their own.",
+    "The sheet's labels, and what the app calls them: 'Bonus scaling' → `bonus_divider`, 'ATP scaling' → `apt_value`, 'Points scaling' → `points_per_level`, 'chosen'/'others' → `focus_chosen`/`focus_other`, and the Combat scaler block's 'Speed'/'Healt'/'strengt/con' → `evasion_speed_divisor`/`endurance_health_divisor`/`endurance_body_divisor`. The last three names are ours because the sheet's are the axis rather than the dial.",
+    "`focus_chosen` 1.5 and `focus_other` 0.3 are what makes a focus slot worth anything (TICKET-SKL-05): each of the three slots contributes the first to the skill it names and the second to every skill it does not, summed — so an unchosen skill multiplies by 0.9, one chosen once by 2.1, and one chosen twice by 3.3. Confirmed against the sample, which picked Arcane, Summening and Arcane again.",
+    "`points_per_level` is 3 and pays for **stats and skills together** (TICKET-RES-05, the sheet's Points to Use / Points Spend pair) — skill investment is no longer free.",
+    "`race_blend_divisor` and `race_count` have no cell of their own. The first is the /2 in the blend chain (`Background Setup Calculations ` H33:H41), the second is how many race slots Setup offers; both names are ours and both values are read off what the sheet does rather than what it says.",
+    "The sheet has no `starting_points` cell — whether a fresh character gets a pool on top of level 1's is unanswered there, so nothing is invented and level 1's budget is the starting budget.",
+    "The DM's stat-point handout (`Character.grantedStatPoints`, TICKET-DM-01) has no constant and nothing in the sheet: the sheet's DM adjusts the cell by hand, which is exactly the untracked edit the grant replaces."
   ],
   "data": {
     "constants": [
@@ -34,29 +37,71 @@
         "id": "const-bonus-divider",
         "name": "bonus_divider",
         "displayName": "Bonus divider",
-        "description": "How many skill levels are worth one point of bonus. Lower makes skills matter more.",
+        "description": "How many skill levels are worth one point of bonus. Lower makes skills matter more. Labelled 'Bonus scaling' at H7.",
         "value": 5
       },
       {
         "id": "const-apt-value",
         "name": "apt_value",
         "displayName": "APT value",
-        "description": "Speed needed per attack per turn. Lower gives everyone more attacks at the same Speed.",
+        "description": "Speed needed per attack per turn. Lower gives everyone more attacks at the same Speed. Labelled 'ATP scaling' at P3.",
         "value": 30
       },
       {
         "id": "const-points-per-level",
         "name": "points_per_level",
         "displayName": "Points per level",
-        "description": "Skill points a character receives for each level gained.",
+        "description": "Points a character receives for each level gained, spent on stats and skills alike. Labelled 'Points scaling' at Y3.",
         "value": 3,
         "unit": "points"
+      },
+      {
+        "id": "const-focus-chosen",
+        "name": "focus_chosen",
+        "displayName": "Focus multiplier — chosen",
+        "description": "What a focus slot contributes to the skill it names. Labelled 'chosen' at F7.",
+        "value": 1.5
+      },
+      {
+        "id": "const-focus-other",
+        "name": "focus_other",
+        "displayName": "Focus multiplier — others",
+        "description": "What a focus slot contributes to every skill it does not name. Labelled 'others' at G7.",
+        "value": 0.3
+      },
+      {
+        "id": "const-evasion-speed-divisor",
+        "name": "evasion_speed_divisor",
+        "displayName": "Evasion speed divisor",
+        "description": "What Speed is divided by before it is added to Dex for an evasion roll. Labelled 'Speed' at S4.",
+        "value": 5
+      },
+      {
+        "id": "const-endurance-health-divisor",
+        "name": "endurance_health_divisor",
+        "displayName": "Endurance health divisor",
+        "description": "What Health is divided by before it joins the endurance roll. Labelled 'Healt' at T4.",
+        "value": 5
+      },
+      {
+        "id": "const-endurance-body-divisor",
+        "name": "endurance_body_divisor",
+        "displayName": "Endurance body divisor",
+        "description": "What Strenght plus Con is divided by for an endurance roll. Labelled 'strengt/con' at U4.",
+        "value": 2.5
       },
       {
         "id": "const-race-blend-divisor",
         "name": "race_blend_divisor",
         "displayName": "Race blend divisor",
         "description": "What a blended base is divided by when a character has more than one race.",
+        "value": 2
+      },
+      {
+        "id": "const-race-count",
+        "name": "race_count",
+        "displayName": "Race count",
+        "description": "How many races a character of this ruleset has.",
         "value": 2
       }
     ]

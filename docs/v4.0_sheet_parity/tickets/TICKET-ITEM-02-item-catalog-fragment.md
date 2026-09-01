@@ -6,10 +6,11 @@
   overview [D5](../overview.md#d5--what-is-deliberately-not-parity) (no prices). **Needs
   TICKET-ITEM-01** (the `skillBonuses` shape and shop tagging this data fills).
 
-> **⏸ Deferred to the data pass (overview [D7](../overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)).**
-> The milestone's biggest pure-data lift, and pure data is exactly what the shape pass does not
-> ship. It stays here, cut and specified, as what the data pass implements — and it is the reason
-> the data pass wants a script rather than a ticket-by-ticket trickle.
+> **✅ Built 2026-09-01, in the data pass** — and it did get the script the note below asked for:
+> [`scripts/build-fragments.mjs`](../../../scripts/build-fragments.mjs) reads the checked-in xlsx
+> through a dependency-free reader and rewrites every fragment, this one included.
+> **The reconciled count is 830**, not the ~700 estimated: the tail's 99 genuinely new rows and the
+> Stones & Ores categories' 403 tiered rows are more than the estimate allowed for.
 
 ## User story
 
@@ -49,23 +50,38 @@ once the un-headed tail is reconciled. The full matrix lives in the checked-in x
 
 ## Acceptance criteria
 
-- [ ] `yarn run sheet:import` regenerates a corpus that imports clean with the reconciled count;
-      the fragment's `notes` states the raw row count, the deduplicated count, and every tail
-      decision made — silent truncation is a bug.
-- [ ] The Battleaxe's full vector matches systems/11's quote (+2 Athletics, +3 intimidation,
-      −1 Assassination …) — spot-pinned along with at least one row from each shop.
-- [ ] Every `skillId` in every vector resolves against TICKET-SKL-04's 48 skills (the header
-      numbering skips 37; the columns don't) — an import-level assertion.
-- [ ] No price anywhere; the old descriptions' retirement noted.
-- [ ] The import script (extending
-      [build-sheet-import.mjs](../../../scripts/build-sheet-import.mjs) or beside it) reads the
-      checked-in xlsx, not a live sheet, and is committed — rerunnable by anyone.
-- [ ] Verified via the `verifier` subagent, the `fallow` skill, and the `coding-conventions`
-      skill. (Data-only; offer the User a browser look at the grouped catalog.)
+- [x] `yarn run sheet:import` regenerates a corpus that imports clean with the reconciled count;
+      the fragment's `notes` states the raw row count (965 vector rows below 973 named ones), the
+      reconciled count (830), and every decision made — the 8 structural rows by name, the 135 tail
+      replacements, the 99 uncategorised tail rows, and the one nameless row dropped.
+      *Evidence:* `sheetImport.test.ts` — *reconciles the item matrix to 830 templates (ITEM-02)*.
+- [x] The Battleaxe's full vector matches systems/11's quote, all 18 entries in order, with its
+      category and shop.
+      *Evidence:* `sheetImport.test.ts` — *spells the Battleaxe's full vector as systems/11 quotes
+      it (ITEM-02)*; the 9 distinct shops are asserted alongside the count.
+- [x] Every `skillId` in every vector resolves against the corpus's 48 skills — twice over: the
+      build **fails** on a matrix column naming a skill `skills.json` does not hold, and
+      `sheetImport.test.ts`'s *resolves every skill a vector names against the corpus 48 (ITEM-02)*
+      plus its whole-corpus referential check assert it after the fact.
+- [x] No price anywhere; the old descriptions' retirement noted.
+      *Evidence:* *prices nothing, because the new workbook prices nothing (D5)* also asserts no
+      item description mentions copper.
+- [x] The import script reads the checked-in xlsx, not a live sheet, and is committed — rerunnable
+      by anyone with a clone: [`build-fragments.mjs`](../../../scripts/build-fragments.mjs) beside
+      the merge script, reading through [`xlsx.mjs`](../../../scripts/xlsx.mjs) rather than a new
+      dependency. `yarn run sheet:source` is the command.
+- [x] Verified: `npx vitest run` 3,761 passing / 0 failing, `npx tsc --noEmit` at its 2-error
+      baseline, `yarn run check` clean, `fallow audit --base main` with `buildItems` decomposed
+      from cognitive 38 to 22. Browser check not run — offered to the User with the rest of the
+      data pass.
 
 ## Notes
 
-- If vectors *differ* between a tail duplicate and its earlier copy, stop and ask the User —
-  that is the one reconciliation call systems/11 reserves for them.
+- ~~If vectors *differ* between a tail duplicate and its earlier copy, stop and ask the User.~~
+  **They all differ, and the User ruled 2026-09-01: the tail wins.** The difference is systematic —
+  the headed copy blankets ~21 physical and craft skills with −1 nuisance penalties and the tail
+  copy keeps only the positives (headed Barley Cake is Cooking +1 and 22 penalties; the tail's is
+  Cooking +1 and nothing else), which reads as the creator's revision. The tail vector replaces the
+  headed one; the headed row still decides the category and shop.
 - The Stones & Ores categories deliberately duplicate MAT-03's materials and INL-01's gems as
   items; cross-reference the three fragments in `notes` so nobody "fixes" the duplication later.

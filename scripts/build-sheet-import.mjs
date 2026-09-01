@@ -44,8 +44,27 @@ const REQUIRED_ARRAYS = [
   'currencyTiers',
 ];
 
-/** Optional arrays — present only when a fragment supplies them, matching `Configuration` */
-const OPTIONAL_ARRAYS = ['constants', 'curves', 'archetypes', 'diceLadders', 'rollDefinitions'];
+/**
+ * Optional arrays — present only when a fragment supplies them, matching `Configuration`
+ *
+ * The last five arrived with v4.0: `inlays`, `spells` and `passives` are the milestone's three new
+ * entities (systems/10, 13, 14), and `creatureSizes` / `creatureTypes` are the two reference lists
+ * a race's identity fields are picked from (TICKET-RACE-03). The last two hold **plain strings**
+ * rather than entities, which is why {@link collisions} skips anything without an `id` rather than
+ * assuming every element is an object.
+ */
+const OPTIONAL_ARRAYS = [
+  'constants',
+  'curves',
+  'archetypes',
+  'diceLadders',
+  'rollDefinitions',
+  'inlays',
+  'spells',
+  'passives',
+  'creatureSizes',
+  'creatureTypes',
+];
 
 /**
  * Configuration fields that are a single object rather than a list.

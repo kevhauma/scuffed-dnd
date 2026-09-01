@@ -2,74 +2,88 @@
   "feature": "archetypes",
   "title": "Archetypes",
   "tickets": [
-    "TICKET-ARC-01"
+    "TICKET-ARC-01",
+    "TICKET-ARC-04"
   ],
-  "concept": "03 · Archetype",
+  "concept": "05 · Archetypes and point buy",
   "source": {
-    "spreadsheet": "https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit",
-    "exportedAt": "2026-08-09",
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/18fMuQOMK65LVawBedC9R5mNASknJ8V56_QVFDdDa5Yc/edit",
+    "workbook": "docs/v4.0_sheet_parity/4.1 source sheets.xlsx",
+    "exportedAt": "2026-08-28",
     "ranges": [
-      "Calculator!B2:B7",
-      "Calculator!C2:C7"
+      "Background References Naming!D3:E8",
+      "Background Archetype calulation!B2:M12"
     ]
   },
-  "confidence": "partial",
+  "confidence": "confirmed",
   "notes": [
-    "The six archetypes the sheet's picker offers, with their descriptions verbatim — typos and all, because they are the User's words and this fragment is a transcription rather than an edit.",
-    "**Only the main stat is provable.** Concept 03 infers it from the Calculator's live 0.75 multipliers, which sit on exactly one stat per archetype. The sub/non split across the other nine stats is that page's open question 🔍 and is NOT invented here: every stat but the main one is left absent, which the app reads as `non` (Concept 03's own default). A ruleset importing this gets six archetypes that are each strong in one place and flat everywhere else — which is what the export actually proves, not a guess dressed as data.",
-    "That means every imported archetype trips the validator's \"does not tag …\" warning by design. The warning is the honest state: the ruleset made a choice the sheet did not, and the User is the one who confirms the matrix from the live Calculator tab.",
-    "Affinity is keyed by stat **id**, matching stats.json — the same treatment races.json gives a stat block, so renaming a stat cannot orphan an archetype.",
-    "`starting_bonus`, `skill_affinity` and `unlock_condition` are in Concept 03 and are not modelled yet (TICKET-ARC-01's notes); the last needs boolean formulas the engine does not have. Nothing is written for them here.",
-    "What a tag is *worth* lives in the point_buy curve (curves.json), not here — Concept 03's 2.4x spread at 15 points is a property of that table."
+    "The six archetypes with the new workbook's names and taglines, verbatim. All six are **renamed** — Strong→Muscels, Sneaky→thieving, Smart→Science, Wise→Advisor, Tanky→Wall, Funny→Leader — and the ids do not move, so a stored character keeps its archetype through the rename (TICKET-REF-01).",
+    "**The affinity matrix is finally proven.** v2.0 could show only each archetype's main stat and deliberately invented no sub/non split; the xlsx's Archetype calulation tab writes a distinct formula per (stat × archetype) cell, which *is* the matrix. Each archetype now tags one `main` and two `sub` stats, and every stat it does not name is `non` — the app's own default.",
+    "Each archetype still trips the validator's \"does not tag …\" **warning**, and that is now the honest state rather than the guessy one: the sheet tags three stats per archetype and says nothing about the other seven, so they take the `non` default and the warning says so. Tagging all ten to silence it would be inventing six decisions the workbook never made.",
+    "Dream level enters the gain per affinity (TICKET-ARC-04): main multiplies by it, sub adds it flat — so a sub stat gains +dreamLevel with no points spent at all — and non is untouched. That is engine behaviour rather than fragment data; it is recorded here because it is what makes the two sub tags load-bearing.",
+    "What a tag is *worth* lives in the point_buy curve (curves.json), not here.",
+    "Affinity is keyed by stat **id**, so this fragment needs stats.json loaded alongside it."
   ],
   "data": {
     "archetypes": [
       {
         "id": "archetype-strong",
-        "name": "Strong",
-        "description": "Strenght above all bulky en not easy to take down",
+        "name": "Muscels",
+        "description": "Strenght above all",
         "statAffinity": {
-          "stat-strenght": "main"
+          "stat-strenght": "main",
+          "stat-con": "sub",
+          "stat-health": "sub"
         }
       },
       {
         "id": "archetype-sneaky",
-        "name": "Sneaky",
-        "description": "stealing and murder they will never know it was you",
+        "name": "thieving",
+        "description": "now you see me",
         "statAffinity": {
-          "stat-dex": "main"
+          "stat-dex": "main",
+          "stat-mana": "sub",
+          "stat-speed": "sub"
         }
       },
       {
         "id": "archetype-smart",
-        "name": "Smart",
+        "name": "Science",
         "description": "magic and science is where you excel",
         "statAffinity": {
-          "stat-int": "main"
+          "stat-int": "main",
+          "stat-wis": "sub",
+          "stat-mana": "sub"
         }
       },
       {
         "id": "archetype-wise",
-        "name": "Wise",
+        "name": "Advisor",
         "description": "nature and advice is where your heart lays",
         "statAffinity": {
-          "stat-wis": "main"
+          "stat-wis": "main",
+          "stat-int": "sub",
+          "stat-mana": "sub"
         }
       },
       {
         "id": "archetype-tanky",
-        "name": "Tanky",
-        "description": "taking hits en locking things down the tank is the shield for the weak",
+        "name": "Wall",
+        "description": "Shielding the weak",
         "statAffinity": {
-          "stat-con": "main"
+          "stat-con": "main",
+          "stat-strenght": "sub",
+          "stat-health": "sub"
         }
       },
       {
         "id": "archetype-funny",
-        "name": "Funny",
-        "description": "want to fuck and charm your way trough live",
+        "name": "Leader",
+        "description": "Charisma is on point",
         "statAffinity": {
-          "stat-char": "main"
+          "stat-char": "main",
+          "stat-dex": "sub",
+          "stat-mana": "sub"
         }
       }
     ]

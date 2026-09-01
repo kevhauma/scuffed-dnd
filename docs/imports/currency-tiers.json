@@ -1,55 +1,54 @@
 {
   "feature": "currency-tiers",
-  "title": "Currency",
+  "title": "Currency tiers",
   "tickets": [
-    "TICKET-CUR (v1.0)",
-    "TICKET-CUR-02 (v3.0)"
+    "TICKET-CUR-01",
+    "TICKET-CUR-02"
   ],
   "concept": "16 · Currency",
   "source": {
-    "spreadsheet": "https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit",
-    "exportedAt": "2026-08-09",
+    "spreadsheet": "https://docs.google.com/spreadsheets/d/18fMuQOMK65LVawBedC9R5mNASknJ8V56_QVFDdDa5Yc/edit",
+    "workbook": "docs/v4.0_sheet_parity/4.1 source sheets.xlsx",
+    "exportedAt": "2026-08-28",
     "ranges": [
-      "Charactersheet!Q18:S23"
+      "Background References Naming!K2:K7"
     ]
   },
-  "confidence": "confirmed denominations / exchange rates absent from the sheet",
+  "confidence": "confirmed names / absent conversion rates",
   "notes": [
-    "The five denominations of the Charactersheet coin pouch, in pouch order.",
-    "conversionToNext is 0 on every tier, meaning **unknown**. The sheet has no exchange rate anywhere — conversion is mental arithmetic at the table (Concept 16 open question). The engine treats a non-positive rate as 1, so money imports intact and simply does not convert until the User fills these in.",
-    "Copper is used as the base for every material and item value in the other fragments, on Concept 16's reasoning that item prices are large integers. That is inferred, not confirmed.",
-    "TICKET-CUR-02 gave a character somewhere to hold money, and it holds **one amount in the base tier** — Copper here, being order 0. The sheet's Q18:S23 is a five-row pouch, so the app deliberately stores less shape than the sheet shows: 1 gold and 100 copper are the same money, and keeping them apart makes every payment a change-making problem. What a Player is *shown* is normalizeCurrency's answer and is re-derived every render, so this fragment's own note about the rates being unknown is what decides the display — with every conversionToNext at 0 the engine converts nothing and a purse simply reads in Copper.",
-    "There is no character data in this fragment and there is not meant to be: docs/imports/ carries the ruleset the sheet describes, and a purse is player state that no exported ruleset contains."
+    "5 coins in the sheet's own spellings, smallest first — 'Platinum pieces' is plural where the other four are singular, and that is the sheet's.",
+    "**No exchange rate anywhere in either workbook.** `conversionToNext` is 0 on every tier, which is the neutral value rather than a guess: the corpus never invents a number to fill a required field. A purse is therefore one amount in the base tier and `formatPurse` has nothing to convert it into until the User fills the ladder in (TICKET-CUR-02).",
+    "**And no prices to spend it on.** The new workbook prices nothing (overview D5), so neither materials.json nor items.json carries a value. The currency ladder is the shape of money the ruleset has, with the amounts still to come."
   ],
   "data": {
     "currencyTiers": [
       {
-        "id": "currency-copper",
-        "name": "Copper",
+        "id": "currency-copper-piece",
+        "name": "Copper piece",
         "order": 0,
         "conversionToNext": 0
       },
       {
-        "id": "currency-silver",
-        "name": "Silver",
+        "id": "currency-silver-piece",
+        "name": "Silver piece",
         "order": 1,
         "conversionToNext": 0
       },
       {
-        "id": "currency-electrum",
-        "name": "Electrum",
+        "id": "currency-electrum-piece",
+        "name": "Electrum piece",
         "order": 2,
         "conversionToNext": 0
       },
       {
-        "id": "currency-gold",
-        "name": "Gold",
+        "id": "currency-gold-piece",
+        "name": "Gold piece",
         "order": 3,
         "conversionToNext": 0
       },
       {
-        "id": "currency-platinum",
-        "name": "Platinum",
+        "id": "currency-platinum-pieces",
+        "name": "Platinum pieces",
         "order": 4,
         "conversionToNext": 0
       }

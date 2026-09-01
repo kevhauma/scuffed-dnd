@@ -58,8 +58,17 @@ import { IMPORTS_DIR, OUTPUT_FILE } from '../../../scripts/build-sheet-import.mj
 import { useCharacterStore } from '../stores/characterStore';
 import { useConfigStore } from '../stores/configStore';
 
-/** The id the suite gives the sample character's race — see the README on why it is not in the corpus */
-const SAMPLE_RACE_ID = 'race-ducklets';
+/**
+ * The id the suite gives the sample character's race — see the README on why it is not in the corpus
+ *
+ * **Not `race-ducklets`, which the corpus now takes.** v2.0's sample character is a Ducklet whose
+ * stat line the export did not split between race block and point-buy spend, so the suite installs
+ * the whole line as a synthetic race. The data pass then brought the workbook's own 25-race catalog
+ * in, Ducklets among them — with the *race's* block (Str 8, Dex 9 …) rather than the sample
+ * character's finished line (Str 10, Dex 11 …). Two different things that were briefly one id, so
+ * the synthetic one is named for what it is.
+ */
+const SAMPLE_RACE_ID = 'race-golden-sample';
 
 /** The archetype the sample character is built on: *Funny*, main-type on Char (Concept 01) */
 const SAMPLE_ARCHETYPE_ID = 'archetype-funny';
@@ -86,10 +95,12 @@ function buildSampleConfiguration(
   store.replaceConfig(corpus);
   store.addRace({
     id: SAMPLE_RACE_ID,
-    name: 'Ducklets',
+    name: 'Bickuss Dickuss line',
     description:
       "The sample character's stat line from Concept 01, installed as a base. The sheet's own " +
-      'split between race block and point-buy spend is not in the export.',
+      'split between race block and point-buy spend is not in the export. Named for the character ' +
+      'rather than for their lineage, because the corpus now carries the real Ducklets race and it ' +
+      'holds a different block.',
     statValues,
   });
 
@@ -195,7 +206,7 @@ describe('golden fixtures — the sheet’s confirmed derivations', () => {
       // Pinned rather than counted: a confirmed row quietly re-tagged as inferred is how a suite
       // stops being a parity gate, and it would not otherwise fail anything
       expect(all.filter((fixture) => fixture.inferred).map((fixture) => fixture.name)).toEqual([
-        'Charm with one starting pick — ceil(11.7) + 1.5, the page’s "Persuasion" row',
+        'Charm with one starting pick — ceil(13.65 × 0.9) + 1.5, the page’s "Persuasion" row',
         'Speed 22 still gets 1 — the creature call sheet’s value',
       ]);
     });

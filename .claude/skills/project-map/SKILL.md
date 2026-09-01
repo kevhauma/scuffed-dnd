@@ -885,10 +885,19 @@ Server tests call handlers directly with a `Request` and **never boot Nitro** �
 
 ## Scripts (`scripts/`)
 
-Node-only tooling, outside the app bundle. `build-sheet-import.mjs` (plus a hand-written
-`.d.mts` so the test can import it under `tsc`) merges the per-feature fragments in `docs/imports/`
-into `docs/imports/ducklets.json` — `yarn run sheet:import`.
-`src/shared/services/sheetImport.test.ts` re-runs that merge in the suite and fails on drift. See
+Node-only tooling, outside the app bundle. Three files build the sheet-import corpus:
+
+- **`xlsx.mjs`** — reads the checked-in `.xlsx` with no dependency: a ZIP walker over `node:zlib`
+  and a scan of the sheet XML for `<c>` elements. Returns cached **values** and, where a fragment
+  needs the source rather than the answer, **formulas** (`readSheetCells`).
+- **`build-fragments.mjs`** — writes all fifteen fragments in `docs/imports/` from the workbook:
+  `yarn run sheet:source`. **This is where a fragment's rows, provenance and notes are authored** —
+  the JSON is output, and a hand-edit to it is lost on the next run.
+- **`build-sheet-import.mjs`** (plus a hand-written `.d.mts` so the test can import it under `tsc`)
+  — merges those fragments into `docs/imports/ducklets.json`: `yarn run sheet:import`.
+
+`src/shared/services/sheetImport.test.ts` re-runs the merge in the suite, fails on drift, and runs
+the referential report over the result. See
 [docs/imports/README.md](../../../docs/imports/README.md).
 
 ## Components (`src/client/components/`)

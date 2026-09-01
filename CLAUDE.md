@@ -17,6 +17,7 @@ Tailwind CSS 4 (custom medieval theme), Vitest + fast-check, Biome.
 yarn dev            # app + API on :3000, one process (needs a .env — see .env.example)
 yarn run test       # vitest, single pass
 yarn run db:generate    # write a migration for the current src/server/db/schema.ts
+yarn run sheet:source   # rewrite docs/imports/*.json from the checked-in source workbook
 yarn run sheet:import   # rebuild docs/imports/ducklets.json from the per-feature fragments
 npx vitest run <path>   # one test file
 npx tsc --noEmit    # typecheck
@@ -87,19 +88,24 @@ acceptance criteria.
   point — editable sample values plus the level ladder. Never a bare `FormulaEditor`, and never a
   second hand-rolled evaluation: if the preview cannot express what the field needs, extend the
   component and note it on FORM-08.
-- **Every feature ships its sheet data.** A ticket that adds or reshapes a persisted entity also
-  adds or updates that feature's fragment in [`docs/imports/`](docs/imports/README.md) and reruns
-  `yarn run sheet:import`. The fragments hold the real
-  [source spreadsheet](https://docs.google.com/spreadsheets/d/1Y_KXFpPQTXaPi2oXn-LdZBTPZNLMPZ2xb3iK7wtHum4/edit)
-  data, cite the cell ranges they came from, and record in `notes` anything the sheet lacks or the
-  current shape cannot hold. Never invent a number to fill a required field.
-  **Suspended for v4.0's shape pass only** ([D7](docs/v4.0_sheet_parity/overview.md#d7--seeded-values-and-formula-text-are-a-separate-issue-user-2026-08-29)):
-  that milestone re-sources the entire corpus against a replaced workbook in **one later data pass**,
-  so no v4.0 shape ticket carries a fragment criterion and spells, inlays and passives are shapes
-  with no fragment yet. Two halves still bind meanwhile, and TICKET-DX-09 checked both at the shape
-  pass's close: `yarn run sheet:import` regenerates **byte-identically**, and the corpus still
-  imports clean at the new shape. **The rule returns in full when the data pass closes** — until
-  then, a ticket outside v4.0 owes its fragment as it always did.
+- **Every feature ships its sheet data**, and **the data itself is generated now** (v4.0 data pass,
+  2026-09-01). A ticket that adds or reshapes a persisted entity also adds or updates that feature's
+  fragment and reruns the two commands:
+
+  ```bash
+  yarn run sheet:source   # rewrite docs/imports/*.json from the checked-in workbook
+  yarn run sheet:import   # merge them into docs/imports/ducklets.json
+  ```
+
+  **Edit [`scripts/build-fragments.mjs`](scripts/build-fragments.mjs), never the JSON** — the next
+  run overwrites a hand-edit. It reads
+  [`docs/v4.0_sheet_parity/4.1 source sheets.xlsx`](docs/v4.0_sheet_parity/4.1%20source%20sheets.xlsx),
+  the checked-in capture of record, through [`scripts/xlsx.mjs`](scripts/xlsx.mjs) — a ZIP-and-XML
+  reader written rather than depended on. Fragments cite the cell ranges they came from and record in
+  `notes` anything the sheet lacks or the current shape cannot hold. **Never invent a number to fill
+  a required field.**
+  **D7's suspension is over**: [`docs/imports/`](docs/imports/README.md) holds all fifteen fragments,
+  spells, inlays and passives included, and the rule binds in full again.
 - Remaining foundation items that aren't ticketed yet appear in `overview.md` as *(plan §N)* lines
   — expand one into a ticket before building it, never implement straight from a plan line.
 - Commit messages: ticket ID + title (`TICKET-CHAR-01 Create CharacterList component`). Older

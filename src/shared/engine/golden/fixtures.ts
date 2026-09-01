@@ -178,89 +178,131 @@ const V4_SKILL_ROUNDING: GoldenCitation = {
 };
 
 /**
- * Concept 02's verified table, at the rounding the new workbook computes it with
+ * Where the *weights* come from, since the data pass re-sourced all 48 of them
+ *
+ * The block above says the weights are Concept 02's and did not move. **That is no longer true**:
+ * the v4 workbook re-weighted every skill — every old 0.3 mono became 0.35, several skills changed
+ * stat outright, and `alchemy` is now `Alchemy` at Int 0.35 rather than Int 0.2. A row whose level
+ * moved because its *weights* moved cites this; a row whose level moved because the *rounding*
+ * moved cites {@link V4_SKILL_ROUNDING}. Most rows below did both, and name both.
+ *
+ * The one row this does not touch is Persuasion: `Char × 0.2 + Strenght × 0.1` is what the old
+ * sheet's `Skills!D31:G31` said and what the new reference table says, so its 8.8 → 9 is unmoved by
+ * the re-source and stays on the rounding citation alone.
+ */
+const V4_SKILL_WEIGHTS: GoldenCitation = {
+  document: 'v4',
+  concept: 'systems/06 · Skills',
+  section: 'Every skill has a primary and at most one secondary stat',
+  range: 'Background References Character!A4:E51',
+};
+
+/**
+ * The third thing that moved every skill level: the corpus now states the focus dials
+ *
+ * `focus_chosen` 1.5 and `focus_other` 0.3 arrived with the data pass, and **the sample character
+ * makes no picks**, so all three of its slots contribute `other` and every skill multiplies by
+ * `0.9`. That is not a defaulting accident — it is what the workbook's own arithmetic does with
+ * three empty slots, and the sheet prints 0.9 in the *Focus skill* column of every unchosen row
+ * (`Background Charater Sheet Calcu` C3:C50).
+ *
+ * Absent *dials* would be neutral and absent *picks* are not: a ruleset that says nothing about
+ * focus multiplies by exactly 1, and this one says something. `focusSkills.ts`'s header carries the
+ * distinction at length; the rows below are what it looks like in a number.
+ */
+const V4_FOCUS_MULTIPLIER: GoldenCitation = {
+  document: 'v4',
+  concept: 'systems/06 · Skills',
+  section: 'Focus skills multiply growth',
+  range: 'Background Charater Sheet Calcu!C3:C50',
+};
+
+/**
+ * The same eight rows, at the v4 workbook's weights and rounding
  *
  * `level = ceil(Σ(weight × stat)) + invested`, `bonus = ceil(level / const.bonus_divider)` with the
  * divider at 5 (TICKET-SKL-04) — `roundup` away from zero rather than `Math.ceil`, settled against
  * binary noise the way Excel settles it.
  *
- * **The weights and the stat line are Concept 02's and are untouched; every expected *level* and
- * *bonus* moved, so every row cites {@link V4_SKILL_ROUNDING}.** All eight, including Black
- * smithing, whose level of 2 was already whole and whose *bonus* still moved from 0 to 1. Each row's
- * comment carries the weighted sum the concept page shows, which is what makes the two citations
- * legible side by side: the page is still where the arithmetic's inputs come from, and the system
- * document is where its rounding does.
+ * **The stat line is Concept 02's and is untouched. The weights are not** — the data pass
+ * re-sourced all 48 from `Background References Character` A4:E51, so a mono skill weighs 0.35
+ * where the old sheet had 0.3 or 0.2, and `alchemy` is `Alchemy` at Int 0.35. Every row below
+ * therefore cites {@link V4_SKILL_WEIGHTS} for its inputs and {@link V4_SKILL_ROUNDING} for what
+ * happens to them, and each row's comment carries the weighted sum in between.
  *
- * **Two settlements are recorded in these rows** (both in the README at length):
+ * **Three settlements are recorded in these rows** (the first two in the README at length):
  *
  * - Concept 02's `Persuasion 13.2 → 3` is **Charm's** number. The page has Persuasion at `Char × 0.3`;
- *   the live `Skills!D31:G31` has `Char × 0.2 + Strenght × 0.1`, which is 8.8 at Char 39. The sheet
- *   wins, so the derivation the page verified is pinned on the skill whose weights actually produce
- *   it, and Persuasion is pinned at what the sheet says. That range names where its **weights** come
- *   from, so it now sits in the row's name rather than on a number the page contradicts.
+ *   both workbooks have `Char × 0.2 + Strenght × 0.1`, which is 8.8 at Char 39. The sheet wins, so
+ *   the derivation the page verified is pinned on the skill whose weights actually produce it, and
+ *   Persuasion is pinned at what the sheet says. It is also the one row the re-source did not move.
  * - The `+1.5` for one starting pick is 🔍, not ✅ — Concept 02's own open question, and still that
  *   row's reason for `inferred`. What its citation names is the rounding around the 1.5, not the 1.5.
+ * - **The weights are the reference table's, not the workbook's arithmetic.** The v4 level cells
+ *   carry two copy-fill bugs — both stat lookups read the *primary* stat's cell, and Summening
+ *   reads Stealing's row — which the User ruled on 2026-08-29 are fixed rather than reproduced
+ *   (systems/06). No row here is pinned against a displayed sheet value for a duo skill, because
+ *   the sheet's displayed value is the bug's output.
  */
 export const skillFixtures: readonly SkillFixture[] = [
   {
-    // 39 × 0.3 = 11.7
-    name: 'Charm — CHA 0.3 at Char 39',
+    // 39 × 0.35 = 13.65, × 0.9 = 12.285
+    name: 'Charm — CHA 0.35 at Char 39, at the unchosen 0.9',
     skillName: 'Charm',
     invested: 0,
-    expectedLevel: 12,
+    expectedLevel: 13,
     expectedBonus: 3,
-    citation: V4_SKILL_ROUNDING,
+    citation: V4_SKILL_WEIGHTS,
   },
   {
-    // 39 × 0.3 = 11.7
-    name: 'Trading — CHA 0.3 at Char 39',
+    // 39 × 0.35 = 13.65, × 0.9 = 12.285
+    name: 'Trading — CHA 0.35 at Char 39, at the unchosen 0.9',
     skillName: 'Trading',
     invested: 0,
-    expectedLevel: 12,
+    expectedLevel: 13,
     expectedBonus: 3,
-    citation: V4_SKILL_ROUNDING,
+    citation: V4_SKILL_WEIGHTS,
   },
   {
-    // 15 × 0.3 = 4.5
-    name: 'Brewing — WIS 0.3 at Wis 15',
+    // 15 × 0.35 = 5.25, × 0.9 = 4.725
+    name: 'Brewing — WIS 0.35 at Wis 15, at the unchosen 0.9',
     skillName: 'Brewing',
     invested: 0,
     expectedLevel: 5,
     expectedBonus: 1,
-    citation: V4_SKILL_ROUNDING,
+    citation: V4_SKILL_WEIGHTS,
   },
   {
-    // 10 × 0.2 = 2, already whole — the row where only the *bonus* moves (0.4 rounds up to 1)
-    name: 'Black smithing — STR 0.2 at Strenght 10',
+    // 10 × 0.35 = 3.5, × 0.9 = 3.15 — the row that used to sit whole at 2 and now rounds twice
+    name: 'Black smithing — STR 0.35 at Strenght 10, at the unchosen 0.9',
     skillName: 'Black smithing',
     invested: 0,
-    expectedLevel: 2,
+    expectedLevel: 4,
     expectedBonus: 1,
-    citation: V4_SKILL_ROUNDING,
+    citation: V4_SKILL_WEIGHTS,
   },
   {
-    // 8 × 0.2 = 1.6
-    name: 'alchemy — INT 0.2 at Int 8',
-    skillName: 'alchemy',
+    // 8 × 0.35 = 2.8, × 0.9 = 2.52 — and the skill is `Alchemy` now, recapitalised with the rest
+    name: 'Alchemy — INT 0.35 at Int 8, where the old sheet had INT 0.2',
+    skillName: 'Alchemy',
     invested: 0,
-    expectedLevel: 2,
+    expectedLevel: 3,
     expectedBonus: 1,
-    citation: V4_SKILL_ROUNDING,
+    citation: V4_SKILL_WEIGHTS,
   },
   {
-    // ceil(11.7) + 1.5 — the invested half is added after the rounding, so it keeps its fraction
-    name: 'Charm with one starting pick — ceil(11.7) + 1.5, the page’s "Persuasion" row',
+    // ceil(12.285) + 1.5 — the invested half is added after both the multiply and the rounding
+    name: 'Charm with one starting pick — ceil(13.65 × 0.9) + 1.5, the page’s "Persuasion" row',
     skillName: 'Charm',
     invested: 1.5,
-    expectedLevel: 13.5,
+    expectedLevel: 14.5,
     expectedBonus: 3,
     inferred: true,
     citation: V4_SKILL_ROUNDING,
   },
   {
-    // The row that used to pin half-away-from-zero on a level of exactly 7.5: ceil(4.5) + 3 = 8,
-    // and 8 / 5 = 1.6 rounds up to the same 2 the old rule reached from 1.5
-    name: 'perception — ceil(4.5) + 3 invested is level 8, bonus 2',
+    // ceil(4.725) + 3 = 8, and 8 / 5 = 1.6 rounds up to 2
+    name: 'perception — ceil(5.25 × 0.9) + 3 invested is level 8, bonus 2',
     skillName: 'perception',
     invested: 3,
     expectedLevel: 8,
@@ -268,36 +310,36 @@ export const skillFixtures: readonly SkillFixture[] = [
     citation: V4_SKILL_ROUNDING,
   },
   {
-    // 39 × 0.2 + 10 × 0.1 = 8.8
-    name: 'Persuasion — the live sheet’s CHA 0.2 + STR 0.1 (Skills!D31:G31), not the page’s CHA 0.3',
+    // 39 × 0.2 + 10 × 0.1 = 8.8, × 0.9 = 7.92 — the one row both workbooks *weigh* the same way
+    name: 'Persuasion — CHA 0.2 + STR 0.1 in both workbooks, not the page’s CHA 0.3',
     skillName: 'Persuasion',
     invested: 0,
-    expectedLevel: 9,
+    expectedLevel: 8,
     expectedBonus: 2,
-    citation: V4_SKILL_ROUNDING,
+    citation: V4_FOCUS_MULTIPLIER,
   },
 ];
 
 /**
  * `const.bonus_divider` as a balance dial (Concept 02's first editing scenario)
  *
- * The same six skills at divider 4 instead of 5, with no investment. Two rows move and four do not,
- * which is what makes this a real check rather than a restatement: Brewing 1 → 2 and perception
- * 1 → 2, while the two Charm-weighted rows and the two that sit at level 2 already round up to what
- * the tighter divider gives them.
+ * The same six skills at divider 4 instead of 5, with no investment. Four rows move and two do not,
+ * which is what makes this a real check rather than a restatement: the two Charm-weighted rows go
+ * 3 → 4 and Brewing and perception 1 → 2, while Black smithing and Alchemy sit low enough that both
+ * dividers round them to the same 1.
  *
- * The levels are TICKET-SKL-04's rounded-up ones — the dial divides a whole level now, and Black
- * smithing's `2 / 4 = 0.5` re-pins rounding *up* at the dial's new setting where it used to re-pin
- * half-away-from-zero. **All six values moved, so all six cite {@link V4_SKILL_ROUNDING}**; the
- * editing scenario these rows come from is Concept 02's and is stated here, where it is prose rather
- * than a pointer attached to a number the page does not hold.
+ * The levels are TICKET-SKL-04's rounded-up ones at the data pass's re-sourced weights and its 0.9
+ * focus multiplier — the dial divides a whole level now, and Charm's `13 / 4 = 3.25` re-pins
+ * rounding *up* at the dial's new setting where Black smithing's `2 / 4 = 0.5` used to. The editing
+ * scenario these rows come from is Concept 02's and is stated here, where it is prose rather than a
+ * pointer attached to a number the page does not hold.
  */
 export const bonusDividerFixtures: readonly SkillFixture[] = [
-  { skillName: 'Charm', expectedLevel: 12, expectedBonus: 3 },
-  { skillName: 'Trading', expectedLevel: 12, expectedBonus: 3 },
+  { skillName: 'Charm', expectedLevel: 13, expectedBonus: 4 },
+  { skillName: 'Trading', expectedLevel: 13, expectedBonus: 4 },
   { skillName: 'Brewing', expectedLevel: 5, expectedBonus: 2 },
-  { skillName: 'Black smithing', expectedLevel: 2, expectedBonus: 1 },
-  { skillName: 'alchemy', expectedLevel: 2, expectedBonus: 1 },
+  { skillName: 'Black smithing', expectedLevel: 4, expectedBonus: 1 },
+  { skillName: 'Alchemy', expectedLevel: 3, expectedBonus: 1 },
   { skillName: 'perception', expectedLevel: 5, expectedBonus: 2 },
 ].map((row) => ({
   ...row,
@@ -511,16 +553,19 @@ export const raceTotalFixtures: readonly RaceTotalFixture[] = [
   { raceName: 'elf', expected: 64 },
   { raceName: 'dwarf', expected: 60 },
   { raceName: 'Raccoon', expected: 59 },
-  { raceName: 'Demon', expected: 90 },
-  { raceName: 'Monolith', expected: 1800 },
-  { raceName: 'Gods', expected: 1920 },
+  // The v4 catalog's own extremes and its sample race. Demon, Monolith and Gods were the old
+  // workbook's creature rows and are not in the new one — the playable 25 are all it carries now
+  { raceName: 'goliath', expected: 81 },
+  { raceName: 'Hamster', expected: 20 },
+  { raceName: 'Ducklets', expected: 59 },
 ].map((row) => ({
   ...row,
   name: `${row.raceName} totals ${row.expected}`,
   citation: {
-    concept: '01 · Stat',
-    section: 'counts_toward_total — confirmed derivation ✅',
-    range: 'Creature stats!B4:K14',
+    document: 'v4',
+    concept: 'systems/04 · Races',
+    section: 'What the new sheet says — the unlabelled total row',
+    range: 'Background Referenes Race scali!B13:AA13',
   },
 }));
 
@@ -714,8 +759,9 @@ export interface RollFixture extends GoldenFixture {
  */
 export const rollFixtures: readonly RollFixture[] = [
   {
-    name: 'mele reads Strenght 10 and throws 0D20 + 0D12 + 1D6 + 4',
-    rollName: 'mele',
+    // `mele` since the data pass re-sourced the roll names from the workbook's own glossary
+    name: 'Mele reads Strenght 10 and throws 0D20 + 0D12 + 1D6 + 4',
+    rollName: 'Mele',
     expectedInput: 10,
     expectedNotation: '0D20 + 0D12 + 1D6 + 4',
   },

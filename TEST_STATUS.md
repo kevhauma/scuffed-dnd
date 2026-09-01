@@ -1,9 +1,10 @@
 # Test Status
 
-_Last verified: 2026-09-01 (`npx vitest run`) at **TICKET-DX-09 — the clean break, proven
-complete**, the current count-setter at **3715** — and the **only checkpoint in this file's history
-where the count went down**, which is the point of it.
+_Last verified: 2026-09-01 (`npx vitest run`) at **the v4.0 data pass — TICKET-MAT-03 and
+TICKET-ITEM-02, and with them the whole re-sourced corpus**, the current count-setter at **3761**.
 The checkpoints before it were
+**TICKET-DX-09 — the clean break, proven complete** at 3715 — the **only checkpoint in this file's
+history where the count went down**, which was the point of it —
 **TICKET-PAS-01 — passive abilities: the entity and the handout** at 3716,
 **TICKET-SPL-03 — spell effect templating** at 3600,
 **TICKET-SPL-02 — learned spells, the Spellbook and casting** at 3550,
@@ -52,12 +53,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 3715
-- **Passing**: 3715 (100%)
+- **Total tests**: 3761
+- **Passing**: 3761 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **224 files**: `server` in node, everything else in happy-dom.
+Split across **225 files**: `server` in node, everything else in happy-dom.
 
 > **Coverage arrived, and the suite did not change to make room for it.** Every `.test.ts` and
 > `.test.tsx` still runs — the count above is unmoved. What is scoped is the *threshold*:
@@ -89,6 +90,38 @@ Split across **224 files**: `server` in node, everything else in happy-dom.
 > 98.83/95.58/98.71 to the digit. **A coverage number that disagrees wildly with the last one is a
 > corrupt run — re-run it before believing it.** `yarn run test` is unaffected.
 
+> **The v4.0 data pass — MAT-03, ITEM-02 and the whole corpus: +46 tests, +1 file (3715 → 3761).**
+> Two ticketed lines, one job: every fragment in `docs/imports/` is now **generated from the
+> checked-in workbook** rather than hand-transcribed, and three of them (`inlays`, `spells`,
+> `passives`) exist for the first time. The corpus went from 12 fragments to 15, and from the old
+> workbook to the new one.
+>
+> **Where the +46 went.** `sheetImport.test.ts` +16 (the two catalogs' counts and pinned rows, the
+> v4 skill weights, and a whole-corpus **referential** check the suite did not have);
+> `thomasGolden.test.ts` +29, the new file; `characters.test.ts` +1 for the focus dials the corpus
+> now states. Nothing was deleted.
+>
+> **The referential check earns its line here** because it caught a real defect nothing else did.
+> Re-sourcing the coin ladder from the workbook's own spellings moved every currency tier's id
+> (`currency-copper` → `currency-copper-piece`), and 240 material tiers went on naming the one it
+> replaced. Shape validation passed, the merge's id-collision pass passed, every existing test
+> passed, and the corpus was broken. It is now `validateConfiguration` over the merged file,
+> asserting zero errors and exactly the six archetype warnings the sheet's own silence produces.
+>
+> **`thomasGolden.test.ts` is the milestone's parity gate**, and it answers the question the whole
+> version was cut for: import `ducklets.json`, build the workbook's own sample character on it
+> through the public actions — Ducklets twice, Science, Arcane/Summening/Arcane, 3 points on Int, an
+> Iron Ore 10 Battleaxe with a Diamond 4 inlay — and read his Character Sheet back cell by cell.
+> Nine final stats, ATP, four roll decompositions and eight skills all agree with the sheet. **The
+> one row that deliberately disagrees is Summening**, whose level cell reads Stealing's stat row; the
+> User ruled the reference table's intent is built instead, so the app says 8 where the sheet says 7.
+>
+> **Six fixtures moved in `golden.test.ts`, and none of them were wrong before.** Three things moved
+> them at once: the workbook re-weighted every skill (mono 0.3 → 0.35), the corpus now states the
+> focus dials so a character with no picks multiplies by **0.9**, and `race-ducklets` became a real
+> corpus race, so v2.0's synthetic sample race was renamed `race-golden-sample` to stop colliding
+> with it. Each row cites which of the three moved it.
+>
 > **TICKET-DX-09 — the clean break, proven complete: −1 test, +1 file (3716 → 3715).** The only
 > negative delta this file records, and the arithmetic is the ticket: **+6** in the new
 > `client/integration/cleanBreak.test.tsx` and **−7** where the wallet adapter used to be
