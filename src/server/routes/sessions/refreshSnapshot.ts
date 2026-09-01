@@ -15,9 +15,11 @@
  * so the two can come apart — and a DM who does not own the ruleset pulling its current state would
  * be reaching into somebody else's document. They get the ordinary 404.
  *
- * **The refresh is an Event** (v3 Req 37.3). It is the first thing this milestone writes to the log,
- * and it is the right first thing: LIVE-02 fans these out, and *the rules just changed under you* is
- * the event a player most needs to be told about without asking.
+ * **The refresh is an Event** (v3 Req 37.3). It was the first thing this milestone wrote to the log,
+ * and it was the right first thing: TICKET-LIVE-02 fans these out, and *the rules just changed under
+ * you* is the event a player most needs to be told about without asking. Its name moved to
+ * `shared/types/api.ts`'s `SESSION_EVENT` in that ticket, because the client now has to recognise it
+ * too.
  *
  * **Validates: v3 Req 32.1, 32.2, 32.3, 32.5, 37.3, 37.5, 37.6**
  */
@@ -25,9 +27,12 @@
 import { copyConfiguration } from '#shared/services/copyConfiguration';
 import { serializeConfiguration } from '#shared/services/importExport';
 import type { GameSessionDocument } from '#shared/types/api';
+import { SESSION_EVENT } from '#shared/types/api';
 import { requireDM, requireOwner } from '../../auth/guards';
+import { recordEvent } from '../../events/recordEvent';
 import { conflict, notFound } from '../../http/appError';
 import { defineHandler } from '../../http/pipeline';
+import type { NewEvent } from '../../repositories/eventRepository';
 import {
   charactersInSession,
   findGameSession,
@@ -37,11 +42,6 @@ import { findRuleset } from '../../repositories/rulesetRepository';
 import { displayDocumentOf } from '../rulesets/rulesetPayloads';
 import { requireActive, sessionIdFrom, snapshotOf, toSessionSummary } from './sessionPayloads';
 import { snapshotConflicts } from './snapshotConflicts';
-
-/** What the log calls this, so LIVE-02 has a name to fan out rather than a literal to guess */
-const SESSION_EVENT = {
-  SNAPSHOT_REFRESHED: 'session.snapshot_refreshed',
-} as const;
 
 export const refreshSnapshot = defineHandler((context): GameSessionDocument => {
   const sessionId = sessionIdFrom(context.url);
@@ -90,22 +90,34 @@ export const refreshSnapshot = defineHandler((context): GameSessionDocument => {
 
   const now = Date.now();
 
-  // The pin and the log entry are **one write** — see `refreshSessionSnapshot` for why a refresh
-  // nobody was told about is the worse half to lose
-  const refreshed = refreshSessionSnapshot({
+  const event: NewEvent = {
+    id: crypto.randomUUID(),
+    sessionId,
+    actorAccountId: membership.accountId,
+    type: SESSION_EVENT.SNAPSHOT_REFRESHED,
+    // The ruleset it came from and when, rather than the document — an Event log carrying a copy of
+    // every Snapshot ever pinned would grow by tens of kilobytes per refresh to say one thing.
+    // A client cannot *apply* this one and is not meant to: what changed is the rules, so it reads
+    // the table again (`useTableCharacterFeed`'s fallback).
+    payload: JSON.stringify({ rulesetId: source.id, snapshotTakenAt: now }),
+    now,
+  };
+
+  const pinned = {
     sessionId,
     snapshot: serializeConfiguration(candidate),
     schemaVersion: candidate.schemaVersion,
-    actorAccountId: membership.accountId,
-    eventId: crypto.randomUUID(),
-    type: SESSION_EVENT.SNAPSHOT_REFRESHED,
-    // The ruleset it came from and when, rather than the document — an Event log carrying a copy of
-    // every Snapshot ever pinned would grow by tens of kilobytes per refresh to say one thing
-    payload: JSON.stringify({ rulesetId: source.id, snapshotTakenAt: now }),
     now,
-  });
+  };
 
-  if (!refreshed) throw notFound();
+  // The pin and the log entry are **one write** — see `refreshSessionSnapshot` for why a refresh
+  // nobody was told about is the worse half to lose — and `recordEvent` is what turns *in the log*
+  // into *at the table* (TICKET-LIVE-02)
+  const recorded = recordEvent(event, (append) => refreshSessionSnapshot(pinned, append));
+
+  if (!recorded) throw notFound();
+
+  const refreshed = recorded.written;
 
   return { ...toSessionSummary(refreshed, membership.role), snapshot: snapshotOf(refreshed) };
 });

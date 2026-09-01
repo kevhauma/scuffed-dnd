@@ -30,6 +30,7 @@ vi.mock('../services/storage', () => ({
   saveCharacters: vi.fn(),
 }));
 
+import { EVENT_EFFECT } from '../services/liveEvents';
 import * as storage from '../services/storage';
 import { useCharacterStore } from './characterStore';
 
@@ -571,5 +572,83 @@ describe("the DM's adjustments (TICKET-DM-01)", () => {
     useCharacterStore.getState().dmAwardExperience('some-other-character', 10);
 
     expect(useCharacterStore.getState().actionError).toContain('not at a table');
+  });
+});
+
+describe('an Event broadcast by the table (TICKET-LIVE-02)', () => {
+  /** One Event about the open character */
+  function anEvent(after: number) {
+    return {
+      id: 'event-1',
+      seq: 4,
+      type: DM_ACTION.AWARD_EXPERIENCE,
+      actorAccountId: 'account-dm',
+      at: Date.parse('2024-06-01T12:00:00.000Z'),
+      payload: {
+        characterId: 'character-1',
+        action: DM_ACTION.AWARD_EXPERIENCE,
+        target: '',
+        before: 0,
+        after,
+      },
+    };
+  }
+
+  beforeEach(() => {
+    const open = aCharacter();
+
+    useCharacterStore.setState({ tableCharacter: open, tableSessionId: 'session-1' });
+  });
+
+  it('writes what the Event says into the character held open', () => {
+    refuseToFetch();
+
+    const awarded = anEvent(300);
+    const effect = useCharacterStore.getState().applyTableEvent(awarded);
+
+    expect(effect).toBe(EVENT_EFFECT.APPLIED);
+
+    const held = useCharacterStore.getState().tableCharacter;
+
+    expect(held?.experience).toBe(300);
+    // Applying is not persisting: the browser's roster is not where a session character lives, and
+    // this write must not put one there (v3 Req 36.2)
+    expect(storage.saveCharacters).not.toHaveBeenCalled();
+  });
+
+  it('reports a change it cannot apply rather than guessing at one', () => {
+    refuseToFetch();
+
+    const structural = {
+      ...anEvent(1),
+      type: PLAYER_ACTION.BUILD_ITEM,
+      payload: {
+        characterId: 'character-1',
+        action: PLAYER_ACTION.BUILD_ITEM,
+        target: 'item-1',
+        before: null,
+        after: 'build-1',
+      },
+    };
+
+    const effect = useCharacterStore.getState().applyTableEvent(structural);
+
+    expect(effect).toBe(EVENT_EFFECT.STALE);
+
+    const held = useCharacterStore.getState().tableCharacter;
+
+    expect(held?.experience).toBe(0);
+  });
+
+  it('is not stale when no sheet is open at all', () => {
+    refuseToFetch();
+    useCharacterStore.setState({ tableCharacter: null });
+
+    // A reader holding nothing cannot be behind, and answering `stale` here would send a surface
+    // that is not showing a character off to fetch one
+    const awarded = anEvent(300);
+    const effect = useCharacterStore.getState().applyTableEvent(awarded);
+
+    expect(effect).toBe(EVENT_EFFECT.ELSEWHERE);
   });
 });

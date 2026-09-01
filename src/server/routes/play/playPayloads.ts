@@ -36,7 +36,13 @@
  * refuses them is the state of the resource. That is the same status and the same reasoning
  * {@link requireActive} uses for an archived table.
  *
- * **Validates: v3 Req 32.5, 37.5, 41.1, 41.7, 45.1**
+ * ## And since TICKET-LIVE-02, the write is also what tells the table
+ *
+ * {@link applyPlayerAction} writes through `events/recordEvent.ts`, which appends the Event and
+ * broadcasts it to the session's room in one path. That is the whole of what LIVE-02 had to add to
+ * twenty-eight routes: they already funnelled through here, so the fan-out did too.
+ *
+ * **Validates: v3 Req 32.5, 37.5, 41.1, 41.7, 44.4, 45.1**
  */
 
 import { isRefusal, type PlayerActionResult } from '#shared/services/playerActions';
@@ -48,9 +54,11 @@ import type {
 } from '#shared/types/api';
 import type { Character, ComposedItem } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
+import { recordEvent } from '../../events/recordEvent';
 import { badRequest, conflict, notFound } from '../../http/appError';
 import type { CharacterRow } from '../../repositories/characterRepository';
 import { recordPlayerAction } from '../../repositories/characterRepository';
+import type { NewEvent } from '../../repositories/eventRepository';
 import { findGameSession } from '../../repositories/gameSessionRepository';
 import { toCharacterDocument } from '../characters/characterPayloads';
 import { requireActive, snapshotOf } from '../sessions/sessionPayloads';
@@ -134,6 +142,11 @@ export function applyPlayerAction(
 
   if (isRefusal(result)) throw badRequest(result.refusal);
 
+  // **One clock reading, spent three times** — the character's column, the document's own
+  // `updatedAt`, and the Event's `createdAt` (TICKET-LIVE-02). A client applying the broadcast
+  // Event patches `updatedAt` from its `at` and lands on the very string stored here, which is what
+  // lets the adjustment log notice a live change without a second mechanism. A second `Date.now()`
+  // anywhere below would break that quietly; `play.test.ts` fails if one ever appears.
   const now = Date.now();
   const updated: Character = { ...result.character, updatedAt: new Date(now).toISOString() };
 
@@ -145,25 +158,27 @@ export function applyPlayerAction(
     after: result.after,
   };
 
-  const stored = recordPlayerAction({
-    characterId: row.id,
-    data: JSON.stringify(updated),
+  const event: NewEvent = {
+    id: crypto.randomUUID(),
+    sessionId,
+    // The **owner**, which for a player action is also the caller. Spelled as the row's column
+    // rather than taken as a parameter would have been correct only because every caller today
+    // uses `requireCharacterPlayer` — and this function is exported, so a DM route reusing it
+    // would log the wrong actor in silence.
+    actorAccountId: actor,
+    type: action,
+    payload: JSON.stringify(payload),
     now,
-    event: {
-      id: crypto.randomUUID(),
-      sessionId,
-      // The **owner**, which for a player action is also the caller. Spelled as the row's column
-      // rather than taken as a parameter would have been correct only because every caller today
-      // uses `requireCharacterPlayer` — and this function is exported, so a DM route reusing it
-      // would log the wrong actor in silence.
-      actorAccountId: actor,
-      type: action,
-      payload: JSON.stringify(payload),
-      now,
-    },
-  });
+  };
 
-  return toCharacterDocument(stored);
+  const written = { characterId: row.id, data: JSON.stringify(updated), now };
+
+  // **Through `recordEvent`, so the table is told.** Every route in `routes/play/` and `routes/dm/`
+  // reaches this one line, which is why the fan-out test can enumerate them structurally rather
+  // than driving all twenty-eight.
+  const stored = recordEvent(event, (append) => recordPlayerAction(written, append));
+
+  return toCharacterDocument(stored.written);
 }
 
 /** A field that has to be a non-empty string id */

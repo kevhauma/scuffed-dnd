@@ -12,9 +12,10 @@
  * want two processes the change is this one module rather than every call site. A registry that
  * imported the socket library would make the interface decorative.
  *
- * **Nothing broadcasts yet.** TICKET-LIVE-02 is what puts Events through {@link SocketRooms.broadcast};
- * this ticket is the pipe, not the traffic. The method exists here because criterion 3 asks for it
- * by name and a test drives it across two rooms and four connections.
+ * **{@link SocketRooms.broadcast} has exactly one production caller**, and that is deliberate:
+ * `events/recordEvent.ts`, which is also the only module that writes a row to `event`
+ * (TICKET-LIVE-02). Nothing else may send a frame, because a frame sent from anywhere else would be
+ * a claim about the table that the log does not carry.
  *
  * **Validates: v3 Req 44.2, 44.3, 39.3**
  */
@@ -186,9 +187,10 @@ class InMemorySocketRooms implements SocketRooms {
       // module that reasons one way about a refusal and the other way about an eviction is a module
       // with two ideas about what a connection is.
       //
-      // The client is not *told* which room it lost. Saying so needs a wire message and a client
-      // that can hear one; both are LIVE-02/03's, and inventing half of it here would be building
-      // their feature badly.
+      // The client is not *told* which room it lost. TICKET-LIVE-02 gave the socket a server → client
+      // message type and a client that can hear one, and **left this alone anyway**: what such a
+      // message would serve is *what is on screen is stale*, which is v3 Req 44.8 and LIVE-03's by
+      // name. Cheapness is not ownership.
       if (this.stillListening(connection)) continue;
 
       shut(connection, SOCKET_CLOSE_CODE.MEMBERSHIP_ENDED, MEMBERSHIP_ENDED_REASON);
@@ -227,8 +229,9 @@ let rooms: SocketRooms | null = null;
 /**
  * This process's rooms
  *
- * `routes/sessions/removeMember.ts` is the only production caller today: taking a seat away closes
- * the connections that seat was holding.
+ * Two production callers: `routes/sessions/removeMember.ts`, where taking a seat away closes the
+ * connections that seat was holding, and `events/recordEvent.ts`, which broadcasts every Event it
+ * writes (TICKET-LIVE-02).
  *
  * @returns The registry
  */

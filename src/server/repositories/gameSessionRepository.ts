@@ -40,7 +40,7 @@ import {
   sessionMember,
 } from '../db/schema';
 import type { CharacterRow } from './characterRepository';
-import { appendEvent } from './eventRepository';
+import type { AppendEvent, Recorded } from './eventRepository';
 
 /** Somebody's seat at a table, and the role they hold in it */
 export type SessionMemberRow = typeof sessionMember.$inferSelect;
@@ -365,67 +365,69 @@ export function updateSessionSnapshot(
   );
 }
 
-/** What pinning a new Snapshot needs to be told, log entry included */
+/**
+ * What pinning a new Snapshot needs to be told
+ *
+ * **The four Event fields it used to carry are gone** (TICKET-LIVE-02): the Event arrives as an
+ * appender instead, so this states the Snapshot and nothing about the log. What it lost — `eventId`,
+ * `type`, `payload`, `actorAccountId` — was this shape restating `NewEvent` field by field, which
+ * is one more place the two could disagree.
+ */
 export interface SnapshotRefresh {
   sessionId: string;
   /** The new pinned document as JSON text */
   snapshot: string;
   schemaVersion: number;
-  /** The Account that asked for it, for the Event's actor */
-  actorAccountId: string;
-  /** The Event's id, minted by the caller like every other id here */
-  eventId: string;
-  type: string;
-  /** The Event's own shape as JSON text */
-  payload: string;
   now: number;
 }
 
 /**
  * Pin a new Snapshot **and** record that it happened (v3 Req 37.3)
  *
- * **One transaction, because the two halves are one fact.** `appendEvent` can be refused — its
- * `UNIQUE(session_id, seq)` index is what makes the log gapless, and the repository deliberately
+ * **One transaction, because the two halves are one fact.** The append can be refused — the
+ * `UNIQUE(session_id, seq)` index is what makes the log gapless, and `eventRepository` deliberately
  * does not retry — so a refresh that wrote the Snapshot and then failed to write the Event would
  * have moved the rules under a live table with nothing in the log to say so. LIVE-02 fans out from
  * that log, so *nobody at the table would be told*. It is the identical argument
  * {@link insertGameSession} makes for the session and its DM's seat, one route over.
  *
- * @param input The Snapshot and the Event to record beside it
+ * @param input The Snapshot to pin
+ * @param append The Event that records it, bound and waiting for this transaction
  * @param database The connection; defaults to the process's
- * @returns The updated row, or `null` when there is no such session — in which case nothing is written
+ * @returns Both rows, or `null` when there is no such session — in which case nothing is written
  */
 export function refreshSessionSnapshot(
   input: SnapshotRefresh,
+  append: AppendEvent,
   database: Database = getDatabase()
-): GameSessionRow | null {
-  return database.db.transaction(() => {
-    const row = updateSessionSnapshot(
-      input.sessionId,
-      input.snapshot,
-      input.schemaVersion,
-      input.now,
-      database
-    );
+): Recorded<GameSessionRow> | null {
+  // **`immediate`, for the reason `appendEvent` documents and `recordPlayerAction` already
+  // honours.** A default (deferred) `BEGIN` takes a read lock and upgrades on the first write;
+  // under WAL a second writer arriving in that window makes the upgrade fail with
+  // `SQLITE_BUSY_SNAPSHOT`, which `busy_timeout` deliberately does not retry. This function became
+  // a first-class *composing* caller of the append at TICKET-LIVE-02 — before it, the append opened
+  // its own `immediate` transaction and carried this itself — so the obligation moved here with it.
+  return database.db.transaction(
+    (tx) => {
+      const row = updateSessionSnapshot(
+        input.sessionId,
+        input.snapshot,
+        input.schemaVersion,
+        input.now,
+        database
+      );
 
-    // Nothing to record against a session that is not there, and nothing has been written either —
-    // the update matched no row
-    if (!row) return null;
+      // Nothing to record against a session that is not there, and nothing has been written either
+      // — the update matched no row. `recordEvent` publishes nothing for a `null`, which is the
+      // same fact one layer up: an Event that was not written is not one anybody is told about.
+      if (!row) return null;
 
-    appendEvent(
-      {
-        id: input.eventId,
-        sessionId: input.sessionId,
-        actorAccountId: input.actorAccountId,
-        type: input.type,
-        payload: input.payload,
-        now: input.now,
-      },
-      database
-    );
+      const event = append(tx);
 
-    return row;
-  });
+      return { event, written: row };
+    },
+    { behavior: 'immediate' }
+  );
 }
 
 /**

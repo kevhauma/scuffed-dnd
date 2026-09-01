@@ -75,6 +75,7 @@ import type {
 import { DM_ACTION, PLAYER_ACTION } from '#shared/types/api';
 import type { Character, CharacterCreationData, ComposedItem } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
+import type { LiveEvent } from '#shared/types/liveSocket';
 import {
   ACTION_OUTCOME,
   CREATION_OUTCOME,
@@ -82,6 +83,8 @@ import {
   fetchCharacter,
   sendPlayerAction,
 } from '../services/characterSync';
+import type { LiveEventEffect } from '../services/liveEvents';
+import { applyEventToCharacter, EVENT_EFFECT } from '../services/liveEvents';
 import { RULESET_HOME, type RulesetSource } from '../services/rulesetSync';
 import { loadCharacters, saveCharacters } from '../services/storage';
 import { useUIStore } from './uiStore';
@@ -256,6 +259,20 @@ export interface CharacterState {
    * @returns The table it plays at, or `null` when it could not be read
    */
   openTableCharacter: (characterId: string) => Promise<string | null>;
+  /**
+   * Apply one Event broadcast by the table to the character held open (TICKET-LIVE-02)
+   *
+   * **The store writes; `services/liveEvents.ts` decides.** What an Event does to a character is a
+   * pure question and lives there; what is *held open* is this store's, and a component patching
+   * `tableCharacter` directly would be the same breach as one calling `saveCharacters`.
+   *
+   * It reports back rather than acting on a `stale`, because the answer to *this sheet is now
+   * behind* is a re-read of both the character and its Snapshot — two stores, so above both.
+   *
+   * @param event What happened at the table
+   * @returns What that did here: applied, about something else, or a reason to re-read
+   */
+  applyTableEvent: (event: LiveEvent) => LiveEventEffect;
   /** Let go of the character open at a table, and of whatever it last said */
   closeTableCharacter: () => void;
   /** Dismiss the last refusal — the state it refused to change is already on screen */
@@ -869,6 +886,19 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
 
       return null;
     }
+  },
+
+  applyTableEvent: (event: LiveEvent) => {
+    const held = get().tableCharacter;
+
+    // Nothing is open, so there is nothing to be behind. A reader with no sheet is not stale.
+    if (!held) return EVENT_EFFECT.ELSEWHERE;
+
+    const outcome = applyEventToCharacter(held, event);
+
+    if (outcome.effect === EVENT_EFFECT.APPLIED) set({ tableCharacter: outcome.character });
+
+    return outcome.effect;
   },
 
   closeTableCharacter: () => {

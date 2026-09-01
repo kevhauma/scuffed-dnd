@@ -142,6 +142,16 @@ Two consequences worth holding on to before changing a persisted shape:
   and land the generated SQL with a test that applies it to the previous schema
   ([`migrate.test.ts`](../../../src/server/db/migrate.test.ts) is the pattern). There are no `down`
   files; recovery is the backup.
+- **A new piece of stored player state now has a second place to be declared** (TICKET-LIVE-02).
+  `client/services/liveEvents.ts` applies a broadcast Event to an open sheet **exactly when its
+  `after` is one of the sanctioned stored fields** — the pools, `experience`, `purse`,
+  `grantedStatPoints`, `dreamLevel` — and its `Record<SheetAction, …>` is exhaustive, so an action
+  added without a row there is a **compile error** rather than a change that silently never reaches
+  the other Players at the table. A sixth exception to *derived values are never stored* is
+  therefore also a row in that table; anything structural stays `null` and costs the reader one
+  re-read. `cast-spell` is the worked example of why the table is explicit rather than inferred: its
+  before/after are a **pool's** and its Event `target` is a **spell's**, so a rule reading the shape
+  would write a mana total under a spell id.
 
 ## Storage
 

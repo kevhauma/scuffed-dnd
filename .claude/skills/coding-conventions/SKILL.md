@@ -281,6 +281,35 @@ Two families of judgement, both concrete here rather than generic.
   `set-resource`. Two identical spellings in one log is a reader six months later unable to tell a
   Player's own write from the DM's. The **pipeline** is shared for the same reason the names are not:
   `applyPlayerAction` runs either, and the guard above it is the whole difference.
+- **A write that must never happen alone injects its companion rather than importing one.**
+  `recordEvent` (TICKET-LIVE-02) hands `recordPlayerAction` and `refreshSessionSnapshot` an
+  *appender* — the Event, bound, waiting for their transaction — instead of letting each repository
+  import `appendEventWithin` itself. That is what turns "every Event is also broadcast" from a habit
+  into a **single call site** a tree-walking test asserts as an equality; an allow-list of modules
+  permitted to write one is a list somebody adds a line to. Reach for this shape whenever two writes
+  are one fact and only one of them has a side effect the other must not escape.
+  **And scan for the *write*, not for the function name.** A guard keyed on spellings is blind to a
+  rename, an aliased import, and — the case that actually arrives — a *second* writer added inside
+  the very module the scan excludes as the definition site. `eventFanOut.test.ts` scans for
+  `.insert(event)` across the server and separately asserts which append functions that module
+  **exports**, which is what makes the claim survive the next ticket.
+- **A React state update that must not happen twice is coalesced in the hook, not debounced in the
+  store.** `useTableCharacterFeed` schedules one re-read on a short timer, holds a flag while it is
+  in flight, and runs exactly one trailing pass for anything that arrived during it — because *the
+  surface is correct afterwards* is the requirement and *N requests for N events* is the failure.
+  The re-read itself is the callback the hook that owns those reads handed over, never a second
+  spelling of them. **Clearing the timer on unmount is not enough**: a read already in flight
+  settles afterwards, so the trailing pass is gated on a `mounted` ref as well.
+- **State that a live feed also writes is *folded into*, never replaced.** `useTableRollLog`'s mount
+  read reduces the fetched rows into what is on screen rather than calling `setHistory(rows)`,
+  because the server's fan-out is synchronous with the write: a row broadcast after the `SELECT` ran
+  and before its response landed is already in state, and a replace would discard it. Safe because
+  the fold is the same de-duplicating function the live path uses.
+- **An invariant about *how many times* something happens cannot be tested with a value that
+  repeats.** `play.test.ts`'s *stamps the character and its Event from one instant* drives
+  `Date.now()` so the second reading is a different number; against the real clock two calls in one
+  synchronous block return the same millisecond and the test passes whether the invariant holds or
+  not (TICKET-LIVE-02's review). Same shape for counters, ids and any "read once" claim.
 - **Derived values are computed, never stored.** Anything downstream of a formula comes from
   `calculateCharacter()` (the one composed entry point) at read time — see the **data-model**
   skill for why `currentStatValues` is the one exception.

@@ -256,6 +256,23 @@ acceptance criteria.
   socket is a socket that exists unauthenticated. `ws/rooms.ts` imports `ws` **not at all**;
   `ws/liveSocketServer.ts` is the only module that does. The socket's URL is derived from
   `window.location` and no variable or constant names its host.
+- **An Event is written through `recordEvent()` and nowhere else** (TICKET-LIVE-02, v3 Req 44.4).
+  `src/server/events/recordEvent.ts` appends the row **and** broadcasts it to that session's room in
+  one path, so an action cannot change a character without the table being told. It **injects** the
+  appender into the two repositories that write an Event beside something else
+  (`recordPlayerAction`, `refreshSessionSnapshot`), which is why `appendEvent(` and
+  `appendEventWithin(` have exactly one call site in `src/server/` and
+  `events/eventFanOut.test.ts` can assert that as an equality rather than an allow-list. The publish
+  happens **after** the repository returns — a committed write, on synchronous `better-sqlite3` —
+  and is wrapped, because a fan-out that threw would report a change that happened as one that did
+  not. A write that wrote nothing publishes nothing.
+- **An Event carries stored values, never derived ones, and the client applies only player state.**
+  A broadcast Event says what changed; the browser re-derives everything else through the Kernel
+  (v3 Req 45.1). `client/services/liveEvents.ts` applies an Event **exactly when its `after` is one
+  of the five sanctioned stored fields** above — resource pools, experience, purse, granted points,
+  dream level — and answers *ask again* for anything structural, which becomes **one** coalesced
+  re-read of the character and its Snapshot. The table is an exhaustive `Record<SheetAction, …>`, so
+  a new action is a compile error there rather than a change that silently never appears.
 - **Client route protection is an explicit allow-list, and the default is open** (D6). A route is
   protected only by appearing in `client/components/auth/protectedRoutes.ts` *and* composing
   `RequireAccount`; `protectedRoutes.test.ts` enumerates the generated route tree and asserts both.

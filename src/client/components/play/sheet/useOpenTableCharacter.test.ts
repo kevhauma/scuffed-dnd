@@ -38,6 +38,13 @@ vi.mock('../../../stores/configStore', () => ({
     selector({ openSessionSnapshot }),
 }));
 
+/** The live feed is mounted by this hook (TICKET-LIVE-02) and has its own file */
+const mountFeed = vi.fn();
+vi.mock('./useTableCharacterFeed', () => ({
+  useTableCharacterFeed: (characterId: string, reopen: () => Promise<void>) =>
+    mountFeed(characterId, reopen),
+}));
+
 import { useOpenTableCharacter } from './useOpenTableCharacter';
 
 beforeEach(() => {
@@ -142,5 +149,26 @@ describe('useOpenTableCharacter', () => {
 
     // …and the re-run must not start a second read
     expect(openTableCharacter).toHaveBeenCalledTimes(1);
+  });
+
+  it('mounts the live feed on the same two reads it opened with', async () => {
+    // TICKET-LIVE-02's fallback is *this* callback rather than its own pair of calls: *what a
+    // session sheet is made of* written twice is two things to keep in step, and the copy that
+    // would rot is the one nobody looks at
+    auth.isSignedIn = true;
+    storeState.characters = [{ id: 'character-1' }];
+
+    renderHook(() => useOpenTableCharacter('character-1'));
+
+    expect(mountFeed).toHaveBeenCalled();
+
+    const [, reopen] = mountFeed.mock.calls[0] as [string, () => Promise<void>];
+
+    await act(async () => {
+      await reopen();
+    });
+
+    expect(openTableCharacter).toHaveBeenCalledWith('character-1');
+    expect(openSessionSnapshot).toHaveBeenCalledWith('session-1');
   });
 });

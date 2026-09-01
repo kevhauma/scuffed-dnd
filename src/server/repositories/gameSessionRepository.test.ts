@@ -21,7 +21,7 @@ import {
   seedSession,
   withTestDatabase,
 } from '../testing';
-import { eventsSince } from './eventRepository';
+import { type AppendEvent, appendEventWithin, eventsSince } from './eventRepository';
 import {
   archiveGameSession,
   charactersInSession,
@@ -163,52 +163,89 @@ describe('refreshSessionSnapshot', () => {
       sessionId,
       snapshot: '{"schemaVersion":9}',
       schemaVersion: 9,
-      actorAccountId: 'account-under-test',
-      eventId: 'event-under-test',
-      type: 'session.snapshot_refreshed',
-      payload: '{}',
       now: 2_000,
       ...overrides,
+    };
+  }
+
+  /**
+   * The Event the refresh appends, as `recordEvent` would hand it down (TICKET-LIVE-02)
+   *
+   * **It refuses to append outside a transaction**, which is the property this whole function pair
+   * exists for: the pin and the log entry have to land together, so a repository that called the
+   * appender bare would be writing the Event in its own transaction and losing the guarantee. That
+   * check costs one line here and would otherwise be untestable.
+   *
+   * @param sessionId Which table
+   * @param id The Event's id — reused deliberately by the clash case below
+   * @returns An appender in the shape `recordEvent` binds
+   */
+  function appender(sessionId: string, id: string): AppendEvent {
+    return (tx) => {
+      if (!tx) throw new Error('the refresh must append inside its own transaction');
+
+      return appendEventWithin(tx, {
+        id,
+        sessionId,
+        actorAccountId: 'account-under-test',
+        type: 'session.snapshot_refreshed',
+        payload: '{}',
+        now: 2_000,
+      });
     };
   }
 
   it('pins the Snapshot and records that it happened', () =>
     withTestDatabase((database) => {
       const { session } = seedSession(database);
+      const append = appender(session.id, 'event-under-test');
 
-      const refreshed = refreshSessionSnapshot(refreshInput(session.id), database);
+      const refreshed = refreshSessionSnapshot(refreshInput(session.id), append, database);
 
-      expect(refreshed?.snapshotTakenAt).toBe(2_000);
-      expect(eventsSince(session.id, 0, database)).toHaveLength(1);
+      expect(refreshed?.written.snapshotTakenAt).toBe(2_000);
+      expect(refreshed?.event.seq).toBe(1);
+
+      const logged = eventsSince(session.id, 0, database);
+
+      expect(logged).toHaveLength(1);
     }));
 
   it('writes neither half when the Event cannot be appended', () =>
     withTestDatabase((database) => {
       const { session } = seedSession(database);
       const pinnedBefore = findGameSession(session.id, database)?.snapshot;
+      const clashing = appender(session.id, 'clash');
 
-      refreshSessionSnapshot(refreshInput(session.id, { eventId: 'clash' }), database);
+      refreshSessionSnapshot(refreshInput(session.id), clashing, database);
 
       // A second refresh reusing the event id: the update succeeds and the append throws on the
-      // primary key, which is the shape of the failure `appendEvent` documents (it refuses a
+      // primary key, which is the shape of the failure `eventRepository` documents (it refuses a
       // duplicate `seq` and deliberately does not retry)
-      expect(() =>
-        refreshSessionSnapshot(
-          refreshInput(session.id, { eventId: 'clash', snapshot: '{"schemaVersion":9,"x":1}' }),
-          database
-        )
-      ).toThrow();
+      const again = refreshInput(session.id, { snapshot: '{"schemaVersion":9,"x":1}' });
+      const retry = () => refreshSessionSnapshot(again, clashing, database);
+
+      expect(retry).toThrow();
 
       // Without the transaction the rules would have moved under a live table with nothing in the
       // log to say so — and LIVE-02 fans out from that log, so nobody would be told
-      expect(findGameSession(session.id, database)?.snapshot).toBe('{"schemaVersion":9}');
+      const pinnedAfter = findGameSession(session.id, database)?.snapshot;
+      const logged = eventsSince(session.id, 0, database);
+
+      expect(pinnedAfter).toBe('{"schemaVersion":9}');
       expect(pinnedBefore).not.toBe('{"schemaVersion":9}');
-      expect(eventsSince(session.id, 0, database)).toHaveLength(1);
+      expect(logged).toHaveLength(1);
     }));
 
   it('writes nothing at all against no such session', () =>
     withTestDatabase((database) => {
-      expect(refreshSessionSnapshot(refreshInput('never-minted'), database)).toBeNull();
+      const append = appender('never-minted', 'event-under-test');
+      const input = refreshInput('never-minted');
+
+      const refreshed = refreshSessionSnapshot(input, append, database);
+      const logged = eventsSince('never-minted', 0, database);
+
+      expect(refreshed).toBeNull();
+      expect(logged).toHaveLength(0);
     }));
 });
 

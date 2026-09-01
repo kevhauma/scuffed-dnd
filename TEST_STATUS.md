@@ -1,8 +1,9 @@
 # Test Status
 
-_Last verified: 2026-09-01 (`npx vitest run`) at **TICKET-LIVE-01 — WebSocket transport and
-authenticated rooms**, the current count-setter at **4015** across 241 files. The checkpoints before
-it were
+_Last verified: 2026-09-01 (`npx vitest run`) at **TICKET-LIVE-02 — Event fan-out and client
+reconciliation**, the current count-setter at **4092** across 246 files. The checkpoints before it
+were
+**TICKET-LIVE-01 — WebSocket transport and authenticated rooms** at 4015,
 **TICKET-DM-05 — the DM's view of a player's sheet is read-only** at 3952,
 **TICKET-DM-03 — quick actions derived from the ruleset, and the sheet sidebar** at 3863,
 **TICKET-DM-02 — DM controls: inventory and purse** at 3808,
@@ -58,12 +59,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 4015
-- **Passing**: 4015 (100%)
+- **Total tests**: 4092
+- **Passing**: 4092 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **241 files**: `server` in node, everything else in happy-dom.
+Split across **246 files**: `server` in node, everything else in happy-dom.
 
 > **This block had gone three checkpoints stale** (it read 3863 / 232 files, last true at DM-03)
 > and was corrected at LIVE-01. A summary that disagrees with the header of the very file whose job
@@ -310,6 +311,91 @@ Split across **241 files**: `server` in node, everything else in happy-dom.
 > gap is not a regression — nothing was failing at either number — it is a checkpoint that was
 > written from a partial run. PLY-01's delta is stated against the measured 2827, and the rule this
 > corrects is worth writing down: **re-measure the baseline, don't quote the last row.**
+
+## TICKET-LIVE-02 — +77 tests, +5 files (4015 → 4092), and two findings paid rather than argued with
+
+**Where the +77 went.** `events/eventFanOut.test.ts` +12 and `events/recordEvent.test.ts` +10 are
+the ticket's own subject in two halves — a **tree-walk** that the append has one call site and the
+route modules that reach the fan-out are as many as there are named actions, and a **unit** proving
+`recordEvent` publishes after the write, to one room, and not at all when nothing was written.
+`client/services/liveEvents.test.ts` +20 is the applier, and its shape is the part worth copying:
+every applicable case builds its Event by **running the Kernel action that produced the `after`** —
+`addExperience`, `setResourceValue`, `adjustPurseBy` — rather than by writing a literal, so a test
+cannot keep passing on the day an action starts reporting something else. Its inapplicable half is
+**exhaustive** rather than by example: every action not in the applicable set is asserted to answer
+`stale`. Then `liveSocket.test.ts` +12 (the connection: queueing before the handshake, refcounted
+rooms, listener teardown, and frames *dropped* once it is closed), `useLiveSession.test.ts` +6,
+`useTableCharacterFeed.test.ts` +8, `useRoller.table.test.tsx` +7,
+`characterStore.table.test.ts` +3, `useOpenTableCharacter.test.ts` +1 and `play.test.ts` +1.
+
+**That last one is the smallest and the most load-bearing, and the review round is what made it
+real.** *Stamps the character and its Event from one instant* asserts that `character.data`'s
+`updatedAt` and the Event's `createdAt` come from **one** `Date.now()` in `applyPlayerAction`. The
+client leans on it: a broadcast Event patches `updatedAt` from its `at`, which reproduces the string
+the server stored **exactly** — and that is what lets `useCharacterAdjustments`, which keys its read
+on that string, follow a live change with no second mechanism.
+
+As first written it asserted against the **real** clock, and the review caught that this
+**passes by coincidence**: two `Date.now()` calls in one synchronous block return the same
+millisecond nearly always, so a second reading would have gone green almost every run and red at
+random — worse than no test, since three docblocks cite this one as proof. It now drives the clock
+(`mockReturnValueOnce(1_000).mockReturnValue(2_000)`), so one reading passes and two differ by a
+full second; **verified by mutation** — adding a second `Date.now()` to `applyPlayerAction` turns it
+red, and it was green against the real clock with the same mutation in place. The general lesson is
+worth more than the case: *an invariant about how many times something is read cannot be tested with
+a value that repeats.*
+
+**`yarn run check` is clean** (820 modules, 4237 dependencies cruised — 810/4156 at LIVE-01) and
+`npx tsc --noEmit` is at its documented 2-error baseline.
+
+**`fallow audit --base main` returns `verdict: pass`** with `dead_code_introduced: 0`,
+`complexity_introduced: 0`, `duplication_introduced: 0` — after two findings, both **fixed rather
+than suppressed**:
+
+- **`setLiveConnection` was dead and is gone.** It was written as `setLiveRooms`' counterpart, and
+  nothing wanted it: a test that needs a connection calls `openLiveConnection` with its own socket,
+  and a test of a *hook* mocks the module. The comment left in its place says so, because the next
+  person to notice the asymmetry should not have to rediscover it.
+- **`useRoller` crossed the cognitive threshold and was split.** It was at **exactly 15** against
+  fallow's limit of 15 before this ticket and the live feed took it to **18** — so
+  `useTableRollLog` now owns the log: the read on mount, the room, `adopt` for the Player's own
+  `POST` answer, and the one private `withRoll` all three go through. The split is a split of
+  *subjects* (what has been rolled; how a roll is made) rather than a complexity dodge — the shape
+  DM-05 set when `useSpellbook` shed `choosePool`. The review round then added one conjunct to the
+  room predicate and it went to **16**, so `logRoomFor` came out to module scope the same way; the
+  hook now reads **6 / 14**, below where it started.
+
+**A third finding was avoided by composition rather than by a suppression.** `CharacterSheet.tsx`
+was measured at **14 cyclomatic / 15 cognitive** on `main` — at the limit, where DM-03's hotspot row
+left it — and the first draft's second hook call took it to 16. Mounting the feed inside
+`useOpenTableCharacter` instead leaves that component's diff **comments only** and the file back at
+14/15. The rule this confirms, and the one DM-03 wrote down: **a hook call is not free on that
+component**, and anything a sheet needs that is not a section belongs behind a hook it already has.
+
+### What the review round changed, beyond those two tests
+
+Eleven findings, all fixed. Three are worth carrying forward because each is a *class* of mistake
+rather than a slip:
+
+- **A feature can be built exactly against the thing its own note rejected.** The ticket says in
+  writing that a live-filled DM roll log — right-looking, silently missing everything before
+  socket-open — is worse than an empty one, and the first implementation subscribed the DM anyway:
+  `useRoller` held `isDungeonMaster` two lines above the predicate and did not use it. **Written
+  intent is not enforcement.** It is now `logRoomFor`, with a test that fails when the conjunct is
+  dropped (verified by mutation).
+- **A name-based structural guard is only as strong as the names it knows.** The first
+  `eventFanOut.test.ts` scanned for `appendEvent(` / `appendEventWithin(` and excluded
+  `eventRepository.ts` from the corpus — so a *third* append added inside that file, which is
+  precisely the shape TICKET-DM-04's membership Events want, would have been invisible. It now scans
+  for the **write** (`.insert(event)`) across the whole server *and* asserts that the repository
+  exports exactly the two appends the recorder imports. Both survive a rename; the second was
+  verified by adding an `appendMembershipEvent` and watching it fail.
+- **Three async lifecycles leaked in ways only a reviewer reading for them would see**: frames
+  queued forever on a closed socket (`!isOpen` is also true *before* the handshake, so *closed* is
+  now tracked separately), a trailing re-read firing into an unmounted sheet, and a mount read that
+  **replaced** the roll log and so discarded a roll broadcast while the request was in flight. The
+  last one is the sharpest: the server's fan-out is synchronous with the write, so that window is
+  ordinary rather than rare.
 
 ## TICKET-LIVE-01 — a socket tested without booting one
 
@@ -3271,6 +3357,8 @@ cools off keeps its row with the ticket that cooled it, so the direction of trav
 | `src/client/components/config/dashboard/useConfigDashboard.ts` | 6.4 | TICKET-PAS-01's run | 3 commits, 0.11 density, 2 fan-in | ▲ **Accelerating — TICKET-PAS-01** — a first row, and the **lowest score on this table**, recorded because the rule says a touched file that comes back Accelerating gets one rather than because anything is wrong. The visit is four lines: a card in the `/config` index. That is the whole reading — this file is a **list of routes with a sentence each**, so every config section ever added touches it, and three commits of pure append is what “accelerating” looks like on a file that has no logic to get harder. **Nothing is owed.** What would earn a real tag is a card needing a *condition* — shown only when the ruleset has something, say — because that is the point at which the list stops being data and `AppShell`'s nav array (which duplicates the same route set) stops being safely separate |
 | `src/client/components/shared/useAppHydration.test.tsx` | 12.5 | TICKET-DX-09's run | 4 commits, 306 churn, 0.19 density, 0 fan-in | ▲ **Accelerating — TICKET-DX-09** — a first row, crossing the three-commit floor here, and the visit is a **net deletion**: the three `the wallet conversion (TICKET-CUR-02)` cases went with the migration they covered, and one line was added to *never persists a fresh configuration over unconfirmed older data* so the invariant they also proved — a refused load writes nothing at all — stayed behind. **0.19 density is the highest of the four files this ticket touched here**, and it is inherited: this suite mocks the storage module and then drives a hook through five branches, which is dense per line whatever it asserts. **The reading that matters is what the deletion exposed**: these cases reached the refusal branch by *mocking the loaders to throw*, so nothing in this file ever proved that genuinely old-shape bytes produce a refusal — that gap is why `client/integration/cleanBreak.test.tsx` exists. **The test for the next visit: a case that needs the real storage service.** If one arrives, it belongs in the integration suite rather than here, or this file's mock stops being a simplification and starts being a second implementation. |
 | `src/shared/engine/formula/references.ts` | 9.0 | TICKET-DX-09's run | 3 commits, 598 churn, 0.18 density, 20 fan-in | ▲ **Accelerating — TICKET-DX-09** — a first row, crossing the three-commit floor here, and **the visit that earned it is comment-only**, which is worth stating plainly: DX-09 rewrote `ensureReferenceIds`' JSDoc and changed no line of its body. The row is not this ticket's doing — 598 added against 0 deleted across three tickets is SPL-03's templating work — and it is recorded anyway because the rule is over touched files, not over meaningful visits. **What the comment now says is the useful part**: this function is the one thing in the tree that could be mistaken for a conversion path, and it is not one. It mints an id a hand-authored import omitted; it branches on no retired key, so v4.0's clean break left it standing where it deleted the wallet adapter. **The test for the next visit: an entity whose ids are *not* mintable** — every collection it walks today can have one invented for it, and the first one that cannot (an id another document already refers to) turns a one-line `withId` into a decision |
+| `src/client/stores/characterStore.ts` | 28.8 | TICKET-LIVE-02's run | 17 commits, 1752/524 churn, 0.10 density, 52 fan-in | ▲ **Accelerating — TICKET-LIVE-02** — a first row, and the **highest-churn file in this project that is not a test**: 17 commits and 52 fan-in, which is the reading. The visit itself is one action, `applyTableEvent`, and it is deliberately three lines: `services/liveEvents.ts` decides what an Event does to a character and this writes the answer, exactly as `playerActions.ts` decides what a spend does and the store writes that. **The reason the row is worth having is what 52 fan-in means for the next feature**: every surface in play mode reads this store, so an action that carried a *rule* would be a rule fifty-two callers can reach and the server cannot. Every one of the store's actions is a destination plus a Kernel call today. **The test for the next visit: an action whose body contains an `if` about the ruleset.** That is the point at which the rule wants to be in `shared/services/` and this file wants to stay a switchboard |
+| `src/client/components/play/sheet/CharacterSheet.tsx` | 11.0 | TICKET-LIVE-02's run | 13 commits, 587 churn, 0.05 density, 6 fan-in | ▲ **Accelerating — TICKET-LIVE-02** — a first row for a file whose **diff this ticket is comments only**, which is the whole point of recording it. It was measured at **14 cyclomatic / 15 cognitive** on `main` — *at* fallow's cognitive limit, where TICKET-DM-03's row left it after `QuickActionsSidebar` — and the first draft of this ticket mounted the live feed with a second hook call here, which took it to **16**. Composing that hook inside `useOpenTableCharacter` instead put the file back to 14/15 and left the component unchanged. **The standing rule this confirms: on this component a hook call is not free.** Thirteen commits of pure composition have used up its headroom, so anything a sheet needs that is not a *section* belongs behind a hook it already calls — and the next feature that genuinely needs a fourteenth top-level hook here is the one that should split the component instead |
 
 **A schema bump touches almost everything, and three rows above are deliberately not claimed by
 TICKET-INV-05.** The `SUPPORTED_SCHEMA_VERSION` sweep moved one literal in ~40 files, which is the

@@ -48,7 +48,10 @@ export interface CharacterSheetProps {
 
 export function CharacterSheet({ characterId }: CharacterSheetProps) {
   // A sheet reached by URL may be a character that lives on the server (TICKET-PLY-01) — this reads
-  // it and its table's rules before anything below is asked to interpret it
+  // it and its table's rules before anything below is asked to interpret it, and since
+  // TICKET-LIVE-02 it also keeps that character in step with what everybody else at the table does.
+  // Nothing below changes for it: the feed writes to the store, so every section re-renders from
+  // the same values it always reads.
   const isOpening = useOpenTableCharacter(characterId);
 
   const {

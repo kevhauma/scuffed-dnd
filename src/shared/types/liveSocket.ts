@@ -1,5 +1,5 @@
 /**
- * What travels on the live socket, declared once for both ends (TICKET-LIVE-01)
+ * What travels on the live socket, declared once for both ends (TICKET-LIVE-01, TICKET-LIVE-02)
  *
  * The socket is **server → client** ([D8](../../../docs/v3.0_backend/overview.md#d8--websockets-notify-http-mutates)):
  * every state-changing action is an HTTP request, and the only thing a client may say here is
@@ -103,6 +103,8 @@ export const SERVER_MESSAGE_TYPE = {
    * it and a client cannot.
    */
   SUBSCRIBE_REFUSED: 'subscribe-refused',
+  /** Something happened at that table (TICKET-LIVE-02) — see {@link LiveEvent} */
+  EVENT: 'event',
 } as const;
 
 /** *You are in that room* */
@@ -117,5 +119,50 @@ export interface SubscribeRefusedMessage {
   sessionId: string;
 }
 
-/** Anything this server sends. LIVE-02 adds the Event feed to this union. */
-export type ServerSocketMessage = SubscribedMessage | SubscribeRefusedMessage;
+/**
+ * One Event, as the room reads it (TICKET-LIVE-02, v3 Req 44.4, 44.5)
+ *
+ * The `event` row minus its session — the frame already names the room — and with its `payload`
+ * **parsed**. The server holds that column as JSON text (D4); parsing it once here rather than
+ * shipping a string inside a string is the same call `playerStateOf` makes at the other end of the
+ * same boundary: these are our own bytes, written by this server.
+ *
+ * **`seq` is on every frame, and it is what ordering means.** Two Events that arrive together are
+ * ordered by this number rather than by arrival, because arrival order is a property of the network
+ * and `seq` is a property of the log (`UNIQUE(session_id, seq)`, DB-01). It is also what LIVE-03
+ * will resume a reconnecting client from.
+ *
+ * **No derived value is ever in here** (v3 Req 45.1). An Event carries the *stored* values that
+ * changed; a level, a stat total or a skill bonus is re-derived by the reader through the Kernel,
+ * exactly as it is after any other change.
+ */
+export interface LiveEvent {
+  /** The Event's own id, so a reader can tell a frame it has already seen */
+  id: string;
+  /** Where this sits in its session's order */
+  seq: number;
+  /** A `SheetAction`, `ROLL_EVENT`, or `SESSION_EVENT` value — a string, because the column is */
+  type: string;
+  /** Who did it, or `null` when the server itself acted */
+  actorAccountId: string | null;
+  /** When, in epoch milliseconds */
+  at: number;
+  /**
+   * The Event's own shape — a `PlayerActionEvent`, a `RollLogPayload`, a snapshot note
+   *
+   * `unknown` rather than a union of all three: the reader narrows on {@link LiveEvent.type}, which
+   * is the same discrimination the log's own readers already perform, and a union here would have
+   * to grow every time a *route* invents a payload.
+   */
+  payload: unknown;
+}
+
+/** *This happened at that table* */
+export interface LiveEventMessage {
+  type: typeof SERVER_MESSAGE_TYPE.EVENT;
+  sessionId: string;
+  event: LiveEvent;
+}
+
+/** Anything this server sends */
+export type ServerSocketMessage = SubscribedMessage | SubscribeRefusedMessage | LiveEventMessage;

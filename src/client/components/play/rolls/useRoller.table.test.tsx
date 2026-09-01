@@ -18,8 +18,30 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ROLL_EVENT } from '#shared/types/api';
 import type { Character } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
+import type { LiveEventMessage } from '#shared/types/liveSocket';
+
+/** The room, faked at the connection so that `useLiveSession`'s own logic still runs */
+const subscribe = vi.fn();
+const unsubscribe = vi.fn();
+let listeners: ((message: LiveEventMessage) => void)[] = [];
+
+vi.mock('../../../services/liveSocket', () => ({
+  liveConnection: () => ({
+    subscribe,
+    unsubscribe,
+    addListener: (listener: (message: LiveEventMessage) => void) => {
+      listeners.push(listener);
+
+      return () => {
+        listeners = listeners.filter((held) => held !== listener);
+      };
+    },
+    close: vi.fn(),
+  }),
+}));
 
 vi.mock('../../../services/storage', () => ({
   loadCharacters: vi.fn(() => []),
@@ -138,8 +160,32 @@ const CALCULATED = {
   rollInputs: { 'roll-1': 8 },
 } as never;
 
+/** One roll, as the table broadcasts it */
+function aRollFrame(id: string, seq: number, characterId = 'char-1'): LiveEventMessage {
+  return {
+    type: 'event',
+    sessionId: 'session-1',
+    event: {
+      id,
+      seq,
+      type: ROLL_EVENT,
+      actorAccountId: 'account-2',
+      at: 1_700_000_000_000,
+      payload: { characterId, outcome: { ...OUTCOME, total: seq } },
+    },
+  } as LiveEventMessage;
+}
+
+/** Deliver one frame to everything listening */
+function broadcast(frame: LiveEventMessage): void {
+  act(() => {
+    for (const listener of listeners) listener(frame);
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  listeners = [];
   globalThis.fetch = original;
   useUIStore.setState({ rollHistory: [] });
   useConfigStore.setState({ config: RULES, isLoaded: true });
@@ -284,6 +330,170 @@ describe('rolling at a table', () => {
 
     // `useUIStore`'s list is local mode's and stays empty — the table's log is the server's
     expect(useUIStore.getState().rollHistory).toEqual([]);
+  });
+});
+
+/** Wait for the mount read to have gone out */
+async function untilRead(): Promise<void> {
+  await waitFor(() => {
+    const made = requests();
+
+    expect(made.length).toBeGreaterThan(0);
+  });
+}
+
+describe('a roll broadcast by the table (TICKET-LIVE-02)', () => {
+  it('appears in the log without asking for it again', async () => {
+    respondWith([], OUTCOME);
+
+    const { result } = renderHook(() => useRoller('char-1', CALCULATED));
+    await untilRead();
+
+    expect(subscribe).toHaveBeenCalledWith('session-1');
+
+    const rolled = aRollFrame('event-9', 9);
+    broadcast(rolled);
+
+    const { history } = result.current;
+
+    expect(history).toHaveLength(1);
+    expect(history[0].total).toBe(9);
+
+    // One read on mount and nothing since: the frame *is* the update
+    const made = requests();
+
+    expect(made).toHaveLength(1);
+  });
+
+  it('keeps a roll that arrived while the log was being read', async () => {
+    // **The window is real, not theoretical**: the server's fan-out is synchronous with the write,
+    // so a roll made after the `SELECT` ran and before its response landed reaches the browser as a
+    // frame *first*. A mount read that replaced state would throw it away and leave the log missing
+    // its newest row until something else happened.
+    let answer: (rolls: unknown[]) => void = () => undefined;
+
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Promise<Response>((resolve) => {
+          answer = (rolls) => {
+            const body = JSON.stringify({ rolls });
+            const response = new Response(body, {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            });
+
+            resolve(response);
+          };
+        })
+    ) as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useRoller('char-1', CALCULATED));
+    await untilRead();
+
+    const live = aRollFrame('event-live', 7);
+    broadcast(live);
+
+    await act(async () => {
+      answer([LOGGED]);
+    });
+
+    const ids = result.current.history.map((roll) => roll.id);
+
+    expect(ids).toEqual(['event-live', LOGGED.id]);
+  });
+
+  it('orders by seq, not by the order the frames arrived', async () => {
+    respondWith([], OUTCOME);
+
+    const { result } = renderHook(() => useRoller('char-1', CALCULATED));
+    await untilRead();
+
+    // Two rolls made at once, delivered out of order — only the log knows which came first
+    const second = aRollFrame('event-2', 2);
+    const third = aRollFrame('event-3', 3);
+
+    broadcast(second);
+    broadcast(third);
+
+    // Read by the Event id rather than by `seq`, because what the hook hands back is a
+    // `RollResult` — the sequence number is how the rows were *ordered*, not something the sheet
+    // shows, and a cast to reach it would be the test asserting on an implementation detail
+    const order = result.current.history.map((roll) => roll.id);
+
+    expect(order).toEqual(['event-3', 'event-2']);
+  });
+
+  it('shows a Player’s own roll once, though it arrives twice', async () => {
+    respondWith([], LOGGED);
+
+    const { result } = renderHook(() => useRoller('char-1', CALCULATED));
+    await untilRead();
+
+    const handleRoll = rollerOf(result);
+    await act(async () => {
+      handleRoll('roll-1');
+    });
+    await waitFor(() => {
+      const shown = result.current.results['roll-1'];
+
+      expect(shown).toBeDefined();
+    });
+
+    // The same Event the `POST` answered with, now coming back round the room. Deduplicated by the
+    // Event's id, which is the id the route minted and the row carries.
+    const echoed = aRollFrame(LOGGED.id, LOGGED.seq);
+    broadcast(echoed);
+
+    const { history } = result.current;
+
+    expect(history).toHaveLength(1);
+  });
+
+  it('ignores a roll made by somebody else’s character', async () => {
+    respondWith([], OUTCOME);
+
+    const { result } = renderHook(() => useRoller('char-1', CALCULATED));
+    await untilRead();
+
+    const somebodyElse = aRollFrame('event-4', 4, 'another-character');
+    broadcast(somebodyElse);
+
+    // This hook is one character's; the table-wide feed is TICKET-DM-04's
+    const { history } = result.current;
+
+    expect(history).toEqual([]);
+  });
+
+  it('joins no room for the table’s DM, whose log is empty for a reason', () => {
+    // **The half-filled log this ticket ruled out.** A DM's mount read is narrowed to their own
+    // Account and comes back empty (the gap DM-05 recorded and DM-04 owns), so subscribing anyway
+    // would append rows from socket-open onward and turn an empty panel into one that looks right
+    // and silently omits everything before it. The DM's *character* feed is unaffected — that is
+    // `useTableCharacterFeed`'s subscription, and the connection counts its rooms.
+    useCharacterStore.setState({ tableCharacterOwnerId: 'somebody-else' });
+
+    const { result } = renderHook(() => useRoller('char-1', CALCULATED));
+
+    expect(subscribe).not.toHaveBeenCalled();
+
+    const rolled = aRollFrame('event-9', 9);
+    broadcast(rolled);
+
+    const { history } = result.current;
+
+    expect(history).toEqual([]);
+  });
+
+  it('joins no room for a character in this browser', () => {
+    useCharacterStore.setState({
+      characters: [aCharacter({ id: 'local-1' })],
+      tableCharacter: null,
+      tableSessionId: null,
+    });
+
+    renderHook(() => useRoller('local-1', CALCULATED, { rng: () => 0.5 }));
+
+    expect(subscribe).not.toHaveBeenCalled();
   });
 });
 

@@ -19,14 +19,14 @@
  * **Validates: v3 Req 32.1, 32.3, 32.5, 37.5, 41.6**
  */
 
-import { ROLL_EVENT, type SessionRollListing } from '#shared/types/api';
+import { ROLL_EVENT, type RollLogPayload, type SessionRollListing } from '#shared/types/api';
 import { requireMember } from '../../auth/guards';
 import { defineHandler } from '../../http/pipeline';
 import { findAccountById } from '../../repositories/accountRepository';
 import { latestEventsOfType } from '../../repositories/eventRepository';
 import { charactersInSession } from '../../repositories/gameSessionRepository';
 import { sessionIdFrom } from '../sessions/sessionPayloads';
-import { type RollLogPayload, toSessionRoll } from './rollPayloads';
+import { toSessionRoll } from './rollPayloads';
 
 /**
  * How much of the log one read answers

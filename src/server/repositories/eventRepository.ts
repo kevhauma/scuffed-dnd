@@ -11,6 +11,14 @@
  * - **Append-only** — there is no update and no delete here. An event is what happened, and
  *   editing it is editing the past.
  *
+ * **Since TICKET-LIVE-02 the two append functions have exactly one caller** —
+ * [`events/recordEvent.ts`](../events/recordEvent.ts), which publishes every row it writes to that
+ * session's room. Nothing else in `src/server/` may call them, and `events/eventFanOut.test.ts`
+ * walks the tree to say so: an Event that is written without being published is an action nobody at
+ * the table is told about, which is the failure the whole live feed exists to rule out. A caller
+ * composing an Event with another write takes an {@link AppendEvent} rather than importing one.
+ * The **read** functions below have no such rule and are called from wherever a log is projected.
+ *
  * **Validates: v3 Req 46.5, 44.5, 44.6**
  */
 
@@ -69,6 +77,39 @@ export function appendEvent(input: NewEvent, database: Database = getDatabase())
  * quietly disagreeing with the first.
  */
 export type EventWriter = Parameters<Parameters<Database['db']['transaction']>[0]>[0];
+
+/**
+ * One Event, already decided, waiting to be written (TICKET-LIVE-02)
+ *
+ * **What a repository is handed instead of importing {@link appendEventWithin} itself.** The two
+ * writes that carry an Event alongside something else — a player action and its character, a
+ * Snapshot refresh and its session — used to reach for the append directly, which meant three
+ * modules could put a row in `event` and only one of them could be watched. Now `recordEvent`
+ * binds the Event into one of these and passes it down, so **the append has exactly one call site
+ * in `src/server/`** and `events/eventFanOut.test.ts` can say so by walking the tree.
+ *
+ * **The transaction is optional and that is the whole flexibility it needs**: a caller that has
+ * opened one passes it, so the Event lands or fails with the rest of its fact; a caller with
+ * nothing else to write calls it bare and {@link appendEvent} takes its own `immediate`
+ * transaction. Two types, one for each, would have made every writer decide which kind it was.
+ *
+ * The type lives here rather than beside `recordEvent` because a repository naming it must not
+ * import from `server/events/` — that module imports *this* one, and the pair would be a cycle
+ * `no-circular` refuses.
+ */
+export type AppendEvent = (tx?: EventWriter) => EventRow;
+
+/**
+ * What a write that carried an Event hands back (TICKET-LIVE-02)
+ *
+ * Both rows: `written` is the rest of the fact — the character, the session — and `event` is what
+ * `recordEvent` publishes. Declared here beside {@link AppendEvent} rather than beside its
+ * publisher, so that a repository returning one is not importing a type from a layer above it.
+ */
+export interface Recorded<T> {
+  event: EventRow;
+  written: T;
+}
 
 /**
  * Append one event **inside a transaction the caller already opened** (TICKET-PLY-01)

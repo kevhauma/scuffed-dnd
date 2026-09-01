@@ -961,6 +961,44 @@ export interface CharacterAdjustmentListing {
 export const ROLL_EVENT = 'roll';
 
 /**
+ * The Events a **session** writes about itself, rather than about a character (v3 Req 37.3)
+ *
+ * **Here rather than in `routes/sessions/refreshSnapshot.ts`, since TICKET-LIVE-02.** It lived
+ * there as a private const with a note saying it existed *"so LIVE-02 has a name to fan out rather
+ * than a literal to guess"* — and now that the fan-out reaches a browser, the guesser would have
+ * been the **client**: a reader that has to decide *can I apply this?* needs to name the type, and a
+ * second spelling of `'session.snapshot_refreshed'` in `client/` is exactly the drift the wire
+ * contract exists to prevent.
+ *
+ * Dotted where {@link ROLL_EVENT} and the `SheetAction` values are hyphenated, deliberately: those
+ * name an act somebody performed on a sheet, and this names a thing that happened to the table.
+ * Both share the log's one `type` column, so being tellable apart six months later is the whole
+ * requirement.
+ */
+export const SESSION_EVENT = {
+  /** The DM pulled the ruleset's current state into the running game (TICKET-GAM-01) */
+  SNAPSHOT_REFRESHED: 'session.snapshot_refreshed',
+} as const;
+
+/**
+ * What a roll Event stores
+ *
+ * The **outcome whole**, rather than a total: the point of the ladder is that the chain is visible,
+ * and a log that kept only the sum would be a log nobody can argue with. The character's *name* is
+ * deliberately not in here — it is looked up when the log is read, so a rename does not leave the
+ * history calling somebody by a name they no longer have.
+ *
+ * **Moved here from `routes/rolls/rollPayloads.ts` by TICKET-LIVE-02**, which made it a wire shape
+ * in the literal sense: the same object now rides the socket to every Member of the table, so the
+ * browser reads it as well as the server. `useRoller` turns one into a log row without asking for
+ * the log again.
+ */
+export interface RollLogPayload {
+  characterId: string;
+  outcome: RollOutcome;
+}
+
+/**
  * What a client sends to roll (v3 Req 41.6, 45.2)
  *
  * **Which roll, and nothing else.** The dice are the server's — a body carrying `total`, `results`

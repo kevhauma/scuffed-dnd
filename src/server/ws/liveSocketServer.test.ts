@@ -582,8 +582,8 @@ describe('rooms, over a real connection', () => {
 
         const arriving = nextMessage(listening);
 
-        // Built from the shared constant rather than typed out as JSON: LIVE-02's traffic will use
-        // this contract, and a hand-written literal would keep passing after the contract moved
+        // Built from the shared constant rather than typed out as JSON: LIVE-02's traffic uses this
+        // contract, and a hand-written literal would keep passing after the contract moved
         const traffic: ServerSocketMessage = {
           type: SERVER_MESSAGE_TYPE.SUBSCRIBED,
           sessionId: "a later ticket's traffic",

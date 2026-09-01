@@ -28,7 +28,7 @@ src/
 │   │   ├── config/               # Configuration mode routes
 │   │   └── play/                 # Play mode routes
 │   ├── stores/                   # Zustand state stores
-│   ├── services/                 # LocalStorage, Blob/File download, /api/* client, socket address
+│   ├── services/                 # LocalStorage, Blob/File download, /api/* client, the live socket
 │   ├── components/               # ui/ primitives → config/, play/, rulesets/, auth/, shared/
 │   ├── integration/              # The nothing-mocked suites
 │   ├── router.tsx                # Router creation

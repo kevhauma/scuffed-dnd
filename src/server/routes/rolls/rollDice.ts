@@ -29,15 +29,20 @@
 import { calculateCharacter } from '#shared/engine/calculator';
 import type { RandomSource } from '#shared/engine/dice/diceSimulator';
 import { rollRollDefinition } from '#shared/engine/dice/rollDefinition';
-import { ROLL_EVENT, type RollRequest, type SessionRoll } from '#shared/types/api';
+import {
+  ROLL_EVENT,
+  type RollLogPayload,
+  type RollRequest,
+  type SessionRoll,
+} from '#shared/types/api';
 import { requireAccount, requireCharacterPlayer } from '../../auth/guards';
+import { eventAlone, recordEvent } from '../../events/recordEvent';
 import { badRequest } from '../../http/appError';
 import { defineHandler } from '../../http/pipeline';
 import { findAccountById } from '../../repositories/accountRepository';
-import { appendEvent } from '../../repositories/eventRepository';
 import { characterIdFrom } from '../characters/characterPayloads';
 import { playedAt, playerStateOf } from '../play/playPayloads';
-import { type RollLogPayload, rolledOrRefused, rollIdFrom, toSessionRoll } from './rollPayloads';
+import { rolledOrRefused, rollIdFrom, toSessionRoll } from './rollPayloads';
 
 /**
  * Build the handler, with the randomness a test can replace (v3 Req 45.3)
@@ -71,14 +76,22 @@ export function rollDiceHandler(rng: RandomSource = Math.random) {
 
     const payload: RollLogPayload = { characterId: row.id, outcome };
 
-    const logged = appendEvent({
-      id: crypto.randomUUID(),
-      sessionId,
-      actorAccountId: account.id,
-      type: ROLL_EVENT,
-      payload: JSON.stringify(payload),
-      now: Date.now(),
-    });
+    // **`eventAlone`, because a roll changes no stored state** (TICKET-LIVE-02): there is no
+    // character write to share a transaction with, so the append takes its own — and going through
+    // `recordEvent` regardless is what puts the roll in front of the rest of the table.
+    const recorded = recordEvent(
+      {
+        id: crypto.randomUUID(),
+        sessionId,
+        actorAccountId: account.id,
+        type: ROLL_EVENT,
+        payload: JSON.stringify(payload),
+        now: Date.now(),
+      },
+      eventAlone
+    );
+
+    const logged = recorded.event;
 
     // **The logged entry, not the bare outcome.** The review found the client re-reading the whole
     // log after every roll for the one row it had just created — a round trip per roll, and a window

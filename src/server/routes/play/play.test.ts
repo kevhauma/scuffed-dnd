@@ -24,7 +24,7 @@
  * **Validates: v3 Req 32.1, 32.3, 32.4, 32.5, 37.5, 41.1-41.5, 41.7, 45.1**
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { backpackOf } from '#shared/engine/composedItems';
 import { buildCharacter } from '#shared/services/characterCreation';
 import type { CharacterDocument, PlayerActionEvent } from '#shared/types/api';
@@ -995,6 +995,45 @@ describe('the Event log', () => {
         before,
         after: (before as number) - 5,
       });
+    }));
+
+  it('stamps the character and its Event from one instant', () =>
+    withTestDatabase(async (database) => {
+      const { player, rules, row, session } = aTableWithACharacter(database);
+      const [pool] = resourceStats(rules);
+
+      /*
+       * **The clock is driven so that a second reading is a *different* number.**
+       *
+       * The invariant is that `applyPlayerAction` reads `Date.now()` **once** and spends it three
+       * times — the character's column, the document's own `updatedAt`, and this Event's
+       * `createdAt` — which is what lets a client apply a broadcast Event by patching `updatedAt`
+       * from its `at` and arrive at exactly the string stored here
+       * (`client/services/liveEvents.ts`). `useCharacterAdjustments` keys its read on that string,
+       * so a millisecond of drift is a sheet that refetches its adjustment log forever with
+       * nothing looking broken.
+       *
+       * Asserted against the real clock, this test would **pass by coincidence**: two `Date.now()`
+       * calls in one synchronous block return the same millisecond nearly always, so a second
+       * reading would go green almost every run and red at random — worse than no test, since
+       * three docblocks cite this one as proof. Stubbed this way the first read is 1_000 and every
+       * read after it is 2_000, so one reading passes and two differ by a full second.
+       */
+      const clock = vi.spyOn(Date, 'now');
+      clock.mockReturnValueOnce(1_000).mockReturnValue(2_000);
+
+      try {
+        await act(PLAYER_ACTION.ADJUST_RESOURCE, row.id, { statId: pool.id, delta: -1 }, player);
+      } finally {
+        clock.mockRestore();
+      }
+
+      const [event] = eventsOf(database, session.id);
+      const stored = stateOf(database, row.id);
+      const stamped = new Date(event.createdAt).toISOString();
+
+      expect(event.createdAt).toBe(1_000);
+      expect(stored.updatedAt).toBe(stamped);
     }));
 
   it('writes none for a refused action, however many are refused', () =>

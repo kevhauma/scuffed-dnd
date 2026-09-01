@@ -39,6 +39,7 @@ server/repositories/ the only code that issues queries — one module per aggreg
 server/http/        AppError, the request pipeline, the API route table
 server/routes/      one module per API route — plain handlers, no framework coupling
 server/ws/          the live socket: rooms, the subscribe surface, the `ws` attachment
+server/events/      the one writer of the `event` table, which broadcasts what it writes
 server/entry.ts     the server entry: /api/* to the router, everything else to SSR
 ```
 
@@ -140,7 +141,7 @@ change also exists (v3 Req 33.8).
 |---|---|---|
 | `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), skills, roll definitions, dice ladders, materials + categories, **inlays** (TICKET-INL-01 — gem families, whose tiers are written through `updateInlay` with the whole ladder, like a material's levels), **spells** (TICKET-SPL-01 — the compendium; `updateSpell` clears the optional `description` and `manaCost` through `mergeClearingAbsent`), **passives** (TICKET-PAS-01 — the catalog; `updatePassive` is a plain spread rather than `mergeClearingAbsent`, because a passive has no optional field for a save to be clearing), items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
-| `useCharacterStore` (cont.) | `tableCharacter` + `tableSessionId` + `tableCharacterOwnerId` + `isActing` + `actionError`, and `openTableCharacter` / `closeTableCharacter` / `dismissActionError` (TICKET-PLY-01; `tableSessionId` is ROLL-07's, read by the session-scoped roll log; `tableCharacterOwnerId` is DM-01's, and is how the sheet tells the DM's view from the Player's without a second request) — **the one character open at a game session**, held apart from `characters` because that list is LocalStorage's and a session character must never land in it (v3 Req 36.2). Every existing write action keeps its signature and gains one line: `toTable(...)` sends the named intent to the server when the id is this one's, otherwise the Kernel rule runs locally. `selectCharacter(state, id)` is the exported reader both the sheet and the inventory panel use | server, via `services/characterSync.ts` |
+| `useCharacterStore` (cont.) | `tableCharacter` + `tableSessionId` + `tableCharacterOwnerId` + `isActing` + `actionError`, and `openTableCharacter` / `closeTableCharacter` / `dismissActionError` (TICKET-PLY-01; `tableSessionId` is ROLL-07's, read by the session-scoped roll log; `tableCharacterOwnerId` is DM-01's, and is how the sheet tells the DM's view from the Player's without a second request) — **the one character open at a game session**, held apart from `characters` because that list is LocalStorage's and a session character must never land in it (v3 Req 36.2). Every existing write action keeps its signature and gains one line: `toTable(...)` sends the named intent to the server when the id is this one's, otherwise the Kernel rule runs locally. `selectCharacter(state, id)` is the exported reader both the sheet and the inventory panel use. **`applyTableEvent(event)`** (TICKET-LIVE-02) is the one way a *broadcast* reaches this state: `services/liveEvents.ts` decides what an Event does and this writes it, answering `applied` / `elsewhere` / `stale` so a caller can re-read rather than guess — the same split as every other action, where the rule is somebody else's and the state is the store's | server, via `services/characterSync.ts` |
 | `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `buildItem`, `discardItem` — four since TICKET-INV-06, where the derived Backpack collapsed `addMiscItem`/`removeMiscItem`/`moveItemToMisc`/`moveItemToEquipment` into them), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience` (the rule is the Kernel's `dmActions.ts` since TICKET-DM-01, not this store's), `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) — `setFocusSkills(characterId, focusSkillIds, config)` (TICKET-SKL-05 — the whole list of picks at once, refusing more than three or a skill the ruleset has not got, and *reporting* the refusal because the picker has nothing standing in front of it) — `learnSpell(characterId, spellId, config)` / `unlearnSpell(characterId, spellId)` / `castSpell(characterId, spellId, statId, config)` (TICKET-SPL-02 — all three *report* their refusals, `unlearnSpell` takes no ruleset so a force-deleted spell stays clearable, and a cast is a mana spend that ends in the ordinary resource action) — `grantPassive(characterId, passiveId, config)` / `revokePassive(characterId, passiveId)` (TICKET-PAS-01 — the **local** half of the passive handout, refused at a table because there is no player route to the field; `revokePassive` takes no ruleset, so a force-deleted passive stays clearable) — and the DM's fifteen, `dmAwardExperience` / `dmDeductExperience` / `dmSetLevel` / `dmSetGrantedPoints` / `dmSetResource` / `dmSetDreamLevel` / `dmGrantPassive` / `dmRevokePassive` (TICKET-DM-01, TICKET-RES-04, TICKET-PAS-01) plus `dmSetPurse` / `dmAdjustPurse` / `dmBuildItem` / `dmDiscardItem` / `dmEquipItem` / `dmUnequipItem` (TICKET-DM-02 — none of them takes a `Configuration`, because the server runs the rule against the Snapshot), plus `dmAdjustResource` (TICKET-DM-03 — `dmSetResource`'s delta counterpart, so a quick action takes seven off what is **stored** rather than off a reading a surface had), which are **table-only** and named apart from the Player's own so no call site has to decide which act it is — the *client* decides, once, in `usePurseControls`, `useInventoryActs` and `useQuickActions` — `updateDreamLevel` and `grantPassive`/`revokePassive` are the local halves, refused at a table exactly as `awardExperience` and `setPurse` are. `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
 | `useConfigStore` (cont.) | `source` + `openAccountRuleset(id)` / `openLocalRuleset()` (TICKET-RUL-02) — which home is open, and the two ways to change it. Opening one home reads nothing from the other | via `services/rulesetSync.ts` |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history, `storageFailure` and `saveConflict` (TICKET-RUL-02 — a *server* refusal, with the edit still on screen) | not persisted |
@@ -624,12 +625,32 @@ between the roots is exactly *"does this touch a browser API"*.
   refusal writes `ERROR_CODE.CONFLICT` and a renamed code breaks both roots at once; `ApiError.body`
   carries the details a route attached (a conflict's `currentRevision`, a shape refusal's `fields`).
   Better Auth keeps its own client for `/api/auth/*`; local mode never calls this at all.
-- `liveSocket.ts` — `liveSocketUrl(location)` (TICKET-LIVE-01), and **that is the whole client half
-  of the socket so far**. `ws:`/`wss:` chosen from the page's own protocol, host and port taken
-  verbatim, path from `#shared/types/liveSocket`'s `LIVE_SOCKET_PATH`. No environment variable, no
+- `liveSocket.ts` — `liveSocketUrl(location)` (TICKET-LIVE-01) **and the connection that uses it**
+  (TICKET-LIVE-02). `ws:`/`wss:` chosen from the page's own protocol, host and port taken verbatim,
+  path from `#shared/types/liveSocket`'s `LIVE_SOCKET_PATH`. No environment variable, no
   configurable base and no host literal anywhere in the module — asserted against its **own source
-  text**, since that property decays the first time somebody adds a fallback. The connection object
-  that uses this address arrives with LIVE-02, in the change that consumes it.
+  text**, since that property decays the first time somebody adds a fallback.
+  `openLiveConnection({ url, open? })` is one socket, several rooms and a list of listeners, over a
+  structural `LiveSocketLike` so a test drives it with no `WebSocket`; `liveConnection()` is the
+  page's singleton, `liveRooms()`'s counterpart at the other end. **Rooms are reference-counted**,
+  because two hooks on one sheet subscribe to the same table and the second unmounting must not take
+  the first one's feed. Frames written before the handshake finishes are queued and flushed on
+  `open` — nothing is queued across a *close*, which would be replay. It deliberately **does not
+  reconnect, report connection state, or replay**: all three are TICKET-LIVE-03's (v3 Req 44.6,
+  44.8, 44.9), and a client that came back without knowing what it missed is worse than one that
+  stayed down.
+- `liveEvents.ts` — **what a broadcast Event does to the sheet a browser is holding**
+  (TICKET-LIVE-02). Pure. `applyEventToCharacter(character, event)` answers `applied` (with the
+  patched character), `elsewhere` (another character, or a roll, which stores nothing) or `stale`
+  (only a re-read can say). **An Event is applicable exactly when its `after` is one of CLAUDE.md's
+  five sanctioned stored fields** — pools, experience, purse, granted points, dream level — which is
+  a principle rather than a list: everything else an action changes is *structure*. The table is an
+  exhaustive `Record<SheetAction, …>`, so a new action is a compile error here. `cast-spell` is the
+  case that proves it must be explicit — its before/after are a **pool's** and its `target` is a
+  **spell's**, so anything inferring *resource* from shape would corrupt the sheet. An applied patch
+  also carries the Event's `at` into `updatedAt`, reproducing the string the server stored (one
+  `Date.now()` in `applyPlayerAction`, asserted by `play.test.ts`), which is what lets the adjustment
+  log follow a live change without a second mechanism.
 - `rulesetSync.ts` — **the one place a ruleset edit's destination is decided** (TICKET-RUL-02).
   `persistRuleset(source, config)`: the browser home writes LocalStorage synchronously, exactly as
   v2.0 did down to letting `storage.ts`'s throw out; the account home debounces (800 ms), coalesces
@@ -907,8 +928,9 @@ each later ticket adds.
   queries here forbids a handler from importing `db/client`, so a connection-first signature is one
   no route can call. AUTH-03 converted DB-01's two to match.
 
-- `ws/` (TICKET-LIVE-01) — **the live socket**, and the transport only; nothing is broadcast yet.
-  Three modules and the split between them is the design:
+- `ws/` (TICKET-LIVE-01) — **the live socket**, and the transport only. It carries traffic since
+  TICKET-LIVE-02, but nothing here decides what: `events/recordEvent.ts` is `broadcast`'s one
+  production caller. Three modules and the split between them is the design:
   - `rooms.ts` — one room per Game_Session, `Map<sessionId, Set<LiveConnection>>`, with `join`,
     `leave`, `forget`, `broadcast`, `evictMember`, `closeAll` and `roomCount`. **It imports `ws` not
     at all** — and that is a **dependency-cruiser rule**, `the-socket-library-has-one-importer`, not
@@ -940,6 +962,18 @@ each later ticket adds.
     both ends read it.
   - **Attached only under `yarn dev`**, by `scripts/live-socket.mjs`. `entry.ts` is handed a
     `Request` and never sees a listener; the production attachment is TICKET-POL-03's.
+- `events/` (TICKET-LIVE-02) — **`recordEvent.ts`, and the whole folder is that one function.** It
+  is the only code path in `src/server/` that puts a row in `event`, and it broadcasts every row it
+  writes to that session's room, so *an Event is written* and *the table is told* are one act. It
+  **injects** the appender into the two repositories that write an Event alongside something else
+  (`recordPlayerAction`, `refreshSessionSnapshot`) rather than letting them import one — which is
+  what makes `appendEvent(`/`appendEventWithin(` a **single call site** the tree-walk in
+  `eventFanOut.test.ts` asserts as an equality. It cannot own the transaction
+  (`queries-belong-to-repositories` keeps it away from Drizzle) and does not need to: the repository
+  returns both rows and the publish happens after commit, wrapped, because a fan-out that threw
+  would report a committed change as a failed one. `eventAlone` is the writer for a caller with
+  nothing else to record — a roll. Three production callers: `routes/play/playPayloads.ts` (which is
+  all 28 sheet actions), `routes/rolls/rollDice.ts` and `routes/sessions/refreshSnapshot.ts`.
 
 Server tests call handlers directly with a `Request` and **never boot Nitro** —
 `vitest.config.ts` still omits `tanstackStart()`, for the reason its own header records. **A socket
@@ -1093,6 +1127,12 @@ the Skills one. `useNumericDraft.ts` (TICKET-RES-03) is the
 fourth: hold a half-typed number, **commit on blur or Enter**, never per keystroke, with opt-in
 `allowRelative` for Concept 20's `+12` / `-7` quick entry. Every editable number on a play surface
 goes through it — reach for it rather than re-rolling a draft `useState`.
+**`useLiveSession(sessionId, onEvent)`** (TICKET-LIVE-02) is the fifth, and the one place a play
+surface joins a table's room: it subscribes while mounted, hands over the Events of *its own* room
+and no other, and asks for no socket at all while nobody is signed in (D6). The listener is held in
+a **ref** rather than depended on — every caller passes a fresh closure, so a dependency on it would
+leave and rejoin the room on each render. Two callers today (`useTableCharacterFeed`,
+`useTableRollLog`), which is exactly why the connection beneath it counts its rooms.
 `characters/` holds `CharacterList` + `CharacterCard` + `useCharacterListManager`.
 `creation/` holds the five-step wizard: `CharacterCreationWizard` dispatches on a step index and
 the five step components (`IdentityStep`, `ArchetypeStep`, `SkillAllocationStep`, `FocusStep`,
@@ -1122,7 +1162,14 @@ complexity threshold); it is down to experience, the dream level and *back* sinc
 and takes no `Configuration` — and **`useOpenTableCharacter`**, which reads a character that lives on the server and
 then its table's Snapshot, in that order, reporting while it does so the sheet waits rather than
 rendering *Different Ruleset Loaded* in between. **It asks the server nothing while nobody is signed
-in** (D6). The sheet renders a dismissible refusal banner from `actionError`, and at a table it draws
+in** (D6). **Since TICKET-LIVE-02 it also mounts the live feed** — `useTableCharacterFeed`, its
+sibling — for two reasons: the fallback re-read has to be *these* two calls rather than a second
+spelling of them, and `CharacterSheet` sits at the complexity threshold (`fallow` measured it at 15
+cognitive against a limit of 15, and a second hook call took it to 16), so composing here keeps that
+component's diff comments-only, as DM-05 did. **`useTableCharacterFeed`** routes each Event through
+`characterStore.applyTableEvent` and, for one it cannot apply, schedules **one** coalesced re-read —
+a burst of four costs one request, and an Event that lands *during* a read earns exactly one
+trailing pass. The sheet renders a dismissible refusal banner from `actionError`, and at a table it draws
 **neither** the experience controls nor the dream-level box, and **no way to edit the purse** —
 those are the DM's (D9, v3 Req 42.5 and the v4 ruling), and an absent control says *not yours* where
 a disabled one says *not now*. The purse **card** is drawn there since TICKET-DM-02, read-only, so a
@@ -1331,7 +1378,7 @@ Player at a table gets the list and no controls. It returns `null` rather than a
 because an absent control says *not yours* where a disabled one says *not now*. The panel composes
 both hooks and takes only `characterId` and `atTable`; the sheet threads no handlers at all, which is
 what kept `CharacterSheet` under the complexity threshold when `fallow` measured it.
-`rolls/` holds `useRoller`, `RollBreakdown` and `RollHistoryPanel`.
+`rolls/` holds `useRoller`, `useTableRollLog`, `RollBreakdown` and `RollHistoryPanel`.
 The roll button and the last result live in `RollsSection`; the history is its own panel.
 **`useRoller` branches on where the character lives** (TICKET-ROLL-07). A **local** character rolls
 in the browser through `rollRollDefinition`, with randomness injectable via
@@ -1346,10 +1393,22 @@ preview, because a previewed roll that differed from the recorded one is the exa
 `requireCharacterPlayer`, so the hook answers `handleRoll: undefined` for a DM and `RollsSection`
 draws the pool as text with no button. Two things follow. `canRoll` and an absent `handleRoll` mean
 **different** things and are kept apart — *this roll cannot be resolved right now* disables a button
-that still means something, where *this is not your roll* draws none. And a known gap: the hook
-narrows the session log with `?rolledBy=<the reader's own accountId>`, so **a DM's view of the roll
-history reads empty** — the table-wide feed is TICKET-DM-04's roster and TICKET-LIVE-02's, and the
-note is on both tickets.
+that still means something, where *this is not your roll* draws none. And a known gap: the log is
+narrowed with `?rolledBy=<the reader's own accountId>`, so **a DM's view of the roll history reads
+empty**. TICKET-LIVE-02 left it there **deliberately**, and did one thing to keep it honest: a DM
+**joins no room for the log at all** (`listeningTo` is `atTable && !isDungeonMaster`), because a
+live feed on an empty panel would fill it from socket-open and omit everything before that in
+silence — a log that looks right and is not, which is worse than the empty one. The real fix is not
+a fan-out ticket's: narrowing by *character* needs a second `json_extract` on the payload or a
+`character_id` column, which `eventRepository`'s own docblock flags as a schema decision. It is
+TICKET-DM-04's, with the table-wide feed. **The DM's *character* feed is unaffected** — that is
+`useTableCharacterFeed`'s subscription, and the connection beneath both counts its rooms.
+**`useTableRollLog`** is the log itself, split out of `useRoller` by TICKET-LIVE-02 when the log
+gained a second source: it reads `GET /api/sessions/:id/rolls` once, follows the table's room
+thereafter, and hands back `adopt` for the third source — the Player's own `POST` answer. All three
+go through one private `withRoll`, so a row cannot appear twice (deduplicated by the **Event's id**,
+which the route minted and the response carries) and cannot be out of order (sorted by **`seq`**,
+the log's own order rather than the network's).
 
 **`shared/`** — cross-mode components and hooks, barrelled by `shared/index.ts`:
 `AppShell.tsx` (the medieval frame + mode switcher + per-mode nav), `useAppMode.ts` (route↔mode

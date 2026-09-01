@@ -21,6 +21,19 @@
  * comes back is the server's outcome, and the history is a projection of the session's Event log —
  * so it survives a reload, which `useUIStore`'s never could.
  *
+ * ## …and since TICKET-LIVE-02 that projection keeps up on its own
+ *
+ * The table's room is subscribed to while the sheet is open, so a roll lands in the log as it
+ * happens rather than on the next read — which is [`useTableRollLog`](./useTableRollLog.ts)'s, not
+ * this hook's. **That split is the ticket's, and it is a split of subjects**: *what has been rolled*
+ * now has three sources (a read, a broadcast, and this hook's own `POST` answer) while *how a roll
+ * is made* still has two homes, and the ordering and deduplication all three need belong with the
+ * log rather than with the roller.
+ *
+ * **The DM gets no room here**, which is the one place this hook's two predicates meet: their log
+ * is empty by the narrowing above, so a live feed would fill it from socket-open and omit
+ * everything before that in silence. See `listeningTo` below.
+ *
  * ## And the table's DM does not roll either (TICKET-DM-05)
  *
  * [`rollDice.ts`](../../../../server/routes/rolls/rollDice.ts) uses `requireCharacterPlayer`, whose
@@ -39,18 +52,48 @@
  * **Validates: Concept 08; Requirements 15.1, 15.2, 15.3, 15.5; v3 Req 41.6, 42.7, 45.2, 49.10**
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { RandomSource } from '#shared/engine/dice/diceSimulator';
 import { rollRollDefinition } from '#shared/engine/dice/rollDefinition';
 import { describeFormulaError, isFormulaError } from '#shared/engine/formula/errors';
 import type { CalculatedCharacter } from '#shared/types/character';
 import type { RollOutcome } from '#shared/types/formula';
-import { fetchSessionRolls, ROLL_OUTCOME, sendRoll } from '../../../services/characterSync';
+import { ROLL_OUTCOME, sendRoll } from '../../../services/characterSync';
 import { useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
-import { type RollResult, useUIStore } from '../../../stores/uiStore';
-import { useAuth } from '../../auth/useAuth';
+import { useUIStore } from '../../../stores/uiStore';
 import { useIsDungeonMaster } from '../dm/useIsDungeonMaster';
+import { useTableRollLog } from './useTableRollLog';
+
+/**
+ * Which room this reader listens to for one character's rolls, if any (TICKET-LIVE-02)
+ *
+ * At module scope rather than inline, on TICKET-DM-05's precedent — a decision the hook body was
+ * making is a decision that belongs outside it, and `fallow` measured this one taking `useRoller`
+ * from 15 cognitive to 16 against a threshold of 15.
+ *
+ * **Two ways to answer *no*, and the second is the interesting one.** A character in this browser
+ * has no table, so there is nothing to listen to (D6). And the table's **DM** deliberately listens
+ * to nothing here: the log's mount read is narrowed to the reader's own Account, so a DM's comes
+ * back empty — and a live feed on an empty panel would fill it from socket-open and omit everything
+ * before that in silence. That is the outcome TICKET-LIVE-02's own note calls worse than an empty
+ * log; the gap itself is TICKET-DM-04's to close, with the table-wide feed.
+ *
+ * @param atTable Whether the sheet's character plays at a game session
+ * @param isDungeonMaster Whether the reader runs that table rather than owning the sheet
+ * @param sessionId Which table, when there is one
+ * @returns The room to join, or `null`
+ */
+function logRoomFor(
+  atTable: boolean,
+  isDungeonMaster: boolean,
+  sessionId: string | null
+): string | null {
+  if (!atTable) return null;
+  if (isDungeonMaster) return null;
+
+  return sessionId;
+}
 
 export interface UseRollerOptions {
   /**
@@ -77,9 +120,6 @@ export function useRoller(
   const tableSessionId = useCharacterStore((state) => state.tableSessionId);
   // Who is holding the sheet open (TICKET-DM-05) — the shared predicate, not a fifth spelling of it
   const isDungeonMaster = useIsDungeonMaster(characterId);
-  // Whose rolls to ask for. The Player's own, because `requireCharacterPlayer` means nobody else
-  // could have rolled this character — the id is what the log is keyed by, so it is what narrows it
-  const { accountId } = useAuth();
 
   /** Latest result per roll id — what the sheet shows beside the button */
   const [results, setResults] = useState<Record<string, RollOutcome>>({});
@@ -87,38 +127,17 @@ export function useRoller(
   /** A roll whose input does not evaluate: reported beside that roll, not fatally */
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  /** The table's log, filtered to this character — empty and unread in local mode */
-  const [tableHistory, setTableHistory] = useState<RollResult[]>([]);
-
   /**
-   * Read this Player's rolls at the table, once, when the sheet opens
+   * The table's log for this character — read once, then followed live (TICKET-LIVE-02)
    *
-   * **Narrowed by the route rather than here.** The log is capped, so filtering a table-wide window
-   * in the browser is how a Player's own rolls fall off their own sheet on a busy table — the review
-   * caught that, and `?rolledBy=` is the fix. The *table-wide* view of the same log is
-   * TICKET-DM-04's roster and TICKET-LIVE-02's feed.
-   *
-   * There is no refresh after a roll: the route answers with the entry it just logged, so the
-   * history grows from what came back rather than from a second request.
+   * Whose room, and whether there is one at all, is {@link logRoomFor}'s answer: a local character
+   * has no table, and the table's **DM** deliberately joins no room for the log. The DM's
+   * *character* feed is unaffected — that is `useTableCharacterFeed`'s subscription, and the
+   * connection beneath both counts its rooms.
    */
-  useEffect(() => {
-    if (!atTable || !tableSessionId || !accountId) return;
+  const listeningTo = logRoomFor(atTable, isDungeonMaster, tableSessionId);
 
-    let live = true;
-
-    void fetchSessionRolls(tableSessionId, accountId)
-      .then(({ rolls }) => {
-        if (live) setTableHistory(rolls.filter((roll) => roll.characterId === characterId));
-      })
-      .catch(() => {
-        // A log that cannot be read is not a reason to break the sheet: the rolls still happened
-        // and the Player can still make more. It reports itself by staying as it was.
-      });
-
-    return () => {
-      live = false;
-    };
-  }, [atTable, tableSessionId, accountId, characterId]);
+  const table = useTableRollLog(characterId, listeningTo, calculated?.name ?? '');
 
   /** Report a roll that produced no dice, beside the roll rather than fatally */
   const reportError = (rollId: string, message: string) => {
@@ -143,9 +162,11 @@ export function useRoller(
     }
 
     // The entry the server logged, put straight at the top — the same object, so the result beside
-    // the button and the row in the history cannot be two different readings of one roll
+    // the button and the row in the history cannot be two different readings of one roll. `adopt`
+    // rather than a prepend since TICKET-LIVE-02, because the broadcast of this very roll may have
+    // arrived while the request was in flight.
     acceptOutcome(rollId, answer.rolled);
-    setTableHistory((current) => [answer.rolled, ...current]);
+    table.adopt(answer.rolled);
   };
 
   /** Roll in this browser — unchanged from v2.0, down to the in-memory history (D6) */
@@ -193,7 +214,7 @@ export function useRoller(
     errors,
     /** This character's rolls, newest first — the store and the log both already order them */
     history: atTable
-      ? tableHistory
+      ? table.history
       : rollHistory.filter((roll) => roll.characterId === characterId),
     /**
      * Forgets **this** character's rolls only — the button sits under a list scoped the same way

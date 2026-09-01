@@ -25,13 +25,24 @@
  * **Validates: v3 Req 36.2, 40.4, 41.1**
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCharacterStore } from '../../../stores/characterStore';
 import { useConfigStore } from '../../../stores/configStore';
 import { useAuth } from '../../auth/useAuth';
+import { useTableCharacterFeed } from './useTableCharacterFeed';
 
 /**
- * Make sure the sheet's character is loaded, fetching it from its table when it is not local
+ * Make sure the sheet's character is loaded, fetching it from its table when it is not local — and
+ * keep it in step with the table afterwards
+ *
+ * **The feed is mounted here rather than by `CharacterSheet`** (TICKET-LIVE-02). Two reasons, and
+ * the second is the load-bearing one. The reads and the re-read have to be the *same* two calls, and
+ * this is the hook that owns them — a fallback spelled a second time in the feed is one that can
+ * drift, and the copy that rots is the one nobody looks at. And `CharacterSheet` is at the
+ * complexity threshold: `fallow` measured it at 15 cognitive against a limit of 15 before this
+ * ticket, and a second hook call took it to 16. Composing the two here leaves that component's diff
+ * **comments only**, which is the same property TICKET-DM-05 protected and TICKET-DM-03 recorded a
+ * hotspot row for.
  *
  * @param characterId The id the route named
  * @returns Whether a read is still in flight, so the sheet can wait rather than guess
@@ -64,6 +75,15 @@ export function useOpenTableCharacter(characterId: string): boolean {
    */
   const opening = useRef<string | null>(null);
 
+  /** The character, then its table's rules — in that order, because the first says which table */
+  const read = useCallback(async () => {
+    const sessionId = await openTableCharacter(characterId);
+
+    if (sessionId === null) return;
+
+    await openSessionSnapshot(sessionId);
+  }, [characterId, openTableCharacter, openSessionSnapshot]);
+
   useEffect(() => {
     // Before hydration there is no answer to *is it local*, and asking the server for a character
     // LocalStorage is about to produce would be a request D6 says a signed-out visitor never makes
@@ -73,10 +93,12 @@ export function useOpenTableCharacter(characterId: string): boolean {
     opening.current = characterId;
     setIsOpening(true);
 
-    void openTableCharacter(characterId)
-      .then((sessionId) => (sessionId === null ? null : openSessionSnapshot(sessionId)))
-      .finally(() => setIsOpening(false));
-  }, [characterId, isSignedIn, isLoaded, isLocal, isOpen, openTableCharacter, openSessionSnapshot]);
+    void read().finally(() => setIsOpening(false));
+  }, [characterId, isSignedIn, isLoaded, isLocal, isOpen, read]);
+
+  // …and once it is open, keep it that way: an Event the feed cannot apply falls back to `read`,
+  // which is the very pair of calls above rather than a second spelling of them
+  useTableCharacterFeed(characterId, read);
 
   return isOpening;
 }

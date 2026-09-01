@@ -24,7 +24,7 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { type Database, getDatabase } from '../db/client';
 import { character } from '../db/schema';
-import { appendEventWithin, type NewEvent } from './eventRepository';
+import type { AppendEvent, Recorded } from './eventRepository';
 
 /** A character row — `data` is still JSON text (D4) */
 export type CharacterRow = typeof character.$inferSelect;
@@ -177,10 +177,17 @@ export interface PlayerActionWrite {
   characterId: string;
   /** The player state as JSON text — serialised by the caller, never by this layer (D4) */
   data: string;
-  /** Epoch milliseconds */
+  /**
+   * Epoch milliseconds — **the same instant the Event beside it carries** (TICKET-LIVE-02)
+   *
+   * `applyPlayerAction` reads the clock **once** and spends that number three times: this column,
+   * the document's own `updatedAt`, and the Event's `createdAt`. That is what lets a client apply a
+   * broadcast Event by patching `updatedAt` from its `at` and arrive at exactly the string the
+   * server stored — see `client/services/liveEvents.ts`, and
+   * `play.test.ts`'s *should stamp the character and its Event from one instant*, which fails if
+   * the two ever come from separate `Date.now()` calls.
+   */
   now: number;
-  /** The Event to append beside it, minus the id the caller has already minted */
-  event: NewEvent;
 }
 
 /**
@@ -196,14 +203,22 @@ export interface PlayerActionWrite {
  * has already applied to the row as it stands, so there is nothing a stale client could overwrite.
  * `revision` is incremented so a reader can tell whether what it holds is current.
  *
- * @param input The new state and the Event that explains it
+ * **The Event arrives as an appender rather than as data** (TICKET-LIVE-02). This function no longer
+ * knows how to write one — `events/recordEvent.ts` binds the Event and hands the append down, which
+ * is what makes *every Event that is written is also published* a property of the tree rather than
+ * of anybody's memory. Both rows come back for the same reason: the caller wants the character and
+ * the fan-out wants the Event.
+ *
+ * @param input The new state
+ * @param append The Event that explains it, bound and waiting for this transaction
  * @param database The connection; defaults to the process's
- * @returns The stored row, at its new revision
+ * @returns The stored row at its new revision, and the Event appended beside it
  */
 export function recordPlayerAction(
   input: PlayerActionWrite,
+  append: AppendEvent,
   database: Database = getDatabase()
-): CharacterRow {
+): Recorded<CharacterRow> {
   return database.db.transaction(
     (tx) => {
       const row = tx
@@ -213,9 +228,9 @@ export function recordPlayerAction(
         .returning()
         .get();
 
-      appendEventWithin(tx, input.event);
+      const event = append(tx);
 
-      return row;
+      return { event, written: row };
     },
     { behavior: 'immediate' }
   );

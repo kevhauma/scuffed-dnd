@@ -13,7 +13,7 @@
  */
 
 import { describeFormulaError, isFormulaError } from '#shared/engine/formula/errors';
-import type { SessionRoll } from '#shared/types/api';
+import type { RollLogPayload, SessionRoll } from '#shared/types/api';
 import type { FormulaError, RollOutcome } from '#shared/types/formula';
 import { badRequest } from '../../http/appError';
 import type { EventRow } from '../../repositories/eventRepository';
@@ -114,17 +114,4 @@ export function toSessionRoll(
     characterName: names.characterName,
     rolledBy: names.rolledBy,
   };
-}
-
-/**
- * What a roll Event stores
- *
- * The **outcome whole**, rather than a total: the point of the ladder is that the chain is visible,
- * and a log that kept only the sum would be a log nobody can argue with. The character's *name* is
- * deliberately not in here — it is looked up when the log is read, so a rename does not leave the
- * history calling somebody by a name they no longer have.
- */
-export interface RollLogPayload {
-  characterId: string;
-  outcome: RollOutcome;
 }

@@ -155,8 +155,8 @@ yarn build               # production build (fails if a server module reached th
 src/
   shared/    The Kernel. Pure — no React, no storage, no network. Imports neither sibling.
   client/    The browser app: components, routes, stores, browser-only services, styles.
-  server/    The backend: db/, repositories/, auth/, http/, routes/, ws/, env.ts, entry.ts.
-             Read src/server/README.md.
+  server/    The backend: db/, repositories/, auth/, http/, routes/, ws/, events/, env.ts,
+             entry.ts. Read src/server/README.md.
 ```
 
 **The rule is symmetric and mechanical**: `client/` and `server/` may each import `shared/` and
@@ -422,6 +422,21 @@ carrying a user story, the as-is / to-be, and acceptance criteria.
   `unsubscribe` and nothing else; every mutation is an HTTP request. A message the server does not
   recognise is dropped and logged before it can reach a repository, so if you are looking for where
   a socket write is handled — there isn't one, and that is the design.
+- **If you are adding an action that changes a character, you get the live update for free — and you
+  cannot opt out of it.** Every sheet action goes through `applyPlayerAction`, which writes through
+  `server/events/recordEvent.ts`, which appends the Event **and** broadcasts it. `appendEvent` has
+  exactly one call site in the whole server and `events/eventFanOut.test.ts` fails if a second
+  appears, so there is no way to write an Event nobody is told about (TICKET-LIVE-02).
+- **What the browser does with that Event is a table, and your new action needs a row in it.**
+  `client/services/liveEvents.ts` patches an open sheet only when the Event's `after` is one of the
+  sanctioned stored fields — a pool, experience, purse, granted points, dream level — and asks for a
+  re-read otherwise. Its `Record<SheetAction, …>` is exhaustive, so adding an action **fails the
+  typecheck** there until you say which it is. Answering `null` is a perfectly good answer; leaving
+  it out is not an option, which is the point.
+- **The socket does not reconnect, and that is deliberate until TICKET-LIVE-03.** If the connection
+  drops, the feed stops and the app keeps working — every action is still an HTTP request. Do not
+  add a retry without the replay that makes it honest: a client that silently came back would have a
+  gap in its Event sequence and no way to know (v3 Req 44.6, 44.8, 44.9).
 - **Every `ws` socket needs an `'error'` listener, including one you are about to close.** An
   `'error'` on an `EventEmitter` with no listener is a **throw**, and from a socket it is raised out
   of a `data` callback where nothing catches it — so it ends the process. LIVE-01's refusal path
