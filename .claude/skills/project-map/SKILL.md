@@ -140,7 +140,7 @@ change also exists (v3 Req 33.8).
 | `useConfigStore` | the single `Configuration` — stats (the unified invested/resource/derived axis), skills, roll definitions, dice ladders, materials + categories, **inlays** (TICKET-INL-01 — gem families, whose tiers are written through `updateInlay` with the whole ladder, like a material's levels), **spells** (TICKET-SPL-01 — the compendium; `updateSpell` clears the optional `description` and `manaCost` through `mergeClearingAbsent`), **passives** (TICKET-PAS-01 — the catalog; `updatePassive` is a plain spread rather than `mergeClearingAbsent`, because a passive has no optional field for a save to be clearing), items, equipment slots, races, archetypes, currency tiers, constants, curves. CRUD action per entity (`addX`/`updateX`/`deleteX`), `reorderStats(orderedIds)` (TICKET-STAT-02 — rewrites the array *and* `order` from one sequence), plus the curve grid actions (`addCurveColumn`/`deleteCurveColumn`/`addCurveRow`/`deleteCurveRow`/`setCurveCell`/`clearCurveOverride`/`regenerateCurve`) | `saveConfiguration()` on every mutation |
 | `useConfigStore` (cont.) | `discardStoredData()` — the **only** action that calls `clearAllData()`; the confirmed start-fresh behind `IncompatibleDataNotice` (TICKET-IO-03) | clears both keys, writes nothing |
 | `useCharacterStore` (cont.) | `tableCharacter` + `tableSessionId` + `tableCharacterOwnerId` + `isActing` + `actionError`, and `openTableCharacter` / `closeTableCharacter` / `dismissActionError` (TICKET-PLY-01; `tableSessionId` is ROLL-07's, read by the session-scoped roll log; `tableCharacterOwnerId` is DM-01's, and is how the sheet tells the DM's view from the Player's without a second request) — **the one character open at a game session**, held apart from `characters` because that list is LocalStorage's and a session character must never land in it (v3 Req 36.2). Every existing write action keeps its signature and gains one line: `toTable(...)` sends the named intent to the server when the id is this one's, otherwise the Kernel rule runs locally. `selectCharacter(state, id)` is the exported reader both the sheet and the inventory panel use | server, via `services/characterSync.ts` |
-| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `buildItem`, `discardItem` — four since TICKET-INV-06, where the derived Backpack collapsed `addMiscItem`/`removeMiscItem`/`moveItemToMisc`/`moveItemToEquipment` into them), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience` (the rule is the Kernel's `dmActions.ts` since TICKET-DM-01, not this store's), `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) — `setFocusSkills(characterId, focusSkillIds, config)` (TICKET-SKL-05 — the whole list of picks at once, refusing more than three or a skill the ruleset has not got, and *reporting* the refusal because the picker has nothing standing in front of it) — `learnSpell(characterId, spellId, config)` / `unlearnSpell(characterId, spellId)` / `castSpell(characterId, spellId, statId, config)` (TICKET-SPL-02 — all three *report* their refusals, `unlearnSpell` takes no ruleset so a force-deleted spell stays clearable, and a cast is a mana spend that ends in the ordinary resource action) — `grantPassive(characterId, passiveId, config)` / `revokePassive(characterId, passiveId)` (TICKET-PAS-01 — the **local** half of the passive handout, refused at a table because there is no player route to the field; `revokePassive` takes no ruleset, so a force-deleted passive stays clearable) — and the DM's fourteen, `dmAwardExperience` / `dmDeductExperience` / `dmSetLevel` / `dmSetGrantedPoints` / `dmSetResource` / `dmSetDreamLevel` / `dmGrantPassive` / `dmRevokePassive` (TICKET-DM-01, TICKET-RES-04, TICKET-PAS-01) plus `dmSetPurse` / `dmAdjustPurse` / `dmBuildItem` / `dmDiscardItem` / `dmEquipItem` / `dmUnequipItem` (TICKET-DM-02 — none of them takes a `Configuration`, because the server runs the rule against the Snapshot), which are **table-only** and named apart from the Player's own so no call site has to decide which act it is — the *client* decides, once, in `usePurseControls` and `useInventoryActs` — `updateDreamLevel` and `grantPassive`/`revokePassive` are the local halves, refused at a table exactly as `awardExperience` and `setPurse` are. `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
+| `useCharacterStore` | `Character[]`, plus inventory actions (`equipItem`, `unequipItem`, `buildItem`, `discardItem` — four since TICKET-INV-06, where the derived Backpack collapsed `addMiscItem`/`removeMiscItem`/`moveItemToMisc`/`moveItemToEquipment` into them), `updateCurrentStatValue(s)`, `adjustCurrentStatValue` / `resetCurrentStatValueToMax` (Concept 20's quick entry and "regain to full", TICKET-RES-03), `awardExperience`/`deductExperience` (the rule is the Kernel's `dmActions.ts` since TICKET-DM-01, not this store's), `setInvestedStatPoints(characterId, statId, points, config)` — the level-up spend, which **refuses** anything the derived budget cannot pay for rather than clamping (TICKET-RES-02) — `setFocusSkills(characterId, focusSkillIds, config)` (TICKET-SKL-05 — the whole list of picks at once, refusing more than three or a skill the ruleset has not got, and *reporting* the refusal because the picker has nothing standing in front of it) — `learnSpell(characterId, spellId, config)` / `unlearnSpell(characterId, spellId)` / `castSpell(characterId, spellId, statId, config)` (TICKET-SPL-02 — all three *report* their refusals, `unlearnSpell` takes no ruleset so a force-deleted spell stays clearable, and a cast is a mana spend that ends in the ordinary resource action) — `grantPassive(characterId, passiveId, config)` / `revokePassive(characterId, passiveId)` (TICKET-PAS-01 — the **local** half of the passive handout, refused at a table because there is no player route to the field; `revokePassive` takes no ruleset, so a force-deleted passive stays clearable) — and the DM's fifteen, `dmAwardExperience` / `dmDeductExperience` / `dmSetLevel` / `dmSetGrantedPoints` / `dmSetResource` / `dmSetDreamLevel` / `dmGrantPassive` / `dmRevokePassive` (TICKET-DM-01, TICKET-RES-04, TICKET-PAS-01) plus `dmSetPurse` / `dmAdjustPurse` / `dmBuildItem` / `dmDiscardItem` / `dmEquipItem` / `dmUnequipItem` (TICKET-DM-02 — none of them takes a `Configuration`, because the server runs the rule against the Snapshot), plus `dmAdjustResource` (TICKET-DM-03 — `dmSetResource`'s delta counterpart, so a quick action takes seven off what is **stored** rather than off a reading a surface had), which are **table-only** and named apart from the Player's own so no call site has to decide which act it is — the *client* decides, once, in `usePurseControls`, `useInventoryActs` and `useQuickActions` — `updateDreamLevel` and `grantPassive`/`revokePassive` are the local halves, refused at a table exactly as `awardExperience` and `setPurse` are. `createCharacter` applies the same affordability refusal | `saveCharacters()` on every mutation |
 | `useConfigStore` (cont.) | `source` + `openAccountRuleset(id)` / `openLocalRuleset()` (TICKET-RUL-02) — which home is open, and the two ways to change it. Opening one home reads nothing from the other | via `services/rulesetSync.ts` |
 | `useUIStore` | app mode (`config`/`play`), dialog registry, last validation report, session roll history, `storageFailure` and `saveConflict` (TICKET-RUL-02 — a *server* refusal, with the edit still on screen) | not persisted |
 
@@ -593,8 +593,10 @@ between the roots is exactly *"does this touch a browser API"*.
   with one person playing both parts, so `characterStore.awardExperience` runs
   `addExperience` rather than the arithmetic it used to own. A DM *setting a pool* is deliberately
   **not** here: that obeys the Player's own rule, so `routes/dm/dmSetResource.ts` imports
-  `setResourceValue` from `playerActions.ts` unchanged. **TICKET-DM-02's six routes are all on that
-  side too** — the purse pair and the four pack acts call `setPurseAmount`, `adjustPurseBy`,
+  `setResourceValue` from `playerActions.ts` unchanged — and `routes/dm/dmAdjustResource.ts`
+  (TICKET-DM-03) imports `adjustResourceValue` the same way, which is the whole argument for adding
+  that route rather than having a quick action compute `current − 7` in the browser.
+  **TICKET-DM-02's six routes are all on that side too** — the purse pair and the four pack acts call `setPurseAmount`, `adjustPurseBy`,
   `composeBuild`, `discardBuild`, `equipToSlot` and `unequipSlot` from `playerActions.ts`, so this
   module gained nothing and *no DM bypass of the ruleset's own rules* is enforced by there being no
   second implementation. `dmRules.test.ts` is what keeps it that way.
@@ -775,10 +777,16 @@ each later ticket adds.
   is `routes/dm/`'s, with its own Event types. `playerRules.test.ts` is the provenance check — every
   handler here imports the Kernel's rules and **none** imports `#shared/engine/` directly, because
   that is where a second implementation starts.
-- `routes/dm/` (TICKET-DM-01) — **what the DM does to a character they do not own**, fourteen writes
+- `routes/dm/` (TICKET-DM-01) — **what the DM does to a character they do not own**, fifteen writes
   and one read. Same shape as `routes/play/` with a different guard: `POST /api/characters/:id/<action>`
   where `<action>` is a `DM_ACTION` value — `dm-award-experience`, `dm-deduct-experience`,
-  `dm-set-level`, `dm-grant-points`, `dm-set-resource`, `dm-set-dream-level` (TICKET-RES-04, the
+  `dm-set-level`, `dm-grant-points`, `dm-set-resource`, **`dm-adjust-resource`** (TICKET-DM-03, the
+  fifteenth and the only route a quick action needed that did not exist: `dm-set-resource`'s **delta**
+  counterpart, exactly as `dm-adjust-purse` is `dm-set-purse`'s, running `adjustResourceValue`
+  unchanged — the Player has had the pair since PLY-01 and the DM had only the setter, because
+  `routes/play/adjustResource.ts` is behind `requireCharacterPlayer` and 404s for a DM. **v3 Req 49.3
+  was amended for it**: what that requirement forbids is a route with a *rule* only a quick action can
+  reach, not a second caller of a shared one), `dm-set-dream-level` (TICKET-RES-04, the
   sixth: the one `dm-set-*` whose body *is* what gets stored, because nothing derives a dream level),
   and **`dm-grant-passive` / `dm-revoke-passive`** (TICKET-PAS-01 — a **pair** rather than one
   whole-list `dm-set-passives`, because the revoke deliberately consults no ruleset and so can clear
@@ -1130,8 +1138,28 @@ the Player's own `ExperienceControl`, which is the same act with a different sto
 **`useIsDungeonMaster`** answers *is this reader the DM* with a **comparison, not a request**: the
 server opens a character only to its owner or to its table's DM, so *at a table and not mine* has
 exactly one meaning, and `characterStore.tableCharacterOwnerId` is what it reads. **It is the one
-piece three surfaces share** — `useDmControls`, `usePurseControls` and `useInventoryActs` — which is
-why it is a hook of its own rather than a field on any of them. `useDmControls` keeps only the DM's
+piece four surfaces share** — `useDmControls`, `usePurseControls`, `useInventoryActs` and
+TICKET-DM-03's `useQuickActions` — which is why it is a hook of its own rather than a field on any of
+them.
+
+**`QuickActionsSidebar`** (TICKET-DM-03) is the DM's one-press half, first in the sheet's right rail
+and the fourth panel there that **decides for itself whether to exist** — it calls
+**`useQuickActions`**, which answers `null` for anybody who is not the table's DM, so the card is
+absent rather than disabled and `CharacterSheet` gains no conditional. (It was first written
+presentational with the conditional on the sheet, and `fallow` measured `CharacterSheet` at 18
+cyclomatic for it; the rule that came out of that is in TEST_STATUS.md's hotspot row.) Its action set
+is **`shared/quickActions.ts`**'s `quickActionsFor` — a pure mapper that **imports nothing, not even
+`StatBreakdown`**, because naming a `sheet/` type would close a `shared/` → `sheet/` → `shared/`
+cycle; it derives one *damage* and one *restore* per `isResource` stat labelled from that stat's own
+name, plus give/take points and award/deduct experience, with preset amounts read off each action's
+own scale and **absent rather than invented** where the Snapshot supplies none.
+**`QuickActionRow`** is one action's label, preset chips and amount box — deliberately not
+`AdjustmentField` with a `presets` prop, and deliberately not `useNumericDraft`'s relative entry,
+because the direction is the *action* and a `-5` in *Damage Vigor* would have to mean *restore 5*.
+Two of DM-03's criteria are tests rather than prose: `noResourceVocabulary.test.ts` greps the whole
+four-module path for a hard-coded resource word (comments included), and `quickActionRoutes.test.ts`
+reads `QuickActionControls.requests` and checks each against `apiRouter.ts` **as text**, so a
+`client/` test never imports a `#server/…` module. `useDmControls` keeps only the DM's
 writes to what a character *is* (experience, level, grant, pools, dream, passives); DM-02's six are
 reached by the two surfaces that use them, **each subscribing to its own selectors and no others**.
 Putting all fourteen on `useDmControls` was measured over the cognitive threshold during DM-02's

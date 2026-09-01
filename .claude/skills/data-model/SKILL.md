@@ -803,6 +803,16 @@ which is state, not derivation (its maximum is derived; its current value is not
 there**, and the store action enforces it: a stat you cannot spend has no current distinct from
 its value, which is what v1 got wrong by giving every stat one.
 
+**Both actors have both shapes of write to it, and that is deliberate rather than symmetry for its
+own sake.** A Player has `set-resource` and `adjust-resource` (PLY-01); the DM has `dm-set-resource`
+(DM-01) and, since TICKET-DM-03, **`dm-adjust-resource`**. All four run `playerActions.ts`'s
+`setResourceValue` / `adjustResourceValue` unchanged, so there is one rule with four callers rather
+than four rules. The **delta** shape is the one that matters at a table: it applies to what is
+*stored*, so a pool left above a fallen maximum loses exactly what was asked for (TICKET-RES-03),
+where a surface computing `current − 7` and sending an absolute would be doing arithmetic on a
+reading that may have moved. A *write* still clamps at the derived maximum; nothing rewrites a
+stranded current merely because the maximum fell.
+
 And `experience` (TICKET-RES-01) — stored because nothing else in the app knows it: XP is awarded
 at the table. **`level` derives *from* it**, through a reverse lookup on the `xp_thresholds` curve
 in [characterSummary.ts](../../../src/shared/engine/characterSummary.ts), which is the single definition

@@ -555,7 +555,17 @@ of me, so that keeping the sheets honest costs me a press rather than a detour i
    points" or "mana" as concepts — a ruleset naming its resources *Vigor* and *Focus* SHALL produce
    *Damage Vigor* and *Restore Focus* with no code change (v1.0 Req 20)
 3. THE Client SHALL apply every Quick_Action through the Requirement 42 routes, and THE Server SHALL
-   expose no route reachable only by a Quick_Action
+   expose no route whose **rule** is reachable only by a Quick_Action — a route may be added for a
+   Quick_Action provided it runs a Kernel function some other route already runs, unchanged
+   *(amended by TICKET-DM-03, 2026-09-01: as first written this said "no route reachable only by a
+   Quick_Action", which is a statement about callers where what it means is a statement about rules.
+   What it exists to prevent is a **private mechanism** — validation of its own that drifts from what
+   the sheet allows — and a second caller of an existing rule is the opposite of one. DM-03 added
+   `dm-adjust-resource`, which runs `playerActions.ts`'s `adjustResourceValue`, the identical function
+   `POST /api/characters/:id/adjust-resource` runs, exactly as `dm-set-resource` runs the identical
+   `setResourceValue`. It exists because criterion 49.4 requires a **delta** and the DM had only an
+   absolute setter — `requireCharacterPlayer` is `requireCharacterWriter` minus the DM, so the
+   Player's own delta route 404s for them.)*
 4. THE Client SHALL let a DM set an amount per Quick_Action, offering presets and typed entry, and
    SHALL apply a resource change as a **delta** rather than as an absolute value
 5. WHEN a Quick_Action is accepted, THE Client SHALL show what changed as before → after; WHEN one is

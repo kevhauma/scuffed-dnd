@@ -10,6 +10,7 @@
 
 import { AdjustmentLog } from '../dm/AdjustmentLog';
 import { DmControlsPanel } from '../dm/DmControlsPanel';
+import { QuickActionsSidebar } from '../dm/QuickActionsSidebar';
 import { useCharacterAdjustments } from '../dm/useCharacterAdjustments';
 import { useDmControls } from '../dm/useDmControls';
 import { InventoryPanel } from '../inventory/InventoryPanel';
@@ -71,6 +72,8 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     currencyTiers,
     purse,
     adjustmentWords,
+    quickActions,
+    grantedPoints,
     handleChangeInvestedPoints,
     handleChangeInvestedSkillPoints,
     handleSelectFocusSkill,
@@ -156,8 +159,10 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
       />
 
       {/* Above the sheet rather than in the rail: it is the reason this reader has the page open,
-          and a DM scanning for the damage box should not have to find it among the Player's own
-          controls (v3 Req 42.7). TICKET-DM-03 is the ticket that decides where it finally sits. */}
+          and a DM scanning for a control should not have to find it among the Player's own (v3 Req
+          42.7). **TICKET-DM-03 settled the split rather than moving this**: the per-field controls —
+          set a level, set a dream level, put a pool at an exact number — stay here, and the acts a
+          DM presses dozens of times a session are `QuickActionsSidebar` in the rail below. */}
       {dm.isDungeonMaster && (
         <DmControlsPanel
           characterName={character.name}
@@ -210,6 +215,25 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
             taller than a laptop viewport, and a pinned column taller than the screen makes its own
             bottom unreachable. */}
         <div className="space-y-4">
+          {/* First in the rail, above the pack: a DM with somebody else's sheet open has it open in
+              order to change something, and *take 7 off them* should not be found by scrolling past
+              their stat rows. `DmControlsPanel` stays above the grid for the slower per-field edits —
+              a level, a dream level, a pool set to an exact number (TICKET-DM-03, v3 Req 49.7).
+
+              **Drawn unconditionally and absent by its own decision**, as every other panel in this
+              rail is: it answers `null` for anybody who is not this table's DM. It is handed the
+              adjustments the hook above already fetched rather than asking for them a second time —
+              the newest row past the one an action was sent against *is* that action's
+              before → after. */}
+          <QuickActionsSidebar
+            characterId={characterId}
+            characterName={character.name}
+            actions={quickActions}
+            adjustments={adjustments}
+            words={adjustmentWords}
+            grantedPoints={grantedPoints}
+          />
+
           <InventoryPanel characterId={characterId} />
 
           {/* Beside the kit rather than under the stats: what a caster reaches for mid-fight is the

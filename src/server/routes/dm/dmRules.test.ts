@@ -61,7 +61,8 @@ function writeModules(): { name: string; source: string }[] {
 describe('the DM-control routes', () => {
   it('has one write module per named adjustment, so this is not passing by looking at nothing', () => {
     // One writer per named action — an action without a route, or a route without an action, is a
-    // difference this names rather than a gap somebody notices later. Fourteen since TICKET-DM-02.
+    // difference this names rather than a gap somebody notices later. Fifteen since TICKET-DM-03
+    // added `dm-adjust-resource`, the delta counterpart a quick action needed.
     expect(writeModules()).toHaveLength(Object.values(DM_ACTION).length);
   });
 

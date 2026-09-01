@@ -778,6 +778,22 @@ export const DM_ACTION = {
   /** Write where one of a Character's resource pools stands */
   SET_RESOURCE: 'dm-set-resource',
   /**
+   * Move one of a Character's resource pools by a delta (TICKET-DM-03, v3 Req 49.4)
+   *
+   * **{@link SET_RESOURCE}'s delta counterpart, and it exists for {@link ADJUST_PURSE}'s reason.**
+   * *Take 7 off them* and *set their pool to 23* are different instructions, and expressing the first
+   * as the second means the surface doing arithmetic on a number it read a moment ago — which is how
+   * damage lands on a stale reading. The Player has had both shapes since TICKET-PLY-01
+   * (`set-resource` / `adjust-resource`); this is the half the DM was missing, and a quick action is
+   * what needed it.
+   *
+   * **It adds no rule.** The route runs `adjustResourceValue` from `playerActions.ts` — the identical
+   * function `routes/play/adjustResource.ts` calls — exactly as {@link SET_RESOURCE} runs the
+   * identical `setResourceValue`. v3 Req 49.3 forbids a mechanism only a quick action can reach; a
+   * second caller of a rule that already exists is not one.
+   */
+  ADJUST_RESOURCE: 'dm-adjust-resource',
+  /**
    * Set how far a Character stands in their dream — a total, not a delta (TICKET-RES-04)
    *
    * The sixth, and the first this namespace has gained since it was minted. It is a DM action rather

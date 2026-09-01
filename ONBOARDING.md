@@ -389,6 +389,12 @@ carrying a user story, the as-is / to-be, and acceptance criteria.
   the *structure* of untrusted imported JSON; `engine/validator.ts`'s `validateConfiguration`
   checks the *referential integrity* of a loaded config. They are complementary, not
   interchangeable — they shared a name until CR-21 renamed the service one.
+- **A `client/` test that needs a fact about `src/server/` reads the file, it does not import it.**
+  The three-root boundary (TICKET-DX-07) is a dependency-cruiser rule, so an `import` from `client/`
+  into `server/` fails `yarn run check` — including from a test. When the thing being asserted is a
+  *call site* or a route table rather than a value, read the module with `readFileSync` and scan the
+  text: `dmRules.test.ts`, `routeGuards.test.ts` and `quickActionRoutes.test.ts` all do, and the last
+  of those lives in `client/` precisely because of this.
 - **A route handler that so much as writes the word `sessionId` must call a resource guard.**
   `src/server/routes/routeGuards.test.ts` is a text scan over every module containing
   `defineHandler(`, and it is deliberately blunt: it cannot tell a *read* of a session id from a

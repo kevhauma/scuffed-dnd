@@ -465,6 +465,14 @@ describe("the DM's adjustments (TICKET-DM-01)", () => {
       () => useCharacterStore.getState().dmSetResource('character-1', 'stat-health', 12),
       { statId: 'stat-health', value: 12 },
     ],
+    // The delta counterpart (TICKET-DM-03), sending `delta` where the pair above sends `value`:
+    // *take 7 off them* and *put them at 23* are different instructions, and a shared field name
+    // would make a mis-routed body silently valid — the purse pair's reasoning, one collection over
+    [
+      DM_ACTION.ADJUST_RESOURCE,
+      () => useCharacterStore.getState().dmAdjustResource('character-1', 'stat-health', -7),
+      { statId: 'stat-health', delta: -7 },
+    ],
     [
       DM_ACTION.SET_DREAM_LEVEL,
       () => useCharacterStore.getState().dmSetDreamLevel('character-1', 3),

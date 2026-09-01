@@ -67,10 +67,12 @@ import {
   seedSession,
   withTestDatabase,
 } from '../../testing';
+import { adjustResource } from '../play/adjustResource';
 import { buildItem } from '../play/buildItem';
 import { investStatPoints } from '../play/investStatPoints';
 import { snapshotOf } from '../sessions/sessionPayloads';
 import { dmAdjustPurse } from './dmAdjustPurse';
+import { dmAdjustResource } from './dmAdjustResource';
 import { dmAwardExperience } from './dmAwardExperience';
 import { dmBuildItem } from './dmBuildItem';
 import { dmDeductExperience } from './dmDeductExperience';
@@ -93,6 +95,7 @@ const ROUTES = {
   [DM_ACTION.SET_LEVEL]: dmSetLevel,
   [DM_ACTION.GRANT_POINTS]: dmGrantPoints,
   [DM_ACTION.SET_RESOURCE]: dmSetResource,
+  [DM_ACTION.ADJUST_RESOURCE]: dmAdjustResource,
   [DM_ACTION.SET_DREAM_LEVEL]: dmSetDreamLevel,
   [DM_ACTION.GRANT_PASSIVE]: dmGrantPassive,
   [DM_ACTION.REVOKE_PASSIVE]: dmRevokePassive,
@@ -516,6 +519,158 @@ describe('setting a resource', () => {
 
       const stored = stateOf(database, row.id).currentResourceValues[(pool as Stat).id];
       expect(stored).toBeLessThan(9_999);
+    }));
+});
+
+/**
+ * The delta half of the same pair (TICKET-DM-03, v3 Req 49.4)
+ *
+ * `dm-adjust-resource` is the one route TICKET-DM-03 added, and these cases are the argument for it:
+ * a quick action pressing *damage 7* has to take seven off **what is stored**, not off a number the
+ * browser was showing — the reason `routes/play/adjustResource.ts` exists for the Player and the
+ * reason `dm-adjust-purse` exists beside `dm-set-purse`.
+ */
+describe('adjusting a resource by a delta', () => {
+  it('should apply each delta to what is stored, so two of them take twice as much', () =>
+    withTestDatabase(async (database) => {
+      /*
+       * The distinguishing evidence for criterion 4, and the reason the route exists. A client that
+       * computed `current − 7` and sent it as an absolute would send the **same number twice** off a
+       * reading it had not refreshed, and the second write would land on the value the first one
+       * already produced — taking 7 in total rather than 14. Applied server-side, each delta lands on
+       * what the row actually holds.
+       */
+      const { dm, row, rules } = aTableWithACharacter(database);
+      const pool = rules.stats.find((stat) => stat.isResource);
+      expect(pool, 'the corpus should define a pool').toBeDefined();
+
+      const statId = (pool as Stat).id;
+      const before = stateOf(database, row.id).currentResourceValues[statId] ?? 0;
+
+      const first = await adjust(DM_ACTION.ADJUST_RESOURCE, row.id, { statId, delta: -7 }, dm);
+      const second = await adjust(DM_ACTION.ADJUST_RESOURCE, row.id, { statId, delta: -7 }, dm);
+
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(200);
+
+      const after = stateOf(database, row.id).currentResourceValues[statId];
+      expect(after).toBe(before - 14);
+    }));
+
+  it('should move a pool stranded above a fallen maximum exactly as the Player’s own route does', () =>
+    withTestDatabase(async (database) => {
+      /*
+       * TICKET-RES-03's rule, unbroken, and **there is no DM relaxation of it**. A stored current
+       * above its derived maximum is left alone until somebody writes to the pool; a write then
+       * clamps, which is how the state resolves. What this asserts is that the DM's delta and the
+       * *owner's own* delta produce the identical stored value — because they are the identical
+       * Kernel function, which is the whole argument for the route rather than a policy about it.
+       */
+      const { dm, player, session, rules, character } = aTableWithACharacter(database);
+      const statId = (rules.stats.find((stat) => stat.isResource) as Stat).id;
+
+      // Two identical characters standing far above anything the Snapshot's formulas can compute
+      const strand = (id: string) => {
+        const stranded: Character = {
+          ...character,
+          id,
+          currentResourceValues: { ...character.currentResourceValues, [statId]: 9_999 },
+        };
+
+        const data = JSON.stringify(stranded);
+
+        return seedCharacter(database, { id, session, owner: player, name: stranded.name, data });
+      };
+
+      const dmSide = strand('character-stranded-dm');
+      const playerSide = strand('character-stranded-player');
+
+      const byDm = await adjust(DM_ACTION.ADJUST_RESOURCE, dmSide.id, { statId, delta: -7 }, dm);
+      const byPlayer = await callRoute<CharacterDocument>(adjustResource, {
+        as: player,
+        method: 'POST',
+        path: `/api/characters/${playerSide.id}/${PLAYER_ACTION.ADJUST_RESOURCE}`,
+        body: { statId, delta: -7 },
+      });
+
+      expect(byDm.status).toBe(200);
+      expect(byPlayer.status).toBe(200);
+
+      const dmResult = stateOf(database, dmSide.id).currentResourceValues[statId];
+      const playerResult = stateOf(database, playerSide.id).currentResourceValues[statId];
+
+      expect(dmResult).toBe(playerResult);
+      expect(dmResult).toBeLessThan(9_999);
+    }));
+
+  it('should clamp a restore at the Snapshot’s maximum, under the Player’s own rule', () =>
+    withTestDatabase(async (database) => {
+      // Which is what makes *undo is an inverse, not a restoration* true rather than a caveat: a
+      // restore of the same amount is the same rule the Player's own route obeys
+      const { dm, row, rules } = aTableWithACharacter(database);
+      const statId = (rules.stats.find((stat) => stat.isResource) as Stat).id;
+
+      const accepted = await adjust(
+        DM_ACTION.ADJUST_RESOURCE,
+        row.id,
+        { statId, delta: 9_999 },
+        dm
+      );
+      expect(accepted.status).toBe(200);
+
+      const after = stateOf(database, row.id).currentResourceValues[statId];
+      expect(after).toBeLessThan(9_999);
+    }));
+
+  it('should record the pool it moved and the before and after, as every adjustment does', () =>
+    withTestDatabase(async (database) => {
+      const { dm, row, session, rules } = aTableWithACharacter(database);
+      const statId = (rules.stats.find((stat) => stat.isResource) as Stat).id;
+      const before = stateOf(database, row.id).currentResourceValues[statId] ?? 0;
+
+      await adjust(DM_ACTION.ADJUST_RESOURCE, row.id, { statId, delta: -7 }, dm);
+
+      const [event] = eventsOf(database, session.id);
+      const payload = payloadOf(event);
+
+      expect(event.type).toBe(DM_ACTION.ADJUST_RESOURCE);
+      expect(event.actorAccountId).toBe(dm.id);
+      expect(payload).toMatchObject({
+        characterId: row.id,
+        action: DM_ACTION.ADJUST_RESOURCE,
+        target: statId,
+        before,
+        after: before - 7,
+      });
+    }));
+
+  it('should refuse a `player` Member with the same 404 a stranger gets, and write nothing', () =>
+    withTestDatabase(async (database) => {
+      // The route a quick action reaches is refused for a Player regardless of what any browser drew
+      // (v3 Req 49.10's second half)
+      const { player, row, session, rules } = aTableWithACharacter(database);
+      const statId = (rules.stats.find((stat) => stat.isResource) as Stat).id;
+      const stranger = seedAccount();
+
+      const asPlayer = await adjust(
+        DM_ACTION.ADJUST_RESOURCE,
+        row.id,
+        { statId, delta: -7 },
+        player
+      );
+      const asStranger = await adjust(
+        DM_ACTION.ADJUST_RESOURCE,
+        row.id,
+        { statId, delta: -7 },
+        stranger
+      );
+
+      const events = eventsOf(database, session.id);
+
+      expect(asPlayer.status).toBe(404);
+      expect(asStranger.status).toBe(404);
+      expect(asPlayer.body).toEqual(asStranger.body);
+      expect(events).toHaveLength(0);
     }));
 });
 

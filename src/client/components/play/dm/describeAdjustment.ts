@@ -35,7 +35,7 @@ import type { AdjustmentVocabulary } from './adjustmentVocabulary';
  * One adjustment with the parts a sentence is built from already read off it
  *
  * Prepared once by {@link describeAdjustment} rather than by each entry below, so a sentence is a
- * template literal and nothing else — which is what makes fourteen of them readable side by side.
+ * template literal and nothing else — which is what makes fifteen of them readable side by side.
  */
 interface AdjustmentReading {
   /**
@@ -60,9 +60,10 @@ function amount(value: CharacterAdjustment['before']): number {
 /**
  * What each named adjustment reads as
  *
- * **`Record<DmAction, …>` is the exhaustiveness check.** A fifteenth action without a sentence for
+ * **`Record<DmAction, …>` is the exhaustiveness check.** A sixteenth action without a sentence for
  * it fails to compile here, which is the guarantee the old `switch`'s `never` default gave — plus
- * one it did not: a retired action left behind is a compile error too.
+ * one it did not: a retired action left behind is a compile error too. TICKET-DM-03's
+ * `dm-adjust-resource` is the fifteenth, and this is where the compiler asked for it.
  */
 const SENTENCES: Record<DmAction, (reading: AdjustmentReading) => string> = {
   [DM_ACTION.AWARD_EXPERIENCE]: ({ before, after }) =>
@@ -87,6 +88,19 @@ const SENTENCES: Record<DmAction, (reading: AdjustmentReading) => string> = {
 
   [DM_ACTION.SET_RESOURCE]: ({ entity, before, after }) =>
     `Set ${entity} to ${after} — was ${before}`,
+
+  /*
+   * **What actually moved, not what was asked for** (TICKET-DM-03). The delta is not in the payload
+   * and deliberately is not: `adjustResourceValue` clamps at the derived maximum, so *restore 20*
+   * against a pool four short of full is four points, and printing the 20 would be the log's one
+   * claim that a write landed whole when it did not. `after - before` is the truth the Event holds.
+   * That is also what makes the quick action's *undo is an inverse, not a restoration* readable — the
+   * two rows say different numbers, and they should.
+   */
+  [DM_ACTION.ADJUST_RESOURCE]: ({ entity, before, after }) =>
+    after >= before
+      ? `Restored ${after - before} to ${entity} — ${before} → ${after}`
+      : `Took ${before - after} off ${entity} — ${before} → ${after}`,
 
   // Neither before nor after is a number here — they are the id and `null` — so the sentence is
   // built from the entity alone. Reading them as amounts would have said nothing true.

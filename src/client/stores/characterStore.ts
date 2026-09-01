@@ -67,6 +67,7 @@ import type {
   PlayerAction,
   PurseDeltaRequest,
   PurseRequest,
+  ResourceDeltaRequest,
   ResourceValueRequest,
   SheetAction,
   SpellRequest,
@@ -483,6 +484,15 @@ export interface CharacterState {
   dmRevokePassive: (characterId: string, passiveId: string) => void;
   /** Write where one of a character's resource pools stands, under the Player's own Kernel rule */
   dmSetResource: (characterId: string, statId: string, value: number) => void;
+  /**
+   * Move one of a character's resource pools by a delta (TICKET-DM-03)
+   *
+   * {@link dmSetResource}'s counterpart, and the pair the DM was missing: *take 7 off them* applies
+   * to what is **stored**, so a quick action does no arithmetic on a number the sheet happened to be
+   * showing. {@link dmAdjustPurse} sits beside {@link dmSetPurse} for the identical reason, and the
+   * Kernel rule here is `adjustResourceValue` — the Player's own, unchanged.
+   */
+  dmAdjustResource: (characterId: string, statId: string, delta: number) => void;
 
   /*
    * The money and the pack (TICKET-DM-02, v3 Req 42.5)
@@ -1148,6 +1158,15 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
       statId,
       value,
     } satisfies ResourceValueRequest);
+  },
+
+  // The delta goes out as a delta (TICKET-DM-03): nothing here reads the pool, so a quick action
+  // cannot take seven off a number that has moved since the sheet rendered it
+  dmAdjustResource: (characterId: string, statId: string, delta: number) => {
+    adjustAtTable(set, get, characterId, DM_ACTION.ADJUST_RESOURCE, {
+      statId,
+      delta,
+    } satisfies ResourceDeltaRequest);
   },
 
   dmSetDreamLevel: (characterId: string, level: number) => {

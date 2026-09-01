@@ -25,6 +25,7 @@ import { authProviders } from '../routes/authProviders';
 import { deleteCharacter, listMyCharacters, readCharacter } from '../routes/characters';
 import {
   dmAdjustPurse,
+  dmAdjustResource,
   dmAwardExperience,
   dmBuildItem,
   dmDeductExperience,
@@ -202,6 +203,11 @@ export const PATTERN_ROUTES: Record<string, (request: Request) => Promise<Respon
   'POST /api/characters/:id/dm-set-level': dmSetLevel,
   'POST /api/characters/:id/dm-grant-points': dmGrantPoints,
   'POST /api/characters/:id/dm-set-resource': dmSetResource,
+  // …and its delta counterpart (TICKET-DM-03), which is to `dm-set-resource` what `dm-adjust-purse`
+  // is to `dm-set-purse`: *take 7 off them* applied to what is **stored**, not to what a surface was
+  // showing. The Player has had the pair since PLY-01; this is the half the DM was missing, and the
+  // rule behind it is `adjustResourceValue` unchanged
+  'POST /api/characters/:id/dm-adjust-resource': dmAdjustResource,
   // …and this body names a dream level and stores exactly that: player state nothing derives
   // (TICKET-RES-04), which is why it is the one `dm-set-*` whose before/after is what was typed
   'POST /api/characters/:id/dm-set-dream-level': dmSetDreamLevel,

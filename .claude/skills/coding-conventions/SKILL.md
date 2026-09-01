@@ -319,6 +319,17 @@ Two families of judgement, both concrete here rather than generic.
   one size down. What the surfaces share is the **predicate** (`useIsDungeonMaster`), and that is what
   gets extracted; the handlers stay with whoever calls them. A shared bundle is worth having only once
   a caller genuinely wants the whole of it.
+
+  **And put the hook inside the panel, not in the screen that renders it** (TICKET-DM-03). A panel
+  that answers *should I exist?* for itself costs its parent nothing; a presentational panel behind a
+  `{controls && …}` puts the conditional — and the fallbacks feeding its props — in the parent, which
+  is where the complexity metric counts them. DM-03 wrote `QuickActionsSidebar` the second way first
+  and `fallow` measured `CharacterSheet` at **18 cyclomatic**, the exact number DM-01 had split the
+  file to escape; moving the hook into the panel took it off the list with no extraction at all.
+  `InventoryPanel`, `SpellbookPanel` and `PassivesPanel` were already this shape — they take a
+  `characterId` and render nothing when there is nothing to render. **Extracting a presentational
+  component does not help here**, because the conditional stays behind; giving the section its own
+  answer is what does.
 - Session-only UI state (open dialogs, roll history, active mode) lives in `useUIStore`, not in
   the persisted stores.
 

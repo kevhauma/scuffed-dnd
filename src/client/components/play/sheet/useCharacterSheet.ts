@@ -21,7 +21,7 @@ import {
   statGain,
 } from '#shared/engine/calculators/pointBuy';
 import { calculateRaceStatBases } from '#shared/engine/calculators/statCalculator';
-import { calculateCharacterLevel } from '#shared/engine/characterSummary';
+import { calculateCharacterLevel, experienceForLevel } from '#shared/engine/characterSummary';
 import { rollPool } from '#shared/engine/dice/rollDefinition';
 import { DEFAULT_DREAM_LEVEL, dreamLevelOf } from '#shared/engine/dreamLevel';
 import { focusDials, focusPicksOf, toFocusSlots } from '#shared/engine/focusSkills';
@@ -35,7 +35,10 @@ import { useConfigStore } from '../../../stores/configStore';
 import { adjustmentVocabularyFrom } from '../dm/adjustmentVocabulary';
 import type { DerivedValue } from '../shared/derivedValue';
 import { toDerivedValue } from '../shared/derivedValue';
+import type { PointBudgetView } from '../shared/pointBudgetView';
 import { toPointBudgetView } from '../shared/pointBudgetView';
+import type { QuickAction } from '../shared/quickActions';
+import { quickActionsFor } from '../shared/quickActions';
 import { readable } from '../shared/readableNumber';
 import { useSheetActions } from './useSheetActions';
 
@@ -480,6 +483,83 @@ function buildView(
   };
 }
 
+/**
+ * What the ruleset prices this character's *next* level at, from where they stand (TICKET-DM-03)
+ *
+ * The one preset the experience quick actions offer, and it is the ruleset's own number rather than a
+ * round one somebody liked: `experienceForLevel` reads the `xp_thresholds` curve forwards and
+ * **refuses** anything that does not read back as the level asked for, so a single-row placeholder
+ * curve answers `null` here instead of a confident 0 (TICKET-DM-01's ruling, D9). A `null` costs the
+ * DM a preset and not the action — the amount box is offered either way.
+ *
+ * @param character Whose sheet, or null when there is none
+ * @param config The ruleset holding the curve
+ * @param level The level they are at, or the error that stood in for it
+ * @returns The experience still owed for the next level, or null when the curve cannot say
+ */
+function experienceStepFor(
+  character: Character | null,
+  config: Configuration | null,
+  level: DerivedValue
+): number | null {
+  if (!character || !config || level.value === null) return null;
+
+  const next = experienceForLevel(character, config, level.value + 1);
+  if (isFormulaError(next)) return null;
+
+  const owed = next - character.experience;
+
+  return owed > 0 ? owed : null;
+}
+
+/**
+ * What the DM has already granted this character, or 0 when there is no budget to read (TICKET-DM-03)
+ *
+ * **The fallback is real here and was not in the sidebar**, which is the distinction the DM-03 review
+ * drew. `toPointBudgetView` answers `null` only for a null allocation — which happens in *this* hook,
+ * on every render before there is a character and a ruleset to validate. By the time
+ * `QuickActionsSidebar` is drawn `CharacterSheet` has already returned `SheetStatusNotice` for that
+ * state, so the panel takes a plain `number` and the `?? 0` lives at the one place it can fire.
+ *
+ * A module-level function rather than an expression in the return object, `experienceStepFor`'s
+ * shape: the hook itself is over the complexity threshold on inherited grounds and this ticket is not
+ * adding two branches to it.
+ *
+ * @param budget The allocation verdict as the sheet renders it, or null when there is none
+ * @returns The DM's grant, 0 for a sheet that cannot be validated yet
+ */
+function grantedPointsFrom(budget: PointBudgetView | null): number {
+  return budget?.grantedPoints ?? 0;
+}
+
+/**
+ * The Dungeon Master's quick actions for this sheet (TICKET-DM-03, v3 Req 49.1)
+ *
+ * Derived here rather than in the sidebar because the parts are already in hand — the pools are the
+ * rows the sheet is about to render, and their maxima are the engine's. The sidebar renders the list;
+ * it does not compose it, and TICKET-DM-04's roster will compose its own from the same function.
+ *
+ * @param character Whose sheet, or null when there is none
+ * @param config The ruleset it is read against
+ * @param stats Every stat row, resource and otherwise
+ * @param level Where the character stands, for the experience preset
+ * @returns Two actions per pool plus the four that move the character
+ */
+function toQuickActions(
+  character: Character | null,
+  config: Configuration | null,
+  stats: StatBreakdown[],
+  level: DerivedValue
+): QuickAction[] {
+  const pools = stats
+    .filter((stat) => stat.isResource)
+    .map((stat) => ({ id: stat.id, name: stat.name, max: stat.max.value }));
+
+  const experienceStep = experienceStepFor(character, config, level);
+
+  return quickActionsFor({ pools, experienceStep });
+}
+
 export function useCharacterSheet(characterId: string) {
   const config = useConfigStore((state) => state.config);
   // Wherever it lives (TICKET-PLY-01) — the browser's list, or the one character open at a table
@@ -512,6 +592,12 @@ export function useCharacterSheet(characterId: string) {
     character && config ? validateStatAllocation(character, config) : null
   );
 
+  // Curve-derived since TICKET-RES-01, and bound here rather than inline in the return because the
+  // quick actions' experience preset is priced against it (TICKET-DM-03). The engine's answer is
+  // named before it is wrapped — converted-when-touched, the no-nested-calls rule
+  const levelResult = character && config ? calculateCharacterLevel(character, config) : undefined;
+  const level = toDerivedValue(levelResult);
+
   return {
     status,
     character,
@@ -532,9 +618,7 @@ export function useCharacterSheet(characterId: string) {
     calculated,
     formulaError: error,
     // Curve-derived since TICKET-RES-01, so it carries an error the header chips like any other
-    level: toDerivedValue(
-      character && config ? calculateCharacterLevel(character, config) : undefined
-    ),
+    level,
     experience: character?.experience ?? 0,
     /**
      * How far this character stands in their dream (TICKET-RES-04)
@@ -545,6 +629,14 @@ export function useCharacterSheet(characterId: string) {
     dreamLevel: character ? dreamLevelOf(character) : DEFAULT_DREAM_LEVEL,
     /** Spent, available and remaining at this level — null when there is no sheet to draw */
     budget,
+    /**
+     * What the DM has granted on top of the derived pool, 0 when there is no budget yet
+     *
+     * Beside `budget` rather than read off it at the call site: a give or take quick action sends a
+     * **total**, so the sidebar needs the number and not the verdict — see {@link grantedPointsFrom}
+     * for why the fallback belongs here and not there.
+     */
+    grantedPoints: grantedPointsFrom(budget),
     ...view,
     // The ruleset's tiers and what this character holds in them — the sheet's purse
     // (`Charactersheet!Q18:S23`), which the app had no field for until now
@@ -553,6 +645,14 @@ export function useCharacterSheet(characterId: string) {
     purse: character?.purse ?? 0,
     /** The words the adjustment log reads an Event in — see `dm/adjustmentVocabulary.ts` */
     adjustmentWords: adjustmentVocabularyFrom(config, view.stats),
+    /**
+     * The DM's quick actions, derived from this ruleset's own pools (TICKET-DM-03)
+     *
+     * Built for every reader and rendered for one: `useQuickActions` answers `null` to anybody who is
+     * not the table's DM, so the sidebar is absent rather than disabled (v3 Req 49.10). A list is
+     * cheap; deciding who may act is not the sheet's question to answer twice.
+     */
+    quickActions: toQuickActions(character, config, view.stats, level),
     ...actions,
   };
 }
