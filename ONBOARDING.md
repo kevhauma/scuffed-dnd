@@ -155,7 +155,8 @@ yarn build               # production build (fails if a server module reached th
 src/
   shared/    The Kernel. Pure — no React, no storage, no network. Imports neither sibling.
   client/    The browser app: components, routes, stores, browser-only services, styles.
-  server/    The backend. Empty until TICKET-SRV-01; read src/server/README.md.
+  server/    The backend: db/, repositories/, auth/, http/, routes/, ws/, env.ts, entry.ts.
+             Read src/server/README.md.
 ```
 
 **The rule is symmetric and mechanical**: `client/` and `server/` may each import `shared/` and
@@ -409,6 +410,24 @@ carrying a user story, the as-is / to-be, and acceptance criteria.
   *write* of one. If it flags your handler and the flag is genuinely wrong, name the operation in
   the repository instead (TICKET-IO-04's `insertUnseatedCharacter` is the precedent) — do not teach
   the detector an exception, because a detector with exceptions is one that will miss a real one.
+  **The same file has a second corpus for the socket** (TICKET-LIVE-01), found by
+  `CLIENT_MESSAGE_TYPE.` instead of `defineHandler(`, because a WebSocket upgrade contains no
+  handler and *authorization lives in `guards.ts`* is not a rule about HTTP.
+- **The live socket exists under `yarn dev` and in the tests, and not in a built artefact yet.**
+  `attachLiveSocket(httpServer)` needs a listener, and `src/server/entry.ts` is handed a `Request`
+  and never sees one — so the attachment is `scripts/live-socket.mjs`, a dev-only Vite plugin, until
+  TICKET-POL-03 writes the start command. If you build the app and wonder why nothing connects, that
+  is why, and it is recorded on POL-03's second criterion rather than left to be rediscovered.
+- **Nothing that arrives on the socket can change anything** (D8). It carries `subscribe` and
+  `unsubscribe` and nothing else; every mutation is an HTTP request. A message the server does not
+  recognise is dropped and logged before it can reach a repository, so if you are looking for where
+  a socket write is handled — there isn't one, and that is the design.
+- **Every `ws` socket needs an `'error'` listener, including one you are about to close.** An
+  `'error'` on an `EventEmitter` with no listener is a **throw**, and from a socket it is raised out
+  of a `data` callback where nothing catches it — so it ends the process. LIVE-01's refusal path
+  shipped without one and a single malformed frame from an anonymous client killed the server;
+  `liveSocketServer.ts`'s `refuse` is the fix and the comment explaining it. Attach the listener
+  *before* `close()`: closing only moves the socket to `CLOSING`, and frames keep being parsed.
 
 ---
 

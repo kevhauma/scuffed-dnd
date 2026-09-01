@@ -20,6 +20,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GameSessionSummary, SessionMemberListing } from '#shared/types/api';
 import { MEMBER_ROLE } from '#shared/types/api';
+import { SOCKET_CLOSE_CODE } from '#shared/types/liveSocket';
 import { requireCharacterWriter } from '../../auth/guards';
 import { AppError } from '../../http/appError';
 import { insertUnseatedCharacter } from '../../repositories/characterRepository';
@@ -40,6 +41,12 @@ import {
   seedSession,
   withTestDatabase,
 } from '../../testing';
+import {
+  createSocketRooms,
+  type LiveConnection,
+  type SocketRooms,
+  setLiveRooms,
+} from '../../ws/rooms';
 import { archiveSession } from './archiveSession';
 import { listMembers } from './listMembers';
 import { removeMember } from './removeMember';
@@ -431,5 +438,113 @@ describe('one DM per session', () => {
 
       expect(dms).toHaveLength(1);
       expect(dms[0].accountId).toBe(player.id);
+    }));
+});
+
+describe('the live connections a seat was holding', () => {
+  /** A connection that remembers being closed, standing in for a real socket (TICKET-LIVE-01) */
+  function fakeConnection(accountId: string): LiveConnection & { closes: number[] } {
+    const closes: number[] = [];
+
+    return {
+      accountId,
+      closes,
+      send: () => undefined,
+      close: (code) => {
+        closes.push(code);
+      },
+    };
+  }
+
+  /**
+   * Install a registry this test can watch, and put the process's own back afterwards
+   *
+   * @param run What to do with it
+   * @returns Whatever `run` returned
+   */
+  async function withWatchedRooms<T>(run: (rooms: SocketRooms) => Promise<T>): Promise<T> {
+    const rooms = createSocketRooms();
+    const previous = setLiveRooms(rooms);
+
+    try {
+      return await run(rooms);
+    } finally {
+      // **Restored faithfully, `null` included.** `setLiveRooms` returns `SocketRooms | null`
+      // precisely so the slot can be put back as it was found, and *as it was found* is usually
+      // **empty** — nothing has asked for `liveRooms()` yet. An `if (previous)` therefore skipped
+      // the restore on the first call and left this test's registry installed as the process
+      // singleton for the rest of the worker, which is the leak the harness shape exists to avoid.
+      setLiveRooms(previous);
+    }
+  }
+
+  it('should close the removed Member’s connections to that room', () =>
+    withTestDatabase(async (database) => {
+      // **Criterion 5 at the route.** A subscribe is checked once, so a connection admitted while
+      // the seat existed would otherwise outlive the authorization that admitted it — nothing
+      // re-asks. The removal is what has to close it, in the same act.
+      const { dm, player, session } = aTableWithAPlayer(database);
+
+      await withWatchedRooms(async (rooms) => {
+        const departing = fakeConnection(player.id);
+        const staying = fakeConnection(dm.id);
+
+        rooms.join(session.id, departing);
+        rooms.join(session.id, staying);
+
+        const response = await remove(session.id, player.id, dm);
+
+        const status = response.status;
+        const departingClosed = departing.closes;
+        const stayingClosed = staying.closes;
+
+        expect(status).toBe(204);
+        expect(departingClosed).toEqual([SOCKET_CLOSE_CODE.MEMBERSHIP_ENDED]);
+        expect(stayingClosed).toEqual([]);
+      });
+    }));
+
+  it('should close nothing when the removal was refused', () =>
+    withTestDatabase(async (database) => {
+      // The eviction is after the delete, not before — a refused request has taken nothing away,
+      // so the connections are still entitled to be where they are
+      const { player, session } = aTableWithAPlayer(database);
+      const stranger = seedAccount();
+
+      await withWatchedRooms(async (rooms) => {
+        const held = fakeConnection(player.id);
+        rooms.join(session.id, held);
+
+        const response = await remove(session.id, player.id, stranger);
+
+        const status = response.status;
+        const closed = held.closes;
+
+        expect(status).toBe(404);
+        expect(closed).toEqual([]);
+      });
+    }));
+
+  it('should leave a departing Member’s connections to other tables alone', () =>
+    withTestDatabase(async (database) => {
+      const { dm, player, session } = aTableWithAPlayer(database);
+      const elsewhere = seedSession(database);
+      seedMember(database, { session: elsewhere.session, account: player });
+
+      await withWatchedRooms(async (rooms) => {
+        const atThisTable = fakeConnection(player.id);
+        const atTheOther = fakeConnection(player.id);
+
+        rooms.join(session.id, atThisTable);
+        rooms.join(elsewhere.session.id, atTheOther);
+
+        await remove(session.id, player.id, dm);
+
+        const thisTableClosed = atThisTable.closes;
+        const otherTableClosed = atTheOther.closes;
+
+        expect(thisTableClosed).toEqual([SOCKET_CLOSE_CODE.MEMBERSHIP_ENDED]);
+        expect(otherTableClosed).toEqual([]);
+      });
     }));
 });

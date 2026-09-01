@@ -51,6 +51,16 @@ verified as a set.
       rather than by memory.
 - [ ] The build serves the client bundle and the API from one process and one port; the socket
       connects on that same port.
+      **The socket half is an explicit debt from TICKET-LIVE-01 and will not happen by itself.**
+      `attachLiveSocket(httpServer)` in
+      [`src/server/ws/liveSocketServer.ts`](../../../src/server/ws/liveSocketServer.ts) takes the
+      listener as a parameter, and today its **only** caller is `scripts/live-socket.mjs`, a
+      dev-only Vite plugin. `src/server/entry.ts` is handed a `Request` and never sees a listener,
+      so this ticket's runner must call `attachLiveSocket` on whatever server it creates — otherwise
+      the production build has an API and no socket, and every LIVE-0x feature is silently absent
+      in the one environment that matters. Written here rather than only in LIVE-01's prose,
+      because a dependency that lives in a closed ticket is one that gets rediscovered at the
+      worst possible moment.
 - [ ] **The documented run is one command starting one process**, and nothing in the README asks the
       operator to serve the client bundle separately. Verified from the network log of a full
       signed-in loop — page load, API calls, socket upgrade — every request landing on that one

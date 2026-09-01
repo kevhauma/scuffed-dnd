@@ -26,6 +26,12 @@
  * that has ended is exactly the tidying-up somebody wants to do, and refusing it would be a rule
  * pointed the wrong way — the same reasoning `revokeInvite` records.
  *
+ * **The seat going takes the live connections with it** (TICKET-LIVE-01, v3 Req 39.3). A socket is
+ * admitted to a room because `requireMember` said so at subscribe time; once that stops being true
+ * the room has somebody in it the guard would now refuse, and nothing would re-ask — a subscribe is
+ * checked once. So the removal closes them here, in the same act, rather than leaving a connection
+ * that outlives its own authorization.
+ *
  * **Validates: v3 Req 32.1, 32.3, 32.5, 39.3, 39.5, 39.6**
  */
 
@@ -34,6 +40,7 @@ import { requireMember } from '../../auth/guards';
 import { conflict, notFound } from '../../http/appError';
 import { defineHandler } from '../../http/pipeline';
 import { findSessionMember, removeSessionMember } from '../../repositories/gameSessionRepository';
+import { liveRooms } from '../../ws/rooms';
 import { memberAccountIdFrom, sessionIdFrom } from './sessionPayloads';
 
 /**
@@ -70,6 +77,11 @@ export const removeMember = defineHandler((context): undefined => {
   }
 
   removeSessionMember(sessionId, targetAccountId);
+
+  // After the row is gone, not before: if the delete threw, the connections were still entitled to
+  // be where they are, and closing them first would have been a refusal nobody made
+  const rooms = liveRooms();
+  rooms.evictMember(sessionId, targetAccountId);
 
   // Nothing to say — the pipeline turns `undefined` into a 204
   return undefined;

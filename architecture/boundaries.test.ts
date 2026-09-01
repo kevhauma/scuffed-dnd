@@ -150,6 +150,15 @@ describe('the layering rules', () => {
       'ui-primitives-are-leaves'
     );
   });
+
+  it('refuses a second importer of the socket library (TICKET-LIVE-01)', () => {
+    // The whole room model is testable against plain objects only for as long as `ws/rooms.ts`
+    // cannot see `ws`. The fixture uses a **type-only** import — the weakest form, which breaks
+    // nothing and fails no test, and is therefore the one this has to catch.
+    const broken = rulesBrokenBy('src/server/boundaryFixtures/importsTheSocketLibrary.ts');
+
+    expect(broken).toContain('the-socket-library-has-one-importer');
+  });
 });
 
 describe('the dependency-graph rules', () => {

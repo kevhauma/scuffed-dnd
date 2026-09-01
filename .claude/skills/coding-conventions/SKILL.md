@@ -456,6 +456,13 @@ should re-open it.
      `expect(() => cast(…)).toThrow()`, `it.each(rows)`, `useMemo(() => …, [])`;
   3. **JSX as an argument** — `render(<Component … />)`, which is an element rather than a call.
 
+  **A `new X()` *is* a call and gets bound** (User, ruled on DM-05's `new Response(…)` and again on
+  LIVE-01). So `reject(new Error('…'))` becomes `const timedOut = new Error('…'); reject(timedOut);`,
+  and `vi.setSystemTime(new Date('2026-01-01'))` binds the date first. A constructor's argument is
+  as much a thing the reader has to evaluate inside-out as any other call's, and the name is what
+  says what the value *is*. **`throw new Error('…')` is not affected** — a `throw` is a statement,
+  not a call taking an argument, so the constructor is not nested in anything.
+
   **This was being half-applied, which is why it is written down**: RACE-04, SKL-05 and INV-04 each
   converted a handful of sites while adding ten to thirty more, because `expect(f(x))` is the suite's
   pervasive existing form. The existing sites are swept in **one mechanical change under

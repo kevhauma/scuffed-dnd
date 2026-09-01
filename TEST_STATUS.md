@@ -1,7 +1,9 @@
 # Test Status
 
-_Last verified: 2026-09-01 (`npx vitest run`) at **TICKET-DM-05 — the DM's view of a player's sheet is
-read-only**, the current count-setter at **3952** across 237 files. The checkpoints before it were
+_Last verified: 2026-09-01 (`npx vitest run`) at **TICKET-LIVE-01 — WebSocket transport and
+authenticated rooms**, the current count-setter at **4015** across 241 files. The checkpoints before
+it were
+**TICKET-DM-05 — the DM's view of a player's sheet is read-only** at 3952,
 **TICKET-DM-03 — quick actions derived from the ruleset, and the sheet sidebar** at 3863,
 **TICKET-DM-02 — DM controls: inventory and purse** at 3808,
 **the v4.0 data pass — TICKET-MAT-03 and TICKET-ITEM-02, and with them the whole re-sourced
@@ -56,12 +58,17 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 3863
-- **Passing**: 3863 (100%)
+- **Total tests**: 4015
+- **Passing**: 4015 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **232 files**: `server` in node, everything else in happy-dom.
+Split across **241 files**: `server` in node, everything else in happy-dom.
+
+> **This block had gone three checkpoints stale** (it read 3863 / 232 files, last true at DM-03)
+> and was corrected at LIVE-01. A summary that disagrees with the header of the very file whose job
+> is the count is worse than no summary, because it is the part somebody skims. **Update both when
+> the count moves.**
 
 > **Coverage arrived, and the suite did not change to make room for it.** Every `.test.ts` and
 > `.test.tsx` still runs — the count above is unmoved. What is scoped is the *threshold*:
@@ -303,6 +310,92 @@ Split across **232 files**: `server` in node, everything else in happy-dom.
 > gap is not a regression — nothing was failing at either number — it is a checkpoint that was
 > written from a partial run. PLY-01's delta is stated against the measured 2827, and the rule this
 > corrects is worth writing down: **re-measure the baseline, don't quote the last row.**
+
+## TICKET-LIVE-01 — a socket tested without booting one
+
+**+63 tests, +4 files (3952 → 4015, 237 → 241 files).** The four new files are
+`server/ws/rooms.test.ts` (18), `server/ws/subscription.test.ts` (14),
+`server/ws/liveSocketServer.test.ts` (13) and `client/services/liveSocket.test.ts` (8). The rest are
+extensions to three existing files: `routes/sessions/membership.test.ts` **+3** (the connections a
+removed seat was holding), `routes/routeGuards.test.ts` **+6** (the socket's guard obligation) and
+`architecture/boundaries.test.ts` **+1** (a second importer of `ws` is refused).
+
+**Eleven of those sixty-three came out of review rather than the build**, across two passes, and
+they are the ones worth knowing about — the crash note below, plus the pair that discriminates
+`evictMember`, the log-flooding cap, and the `SameSite` tripwire. One existing assertion was
+tightened rather than added: `auth.test.ts`'s cookie test asserted `samesite`, which
+`SameSite=None` satisfies — the one value that would undo the restriction it is named after.
+
+**The interesting number is 13, in `liveSocketServer.test.ts`.** `vitest.config.ts` omits
+`tanstackStart()` and server code is tested by calling functions directly, never by booting Nitro —
+and a WebSocket has nothing to say without a listener. The resolution is that **a listener is not a
+framework**: each test creates a bare `node:http` server, hands it to `attachLiveSocket`, and drives
+real `ws` clients over loopback with real Better Auth cookies obtained through the actual sign-up
+handler. No route tree, no SSR handler, no Vite, no build, and no shared test server — each owns its
+own on an ephemeral port, closed in a `finally`, which is the property `testing/index.ts` rules a
+shared one out to protect. The expired-cookie case drives `Date` with
+`vi.useFakeTimers({ toFake: ['Date'] })` rather than waiting thirty days, following `session.test.ts`.
+
+**One assertion is worth copying.** The refusal a non-member gets and the refusal for a session that
+does not exist are compared **to each other**, with only the echoed `sessionId` normalised away —
+not each against its own literal. Two separate assertions can drift apart while both stay green, and
+the property under test is that the two are *indistinguishable* (v3 Req 32.5). A `reason` added to
+one branch and not the other fails that test; it would pass two literal ones.
+
+**Two lessons the file paid for, both about the harness rather than the socket.** First, a client's
+`close` event fires when *its* handshake finishes, a socket round trip before the server's own close
+listener empties the room — so the room-count assertion polls to a deadline (`until`) instead of
+guessing a number of event-loop turns. Second, Node destroys an unhandled upgrade only when there
+are **zero** `upgrade` listeners; ours is one, so a first draft that connected to another path and
+waited for a close hung for the full 30-second timeout. The replacement registers a stand-in for
+Vite's HMR listener and asserts each claims its own path, which is the property that actually
+matters.
+
+**The most valuable test in the ticket exists because review found a remote crash.** `handleUpgrade`
+wires `ws`'s frame receiver *before* the unauthenticated refusal runs, and `raw.close()` only moves
+the socket to `CLOSING` — so a frame pipelined behind the handshake is still parsed. One with RSV1
+set made the receiver emit `'error'` on a WebSocket that, by design, had **no listeners at all**;
+Node turns that into a throw out of a `socket.on('data')` callback, and nothing in `src/` installs an
+`uncaughtException` handler. One frame, no credentials, process gone. *should survive a malformed
+frame from an unauthenticated client* is the regression test, and it was **confirmed to fail without
+the fix** — `WS_ERR_UNEXPECTED_RSV_1` out of `socketOnData`, re-confirmed against this tree's actual
+`ws` **8.19.0** rather than inherited from the first run. An unfalsifiable green box would have been
+worthless here. It writes the bad frame over `node:http`'s upgrade socket, because a conforming `ws`
+client cannot produce one and `node:net` is forbidden in `src/server/` by `the-server-sends-no-mail`.
+Replacing its guessed 50 ms sleep with this file's own `until()` helper made it **fail directly**
+rather than only through an unhandled error — the wait never satisfies when the listener is absent.
+
+**The one-importer claim became a check.** `the-socket-library-has-one-importer` in
+`.dependency-cruiser.mjs`, proven against `boundaryFixtures/importsTheSocketLibrary.ts` — a
+**type-only** import, the weakest form of the violation and the one most likely to pass review.
+Until that rule existed, "`rooms.ts` imports `ws` not at all" was a claim in five documents and
+nothing else; the day it stopped being true, every property `rooms.test.ts` proves against plain
+objects would have quietly stopped meaning anything and no test would have failed.
+
+**`yarn run check` is clean** (810 modules, 4156 dependencies cruised) and `npx tsc --noEmit` is at
+its documented 2-error baseline. The last module count this file recorded was **727, at SPL-01** —
+several tickets back, so the difference is that whole stretch's work and not this ticket's; stated
+that way rather than as a delta, because a delta against a stale row would read as one.
+
+**`fallow audit --base main` returns `verdict: pass`** with `dead_code_introduced: 0`,
+`complexity_introduced: 0`, `duplication_introduced: 0`. It charged three introduced unused types on
+the first run and **all three were fixed rather than suppressed**: `ClientMessageType` and
+`ServerMessageType` were deleted, since the discriminated union of message *shapes* is what callers
+name and a derived alias for the `type` field alone had none; `SocketCloseCode` was kept and put to
+work as `LiveConnection.close`'s parameter type. It charged **one complexity finding** in the review
+round, on `decodeFrame` — and the honest reading is that it was a **CRAP** finding, not a threshold
+one: cyclomatic 10 and cognitive 9 are both well under the 20/15 thresholds, and the CRAP score was
+estimated without a coverage file. It was **split rather than argued with**, because merging the two
+parsers is what grew it: `readFrameBody` now owns the bytes (one `JSON.parse`, still) and
+`decodeFrame` owns the rules. **No hotspot row is owed** — `fallow health --hotspots --since 6m`
+tags no file this ticket touched as Accelerating (`routeGuards.test.ts` and `vite.config.ts` are
+`stable`, `architecture/boundaries.test.ts` is `cooling`; everything else is new and has no churn
+history).
+
+**`SocketRooms.broadcast` has no production caller until LIVE-02, and fallow does not report it** —
+it is an interface method with an implementation and callers in two test files. Recorded here so the
+next reader does not delete it as dead: it is specified by this ticket's third criterion and driven
+across two rooms and four connections.
 
 ## TICKET-DM-05 — six surfaces made read-only, and the one complexity finding it had to pay for
 

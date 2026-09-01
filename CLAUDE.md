@@ -7,6 +7,11 @@ LocalStorage, with JSON import/export for sharing a ruleset, and nothing about t
 sessions and live updates, on SQLite. One process serves the client bundle, the API and the socket
 — see [D1](docs/v3.0_backend/overview.md#d1--the-backend-lives-in-this-repo-on-tanstack-start) and
 [D6](docs/v3.0_backend/overview.md#d6--local-mode-stays-sign-in-gates-connected-play-only).
+(**The socket is attached under `yarn dev` only, as of TICKET-LIVE-01.** `src/server/entry.ts` is
+handed a `Request` and never sees a listener, so a Vite plugin does it; wiring
+`attachLiveSocket(httpServer)` into a built artefact is
+[TICKET-POL-03](docs/v3.0_backend/tickets/TICKET-POL-03-deployment-shape.md)'s, and this
+parenthesis is what it deletes.)
 
 Stack: React 19, TypeScript, Vite, TanStack Router (file-based), Zustand, react-hook-form,
 Tailwind CSS 4 (custom medieval theme), Vitest + fast-check, Biome.
@@ -236,7 +241,21 @@ acceptance criteria.
   missing record are indistinguishable (v3 Req 32.5), and a 403 would confirm the resource exists.
   `src/server/routes/routeGuards.test.ts` walks every module containing `defineHandler(` and fails
   on one that reads an owned identifier without calling a guard; dependency-cruiser cannot, because
-  the obligation is a call site rather than an import.
+  the obligation is a call site rather than an import. **The socket is held to the same rule and the
+  same file proves it** (TICKET-LIVE-01): a WebSocket upgrade contains no `defineHandler(`, so there
+  is a second corpus keyed on `CLIENT_MESSAGE_TYPE.` — scoped to the message-decoding module,
+  because `ws/rooms.ts` is *handed* session ids rather than reading them off a request. There is no
+  `findSessionMember` call anywhere under `src/server/ws/`.
+- **The socket notifies; HTTP mutates** ([D8](docs/v3.0_backend/overview.md#d8--websockets-notify-http-mutates),
+  TICKET-LIVE-01). The live socket carries exactly two inbound verbs — `subscribe` and
+  `unsubscribe` — and **no state-changing message is ever accepted on it**: anything else is dropped
+  and logged in `ws/subscription.ts` before it can reach a repository. Every mutation is an HTTP
+  request, which is what keeps authorization to one implementation rather than one per transport and
+  every mutation testable without a socket. Identity is settled **on the upgrade** by the same
+  `accountFromRequest` the pipeline uses — never on the first message, because an authenticated-later
+  socket is a socket that exists unauthenticated. `ws/rooms.ts` imports `ws` **not at all**;
+  `ws/liveSocketServer.ts` is the only module that does. The socket's URL is derived from
+  `window.location` and no variable or constant names its host.
 - **Client route protection is an explicit allow-list, and the default is open** (D6). A route is
   protected only by appearing in `client/components/auth/protectedRoutes.ts` *and* composing
   `RequireAccount`; `protectedRoutes.test.ts` enumerates the generated route tree and asserts both.

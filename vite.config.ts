@@ -5,6 +5,7 @@ import viteReact from '@vitejs/plugin-react';
 import { loadEnv } from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
+import { liveSocket } from './scripts/live-socket.mjs';
 import { noServerInClientBundle } from './scripts/no-server-in-client-bundle.mjs';
 
 const config = defineConfig(({ mode }) => {
@@ -41,6 +42,10 @@ const config = defineConfig(({ mode }) => {
       // Asserted against the emitted module list, not against the source tree — see the module's
       // own note for why both checks exist (TICKET-DX-07, v3 Req 50.5).
       noServerInClientBundle(),
+      // Development only. Vite owns the HTTP listener here and `src/server/entry.ts` never sees
+      // it, so the socket is attached from a plugin rather than from the entry (TICKET-LIVE-01).
+      // The production attachment belongs to TICKET-POL-03, which owns the start command.
+      liveSocket(),
     ],
     test: {
       globals: true,

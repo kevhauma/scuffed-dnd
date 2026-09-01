@@ -29,7 +29,7 @@ shared/types/       pure type definitions, no runtime code — including `api.ts
                     (`engine/validator.ts` still re-exports it, and still builds one)
 shared/engine/      formula parser/evaluator/validator + the derived-value calculators
 shared/services/    shape validation, import semantics, serialisation — no browser APIs
-client/services/    LocalStorage persistence, Blob/File download and upload
+client/services/    LocalStorage persistence, Blob/File download and upload, the socket's address
 client/stores/      Zustand: configStore, characterStore, uiStore
 client/components/  ui/ (base primitives) → config/, play/, shared/ (feature components)
 client/routes/      TanStack Router file-based routes
@@ -38,6 +38,7 @@ server/db/          the SQLite connection, the Drizzle schema, the migration run
 server/repositories/ the only code that issues queries — one module per aggregate
 server/http/        AppError, the request pipeline, the API route table
 server/routes/      one module per API route — plain handlers, no framework coupling
+server/ws/          the live socket: rooms, the subscribe surface, the `ws` attachment
 server/entry.ts     the server entry: /api/* to the router, everything else to SSR
 ```
 
@@ -623,6 +624,12 @@ between the roots is exactly *"does this touch a browser API"*.
   refusal writes `ERROR_CODE.CONFLICT` and a renamed code breaks both roots at once; `ApiError.body`
   carries the details a route attached (a conflict's `currentRevision`, a shape refusal's `fields`).
   Better Auth keeps its own client for `/api/auth/*`; local mode never calls this at all.
+- `liveSocket.ts` — `liveSocketUrl(location)` (TICKET-LIVE-01), and **that is the whole client half
+  of the socket so far**. `ws:`/`wss:` chosen from the page's own protocol, host and port taken
+  verbatim, path from `#shared/types/liveSocket`'s `LIVE_SOCKET_PATH`. No environment variable, no
+  configurable base and no host literal anywhere in the module — asserted against its **own source
+  text**, since that property decays the first time somebody adds a fallback. The connection object
+  that uses this address arrives with LIVE-02, in the change that consumes it.
 - `rulesetSync.ts` — **the one place a ruleset edit's destination is decided** (TICKET-RUL-02).
   `persistRuleset(source, config)`: the browser home writes LocalStorage synchronously, exactly as
   v2.0 did down to letting `storage.ts`'s throw out; the account home debounces (800 ms), coalesces
@@ -900,8 +907,45 @@ each later ticket adds.
   queries here forbids a handler from importing `db/client`, so a connection-first signature is one
   no route can call. AUTH-03 converted DB-01's two to match.
 
+- `ws/` (TICKET-LIVE-01) — **the live socket**, and the transport only; nothing is broadcast yet.
+  Three modules and the split between them is the design:
+  - `rooms.ts` — one room per Game_Session, `Map<sessionId, Set<LiveConnection>>`, with `join`,
+    `leave`, `forget`, `broadcast`, `evictMember`, `closeAll` and `roomCount`. **It imports `ws` not
+    at all** — and that is a **dependency-cruiser rule**, `the-socket-library-has-one-importer`, not
+    a promise: a `LiveConnection` is three members (`accountId`, `send`, `close`), which is what
+    makes every room property assertable against plain objects, and a single type-only `WebSocket`
+    import would end that silently. An empty room is *deleted*, so a long-running server holds no
+    Set per table ever played. `evictMember` **leaves the room and closes the socket only if that was
+    its last room** — one browser holds one socket across every table it watches, so closing outright
+    would darken table B because a seat at table A was removed. `liveRooms()` is the process
+    singleton (`setLiveRooms` mirrors `db/client`'s `setProcessDatabase` for tests).
+  - `subscription.ts` — the socket's **whole inbound surface**. Two verbs, `subscribe` and
+    `unsubscribe`; anything else is dropped and logged before it can reach a repository (D8). The
+    subscribe calls **`requireMember` from `auth/guards.ts`, unmodified** — there is no
+    `findSessionMember` call anywhere under `ws/` — and maps every `AppError` onto one refusal
+    payload carrying no reason, so *no such session* and *not a Member* are the same answer
+    (v3 Req 32.5). A refusal is a **message**, not a close: one socket may hold several rooms, and
+    closing on a bad id would let a caller read the outcome off the connection state.
+  - `liveSocketServer.ts` — `attachLiveSocket(httpServer, rooms?)`, the **only** module importing
+    `ws`. `noServer: true`, a 4 KiB `maxPayload`, and an `upgrade` listener filtered to
+    `LIVE_SOCKET_PATH` so Vite's own HMR socket on the same listener is untouched. Identity is
+    resolved **on the upgrade** by the same `accountFromRequest` the pipeline uses; a connection
+    that fails gets close code `4401` with **no message listener and no room joined** — but it *does*
+    get an `'error'` listener, which is not a concession: `handleUpgrade` wires the frame receiver
+    before the close, and an `'error'` with no listener is a `throw` that ends the process. Keepalive
+    is protocol `ping`/`pong`. Its header records the **`sameSite: lax` reliance** that is what
+    actually stops a cross-site handshake, and why an `Origin` check reading `AUTH_ALLOWED_HOSTS`
+    would be worse than useless on the default deployment.
+  - The wire contract — path, close codes, message types — is `#shared/types/liveSocket.ts`, because
+    both ends read it.
+  - **Attached only under `yarn dev`**, by `scripts/live-socket.mjs`. `entry.ts` is handed a
+    `Request` and never sees a listener; the production attachment is TICKET-POL-03's.
+
 Server tests call handlers directly with a `Request` and **never boot Nitro** —
-`vitest.config.ts` still omits `tanstackStart()`, for the reason its own header records.
+`vitest.config.ts` still omits `tanstackStart()`, for the reason its own header records. **A socket
+needs a listener, and a listener is not a framework** (TICKET-LIVE-01): `ws/liveSocketServer.test.ts`
+creates a bare `node:http` server, hands it to `attachLiveSocket`, and drives real `ws` clients with
+real Better Auth cookies over loopback. No route tree, no SSR handler, no Vite, no build.
 
 ## Scripts (`scripts/`)
 
@@ -919,6 +963,16 @@ Node-only tooling, outside the app bundle. Three files build the sheet-import co
 `src/shared/services/sheetImport.test.ts` re-runs the merge in the suite, fails on drift, and runs
 the referential report over the result. See
 [docs/imports/README.md](../../../docs/imports/README.md).
+
+Two more are Vite plugins loaded by `vite.config.ts` (each with a hand-written `.d.mts`, since they
+are plain ESM):
+
+- **`no-server-in-client-bundle.mjs`** (TICKET-DX-07) — fails the build if any `src/server/` module
+  reached the emitted chunks, asserted against Rollup's module list rather than the source tree.
+- **`live-socket.mjs`** (TICKET-LIVE-01) — `apply: 'serve'`. Loads `src/server/ws/` once the dev
+  server is listening and calls `attachLiveSocket(server.httpServer)`, because Vite owns the HTTP
+  listener in development and `src/server/entry.ts` never sees one. It contains the attachment and
+  no rules; production is TICKET-POL-03's.
 
 ## Components (`src/client/components/`)
 

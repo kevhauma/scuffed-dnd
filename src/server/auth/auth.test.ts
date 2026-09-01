@@ -380,7 +380,14 @@ describe('the Auth_Session cookie', () => {
 
       // v3 Req 30.4 — HttpOnly is what keeps it out of any client-readable store
       expect(header.toLowerCase()).toContain('httponly');
-      expect(header.toLowerCase()).toContain('samesite');
+      // **`=lax` rather than merely `samesite`** (tightened by TICKET-LIVE-01). The looser form was
+      // satisfied by `SameSite=None`, which is the one value that would undo the restriction the
+      // assertion is named after — and `lax` here is Better Auth's *default*, not something
+      // `authServer.ts` sets, so a library bump is what this is really watching. It carries more
+      // weight than the cookie's own file since LIVE-01: a WebSocket upgrade is not subject to CORS
+      // and nothing reads `Origin`, so this attribute is the whole of what stops another site
+      // opening a live socket as one of our users.
+      expect(header.toLowerCase()).toContain('samesite=lax');
       // v3 Req 48.1 — an expiry that outlives the browser process, so closing the tab does not
       // sign you out. A session cookie would have neither of these.
       expect(header.toLowerCase()).toMatch(/max-age|expires/);

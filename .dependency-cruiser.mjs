@@ -27,6 +27,7 @@
  * | `queries-belong-to-repositories` | "Queries belong to `src/server/repositories/`" |
  * | `test-harness-stays-in-tests` | nothing — added by DX-06, and it is what pays for `testing/` being allowed through the rule above |
  * | `ui-primitives-are-leaves` | "Base components (`components/ui/`) carry intrinsic styling only" — the import half of it |
+ * | `the-socket-library-has-one-importer` | "`ws/rooms.ts` imports `ws` not at all" (TICKET-LIVE-01) — the claim that makes the room model testable against plain objects, which lived only in prose until it was a check |
  * | `no-circular` | fallow's circular-dependency report, promoted from a review signal to a gate |
  * | `no-dev-dep-in-production` | nothing; a production-install bug this repo had no guard against |
  * | `no-undeclared-dependency` | "No new runtime dependencies without asking" (D11) |
@@ -266,6 +267,31 @@ export default {
           '^(node:)?(net|tls|dgram)$|' +
           'node_modules/(nodemailer|@sendgrid|mailgun[^/]*|postmark|resend|emailjs[^/]*)(/|$)',
       },
+    },
+    {
+      name: 'the-socket-library-has-one-importer',
+      severity: 'error',
+      comment:
+        'A module other than server/ws/liveSocketServer.ts imported `ws`. That module is the ' +
+        'adapter between the socket library and everything else, and the rest of ws/ is written ' +
+        'against three-method plain objects (`LiveConnection`) precisely so that rooms, ' +
+        'admission and eviction are provable without a handshake, a port or a timing assumption ' +
+        '(TICKET-LIVE-01). The day `rooms.ts` imports `WebSocket` — even for a type — every ' +
+        'property `rooms.test.ts` proves against fakes quietly stops being a property of the ' +
+        'design, and nothing fails. This is that check. **The exemption is one file, not TESTS**: ' +
+        'liveSocketServer.test.ts drives a real `ws` *client* over loopback and has to, but a ' +
+        'blanket test exemption would let rooms.test.ts import the library — and that file is the ' +
+        'one whose fakes the rule exists to keep meaningful, so exempting it would aim the check ' +
+        'away from its own target.',
+      from: {
+        path: '^src/',
+        pathNot: [
+          FIXTURES,
+          '^src/server/ws/liveSocketServer\\.ts$',
+          '^src/server/ws/liveSocketServer\\.test\\.ts$',
+        ],
+      },
+      to: { path: 'node_modules/ws(/|$)' },
     },
     {
       name: 'no-circular',

@@ -28,7 +28,7 @@ src/
 │   │   ├── config/               # Configuration mode routes
 │   │   └── play/                 # Play mode routes
 │   ├── stores/                   # Zustand state stores
-│   ├── services/                 # LocalStorage, Blob/File download, the /api/* client
+│   ├── services/                 # LocalStorage, Blob/File download, /api/* client, socket address
 │   ├── components/               # ui/ primitives → config/, play/, rulesets/, auth/, shared/
 │   ├── integration/              # The nothing-mocked suites
 │   ├── router.tsx                # Router creation
@@ -44,7 +44,9 @@ src/
 - **Routing**: TanStack Router (file-based routing)
 - **State Management**: Zustand
 - **Styling**: Tailwind CSS
-- **Server**: one Node process serving the client bundle and the API from one origin
+- **Server**: one Node process serving the client bundle and the API from one origin — and, under
+  `yarn dev`, the live WebSocket (`ws`) on that same listener. The production attachment is
+  TICKET-POL-03's, along with the start command it needs
 - **Database**: SQLite (`better-sqlite3`) through Drizzle, migrations through drizzle-kit
 - **Testing**: Vitest + fast-check
 

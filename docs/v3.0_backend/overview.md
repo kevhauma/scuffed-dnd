@@ -170,6 +170,19 @@ a subscribe/ack handshake, authenticated by the same cookie on the upgrade reque
 every mutation stays testable without a socket, and authorization has exactly one implementation
 rather than one per transport. Raw `ws` on the same HTTP listener; new runtime dependency: **`ws`**.
 
+> **Settled by TICKET-LIVE-01, with one thing this decision did not anticipate: *which* listener.**
+> `ws` and `@types/ws` are now declared in `package.json` (they had been resolvable transitively all
+> along, which would have worked in dev and failed `yarn run arch` — the trap
+> `no-undeclared-dependency` exists for). The socket is `noServer: true` plus an `upgrade` listener
+> filtered to `/api/live`, so it shares a listener with Vite's own HMR socket without either
+> claiming the other's connections. But **`src/server/entry.ts` is handed a `Request` and never sees
+> a listener**, so it cannot do the attaching: under `yarn dev` a Vite plugin
+> (`scripts/live-socket.mjs`) does it, and in a built artefact **nothing does yet**. Calling
+> `attachLiveSocket(httpServer)` is now a named obligation on
+> [TICKET-POL-03](./tickets/TICKET-POL-03-deployment-shape.md), which owns the start command.
+> The rest of the decision held exactly: two inbound verbs, `requireMember` per subscribe, and no
+> authorization written twice.
+
 ### D9 — Level stays derived; "points to spend" becomes a grant
 
 The User asked for a DM who can edit a player's level and their points to spend. Neither is a
@@ -338,7 +351,7 @@ Characters and play:
 
 Live:
 
-- [ ] [TICKET-LIVE-01](./tickets/TICKET-LIVE-01-websocket-transport-and-rooms.md) — WebSocket transport and authenticated rooms (v3 Req 44.1–44.3) — D8; cookie auth on upgrade, room per session
+- [x] [TICKET-LIVE-01](./tickets/TICKET-LIVE-01-websocket-transport-and-rooms.md) — WebSocket transport and authenticated rooms (v3 Req 44.1–44.3) — D8; cookie auth on upgrade, room per session. **The pipe, and deliberately none of the traffic.** Authorization is the existing rule applied to a new entry point rather than a second scheme: *who is this* is settled **once, on the upgrade**, by the same `accountFromRequest` every HTTP request uses, and *may they* is `requireMember` per subscribe — with **no `findSessionMember` call anywhere under `ws/`**. `guards.ts`'s `Asking` interface, written for this caller back in AUTH-03, needed no change. Req 32.5 holds on the socket too: *no such session* and *not a Member* produce the same payload, asserted **equal to each other** rather than each against a literal. `routeGuards.test.ts` gained a second corpus — not a second detector — keyed on `CLIENT_MESSAGE_TYPE.` and scoped to the message-decoding module, since the room registry is handed session ids rather than reading them. `rooms.ts` imports `ws` **not at all**, which is what makes the interface load-bearing and the room tests deterministic; the socket itself is proven end to end against a bare `node:http` listener with real Better Auth cookies, which is how a socket is tested with `tanstackStart()` omitted from the Vitest config. `fallow` charged three unused types and all three were **fixed rather than suppressed** — two deleted, and `SocketCloseCode` put to work as `LiveConnection.close`'s parameter type. Two things are recorded rather than closed: **the production attachment is POL-03's**, which gained a line naming `attachLiveSocket` (until then the socket is in development and the tests and nowhere else), and criterion 8's **live half stays open** — the User declined interactive browser checks for the rest of the milestone on 2026-09-01
 - [ ] [TICKET-LIVE-02](./tickets/TICKET-LIVE-02-event-fan-out-and-reconciliation.md) — Event fan-out and client reconciliation (v3 Req 44.4, 44.5, 44.7) — every Event written since PLY-01 finally goes somewhere
 - [ ] [TICKET-LIVE-03](./tickets/TICKET-LIVE-03-presence-reconnect-and-replay.md) — Presence, reconnect and replay (v3 Req 44.6, 44.8, 44.9) — the ticket that makes a flaky connection survivable rather than confusing
 
