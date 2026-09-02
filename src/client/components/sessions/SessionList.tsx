@@ -23,8 +23,9 @@ import { Card } from '../ui/Card/Card';
 import { Text } from '../ui/Text/Text';
 import { AddressedInvitePanel } from './AddressedInvitePanel';
 import { InviteCodePanel } from './InviteCodePanel';
-import { SessionCharacters } from './SessionCharacters';
-import { SessionLobby } from './SessionLobby';
+import { RosterRollLog } from './roster/RosterRollLog';
+import { SessionRoster } from './roster/SessionRoster';
+import type { SessionRosterState } from './roster/useSessionRoster';
 import {
   archivedBadgeStyles,
   dmBadgeStyles,
@@ -32,10 +33,8 @@ import {
   sectionStyles,
   sessionRowStyles,
 } from './sessions.style';
-import type { SessionCharactersState } from './useSessionCharacters';
 import type { SessionInvitationsState } from './useSessionInvitations';
 import type { SessionInviteState } from './useSessionInvite';
-import type { SessionMembersState } from './useSessionMembers';
 
 export interface SessionListProps {
   sessions: GameSessionSummary[];
@@ -48,12 +47,13 @@ export interface SessionListProps {
   invite: SessionInviteState;
   /** The open row's addressed invitations (TICKET-GAM-03) */
   invitations: SessionInvitationsState;
-  /** Who is at the open row's table — without its writes, which arrive wrapped below */
-  members: Omit<SessionMembersState, 'remove' | 'transfer'>;
-  /** What is at the open row's table (TICKET-CHAR-04) */
-  characters: SessionCharactersState;
-  /** Which Account is reading, so the lobby can tell its own row apart */
-  accountId: string | null;
+  /**
+   * The open row's roster (TICKET-DM-04) — without its writes, which arrive wrapped below
+   *
+   * One prop where GAM-04's `members` and CHAR-04's `characters` were two, because the surface
+   * beneath is one list rather than two panels (v3 Req 49.8).
+   */
+  roster: Omit<SessionRosterState, 'remove' | 'transfer'>;
   onRemoveMember: (accountId: string) => void;
   onTransferDm: (accountId: string) => void;
 }
@@ -76,9 +76,7 @@ function SessionRow({
   onToggle,
   invite,
   invitations,
-  members,
-  characters,
-  accountId,
+  roster,
   onRemoveMember,
   onTransferDm,
 }: {
@@ -87,13 +85,7 @@ function SessionRow({
   onToggle: () => void;
 } & Pick<
   SessionListProps,
-  | 'invite'
-  | 'invitations'
-  | 'members'
-  | 'characters'
-  | 'accountId'
-  | 'onRemoveMember'
-  | 'onTransferDm'
+  'invite' | 'invitations' | 'roster' | 'onRemoveMember' | 'onTransferDm'
 >) {
   const isDm = session.role === MEMBER_ROLE.DM;
   const badge = ROLE_BADGE[session.role];
@@ -128,37 +120,22 @@ function SessionRow({
 
       {isOpen && (
         <>
-          <SessionLobby
+          {/* One list where GAM-04's lobby and CHAR-04's character panel were two (v3 Req 49.8) */}
+          <SessionRoster
             sessionId={session.id}
-            members={members.members}
-            departedCharacters={members.departedCharacters}
-            accountId={accountId}
-            isDm={isDm}
-            // The server refuses to hand an archived game over (`requireActive`), so the button is
-            // absent rather than offered and always 409ing
+            roster={roster}
+            // The server refuses to hand an archived game over, and to create a character in one
+            // (`requireActive`), so both are absent rather than offered and always 409ing
             canTransfer={isActive}
-            isPending={members.isPending}
-            isBusy={members.isBusy}
-            error={members.error}
+            canCreate={isActive}
             onRemove={onRemoveMember}
             onTransfer={onTransferDm}
           />
 
-          {/* Below the roster and above the invitations: *who is here* is what a table is, *what is
-              on it* is what they are playing, and the invitations are for people who are not here
-              yet (TICKET-CHAR-04) */}
-          <SessionCharacters
-            characters={characters.characters}
-            accountId={accountId}
-            // The DM opens anybody's sheet, because that is where their controls are (TICKET-DM-01)
-            isDm={isDm}
-            canCreate={isActive}
-            isPending={characters.isPending}
-            isOpening={characters.isOpeningRules}
-            error={characters.error}
-            onCreate={characters.makeCharacterHere}
-            onOpen={characters.openCharacter}
-          />
+          {/* Below the roster and above the invitations: *who is here* is what a table is, *what
+              they have been throwing* is what they are doing, and the invitations are for people
+              who are not here yet */}
+          <RosterRollLog rolls={roster.rolls} isPending={roster.areRollsPending} />
 
           {isDm && (
             <>

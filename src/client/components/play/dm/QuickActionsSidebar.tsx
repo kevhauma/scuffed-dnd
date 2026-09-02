@@ -29,11 +29,11 @@
  */
 
 import type { CharacterAdjustment } from '#shared/types/api';
-import { Button } from '../../ui/Button/Button';
 import { Card } from '../../ui/Card/Card';
 import { Text } from '../../ui/Text/Text';
 import type { QuickAction } from '../shared/quickActions';
 import type { AdjustmentVocabulary } from './adjustmentVocabulary';
+import { QuickActionOutcome } from './QuickActionOutcome';
 import { QuickActionRow } from './QuickActionRow';
 import { useQuickActions } from './useQuickActions';
 
@@ -96,31 +96,14 @@ export function QuickActionsSidebar({
         ))}
       </div>
 
-      {quick.outcome !== null && (
-        <div className="mt-4 border-t border-stone-200 pt-4">
-          {/* What the Event says happened, not what was asked for: a restore that clamped reads as
-              the points it actually put back (v3 Req 49.5) */}
-          <Text variant="body-small" as="p">
-            {quick.outcome}
-          </Text>
-
-          {quick.undo !== null && (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Button variant="secondary" size="xs" disabled={quick.isBusy} onClick={quick.undo}>
-                Undo
-              </Button>
-
-              {/* Load-bearing, and the ticket says so: undo goes back through the same route under
-                  the same rules, so a pool whose maximum has fallen does not come back to where it
-                  was. Saying it here rather than only in a docblock is the point — the DM is the one
-                  who has to decide whether that matters (v3 Req 49.6). */}
-              <Text variant="body-small-secondary" as="span">
-                Undo applies the opposite action, not a rewind — a clamped pool does not come back.
-              </Text>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Split out at TICKET-DM-04, when the roster became the second placement — the undo caveat is
+          wording a DM acts on, and one copy of it is the point */}
+      <QuickActionOutcome
+        outcome={quick.outcome}
+        undo={quick.undo}
+        isBusy={quick.isBusy}
+        className="mt-4 border-t border-stone-200 pt-4"
+      />
     </Card>
   );
 }

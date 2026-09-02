@@ -34,6 +34,20 @@
  * is empty by the narrowing above, so a live feed would fill it from socket-open and omit
  * everything before that in silence. See `listeningTo` below.
  *
+ * ## …and TICKET-DM-04 settled what to say about that empty panel
+ *
+ * The gap DM-05 and LIVE-02 both recorded against DM-04: a DM reading somebody else's sheet sees a
+ * roll history with nothing in it, because the read is narrowed to the reader's own Account and
+ * nobody else has ever rolled *as* them. The ticket's own note posed the choice — widen this panel
+ * for a DM, or **defer to the roster** — and deferring is what shipped, for two reasons that are the
+ * same reason twice. Widening it properly needs the log narrowed by **character**, which is a query
+ * change the fan-out ticket called a schema decision; and the roster reads the table's log
+ * **unnarrowed**, so it is complete from the first roll rather than from socket-open. So this hook
+ * answers a {@link historyNoticeFor} sentence instead, and the panel says where the rolls are rather
+ * than drawing an empty list and letting a DM conclude nobody has rolled.
+ *
+ * **`logRoomFor` is untouched by that**, deliberately. The DM still joins no room for the log.
+ *
  * ## And the table's DM does not roll either (TICKET-DM-05)
  *
  * [`rollDice.ts`](../../../../server/routes/rolls/rollDice.ts) uses `requireCharacterPlayer`, whose
@@ -93,6 +107,30 @@ function logRoomFor(
   if (isDungeonMaster) return null;
 
   return sessionId;
+}
+
+/**
+ * Why this panel is empty, when the reason is *these are not the rolls you are looking for*
+ *
+ * At module scope on {@link logRoomFor}'s precedent — a decision the hook body was making is one that
+ * belongs outside it, and this hook has a measured history of one more conjunct taking it over the
+ * cognitive threshold.
+ *
+ * **Only the table's DM gets a sentence.** A Player's empty log means nobody has rolled yet, which
+ * `RollHistoryPanel` already says perfectly well; a DM's means *this log is scoped to somebody who
+ * cannot roll here*, and that is a different fact.
+ *
+ * @param atTable Whether the sheet's character plays at a game session
+ * @param isDungeonMaster Whether the reader runs that table rather than owning the sheet
+ * @returns The sentence, or `undefined` when the ordinary empty state is the honest one
+ */
+function historyNoticeFor(atTable: boolean, isDungeonMaster: boolean): string | undefined {
+  if (!atTable || !isDungeonMaster) return undefined;
+
+  return (
+    'This log holds your own rolls for this character, and a DM does not roll one. ' +
+    'The whole table’s rolls are on the session roster.'
+  );
 }
 
 export interface UseRollerOptions {
@@ -225,6 +263,13 @@ export function useRoller(
      * lies. `CharacterSheet` already knows which home it is drawing and withholds `onClear`.
      */
     handleClearHistory: () => clearRollHistory(characterId),
+    /**
+     * Why this log is empty, when *nobody has rolled yet* is not the reason (TICKET-DM-04)
+     *
+     * `undefined` for everybody but the table's DM, whose log is narrowed to rolls they cannot make.
+     * See the module note on why the panel defers to the roster rather than widening.
+     */
+    historyNotice: historyNoticeFor(atTable, isDungeonMaster),
     // No `atTable ||` here: `RollsSection` only renders once the sheet is ready, which already means
     // a config and a calculated character, so the extra disjunct enabled nothing — and if it ever
     // became reachable it would offer a roll whose pool the sheet could not show

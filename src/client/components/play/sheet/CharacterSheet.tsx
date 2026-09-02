@@ -101,6 +101,7 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
     canRoll,
     handleRoll,
     handleClearHistory,
+    historyNotice,
   } = useRoller(characterId, calculated);
 
   // The DM's half (TICKET-DM-01). `isDungeonMaster` is false on every local sheet and on the
@@ -278,10 +279,13 @@ export function CharacterSheet({ characterId }: CharacterSheetProps) {
           />
 
           {/* No *Clear* at a table: that log is the session's Event log, which is append-only
-              (TICKET-ROLL-07) */}
+              (TICKET-ROLL-07). `historyNotice` is `undefined` for everybody but the table's DM,
+              whose empty log means *these are not your rolls* rather than *nobody has rolled*
+              (TICKET-DM-04) — the hook decides, so nothing branches here. */}
           <RollHistoryPanel
             history={rollHistory}
             onClear={atTable ? undefined : handleClearHistory}
+            notice={historyNotice}
           />
 
           {/* v3 Req 42.7's second half: a Player reads the Events that changed their own sheet.

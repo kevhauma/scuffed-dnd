@@ -284,7 +284,16 @@ session's membership stays accurate.
    DM holds `player` powers
 5. THE Server SHALL allow a `player` Member to leave a Game_Session, with the same retention rule
 6. THE Server SHALL refuse a DM's attempt to remove themselves without transferring the role first
-7. THE Client SHALL show every Member with their role and connection state in the session lobby
+7. THE Client SHALL show every Member with their role and connection state in the session **roster**,
+   and SHALL keep exactly one such list in the application
+   *(amended by TICKET-DM-04, 2026-09-01: as written this said "in the session lobby", naming
+   TICKET-GAM-04's surface. That surface no longer exists — criterion 49.8 asks for one member list,
+   and a roster with one row per Character **is** the character list, so DM-04 retired both GAM-04's
+   `SessionLobby` and CHAR-04's `SessionCharacters` into `components/sessions/roster/`. The second
+   clause is the part worth stating as a requirement rather than only as that ticket's criterion: two
+   lists over one table disagree about who is present and whose character is whose, and the DM acts on
+   one of them without checking. It is enforced by `roster/oneMemberList.test.ts` rather than by
+   review.)*
 
 ### Requirement 40: Characters within a Game Session
 

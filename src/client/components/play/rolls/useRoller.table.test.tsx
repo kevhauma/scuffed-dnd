@@ -495,6 +495,41 @@ describe('a roll broadcast by the table (TICKET-LIVE-02)', () => {
 
     expect(subscribe).not.toHaveBeenCalled();
   });
+
+  it('tells the DM where the table’s rolls are, rather than leaving the panel bare (DM-04)', () => {
+    // The other half of the case above. Leaving a DM's log empty is right; leaving it **unexplained**
+    // is not — an empty list reads as *nobody has rolled*, which is the confident wrong answer.
+    // TICKET-DM-04 settled the choice its own note posed: the sheet **defers to the roster**, where
+    // the table's log is read unnarrowed and is therefore complete rather than filled from
+    // socket-open.
+    useCharacterStore.setState({ tableCharacterOwnerId: 'somebody-else' });
+
+    const { result } = renderHook(() => useRoller('char-1', CALCULATED));
+
+    expect(result.current.historyNotice).toContain('session roster');
+  });
+
+  it('says nothing of the sort to a Player, whose empty log means what it says', () => {
+    // The character is this reader's own, so `useIsDungeonMaster` says no and the ordinary empty
+    // state — *nobody has rolled yet* — is the honest one
+    useCharacterStore.setState({ tableCharacterOwnerId: 'account-1' });
+
+    const { result } = renderHook(() => useRoller('char-1', CALCULATED));
+
+    expect(result.current.historyNotice).toBeUndefined();
+  });
+
+  it('says nothing of the sort on a local sheet either', () => {
+    useCharacterStore.setState({
+      characters: [aCharacter({ id: 'local-1' })],
+      tableCharacter: null,
+      tableSessionId: null,
+    });
+
+    const { result } = renderHook(() => useRoller('local-1', CALCULATED, { rng: () => 0.5 }));
+
+    expect(result.current.historyNotice).toBeUndefined();
+  });
 });
 
 describe('rolling a character in this browser', () => {

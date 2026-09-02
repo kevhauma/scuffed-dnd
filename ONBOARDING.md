@@ -442,10 +442,17 @@ carrying a user story, the as-is / to-be, and acceptance criteria.
   every action is an HTTP request and only liveness is lost (v3 Req 44.6, 44.9).
 - **Do not read presence off a socket that is down.** `components/live/presenceState.ts` answers
   *unknown* for every state that is not live, even when it still holds a list of who was last seen —
-  the lobby saying *Away* about somebody sitting right there is the failure the whole ticket is
+  the roster saying *Away* about somebody sitting right there is the failure the whole ticket is
   against, and it is the same instinct as chipping a formula that cannot be evaluated instead of
   showing a confident zero. Presence is by **Account**, never by connection: your second tab adds
   nobody, and closing it announces no departure (v3 Req 44.8).
+- **One table, one list** (TICKET-DM-04). `components/sessions/roster/` is the *only* member list in
+  the app: it shows every Member with their role and connection, their characters underneath with
+  level, unspent points and every resource's current-versus-maximum, and the DM's quick actions on
+  each row. It replaced two surfaces — GAM-04's lobby and CHAR-04's character panel — because two
+  lists over one table disagree, and a DM acts on this one without checking it. If you are about to
+  build a second surface that shows who is at a table, `roster/oneMemberList.test.ts` will stop you,
+  and it is right to.
 - **Every `ws` socket needs an `'error'` listener, including one you are about to close.** An
   `'error'` on an `EventEmitter` with no listener is a **throw**, and from a socket it is raised out
   of a `data` callback where nothing catches it — so it ends the process. LIVE-01's refusal path

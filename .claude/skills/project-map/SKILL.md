@@ -1189,7 +1189,7 @@ another person, and a dead socket cannot support one. It keeps GAM-04's *Connect
 vocabulary rather than retiring it. **`PresenceBadge`** draws a decided state (presentational, so one
 feed serves twenty rows), and **`LiveStatusNotice`** is the sentence a stale surface shows: drawn
 **unconditionally** by its callers and silent for a healthy feed *and* for a first connection —
-nothing is stale on a first load — so `CharacterSheet` and `SessionLobby` each gained a surface and
+nothing is stale on a first load — so `CharacterSheet` and the session roster each gained a surface and
 no branch. `live.style.ts` is the folder's tone table.
 
 `characters/` holds `CharacterList` + `CharacterCard` + `useCharacterListManager`.
@@ -1343,11 +1343,27 @@ is **`shared/quickActions.ts`**'s `quickActionsFor` — a pure mapper that **imp
 cycle; it derives one *damage* and one *restore* per `isResource` stat labelled from that stat's own
 name, plus give/take points and award/deduct experience, with preset amounts read off each action's
 own scale and **absent rather than invented** where the Snapshot supplies none.
+**`shared/characterQuickActions.ts` is the half TICKET-DM-04 hoisted out of `useCharacterSheet`**:
+`quickActionsForCharacter(character, config, calculated)` derives the *source* — which stats are pools,
+what the `xp_thresholds` curve prices the next level at — and feeds `quickActionsFor`. Both placements
+go through it, which is what makes v3 Req 49.7's *one definition* checkable rather than asserted: the
+two derivations were about to be two. It reads the level itself rather than taking one, so two callers
+cannot pass different numbers into the same preset.
 **`QuickActionRow`** is one action's label, preset chips and amount box — deliberately not
 `AdjustmentField` with a `presets` prop, and deliberately not `useNumericDraft`'s relative entry,
 because the direction is the *action* and a `-5` in *Damage Vigor* would have to mean *restore 5*.
+**`QuickActionOutcome`** is the before → after line and the undo offer, split out at DM-04 when the
+roster became the second placement — not a speculative abstraction: it takes no options, and what it
+protects is the *sentence* saying an undo is an inverse rather than a rewind, which a DM acts on.
+**`useQuickActions` is two exports since DM-04**: `useQuickActionBindings` is *what each action sends*,
+identical on both surfaces, and `useQuickActions` is that plus the gate, which on the sheet is
+`useIsDungeonMaster`'s comparison against the one character the store holds open. The roster has no
+character open and twenty on screen, so it answers the same question from its member listing and gates
+its own rendering — one rule, read from the two sources that can each see it.
 Two of DM-03's criteria are tests rather than prose: `noResourceVocabulary.test.ts` greps the whole
-four-module path for a hard-coded resource word (comments included), and `quickActionRoutes.test.ts`
+path for a hard-coded resource word (comments included) — **nine modules since DM-04**, which retired
+the fragile anchored *slice* of `useCharacterSheet` it used to scan and added the roster's four — and
+`quickActionRoutes.test.ts`
 reads `QuickActionControls.requests` and checks each against `apiRouter.ts` **as text**, so a
 `client/` test never imports a `#server/…` module. `useDmControls` keeps only the DM's
 writes to what a character *is* (experience, level, grant, pools, dream, passives); DM-02's six are
@@ -1437,7 +1453,7 @@ Player at a table gets the list and no controls. It returns `null` rather than a
 because an absent control says *not yours* where a disabled one says *not now*. The panel composes
 both hooks and takes only `characterId` and `atTable`; the sheet threads no handlers at all, which is
 what kept `CharacterSheet` under the complexity threshold when `fallow` measured it.
-`rolls/` holds `useRoller`, `useTableRollLog`, `RollBreakdown` and `RollHistoryPanel`.
+`rolls/` holds `useRoller`, `useTableRollLog`, `rollLog.ts`, `RollBreakdown` and `RollHistoryPanel`.
 The roll button and the last result live in `RollsSection`; the history is its own panel.
 **`useRoller` branches on where the character lives** (TICKET-ROLL-07). A **local** character rolls
 in the browser through `rollRollDefinition`, with randomness injectable via
@@ -1452,22 +1468,27 @@ preview, because a previewed roll that differed from the recorded one is the exa
 `requireCharacterPlayer`, so the hook answers `handleRoll: undefined` for a DM and `RollsSection`
 draws the pool as text with no button. Two things follow. `canRoll` and an absent `handleRoll` mean
 **different** things and are kept apart — *this roll cannot be resolved right now* disables a button
-that still means something, where *this is not your roll* draws none. And a known gap: the log is
-narrowed with `?rolledBy=<the reader's own accountId>`, so **a DM's view of the roll history reads
-empty**. TICKET-LIVE-02 left it there **deliberately**, and did one thing to keep it honest: a DM
-**joins no room for the log at all** (`listeningTo` is `atTable && !isDungeonMaster`), because a
-live feed on an empty panel would fill it from socket-open and omit everything before that in
-silence — a log that looks right and is not, which is worse than the empty one. The real fix is not
-a fan-out ticket's: narrowing by *character* needs a second `json_extract` on the payload or a
-`character_id` column, which `eventRepository`'s own docblock flags as a schema decision. It is
-TICKET-DM-04's, with the table-wide feed. **The DM's *character* feed is unaffected** — that is
-`useTableCharacterFeed`'s subscription, and the connection beneath both counts its rooms.
+that still means something, where *this is not your roll* draws none. And the log is narrowed with
+`?rolledBy=<the reader's own accountId>`, so **a DM's view of one character's roll history is empty**,
+which TICKET-LIVE-02 left deliberately and kept honest by having a DM **join no room for the log at
+all** (`listeningTo` is `atTable && !isDungeonMaster`): a live feed on an empty panel would fill it
+from socket-open and omit everything before that in silence.
+**TICKET-DM-04 settled that, and it settled it by *deferring* rather than widening.** Narrowing this
+log by *character* would need a second `json_extract` or a `character_id` column — the schema decision
+`eventRepository`'s docblock flags — and none of it is necessary, because `listRolls` already answers
+the **table's whole log** when nothing narrows it. So the roster reads it unnarrowed
+(`sessions/roster/useSessionRollLog.ts`), which is complete from the table's first roll, and this hook
+answers a **`historyNotice`** sentence pointing there; `RollHistoryPanel` renders it in place of the
+empty state through a general `notice` prop rather than a flag named after this one reader.
+`logRoomFor` and its mutation-verified test are unchanged. **The DM's *character* feed is unaffected**
+— that is `useTableCharacterFeed`'s subscription, and the connection beneath both counts its rooms.
 **`useTableRollLog`** is the log itself, split out of `useRoller` by TICKET-LIVE-02 when the log
 gained a second source: it reads `GET /api/sessions/:id/rolls` once, follows the table's room
 thereafter, and hands back `adopt` for the third source — the Player's own `POST` answer. All three
-go through one private `withRoll`, so a row cannot appear twice (deduplicated by the **Event's id**,
-which the route minted and the response carries) and cannot be out of order (sorted by **`seq`**,
-the log's own order rather than the network's).
+go through **`rolls/rollLog.ts`'s `withRoll`** — hoisted out at DM-04's second caller — so a row
+cannot appear twice (deduplicated by the **Event's id**, which the route minted and the response
+carries) and cannot be out of order (sorted by **`seq`**, the log's own order rather than the
+network's).
 
 **`shared/`** — cross-mode components and hooks, barrelled by `shared/index.ts`:
 `AppShell.tsx` (the medieval frame + mode switcher + per-mode nav), `useAppMode.ts` (route↔mode
@@ -1577,31 +1598,66 @@ on the far end, and a second function would have been a second copy of the error
 `characterStore.createCharacterHere(source, data, config)` is what the wizard calls. **The source is passed in rather than read**, because `configStore` already
 imports `characterStore` and reaching back would be a cycle `no-circular` refuses. `RULESET_HOME`
 grew a third value, `SESSION`: a game's pinned Snapshot, which `persistRuleset` **refuses** to write
-to, so a configuration panel opened against one cannot edit a game in progress. `SessionCharacters`
-(driven by `useSessionCharacters`) sits under the lobby in an expanded row and its button opens that
-Snapshot before sending the Player to the same four creation steps they get signed out. **Since
-PLY-01 it also opens a sheet — your own, and since **DM-01** anybody's if you are the DM**, whose
-controls live on that sheet. A *Player* still cannot open somebody else's: `requireCharacterPlayer`
-refuses their writes, and a page of controls that could not save is not worth opening. A roster that
-acts on characters without opening them is still TICKET-DM-04's.
+to, so a configuration panel opened against one cannot edit a game in progress.
+`useSessionCharacters` is the read behind *what is at this table*, and since PLY-01 it also carries
+the one `navigate` that opens a sheet — your own, and since **DM-01** anybody's if you are the DM,
+whose controls live on that sheet. A *Player* still cannot open somebody else's:
+`requireCharacterPlayer` refuses their writes, and a page of controls that could not save is not worth
+opening.
 
-**GAM-04 added `SessionLobby`, and it is the first surface in the app that shows other people.** It
-sits at the top of an expanded row — **every** row now, not just a DM's, because a table is other
-people and a player who could not see who else was at theirs would be playing alone with extra
-steps. Driven by `useSessionMembers(sessionId)`, the third hook on that keyed-on-the-open-row
-skeleton. Three things about it are decisions rather than details: the connection column is
-**real since TICKET-LIVE-03** and says *Connected* / *Away* off `useLiveRoom` — going straight back
-to GAM-04's *Connection unknown* whenever the feed is not live, because *Offline* was always a claim
-the app could not support and a dropped socket still cannot; all three actions confirm through
-`ui/Dialog` and each sentence says **nothing is deleted**, because *removed* reads like *deleted* and
-here it is not; and a DM's own row offers neither *Leave* nor *Remove*, which is v3 Req 39.6 drawn
-rather than guessed. `MemberList` holds the rows (split out at LIVE-03, when the badge took the
-component past `fallow`'s cognitive threshold) and `LiveStatusNotice` sits above them, so a reader
-who is looking at a dead feed is told once rather than per row. **TICKET-DM-04 grows this into the
-DM's roster** — it is the session's one member list, not a page that needs a sibling, and the four
-`components/live/` modules are what it inherits.
-`useAuth` gained `accountId` for it, so the lobby can tell which row is yours without the server
-sending a per-caller flag.
+**`sessions/roster/` is the one member list, and TICKET-DM-04 built it by deleting two**
+(barrelled by `roster/index.ts`). GAM-04's `SessionLobby` answered *who is here* and CHAR-04's
+`SessionCharacters` answered *what is on the table*; both are **gone**, because a roster with one row
+per Character *is* the character list, and two lists over one table disagree — about who is present,
+about whose character is whose — with a DM acting on the wrong one and no way to notice (v3 Req 49.8).
+The characters are grouped **under their owner**, which is how one list answers both questions
+without either being a subsection of the other; a Member playing nothing still gets a group, because
+presence is a fact about a *person*.
+
+- `rosterView.ts` — the pure mapper. `(members, characters, snapshot, accountId) → RosterGroup[]`,
+  with every cell derived: `calculateCharacterLevel`, `validateStatAllocation` → `toPointBudgetView`,
+  and one pool per `isResource` stat **in the ruleset's own order**, so a Snapshot that gains a
+  resource gains two cells and two quick actions with nothing recompiled. **The departed group is
+  derived rather than fetched** — a character whose owner is not among the Members — which is what
+  gives those rows *numbers* where the lobby could only name them. A character the engine **threw**
+  on chips (`failure`) rather than emptying the roster.
+- `useSessionRoster.ts` — the composer, and the hook that **replaced two**: `useSessionMembers` and
+  `useSessionCharacters` are still the reads, but a surface answering both questions in one list needs
+  them together. Adds `useSessionSnapshot` (the **fifth** surface over `useSessionResource`) and
+  `useSessionRollLog`. **`useIsDungeonMaster` cannot serve here** — it compares against *the* character
+  open in `characterStore`, and a roster has none open and twenty on screen — so the same rule is read
+  from the member listing: hold the `dm` seat **and not own the character**, the second clause being
+  what `requireCharacterDM` adds.
+- `useRosterFeed.ts` — the live half, running every Event through the sheet's own
+  **`applyEventToCharacter`** rather than a second applier, and accumulating the newest DM adjustment
+  per character off the same feed so a row's before → after and undo cost **no extra request**.
+  `useCoalescedReads.ts` beside it owns *when to ask again* (split out when `fallow` measured the feed
+  at 17 cognitive): one re-read per burst, a trailing pass after one that raced an in-flight answer,
+  and the Snapshot re-read that a `session.snapshot_refreshed` needs.
+- `SessionRoster.tsx` / `MemberGroup.tsx` / `CharacterRosterRow.tsx` / `RosterQuickActions.tsx` /
+  `RosterRollLog.tsx`, with `rosterActions.ts` (the three confirmations, wording carried over from
+  GAM-04 intact) and `roster.style.ts`. The row's actions are the **sidebar's own**
+  `play/dm/QuickActionRow` behind a disclosure — reused across the feature-folder line on
+  `rulesets/`-composing-`FormDialogActions`' precedent, because v3 Req 49.7 asks that the two
+  placements cannot apply an action differently and one set of controls is the cheapest way to make
+  that true.
+- **`useSessionRollLog.ts` closes the gap DM-05 and LIVE-02 both recorded**: it reads
+  `GET /api/sessions/:id/rolls` with **no `rolledBy`**, so the table's log is complete from its first
+  roll. The sheet's panel now *defers* here rather than widening — `useRoller.historyNotice` — and
+  `logRoomFor`'s DM branch is untouched.
+- **`oneMemberList.test.ts` is what makes *exactly one* enforcement rather than prose**: it walks the
+  client tree and fails on any module outside `roster/` naming `SessionMemberListing` or
+  `SessionMemberSummary` (`useSessionMembers.ts`, the read itself, excluded by name). Verified by
+  mutation. The route path is deliberately **not** a pattern — `characterStore.ts` names it in a
+  comment explaining why it does *not* ask it.
+
+The connection column is LIVE-03's, **imported rather than redrawn**: `useLiveRoom` once for the whole
+list, `presenceStateOf` per Member, `PresenceBadge` on the group header, `LiveStatusNotice` above the
+rows. All three membership actions confirm through `ui/Dialog` and each sentence says **nothing is
+deleted**, because *removed* reads like *deleted* and here it is not; a DM's own row offers neither
+*Leave* nor *Remove* (v3 Req 39.6). `useAuth.accountId` is how a row is told apart from yours without
+the server sending a per-caller flag. **Membership changes still write no Event** — that is
+TICKET-LIVE-04's, and DM-04's own notes say why it is not a roster's to add.
 
 **GAM-03 added the other kind of invitation, on both sides of it.** For the DM, `AddressedInvitePanel`
 sits under `InviteCodePanel` in an expanded row, driven by `useSessionInvitations(sessionId)` — a

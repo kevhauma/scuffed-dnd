@@ -49,7 +49,25 @@ export interface SessionCharactersState {
    * could save is not a page worth opening. Reading somebody else's is the roster's job (DM-04).
    */
   openCharacter: (characterId: string) => void;
+  /**
+   * Read the listing again (TICKET-DM-04)
+   *
+   * What the roster's live feed calls after an Event it could not apply — a built item, a learned
+   * spell, a Snapshot refresh. **The listing hook's own read, handed over rather than re-spelled**,
+   * so the feed's fallback and the first load are one request rather than two that could drift.
+   */
+  reload: () => Promise<void>;
 }
+
+/**
+ * What a table with no characters read yet is
+ *
+ * A module-level constant rather than a `[]` in the return, so the array keeps its identity between
+ * renders. The roster's feed seeds its own state from this list on a `useEffect` keyed by it; a fresh
+ * empty array per render would re-seed — and therefore discard every live patch — on every keystroke
+ * anywhere on the page.
+ */
+const NO_CHARACTERS: CharacterDocument[] = [];
 
 /**
  * Drive one table's characters
@@ -58,7 +76,7 @@ export interface SessionCharactersState {
  * @returns The party, and the way to join it
  */
 export function useSessionCharacters(sessionId: string | null): SessionCharactersState {
-  const { data, isPending, error } = useSessionResource<CharacterListing>(
+  const { data, isPending, error, reload } = useSessionResource<CharacterListing>(
     sessionId,
     (id) => `${SESSIONS_PATH}/${id}/characters`
   );
@@ -68,9 +86,10 @@ export function useSessionCharacters(sessionId: string | null): SessionCharacter
   const [isOpeningRules, setIsOpeningRules] = useState(false);
 
   return {
-    characters: data?.characters ?? [],
+    characters: data?.characters ?? NO_CHARACTERS,
     isPending,
     error,
+    reload,
     isOpeningRules,
     makeCharacterHere: useCallback(() => {
       if (!sessionId || isOpeningRules) return;

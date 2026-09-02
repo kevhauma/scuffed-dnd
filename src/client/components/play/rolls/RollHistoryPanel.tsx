@@ -10,6 +10,13 @@
  * is editing the past. That is why `onClear` is optional: absent means *this log is not yours to
  * clear*, and a disabled button would say *not now* where the truth is *not ever*.
  *
+ * **An empty log is not always *nobody has rolled*** (TICKET-DM-04). {@link RollHistoryPanelProps.notice}
+ * is the caller's chance to say why, and it is written as *there is nothing here, and here is the
+ * reason* rather than as a flag named after the one reader who needs it — the same discipline
+ * `ConfigPanelShell` keeps about not growing a prop per caller. The one caller today is a DM reading
+ * somebody else's sheet, whose log is narrowed to rolls they cannot make; a Player's empty log means
+ * exactly what the ordinary wording says and passes nothing.
+ *
  * **Validates: Requirements 15.5, 21.1-21.5; v3 Req 41.6**
  */
 
@@ -22,9 +29,31 @@ export interface RollHistoryPanelProps {
   history: RollResult[];
   /** Absent for a table's log, which is the Event log and cannot be cleared — see the module note */
   onClear?: () => void;
+  /**
+   * Why this log is empty, when the ordinary wording would be misleading (TICKET-DM-04)
+   *
+   * Shown **in place of** the empty state, never beside a list: a reader with rows in front of them
+   * has their answer. Absent means the ordinary wording is the honest one.
+   */
+  notice?: string;
 }
 
-export function RollHistoryPanel({ history, onClear }: RollHistoryPanelProps) {
+/** *This log is yours and lives only in this tab* — which is what offering *Clear* means */
+function isOwnBrowserLog(onClear: (() => void) | undefined): boolean {
+  return onClear !== undefined;
+}
+
+export function RollHistoryPanel({ history, onClear, notice }: RollHistoryPanelProps) {
+  // The second sentence stopped being true for half the callers in TICKET-ROLL-07 — a table's rolls
+  // are Events and outlive the tab — and an empty state that promises the wrong thing is worse than
+  // none. The same signal that withholds *Clear* says which is which; a caller's own `notice` wins
+  // over both, because it knows something neither sentence does (TICKET-DM-04).
+  const isOwnLog = isOwnBrowserLog(onClear);
+  const ordinary = isOwnLog
+    ? 'No rolls this session. Rolls are not saved between visits.'
+    : 'No rolls at this table yet. Every roll here is kept for the whole game.';
+  const emptyText = notice ?? ordinary;
+
   return (
     <Card className="p-6">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
@@ -39,14 +68,7 @@ export function RollHistoryPanel({ history, onClear }: RollHistoryPanelProps) {
       </div>
 
       {history.length === 0 ? (
-        // The second sentence stopped being true for half the callers in TICKET-ROLL-07 — a table's
-        // rolls are Events and outlive the tab — and an empty state that promises the wrong thing
-        // is worse than none. The same signal that withholds *Clear* says which is which.
-        <Text variant="body-small-secondary">
-          {onClear
-            ? 'No rolls this session. Rolls are not saved between visits.'
-            : 'No rolls at this table yet. Every roll here is kept for the whole game.'}
-        </Text>
+        <Text variant="body-small-secondary">{emptyText}</Text>
       ) : (
         history.map((roll) => (
           <div

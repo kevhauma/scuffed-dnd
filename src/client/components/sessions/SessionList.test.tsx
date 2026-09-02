@@ -16,10 +16,16 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { GameSessionSummary, MemberRole } from '#shared/types/api';
 import { MEMBER_ROLE, SESSION_STATUS } from '#shared/types/api';
+import { useLiveRoom } from '../live/useLiveRoom';
+import { adjustmentVocabularyFrom } from '../play/dm/adjustmentVocabulary';
+import type { SessionRosterState } from './roster/useSessionRoster';
 import { SessionList } from './SessionList';
 import type { SessionInvitationsState } from './useSessionInvitations';
 import type { SessionInviteState } from './useSessionInvite';
-import type { SessionMembersState } from './useSessionMembers';
+
+// The roster subscribes to the table's feed; what this file is about is which panels a row shows
+vi.mock('../live/useLiveRoom');
+vi.mocked(useLiveRoom).mockReturnValue(null);
 
 /** One table, as the listing carries it */
 function session(overrides: Partial<GameSessionSummary> = {}): GameSessionSummary {
@@ -65,16 +71,27 @@ function invitations(overrides: Partial<SessionInvitationsState> = {}): SessionI
   };
 }
 
-/** The roster hook's state, inert unless a case says otherwise (TICKET-GAM-04) */
-function members(overrides: Partial<SessionMembersState> = {}): SessionMembersState {
+/** The roster hook's state, inert unless a case says otherwise (TICKET-DM-04) */
+function roster(
+  overrides: Partial<Omit<SessionRosterState, 'remove' | 'transfer'>> = {}
+): Omit<SessionRosterState, 'remove' | 'transfer'> {
+  const words = adjustmentVocabularyFrom(null, []);
+
   return {
-    members: [],
-    departedCharacters: [],
+    groups: [],
+    accountId: 'account-1',
+    isDm: true,
+    words,
+    rolls: [],
+    areRollsPending: false,
     isPending: false,
     isBusy: false,
     error: null,
-    remove: vi.fn(async () => true),
-    transfer: vi.fn(async () => true),
+    isOpeningRules: false,
+    makeCharacterHere: vi.fn(),
+    openCharacter: vi.fn(),
+    actsAsDm: () => false,
+    adjustments: () => [],
     ...overrides,
   };
 }
@@ -91,16 +108,7 @@ function renderList(props: Partial<React.ComponentProps<typeof SessionList>> = {
       onToggle={onToggle}
       invite={invite()}
       invitations={invitations()}
-      members={members()}
-      characters={{
-        characters: [],
-        isPending: false,
-        error: null,
-        isOpeningRules: false,
-        makeCharacterHere: vi.fn(),
-        openCharacter: vi.fn(),
-      }}
-      accountId="account-1"
+      roster={roster()}
       onRemoveMember={vi.fn()}
       onTransferDm={vi.fn()}
       {...props}
@@ -130,7 +138,7 @@ describe('SessionList', () => {
 
   it('lets a player open their row too, since TICKET-GAM-04', () => {
     // It used to be the DM's alone, because the only thing behind a row was the invitation. The
-    // lobby is everybody's: a table is other people, and a player who could not see who else was
+    // roster is everybody's: a table is other people, and a player who could not see who else was
     // at theirs would be playing alone with extra steps (v3 Req 39.7).
     renderList({ sessions: [session({ role: MEMBER_ROLE.PLAYER })] });
 
@@ -159,14 +167,33 @@ describe('SessionList', () => {
 
   it('never shows a code on a player’s row, whatever the hook holds', () => {
     // The server omits `invite` for a player, so the hook would hold `null` — and since GAM-04 a
-    // player's row **does** expand, onto the lobby. What keeps the code off it is the `isDm` gate
+    // player's row **does** expand, onto the roster. What keeps the code off it is the `isDm` gate
     // around both invitation panels, which is the client mirroring the server's rule rather than
     // relying on it. This case hands the hook a live code to prove the gate is what does the work.
-    renderList({ sessions: [session({ role: MEMBER_ROLE.PLAYER })], openSessionId: 'session-1' });
+    renderList({
+      sessions: [session({ role: MEMBER_ROLE.PLAYER })],
+      openSessionId: 'session-1',
+      roster: roster({ isDm: false }),
+    });
 
     expect(screen.queryByText('A1B2C-3D4E5')).toBeNull();
-    // …and the lobby really did render, so this is not passing by showing nothing at all
+    // …and the roster really did render, so this is not passing by showing nothing at all
     expect(screen.getByText('Who is at this table')).toBeTruthy();
+  });
+
+  it('puts the table’s roll log under the roster, for every Member (TICKET-DM-04)', () => {
+    // The table-wide log DM-05 and LIVE-02 both recorded against this ticket. Not the DM's alone:
+    // the server has always answered `GET /api/sessions/:id/rolls` to every Member, because a game
+    // is played out loud.
+    renderList({
+      sessions: [session({ role: MEMBER_ROLE.PLAYER })],
+      openSessionId: 'session-1',
+      roster: roster({ isDm: false }),
+    });
+
+    const log = screen.getByText('Rolls at this table');
+
+    expect(log).toBeTruthy();
   });
 
   it('says nothing is here rather than showing an empty list', () => {

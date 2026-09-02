@@ -13,13 +13,18 @@
  * and a Player's own roll comes back a **third** way — as the answer to their own `POST`. All three
  * go through {@link withRoll}, so a row cannot appear twice (deduplicated by the Event's id, which
  * is the id the route minted) and rows cannot be out of order (sorted by `seq`, which is the log's
- * own order rather than the network's).
+ * own order rather than the network's). That function moved to
+ * [`rollLog.ts`](./rollLog.ts) at TICKET-DM-04, which gave it a second caller.
  *
- * **Scoped to one character**, like the read it starts from. The table-wide feed is TICKET-DM-04's,
- * and so is the reason a DM's log reads empty — the initial read is narrowed to the reader's own
- * Account, recorded on TICKET-LIVE-02's criterion 4. A live feed that filled an otherwise-empty
- * panel would look right and silently omit everything from before the socket opened, which is worse
- * than an empty one.
+ * **Scoped to one character, and to the reader's own Account** — which is what makes this a
+ * *Player's* log. TICKET-DM-04 settled the consequence LIVE-02 recorded: a DM reading somebody
+ * else's sheet is narrowed to their own rolls and therefore sees none, so rather than widen this
+ * read the sheet **defers** — [`useRoller`](./useRoller.ts) hands the panel a sentence pointing at
+ * the session roster, where the table's whole log is read unnarrowed
+ * ([`useSessionRollLog`](../../sessions/roster/useSessionRollLog.ts)). The alternative — letting the
+ * live feed fill an otherwise-empty panel — was rejected then and is still rejected: it would look
+ * right and silently omit everything from before the socket opened. `logRoomFor`'s DM branch and its
+ * test stand unchanged.
  *
  * **Validates: v3 Req 41.6, 44.7**
  */
@@ -31,27 +36,7 @@ import type { LiveEvent } from '#shared/types/liveSocket';
 import { fetchSessionRolls } from '../../../services/characterSync';
 import { useAuth } from '../../auth/useAuth';
 import { useLiveSession } from '../shared/useLiveSession';
-
-/**
- * One roll into a log, in the log's own order and never twice
- *
- * **All three sources need both properties**, which is why this is one function rather than a sort
- * in one place and a check in another: a Player's own roll arrives as the `POST`'s answer *and* as
- * the broadcast to their own room, and whichever lands second must not add a second row.
- *
- * @param history The log as it stands, newest first
- * @param logged The roll to put in it
- * @returns The log with it, or the log unchanged when it was already there
- */
-function withRoll(history: SessionRoll[], logged: SessionRoll): SessionRoll[] {
-  const seen = history.some((roll) => roll.id === logged.id);
-
-  if (seen) return history;
-
-  const combined = [logged, ...history];
-
-  return combined.sort((first, second) => second.seq - first.seq);
-}
+import { withRoll } from './rollLog';
 
 /**
  * The log row one broadcast Event makes, if it is a roll and it is this character's

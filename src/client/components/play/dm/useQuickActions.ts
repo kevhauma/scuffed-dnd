@@ -13,6 +13,21 @@
  * nothing else**, which is the rule DM-02 arrived at after a bundle of every DM action was rejected
  * for making each caller subscribe to writes it never makes.
  *
+ * ## The gate and the bindings are two exports since TICKET-DM-04
+ *
+ * `useIsDungeonMaster` answers from `characterStore.tableCharacter` — *the* character open at a table
+ * — and the session roster has **no** character open: it draws twenty of them from a listing. So the
+ * roster cannot reuse that predicate, and making it try would have meant either widening the store's
+ * meaning of *open* or subscribing every row to selectors it never reads (the bundle DM-02 rejected).
+ *
+ * The split is therefore of *subjects*, not a workaround: {@link useQuickActionBindings} is **what
+ * each action sends**, which is identical on both surfaces, and {@link useQuickActions} is that plus
+ * **who may press it**, answered from the store. The roster answers the same question from its member
+ * listing and gates its own rendering — one rule read from the two sources that can each see it, with
+ * `rosterQuickActions.test.tsx` asserting the two agree for the same reader and character. Every one
+ * of these requests is refused by `requireCharacterDM` regardless of what any browser drew, which is
+ * the half of v3 Req 49.10 that does not depend on a client being right.
+ *
  * ## Every action is a shortcut to a route that already exists
  *
  * v3 Req 49.3, and {@link QuickActionControls.requests} is that claim in a form a test can read.
@@ -175,13 +190,29 @@ function landedSince(
   return newest.seq > last.sinceSeq ? newest : null;
 }
 
-export function useQuickActions(
+/**
+ * What each quick action sends, for a reader who has already been found allowed (TICKET-DM-04)
+ *
+ * **The bindings without the gate.** Both placements of the quick actions share every line of this —
+ * the six store actions, the delta-versus-total distinction, the *did my action land* mark and the
+ * inverse — and differ only in how they know whether the reader is the table's DM. See the module
+ * note for why that question cannot be asked the same way twice.
+ *
+ * **Call {@link useQuickActions} unless the surface has already answered it**: this one hands out live
+ * controls to whoever asks, and the answer to *who is asking* is the caller's to have made.
+ *
+ * @param characterId Whose sheet the actions act on
+ * @param adjustments That character's adjustments, newest first — for the outcome and the undo
+ * @param words How this ruleset spells what an adjustment names
+ * @param grantedPoints What the DM has already granted, which a give or take is a total upon
+ * @returns The controls
+ */
+export function useQuickActionBindings(
   characterId: string,
   adjustments: CharacterAdjustment[],
   words: AdjustmentVocabulary,
   grantedPoints: number
-): QuickActionControls | null {
-  const isDungeonMaster = useIsDungeonMaster(characterId);
+): QuickActionControls {
   const isBusy = useCharacterStore((state) => state.isActing);
   const actionError = useCharacterStore((state) => state.actionError);
 
@@ -231,8 +262,6 @@ export function useQuickActions(
     },
   };
 
-  if (!isDungeonMaster) return null;
-
   const newest = adjustments[0];
   const landed = landedSince(last, characterId, newest, actionError);
 
@@ -264,4 +293,32 @@ export function useQuickActions(
     undo: landed === null ? null : undoLast,
     requests,
   };
+}
+
+/**
+ * The quick actions for the sheet's sidebar — the bindings, and only for the table's DM
+ *
+ * {@link useQuickActionBindings} plus the gate, which on this surface is
+ * [`useIsDungeonMaster`](./useIsDungeonMaster.ts)'s comparison against the one character the store
+ * holds open. `null` for everybody else, so the sidebar is **absent rather than disabled**
+ * (v3 Req 49.10): a disabled control tells a Player a power exists and invites a request to use it.
+ *
+ * @param characterId Whose sheet
+ * @param adjustments That character's adjustments, newest first
+ * @param words How this ruleset spells what an adjustment names
+ * @param grantedPoints What the DM has already granted
+ * @returns The controls, or `null` for a reader who has no quick actions
+ */
+export function useQuickActions(
+  characterId: string,
+  adjustments: CharacterAdjustment[],
+  words: AdjustmentVocabulary,
+  grantedPoints: number
+): QuickActionControls | null {
+  const isDungeonMaster = useIsDungeonMaster(characterId);
+  const controls = useQuickActionBindings(characterId, adjustments, words, grantedPoints);
+
+  if (!isDungeonMaster) return null;
+
+  return controls;
 }

@@ -51,24 +51,6 @@ import { describe, expect, it } from 'vitest';
 const MODULE_URL = fileURLToPath(import.meta.url);
 const HERE = dirname(MODULE_URL);
 
-/** The sheet hook, which holds the derivation but is far too big to scan whole — see {@link REGIONS} */
-const SHEET_HOOK = '../sheet/useCharacterSheet.ts';
-
-/**
- * Where the sheet hook's quick-action derivation starts and stops
- *
- * The DM-03 review's third finding: the original list was the four rendering and binding modules and
- * left out `toQuickActions`, **which is exactly where a future `stats.filter(s => s.name !== 'Health')`
- * would get written.** Scanning the whole hook is not the answer — its own header reads *"Character
- * Sheet **Mana**ger Hook"*, so a substring pass over it is a false positive on line 2 — so the region
- * between these two anchors is scanned instead, which is every helper that decides what a pool is.
- *
- * A missing anchor **fails loudly** rather than silently scanning nothing: if either moves, the check
- * is asking to be re-aimed, not to be skipped.
- */
-const DERIVATION_START = 'function experienceStepFor(';
-const DERIVATION_END = 'export function useCharacterSheet(';
-
 /** One thing scanned, and what to call it when it fails */
 interface Region {
   label: string;
@@ -82,21 +64,6 @@ function sourceOf(relative: string): string {
   return readFileSync(path, 'utf8');
 }
 
-/** The slice of the sheet hook that decides what the pools are */
-function derivationRegion(): string {
-  const source = sourceOf(SHEET_HOOK);
-  const start = source.indexOf(DERIVATION_START);
-  const end = source.indexOf(DERIVATION_END);
-
-  if (start < 0 || end < 0 || end <= start) {
-    throw new Error(
-      `${SHEET_HOOK} no longer holds the quick-action derivation between "${DERIVATION_START}" and "${DERIVATION_END}" — re-aim this scan at wherever it moved`
-    );
-  }
-
-  return source.slice(start, end);
-}
-
 /** A whole module, scanned end to end */
 function wholeModule(relative: string): Region {
   return { label: relative, read: () => sourceOf(relative) };
@@ -108,13 +75,34 @@ function wholeModule(relative: string): Region {
  * Listed rather than globbed, because what is being asserted is a property of *this path* — a glob
  * over the folder would quietly start covering `AdjustmentLog` and quietly stop covering the
  * derivation the day either moved.
+ *
+ * ## The sheet hook is no longer one of them, and that is an improvement
+ *
+ * DM-03 scanned a **slice** of `useCharacterSheet.ts` between two anchors, because the derivation
+ * lived there and the file could not be scanned whole — its own header read *"Character Sheet
+ * **Mana**ger Hook"*, a false positive on line 2. TICKET-DM-04 moved that derivation out to
+ * `characterQuickActions.ts` so both placements could share it, which retires the anchors and their
+ * fragility along with them: the module *is* the derivation now, and it is scanned end to end. This
+ * check went red on the move rather than silently scanning a slice that had stopped existing, which
+ * is exactly what the loud-failure anchor was for.
+ *
+ * ## …and the roster added four
+ *
+ * The second placement (v3 Req 49.7) is a second path from a pool to a button, and every module on it
+ * has the same obligation. `rosterView.ts` is where the roster decides what a pool *is* — the
+ * `stats.filter(s => s.name !== 'Health')` this whole check exists to catch would be written there or
+ * in `characterQuickActions.ts` and nowhere else.
  */
 const REGIONS: Region[] = [
   wholeModule('../shared/quickActions.ts'),
+  wholeModule('../shared/characterQuickActions.ts'),
   wholeModule('./useQuickActions.ts'),
   wholeModule('./QuickActionsSidebar.tsx'),
+  wholeModule('./QuickActionOutcome.tsx'),
   wholeModule('./QuickActionRow.tsx'),
-  { label: `${SHEET_HOOK} (the derivation)`, read: derivationRegion },
+  wholeModule('../../sessions/roster/rosterView.ts'),
+  wholeModule('../../sessions/roster/CharacterRosterRow.tsx'),
+  wholeModule('../../sessions/roster/RosterQuickActions.tsx'),
 ];
 
 /**
@@ -126,14 +114,14 @@ const REGIONS: Region[] = [
 const FORBIDDEN = [/health/i, /\bhp\b/i, /mana/i, /hit[ _-]?points?/i, /stamina/i];
 
 describe('the quick-action path', () => {
-  it('should be the five regions this checks, so it cannot pass by scanning nothing', () => {
+  it('should be the nine modules this checks, so it cannot pass by scanning nothing', () => {
     const readable = REGIONS.filter((region) => {
       const source = region.read();
 
       return source.length > 0;
     });
 
-    expect(readable).toHaveLength(5);
+    expect(readable).toHaveLength(9);
   });
 
   it('should name no resource, in code or in a comment', () => {

@@ -48,6 +48,19 @@ outright rather than sitting beside it and is deliberately scheduled after LIVE-
 applier built now is a member-list applier built twice. **DM-04 owns it** (User, 2026-09-01). The
 criterion is amended to the five sources that do write Events; everything they write is broadcast.
 
+> **Amended at TICKET-DM-04's build (2026-09-01): it is *not* DM-04's, and the owner is now
+> [TICKET-LIVE-04](./TICKET-LIVE-04-membership-events-and-the-member-list-applier.md).** The
+> paragraph above is left standing because its reasoning was sound at the time and the *duplication*
+> argument really is spent — the roster exists, so there is one applier to build rather than two. What
+> moved the work again is an argument nobody had made here: `applyEventToCharacter` answers **`stale`**
+> for a type it cannot apply, and both feeds respond to `stale` by scheduling a re-read. Shipping
+> membership Events without also deciding what that function does with them means **every open sheet
+> and every open roster at the table refetches on every join and leave** — a behaviour change to a hot
+> path, arriving as a side effect of a roster. v3 Req 49.9 is the supporting half: it asks the roster
+> to update *from Events*, and membership changes are not in the log at all. This note is amended
+> rather than left to age, because a note naming the wrong owner is worse than one that was never
+> written (User, 2026-09-01).
+
 **Criterion 4 — "every Member's roll log" describes a surface that does not exist.** The only roll
 log in the app is `RollHistoryPanel` on one character's sheet, and `useRoller` narrows it to the
 reader's own Account. The table-wide feed is DM-04's. Two consequences, both recorded rather than

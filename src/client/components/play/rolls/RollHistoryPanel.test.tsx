@@ -77,4 +77,32 @@ describe('RollHistoryPanel', () => {
       expect(screen.queryByText(/not saved between visits/)).toBeNull();
     });
   });
+
+  describe('a log that is empty for a reason of its own (TICKET-DM-04)', () => {
+    it('says the caller’s reason instead of the ordinary wording', () => {
+      // A DM's log is narrowed to rolls they cannot make, so *nobody has rolled* would be a
+      // confident wrong answer. `useRoller` supplies the sentence; the panel only places it.
+      render(<RollHistoryPanel history={[]} notice="The table’s rolls are on the roster." />);
+
+      const reason = screen.getByText(/on the roster/);
+      const ordinary = screen.queryByText(/kept for the whole game/);
+
+      expect(reason).toBeDefined();
+      expect(ordinary).toBeNull();
+    });
+
+    it('says nothing extra once there are rows to read', () => {
+      // The notice explains an emptiness. A reader with rows in front of them has their answer, and
+      // a standing caption beside a full list would be noise.
+      const rolled = aRoll();
+
+      render(<RollHistoryPanel history={[rolled]} notice="The table’s rolls are on the roster." />);
+
+      const reason = screen.queryByText(/on the roster/);
+      const row = screen.getByText('Melee');
+
+      expect(reason).toBeNull();
+      expect(row).toBeDefined();
+    });
+  });
 });

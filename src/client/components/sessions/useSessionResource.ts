@@ -51,6 +51,21 @@ export interface SessionResource<T> {
    * @returns Whether it landed — so a form clears, or a list reloads, only over a real change
    */
   write: (act: (sessionId: string) => Promise<unknown>) => Promise<boolean>;
+  /**
+   * Read it again, with nothing written first (TICKET-DM-04)
+   *
+   * The read half of {@link SessionResource.write}, exposed when the roster's live feed needed to
+   * refetch after an Event it could not apply. **It is the same `load`**, so the staleness guard and
+   * the *404 means you cannot see this any more* rule come with it — which is the whole point of
+   * asking for this rather than putting an `apiRequest` in the feed. A second spelling of *what this
+   * surface is made of* is the thing most likely to drift (TICKET-LIVE-02's lesson, applied one
+   * aggregate over).
+   *
+   * Stable across renders, so a coalescing timer can hold it without rescheduling itself.
+   *
+   * @returns When the read has settled, however it settled — a refusal is reported through `error`
+   */
+  reload: () => Promise<void>;
 }
 
 /** What a refusal should be shown as */
@@ -124,6 +139,11 @@ export function useSessionResource<T>(
     isPending,
     isBusy,
     error,
+    reload: useCallback(async () => {
+      if (!sessionId) return;
+
+      await load(sessionId);
+    }, [sessionId, load]),
     write: useCallback(
       async (act: (id: string) => Promise<unknown>) => {
         if (!sessionId || isBusy) return false;

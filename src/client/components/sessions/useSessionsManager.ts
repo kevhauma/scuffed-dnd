@@ -10,6 +10,12 @@
  * **One table is open at a time**, and that is what the invite hook is keyed on: opening a row is
  * what fetches its code, so a list of ten tables is one request rather than ten.
  *
+ * **TICKET-DM-04 folded two of the composed hooks into one.** `useSessionMembers` and
+ * `useSessionCharacters` are still the reads, but they now compose inside
+ * [`useSessionRoster`](./roster/useSessionRoster.ts) — because the surface that reads them is one
+ * list rather than two panels, and a manager handing half an answer to each of two components is what
+ * let a lobby and a character list disagree about a table.
+ *
  * **Everything here assumes an Account**, because `/sessions` is protected and `RequireAccount`
  * renders nothing without one. That is why there is no `isSignedIn` in what this returns — the GAM-02
  * review found it threaded through three components to feed branches the redirect makes unreachable.
@@ -21,12 +27,11 @@ import { useCallback, useState } from 'react';
 import type { GameSessionSummary, RulesetSummary } from '#shared/types/api';
 import { useAuth } from '../auth/useAuth';
 import { useAccountRulesets } from '../rulesets/useAccountRulesets';
+import { type SessionRosterState, useSessionRoster } from './roster/useSessionRoster';
 import { type InvitationsState, useInvitations } from './useInvitations';
-import { type SessionCharactersState, useSessionCharacters } from './useSessionCharacters';
 import { type SessionInvitationsState, useSessionInvitations } from './useSessionInvitations';
 import type { SessionInviteState } from './useSessionInvite';
 import { useSessionInvite } from './useSessionInvite';
-import { type SessionMembersState, useSessionMembers } from './useSessionMembers';
 import { useSessions } from './useSessions';
 
 /** What the sessions surface needs */
@@ -46,29 +51,24 @@ export interface SessionsManager {
   /** The open table's addressed invitations, likewise (TICKET-GAM-03) */
   invitations: SessionInvitationsState;
   /**
-   * Who is at the open table (TICKET-GAM-04)
+   * The open table's roster (TICKET-DM-04)
+   *
+   * **One state where there were two.** GAM-04's `members` and CHAR-04's `characters` were separate
+   * because they fed separate surfaces; the roster answers *who is here* and *where do their numbers
+   * stand* in one list, so it reads both — and the Snapshot, and the table's rolls — together.
    *
    * **Without its two writes**, which the manager wraps as `removeMember` and `transferDm` below.
    * Handing the raw pair out as well would put two live routes to one action on the same surface,
    * and the unwrapped one silently skips the games-list reload — an affordance nothing may call is
    * one somebody eventually calls.
    */
-  members: Omit<SessionMembersState, 'remove' | 'transfer'>;
-  /** Which Account is reading, so the lobby can tell its own row apart */
+  roster: Omit<SessionRosterState, 'remove' | 'transfer'>;
+  /** Which Account is reading — read here for `removeMember`'s *was that your own seat* question */
   accountId: string | null;
   /** Take a seat away — the DM removing somebody, or anybody giving up their own */
   removeMember: (accountId: string) => void;
   /** Hand the open table to another Member */
   transferDm: (accountId: string) => void;
-
-  /**
-   * What is at the open table, and the way to join it (TICKET-CHAR-04)
-   *
-   * **Passed through whole**, unlike `members` above — the difference is that its one action is
-   * navigation rather than a write, so there is no games-list reload for this manager to wrap it
-   * in. Opening a table's rules and going to the wizard is `useSessionCharacters`'s own.
-   */
-  characters: SessionCharactersState;
 
   /** What is waiting for **this Account**, whoever's table sent it (TICKET-GAM-03) */
   waiting: InvitationsState;
@@ -90,16 +90,15 @@ export function useSessionsManager(): SessionsManager {
   const [openSessionId, setOpenSessionId] = useState<string | null>(null);
   const invite = useSessionInvite(openSessionId);
   const invitations = useSessionInvitations(openSessionId);
-  const members = useSessionMembers(openSessionId);
-  const characters = useSessionCharacters(openSessionId);
+  const roster = useSessionRoster(openSessionId);
   const waiting = useInvitations();
   const { accountId } = useAuth();
 
   const reloadSessions = sessions.reload;
   const acceptWaiting = waiting.accept;
   const declineWaiting = waiting.decline;
-  const removeSeat = members.remove;
-  const transferSeat = members.transfer;
+  const removeSeat = roster.remove;
+  const transferSeat = roster.transfer;
 
   return {
     isPending: sessions.isPending,
@@ -116,7 +115,7 @@ export function useSessionsManager(): SessionsManager {
     ),
     invite,
     invitations,
-    members,
+    roster,
     accountId,
     // **The games list is reloaded only when it can have changed**, which is not both writes and
     // not every removal: a DM taking somebody else's seat changes that table's roster and nothing
@@ -147,8 +146,6 @@ export function useSessionsManager(): SessionsManager {
       },
       [transferSeat, reloadSessions]
     ),
-
-    characters,
 
     waiting,
     acceptInvitation: useCallback(
