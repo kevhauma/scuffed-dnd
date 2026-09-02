@@ -62,34 +62,108 @@ leftover; it is a scope that was measured twice and found to be its own.
 
 ## Acceptance criteria
 
-- [ ] `removeMember`, `transferDm` and both seating paths each append an Event through
+> **Implementation note, 2026-09-02 — the join reads the member list, and only that.** Criterion 3
+> says a membership Event schedules *no re-read*. That holds for three of the four:
+> `member_removed`, `member_left` and `dm_transferred` carry ids the list can be patched from, and
+> nothing is asked of the server. **`member_joined` cannot be patched** — criterion 6 forbids the
+> name in the payload, and a member list is a list of names — so it falls back to a re-read, which is
+> the *to-be*'s own *"falling back to a re-read where it cannot"*. The narrowing is that the read is
+> the **member list alone**: never the characters, never the Snapshot, and never any open sheet. That
+> exemption is pinned by a test rather than described (`useRosterFeed.test.ts`, *reads the member
+> list and nothing else when somebody joins*), and criterion 2 of the amendment holds without
+> exception — `applyEventToCharacter` answers `elsewhere` for **all four**, the join included, so no
+> sheet reads anything for a membership change.
+
+- [x] `removeMember`, `transferDm` and both seating paths each append an Event through
       `recordEvent()`, and `eventFanOut.test.ts`'s handler-count **equality is re-derived rather than
       bumped** — the expression names where the four came from, so a fifth cannot be added silently.
-- [ ] The append stays a single call site: `appendEvent(`/`appendEventWithin(` still appear once in
+      (`removeMember.ts`, `transferDm.ts`, `redeemInvite.ts` and `acceptInvitation.ts` each call
+      `recordEvent(`; `eventFanOut.test.ts`'s `NON_SHEET_WRITERS` names all six non-sheet writers and
+      the assertion reads `sheetActions + NON_SHEET_WRITERS.length` with each member asserted
+      present — *all reach the fan-out, and there are as many as there are actions*.)
+- [x] The append stays a single call site: `appendEvent(`/`appendEventWithin(` still appear once in
       `src/server/`, and `eventRepository.ts` still offers exactly two ways in. The seating paths
       write the membership row and its Event **in one transaction**, as `recordPlayerAction` does —
       a seat whose Event failed is a table nobody was told about.
-- [ ] `applyEventToCharacter` answers `elsewhere` for a membership Event, and a test drives one
+      (`eventFanOut.test.ts`'s *appends from exactly one place outside the repository* and *offers
+      exactly two ways in* both still pass unchanged — the three membership writes take an
+      `AppendEvent` as `refreshSessionSnapshot` does. The transaction is proven by breaking it:
+      `membership.test.ts`'s *should write the seat and its Event together, or neither* passes an
+      appender that throws and asserts **no membership row**, and *should keep a seat whose removal
+      Event could not be written* is the same property from the other side.)
+- [x] `applyEventToCharacter` answers `elsewhere` for a membership Event, and a test drives one
       through `useTableCharacterFeed` and `useRosterFeed` asserting **no re-read is scheduled** — the
       refetch storm named above, tested rather than reasoned about.
-- [ ] The roster's member list moves on a membership Event with no refresh: a player removed at one
+      (`liveEvents.ts` answers from an exhaustive `Record<SessionEvent, LiveEventEffect>`;
+      `liveEvents.test.ts` asserts `elsewhere` for **all four** and `stale` still for the Snapshot
+      refresh. `useTableCharacterFeed.test.ts`'s *reads nothing when somebody joins or leaves the
+      table* drives all four through the **real** applier — the only case in that file that does —
+      and asserts `reopen` is never called. On the roster, *drops a removed Member from the list,
+      with no request at all* and its two siblings assert none of the three reads fires; see the
+      dated note above for the join.)
+- [x] The roster's member list moves on a membership Event with no refresh: a player removed at one
       browser leaves the list at another, and a handed-over DM role moves its badge.
-- [ ] A departed Member's characters move to the departed group on the same Event, without a re-read,
+      (`membershipEvents.ts` + `useRosterFeed.ts`'s members arm, read by `useSessionRoster` for the
+      groups **and** for `holdsDmSeat`, so the badge and the controls move together.
+      `useRosterFeed.test.ts`: *drops a removed Member from the list*, *drops a Member who left*, and
+      *moves the DM's badge on a handover, and puts the new DM first*. The two-browser half of this
+      is criterion 11, which is open.)
+- [x] A departed Member's characters move to the departed group on the same Event, without a re-read,
       because retention is what removal means (v3 Req 39.3).
-- [ ] The Event's payload carries **ids and no names** — the rule `PresenceMessage` and
+      (Nothing new computes it: `toRosterView` already derives *departed* as *owns a character here
+      and holds no seat here*, so the patched member list is the whole change.
+      `useRosterFeed.test.ts`'s *moves a departed Member's characters to the departed group, on the
+      same Event* drives the removal through the feed and asserts the group off the two real modules,
+      with no read fired.)
+- [x] The Event's payload carries **ids and no names** — the rule `PresenceMessage` and
       `RollLogPayload` both keep — so a rename cannot leave the log calling somebody by a name they
       no longer have.
-- [ ] The four new Event types are `SESSION_EVENT` values (dotted, like
+      (`MembershipEventPayload { accountId }` and `DmTransferEventPayload` adding
+      `previousAccountId`, both in `shared/types/api.ts`. `membership.test.ts`'s *should carry no
+      name at all, so a rename cannot make the log wrong* performs a handover and a removal between
+      two **registered** Accounts and asserts neither profile name appears in any payload — a
+      fixture without names would have passed by having nothing to leak.)
+- [x] The four new Event types are `SESSION_EVENT` values (dotted, like
       `session.snapshot_refreshed`), not `SheetAction` values: they are things that happened to the
       **table** rather than acts performed on a sheet, and they share the log's one `type` column.
-- [ ] `describeAdjustment` is **not** extended to them — the adjustment log is a character's history,
+      (`session.member_joined`, `session.member_removed`, `session.member_left`,
+      `session.dm_transferred`, with a derived `SessionEvent` type — the no-bare-union rule — which
+      is what makes `liveEvents.ts`'s record exhaustive. **Four types over four routes, but not one
+      each**: seating has two paths writing the same `member_joined`, and `removeMember` writes
+      *removed* or *left* depending on whether the caller gave up their own seat, which
+      `membership.test.ts`'s *should tell a leaving apart from a removal* pins.)
+- [x] `describeAdjustment` is **not** extended to them — the adjustment log is a character's history,
       and a membership change is not an adjustment to anybody's sheet.
-- [ ] Unit tests cover: each of the four routes emitting exactly one Event; the transaction on the
+      (`describeAdjustment.ts` is untouched, and its `Record<DmAction, …>` makes adding one a compile
+      error rather than a choice. The live half is checked: `useRosterFeed.test.ts`'s *records no
+      adjustment for a membership change, which is not anybody's sheet* asserts the newest-seen
+      adjustment map stays empty over a removal.)
+- [x] Unit tests cover: each of the four routes emitting exactly one Event; the transaction on the
       seating path; `elsewhere` for both feeds; the roster's member list patched from an Event; the
       departed group moving; and the payload carrying no names.
-- [ ] Verified via the `fallow` skill and the `coding-conventions` skill.
+      (+44 tests, +1 file. `membership.test.ts` +7, `invites.test.ts` +1 and `invitations.test.ts` +1
+      — the two seating cases assert **one** Event for two clicks, so the idempotence reaches the log
+      — `eventFanOut.test.ts` +1 over the real `createSocketRooms()`, `membershipEvents.test.ts` +10
+      new, `useRosterFeed.test.ts` +7, `liveEvents.test.ts` +2, `useTableCharacterFeed.test.ts` +1.)
+- [x] Verified via the `fallow` skill and the `coding-conventions` skill.
+      (`fallow audit --base main`: **verdict pass**, `dead_code_introduced: 0`,
+      `complexity_introduced: 0`, `duplication_introduced: 0` across 25 changed files.
+      `fallow dead-code`: no new finding — the two reported are inherited (`fallow` itself as a
+      dependency, and `RulesetHomeKind` in the untouched `rulesetSync.ts`).
+      `fallow health --complexity`: **no finding on any file this ticket touched**, `useRosterFeed`
+      and `useCoalescedReads` included. `fallow health --hotspots --since 6m`: the four touched files
+      that appear are all **cooling**, so no hotspot row is owed. The `coding-conventions` pass
+      caught its own finding and it was fixed rather than argued with: the new test code had
+      `expect(idsOf(remaining))` and `applyEventToMembers(makeTable(), …)` nesting, which the
+      no-nested-calls rule covers in full for new tests.)
 - [ ] Verified live in the browser: two accounts in two browsers — one leaves the table and the
       other's roster notices, with no reload (ask the User first).
+      **Open, and deliberately.** The User declined interactive browser checks for the rest of the
+      milestone (2026-09-01, restated for this ticket on 2026-09-02), and this criterion asks for
+      exactly the two-account, two-browser check they declined. Everything it would observe is proven
+      by test above — the member list patched from a real Event, the DM badge moving, the departed
+      group following, and no read fired — but *observed in two browsers* is not something a test can
+      claim, so the box stays open rather than being ticked on a proxy.
 
 ## Notes
 

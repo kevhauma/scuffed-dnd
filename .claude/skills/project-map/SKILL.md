@@ -661,7 +661,12 @@ between the roots is exactly *"does this touch a browser API"*.
   (only a re-read can say). **An Event is applicable exactly when its `after` is one of CLAUDE.md's
   five sanctioned stored fields** — pools, experience, purse, granted points, dream level — which is
   a principle rather than a list: everything else an action changes is *structure*. The table is an
-  exhaustive `Record<SheetAction, …>`, so a new action is a compile error here. `cast-spell` is the
+  exhaustive `Record<SheetAction, …>`, so a new action is a compile error here — and since
+  TICKET-LIVE-04 there is a **second** exhaustive table, `Record<SessionEvent, LiveEventEffect>`, for
+  the things that happen to a *table*: the Snapshot refresh is `stale` (the rules under this sheet
+  moved) and all four membership Events are `elsewhere`, **the join included**. That arm is what
+  stops a join or a leave refetching every open sheet at the table; what a membership Event does to a
+  *member list* is `roster/membershipEvents.ts`'s, not this module's. `cast-spell` is the
   case that proves it must be explicit — its before/after are a **pool's** and its `target` is a
   **spell's**, so anything inferring *resource* from shape would corrupt the sheet. An applied patch
   also carries the Event's `at` into `updatedAt`, reproducing the string the server stored (one
@@ -1002,15 +1007,21 @@ each later ticket adds.
 - `events/` (TICKET-LIVE-02) — **`recordEvent.ts`, and the whole folder is that one function.** It
   is the only code path in `src/server/` that puts a row in `event`, and it broadcasts every row it
   writes to that session's room, so *an Event is written* and *the table is told* are one act. It
-  **injects** the appender into the two repositories that write an Event alongside something else
-  (`recordPlayerAction`, `refreshSessionSnapshot`) rather than letting them import one — which is
+  **injects** the appender into the five repository writes that carry an Event alongside something
+  else — `recordPlayerAction`, `refreshSessionSnapshot`, and TICKET-LIVE-04's `seatSessionMember`,
+  `removeSessionMember` and `transferDungeonMaster` — rather than letting them import one, which is
   what makes `appendEvent(`/`appendEventWithin(` a **single call site** the tree-walk in
   `eventFanOut.test.ts` asserts as an equality. It cannot own the transaction
   (`queries-belong-to-repositories` keeps it away from Drizzle) and does not need to: the repository
   returns both rows and the publish happens after commit, wrapped, because a fan-out that threw
   would report a committed change as a failed one. `eventAlone` is the writer for a caller with
-  nothing else to record — a roll. Three production callers: `routes/play/playPayloads.ts` (which is
-  all 28 sheet actions), `routes/rolls/rollDice.ts` and `routes/sessions/refreshSnapshot.ts`.
+  nothing else to record — a roll. Seven production callers: `routes/play/playPayloads.ts` (which is
+  all 28 sheet actions), `routes/rolls/rollDice.ts`, `routes/sessions/refreshSnapshot.ts`, and
+  LIVE-04's four membership routes — `routes/sessions/removeMember.ts`,
+  `routes/sessions/transferDm.ts`, `routes/invites/redeemInvite.ts` and
+  `routes/invitations/acceptInvitation.ts`. `eventFanOut.test.ts`'s count is derived from a
+  `NON_SHEET_WRITERS` list naming each of the six that are not sheet actions, so a seventh has to be
+  named there rather than absorbed into a number.
   - `liveEventFrame.ts` (TICKET-LIVE-03) — the row → frame projection, hoisted out of `recordEvent`
     when replay became a second way an Event reaches a client. **The only module in `src/server/`
     that composes a `SERVER_MESSAGE_TYPE.EVENT` frame**, asserted by `eventFanOut.test.ts` as an
@@ -1630,10 +1641,26 @@ presence is a fact about a *person*.
   what `requireCharacterDM` adds.
 - `useRosterFeed.ts` — the live half, running every Event through the sheet's own
   **`applyEventToCharacter`** rather than a second applier, and accumulating the newest DM adjustment
-  per character off the same feed so a row's before → after and undo cost **no extra request**.
+  per character off the same feed so a row's before → after and undo cost **no extra request**. Since
+  TICKET-LIVE-04 it holds the **member list** too, patched through `membershipEvents.ts`, and
+  `useSessionRoster` reads that patched list for the groups *and* for `holdsDmSeat` — so a handover
+  moves the badge and the DM's controls together, and a removal moves that Member's characters into
+  the departed group, which `rosterView` derives from exactly this list.
   `useCoalescedReads.ts` beside it owns *when to ask again* (split out when `fallow` measured the feed
   at 17 cognitive): one re-read per burst, a trailing pass after one that raced an in-flight answer,
-  and the Snapshot re-read that a `session.snapshot_refreshed` needs.
+  and **three** read targets rather than two — `schedule(RosterRead[])` replaced `schedule(alsoRules)`
+  when the member list became the third, since a boolean could say *and the rules too* but never
+  *the members alone*. `noteAppliedChange(half)` names which read would overwrite the patch, so a
+  patched member list is corrected by a member read and never by a character one.
+- `membershipEvents.ts` (TICKET-LIVE-04) — **what a membership Event does to a member list**, and the
+  reason it is a second pure applier rather than an arm of `liveEvents.ts`: the two answer about
+  different things, and folding them together would give one module two exhaustiveness obligations.
+  `applyEventToMembers(members, event)` drops a row for `member_removed` / `member_left`, moves both
+  roles for `dm_transferred` (lifting the new DM to the front, which is the order a re-read would
+  have produced), and answers `elsewhere` for everything that is not about a seat. **`member_joined`
+  is the one that asks**: its payload carries an id and no name (v3 Req 44.3) and a member list is a
+  list of names, so it schedules a re-read of the **member list alone** — never the characters, never
+  the Snapshot. `useSessionMembers.reload` is exposed for exactly that one read.
 - `SessionRoster.tsx` / `MemberGroup.tsx` / `CharacterRosterRow.tsx` / `RosterQuickActions.tsx` /
   `RosterRollLog.tsx`, with `rosterActions.ts` (the three confirmations, wording carried over from
   GAM-04 intact) and `roster.style.ts`. The row's actions are the **sidebar's own**
@@ -1656,8 +1683,9 @@ list, `presenceStateOf` per Member, `PresenceBadge` on the group header, `LiveSt
 rows. All three membership actions confirm through `ui/Dialog` and each sentence says **nothing is
 deleted**, because *removed* reads like *deleted* and here it is not; a DM's own row offers neither
 *Leave* nor *Remove* (v3 Req 39.6). `useAuth.accountId` is how a row is told apart from yours without
-the server sending a per-caller flag. **Membership changes still write no Event** — that is
-TICKET-LIVE-04's, and DM-04's own notes say why it is not a roster's to add.
+the server sending a per-caller flag. **Membership changes write an Event as of TICKET-LIVE-04**, so
+this list moves when somebody joins, leaves, is removed or hands the table over, without anybody
+reloading — see `membershipEvents.ts` above for which of the four are patched and which one asks.
 
 **GAM-03 added the other kind of invitation, on both sides of it.** For the DM, `AddressedInvitePanel`
 sits under `InviteCodePanel` in an expanded row, driven by `useSessionInvitations(sessionId)` — a

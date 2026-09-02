@@ -403,4 +403,40 @@ describe('an Event about something else', () => {
     // roll would be a request every time anybody at the table throws dice
     expect(outcome.effect).toBe(EVENT_EFFECT.ELSEWHERE);
   });
+
+  it('leaves the sheet alone for every membership change, the join included (TICKET-LIVE-04)', () => {
+    // **All four, and the join is the one worth being explicit about.** A roster does read its
+    // member list again over a join — that is `membershipEvents.ts`'s decision, made about a member
+    // list — and nothing about it may reach a sheet. Answering `stale` for any of these would
+    // refetch every open sheet at the table every time somebody arrived or left, which is the
+    // hazard TICKET-DM-04 declined to ship and this criterion exists to rule out.
+    const membership = [
+      anEvent(SESSION_EVENT.MEMBER_JOINED, { accountId: 'account-newcomer' }),
+      anEvent(SESSION_EVENT.MEMBER_REMOVED, { accountId: 'account-ada' }),
+      anEvent(SESSION_EVENT.MEMBER_LEFT, { accountId: 'account-ada' }),
+      anEvent(SESSION_EVENT.DM_TRANSFERRED, {
+        accountId: 'account-ada',
+        previousAccountId: 'account-dm',
+      }),
+    ];
+
+    const character = aCharacter();
+    const effects = membership.map((event) => applyEventToCharacter(character, event).effect);
+    const elsewhere = membership.map(() => EVENT_EFFECT.ELSEWHERE);
+
+    expect(effects).toEqual(elsewhere);
+  });
+
+  it('still asks after a Snapshot refresh, which is the one table Event that is about this sheet', () => {
+    // The other half of the table above: four `elsewhere` and one `stale`, and the difference is
+    // whether the rules this sheet is derived against have moved. A change here that made the
+    // membership values `elsewhere` by making *every* session Event `elsewhere` would leave a sheet
+    // priced against rules it no longer plays by, and this is what would fail.
+    const event = anEvent(SESSION_EVENT.SNAPSHOT_REFRESHED, { rulesetId: 'ruleset-1' });
+
+    const character = aCharacter();
+    const outcome = applyEventToCharacter(character, event);
+
+    expect(outcome.effect).toBe(EVENT_EFFECT.STALE);
+  });
 });

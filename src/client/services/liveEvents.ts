@@ -30,6 +30,21 @@
  * the five routes that feed it: it is the only arm that uses a payload field as an object *key*, and
  * *safe because every caller behaves* is precisely the argument the paragraph above rejects.
  *
+ * ## What a table-level Event does here, and why it is a table rather than a ternary
+ *
+ * An Event that is not a sheet action used to be read as *a roll, or something I do not understand*
+ * — one named type, and `stale` for everything else. That was right while there was one other type
+ * and became dangerous the moment TICKET-LIVE-04 added four: **both feeds react to `stale` by
+ * scheduling a re-read**, so a membership Event answered that way would refetch every open sheet and
+ * every open roster at the table on every join and every leave. Nobody would see a bug; the table
+ * would just get slower the more people arrived.
+ *
+ * So {@link SESSION_EVENT_EFFECT} is exhaustive over `SessionEvent`, for the reason {@link PATCH_FOR}
+ * is exhaustive over `SheetAction`: a fifth thing that can happen to a table is a compile error
+ * naming it here, asked of its author while they are writing it. The four membership values are
+ * `elsewhere` **including the join** — a join changes no character, and what it does to a member
+ * list is the roster's own applier's business, not this function's.
+ *
  * ## The stamp, and why it is not cosmetic
  *
  * An applied patch also moves `updatedAt`, from the Event's own `at`. `applyPlayerAction` reads the
@@ -43,8 +58,8 @@
  * **Validates: v3 Req 44.7, 45.1**
  */
 
-import type { PlayerActionEvent, SheetAction } from '#shared/types/api';
-import { DM_ACTION, PLAYER_ACTION, ROLL_EVENT } from '#shared/types/api';
+import type { PlayerActionEvent, SessionEvent, SheetAction } from '#shared/types/api';
+import { DM_ACTION, PLAYER_ACTION, ROLL_EVENT, SESSION_EVENT } from '#shared/types/api';
 import type { Character } from '#shared/types/character';
 import type { LiveEvent } from '#shared/types/liveSocket';
 
@@ -169,6 +184,26 @@ const APPLIERS: Record<
   }),
 };
 
+/**
+ * What each thing that happens to a **table** does to a character on it (TICKET-LIVE-04)
+ *
+ * Exhaustive by type, so a fifth `SESSION_EVENT` is a compile error here rather than a silent
+ * `stale` — see the module note for what that silence would cost.
+ *
+ * The Snapshot refresh is the only `stale` of the five, and it is stale for every sheet at once: the
+ * rules every number is priced against have moved, and no payload can say what a character now is.
+ * A membership change is `elsewhere` because it is not about any character — **the join included**,
+ * though a roster does have to ask for its member list again over one, which is that surface's own
+ * decision made in its own applier.
+ */
+const SESSION_EVENT_EFFECT: Record<SessionEvent, LiveEventEffect> = {
+  [SESSION_EVENT.SNAPSHOT_REFRESHED]: EVENT_EFFECT.STALE,
+  [SESSION_EVENT.MEMBER_JOINED]: EVENT_EFFECT.ELSEWHERE,
+  [SESSION_EVENT.MEMBER_REMOVED]: EVENT_EFFECT.ELSEWHERE,
+  [SESSION_EVENT.MEMBER_LEFT]: EVENT_EFFECT.ELSEWHERE,
+  [SESSION_EVENT.DM_TRANSFERRED]: EVENT_EFFECT.ELSEWHERE,
+};
+
 /** A payload that looks like the sheet action it claims to be */
 function actionPayloadOf(event: LiveEvent): PlayerActionEvent | null {
   const payload = event.payload as Partial<PlayerActionEvent> | null;
@@ -188,11 +223,19 @@ function actionPayloadOf(event: LiveEvent): PlayerActionEvent | null {
 export function applyEventToCharacter(character: Character, event: LiveEvent): LiveEventOutcome {
   const isSheetAction = Object.hasOwn(PATCH_FOR, event.type);
 
-  // A roll stores nothing; a Snapshot refresh changed the *rules*; anything unrecognised is
-  // something this build does not know how to read. Only the middle one is about this sheet — and
-  // the other two cost a reader nothing, because `ELSEWHERE` for a roll is what keeps the roll feed
-  // from refetching a character every time somebody throws dice.
-  if (!isSheetAction) return event.type === ROLL_EVENT ? elsewhere : stale;
+  // A roll stores nothing, and the five things that happen to a *table* are answered by name. Only
+  // a Snapshot refresh among them is about this sheet; the rest cost a reader nothing, which is what
+  // keeps the feed from refetching a character every time somebody throws dice or joins the game.
+  // Anything left is a type this build does not know how to read, and asking is the honest answer.
+  if (!isSheetAction) {
+    if (event.type === ROLL_EVENT) return elsewhere;
+
+    const known = SESSION_EVENT_EFFECT[event.type as SessionEvent];
+
+    if (known === EVENT_EFFECT.ELSEWHERE) return elsewhere;
+
+    return stale;
+  }
 
   const payload = actionPayloadOf(event);
 

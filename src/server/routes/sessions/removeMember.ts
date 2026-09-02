@@ -32,13 +32,27 @@
  * checked once. So the removal closes them here, in the same act, rather than leaving a connection
  * that outlives its own authorization.
  *
- * **Validates: v3 Req 32.1, 32.3, 32.5, 39.3, 39.5, 39.6**
+ * **…and it tells everybody else** (TICKET-LIVE-04, v3 Req 44.3). `evictMember` is one half of that
+ * conversation and was never the whole of it: it tells the *removed* connection it lost the room and
+ * tells nobody else that the roster changed. The Event is the other half, and the two are ordered —
+ * the broadcast happens inside `recordEvent`, before the eviction, so the Member being removed is
+ * told **why** their room closed rather than merely that it did.
+ *
+ * **Two Event types for one route** (v3 Req 39.3, 39.5). The write is identical either way and the
+ * history is not: *the DM removed Bob* and *Bob left* are the same seat and different stories, and
+ * the log is read by a person months later. The comparison that tells them apart is the same one the
+ * authorization above already made.
+ *
+ * **Validates: v3 Req 32.1, 32.3, 32.5, 39.3, 39.5, 39.6, 44.3, 44.4**
  */
 
-import { MEMBER_ROLE } from '#shared/types/api';
+import type { MembershipEventPayload } from '#shared/types/api';
+import { MEMBER_ROLE, SESSION_EVENT } from '#shared/types/api';
 import { requireMember } from '../../auth/guards';
+import { recordEvent } from '../../events/recordEvent';
 import { conflict, notFound } from '../../http/appError';
 import { defineHandler } from '../../http/pipeline';
+import type { NewEvent } from '../../repositories/eventRepository';
 import { findSessionMember, removeSessionMember } from '../../repositories/gameSessionRepository';
 import { liveRooms } from '../../ws/rooms';
 import { memberAccountIdFrom, sessionIdFrom } from './sessionPayloads';
@@ -76,7 +90,29 @@ export const removeMember = defineHandler((context): undefined => {
     );
   }
 
-  removeSessionMember(sessionId, targetAccountId);
+  // Who gave the seat up says which of the two this was — the comparison the authorization above
+  // already made, read a second time for a different question
+  const isOwnSeat = asking.accountId === targetAccountId;
+  const payload: MembershipEventPayload = { accountId: targetAccountId };
+
+  const departure: NewEvent = {
+    id: crypto.randomUUID(),
+    sessionId,
+    actorAccountId: asking.accountId,
+    type: isOwnSeat ? SESSION_EVENT.MEMBER_LEFT : SESSION_EVENT.MEMBER_REMOVED,
+    // The id and nothing else: a name written here would be a copy taken now, and a rename
+    // afterwards would leave the log calling somebody by a name they no longer have
+    payload: JSON.stringify(payload),
+    now: Date.now(),
+  };
+
+  const recorded = recordEvent(departure, (append) =>
+    removeSessionMember(sessionId, targetAccountId, append)
+  );
+
+  // The seat was there a moment ago, so this is another writer having taken it in between — the
+  // same answer they would have got had they arrived a moment later
+  if (!recorded) throw notFound();
 
   // After the row is gone, not before: if the delete threw, the connections were still entitled to
   // be where they are, and closing them first would have been a refusal nobody made

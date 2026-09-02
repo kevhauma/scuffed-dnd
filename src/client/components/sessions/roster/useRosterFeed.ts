@@ -17,13 +17,26 @@
  * `elsewhere` on a table's own feed is almost always a roll. It costs nothing and must not provoke a
  * read, or every throw of the dice would refetch the party.
  *
- * ## Two things can be stale, and they are re-read separately
+ * ## …and the member list has an applier of its own, for the half the sheet has no opinion about
+ *
+ * TICKET-LIVE-04 gave the four membership acts an Event, and the roster is the surface that draws
+ * what they change. It is a **second** pure applier ([`membershipEvents.ts`](./membershipEvents.ts))
+ * rather than a second arm of the first, because the two answer about different things — a member
+ * list and a character — and folding them together would give one module two exhaustiveness
+ * obligations and no way to check either.
+ *
+ * The division of labour is the same as it is for a character: what can be patched is patched, and
+ * what cannot asks. A removal and a handover carry ids and are applied; a **join** carries an id and
+ * no name (v3 Req 44.3), so it is the one membership Event that costs a read — of the **member list
+ * alone**, never the characters and never the rules.
+ *
+ * ## Three things can be stale, and they are re-read separately
  *
  * A character going `stale` — a built item, a learned spell — needs the **characters** again. A
  * Snapshot refresh needs the **rules** again, because every number on this surface is priced against
  * them, and it is the one Event that must be handled by name rather than through the applier: with no
  * characters at the table yet there is nothing for the applier to be stale *about*, and the roster
- * would keep deriving against rules that had moved.
+ * would keep deriving against rules that had moved. A join needs the **members**.
  *
  * ## When to ask again is [`useCoalescedReads`](./useCoalescedReads.ts)'s
  *
@@ -55,13 +68,15 @@ import type {
   CharacterDocument,
   DmAction,
   PlayerActionEvent,
+  SessionMemberSummary,
 } from '#shared/types/api';
 import { DM_ACTION, SESSION_EVENT } from '#shared/types/api';
 import type { LiveEvent } from '#shared/types/liveSocket';
 import { applyEventToCharacter, EVENT_EFFECT } from '../../../services/liveEvents';
 import { useLiveSession } from '../../play/shared/useLiveSession';
+import { applyEventToMembers } from './membershipEvents';
 import type { RosterReads } from './useCoalescedReads';
-import { useCoalescedReads } from './useCoalescedReads';
+import { ROSTER_READ, useCoalescedReads } from './useCoalescedReads';
 
 /** Which Event types are a DM's adjustment — the same set the fetched log is narrowed to */
 const DM_ACTIONS: ReadonlySet<string> = new Set(Object.values(DM_ACTION));
@@ -69,10 +84,19 @@ const DM_ACTIONS: ReadonlySet<string> = new Set(Object.values(DM_ACTION));
 /** Nothing has been seen about this character yet, and every reader gets the same empty list */
 const NO_ADJUSTMENTS: CharacterAdjustment[] = [];
 
+/** What the server last said the roster is made of */
+export interface RosterListing {
+  characters: CharacterDocument[];
+  /** Who is at the table, in the order the server listed them — the DM first */
+  members: SessionMemberSummary[];
+}
+
 /** What the roster reads */
 export interface RosterFeed {
   /** Every character at the table, patched by what has happened since the last read */
   characters: CharacterDocument[];
+  /** Who is at the table, patched by the membership Events seen since the last read */
+  members: SessionMemberSummary[];
   /** The newest adjustment this browser has watched go past, per character id */
   latest: Record<string, CharacterAdjustment>;
 }
@@ -192,18 +216,19 @@ function applyAcross(characters: CharacterDocument[], event: LiveEvent): RosterP
  * Keep the roster in step with the table
  *
  * @param sessionId Which table, or `null` when no row is open
- * @param fetched The listing as the server last returned it
- * @param reads How to read the roster's two halves again
+ * @param fetched The listing as the server last returned it, both halves
+ * @param reads How to read the roster's three halves again
  * @param nameOf How to spell an Account id, for an adjustment's `by`
- * @returns The patched characters and the adjustments seen live
+ * @returns The patched characters, the patched member list, and the adjustments seen live
  */
 export function useRosterFeed(
   sessionId: string | null,
-  fetched: CharacterDocument[],
+  fetched: RosterListing,
   reads: RosterReads,
   nameOf: (accountId: string | null) => string | null
 ): RosterFeed {
-  const [characters, setCharacters] = useState<CharacterDocument[]>(fetched);
+  const [characters, setCharacters] = useState<CharacterDocument[]>(fetched.characters);
+  const [members, setMembers] = useState<SessionMemberSummary[]>(fetched.members);
   const [latest, setLatest] = useState<Record<string, CharacterAdjustment>>({});
 
   // When to ask the server again is its own subject — see `useCoalescedReads`, split out here when
@@ -225,16 +250,25 @@ export function useRosterFeed(
   const held = useRef(characters);
   held.current = characters;
 
+  /** …and the member list, held for the same reason: two Events in one tick share a starting point */
+  const seated = useRef(members);
+  seated.current = members;
+
   /*
    * **The server's answer replaces what is on screen, and the trailing read is what makes that
    * safe.** A read composed before an Event may land after it, so taking it wholesale would drop a
    * patch — which is precisely why an `applied` Event arriving during a read schedules another pass.
-   * `fetched` keeps its identity between reads, so this fires once per answer rather than per render.
+   * Each half keeps its identity between reads, so these fire once per answer rather than per render.
    */
   useEffect(() => {
-    setCharacters(fetched);
-    held.current = fetched;
-  }, [fetched]);
+    setCharacters(fetched.characters);
+    held.current = fetched.characters;
+  }, [fetched.characters]);
+
+  useEffect(() => {
+    setMembers(fetched.members);
+    seated.current = fetched.members;
+  }, [fetched.members]);
 
   useLiveSession(sessionId, (message) => {
     const event = message.event;
@@ -248,20 +282,35 @@ export function useRosterFeed(
     // The rules moved under every number on this surface — handled by name, because with no
     // characters yet there is nothing for the applier to be stale about
     if (event.type === SESSION_EVENT.SNAPSHOT_REFRESHED) {
-      stale.schedule(true);
+      stale.schedule([ROSTER_READ.CHARACTERS, ROSTER_READ.RULES]);
       return;
     }
+
+    // **Who is at the table, before what they are playing.** A membership Event is about neither a
+    // character nor the rules, so the character pass below answers `elsewhere` for all four — which
+    // is what keeps a join from refetching the party (v3 Req 44.7).
+    const membership = applyEventToMembers(seated.current, event);
+
+    if (membership.effect === EVENT_EFFECT.APPLIED) {
+      seated.current = membership.members;
+      setMembers(membership.members);
+      stale.noteAppliedChange(ROSTER_READ.MEMBERS);
+    }
+
+    // The join, and only the join: its Event carries no name, so the list is read again — and the
+    // **list alone**, because nothing else about the table changed
+    if (membership.effect === EVENT_EFFECT.STALE) stale.schedule([ROSTER_READ.MEMBERS]);
 
     const patch = applyAcross(held.current, event);
 
     if (patch.isApplied) {
       held.current = patch.characters;
       setCharacters(patch.characters);
-      stale.noteAppliedChange();
+      stale.noteAppliedChange(ROSTER_READ.CHARACTERS);
     }
 
-    if (patch.isStale) stale.schedule(false);
+    if (patch.isStale) stale.schedule([ROSTER_READ.CHARACTERS]);
   });
 
-  return { characters, latest };
+  return { characters, members, latest };
 }

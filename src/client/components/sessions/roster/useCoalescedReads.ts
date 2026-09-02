@@ -21,12 +21,18 @@
  * that change and will overwrite it when it lands. Without the pass that follows, a roster that had
  * correctly patched itself would be silently reverted by an older answer.
  *
- * ## Two things can be stale, and only one of them usually is
+ * ## Three things can be stale, and usually only one of them is
  *
  * A character going stale needs the characters read again. A Snapshot refresh needs the **rules**,
- * because every number on the roster is priced against them — and that is the more expensive read, so
- * it is asked for only when something actually asked for it. `alsoRules` accumulates across a burst:
- * if any reason in the window wanted the rules, the one read that follows brings them.
+ * because every number on the roster is priced against them. A join needs the **member list**, and
+ * only that — its Event carries an id and no name, so there is no row to build (TICKET-LIVE-04).
+ * Each read is asked for only by a reason that wanted it, and the set accumulates across a burst: if
+ * any reason in the window wanted the rules, the one read that follows brings them.
+ *
+ * **A named set replaced a boolean when the third arrived.** `schedule(alsoRules)` could say *and
+ * the rules too* and had no way to say *the members alone* — and the shortest way to make it say so
+ * would have been a second flag, then a third, each caller passing two booleans whose meaning is
+ * positional. What a reason wants is a **set of reads**, which is what it now passes.
  *
  * **Validates: v3 Req 44.6, 44.7**
  */
@@ -43,29 +49,39 @@ import { useLiveRoom } from '../../live/useLiveRoom';
  */
 const COALESCE_MS = 120;
 
-/** How the roster re-reads each of the two things an Event can make stale */
-export interface RosterReads {
-  /** The table's characters — the listing hook's own read */
-  characters: () => Promise<void>;
-  /** The table's Snapshot, for the one Event that moves the rules underneath every number */
-  rules: () => Promise<void>;
-}
+/** Which of the roster's reads a reason needs */
+export const ROSTER_READ = {
+  /** Every character at the table, with what has happened to them */
+  CHARACTERS: 'characters',
+  /** The table's Snapshot, which every number on the surface is priced against */
+  RULES: 'rules',
+  /** Who is at the table, which a join changes and cannot describe (TICKET-LIVE-04) */
+  MEMBERS: 'members',
+} as const;
+
+/** One of the three */
+export type RosterRead = (typeof ROSTER_READ)[keyof typeof ROSTER_READ];
+
+/** How the roster re-reads each of the three things an Event can make stale */
+export type RosterReads = Record<RosterRead, () => Promise<void>>;
 
 /** What a caller does about a surface that may have gone out of date */
 export interface CoalescedReads {
   /**
    * Ask for a re-read, once, however many reasons arrive together
    *
-   * @param alsoRules Whether this reason needs the Snapshot as well as the characters
+   * @param reads Which of the roster's halves this reason needs — an empty list asks for nothing
    */
-  schedule: (alsoRules: boolean) => void;
+  schedule: (reads: RosterRead[]) => void;
   /**
    * Say that something landed which a read already in flight would overwrite
    *
    * Schedules nothing on its own — with no read running there is nothing to correct. See the module
    * note for why an *applied* change needs this at all.
+   *
+   * @param half Which read would overwrite it — the one that has to run again afterwards
    */
-  noteAppliedChange: () => void;
+  noteAppliedChange: (half: RosterRead) => void;
 }
 
 /**
@@ -76,13 +92,13 @@ export interface CoalescedReads {
  * @returns The two things a caller does about staleness
  */
 export function useCoalescedReads(sessionId: string | null, reads: RosterReads): CoalescedReads {
-  /** The scheduled re-read, if one is waiting, and whether it has to bring the rules too */
+  /** The scheduled re-read, if one is waiting, and which halves it has to bring */
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wantsRules = useRef(false);
+  const wanted = useRef(new Set<RosterRead>());
 
-  /** Whether one is running, and whether another became necessary while it ran */
+  /** Whether one is running, and what became necessary while it ran */
   const reading = useRef(false);
-  const again = useRef(false);
+  const again = useRef(new Set<RosterRead>());
 
   /** The current reads, so a timer's callback never fires an old closure */
   const read = useRef(reads);
@@ -97,61 +113,86 @@ export function useCoalescedReads(sessionId: string | null, reads: RosterReads):
    */
   const mounted = useRef(true);
 
-  const schedule = useCallback((alsoRules: boolean) => {
-    if (alsoRules) wantsRules.current = true;
+  /**
+   * Run one pass of exactly the reads that were asked for
+   *
+   * @param bring Which halves this pass brings
+   * @returns When all of them have settled, however they settled
+   */
+  const runReads = useCallback((bring: Set<RosterRead>): Promise<unknown> => {
+    // Each call is bound before it is passed on, the house rule — and it reads better here too:
+    // *these are the reads in flight* is the thing the line is about
+    const current = read.current;
+    const inFlight = [...bring].map((half) => current[half]());
 
-    if (reading.current) {
-      again.current = true;
-      return;
-    }
-
-    if (timer.current !== null) return;
-
-    timer.current = setTimeout(() => {
-      timer.current = null;
-      reading.current = true;
-
-      const bringRules = wantsRules.current;
-      wantsRules.current = false;
-
-      // Each call is bound before it is passed on, the house rule — and it reads better here too:
-      // *these are the reads in flight* is the thing the line is about
-      const current = read.current;
-      const characterRead = current.characters();
-      const rulesRead = bringRules ? current.rules() : null;
-      const inFlight = rulesRead === null ? [characterRead] : [characterRead, rulesRead];
-      const settled = Promise.all(inFlight);
-
-      void settled.finally(() => {
-        reading.current = false;
-
-        // Something happened while we were asking, so what came back is already behind
-        if (!again.current) return;
-
-        again.current = false;
-
-        if (!mounted.current) return;
-
-        void read.current.characters();
-      });
-    }, COALESCE_MS);
+    return Promise.all(inFlight);
   }, []);
 
-  const noteAppliedChange = useCallback(() => {
-    if (reading.current) again.current = true;
+  const schedule = useCallback(
+    (asked: RosterRead[]) => {
+      // Nothing was asked for, so nothing is promised — a caller that computed an empty set has
+      // decided this Event needs no read, and a timer for it would be a request nobody wanted
+      if (asked.length === 0) return;
+
+      if (reading.current) {
+        for (const half of asked) again.current.add(half);
+        return;
+      }
+
+      for (const half of asked) wanted.current.add(half);
+
+      if (timer.current !== null) return;
+
+      timer.current = setTimeout(() => {
+        timer.current = null;
+        reading.current = true;
+
+        const bring = wanted.current;
+        wanted.current = new Set();
+
+        const settled = runReads(bring);
+
+        void settled.finally(() => {
+          reading.current = false;
+
+          // Something happened while we were asking, so what came back is already behind
+          const trailing = again.current;
+
+          if (trailing.size === 0) return;
+
+          again.current = new Set();
+
+          if (!mounted.current) return;
+
+          void runReads(trailing);
+        });
+      }, COALESCE_MS);
+    },
+    [runReads]
+  );
+
+  const noteAppliedChange = useCallback((half: RosterRead) => {
+    // The read on the wire was composed before the change landed and will overwrite it, so the
+    // trailing pass brings back **that** half — a patched member list is undone by a member read
+    // and by nothing else, and asking for the characters instead would be a request that costs
+    // something and fixes nothing
+    if (reading.current) again.current.add(half);
   }, []);
 
   // *Read it all again* (v3 Req 44.6) — through the same timer, so a resync arriving beside a burst
-  // of Events is still one read. The rules come too: a client that has been gone long enough to be
-  // told this has been gone long enough for the table's Snapshot to have been refreshed. A timestamp
-  // rather than a flag, so this fires once per instruction and nobody has to own clearing it.
+  // of Events is still one read. **All three halves**: a client that has been gone long enough to be
+  // told this has been gone long enough for the Snapshot to have been refreshed and for somebody to
+  // have joined or left. A timestamp rather than a flag, so this fires once per instruction and
+  // nobody has to own clearing it.
   const room = useLiveRoom(sessionId);
   const resyncAt = room?.resyncAt ?? null;
 
   useEffect(() => {
     if (resyncAt === null) return;
 
-    schedule(true);
+    const everything = Object.values(ROSTER_READ);
+
+    schedule(everything);
   }, [resyncAt, schedule]);
 
   useEffect(() => {
@@ -162,8 +203,8 @@ export function useCoalescedReads(sessionId: string | null, reads: RosterReads):
     return () => {
       mounted.current = false;
       reading.current = false;
-      again.current = false;
-      wantsRules.current = false;
+      again.current = new Set();
+      wanted.current = new Set();
 
       if (timer.current === null) return;
 

@@ -271,6 +271,16 @@ Two families of judgement, both concrete here rather than generic.
   `playerActions.ts` holds the rules both roots run. An action is then a line deciding *where* and a
   line saying *what* — see `characterStore.setInvestedStatPoints` (TICKET-PLY-01). A rule written in
   a store is a rule the server cannot call, which is how two implementations start.
+- **A structural check that reads source text is a constraint on what a module may *spell*, and the
+  fix is to move the word — never to exempt the module** (TICKET-LIVE-04). `routeGuards.test.ts`
+  fails any handler naming an owned identifier without calling a resource guard, and `redeemInvite`
+  is the one route that legitimately calls none, because redeeming a code *is* becoming a Member. An
+  Event literal in that handler needed a `sessionId:` field and turned the check red — so the literal
+  moved to `sessionPayloads.joinedTheTable(session, accountId, now)`, which takes the loaded **row**
+  for the same reason `NewSessionMember` does. Adding the route to an allow-list would have bought
+  one green run and cost the check its meaning. Two callers sharing the builder is a consequence
+  here, not the motive; when the third-caller rule and a structural check disagree, the check wins,
+  and the docblock says which of the two put the code there.
 - **Name a Kernel rule for what it does to the document, and the action for what the person did.**
   `equipToSlot` is the rule, `equip-item` is the `PLAYER_ACTION` the route and the Event log spell.
   Sharing one spelling across the two makes a duplicate export `fallow` will report and an
@@ -288,6 +298,14 @@ Two families of judgement, both concrete here rather than generic.
   into a **single call site** a tree-walking test asserts as an equality; an allow-list of modules
   permitted to write one is a list somebody adds a line to. Reach for this shape whenever two writes
   are one fact and only one of them has a side effect the other must not escape.
+  **TICKET-LIVE-04 took it from two composing writes to five** (the three membership writes joined
+  them) and paid the same shape twice more. *An idempotent write announces nothing*:
+  `seatSessionMember` answers `null` when its `ON CONFLICT` fired, which `recordEvent` already means
+  as *nothing was written, so nothing is published* — a table told twice that somebody joined is the
+  failure, and the seat they already held is read back by a named `heldSeat` so the impossible case
+  lives in one place rather than in each route. And *a count derived from a list beats a count
+  nudged*: the same file's route-count assertion became `sheetActions + NON_SHEET_WRITERS.length`
+  with every non-sheet writer named, because `+ 2` becoming `+ 6` is a diff no reviewer can check.
   **And scan for the *write*, not for the function name.** A guard keyed on spellings is blind to a
   rename, an aliased import, and — the case that actually arrives — a *second* writer added inside
   the very module the scan excludes as the definition site. `eventFanOut.test.ts` scans for

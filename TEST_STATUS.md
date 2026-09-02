@@ -60,12 +60,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 4245
-- **Passing**: 4245 (100%)
+- **Total tests**: 4289
+- **Passing**: 4289 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **256 files**: `server` in node, everything else in happy-dom.
+Split across **258 files**: `server` in node, everything else in happy-dom.
 
 > **This block had gone three checkpoints stale** (it read 3863 / 232 files, last true at DM-03)
 > and was corrected at LIVE-01. A summary that disagrees with the header of the very file whose job
@@ -312,6 +312,44 @@ Split across **256 files**: `server` in node, everything else in happy-dom.
 > gap is not a regression — nothing was failing at either number — it is a checkpoint that was
 > written from a partial run. PLY-01's delta is stated against the measured 2827, and the rule this
 > corrects is worth writing down: **re-measure the baseline, don't quote the last row.**
+
+## TICKET-LIVE-04 — +44 tests, +1 file (4245 → 4289), and a file count that was one low
+
+**The one new file is `roster/membershipEvents.test.ts` (+10)**, the pure applier for a member list —
+`liveEvents.test.ts`'s shape one list over. The other 34 land beside the code they check:
+`membership.test.ts` +7, `useRosterFeed.test.ts` +7, `liveEvents.test.ts` +2,
+`eventFanOut.test.ts` +1, `invites.test.ts` +1, `invitations.test.ts` +1, and
+`useTableCharacterFeed.test.ts` +1, with the remaining 14 spread as extra assertions inside cases
+that already existed.
+
+**The file count above was 256 and the truth was 257 before this ticket** — `git ls-files` counts 257
+committed `*.test.ts(x)`, and the runner agrees at 258 with the new one. DM-04 recorded +5 files onto
+a number that was already one short. Corrected rather than carried, for the reason the block's own
+warning gives: the summary is the part people skim.
+
+**Three of the new cases are the ticket rather than coverage of it**, and each fails on a real
+mistake rather than on a refactor:
+
+- *should write the seat and its Event together, or neither* passes `seatSessionMember` an appender
+  that **throws** and asserts no membership row survives. A transaction is not observable from
+  outside; breaking the half that is not the row is the only way to see it, and the sibling case does
+  it from the other side for a removal.
+- *reads nothing when somebody joins or leaves the table* is the only case in
+  `useTableCharacterFeed.test.ts` that runs the **real** `applyEventToCharacter` — everywhere else
+  that store is a stub returning a canned effect, which is right when the subject is what the hook
+  does with an answer and useless when the subject is what the answer *is*. Before this ticket the
+  applier said `stale` for any type it did not know, so four new Event types would have re-read every
+  open sheet at the table on every arrival and departure. Nothing would have failed; the table would
+  have got slower.
+- *should carry no name at all, so a rename cannot make the log wrong* uses **registered** Accounts
+  with real profile names, which is what gives it the ability to fail — the anonymous fixtures the
+  file mostly uses would have passed it by having nothing to leak.
+
+**No hotspot row is owed.** `fallow health --hotspots --since 6m` returns four of this ticket's files
+and all four are **cooling** (`characters.test.ts` 14.2, `seeds.ts` 12.0, `membership.test.ts` 7.6,
+`gameSessionRepository.ts` 4.0); `fallow health --complexity` reports **no finding on any file this
+ticket touched**, `useRosterFeed` and `useCoalescedReads` included, despite both gaining an arm.
+`fallow audit --base main` is `pass` with zero introduced dead code, complexity or duplication.
 
 ## TICKET-DM-04 — +62 tests, +5 files (4183 → 4245), and a surface that grew by two deletions
 

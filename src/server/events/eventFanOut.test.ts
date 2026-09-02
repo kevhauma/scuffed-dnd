@@ -49,6 +49,7 @@ import { dmAwardExperience } from '../routes/dm/dmAwardExperience';
 import { setFocusSkills } from '../routes/play/setFocusSkills';
 import { rollDiceHandler } from '../routes/rolls/rollDice';
 import { refreshSnapshot } from '../routes/sessions/refreshSnapshot';
+import { removeMember } from '../routes/sessions/removeMember';
 import { snapshotOf } from '../routes/sessions/sessionPayloads';
 import {
   type CallOptions,
@@ -102,6 +103,33 @@ const APPEND_EXPORTS = ['appendEvent', 'appendEventWithin'];
 
 /** How a route reaches the fan-out — directly, or through the pipeline every sheet action shares */
 const FAN_OUT_MARKERS = ['recordEvent(', 'applyPlayerAction('];
+
+/**
+ * Every writer that is **not** one of the named sheet actions, each said out loud (TICKET-LIVE-04)
+ *
+ * The count below used to read `sheetActions + 2` with two `toContain`s under it, which was fine
+ * while the two were the roll and the Snapshot refresh and stopped being fine the moment four
+ * membership routes arrived: *bump the number by four* is a change a reviewer cannot check, because
+ * the number says nothing about where it came from.
+ *
+ * **So the arithmetic is re-derived from this list rather than adjusted.** A fifth non-sheet writer
+ * fails the length assertion *and* is absent from the list, and the only way to make it pass is to
+ * name it here — which is the question this file exists to ask its author: *does everything that
+ * changes a table tell the table?*
+ *
+ * The membership four are TICKET-LIVE-04's, and they are four routes rather than four Event types:
+ * seating has two paths (a shared code and an addressed invitation) that write the same
+ * `member_joined`, and `removeMember` writes `member_removed` or `member_left` depending on who
+ * asked.
+ */
+const NON_SHEET_WRITERS = [
+  '/routes/invitations/acceptInvitation.ts',
+  '/routes/invites/redeemInvite.ts',
+  '/routes/rolls/rollDice.ts',
+  '/routes/sessions/refreshSnapshot.ts',
+  '/routes/sessions/removeMember.ts',
+  '/routes/sessions/transferDm.ts',
+];
 
 /**
  * How an Event frame is built — naming the message type, which is the only way to build one
@@ -244,16 +272,18 @@ describe('the routes that write an Event', () => {
     const handlers = routes.filter(({ source }) => source.includes(HANDLER_MARKER));
     const writers = containing(handlers, FAN_OUT_MARKERS);
 
-    // Every `PLAYER_ACTION` and every `DM_ACTION` is one module, plus the two writers that are not
-    // sheet actions: the roll, and the Snapshot refresh. A ticket that adds an action makes this
+    // Every `PLAYER_ACTION` and every `DM_ACTION` is one module, plus the writers that are not sheet
+    // actions — each named in {@link NON_SHEET_WRITERS}. A ticket that adds an action makes this
     // number wrong, which is the question being asked.
     const playerActions = Object.values(PLAYER_ACTION);
     const dmActions = Object.values(DM_ACTION);
     const sheetActions = playerActions.length + dmActions.length;
 
-    expect(writers).toHaveLength(sheetActions + 2);
-    expect(writers).toContain('/routes/rolls/rollDice.ts');
-    expect(writers).toContain('/routes/sessions/refreshSnapshot.ts');
+    expect(writers).toHaveLength(sheetActions + NON_SHEET_WRITERS.length);
+
+    for (const writer of NON_SHEET_WRITERS) {
+      expect(writers).toContain(writer);
+    }
   });
 
   it('shares one pipeline for the sheet actions, and that pipeline records', () => {
@@ -360,7 +390,7 @@ describe('one accepted action, one broadcast', () => {
     rooms.join(first.session.id, listeningToFirst);
     rooms.join(second.session.id, listeningToSecond);
 
-    return { first, second, listeningToFirst, listeningToSecond };
+    return { rooms, first, second, listeningToFirst, listeningToSecond };
   }
 
   it('sends a Player’s action to that Player’s table and to no other', () =>
@@ -434,6 +464,30 @@ describe('one accepted action, one broadcast', () => {
       expect(answer.status).toBe(200);
       expect(listeningToFirst.frames).toHaveLength(1);
       expect(listeningToFirst.frames[0].event.type).toBe(SESSION_EVENT.SNAPSHOT_REFRESHED);
+    }));
+
+  it('sends a membership change to everybody left at the table (TICKET-LIVE-04)', () =>
+    withTestDatabase(async (database) => {
+      const { rooms, first, listeningToFirst, listeningToSecond } = twoTables(database);
+
+      // The DM is the one who stays, and their roster is the one this ticket exists for — the
+      // removed Member's own connection is evicted a line later and would prove nothing about
+      // whether *anybody else* was told
+      const listeningAsDm = fakeConnection(first.dm.id);
+      rooms.join(first.session.id, listeningAsDm);
+
+      const path = `/api/sessions/${first.session.id}/members/${first.player.id}`;
+      const answer = await callRoute(removeMember, { as: first.dm, method: 'DELETE', path });
+
+      expect(answer.status).toBe(204);
+      expect(listeningAsDm.frames).toHaveLength(1);
+      expect(listeningAsDm.frames[0].event.type).toBe(SESSION_EVENT.MEMBER_REMOVED);
+      expect(listeningAsDm.frames[0].sessionId).toBe(first.session.id);
+
+      // The removed Member is told **before** their room is closed, which is the ordering
+      // `removeMember` records: they learn why rather than merely that
+      expect(listeningToFirst.frames).toHaveLength(1);
+      expect(listeningToSecond.frames).toEqual([]);
     }));
 
   it('sends nothing at all when the action was refused', () =>

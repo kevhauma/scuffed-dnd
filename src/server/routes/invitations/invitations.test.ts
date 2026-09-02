@@ -28,10 +28,12 @@ import type {
   AddressedInvite,
   AddressedInviteListing,
   InviteRedemption,
+  MembershipEventPayload,
   PendingInvitationListing,
   SessionInvite,
 } from '#shared/types/api';
-import { INVITE_STATE, MEMBER_ROLE } from '#shared/types/api';
+import { INVITE_STATE, MEMBER_ROLE, SESSION_EVENT } from '#shared/types/api';
+import { eventsSince } from '../../repositories/eventRepository';
 import { findSessionMember } from '../../repositories/gameSessionRepository';
 import {
   activeInviteForSession,
@@ -282,6 +284,30 @@ describe('the invitee’s pending invitations', () => {
       expect(again.body.session.id).toBe(session.id);
       // …and there is still one membership, which is `seatSessionMember`'s constraint doing the work
       expect(findSessionMember(session.id, ada.id, database)).not.toBeNull();
+    }));
+
+  it('should announce the arrival once, and the second acceptance not at all (TICKET-LIVE-04)', () =>
+    withTestDatabase(async (database) => {
+      // The addressed twin of `invites.test.ts`' own case, and the same property: nothing was
+      // written the second time, so the table is not told a second time. The type is
+      // `member_joined` either way — *how* somebody was invited is the invitation's history, and
+      // *who is now at the table* is the table's.
+      const { session, dm } = aTable(database);
+      const ada = seedRegisteredAccount(database, { email: 'ada@example.test' });
+
+      const sent = await invite(session.id, 'ada@example.test', dm);
+
+      await accept(sent.body.id, ada);
+      await accept(sent.body.id, ada);
+
+      const log = eventsSince(session.id, 0, database);
+
+      expect(log).toHaveLength(1);
+      expect(log[0].type).toBe(SESSION_EVENT.MEMBER_JOINED);
+
+      const payload = JSON.parse(log[0].payload) as MembershipEventPayload;
+
+      expect(payload).toEqual({ accountId: ada.id });
     }));
 
   it('should refuse to accept one for a table that has been archived', () =>

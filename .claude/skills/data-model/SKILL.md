@@ -152,6 +152,17 @@ Two consequences worth holding on to before changing a persisted shape:
   re-read. `cast-spell` is the worked example of why the table is explicit rather than inferred: its
   before/after are a **pool's** and its Event `target` is a **spell's**, so a rule reading the shape
   would write a mana total under a spell id.
+- **An Event's payload carries ids and never names** (TICKET-LIVE-04, v3 Req 44.3). The log is
+  append-only, so any name written into a payload is a copy taken at that instant and a rename
+  afterwards leaves the log calling somebody by a name they no longer have — `RollLogPayload` keeps
+  the rule for a character, `PresenceMessage` for an Account, and `MembershipEventPayload` /
+  `DmTransferEventPayload` for a seat. Names are resolved when the row is *read*, against whatever
+  the member listing says then. It is worth knowing what that costs, because it is the one place the
+  rule bites: a browser cannot **apply** a `session.member_joined` to its member list, since a list
+  of names cannot be extended from an id, so that one Event falls back to a re-read of the member
+  list while removal and handover are patched in place. That is the trade taken deliberately —
+  correctness of the record over one request per arrival. **No migration and no new column**: this is
+  JSON in `event.payload`, which already held `SESSION_EVENT.SNAPSHOT_REFRESHED`'s own shape.
 - **Presence is state that is *deliberately* not persisted** (TICKET-LIVE-03). Who is watching a
   table is derived from open connections in `server/ws/rooms.ts`, announced to that room when the
   **Account** set changes, and legitimately ends with the process — the one piece of milestone state

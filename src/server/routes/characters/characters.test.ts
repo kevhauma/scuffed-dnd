@@ -49,6 +49,7 @@ import {
   seedMember,
   seedRuleset,
   seedSession,
+  unseatMember,
   withTestDatabase,
 } from '../../testing';
 import { archiveSession } from '../sessions/archiveSession';
@@ -571,9 +572,10 @@ describe('reading a table’s characters', () => {
       await create(session.id, validBody(session), player);
 
       // What removing them does — the seat goes and the character stays. A listing that filtered
-      // them would be quietly undoing GAM-04's retention rule.
-      const { removeSessionMember } = await import('../../repositories/gameSessionRepository');
-      removeSessionMember(session.id, player.id, database);
+      // them would be quietly undoing GAM-04's retention rule. Arranged with the fixture rather than
+      // the route since TICKET-LIVE-04: a removal is now an Event as well as a delete, and this case
+      // is about a departed Member rather than about anybody being told.
+      unseatMember(database, { session, account: player });
 
       expect((await listAtTable(session.id, dm)).body.characters).toHaveLength(1);
     }));

@@ -19,16 +19,21 @@
  * with a partial unique index; a code that could seat a second one would be a code that could take
  * the table away from whoever handed it out.
  *
- * **Validates: v3 Req 32.1, 37.5, 38.1, 38.4, 38.7**
+ * **A seating that seats somebody tells the table** (TICKET-LIVE-04, v3 Req 44.3), and one that
+ * finds them already there tells nobody — `seatSessionMember` answers `null` for the second click,
+ * so `recordEvent` publishes nothing and the idempotence above is idempotent on the log as well.
+ *
+ * **Validates: v3 Req 32.1, 37.5, 38.1, 38.4, 38.7, 44.3, 44.4**
  */
 
 import type { InviteRedemption } from '#shared/types/api';
 import { MEMBER_ROLE } from '#shared/types/api';
 import { requireAccount } from '../../auth/guards';
+import { recordEvent } from '../../events/recordEvent';
 import { AppError } from '../../http/appError';
 import { defineHandler } from '../../http/pipeline';
-import { seatSessionMember } from '../../repositories/gameSessionRepository';
-import { toSessionSummary } from '../sessions/sessionPayloads';
+import { heldSeat, seatSessionMember } from '../../repositories/gameSessionRepository';
+import { joinedTheTable, toSessionSummary } from '../sessions/sessionPayloads';
 import { inviteCodeFrom, requireJoinable, resolveInviteFor } from './invitePayloads';
 import { clearRedemptionFailures, recordRedemptionFailure } from './redemptionLimit';
 
@@ -50,19 +55,33 @@ export const redeemInvite = defineHandler((context): InviteRedemption => {
     throw error;
   }
 
-  const seat = seatSessionMember({
-    id: crypto.randomUUID(),
-    // The resolved **row**, never an id read from the request — this route has no id to guard and
-    // says so by never naming one (see `invitePayloads`)
-    session: resolved.session,
-    accountId: account.id,
-    role: MEMBER_ROLE.PLAYER,
-    now,
-  });
+  // **Built from the row, in `sessionPayloads`** — this handler names no session id at all, which
+  // is the property `routeGuards.test.ts` reads as *this route had better call a resource guard*
+  // and the reason this one can honestly call none
+  const arrival = joinedTheTable(resolved.session, account.id, now);
+
+  const seated = recordEvent(arrival, (append) =>
+    seatSessionMember(
+      {
+        id: crypto.randomUUID(),
+        // The resolved **row**, never an id read from the request — this route has no id to guard
+        // and says so by never naming one (see `invitePayloads`)
+        session: resolved.session,
+        accountId: account.id,
+        role: MEMBER_ROLE.PLAYER,
+        now,
+      },
+      append
+    )
+  );
+
+  // `null` is the second click (v3 Req 38.7): nothing was written and nothing was announced, and the
+  // seat they already hold is the answer
+  const seat = seated?.written ?? heldSeat(resolved.session.id, account.id);
 
   // They are at the table; there is nothing further to count them for. The **code's** bucket is
   // deliberately untouched — one success says nothing about the hundred failures around it.
   clearRedemptionFailures(account.id);
 
-  return { session: toSessionSummary(resolved.session, seat.membership.role), joined: seat.joined };
+  return { session: toSessionSummary(resolved.session, seat.role), joined: seated !== null };
 });

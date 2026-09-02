@@ -154,11 +154,38 @@ export function useSessionRoster(sessionId: string | null): SessionRosterState {
   const reads: RosterReads = {
     characters: characters.reload,
     rules: rules.reload,
+    members: members.reload,
   };
 
-  const feed = useRosterFeed(sessionId, characters.characters, reads, nameOfAccount);
+  /**
+   * The two halves as the server last gave them
+   *
+   * Memoised on the two arrays rather than rebuilt each render: the feed replaces what is on screen
+   * whenever this identity changes, so an object minted per render would throw away every patch it
+   * had just applied, once a frame.
+   */
+  const fetched = useMemo(
+    () => ({ characters: characters.characters, members: memberRows }),
+    [characters.characters, memberRows]
+  );
+
+  const feed = useRosterFeed(sessionId, fetched, reads, nameOfAccount);
 
   const held = feed.characters;
+
+  /**
+   * Who is at the table **as the live feed has it** (TICKET-LIVE-04)
+   *
+   * Everything below reads this rather than `memberRows`: the groups, the departed group derived
+   * from them, and who holds the `dm` seat — so a removal at another browser takes a group off this
+   * one, moves that Member's characters to *departed*, and a handover moves both the badge and the
+   * controls, with nothing refetched.
+   *
+   * `nameOfAccount` above is deliberately still the **fetched** list. It answers *what is this
+   * Account called*, and a Member who has just left is exactly the one whose name a passing
+   * adjustment may still need to spell.
+   */
+  const seated = feed.members;
 
   /** …and a character, which only the listing can answer once a roll's own sheet is not open */
   const rollNames: RollNames = {
@@ -174,8 +201,8 @@ export function useSessionRoster(sessionId: string | null): SessionRosterState {
   const log = useSessionRollLog(sessionId, rollNames);
 
   const groups = useMemo(
-    () => toRosterView(memberRows, held, snapshot, accountId),
-    [memberRows, held, snapshot, accountId]
+    () => toRosterView(seated, held, snapshot, accountId),
+    [seated, held, snapshot, accountId]
   );
 
   const words = useMemo(
@@ -183,7 +210,7 @@ export function useSessionRoster(sessionId: string | null): SessionRosterState {
     [snapshot]
   );
 
-  const isDm = holdsDmSeat(memberRows, accountId);
+  const isDm = holdsDmSeat(seated, accountId);
 
   return {
     groups,

@@ -192,57 +192,92 @@ export interface NewSessionMember {
   now: number;
 }
 
-/** A seat taken, and whether this call is what took it */
-export interface SeatResult {
-  membership: SessionMemberRow;
-  /** False when the Account was already at the table — the row is the one they already had */
-  joined: boolean;
-}
-
 /**
- * Seat an Account at a table, or hand back the seat they already have (v3 Req 38.7)
+ * Seat an Account at a table, and tell the table (v3 Req 38.7, 44.3)
  *
  * **Idempotent by constraint rather than by checking first.** `session_member_unique` already
- * refuses a second row per Account per session, so `ON CONFLICT DO NOTHING` and a read-back is both
- * shorter than read-then-insert and correct under a double-click — where read-then-insert is a race
- * that ends in a constraint error the User reads as *you are not welcome*.
+ * refuses a second row per Account per session, so `ON CONFLICT DO NOTHING` is both shorter than
+ * read-then-insert and correct under a double-click — where read-then-insert is a race that ends in
+ * a constraint error the User reads as *you are not welcome*.
  *
  * The ticket is emphatic that this matters: somebody will click the link twice, bookmark it, or
  * paste it into the group chat and click their own paste, and an error there is exactly the wrong
  * answer.
  *
+ * **`null` is that second click** (TICKET-LIVE-04). The conflict clause fired, nothing was written,
+ * and therefore **nothing is announced** — `recordEvent` publishes nothing for a `null`, which is
+ * exactly right here: a table must not be told somebody joined it twice. The caller reads the seat
+ * they already held with {@link heldSeat}, which is where this function's own read-back went.
+ *
+ * **The row and its Event are one transaction**, `refreshSessionSnapshot`'s rule one aggregate over:
+ * a seat whose Event failed is a table nobody was told about, and the roster of everybody else at it
+ * would stay wrong until they reloaded. `immediate` for the reason `appendEvent` documents.
+ *
  * @param input Who is sitting down, where, and in what role
+ * @param append The Event that announces it, bound and waiting for this transaction
  * @param database The connection; defaults to the process's
- * @returns Their membership, and whether it is new
+ * @returns Both rows, or `null` when they were already at the table
  */
 export function seatSessionMember(
   input: NewSessionMember,
+  append: AppendEvent,
   database: Database = getDatabase()
-): SeatResult {
-  const inserted = database.db
-    .insert(sessionMember)
-    .values({
-      id: input.id,
-      sessionId: input.session.id,
-      accountId: input.accountId,
-      role: input.role,
-      joinedAt: input.now,
-    })
-    .onConflictDoNothing()
-    .returning()
-    .all();
+): Recorded<SessionMemberRow> | null {
+  return database.db.transaction(
+    (tx) => {
+      const inserted = tx
+        .insert(sessionMember)
+        .values({
+          id: input.id,
+          sessionId: input.session.id,
+          accountId: input.accountId,
+          role: input.role,
+          joinedAt: input.now,
+        })
+        .onConflictDoNothing()
+        .returning()
+        .all();
 
-  if (inserted.length > 0) return { membership: inserted[0], joined: true };
+      // They were already here. Nothing was written, so there is nothing to announce.
+      if (inserted.length === 0) return null;
 
-  const existing = findSessionMember(input.session.id, input.accountId, database);
+      const event = append(tx);
 
-  // The conflict clause fired, so a row exists by definition. A `null` here would mean the unique
-  // index and this read disagree about what a membership is keyed on.
+      return { event, written: inserted[0] };
+    },
+    { behavior: 'immediate' }
+  );
+}
+
+/**
+ * The seat an Account already holds, for a seating that found them there (v3 Req 38.7)
+ *
+ * {@link findSessionMember} with the impossible case named. It is called only where
+ * {@link seatSessionMember} answered `null`, which means the unique index refused the insert — so a
+ * row exists by definition, and a `null` here would mean that index and this read disagree about
+ * what a membership is keyed on.
+ *
+ * It lives here rather than in each of the two seating routes because the invariant is one
+ * invariant: the routes differ in how they resolve an invitation, not in what a conflicted seat
+ * means.
+ *
+ * @param sessionId Which table
+ * @param accountId Whose seat
+ * @param database The connection; defaults to the process's
+ * @returns The membership they already had
+ */
+export function heldSeat(
+  sessionId: string,
+  accountId: string,
+  database: Database = getDatabase()
+): SessionMemberRow {
+  const existing = findSessionMember(sessionId, accountId, database);
+
   if (!existing) {
-    throw new Error(`seatSessionMember: ${input.accountId} conflicted but has no seat`);
+    throw new Error(`heldSeat: ${accountId} conflicted on ${sessionId} but has no seat`);
   }
 
-  return { membership: existing, joined: false };
+  return existing;
 }
 
 /**
@@ -529,22 +564,39 @@ export function listSessionMembers(
  * Characters keep their `session_id` and their `owner_account_id`, which is also what makes a
  * rejoin restore write access without reassigning anything.
  *
+ * **The seat and its Event go together** (TICKET-LIVE-04), for {@link seatSessionMember}'s reason
+ * and one further one: the departed Member's characters move to the roster's *departed* group the
+ * moment the seat is gone, and that group is derived from who is seated — so a removal nobody was
+ * told about leaves every other browser showing those sheets as somebody's who has left.
+ *
  * @param sessionId Which table
  * @param accountId Whose seat
+ * @param append The Event that announces it, bound and waiting for this transaction
  * @param database The connection; defaults to the process's
- * @returns True when a seat was actually taken away
+ * @returns Both rows, or `null` when there was no seat to take — in which case nothing is written
  */
 export function removeSessionMember(
   sessionId: string,
   accountId: string,
+  append: AppendEvent,
   database: Database = getDatabase()
-): boolean {
-  return (
-    database.db
-      .delete(sessionMember)
-      .where(and(eq(sessionMember.sessionId, sessionId), eq(sessionMember.accountId, accountId)))
-      .returning()
-      .all().length > 0
+): Recorded<SessionMemberRow> | null {
+  return database.db.transaction(
+    (tx) => {
+      const removed = tx
+        .delete(sessionMember)
+        .where(and(eq(sessionMember.sessionId, sessionId), eq(sessionMember.accountId, accountId)))
+        .returning()
+        .all();
+
+      // Nobody was sitting there, so nothing happened and nothing is announced
+      if (removed.length === 0) return null;
+
+      const event = append(tx);
+
+      return { event, written: removed[0] };
+    },
+    { behavior: 'immediate' }
   );
 }
 
@@ -561,47 +613,62 @@ export function removeSessionMember(
  * rule — but both are written, because a listing that read the stale column would show the wrong
  * person running the game.
  *
+ * **The Event is the fourth write and joins the same transaction** (TICKET-LIVE-04). It needed no
+ * new transaction, only one more statement inside the one this already opened — which is the
+ * clearest case in the file for why the appender is passed down rather than imported: the invariant
+ * that spans the three rows now spans the log entry too, and a transfer the table was not told about
+ * would leave every other roster drawing the badge on the wrong person.
+ *
  * @param sessionId Which table
  * @param from The outgoing DM's account id
  * @param to The incoming DM's account id — they must already be a Member
  * @param now Epoch milliseconds
+ * @param append The Event that announces it, bound and waiting for this transaction
  * @param database The connection; defaults to the process's
- * @returns The session **as it is now** — the route answers with it, and a row read before the
- *   write would carry the old `dm_account_id` and the old `updated_at`
+ * @returns Both rows — the session **as it is now**, since a row read before the write would carry
+ *   the old `dm_account_id` and the old `updated_at`
  */
 export function transferDungeonMaster(
   sessionId: string,
   from: string,
   to: string,
   now: number,
+  append: AppendEvent,
   database: Database = getDatabase()
-): GameSessionRow {
-  return database.db.transaction((tx) => {
-    // **Demote first.** The partial unique index allows one `dm` row per session, so promoting
-    // before demoting would fail on the constraint rather than on anything a caller did wrong.
-    tx.update(sessionMember)
-      .set({ role: MEMBER_ROLE.PLAYER })
-      .where(and(eq(sessionMember.sessionId, sessionId), eq(sessionMember.accountId, from)))
-      .run();
+): Recorded<GameSessionRow> {
+  return database.db.transaction(
+    (tx) => {
+      // **Demote first.** The partial unique index allows one `dm` row per session, so promoting
+      // before demoting would fail on the constraint rather than on anything a caller did wrong.
+      tx.update(sessionMember)
+        .set({ role: MEMBER_ROLE.PLAYER })
+        .where(and(eq(sessionMember.sessionId, sessionId), eq(sessionMember.accountId, from)))
+        .run();
 
-    const promoted = tx
-      .update(sessionMember)
-      .set({ role: MEMBER_ROLE.DM })
-      .where(and(eq(sessionMember.sessionId, sessionId), eq(sessionMember.accountId, to)))
-      .returning()
-      .get();
+      const promoted = tx
+        .update(sessionMember)
+        .set({ role: MEMBER_ROLE.DM })
+        .where(and(eq(sessionMember.sessionId, sessionId), eq(sessionMember.accountId, to)))
+        .returning()
+        .get();
 
-    // The route checked they are a Member before calling; if that is no longer true the whole
-    // transaction rolls back rather than leaving a table with no DM at all
-    if (!promoted) {
-      throw new Error(`transferDungeonMaster: ${to} is not a member of ${sessionId}`);
-    }
+      // The route checked they are a Member before calling; if that is no longer true the whole
+      // transaction rolls back rather than leaving a table with no DM at all
+      if (!promoted) {
+        throw new Error(`transferDungeonMaster: ${to} is not a member of ${sessionId}`);
+      }
 
-    return tx
-      .update(gameSession)
-      .set({ dmAccountId: to, updatedAt: now })
-      .where(eq(gameSession.id, sessionId))
-      .returning()
-      .get();
-  });
+      const handed = tx
+        .update(gameSession)
+        .set({ dmAccountId: to, updatedAt: now })
+        .where(eq(gameSession.id, sessionId))
+        .returning()
+        .get();
+
+      const event = append(tx);
+
+      return { event, written: handed };
+    },
+    { behavior: 'immediate' }
+  );
 }

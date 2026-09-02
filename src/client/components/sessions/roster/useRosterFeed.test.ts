@@ -27,7 +27,13 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CharacterDocument } from '#shared/types/api';
-import { DM_ACTION, PLAYER_ACTION, ROLL_EVENT, SESSION_EVENT } from '#shared/types/api';
+import {
+  DM_ACTION,
+  MEMBER_ROLE,
+  PLAYER_ACTION,
+  ROLL_EVENT,
+  SESSION_EVENT,
+} from '#shared/types/api';
 import type { LiveEvent, LiveEventMessage } from '#shared/types/liveSocket';
 import type { LiveRoomView } from '../../../services/liveSocket';
 
@@ -45,7 +51,15 @@ let room: LiveRoomView | null = null;
 
 vi.mock('../../live/useLiveRoom', () => ({ useLiveRoom: () => room }));
 
-import { makeDocument, PLAYER_ACCOUNT } from './roster.fixtures';
+import {
+  DM_ACCOUNT,
+  makeDocument,
+  makeSnapshot,
+  makeTable,
+  PLAYER_ACCOUNT,
+} from './roster.fixtures';
+import { toRosterView } from './rosterView';
+import type { RosterListing } from './useRosterFeed';
 import { adjustmentsFor, useRosterFeed } from './useRosterFeed';
 
 /** How this table spells an Account id */
@@ -84,20 +98,33 @@ function arrive(event: Partial<LiveEvent>): void {
   });
 }
 
-/** The two reads, counted */
+/** The three reads, counted */
 function stubReads() {
   const characters = vi.fn(async () => {});
   const rules = vi.fn(async () => {});
+  const members = vi.fn(async () => {});
 
-  return { characters, rules };
+  return { characters, rules, members };
 }
 
-/** Mount the feed over one character */
-function mountFeed(fetched: CharacterDocument[] = [makeDocument()]) {
+/** What the server last said this table is made of */
+function aListing(characters: CharacterDocument[] = [makeDocument()]): RosterListing {
+  return { characters, members: makeTable() };
+}
+
+/** Mount the feed over one character and the table that owns it */
+function mountFeed(fetched: RosterListing = aListing()) {
   const reads = stubReads();
   const rendered = renderHook(() => useRosterFeed('session-1', fetched, reads, nameOf));
 
   return { reads, ...rendered };
+}
+
+/** Nothing was asked for again — the assertion four of these cases are really making */
+function expectNoReads(reads: ReturnType<typeof stubReads>): void {
+  expect(reads.characters).not.toHaveBeenCalled();
+  expect(reads.rules).not.toHaveBeenCalled();
+  expect(reads.members).not.toHaveBeenCalled();
 }
 
 beforeEach(() => {
@@ -194,9 +221,9 @@ describe('useRosterFeed', () => {
     expect(reads.rules).toHaveBeenCalledTimes(1);
   });
 
-  it('re-reads both on a resynchronise instruction, and once per instruction', () => {
+  it('re-reads all three on a resynchronise instruction, and once per instruction', () => {
     const reads = stubReads();
-    const fetched = [makeDocument()];
+    const fetched = aListing();
     const { rerender } = renderHook(() => useRosterFeed('session-1', fetched, reads, nameOf));
 
     room = { status: 'live', presentAccountIds: [], resyncAt: 1_700_000_000_500 } as LiveRoomView;
@@ -213,6 +240,9 @@ describe('useRosterFeed', () => {
 
     expect(reads.characters).toHaveBeenCalledTimes(1);
     expect(reads.rules).toHaveBeenCalledTimes(1);
+    // The member list too, since TICKET-LIVE-04: a client gone long enough to be told this has been
+    // gone long enough for somebody to have joined or left
+    expect(reads.members).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the newest adjustment per character, so a row’s undo costs no request', () => {
@@ -318,19 +348,184 @@ describe('useRosterFeed', () => {
 
   it('adopts a fresh listing when one lands', () => {
     const reads = stubReads();
-    const first = [makeDocument()];
+    const first = aListing();
     const { result, rerender } = renderHook(
       ({ fetched }) => useRosterFeed('session-1', fetched, reads, nameOf),
       { initialProps: { fetched: first } }
     );
 
     const renamed = makeDocument({ character: { name: 'Feathers' } });
-    const second = [renamed];
+    const second = aListing([renamed]);
 
     act(() => {
       rerender({ fetched: second });
     });
 
     expect(result.current.characters[0].character.name).toBe('Feathers');
+  });
+});
+
+/**
+ * Who is at the table, moved by the table itself (TICKET-LIVE-04, v3 Req 44.7)
+ *
+ * The ticket's third and fourth criteria, and the pair is the whole design: **three of the four
+ * membership Events cost no read at all**, and the fourth costs exactly one, of exactly one list.
+ * That narrowing is checked here rather than described on the ticket, because *it only reads what it
+ * needs* is precisely the kind of claim that stops being true without anything failing.
+ */
+describe('useRosterFeed and the member list', () => {
+  /** One membership Event, as the socket delivers it */
+  function membership(type: string, payload: Record<string, string>): Partial<LiveEvent> {
+    return { type, actorAccountId: DM_ACCOUNT, payload };
+  }
+
+  it('drops a removed Member from the list, with no request at all', () => {
+    const { result, reads } = mountFeed();
+    const removal = membership(SESSION_EVENT.MEMBER_REMOVED, { accountId: PLAYER_ACCOUNT });
+
+    arrive(removal);
+
+    const remaining = result.current.members.map((member) => member.accountId);
+
+    expect(remaining).toEqual([DM_ACCOUNT]);
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    // **The refetch storm, tested rather than reasoned about.** Before this ticket the applier
+    // answered `stale` for any type it did not know, so a join or a leave re-read the whole party.
+    expectNoReads(reads);
+  });
+
+  it('drops a Member who left, which is the same write and a different story', () => {
+    const { result, reads } = mountFeed();
+    const departure = membership(SESSION_EVENT.MEMBER_LEFT, { accountId: PLAYER_ACCOUNT });
+
+    arrive(departure);
+
+    const remaining = result.current.members.map((member) => member.accountId);
+
+    expect(remaining).toEqual([DM_ACCOUNT]);
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expectNoReads(reads);
+  });
+
+  it('moves the DM’s badge on a handover, and puts the new DM first', () => {
+    const { result, reads } = mountFeed();
+
+    const handover = membership(SESSION_EVENT.DM_TRANSFERRED, {
+      accountId: PLAYER_ACCOUNT,
+      previousAccountId: DM_ACCOUNT,
+    });
+
+    arrive(handover);
+
+    const roles = result.current.members.map((member) => [member.accountId, member.role]);
+
+    // DM first, which is the order a re-read would have produced — a patch that left the row where
+    // it was would draw a correct badge in an order nothing else on this surface ever produces
+    expect(roles).toEqual([
+      [PLAYER_ACCOUNT, MEMBER_ROLE.DM],
+      [DM_ACCOUNT, MEMBER_ROLE.PLAYER],
+    ]);
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expectNoReads(reads);
+  });
+
+  it('reads the member list and nothing else when somebody joins (criterion 3’s exemption)', () => {
+    // **The one membership Event that costs a read**, and the narrowing is the assertion: a join's
+    // payload carries an id and no name (v3 Req 44.3), and a member list is a list of names — so
+    // there is nothing to build a row out of. What it must *not* do is re-read the characters or
+    // the rules, neither of which a join touches.
+    const { reads } = mountFeed();
+    const arrival = membership(SESSION_EVENT.MEMBER_JOINED, { accountId: 'account-newcomer' });
+
+    arrive(arrival);
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(reads.members).toHaveBeenCalledTimes(1);
+    expect(reads.characters).not.toHaveBeenCalled();
+    expect(reads.rules).not.toHaveBeenCalled();
+  });
+
+  it('asks once for a burst of joins, as it does for everything else', () => {
+    const { reads } = mountFeed();
+    const first = membership(SESSION_EVENT.MEMBER_JOINED, { accountId: 'account-one' });
+    const second = membership(SESSION_EVENT.MEMBER_JOINED, { accountId: 'account-two' });
+    const third = membership(SESSION_EVENT.MEMBER_JOINED, { accountId: 'account-three' });
+
+    arrive(first);
+    arrive(second);
+    arrive(third);
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(reads.members).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the member list alone for everything that is not about a seat', () => {
+    const { result, reads } = mountFeed();
+
+    arrive({
+      type: DM_ACTION.ADJUST_RESOURCE,
+      payload: {
+        characterId: 'character-1',
+        action: DM_ACTION.ADJUST_RESOURCE,
+        target: 'stat-vigor',
+        before: 31,
+        after: 24,
+      },
+    });
+
+    const table = makeTable();
+
+    expect(result.current.members).toEqual(table);
+    expect(reads.members).not.toHaveBeenCalled();
+  });
+
+  it('moves a departed Member’s characters to the departed group, on the same Event', () => {
+    // **Criterion 5, at the seam where it actually happens.** Nothing here moves a character:
+    // `toRosterView` reads *departed* as *owns a character here and holds no seat here* (v3 Req
+    // 39.3), so the patched member list is the whole of the change — which is why there is no
+    // second rule about retention on this side to disagree with the server's.
+    const { result, reads } = mountFeed();
+    const removal = membership(SESSION_EVENT.MEMBER_REMOVED, { accountId: PLAYER_ACCOUNT });
+
+    arrive(removal);
+
+    const snapshot = makeSnapshot();
+    const characters = result.current.characters;
+    const groups = toRosterView(result.current.members, characters, snapshot, DM_ACCOUNT);
+    const departed = groups.find((group) => group.member === null);
+    const names = departed?.characters.map((row) => row.name);
+
+    expect(names).toEqual(['Quackers']);
+    expectNoReads(reads);
+  });
+
+  it('records no adjustment for a membership change, which is not anybody’s sheet', () => {
+    // Criterion 8's client half: the adjustment log is a character's history, and a removal is not
+    // an adjustment to one. `describeAdjustment` is not extended to these, and this is what would
+    // fail if the newest-seen adjustment quietly started collecting them.
+    const { result } = mountFeed();
+    const removal = membership(SESSION_EVENT.MEMBER_REMOVED, { accountId: PLAYER_ACCOUNT });
+
+    arrive(removal);
+
+    expect(result.current.latest).toEqual({});
   });
 });

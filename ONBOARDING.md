@@ -426,13 +426,22 @@ carrying a user story, the as-is / to-be, and acceptance criteria.
   cannot opt out of it.** Every sheet action goes through `applyPlayerAction`, which writes through
   `server/events/recordEvent.ts`, which appends the Event **and** broadcasts it. `appendEvent` has
   exactly one call site in the whole server and `events/eventFanOut.test.ts` fails if a second
-  appears, so there is no way to write an Event nobody is told about (TICKET-LIVE-02).
+  appears, so there is no way to write an Event nobody is told about (TICKET-LIVE-02). **The same is
+  true of anything that changes who is at the table** (TICKET-LIVE-04): joining, leaving, being
+  removed and handing the DM role over each write a `SESSION_EVENT` through the same path, and that
+  file's count of non-sheet writers is derived from a list naming every one of them, so a new one has
+  to be named rather than absorbed.
 - **What the browser does with that Event is a table, and your new action needs a row in it.**
   `client/services/liveEvents.ts` patches an open sheet only when the Event's `after` is one of the
   sanctioned stored fields — a pool, experience, purse, granted points, dream level — and asks for a
   re-read otherwise. Its `Record<SheetAction, …>` is exhaustive, so adding an action **fails the
   typecheck** there until you say which it is. Answering `null` is a perfectly good answer; leaving
-  it out is not an option, which is the point.
+  it out is not an option, which is the point. **There are two such tables**: a second,
+  `Record<SessionEvent, …>`, says what a thing that happened to the *table* does to a sheet, and the
+  reason it exists is worth knowing before you add an Event type. A type with no row used to fall
+  through to *ask again*, and *ask again* on every open sheet at the table on every join and every
+  leave is a refetch storm that nothing reports as a bug — the table just gets slower as more people
+  arrive. Everything about membership answers *not about this sheet*.
 - **The socket reconnects, and it replays rather than queueing** (TICKET-LIVE-03). A dropped
   connection comes back on a jittered backoff and, on every open, asks for each room it still holds
   **with the last `seq` it saw** — so the server sends exactly what was missed, or tells it to read
@@ -452,7 +461,10 @@ carrying a user story, the as-is / to-be, and acceptance criteria.
   each row. It replaced two surfaces — GAM-04's lobby and CHAR-04's character panel — because two
   lists over one table disagree, and a DM acts on this one without checking it. If you are about to
   build a second surface that shows who is at a table, `roster/oneMemberList.test.ts` will stop you,
-  and it is right to.
+  and it is right to. **It is live about its membership too, as of TICKET-LIVE-04**, through a second
+  pure applier (`roster/membershipEvents.ts`) that patches a removal and a handover in place. Only a
+  **join** costs a request — an Event payload carries ids and never names, so a list of names cannot
+  be extended from one — and that read is the member list alone.
 - **Every `ws` socket needs an `'error'` listener, including one you are about to close.** An
   `'error'` on an `EventEmitter` with no listener is a **throw**, and from a socket it is raised out
   of a `data` callback where nothing catches it — so it ends the process. LIVE-01's refusal path

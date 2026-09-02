@@ -31,6 +31,14 @@ export interface SessionMembersState {
   /** True while a write is on the wire, so no button can be pressed twice */
   isBusy: boolean;
   error: string | null;
+  /**
+   * Read the roster again, with nothing written first (TICKET-LIVE-04)
+   *
+   * `useSessionResource`'s own `reload`, handed out for the one membership Event the roster's feed
+   * cannot apply: a join names an Account by id and carries no name, and a member list is a list of
+   * names. Every other membership Event is patched in place and costs nothing.
+   */
+  reload: () => Promise<void>;
   /** Take a seat away — the DM removing somebody, or anybody giving up their own */
   remove: (accountId: string) => Promise<boolean>;
   /** Hand the table to another Member; the caller stays at it as a player */
@@ -44,10 +52,8 @@ export interface SessionMembersState {
  * @returns The roster and the two ways to change it
  */
 export function useSessionMembers(sessionId: string | null): SessionMembersState {
-  const { data, isPending, isBusy, error, write } = useSessionResource<SessionMemberListing>(
-    sessionId,
-    (id) => `${SESSIONS_PATH}/${id}/members`
-  );
+  const { data, isPending, isBusy, error, reload, write } =
+    useSessionResource<SessionMemberListing>(sessionId, (id) => `${SESSIONS_PATH}/${id}/members`);
 
   return {
     members: data?.members ?? [],
@@ -55,6 +61,7 @@ export function useSessionMembers(sessionId: string | null): SessionMembersState
     isPending,
     isBusy,
     error,
+    reload,
     remove: useCallback(
       (accountId: string) =>
         write((id) =>

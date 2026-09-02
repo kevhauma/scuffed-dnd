@@ -20,9 +20,11 @@ import type {
   GameSessionDocument,
   InvitePreview,
   InviteRedemption,
+  MembershipEventPayload,
   SessionInvite,
 } from '#shared/types/api';
-import { MEMBER_ROLE } from '#shared/types/api';
+import { MEMBER_ROLE, SESSION_EVENT } from '#shared/types/api';
+import { eventsSince } from '../../repositories/eventRepository';
 import { findSessionMember } from '../../repositories/gameSessionRepository';
 import {
   activeInviteForSession,
@@ -284,6 +286,31 @@ describe('POST /api/invites/:code', () => {
           .all(session.id, guest.id);
 
         expect(rows).toHaveLength(1);
+      }));
+
+    it('announces the join once and the second click not at all (TICKET-LIVE-04)', () =>
+      withTestDatabase(async (database) => {
+        // **The idempotence reaches the log too.** A second click writes no row, so `recordEvent`
+        // is handed a `null` and publishes nothing — a table told twice that somebody joined would
+        // be a roster asking for the member list twice for one arrival.
+        const dm = seedAccount();
+        const guest = seedAccount();
+        const { session } = seedSession(database, { dm });
+        const code = (await issue(session.id, dm)).body.code;
+
+        await redeem(code, guest);
+        await redeem(code, guest);
+
+        const log = eventsSince(session.id, 0, database);
+
+        expect(log).toHaveLength(1);
+        expect(log[0].type).toBe(SESSION_EVENT.MEMBER_JOINED);
+        expect(log[0].actorAccountId).toBe(guest.id);
+
+        const payload = JSON.parse(log[0].payload) as MembershipEventPayload;
+
+        // The id and nothing else — a name here would be a copy a rename could make wrong
+        expect(payload).toEqual({ accountId: guest.id });
       }));
 
     it('lets the DM redeem their own code without losing the role', () =>

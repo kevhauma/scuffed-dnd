@@ -18,15 +18,23 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { GameSessionSummary, SessionMemberListing } from '#shared/types/api';
-import { MEMBER_ROLE } from '#shared/types/api';
+import type {
+  DmTransferEventPayload,
+  GameSessionSummary,
+  MembershipEventPayload,
+  SessionMemberListing,
+} from '#shared/types/api';
+import { MEMBER_ROLE, SESSION_EVENT } from '#shared/types/api';
 import { SOCKET_CLOSE_CODE } from '#shared/types/liveSocket';
 import { requireCharacterWriter } from '../../auth/guards';
 import { AppError } from '../../http/appError';
 import { insertUnseatedCharacter } from '../../repositories/characterRepository';
+import type { AppendEvent, EventRow } from '../../repositories/eventRepository';
+import { eventsSince } from '../../repositories/eventRepository';
 import {
   findGameSession,
   findSessionMember,
+  removeSessionMember,
   seatSessionMember,
 } from '../../repositories/gameSessionRepository';
 import {
@@ -263,15 +271,10 @@ describe('what happens to the Characters', () => {
       await remove(session.id, player.id, player);
       expect(mayWrite(sheet.id, player.id)).toBe(false);
 
-      // What redeeming an invitation does, called directly — the routes for it are GAM-02's and
-      // GAM-03's and both end here
-      seatSessionMember({
-        id: 'rejoined',
-        session,
-        accountId: player.id,
-        role: MEMBER_ROLE.PLAYER,
-        now: Date.now(),
-      });
+      // What redeeming an invitation leaves behind — arranged with the fixture rather than the
+      // repository since TICKET-LIVE-04, which made seating a composing writer that appends an
+      // Event. This case is about write access surviving a rejoin, not about the table being told.
+      seedMember(database, { session, account: player });
 
       // Ownership was never moved, so there is nothing to restore
       expect(mayWrite(sheet.id, player.id)).toBe(true);
@@ -546,5 +549,147 @@ describe('the live connections a seat was holding', () => {
         expect(thisTableClosed).toEqual([SOCKET_CLOSE_CODE.MEMBERSHIP_ENDED]);
         expect(otherTableClosed).toEqual([]);
       });
+    }));
+});
+
+/**
+ * What the table is told when its membership changes (TICKET-LIVE-04, v3 Req 44.3, 44.4)
+ *
+ * GAM-04 built these two writes before there was any fan-out to reach, so until now a removal or a
+ * handover was a change every other Member learned about by reloading. The Event is what closes
+ * that, and the two things worth asserting are the ones a reader cannot check by looking: that there
+ * is **exactly one** of them per act, and that the payload carries **no name**.
+ */
+describe('the Event a membership change writes', () => {
+  /** Every Event this table has ever recorded, oldest first */
+  function logOf(database: Database, sessionId: string): EventRow[] {
+    return eventsSince(sessionId, 0, database);
+  }
+
+  /** An appender that refuses, standing in for a log that could not take the row */
+  const refusingAppend: AppendEvent = () => {
+    throw new Error('the log refused this Event');
+  };
+
+  it('should record the DM taking a seat away, naming the Member by id alone', () =>
+    withTestDatabase(async (database) => {
+      const { dm, player, session } = aTableWithAPlayer(database);
+
+      const response = await remove(session.id, player.id, dm);
+      const log = logOf(database, session.id);
+
+      expect(response.status).toBe(204);
+      expect(log).toHaveLength(1);
+      expect(log[0].type).toBe(SESSION_EVENT.MEMBER_REMOVED);
+
+      // The actor is the column, as it is for every other Event on this log
+      expect(log[0].actorAccountId).toBe(dm.id);
+
+      const payload = JSON.parse(log[0].payload) as MembershipEventPayload;
+
+      expect(payload).toEqual({ accountId: player.id });
+    }));
+
+  it('should tell a leaving apart from a removal, which is the same write', () =>
+    withTestDatabase(async (database) => {
+      // One route, two actors, two stories — and `actor_account_id` alone would make a reader
+      // compare two ids to work out which of them happened
+      const { player, session } = aTableWithAPlayer(database);
+
+      const response = await remove(session.id, player.id, player);
+      const log = logOf(database, session.id);
+
+      expect(response.status).toBe(204);
+      expect(log).toHaveLength(1);
+      expect(log[0].type).toBe(SESSION_EVENT.MEMBER_LEFT);
+      expect(log[0].actorAccountId).toBe(player.id);
+    }));
+
+  it('should record a handover with both ids, so a reader moves two rows rather than guessing one', () =>
+    withTestDatabase(async (database) => {
+      const { dm, player, session } = aTableWithAPlayer(database);
+
+      const response = await transfer(session.id, player.id, dm);
+      const log = logOf(database, session.id);
+
+      expect(response.status).toBe(200);
+      expect(log).toHaveLength(1);
+      expect(log[0].type).toBe(SESSION_EVENT.DM_TRANSFERRED);
+
+      const payload = JSON.parse(log[0].payload) as DmTransferEventPayload;
+
+      expect(payload).toEqual({ accountId: player.id, previousAccountId: dm.id });
+    }));
+
+  it('should carry no name at all, so a rename cannot make the log wrong (v3 Req 44.3)', () =>
+    withTestDatabase(async (database) => {
+      // Both Accounts are registered ones with real names on their profiles, which is what makes
+      // this assertion able to fail — an anonymous fixture would pass it by having nothing to leak
+      const { dm, player, session } = aTableWithAPlayer(database);
+
+      await transfer(session.id, player.id, dm);
+      await remove(session.id, dm.id, player);
+
+      const log = logOf(database, session.id);
+      const payloads = log.map((row) => row.payload).join(' ');
+
+      expect(log).toHaveLength(2);
+      expect(payloads).not.toContain('Ada');
+      expect(payloads).not.toContain('The DM');
+    }));
+
+  it('should write nothing when the act was refused', () =>
+    withTestDatabase(async (database) => {
+      const { player, session } = aTableWithAPlayer(database);
+      const stranger = seedAccount();
+
+      const refused = await remove(session.id, player.id, stranger);
+      const log = logOf(database, session.id);
+
+      expect(refused.status).toBe(404);
+      expect(log).toEqual([]);
+    }));
+
+  it('should write the seat and its Event together, or neither (criterion 2)', () =>
+    withTestDatabase(async (database) => {
+      // **The transaction, proven by breaking the half that is not the seat.** A seating whose
+      // Event failed is somebody at a table nobody was told about, and the roster of every other
+      // Member would be wrong until they reloaded — so the seat must not survive alone.
+      const { session } = aTableWithAPlayer(database);
+      const newcomer = seedAccount();
+
+      const seat = () =>
+        seatSessionMember(
+          {
+            id: 'seat-that-should-not-land',
+            session,
+            accountId: newcomer.id,
+            role: MEMBER_ROLE.PLAYER,
+            now: Date.now(),
+          },
+          refusingAppend,
+          database
+        );
+
+      expect(seat).toThrow('the log refused this Event');
+
+      const seated = findSessionMember(session.id, newcomer.id, database);
+
+      expect(seated).toBeNull();
+    }));
+
+  it('should keep a seat whose removal Event could not be written', () =>
+    withTestDatabase(async (database) => {
+      // The same property from the other side: a Member removed from the table with nothing in the
+      // log would be a departure the fan-out could never announce
+      const { player, session } = aTableWithAPlayer(database);
+
+      const unseat = () => removeSessionMember(session.id, player.id, refusingAppend, database);
+
+      expect(unseat).toThrow('the log refused this Event');
+
+      const stillSeated = findSessionMember(session.id, player.id, database);
+
+      expect(stillSeated).not.toBeNull();
     }));
 });

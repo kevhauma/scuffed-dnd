@@ -18,14 +18,24 @@
  * **Refused on an archived session** through the same `requireActive` every other write uses: a game
  * that has ended has nothing left to run.
  *
- * **Validates: v3 Req 32.1, 32.3, 32.5, 37.5, 39.2, 39.4**
+ * **The fourth write in that transaction is the Event** (TICKET-LIVE-04, v3 Req 44.3). Every other
+ * Member's roster draws the DM's badge from the member listing, so a handover nobody was told about
+ * leaves that badge on the wrong person until they reload — and the badge is what says who may act.
+ *
+ * **Validates: v3 Req 32.1, 32.3, 32.5, 37.5, 39.2, 39.4, 44.3, 44.4**
  */
 
-import type { GameSessionSummary, TransferDmRequest } from '#shared/types/api';
-import { MEMBER_ROLE } from '#shared/types/api';
+import type {
+  DmTransferEventPayload,
+  GameSessionSummary,
+  TransferDmRequest,
+} from '#shared/types/api';
+import { MEMBER_ROLE, SESSION_EVENT } from '#shared/types/api';
 import { requireDM } from '../../auth/guards';
+import { recordEvent } from '../../events/recordEvent';
 import { badRequest, conflict, notFound } from '../../http/appError';
 import { defineHandler } from '../../http/pipeline';
+import type { NewEvent } from '../../repositories/eventRepository';
 import {
   findGameSession,
   findSessionMember,
@@ -67,10 +77,31 @@ export const transferDm = defineHandler(async (context): Promise<GameSessionSumm
     );
   }
 
+  const now = Date.now();
+
+  // **Both ids, and no name** — the rule every payload on this log keeps. Both, rather than the
+  // incoming DM alone, because a reader applying this moves two rows and should not have to infer
+  // one of them from the list it is patching.
+  const payload: DmTransferEventPayload = {
+    accountId: recipient,
+    previousAccountId: asking.accountId,
+  };
+
+  const handover: NewEvent = {
+    id: crypto.randomUUID(),
+    sessionId,
+    actorAccountId: asking.accountId,
+    type: SESSION_EVENT.DM_TRANSFERRED,
+    payload: JSON.stringify(payload),
+    now,
+  };
+
   // The row **as the transaction left it**, not the one read above: that one still names the old DM
   // and carries the old `updated_at`, and answering with it would put a stale summary on the wire
-  const handed = transferDungeonMaster(sessionId, asking.accountId, recipient, Date.now());
+  const recorded = recordEvent(handover, (append) =>
+    transferDungeonMaster(sessionId, asking.accountId, recipient, now, append)
+  );
 
   // The caller's own role, which is what they now hold: they stayed at the table and became a player
-  return toSessionSummary(handed, MEMBER_ROLE.PLAYER);
+  return toSessionSummary(recorded.written, MEMBER_ROLE.PLAYER);
 });

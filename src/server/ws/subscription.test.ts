@@ -26,7 +26,6 @@ import {
 } from '#shared/types';
 import type { LiveEventMessage, SubscribedMessage } from '#shared/types/liveSocket';
 import { appendEvent } from '../repositories/eventRepository';
-import { removeSessionMember } from '../repositories/gameSessionRepository';
 import {
   allCharacters,
   type CharacterRow,
@@ -35,6 +34,7 @@ import {
   seedCharacter,
   seedMember,
   seedSession,
+  unseatMember,
   withTestDatabase,
 } from '../testing';
 import { createSocketRooms, type LiveConnection, type SocketRooms } from './rooms';
@@ -231,7 +231,7 @@ describe('subscribe', () => {
 
       send(connection, { type: CLIENT_MESSAGE_TYPE.SUBSCRIBE, sessionId: session.id }, rooms);
 
-      removeSessionMember(session.id, player.id, database);
+      unseatMember(database, { session, account: player });
 
       const second = fakeConnection(player.id);
       send(second, { type: CLIENT_MESSAGE_TYPE.SUBSCRIBE, sessionId: session.id }, rooms);

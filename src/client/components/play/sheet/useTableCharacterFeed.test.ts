@@ -22,8 +22,14 @@
 
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { LiveEventMessage } from '#shared/types/liveSocket';
-import { EVENT_EFFECT, type LiveEventEffect } from '../../../services/liveEvents';
+import { SESSION_EVENT } from '#shared/types/api';
+import type { Character } from '#shared/types/character';
+import type { LiveEvent, LiveEventMessage } from '#shared/types/liveSocket';
+import {
+  applyEventToCharacter,
+  EVENT_EFFECT,
+  type LiveEventEffect,
+} from '../../../services/liveEvents';
 import { LIVE_STATUS, type LiveRoomView } from '../../../services/liveSocket';
 
 /** What the hook subscribed with, so a case can push frames at it */
@@ -72,17 +78,40 @@ function aFrame(seq: number): LiveEventMessage {
   } as LiveEventMessage;
 }
 
-/** Push one frame at the mounted hook */
-function arrive(seq: number): void {
+/** One membership Event, as the table's socket delivers it (TICKET-LIVE-04) */
+function aMembershipFrame(type: string): LiveEventMessage {
+  return {
+    type: 'event',
+    sessionId: 'session-1',
+    event: {
+      id: `event-${type}`,
+      seq: 1,
+      type,
+      actorAccountId: 'account-dm',
+      at: 1_700_000_000_000,
+      // Ids and no names, which is what the payload actually carries (v3 Req 44.3)
+      payload: { accountId: 'account-ada', previousAccountId: 'account-dm' },
+    },
+  } as LiveEventMessage;
+}
+
+/** Push one frame at the mounted hook, whatever it says */
+function arriveWith(frame: LiveEventMessage): void {
   const push = deliver;
   expect(push, 'the hook should be listening').not.toBeNull();
 
-  const frame = aFrame(seq);
   const deliverTo = push as (message: LiveEventMessage) => void;
 
   act(() => {
     deliverTo(frame);
   });
+}
+
+/** Push one frame at the mounted hook */
+function arrive(seq: number): void {
+  const frame = aFrame(seq);
+
+  arriveWith(frame);
 }
 
 /** A room in the state a case needs */
@@ -145,6 +174,45 @@ describe('useTableCharacterFeed', () => {
     renderHook(() => useTableCharacterFeed('character-1', reopen));
 
     arrive(1);
+
+    act(() => {
+      vi.runAllTimers();
+    });
+
+    expect(reopen).not.toHaveBeenCalled();
+  });
+
+  it('reads nothing when somebody joins or leaves the table (TICKET-LIVE-04)', () => {
+    // **The one case in this file that runs the real rule.** Everywhere else the store is a stub
+    // returning a canned effect, which is right when the subject is *what does the hook do with an
+    // answer* — and useless here, where the claim is *what is the answer*. The hazard is specific:
+    // before this ticket `applyEventToCharacter` said `stale` for any type it did not know, so four
+    // new Event types would have re-read every open sheet at the table on every join and leave.
+    //
+    // The character is a stub because the rule never looks at one for these types: a membership
+    // Event is answered before any comparison with the sheet on screen.
+    const held = { id: 'character-1' } as Character;
+    applyTableEvent.mockImplementation((event) => {
+      const outcome = applyEventToCharacter(held, event as LiveEvent);
+
+      return outcome.effect;
+    });
+
+    const reopen = vi.fn(async () => undefined);
+    renderHook(() => useTableCharacterFeed('character-1', reopen));
+
+    const membership = [
+      SESSION_EVENT.MEMBER_JOINED,
+      SESSION_EVENT.MEMBER_REMOVED,
+      SESSION_EVENT.MEMBER_LEFT,
+      SESSION_EVENT.DM_TRANSFERRED,
+    ];
+
+    for (const type of membership) {
+      const frame = aMembershipFrame(type);
+
+      arriveWith(frame);
+    }
 
     act(() => {
       vi.runAllTimers();

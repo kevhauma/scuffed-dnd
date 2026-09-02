@@ -24,18 +24,28 @@
  *
  * **Declined, revoked and expired are three different refusals**, not one (v3 Req 38.4).
  *
- * **Validates: v3 Req 32.1, 32.5, 37.5, 38.3, 38.4, 38.8**
+ * **A seating that seats somebody tells the table** (TICKET-LIVE-04, v3 Req 44.3) — `redeemInvite`'s
+ * note, and the same `null` for the second acceptance. The Event is `member_joined` either way: how
+ * somebody came to be invited is the invitation's history, and who is now at the table is the
+ * table's.
+ *
+ * **Validates: v3 Req 32.1, 32.5, 37.5, 38.3, 38.4, 38.8, 44.3, 44.4**
  */
 
 import type { InviteRedemption } from '#shared/types/api';
 import { MEMBER_ROLE } from '#shared/types/api';
 import { requireAccount, requireInvitee } from '../../auth/guards';
+import { recordEvent } from '../../events/recordEvent';
 import { notFound } from '../../http/appError';
 import { defineHandler } from '../../http/pipeline';
-import { findGameSession, seatSessionMember } from '../../repositories/gameSessionRepository';
+import {
+  findGameSession,
+  heldSeat,
+  seatSessionMember,
+} from '../../repositories/gameSessionRepository';
 import { redeemInviteById } from '../../repositories/sessionInviteRepository';
 import { requireJoinable } from '../invites/invitePayloads';
-import { toSessionSummary } from '../sessions/sessionPayloads';
+import { joinedTheTable, toSessionSummary } from '../sessions/sessionPayloads';
 import { invitationIdFrom, settledRefusal } from './invitationPayloads';
 
 export const acceptInvitation = defineHandler((context): InviteRedemption => {
@@ -60,13 +70,19 @@ export const acceptInvitation = defineHandler((context): InviteRedemption => {
   // answer is the membership they already have; anything else is one of the three refusals.
   if (!claimed && invite.redeemedByAccountId !== account.id) throw settledRefusal(invite, now);
 
-  const seat = seatSessionMember({
-    id: crypto.randomUUID(),
-    session,
-    accountId: account.id,
-    role: MEMBER_ROLE.PLAYER,
-    now,
-  });
+  // The **identical** Event a code produces (`sessionPayloads`), because what the table is told is
+  // who is here now rather than how they came to be invited
+  const arrival = joinedTheTable(session, account.id, now);
 
-  return { session: toSessionSummary(session, seat.membership.role), joined: seat.joined };
+  const seated = recordEvent(arrival, (append) =>
+    seatSessionMember(
+      { id: crypto.randomUUID(), session, accountId: account.id, role: MEMBER_ROLE.PLAYER, now },
+      append
+    )
+  );
+
+  // `null` is the second acceptance (v3 Req 38.8): nothing was written and nothing was announced
+  const seat = seated?.written ?? heldSeat(session.id, account.id);
+
+  return { session: toSessionSummary(session, seat.role), joined: seated !== null };
 });

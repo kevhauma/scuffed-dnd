@@ -10,6 +10,7 @@
 
 export * from './CharacterRosterRow';
 export * from './MemberGroup';
+export * from './membershipEvents';
 export * from './RosterQuickActions';
 export * from './RosterRollLog';
 export * from './rosterActions';

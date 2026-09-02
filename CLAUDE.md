@@ -275,10 +275,14 @@ acceptance criteria.
 - **An Event is written through `recordEvent()` and nowhere else** (TICKET-LIVE-02, v3 Req 44.4).
   `src/server/events/recordEvent.ts` appends the row **and** broadcasts it to that session's room in
   one path, so an action cannot change a character without the table being told. It **injects** the
-  appender into the two repositories that write an Event beside something else
-  (`recordPlayerAction`, `refreshSessionSnapshot`), which is why `appendEvent(` and
+  appender into the **five** repository writes that carry an Event beside something else
+  (`recordPlayerAction`, `refreshSessionSnapshot`, and TICKET-LIVE-04's `seatSessionMember`,
+  `removeSessionMember` and `transferDungeonMaster`), which is why `appendEvent(` and
   `appendEventWithin(` have exactly one call site in `src/server/` and
-  `events/eventFanOut.test.ts` can assert that as an equality rather than an allow-list. The publish
+  `events/eventFanOut.test.ts` can assert that as an equality rather than an allow-list. **That
+  includes what happens to the table itself**: seating somebody, removing them, a Member leaving and
+  handing the DM role over each write a `SESSION_EVENT`, and the count of non-sheet writers in
+  `eventFanOut.test.ts` is derived from a list that names every one of them. The publish
   happens **after** the repository returns — a committed write, on synchronous `better-sqlite3` —
   and is wrapped, because a fan-out that threw would report a change that happened as one that did
   not. A write that wrote nothing publishes nothing.
@@ -288,7 +292,14 @@ acceptance criteria.
   of the five sanctioned stored fields** above — resource pools, experience, purse, granted points,
   dream level — and answers *ask again* for anything structural, which becomes **one** coalesced
   re-read of the character and its Snapshot. The table is an exhaustive `Record<SheetAction, …>`, so
-  a new action is a compile error there rather than a change that silently never appears.
+  a new action is a compile error there rather than a change that silently never appears. **A second
+  exhaustive table, `Record<SessionEvent, …>`, answers for what happens to the table itself**
+  (TICKET-LIVE-04): a Snapshot refresh is *ask again*, because the rules under the sheet moved, and
+  every membership Event is *not about this sheet* — **the join included**, since answering *ask
+  again* for one would refetch every open character at the table on every arrival. What a membership
+  Event does to a **member list** is the roster's own `components/sessions/roster/membershipEvents.ts`,
+  where three of the four are patched in place and only a join costs a read — of the member list
+  alone, because its payload carries an id and no name.
 - **Client route protection is an explicit allow-list, and the default is open** (D6). A route is
   protected only by appearing in `client/components/auth/protectedRoutes.ts` *and* composing
   `RequireAccount`; `protectedRoutes.test.ts` enumerates the generated route tree and asserts both.

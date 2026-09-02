@@ -24,6 +24,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { and, eq } from 'drizzle-orm';
 import type { Character } from '#shared/types/character';
 import type { Configuration } from '#shared/types/config';
 import type { Database } from '../db/client';
@@ -356,6 +357,29 @@ export function seedMember(database: Database, options: SeedMemberOptions): Sess
     })
     .returning()
     .get();
+}
+
+/**
+ * …and somebody who is not at it any more (TICKET-LIVE-04)
+ *
+ * {@link seedMember}'s inverse, and it is here for the reason that one is: **arranging a state is
+ * not performing an act**. `removeSessionMember` stopped being callable as a fixture when it became
+ * a composing writer that appends an Event — which is the property `eventFanOut.test.ts` asserts —
+ * and a test that wanted *this table has a departed Member* was never asking for the Event.
+ *
+ * The characters are deliberately untouched, which is what makes this the arrangement the retention
+ * rule is tested against rather than a shortcut around it.
+ *
+ * @param database The connection
+ * @param options Which session and which account — `role` is unread, since a seat is a seat to leave
+ */
+export function unseatMember(database: Database, options: SeedMemberOptions): void {
+  const who = accountId(options.account);
+
+  database.db
+    .delete(sessionMember)
+    .where(and(eq(sessionMember.sessionId, options.session.id), eq(sessionMember.accountId, who)))
+    .run();
 }
 
 /** What a seeded character may be told */

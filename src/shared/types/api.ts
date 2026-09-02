@@ -974,11 +974,65 @@ export const ROLL_EVENT = 'roll';
  * name an act somebody performed on a sheet, and this names a thing that happened to the table.
  * Both share the log's one `type` column, so being tellable apart six months later is the whole
  * requirement.
+ *
+ * **The four membership values are TICKET-LIVE-04's**, and they are here rather than in
+ * {@link PLAYER_ACTION} or {@link DM_ACTION} for the reason the dotting records: seating somebody,
+ * removing them and handing the table over are things that happened to the **table**, with no sheet
+ * to have a before and an after on. That is also why a reader may not treat one as an adjustment —
+ * `describeAdjustment` is a character's history and is deliberately not extended to them.
  */
 export const SESSION_EVENT = {
   /** The DM pulled the ruleset's current state into the running game (TICKET-GAM-01) */
   SNAPSHOT_REFRESHED: 'session.snapshot_refreshed',
+  /** Somebody took a seat, by redeeming a code or accepting an addressed invitation */
+  MEMBER_JOINED: 'session.member_joined',
+  /**
+   * The DM took somebody's seat away (v3 Req 39.3)
+   *
+   * **Two values rather than one, though `removeMember` is one route.** *The DM removed Bob* and
+   * *Bob left* are the same write and different history, and the log is read by a person months
+   * later — `actor_account_id` carries the difference for a machine, and a reader should not have to
+   * compare two ids to learn which of the two happened.
+   */
+  MEMBER_REMOVED: 'session.member_removed',
+  /** Somebody gave up their own seat (v3 Req 39.5) */
+  MEMBER_LEFT: 'session.member_left',
+  /** The DM handed the table to another Member, who was already at it (v3 Req 39.4) */
+  DM_TRANSFERRED: 'session.dm_transferred',
 } as const;
+
+/** One of the things that can happen to a table */
+export type SessionEvent = (typeof SESSION_EVENT)[keyof typeof SESSION_EVENT];
+
+/**
+ * What a membership Event stores (TICKET-LIVE-04, v3 Req 44.3)
+ *
+ * **One Account id, and no name at all** — the rule {@link RollLogPayload} and `PresenceMessage`
+ * both keep. A name written in here would be a copy taken at the moment of the act, and a rename
+ * afterwards would leave the log calling somebody by a name they no longer have; the roster spells
+ * an id from its own member listing instead, at the moment it draws it.
+ *
+ * It is also why a **join** cannot be applied to a member list and asks for one instead: the list
+ * needs a name that this payload deliberately does not carry. A removal and a transfer need nothing
+ * but ids, and are applied.
+ */
+export interface MembershipEventPayload {
+  /** The Member the Event is about — the one who joined, left, or was removed or promoted */
+  accountId: string;
+}
+
+/**
+ * What handing the table over stores (v3 Req 39.4)
+ *
+ * Both ids, so a reader applying it moves **two** rows rather than inferring one of them from the
+ * list it is patching. The outgoing DM is also the actor of this Event, and stating it here anyway
+ * is the difference between a payload that says what changed and one that has to be read beside the
+ * row's own columns to mean anything.
+ */
+export interface DmTransferEventPayload extends MembershipEventPayload {
+  /** The DM who handed it over, and who stays at the table as a player */
+  previousAccountId: string;
+}
 
 /**
  * What a roll Event stores

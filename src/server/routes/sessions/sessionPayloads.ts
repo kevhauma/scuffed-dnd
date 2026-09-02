@@ -14,10 +14,11 @@
 
 import { toDisplayConfiguration } from '#shared/engine/formula/references';
 import { assertSupportedSchemaVersion, SchemaVersionError } from '#shared/services/importExport';
-import type { GameSessionSummary, MemberRole } from '#shared/types/api';
-import { SESSION_STATUS } from '#shared/types/api';
+import type { GameSessionSummary, MemberRole, MembershipEventPayload } from '#shared/types/api';
+import { SESSION_EVENT, SESSION_STATUS } from '#shared/types/api';
 import { type Configuration, SUPPORTED_SCHEMA_VERSION } from '#shared/types/config';
 import { conflict } from '../../http/appError';
+import type { NewEvent } from '../../repositories/eventRepository';
 import type {
   GameSessionRow,
   GameSessionSummaryRow,
@@ -173,4 +174,40 @@ export function requireActive(row: GameSessionRow): GameSessionRow {
   }
 
   return row;
+}
+
+/**
+ * *Somebody took a seat at this table* (TICKET-LIVE-04, v3 Req 44.3)
+ *
+ * **Here rather than in either seating route, and the reason is `routeGuards.test.ts`.** That scan
+ * fails any handler naming an owned identifier without calling a resource guard, and `redeemInvite`
+ * is the one route in the milestone that legitimately calls none — redeeming a code *is* the act of
+ * becoming a Member, so there is nothing yet to be guarded against. It stays clean by never spelling
+ * `sessionId`, which is the same reason `NewSessionMember` takes the loaded **row**; an Event
+ * literal in that handler would have spelled it and turned a real check into a false alarm somebody
+ * would have been tempted to exempt.
+ *
+ * That both seating paths can then share one description is a bonus rather than the motive: an
+ * addressed invitation and a shared code produce the **identical** Event, because what the table is
+ * told is *who is here now* and not how they came to be invited.
+ *
+ * **The payload is an Account id and nothing else** — no name, the rule every payload on this log
+ * keeps, so a rename cannot leave the log calling somebody by a name they no longer have.
+ *
+ * @param session The table they sat down at, as a row — never an id read from a request
+ * @param accountId Who sat down; they are also the actor, since joining is something you do
+ * @param now Epoch milliseconds, shared with the membership row written in the same transaction
+ * @returns The Event, ready for `recordEvent`
+ */
+export function joinedTheTable(session: GameSessionRow, accountId: string, now: number): NewEvent {
+  const payload: MembershipEventPayload = { accountId };
+
+  return {
+    id: crypto.randomUUID(),
+    sessionId: session.id,
+    actorAccountId: accountId,
+    type: SESSION_EVENT.MEMBER_JOINED,
+    payload: JSON.stringify(payload),
+    now,
+  };
 }
