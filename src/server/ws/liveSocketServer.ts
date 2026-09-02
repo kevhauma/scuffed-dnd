@@ -72,6 +72,7 @@ import { type RawData, WebSocket, WebSocketServer } from 'ws';
 import { LIVE_SOCKET_PATH, SOCKET_CLOSE_CODE } from '#shared/types/liveSocket';
 import type { RequestAccount } from '../auth/account';
 import { accountFromRequest } from '../auth/currentAccount';
+import { toWebRequest } from '../http/nodeBridge';
 import { type LiveConnection, liveRooms, type SocketRooms } from './rooms';
 import { handleClientMessage } from './subscription';
 
@@ -109,36 +110,6 @@ export interface LiveSocketServer {
 }
 
 /**
- * A `Request` carrying the upgrade's headers, so the same authentication can read them
- *
- * The cookie is all that is read, but a whole `Request` is built rather than a headers bag because
- * `accountFromRequest` takes one — and giving the socket its own narrower entry point into Better
- * Auth is exactly the second identity path this ticket refuses to create.
- *
- * @param incoming The raw upgrade request
- * @returns The same request, in the shape the HTTP side already speaks
- */
-function upgradeRequest(incoming: IncomingMessage): Request {
-  const host = incoming.headers.host ?? 'localhost';
-  const url = new URL(incoming.url ?? '/', `http://${host}`);
-  const headers = new Headers();
-
-  for (const [name, value] of Object.entries(incoming.headers)) {
-    // HTTP/2 pseudo-headers are not legal `Headers` names and `set` throws on one
-    if (name.startsWith(':')) continue;
-
-    if (typeof value === 'string') {
-      headers.set(name, value);
-    } else if (Array.isArray(value)) {
-      const combined = value.join('; ');
-      headers.set(name, combined);
-    }
-  }
-
-  return new Request(url, { headers });
-}
-
-/**
  * Who is upgrading, or nobody (v3 Req 44.1)
  *
  * No cookie, a cookie that does not verify, one naming a signed-out session and one naming an
@@ -146,11 +117,19 @@ function upgradeRequest(incoming: IncomingMessage): Request {
  * rather than as errors, and a socket that distinguished them would be telling an anonymous caller
  * which of their guesses was closest.
  *
+ * **The upgrade becomes a `Request` through the same translator every HTTP request uses**
+ * (`http/nodeBridge.ts`, TICKET-POL-03). It had its own copy of that conversion until then, which
+ * fallow reported as duplication the moment the production runner needed one too — and the copies
+ * had already begun to disagree about repeated headers. A whole `Request` is built rather than a
+ * headers bag because `accountFromRequest` takes one, and giving the socket its own narrower entry
+ * point into Better Auth is exactly the second identity path LIVE-01 refuses to create. An upgrade
+ * is a `GET`, so the translator's body branch never runs here.
+ *
  * @param incoming The raw upgrade request
  * @returns The acting account, or `null`
  */
 async function accountForUpgrade(incoming: IncomingMessage): Promise<RequestAccount | null> {
-  const request = upgradeRequest(incoming);
+  const request = toWebRequest(incoming);
   return accountFromRequest(request);
 }
 

@@ -49,6 +49,22 @@ export const ENV_VARIABLES = {
       'Which build this is. The tooling sets it; Vite refuses NODE_ENV=production from a .env ' +
       'file, because a production build is `yarn build` rather than a variable.',
   },
+  PORT: {
+    required: false,
+    description:
+      'Which port the built server listens on (TICKET-POL-03). Defaults to 3000. **Not an ' +
+      'origin** (v3 Req 47.7): it says where this server answers, not where to find another one — ' +
+      'the client addresses the API by relative path and the socket by window.location, so ' +
+      'changing this moves everything at once and nothing has to be told.',
+  },
+  HOST: {
+    required: false,
+    description:
+      'Which interface to bind, e.g. `127.0.0.1` (TICKET-POL-03). Unset binds every interface, ' +
+      'which is what a server on its own box wants. Behind a reverse proxy set it to loopback, or ' +
+      'the app is also reachable un-TLS-ed on this port beside the proxy serving it on 443. Like ' +
+      'PORT it names *this* server rather than another one.',
+  },
   DATABASE_URL: {
     required: true,
     description:
@@ -160,6 +176,10 @@ export type SocialProviderCredentialMap = Readonly<
 /** The environment, resolved and coerced */
 export interface ServerEnv {
   nodeEnv: NodeEnv;
+  /** Which port the built server listens on (TICKET-POL-03) */
+  port: number;
+  /** Which interface to bind, or `undefined` for all of them */
+  host: string | undefined;
   /** Where the SQLite file lives (TICKET-DB-01) */
   databaseUrl: string;
   /** What Auth_Session cookies are signed with (TICKET-AUTH-01) */
@@ -196,6 +216,12 @@ const AUTH_DEFAULTS = {
   SIGNIN_WINDOW_SECONDS: 900,
 } as const;
 
+/** What the server listens on when nothing says otherwise — the port `yarn dev` already uses */
+const DEFAULT_PORT = 3000;
+
+/** The highest port there is; 0 is excluded because *pick me any port* is not a deployment */
+const MAX_PORT = 65535;
+
 const SECONDS_PER_HOUR = 60 * 60;
 
 const SECONDS_PER_DAY = 60 * 60 * 24;
@@ -217,6 +243,23 @@ function asCount(raw: string | undefined, fallback: number): number {
 
   const parsed = Number(raw);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+/**
+ * A port number from the environment, or the default (TICKET-POL-03)
+ *
+ * Falls back rather than throwing, like {@link asCount} and for the same reason — but with a
+ * narrower idea of what counts: {@link asCount} accepts 0, and 0 is a real setting for an attempt
+ * limit and a *disaster* for a listener, where it means "bind whatever port is free". A deployment
+ * whose port is a typo should come up on the documented one and be found, not come up somewhere
+ * nobody can reach and look healthy.
+ *
+ * @param raw What the environment said
+ * @returns The port to listen on
+ */
+function asPort(raw: string | undefined): number {
+  const parsed = asCount(raw, DEFAULT_PORT);
+  return parsed >= 1 && parsed <= MAX_PORT ? parsed : DEFAULT_PORT;
 }
 
 /**
@@ -356,6 +399,10 @@ export function readEnv(source: Record<string, string | undefined> = process.env
     allowedHosts,
     socialProviders: providers,
     nodeEnv: asNodeEnv(source.NODE_ENV),
+    port: asPort(source.PORT),
+    // `undefined` rather than a default string: Node's own "every interface" is what an unset
+    // `host` argument means, and spelling it as `0.0.0.0` here would quietly turn off IPv6
+    host: value(source, 'HOST'),
     // Non-null by construction: both are required, so `collectMissing` refused above
     databaseUrl: source.DATABASE_URL as string,
     authSecret: source.BETTER_AUTH_SECRET as string,

@@ -7,11 +7,10 @@ LocalStorage, with JSON import/export for sharing a ruleset, and nothing about t
 sessions and live updates, on SQLite. One process serves the client bundle, the API and the socket
 — see [D1](docs/v3.0_backend/overview.md#d1--the-backend-lives-in-this-repo-on-tanstack-start) and
 [D6](docs/v3.0_backend/overview.md#d6--local-mode-stays-sign-in-gates-connected-play-only).
-(**The socket is attached under `yarn dev` only, as of TICKET-LIVE-01.** `src/server/entry.ts` is
-handed a `Request` and never sees a listener, so a Vite plugin does it; wiring
-`attachLiveSocket(httpServer)` into a built artefact is
-[TICKET-POL-03](docs/v3.0_backend/tickets/TICKET-POL-03-deployment-shape.md)'s, and this
-parenthesis is what it deletes.)
+**One command runs the built thing** (TICKET-POL-03): `yarn build && yarn start`, one process
+serving the bundle, the API and the socket on one port — `src/server/serve.ts` creates that
+listener and attaches the socket to it, and it is the **only** module allowed to
+(`the-listener-has-one-creator`). The README's *Running it in production* is the operator's half.
 
 Stack: React 19, TypeScript, Vite, TanStack Router (file-based), Zustand, react-hook-form,
 Tailwind CSS 4 (custom medieval theme), Vitest + fast-check, Biome.
@@ -20,8 +19,11 @@ Tailwind CSS 4 (custom medieval theme), Vitest + fast-check, Biome.
 
 ```bash
 yarn dev            # app + API on :3000, one process (needs a .env — see .env.example)
+yarn build          # dist/client/ + dist/server/entry.js
+yarn start          # serve the build: bundle + API + socket on PORT (3000), one process
 yarn run test       # vitest, single pass
 yarn run db:generate    # write a migration for the current src/server/db/schema.ts
+yarn run db:backup <file>   # VACUUM INTO a consistent single-file copy, server still running
 yarn run sheet:source   # rewrite docs/imports/*.json from the checked-in source workbook
 yarn run sheet:import   # rebuild docs/imports/ducklets.json from the per-feature fragments
 npx vitest run <path>   # one test file
@@ -189,11 +191,13 @@ acceptance criteria.
   intermediate variable first, and that name is passed on: not `return foo(bar(param), baz());`
   but `const bounded = bar(param); const fallback = baz(); return foo(bounded, fallback);`. The
   name says what the value *is*, which is the point — a nested call makes the reader evaluate
-  inside-out to find out. Three things are not nesting and stay as they are: a method chain
+  inside-out to find out. Four things are not nesting and stay as they are: a method chain
   (`items.filter(…).map(…)`), where each link reads left to right; a function *passed by
   reference or as an inline callback* (`items.map(toLabel)`, `useMemo(() => …, [])`), which is a
-  value rather than a call; and **JSX as an argument** (`render(<Component … />)`), which is an
-  element. **Test code is in scope, all of it — arrangement, act and assert alike, with no
+  value rather than a call; **JSX as an argument** (`render(<Component … />)`), which is an
+  element; and an **asymmetric matcher factory** (`expect.any(String)`,
+  `expect.objectContaining({…})`), which reads as a value the way a callback does (User,
+  TICKET-POL-03). **Test code is in scope, all of it — arrangement, act and assert alike, with no
   assertion exemption** (User, TICKET-DX-09): `expect(compute(input)).toBe(n)` binds the subject
   first, `localStorage.setItem(KEY, JSON.stringify(config))` binds the bytes first, and a matcher's
   argument counts. The ~3,000 existing **assertion** sites are swept in one mechanical change under
@@ -225,8 +229,13 @@ acceptance criteria.
   **assign** to `process.env` to arrange an environment before the lazy first read; nothing but
   `env.ts` may read one, and `env.test.ts` holds both halves separately (TICKET-AUTH-02).
   No variable names the backend: the API is a relative path and the socket derives its URL from
-  `window.location`. The one variable that names *hosts* is `AUTH_ALLOWED_HOSTS`, which states which
-  hosts this deployment answers on so an OAuth callback cannot be steered by a forged `Host` header
+  `window.location`. `PORT` and `HOST` (TICKET-POL-03) are not exceptions — they say where *this*
+  server listens, not where to find another one. The one thing outside `src/` that touches
+  `process.env` is `scripts/serve.mjs`, which **writes** `NODE_ENV=production` when nothing set
+  one, because a built artefact is production and `useSecureCookies` reads that; it consumes no
+  setting, and `env.test.ts` scans `scripts/` to keep that true. The one variable that names
+  *hosts* is `AUTH_ALLOWED_HOSTS`, which states which hosts this deployment answers on so an
+  OAuth callback cannot be steered by a forged `Host` header
   — see the note on [D1](docs/v3.0_backend/overview.md#d1--the-backend-lives-in-this-repo-on-tanstack-start).
 - **Queries belong to `src/server/repositories/`.** Nothing else imports Drizzle or the connection;
   a handler calls a repository. The server-side mirror of "persistence belongs to the store action",

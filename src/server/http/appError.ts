@@ -42,6 +42,7 @@ export const STATUS_FOR_CODE: Record<ErrorCode, number> = {
   [ERROR_CODE.METHOD_NOT_ALLOWED]: 405,
   [ERROR_CODE.CONFLICT]: 409,
   [ERROR_CODE.TOO_MANY_REQUESTS]: 429,
+  [ERROR_CODE.UNAVAILABLE]: 503,
   [ERROR_CODE.INTERNAL]: 500,
 };
 
@@ -127,6 +128,18 @@ export function unauthenticated(message = 'Sign in to do that.'): AppError {
  */
 export function tooManyRequests(message: string): AppError {
   return new AppError(ERROR_CODE.TOO_MANY_REQUESTS, message);
+}
+
+/**
+ * The server is up and cannot do its job (TICKET-POL-03, v3 Req 47.5)
+ *
+ * One producer — `/api/health` — and it is a *report* rather than a refusal of something the caller
+ * asked for, which is why it carries `details`: the health report rides that channel so a 503 says
+ * everything the 200 would have. Nothing about the caller is wrong here, so nothing is withheld
+ * from them; the blurring {@link notFound} does is about ownership, and this endpoint owns nothing.
+ */
+export function unavailable(message: string, details?: ErrorDetails): AppError {
+  return new AppError(ERROR_CODE.UNAVAILABLE, message, details);
 }
 
 /**

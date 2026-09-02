@@ -294,6 +294,41 @@ export default {
       to: { path: 'node_modules/ws(/|$)' },
     },
     {
+      name: 'the-listener-has-one-creator',
+      severity: 'error',
+      comment:
+        'A module other than server/serve.ts imported `node:http` for its value — which is what ' +
+        'calling `createServer` takes. TICKET-POL-03 deploys **one** process serving the client ' +
+        'bundle, the API and the WebSocket from **one** listener (D1, v3 Req 47.6), and a second ' +
+        'one is a second port, a second thing to keep alive, and a socket attached to whichever ' +
+        'of them the author happened to have in hand. That is not hypothetical: LIVE-01 attached ' +
+        'the socket to a listener a Vite plugin owned, and the built artefact had no socket at ' +
+        'all for four tickets while every test stayed green. **Type-only imports stay legal** — ' +
+        '`nodeBridge.ts`, `staticFiles.ts` and `liveSocketServer.ts` name `IncomingMessage`, ' +
+        '`ServerResponse` and `Server` as types, and being handed a listener is the opposite of ' +
+        'making one.',
+      from: {
+        path: '^src/',
+        pathNot: [
+          FIXTURES,
+          '^src/server/serve\\.ts$',
+          // **TESTS wholesale, unlike the socket rule above, and the difference is real.** That
+          // rule exempts one file by name because the fakes in `rooms.test.ts` are the very thing
+          // it protects. Here the property is about the *shipped process*: a test that starts a
+          // listener to drive a real request over loopback is doing the only honest thing
+          // available to it, and `nodeBridge.test.ts`, `serve.test.ts` and
+          // `liveSocketServer.test.ts` each do exactly that.
+          TESTS,
+        ],
+      },
+      to: {
+        path: '^(node:)?http$',
+        // The whole rule is this line: a value import is a listener a module can create, and a
+        // type import is a listener it can only be handed
+        dependencyTypesNot: ['type-only'],
+      },
+    },
+    {
       name: 'no-circular',
       severity: 'error',
       comment:

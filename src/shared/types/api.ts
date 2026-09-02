@@ -42,6 +42,16 @@ export const ERROR_CODE = {
    * a code that was fine.
    */
   TOO_MANY_REQUESTS: 'too_many_requests',
+  /**
+   * The server is running and cannot do its job (TICKET-POL-03, v3 Req 47.5)
+   *
+   * The only producer is `/api/health`, and it exists because a health endpoint is read by machines
+   * that branch on the **status line** — `curl -f`, a container health check, a load balancer — and
+   * a 200 whose body says *unhealthy* reports healthy to every one of them. Distinct from
+   * {@link INTERNAL}: nothing broke in handling the request, and the remedy is neither *retry* nor
+   * *fix your input* but *look at the deployment*.
+   */
+  UNAVAILABLE: 'unavailable',
   INTERNAL: 'internal',
 } as const;
 
@@ -50,6 +60,44 @@ export type ErrorCode = (typeof ERROR_CODE)[keyof typeof ERROR_CODE];
 /** The body every refusal has, whichever route produced it */
 export interface ErrorBody {
   error: { code: ErrorCode; message: string };
+}
+
+/**
+ * Whether the server can do its job, not merely whether it is running (v3 Req 47.5)
+ *
+ * **In the Kernel rather than in the route since TICKET-POL-03**, for this module's own reason: it
+ * is now part of two wire shapes — the healthy body and, through {@link ErrorDetails}, the 503 —
+ * and a shape that appears in two answers is a contract rather than an implementation detail.
+ */
+export const HEALTH_STATUS = {
+  OK: 'ok',
+  UNHEALTHY: 'unhealthy',
+} as const;
+
+export type HealthStatus = (typeof HEALTH_STATUS)[keyof typeof HEALTH_STATUS];
+
+/**
+ * What `/api/health` reports about the database (TICKET-DB-01)
+ *
+ * The two facts that separate *the process is up* from *the process can do its job*, and the first
+ * things to look at when a deployment goes wrong.
+ */
+export interface DatabaseHealth {
+  reachable: boolean;
+  /** The last migration applied, or `null` when none has been */
+  migration: string | null;
+}
+
+/**
+ * What `GET /api/health` answers with when it can (v3 Req 47.5)
+ *
+ * The **unhealthy** answer is a 503 carrying these same three fields beside an `error` — see
+ * {@link ErrorDetails}.
+ */
+export interface HealthReport {
+  status: HealthStatus;
+  environment: string;
+  database: DatabaseHealth;
 }
 
 /**
@@ -64,6 +112,31 @@ export interface ErrorBody {
  * server is built, and that still never leaves it.
  */
 export interface ErrorDetails {
+  /**
+   * On an `unavailable` from `/api/health`: what the report would have said (TICKET-POL-03)
+   *
+   * **The three fields are the health report, flat and spelled exactly as the healthy body spells
+   * them**, so that one reader parses both answers — `body.database.reachable` means the same thing
+   * at 200 and at 503, and only the `error` key is extra. That is the whole reason they are here
+   * rather than left off: a health endpoint is consulted *when things are broken*, and answering
+   * that moment with a bare refusal code would make it say less than it says today, exactly when it
+   * is being read for the first time in months.
+   *
+   * They ride the `details` channel because it is how a refusal carries anything at all — the
+   * status comes from the code and never from a call site, which is the rule that keeps every
+   * route's failure the same shape. See `server/routes/health.ts`.
+   *
+   * **`status` here is the *health* status and has nothing to do with the HTTP one.** In a module
+   * full of wire shapes the word reads as the other thing, so: the response's status is 503, and
+   * this field says `'unhealthy'`. They are two different statements that happen to share a name,
+   * and the name is kept because it is what the 200 body already calls it — one reader, both
+   * answers.
+   */
+  status?: HealthStatus;
+  /** Which build is running — the same field the healthy report carries */
+  environment?: string;
+  /** Reachability and applied migration, as `/api/health` reports them */
+  database?: DatabaseHealth;
   /** On a `conflict` from a write: what the resource's revision actually is now */
   currentRevision?: number;
   /** On a `bad_request` from shape validation: what failed, in the validator's own words */

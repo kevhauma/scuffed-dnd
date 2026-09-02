@@ -5,18 +5,16 @@
  * connection** — a rule TICKET-DX-08 makes mechanical. `routes/health.ts` asks this question; it
  * does not open anything.
  *
+ * **The shape moved to the Kernel in TICKET-POL-03.** It is part of two wire answers now — the
+ * healthy body and the 503's `details` — and a shape that appears in two answers is a contract
+ * rather than an implementation detail, so it is declared where both roots can name it.
+ *
  * **Validates: v3 Req 47.5**
  */
 
+import type { DatabaseHealth } from '#shared/types/api';
 import { getDatabase } from './client';
 import { appliedMigrations } from './migrate';
-
-/** What the health endpoint reports about the database */
-export interface DatabaseHealth {
-  reachable: boolean;
-  /** The last migration applied, or `null` when none has been */
-  migration: string | null;
-}
 
 /**
  * Ask the database whether it is there

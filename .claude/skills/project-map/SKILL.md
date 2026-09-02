@@ -34,13 +34,14 @@ client/stores/      Zustand: configStore, characterStore, uiStore
 client/components/  ui/ (base primitives) → config/, play/, shared/ (feature components)
 client/routes/      TanStack Router file-based routes
 server/env.ts       the only reader of process.env
-server/db/          the SQLite connection, the Drizzle schema, the migration runner
+server/db/          the SQLite connection, the Drizzle schema, the migration runner, the backup
 server/repositories/ the only code that issues queries — one module per aggregate
-server/http/        AppError, the request pipeline, the API route table
+server/http/        AppError, the request pipeline, the API route table, the Node↔Web bridge
 server/routes/      one module per API route — plain handlers, no framework coupling
 server/ws/          the live socket: rooms, the subscribe surface, the `ws` attachment
 server/events/      the one writer of the `event` table, which broadcasts what it writes
 server/entry.ts     the server entry: /api/* to the router, everything else to SSR
+server/serve.ts     the production listener: bundle + API + socket on one port
 ```
 
 This file is hand-maintained and describes a moving codebase. Where it points at a barrel or a
@@ -703,6 +704,25 @@ each later ticket adds.
   `tanstackStart({ server: { entry } })` at it, and the dev server and the production build call
   the same module — one process, one origin, in both (D1). It is also *why* API route files are not
   in `client/routes/`: they never have to be, so D14's boundary needs no exception.
+  **It is also the built artefact's only door** (TICKET-POL-03): the build emits one server file, so
+  `start()` and `backupDatabase` are re-exported here for `scripts/serve.mjs` and
+  `scripts/backup.mjs` to reach.
+- `serve.ts` (TICKET-POL-03) — **the production listener.** One `node:http` server doing three jobs:
+  serves `dist/client/`, bridges everything else to `entry.fetch`, and calls
+  `attachLiveSocket(server)` on itself — which is LIVE-01's named debt discharged, and the reason a
+  built artefact has a socket at all. Static first, then the app: the SSR handler answers
+  *everything*, so a bundle file looked for after it would never be reached. Takes the fetch handler
+  as a parameter, so it and `entry.ts` are not a cycle. `stopOnSignals` is separate and registered
+  only by the runner, so a test starting a server leaves no process-wide listener behind.
+- `http/nodeBridge.ts` (TICKET-POL-03) — `IncomingMessage`/`ServerResponse` ⇄ `Request`/`Response`,
+  hand-written against Node built-ins rather than depended on. **The load-bearing detail is
+  `getSetCookie()`**: iterating `Headers` combines `Set-Cookie` into one comma-joined value that no
+  browser splits back, which would break every sign-in silently. `toWebRequest` is also what
+  `ws/liveSocketServer.ts` upgrades through, so the translation exists once.
+- `http/staticFiles.ts` (TICKET-POL-03) — finds and sends a file from the built bundle, or answers
+  *miss* and lets SSR have it. Path safety is checked on the **resolved** path, so every spelling of
+  `..` is already gone; `/assets/*` is immutable (content-hashed names), everything else
+  revalidates.
 - `env.ts` — the **only** reader of `process.env` in `src/`, asserted by a test that walks the
   tree (a *test* may assign to it to arrange an environment; nothing may read one). `ENV_VARIABLES`
   is the table; `.env.example` is checked against it; required variables are eager and a missing one
@@ -724,7 +744,10 @@ each later ticket adds.
   `RequestScope`, which `pipeline.test.ts` guards as the *who is asking* seam.
 - `routes/health.ts` — `GET /api/health`. The dullest route on purpose: every later one copies it.
   Reports database reachability and the applied migration hash (v3 Req 47.5) by asking
-  `db/health.ts` — a route never opens a connection.
+  `db/health.ts` — a route never opens a connection. **Unhealthy is a 503 since TICKET-POL-03**,
+  because every probe branches on the status line; the report survives the refusal by riding
+  `ErrorDetails`, flat and spelled as the healthy body spells it, so no handler had to gain the
+  ability to pick a status.
 - `routes/authProviders.ts` — `GET /api/auth-providers` (TICKET-AUTH-02). Which social providers the
   operator configured, **names only**, so the client knows which buttons it can draw. Public: the
   person who needs the answer is by definition not signed in. Spelled with a hyphen because
@@ -1002,8 +1025,11 @@ each later ticket adds.
     would be worse than useless on the default deployment.
   - The wire contract — path, close codes, message types — is `#shared/types/liveSocket.ts`, because
     both ends read it.
-  - **Attached only under `yarn dev`**, by `scripts/live-socket.mjs`. `entry.ts` is handed a
-    `Request` and never sees a listener; the production attachment is TICKET-POL-03's.
+  - **Attached in both environments, by two callers** — `entry.ts` is handed a `Request` and never
+    sees a listener, so neither is it: `scripts/live-socket.mjs` (a Vite plugin) under `yarn dev`,
+    and `serve.ts` against the build (TICKET-POL-03). The upgrade becomes a `Request` through
+    `http/nodeBridge.ts`'s `toWebRequest`, the same translator every HTTP request uses; it had its
+    own copy until POL-03 needed one too.
 - `events/` (TICKET-LIVE-02) — **`recordEvent.ts`, and the whole folder is that one function.** It
   is the only code path in `src/server/` that puts a row in `event`, and it broadcasts every row it
   writes to that session's room, so *an Event is written* and *the table is told* are one act. It
@@ -1052,7 +1078,7 @@ Node-only tooling, outside the app bundle. Three files build the sheet-import co
 the referential report over the result. See
 [docs/imports/README.md](../../../docs/imports/README.md).
 
-Two more are Vite plugins loaded by `vite.config.ts` (each with a hand-written `.d.mts`, since they
+Three more are Vite plugins loaded by `vite.config.ts` (each with a hand-written `.d.mts`, since they
 are plain ESM):
 
 - **`no-server-in-client-bundle.mjs`** (TICKET-DX-07) — fails the build if any `src/server/` module
@@ -1060,7 +1086,27 @@ are plain ESM):
 - **`live-socket.mjs`** (TICKET-LIVE-01) — `apply: 'serve'`. Loads `src/server/ws/` once the dev
   server is listening and calls `attachLiveSocket(server.httpServer)`, because Vite owns the HTTP
   listener in development and `src/server/entry.ts` never sees one. It contains the attachment and
-  no rules; production is TICKET-POL-03's.
+  no rules; the production half is `src/server/serve.ts`.
+- **`server-migrations.mjs`** (TICKET-POL-03) — `apply: 'build'`, scoped to the `ssr` environment.
+  Emits `src/server/db/migrations/` beside the built server, which is where `db/migrate.ts` resolves
+  it from; the set comes from drizzle's journal, so an unregistered `.sql` is not shipped as a
+  migration and a journal entry with no file fails the **build** rather than an operator's first
+  start-up.
+
+And two are the operator's doors into the built artefact — plain runners, not plugins:
+
+- **`serve.mjs`** (TICKET-POL-03) — `yarn start`. Defaults `NODE_ENV` to production when nothing set
+  one (**blank counts as unset**: `--env-file` runs first, and a `.env` copied from the example
+  would otherwise force development and silently drop `Secure` from the session cookie), imports
+  `dist/server/entry.js` and calls `start()`. A named start-up refusal — a missing variable, a failed
+  migration — is printed as its message rather than as a stack dump.
+- **`backup.mjs`** (TICKET-POL-03) — `yarn run db:backup <file>`, calling the bundle's
+  `backupDatabase`, so a backup and the server it copies can never disagree about which file they
+  mean. **Importing the bundle migrates nothing**, which is what lets a backup be taken when
+  start-up cannot succeed — the case an operator needs it most.
+- **`refusals.mjs`** (TICKET-POL-03) — what both runners print when the artefact refuses: a named
+  refusal is a sentence, an unnamed one keeps its stack, and a missing `dist/` says *run
+  `yarn build`* rather than four frames of module resolution.
 
 ## Components (`src/client/components/`)
 

@@ -5,6 +5,12 @@
  * set, and that nothing else in `src/` reads `process.env`. Both fail when someone adds a variable
  * in one place and forgets the other, which is the failure this module exists to prevent.
  *
+ * **TICKET-POL-03 added a third document to the same contract.** The README's variable table is
+ * what an operator actually reads — they never open `env.ts`, and a `.env.example` only helps
+ * somebody who already has the repository. A table that silently falls behind the code is worse
+ * than no table, because it is trusted; so it is checked the same way, by name and for whether it
+ * says required or optional.
+ *
  * **Validates: v3 Req 47.2, 47.3**
  */
 
@@ -28,7 +34,9 @@ import {
 } from './env';
 
 const ENV_EXAMPLE = resolve(process.cwd(), '.env.example');
+const README = resolve(process.cwd(), 'README.md');
 const SRC_ROOT = resolve(process.cwd(), 'src');
+const SCRIPTS_ROOT = resolve(process.cwd(), 'scripts');
 
 /** Every `.ts`/`.tsx` file under `src/`, so the scan below cannot miss a new directory */
 function sourceFiles(directory: string): string[] {
@@ -90,6 +98,10 @@ describe('the server environment', () => {
         nodeEnv: NODE_ENV.DEVELOPMENT,
         databaseUrl: './data/app.db',
         authSecret: 'a-test-secret',
+        // Where the built server listens (TICKET-POL-03). `undefined` for the host is Node's own
+        // "every interface", and is not the same answer as any string would be
+        port: 3000,
+        host: undefined,
         // The documented defaults for every optional auth setting. Asserted as values rather than
         // as `expect.any(Number)`, because "30 days idle", "90 days absolute" and "5 attempts" are
         // the decisions — a silent change to any of them is what this catches.
@@ -124,6 +136,32 @@ describe('the server environment', () => {
         signInMaxAttempts: 3,
         signInWindowSeconds: 60,
       });
+    });
+
+    describe('where the server listens (TICKET-POL-03)', () => {
+      it('takes the port from the environment', () => {
+        const env = readEnv({ ...complete, PORT: '8080' });
+
+        expect(env.port).toBe(8080);
+      });
+
+      it('takes the interface to bind, so a proxied deployment can stay on loopback', () => {
+        const env = readEnv({ ...complete, HOST: '127.0.0.1' });
+
+        expect(env.host).toBe('127.0.0.1');
+      });
+
+      it.each(['0', '65536', '-1', 'http', '3000.5', ''])(
+        'falls back to 3000 rather than listening somewhere unreachable on %s',
+        (bad) => {
+          // **0 is the one this does not share with `asCount`.** There it disables a limit; here it
+          // means *bind any free port*, so a typo would come up somewhere nobody can reach and look
+          // perfectly healthy
+          const env = readEnv({ ...complete, PORT: bad });
+
+          expect(env.port, bad).toBe(3000);
+        }
+      );
     });
 
     it('keeps 0 attempts, because disabling the limit is a real setting', () => {
@@ -278,6 +316,80 @@ describe('the server environment', () => {
       expect(example).not.toMatch(/https?:\/\/(?!\/)/);
       expect(example).not.toMatch(/API_URL|API_BASE|BACKEND_URL|SOCKET_URL/);
     });
+  });
+
+  describe('the README contract (TICKET-POL-03)', () => {
+    const readme = readFileSync(README, 'utf8');
+
+    /**
+     * The row of the README's variable table describing one variable
+     *
+     * Matched on the leading `| \`NAME\` |` rather than on the name appearing anywhere, so that a
+     * variable merely *mentioned* in the surrounding prose cannot vouch for a missing row — the
+     * same reasoning the `.env.example` block above gives for reading only the comment directly
+     * above an assignment.
+     *
+     * @param key The variable name
+     * @returns The row, or `undefined`
+     */
+    function rowFor(key: string): string | undefined {
+      const lines = readme.split(/\r?\n/);
+      return lines.find((line) => line.startsWith(`| \`${key}\` |`));
+    }
+
+    it('documents every variable the code reads, and says whether it is required', () => {
+      for (const key of Object.keys(ENV_VARIABLES)) {
+        const row = rowFor(key);
+
+        expect(row, `${key} has no row in the README's variable table`).toBeDefined();
+        expect(row, `${key}'s row does not say required/optional`).toMatch(/required|optional/i);
+      }
+    });
+
+    it('names no origin in that table, so nothing can be pointed at another backend', () => {
+      const rows = readme.split(/\r?\n/).filter((line) => line.startsWith('| `'));
+      const table = rows.join('\n');
+
+      // The `.env.example` rule, one document over (v3 Req 47.7). Scoped to the table because the
+      // README legitimately links to the web elsewhere.
+      expect(table).not.toMatch(/https?:\/\//);
+      expect(table).not.toMatch(/API_URL|API_BASE|BACKEND_URL|SOCKET_URL/);
+    });
+
+    it('documents the one command that starts it', () => {
+      // The criterion is that nothing asks the operator to serve the bundle separately — so the
+      // command has to be *in* the document that the first-run instructions are followed from
+      expect(readme).toContain('yarn start');
+      expect(readme).toContain('yarn run db:backup');
+    });
+  });
+
+  it('is the only reader of process.env in scripts/ too (TICKET-POL-03)', () => {
+    // **`src/` was the whole of the scan, and `scripts/` is where the next one will be written.**
+    // The runners POL-03 added live outside the tree, so nothing mechanical covered them — the
+    // actual failure this rule exists against, a setting consumed somewhere it is not documented,
+    // would have passed every test in the repository.
+    //
+    // The one legitimate use is a **write**: `serve.mjs` defaults `NODE_ENV` to production, because
+    // a built artefact is production and `useSecureCookies` reads that. Same split as the tests
+    // above — arranging an environment is allowed, consuming one is not — so the exception is
+    // checked rather than asserted in prose. It is also what made that line `||=` rather than an
+    // `if` on the value: the `if` reads, and a read is what this cannot distinguish from a script
+    // quietly growing configuration of its own.
+    const assignment = /process\.env(?:\.[A-Z][A-Z0-9_]*|\[[^\]]+\])\s*(?:\?\?|\|\|)?=[^=]/g;
+    const comments = /\/\*[\s\S]*?\*\/|\/\/[^\n]*/g;
+
+    const readers = readdirSync(SCRIPTS_ROOT)
+      .filter((name) => /\.m?[jt]s$/.test(name))
+      .filter((name) => {
+        const path = join(SCRIPTS_ROOT, name);
+        const source = readFileSync(path, 'utf8');
+        const withoutComments = source.replace(comments, '');
+        const withoutWrites = withoutComments.replace(assignment, '');
+        return withoutWrites.includes('process.env');
+      });
+
+    expect(readers).toEqual([]);
   });
 
   it('is the only reader of process.env in src/', () => {

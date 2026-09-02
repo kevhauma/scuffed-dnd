@@ -44,9 +44,9 @@ src/
 - **Routing**: TanStack Router (file-based routing)
 - **State Management**: Zustand
 - **Styling**: Tailwind CSS
-- **Server**: one Node process serving the client bundle and the API from one origin — and, under
-  `yarn dev`, the live WebSocket (`ws`) on that same listener. The production attachment is
-  TICKET-POL-03's, along with the start command it needs
+- **Server**: one Node process serving the client bundle, the API and the live WebSocket (`ws`) from
+  one origin and one port — `yarn dev` in development, `yarn start` against the build, and the two
+  differ in build speed rather than in shape
 - **Database**: SQLite (`better-sqlite3`) through Drizzle, migrations through drizzle-kit
 - **Testing**: Vitest + fast-check
 
@@ -62,9 +62,13 @@ yarn dev
 # Run tests
 yarn test
 
-# Build for production
+# Build for production, then serve it
 yarn build
+yarn start
 ```
+
+`yarn dev` needs a `.env` — copy `.env.example` and fill in the two required variables.
+[Running it in production](#running-it-in-production) covers the deployed shape.
 
 ## Features
 
@@ -136,10 +140,131 @@ SQLite file.
 
 `DATABASE_URL` points at the SQLite file — `./data/app.db` by default; copy `.env.example` to
 `.env` before the first run. WAL mode means it is really three files (`app.db`, `app.db-wal`,
-`app.db-shm`), so **back up the directory, not the `.db`** — or use `VACUUM INTO` to write a
-consistent single-file copy while the server is running. Migrations are applied automatically at
-start-up and are forward-only; there are no `down` files, so recovery from a bad upgrade is that
-backup. `data/` is gitignored.
+`app.db-shm`). Migrations are applied automatically at start-up and are forward-only; there are no
+`down` files, so recovery from a bad upgrade is a backup —
+[see below](#backing-up-and-restoring) for the command that makes one. `data/` is gitignored.
+
+## Running it in production
+
+### One command, one process, one port
+
+```bash
+yarn install
+yarn build
+yarn start
+```
+
+`yarn start` is `node --env-file-if-exists=.env scripts/serve.mjs`. That one process serves the
+client bundle, the API **and** the live WebSocket on the same port — there is no static host to run
+beside it, no second port and no second thing to keep alive. Nothing in the bundle or in the
+variables below names an origin: the browser addresses the API by relative path and the socket from
+`window.location`, so changing `PORT` moves all three together.
+
+Variables can come from a `.env` beside the app or from the environment your supervisor sets —
+`--env-file-if-exists` does not mind a missing file, and a variable already set in the environment
+wins over the file, so the same command works either way. `NODE_ENV` defaults to `production` when
+started this way, which is what makes the session cookie `Secure`.
+
+The runtime needs `node_modules` — `better-sqlite3` is a native module and `better-auth`,
+`drizzle-orm` and `ws` are loaded rather than bundled. A production install (`yarn install
+--production`) is enough; the build is what needs the dev dependencies.
+
+### Environment variables
+
+Every variable the server reads, and nothing else. `src/server/env.test.ts` fails if this table,
+[`.env.example`](.env.example) and `src/server/env.ts` ever name different sets.
+
+| Variable | Required | Default | What it is for |
+| --- | --- | --- | --- |
+| `PORT` | Optional | `3000` | Which port to listen on. Not an origin — it says where this server answers. |
+| `HOST` | Optional | every interface | Which interface to bind, e.g. `127.0.0.1`. Set it to loopback behind a reverse proxy. |
+| `NODE_ENV` | Optional | see note | Which build this is, and what turns `Secure` on for the session cookie. **Two modules answer it and they answer differently**: `scripts/serve.mjs` defaults it to `production` before the server loads, because a built artefact is production; `src/server/env.ts`, which everything else goes through, falls back to `development` — the less privileged reading, which is right for tests and for `yarn dev`. So under `yarn start` it is `production` and everywhere else it is `development`. Leave it blank unless you mean to overrule that. |
+| `DATABASE_URL` | **Required** | — | Path to the SQLite file holding every piece of server state. Relative paths resolve from the working directory. |
+| `BETTER_AUTH_SECRET` | **Required** | — | The key every session cookie is signed with. Generate with `openssl rand -base64 32`. Changing it signs everybody out. |
+| `AUTH_SESSION_DAYS` | Optional | `30` | The **idle** half of a session lifetime, in days. Every use pushes it out again. |
+| `AUTH_SESSION_ABSOLUTE_DAYS` | Optional | `90` | The **absolute** ceiling, in days. No amount of use extends a session past it. |
+| `AUTH_SESSION_UPDATE_HOURS` | Optional | `24` | How often a session in use is renewed and its identifier rotated. |
+| `AUTH_SESSION_GRACE_SECONDS` | Optional | `30` | How long a rotated-away identifier stays valid, so two tabs renewing at once do not sign each other out. |
+| `AUTH_SIGNIN_MAX_ATTEMPTS` | Optional | `5` | Failed sign-ins allowed per email address inside the window. `0` disables the limit. |
+| `AUTH_SIGNIN_WINDOW_SECONDS` | Optional | `900` | The window those attempts are counted over, in seconds. |
+| `AUTH_ALLOWED_HOSTS` | Optional, **required** once a provider below is set | empty | Comma-separated hostnames this deployment answers on, e.g. `dnd.example.com`. Wildcards allowed. It is what an OAuth callback URL is built from, so a forged `Host` header cannot steer one. |
+| `GOOGLE_CLIENT_ID` | Optional | — | OAuth client id from the Google Cloud console. Set both halves or neither. |
+| `GOOGLE_CLIENT_SECRET` | Optional | — | The secret paired with it. Server-only. |
+| `DISCORD_CLIENT_ID` | Optional | — | OAuth client id from the Discord developer portal, on the same terms. |
+| `DISCORD_CLIENT_SECRET` | Optional | — | The secret paired with it. Server-only. |
+
+Both OAuth providers are **independently optional** and are the only external integrations there
+are: with neither set, email and password is the whole of sign-in and nothing else changes. Half a
+pair is a start-up failure naming the missing half, rather than a silently absent button. A missing
+**required** variable names *all* of them at once, so filling in a `.env` is one round trip.
+
+The redirect URI to register with each provider is a path on whichever host you serve from —
+`/api/auth/callback/google` and `/api/auth/callback/discord`.
+
+### First run, from an empty directory
+
+1. `cp .env.example .env`
+2. Put a real secret in `BETTER_AUTH_SECRET` (`openssl rand -base64 32`).
+3. Point `DATABASE_URL` somewhere durable. The directory is created if it is missing; the file and
+   its `-wal`/`-shm` companions live beside each other.
+4. `yarn install && yarn build && yarn start`.
+
+The schema comes up to date on its own — **upgrading is starting the process**, so there is no
+migrate step to forget between pulling a build and restarting. A migration that fails takes the
+start-up with it and the server refuses to serve rather than answering from a half-migrated schema;
+each migration runs in a transaction, so nothing is left half-applied.
+
+### Health
+
+`GET /api/health` reports whether the process can do its job rather than whether it is running:
+
+```json
+{ "status": "ok", "environment": "production",
+  "database": { "reachable": true, "migration": "<hash of the last applied migration>" } }
+```
+
+`reachable` is a real query, not a "did the connection object get made" — a file can be opened and
+then become unreadable. When it cannot answer, the endpoint replies **503** with the same three
+fields plus an `error`, so `curl -f`, a container health check or a load balancer sees the failure
+on the status line and a person still gets the diagnosis in the body. Anything else — no answer at
+all, or a connection refused — means the process is not up.
+
+### Backing up and restoring
+
+```bash
+yarn run db:backup ./backups/app-2026-09-02.db
+```
+
+That runs SQLite's `VACUUM INTO`, which writes **one** consistent file while the server keeps
+running. Restoring is putting that file where `DATABASE_URL` points and starting the process; it
+comes up to the current schema on its own.
+
+**Do not back up by copying `app.db` with `cp` while the server is running.** WAL mode spreads the
+committed truth across `app.db` and `app.db-wal`, so a copy of the first alone is a moment that
+never existed — and it *opens*, which is what makes it dangerous rather than obviously broken. If
+you would rather copy files than run the command, stop the server first and copy all three
+together. An existing backup file is refused rather than overwritten, so name each one for the
+moment it captures.
+
+### Behind a reverse proxy
+
+TLS and the proxy itself are yours to run, but three things about this app are worth knowing before
+you configure one.
+
+- **The app and the API must stay on one origin.** They are one server and there is no variable that
+  could point them apart; serving the app from one hostname and `/api` from another gives the socket
+  a request with no session cookie on it, and the symptom is *live updates are broken* rather than
+  anything that looks like a proxy problem.
+- **The socket needs the upgrade headers forwarded.** `/api/live` is a WebSocket: pass `Upgrade` and
+  `Connection` through, and give it a read timeout longer than the 30-second heartbeat (nginx:
+  `proxy_http_version 1.1;`, `proxy_set_header Upgrade $http_upgrade;`, `proxy_set_header Connection
+  "upgrade";`, `proxy_read_timeout 300s;`). A socket behind a proxy that drops upgrades fails in a
+  way that reads as an application bug.
+- **The cookie is `Secure` because `NODE_ENV` says `production`**, not because the request looked
+  encrypted — so terminating TLS at the proxy and forwarding plain HTTP is fine, and no
+  `X-Forwarded-Proto` handling is required for it.
+
+Set `HOST=127.0.0.1` so the app is reachable only through the proxy.
 
 ## Linting & Formatting
 

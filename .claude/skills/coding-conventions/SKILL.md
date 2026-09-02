@@ -10,6 +10,8 @@ paths: "**/*.ts,**/*.tsx,**/*.css"
 
 ```bash
 yarn dev            # dev server on :3000
+yarn build          # dist/client/ + dist/server/entry.js
+yarn start          # serve the build: bundle + API + socket on one port
 yarn run test       # vitest, single pass
 npx vitest run <path>   # one file
 npx tsc --noEmit    # typecheck
@@ -25,6 +27,14 @@ lockfile. Always `yarn run check`.
 `types → engine → services → stores → components → routes`. Imports only ever point up that
 list. Concretely: engine code is pure (no React, no `localStorage`), services own persistence,
 stores own state + persistence calls, components own rendering, routes own params and composition.
+
+**A route that needs a non-200 with a body attaches it to the refusal, rather than teaching the
+pipeline to take a status** (TICKET-POL-03). `defineHandler` gives a handler two moves — return data
+(200/204) or throw an `AppError` (a status derived from its code) — and the temptation, met by
+`/api/health`'s 503, is to add a third so one caller can pick both. Don't: the payload goes on the
+`AppError`'s `details`, typed by `ErrorDetails` in `#shared/types/api`, spelled the same as the
+success body so one reader parses both answers. A status a call site chooses is a status that can
+disagree with its own code, which is the thing `STATUS_FOR_CODE` exists to prevent.
 
 **A term a surface renders is reported by the engine, factor *and* contribution** (TICKET-SKL-05).
 When a derivation gains a multiplier or a scaler that a breakdown has to show, the calculator emits
@@ -516,13 +526,18 @@ should re-open it.
   `localStorage.setItem(CONFIG_KEY, JSON.stringify(config))`. A matcher's argument counts too — bind
   the expected value rather than passing a call into `toEqual(…)`.
 
-  **Three things are not nesting**, here or anywhere else, and they cover most of what a test does:
+  **Four things are not nesting**, here or anywhere else, and they cover most of what a test does:
 
   1. a **method chain** — `vi.mocked(useConfigStore).mockReturnValue(…)`, an awaited
      `screen.findByRole(…)`, `items.filter(…).map(…)`;
   2. a **function passed by reference or as an inline callback** — `expect(fn).toHaveBeenCalled()`,
      `expect(() => cast(…)).toThrow()`, `it.each(rows)`, `useMemo(() => …, [])`;
-  3. **JSX as an argument** — `render(<Component … />)`, which is an element rather than a call.
+  3. **JSX as an argument** — `render(<Component … />)`, which is an element rather than a call;
+  4. an **asymmetric matcher factory** — `expect.any(String)`, `expect.objectContaining({…})`,
+     `expect.stringMatching(/…/)` (User, ruled on POL-03). It reads as a *value* the way an inline
+     callback does: `expect.any(String)` is the word "a string", not a computation whose result the
+     reader has to work out inside-out. Binding it to `const anyString = expect.any(String)` makes
+     the assertion longer and says nothing the matcher did not already say.
 
   **A `new X()` *is* a call and gets bound** (User, ruled on DM-05's `new Response(…)` and again on
   LIVE-01). So `reject(new Error('…'))` becomes `const timedOut = new Error('…'); reject(timedOut);`,

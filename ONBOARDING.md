@@ -141,7 +141,13 @@ yarn run lint            # biome lint only
 yarn run arch            # dependency-cruiser: the three-root boundary
 yarn run check           # biome lint + format + import sorting, then yarn run arch
 yarn build               # production build (fails if a server module reached the client bundle)
+yarn start               # serve that build: bundle + API + socket, one process, one port
+yarn run db:backup <f>   # VACUUM INTO a consistent copy, with the server still running
 ```
+
+`yarn start` is the deployed shape rather than a preview of it — the README's *Running it in
+production* is the operator's half, and it is worth running once so the thing you ship is a thing
+you have seen.
 
 ---
 
@@ -413,11 +419,24 @@ carrying a user story, the as-is / to-be, and acceptance criteria.
   **The same file has a second corpus for the socket** (TICKET-LIVE-01), found by
   `CLIENT_MESSAGE_TYPE.` instead of `defineHandler(`, because a WebSocket upgrade contains no
   handler and *authorization lives in `guards.ts`* is not a rule about HTTP.
-- **The live socket exists under `yarn dev` and in the tests, and not in a built artefact yet.**
-  `attachLiveSocket(httpServer)` needs a listener, and `src/server/entry.ts` is handed a `Request`
-  and never sees one — so the attachment is `scripts/live-socket.mjs`, a dev-only Vite plugin, until
-  TICKET-POL-03 writes the start command. If you build the app and wonder why nothing connects, that
-  is why, and it is recorded on POL-03's second criterion rather than left to be rediscovered.
+- **The live socket is attached by two different callers, and neither is `entry.ts`.**
+  `attachLiveSocket(httpServer)` needs a listener, and the entry is handed a `Request` and never
+  sees one — so under `yarn dev` a Vite plugin (`scripts/live-socket.mjs`) attaches it to Vite's
+  listener, and against the build `src/server/serve.ts` attaches it to the one it creates
+  (TICKET-POL-03). If you add a third environment, that is the line it needs; a build with no
+  attachment has an API and no live updates, and nothing fails loudly to tell you.
+- **A server dependency can work perfectly under `yarn dev` and break the build, and the failure
+  names something else entirely.** The SSR build *inlines* some packages and leaves others external
+  (TanStack Start's plugin decides), and an inlined package's own bare imports are then resolved by
+  Node **relative to `dist/server/`** rather than to the package — so a nested version silently
+  becomes the hoisted root one. That is exactly how `better-auth` came to throw
+  `z.looseObject is not a function`: inlined, but reaching a `zod` three majors older than its own
+  (TICKET-POL-03). The fix is one entry in `environments.ssr.resolve.external` in `vite.config.ts`,
+  which beats `noExternal` and matches by package name. **Run `yarn start` after adding a server
+  dependency** — the suite cannot see this class of bug, because tests never load the bundle.
+- **`NODE_ENV` is left blank in `.env.example` on purpose.** `yarn dev` is development and
+  `yarn start` defaults to production; filling it in overrides both, and the failure mode is a
+  production deployment quietly serving session cookies without `Secure`.
 - **Nothing that arrives on the socket can change anything** (D8). It carries `subscribe` and
   `unsubscribe` and nothing else; every mutation is an HTTP request. A message the server does not
   recognise is dropped and logged before it can reach a repository, so if you are looking for where

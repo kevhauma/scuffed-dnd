@@ -151,6 +151,23 @@ describe('the layering rules', () => {
     );
   });
 
+  it('refuses a second creator of the HTTP listener (TICKET-POL-03)', () => {
+    // The deployment is one process serving the bundle, the API and the socket from one listener,
+    // and until this rule existed nothing checked it — a second `createServer` cruised clean, which
+    // is precisely how LIVE-01's socket came to be attached in one environment out of two.
+    const broken = rulesBrokenBy('src/server/boundaryFixtures/createsASecondListener.ts');
+
+    expect(broken).toContain('the-listener-has-one-creator');
+  });
+
+  it('lets a module be handed a listener, which is a type-only import', () => {
+    // The rule has to admit `IncomingMessage`, `ServerResponse` and `Server` as types or three
+    // real modules break — so this is the half that would make it either useless or wrong
+    const broken = rulesBrokenBy('src/server/http/nodeBridge.ts');
+
+    expect(broken).not.toContain('the-listener-has-one-creator');
+  });
+
   it('refuses a second importer of the socket library (TICKET-LIVE-01)', () => {
     // The whole room model is testable against plain objects only for as long as `ws/rooms.ts`
     // cannot see `ws`. The fixture uses a **type-only** import — the weakest form, which breaks

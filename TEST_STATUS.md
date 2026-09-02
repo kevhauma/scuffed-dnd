@@ -1,7 +1,9 @@
 # Test Status
 
-_Last verified: 2026-09-01 (`npx vitest run`) at **TICKET-DM-04 — the session roster with quick
-actions**, the current count-setter at **4245** across 256 files. The checkpoints before it were
+_Last verified: 2026-09-02 (`npx vitest run`) at **TICKET-POL-03 — deployment shape: build,
+environment, data directory, backup**, the current count-setter at **4348** across 263 files. The
+checkpoints before it were
+**TICKET-DM-04 — the session roster with quick actions** at 4245 (and 4289 once LIVE-04 landed),
 **TICKET-LIVE-03 — presence, reconnect and replay** at 4183,
 **TICKET-LIVE-02 — Event fan-out and client reconciliation** at 4092,
 **TICKET-LIVE-01 — WebSocket transport and authenticated rooms** at 4015,
@@ -60,12 +62,12 @@ CR-08, CR-20) at 1674._
 
 ## Summary
 
-- **Total tests**: 4289
-- **Passing**: 4289 (100%)
+- **Total tests**: 4348
+- **Passing**: 4348 (100%)
 - **Skipped**: 0
 - **Failing**: 0
 
-Split across **258 files**: `server` in node, everything else in happy-dom.
+Split across **263 files**: `server` in node, everything else in happy-dom.
 
 > **This block had gone three checkpoints stale** (it read 3863 / 232 files, last true at DM-03)
 > and was corrected at LIVE-01. A summary that disagrees with the header of the very file whose job
@@ -312,6 +314,83 @@ Split across **258 files**: `server` in node, everything else in happy-dom.
 > gap is not a regression — nothing was failing at either number — it is a checkpoint that was
 > written from a partial run. PLY-01's delta is stated against the measured 2827, and the rule this
 > corrects is worth writing down: **re-measure the baseline, don't quote the last row.**
+
+## TICKET-POL-03 — +59 tests, +5 files (4289 → 4348), and the first suite that runs a listener
+
+**Five new files, and four of them exist because the production runner does things no route does:**
+`http/nodeBridge.test.ts` (+7), `http/staticFiles.test.ts` (+15), `serve.test.ts` (+6),
+`db/backup.test.ts` (+7) and `routes/health.test.ts` (+6). The remaining 11 land in
+`env.test.ts`, which gained `PORT`/`HOST` and the README contract.
+
+**The review that followed added 7 more**, and every one of them is a check that did not exist
+rather than coverage of one that did: four cases in `staticFiles.test.ts` pinning that the
+**caching** decision reads the resolved path (`/assets/../favicon.ico` was being served `immutable`
+— a year of pinning in any shared cache, on exactly the file whose name outlives the build), two in
+`architecture/boundaries.test.ts` for the new `the-listener-has-one-creator` rule and its
+type-only escape hatch, and one extending `env.test.ts`'s `process.env` scan to `scripts/`.
+
+**`serve.test.ts` is the first test in this repository that starts a real listener and asks it for
+three different things.** LIVE-01's socket test creates a bare `node:http` server to hand to
+`attachLiveSocket`; this one starts the *actual* `startServer` on an ephemeral port and gets a static
+file, an SSR fall-through and a WebSocket upgrade off the same address — which is the ticket's whole
+claim, made falsifiable. The upgrade is spelled with `node:http`'s own client rather than `ws`:
+`the-socket-library-has-one-importer` exempts exactly one test file and this is not it, and
+`the-server-sends-no-mail` refuses `node:net` (correctly — it cannot tell an SMTP client from a
+handshake). Both refusals were **discovered by `yarn run arch` failing**, and both were designed
+around rather than exempted.
+
+**Three of the new cases fail on a real mistake rather than on a refactor:**
+
+- *keeps two Set-Cookie headers as two* is the reason `nodeBridge.ts` exists in the form it does.
+  Iterating `Headers` combines `Set-Cookie` into one comma-joined value that no browser splits back,
+  so the lazy writer signs nobody in and throws nothing — the same class of silent authentication
+  bug that put the node/happy-dom environment split in this file at AUTH-01.
+- *is refused when spelled …* runs six spellings of a traversal (plain, doubled, percent-encoded,
+  encoded separator, backslashed, absolute-looking) against a `.env` that **really is** one directory
+  above the bundle root. A case that passes because the target does not exist is not a case.
+- *writes a copy holding rows that are still only in the WAL* is the backup's entire justification:
+  the row it reads back was committed and never checkpointed, so `cp app.db` would have lost it. That
+  is the *restores usually* hazard, made visible.
+
+**Two tests found bugs in the code they were written for**, which is recorded because it is the
+argument for writing them at all: *refuses a destination SQLite cannot write* caught
+`backupDatabase` letting a raw `ENOTDIR` from `mkdir` escape instead of a `BackupError`, so an
+operator would have got an errno where a sentence was promised; and the new `scripts/` scan caught
+its own subject on the first run — `serve.mjs`'s `if (!process.env.NODE_ENV)` **reads** before it
+writes, which the check cannot tell from a script growing configuration of its own. That line is now
+`||=`, which is a pure write and better code besides.
+
+**No hotspot row is owed.** `fallow health --hotspots --since 6m` returns three files this ticket
+touched and none is Accelerating — `liveSocketServer.test.ts` **cooling** (7.8),
+`env.ts` **stable** (7.4), `appError.ts` **stable** (4.9); the five new files have no history to be
+hot with. `fallow audit --base main` is **pass** with `dead_code_introduced: 0` and
+`complexity_introduced: 0`.
+
+**Both introduced duplications were removed rather than suppressed**, and the second is a small
+lesson in its own right: the review asked for `serve.mjs`'s named-refusal handling in `backup.mjs`
+too, and doing exactly that made the two runners one clone — so the block moved to
+`scripts/refusals.mjs`, which both import. The copies had already begun to differ (only one knew
+about a missing `dist/`), and now both print *run `yarn build` first* instead of a resolution stack.
+Extracting it then produced a **CRAP finding** on the extracted function — 6 cyclomatic, no
+coverage, score 42 — because it asked `error instanceof Error` three times over. Split into three
+named questions (`asError`, `messageFor`, `isNamedRefusal`), which is what finally left
+`fallow audit --base main` at **pass** with zero introduced dead code, complexity *and* duplication.
+
+The first: fallow reported
+`nodeBridge.ts`'s header conversion as a clone of `liveSocketServer.ts`'s `upgradeRequest` — nine
+lines, two instances — and it was right twice over: the copies had already begun to disagree, one
+`set`-ting repeated headers joined with `'; '` and the other appending them. The socket now upgrades
+through the same `toWebRequest` every HTTP request uses, and `liveSocketServer.test.ts`'s 71 cases —
+real `ws` clients carrying real Better Auth cookies over loopback — are what say the behaviour did
+not move.
+
+**Two inherited findings are left alone and named here rather than quietly carried**: the `fallow`
+package itself reads as an unused `dependency` (it is a tool, not an import), and
+`client/services/rulesetSync.ts` exports an unused type `RulesetHomeKind` (CHAR-04 era). Neither was
+introduced by this ticket.
+
+`npx tsc --noEmit` is at its documented 2-error baseline and `yarn run check` is clean (869 modules,
+4526 dependencies cruised).
 
 ## TICKET-LIVE-04 — +44 tests, +1 file (4245 → 4289), and a file count that was one low
 

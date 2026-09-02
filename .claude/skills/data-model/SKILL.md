@@ -141,7 +141,13 @@ Two consequences worth holding on to before changing a persisted shape:
   normalised half — ownership, membership, invites, events. Edit it, run `yarn run db:generate`,
   and land the generated SQL with a test that applies it to the previous schema
   ([`migrate.test.ts`](../../../src/server/db/migrate.test.ts) is the pattern). There are no `down`
-  files; recovery is the backup.
+  files; recovery is the backup — **`yarn run db:backup <file>`** (TICKET-POL-03), which is
+  `VACUUM INTO` and writes one consistent file with the server still running. Restoring is putting
+  that file where `DATABASE_URL` points and starting the process. **Copying `app.db` with `cp` is
+  not a backup**: WAL mode spreads committed rows across the `.db` and its `-wal`, so the copy is a
+  moment that never existed — and it opens, which is what makes it dangerous rather than obviously
+  broken. Migrations also travel with the build now, emitted beside `dist/server/entry.js`, so a
+  restored file comes up to the current schema on the next start.
 - **A new piece of stored player state now has a second place to be declared** (TICKET-LIVE-02).
   `client/services/liveEvents.ts` applies a broadcast Event to an open sheet **exactly when its
   `after` is one of the sanctioned stored fields** — the pools, `experience`, `purse`,
